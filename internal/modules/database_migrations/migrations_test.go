@@ -200,7 +200,7 @@ CREATE TABLE schema_migration_lineage (
     description text NOT NULL
 );
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.prod_ddl_rebaseline.v3', 'Migration locking integration test.');
+VALUES ('cartulary.prod_ddl_rebaseline.v4', 'Migration locking integration test.');
 -- +goose Down
 DROP TABLE schema_migration_lineage;
 `)},
@@ -240,7 +240,7 @@ CREATE TABLE IF NOT EXISTS schema_migration_lineage (
     description text NOT NULL
 );
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.prod_ddl_rebaseline.v3', 'Migration locking integration test.')
+VALUES ('cartulary.prod_ddl_rebaseline.v4', 'Migration locking integration test.')
 ON CONFLICT (lineage_id) DO NOTHING;
 `, 1)
 	source, err := postgres.BuildCanonicalEmbedded(

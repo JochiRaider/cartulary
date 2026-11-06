@@ -440,6 +440,11 @@ func (runner serverRunner) writeStartupError(err error, logger *slog.Logger, act
 		_, _ = io.WriteString(runner.stderr, database_migrations.ErrIncompatibleCryptoState.Error()+"\n")
 		return
 	}
+	if errors.Is(err, cryptography.ErrExecutionPolicy) {
+		// Emit only the owner's fixed diagnostic, never the wrapping cause.
+		_, _ = io.WriteString(runner.stderr, cryptography.ErrExecutionPolicy.Error()+"\n")
+		return
+	}
 	var remediationErr database_migrations.RemediationReporter
 	if errors.As(err, &remediationErr) {
 		_, _ = io.WriteString(runner.stderr, remediationErr.RemediationReportJSON())

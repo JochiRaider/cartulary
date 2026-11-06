@@ -1,9 +1,5 @@
 # Cartulary Normative Core 03: Workbook Interaction, Collaboration, and Workflows
 
-The coordinated Network Flow major-9/state-6 orientation amendment (Core 00 §1.5.1), carrying forward the bounded-import
-clarifications from Core 00 §1.3, is adopted by the explicit 2026-11-04 instruction
-in Core 00 §1.5.1. Older Network Flow state is rejected unchanged. Owner adoption,
-implementation validation and operational deployment are separate dispositions.
 
 ## 1. Interaction model
 
@@ -2587,8 +2583,8 @@ An `import_session` MUST persist, at minimum:
 - `source_file_kind` with closed values `csv` or `xlsx`,
 - `original_filename`,
 - `source_content_sha256`,
-- `parser_profile_id`, fixed to `cartulary.import.workbook.v1` for the current profile,
-- `parser_version`, fixed to `workbook_import_adapter_v1` for the current profile,
+- `parser_profile_id`, fixed to `cartulary.import.workbook.v2` for the current profile,
+- `parser_version`, fixed to `workbook_import_adapter_v2` for the current profile,
 - `assistant_profile`, fixed to `workbook_import_v1` for the current profile,
 - `session_status`,
 - `selected_unit_ids[]`,
@@ -4147,3 +4143,25 @@ Verified by: AC-231, AC-278, AC-279
 Party create, link, unlink, and clear actions MUST keep the main grid or Parties view visible and preserve the originating row context, focus target, and scroll position when the action completes.
 Profiles: base
 Verified by: AC-231, AC-278, AC-279
+
+## Committed-source investigation amendment — 2026-11-06
+
+The claimed Import profile MUST expose an incident-scoped list and detail view of
+committed sources to editor, reviewer and admin roles, including closed incidents.
+The presentation uses Core 01 REQ-01-685 reads, bounded pages and explicit retry;
+closing it aborts observation and releases protected presentation state. Access
+withdrawal conceals metadata and download controls. Source text renders inertly.
+
+The detail identifies the original filename, size and digest, original actor and
+commit time, parser and mapping identity, and source locator. Original attribution
+MUST NOT be replaced with a destination administrator or a current display name.
+A deliberate download obtains the original bytes through the authorized content
+route. Current edited values remain distinguishable from original source values.
+
+Network Flow tables and imported-record provenance navigate using the successful
+application identity. A shared content digest MUST NOT select between separate
+applications. Drawer dismissal restores the initiating keyboard focus when the
+invoker remains attached. When source inspection replaces a record inspector,
+dismissal focuses the active workbook surface without changing its query, selected
+record or scroll position. The source presentation does not depend on the lifetime
+of Import sessions or jobs.

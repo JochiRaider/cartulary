@@ -100,12 +100,26 @@ func testRecoveryCommand(t *testing.T) {
 		if code := RecoverRun(context.Background(), root, input, &output); code != 2 {
 			t.Fatal("symlink admitted", code)
 		}
-		input["RUNTIME_ROOT"] = r.Root
+		input["RUNTIME_ROOT"] = ""
+		input["RUNTIME_LEASE_ID"] = ""
+		input["CARTULARY_HARNESS_SCRATCH_ROOT"] = scratch
+		output.Reset()
+		if code := RecoveryStatus(root, input, &output); code != 0 || !strings.Contains(output.String(), "runtime_bound") || strings.Contains(output.String(), r.Root) {
+			t.Fatal("unsafe or missing status", code, output.String())
+		}
 		if code := RecoverRun(context.Background(), root, input, &output); code != 0 {
 			t.Fatal("empty exact recovery", code, output.String())
 		}
 		if _, err := os.Stat(r.Root); !os.IsNotExist(err) {
 			t.Fatal("runtime retained", err)
+		}
+		output.Reset()
+		if code := RecoverRun(context.Background(), root, input, &output); code != 0 {
+			t.Fatal("repeat recovery was not idempotent", code, output.String())
+		}
+		output.Reset()
+		if code := RecoveryStatus(root, input, &output); code != 0 || !strings.Contains(output.String(), "settled") {
+			t.Fatal("settlement receipt missing", code, output.String())
 		}
 		data, err := os.ReadFile(original)
 		if err != nil || string(data) != "failed\n" {

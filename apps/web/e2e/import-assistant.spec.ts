@@ -1,3 +1,5 @@
+// biome-ignore lint/correctness/noUndeclaredDependencies: the workspace root pins the browser accessibility engine used by the Make-owned harness.
+import AxeBuilder from "@axe-core/playwright";
 import type {
   QueryWorkbookViewRequest,
   ViewRow,
@@ -10,6 +12,7 @@ import {
   incidentControlsTriggerTestId,
   networkAnalysisTestId,
   surfaceTabTestId,
+  workbookActiveSurfaceFocusTargetTestId,
   workbookImportAssistantTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
@@ -32,6 +35,7 @@ import { publicHttpOperation } from "./support/transport/publicHttpOperationClie
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import { installOwnedRoute } from "./support/transport/requestInterception";
 import { queryViewRows } from "./support/workbook/query";
+import { openTimelineInspector } from "./support/workbook/rowMutations";
 
 test("IR corpus imports original Core and Cisco files and reopens exact source text", async ({
   page,
@@ -153,6 +157,30 @@ test("IR corpus imports original Core and Cisco files and reopens exact source t
       expect(row.cells[field]?.value ?? "").toBe(selected.cells[i]);
   }
 
+  const firstRecord = timeline[0];
+  if (!firstRecord) throw new Error("Missing imported Timeline record");
+  await openTimelineInspector(page, firstRecord.record_id);
+  const recordSourceTrigger = page.getByRole("button", {
+    name: "Find original import sources",
+  });
+  await recordSourceTrigger.click();
+  const sourceHistory = page.getByRole("region", { name: "Source history" });
+  await expect(
+    sourceHistory.getByText("Showing sources that produced this record."),
+  ).toBeVisible();
+  await sourceHistory
+    .getByRole("button", { name: "timeline.csv", exact: true })
+    .click();
+  await expect(
+    sourceHistory.getByRole("heading", { name: "timeline.csv", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close incident controls" }).click();
+  // The shell admits one secondary panel at a time. Source inspection replaces
+  // the inspector, so its removed invoker returns to the active surface.
+  await expect(
+    page.getByTestId(workbookActiveSurfaceFocusTargetTestId()),
+  ).toBeFocused();
+
   await page.getByRole("button", { name: "More views", exact: true }).click();
   await page.getByTestId(networkAnalysisTestId("tab")).click();
   const mappings = [
@@ -233,6 +261,41 @@ test("IR corpus imports original Core and Cisco files and reopens exact source t
       0,
     ),
   ).toBe(4500);
+  await page.getByRole("tab", { name: /IR overlap/ }).click();
+  const sourceTrigger = page.getByRole("button", {
+    name: "Inspect original source",
+  });
+  await sourceTrigger.click();
+  await expect(
+    page.getByRole("heading", { name: "Source history" }),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("heading", { name: "overlap.csv", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("link", { name: "Download original source" })
+    .scrollIntoViewIfNeeded();
+  const sourceAccessibility = await new AxeBuilder({ page })
+    .include('section[aria-labelledby="committed-sources-heading"]')
+    .analyze();
+  expect(sourceAccessibility.violations).toEqual([]);
+  const downloaded = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Download original source" }).click();
+  const stream = await (await downloaded).createReadStream();
+  if (!stream) throw new Error("Source download unavailable");
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  expect(Buffer.concat(chunks)).toEqual(
+    corpus.read("network-flow-orientation/v1/overlap.csv"),
+  );
+  await page.getByRole("button", { name: "Back to sources" }).click();
+  await page.getByRole("button", { name: "timeline.csv", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "timeline.csv", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("cartulary.import.workbook.v2", { exact: true }),
+  ).toBeVisible();
   await info.attach("ir-fixture-admission", {
     body: JSON.stringify({
       fixture_id: corpus.manifest.fixture_id,
@@ -326,7 +389,12 @@ async function openAssistant(page: Page) {
   const account = page.getByLabel("Account and application navigation");
   await account.focus();
   await account.press("Enter");
+  await expect(page.getByTestId(incidentControlsTriggerTestId())).toBeVisible();
   await page.getByTestId(incidentControlsTriggerTestId()).press("Enter");
+  await expect(page.getByTestId(incidentControlsMenuTestId())).toBeVisible();
+  await expect(
+    page.getByTestId(incidentControlsMenuItemTestId("import-assistant")),
+  ).toBeVisible();
   await page
     .getByTestId(incidentControlsMenuItemTestId("import-assistant"))
     .press("Enter");

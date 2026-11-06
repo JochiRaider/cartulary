@@ -356,7 +356,7 @@ func newIncidentSourceImportContextForTest(t testing.TB, operationID string) inc
 	}
 	return incidentSourceImportContext{
 		incidentID: incidentSourceTestID, actorUserID: incidentSourceImportActor,
-		bundleVersion: 6, operationID: operationID,
+		bundleVersion: 7, operationID: operationID,
 		actorAdmitted: func(actorID string) bool {
 			_, admitted := actors[actorID]
 			return admitted

@@ -24,7 +24,8 @@ import {
   notesViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page, TestInfo } from "@playwright/test";
+import { admitIRCorpus } from "../../../tools/harness/fixtures/ir-incident.mjs";
 import { expect, test } from "./fixtures";
 import { gridSavedRows } from "./pages/workbookInspector";
 import {
@@ -59,6 +60,102 @@ const source = "timeline.data_source_text";
 const raw = "timeline.raw_activity_text";
 
 const originalText = "alpha beta gamma";
+
+async function irClipboardBoundary(page: Page, info: TestInfo, count: number) {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("IR-PASTE"),
+    "Clipboard boundary investigation",
+  );
+  const seed = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("ir-paste-seed"),
+    [synopsis]: "Unchanged seed",
+    // Keep the representative anchor first under the declared chronological
+    // query while the remaining new observations have no activity timestamp.
+    "timeline.activity_utc_text": "2026-01-01T00:00:00Z",
+  });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(
+    page.getByTestId(timelineMutationSubstrateReadyTestId()),
+  ).toBeVisible();
+  await scrollGridCellIntoView({
+    cellKey: synopsis,
+    page,
+    recordId: seed.record_id,
+    surface: timelineViewSchemaId,
+  });
+  const anchor = page.getByTestId(rowCellTestId(seed.record_id, synopsis));
+  await activateSemanticGridCell(anchor);
+  const representative = 'First line\nCafé Café 界\t"quoted"';
+  const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
+  let text = Array.from(
+    { length: count },
+    (_, index) =>
+      `${quote(index === 0 ? representative : `Source row ${index + 1}`)}\tIR clipboard`,
+  ).join("\n");
+  if (count === 1500) {
+    const corpus = await admitIRCorpus(info.outputPath("ir-clipboard-inputs"));
+    text = corpus.read("ir-incident/v1/timeline.tsv").toString();
+  }
+  const path = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`;
+  let writes = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith(path)) writes++;
+  });
+  const response =
+    count <= 500
+      ? page.waitForResponse(
+          (value) =>
+            value.request().method() === "POST" && value.url().endsWith(path),
+        )
+      : null;
+  await anchor.evaluate((element, content) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", content);
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: data,
+      }),
+    );
+  }, text);
+  if (response) {
+    const result = await response;
+    expect(result.status()).toBe(200);
+    const body = await result.json();
+    expect(body.data.rows).toHaveLength(count);
+    expect(body.data.rows[0].cells[synopsis].value).toBe(representative);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(anchor).toHaveText(representative);
+    expect(writes).toBe(1);
+  } else {
+    await expect(
+      page.getByRole("alert", { name: "Timeline operation feedback" }),
+    ).toHaveText("Paste supports up to 500 rows.");
+    await expect(anchor).toHaveText("Unchanged seed");
+    expect(
+      await queryViewRows(page, incidentId, timelineViewSchemaId),
+    ).toHaveLength(1);
+    expect(writes).toBe(0);
+  }
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${timelineViewSchemaId}:${seed.record_id}:${synopsis}`,
+  );
+}
+
+test("IR clipboard browser boundary 499 rows", async ({ page }, info) => {
+  await irClipboardBoundary(page, info, 499);
+});
+test("IR clipboard browser boundary 500 rows", async ({ page }, info) => {
+  await irClipboardBoundary(page, info, 500);
+});
+test("IR clipboard browser boundary 501 rows", async ({ page }, info) => {
+  await irClipboardBoundary(page, info, 501);
+});
+test("IR clipboard browser boundary 1500 rows", async ({ page }, info) => {
+  await irClipboardBoundary(page, info, 1500);
+});
 
 async function seed(page: Page) {
   const incidentId = await createIncident(

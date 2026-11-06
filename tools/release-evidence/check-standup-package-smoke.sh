@@ -187,8 +187,6 @@ for binary in server migrate operator; do
   rejection='cryptographic execution policy rejected'
   if [[ "$binary" == server ]]; then
     expected_exit=2
-    # Server startup logs identify the boundary without disclosing raw errors.
-    rejection='level=ERROR msg="admit cryptographic execution"'
   fi
   if timeout 30s docker run --rm --network none --label "com.docker.compose.project=${project}" \
     -e GODEBUG=fips140=off --entrypoint "/usr/local/bin/cartulary-${binary}" "$image" "${args[@]}" \

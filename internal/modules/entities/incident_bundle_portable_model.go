@@ -162,7 +162,7 @@ type entityFailureCandidate struct {
 func (binding entityPortableBinding) matches(importContext sourceport.ImportContext) bool {
 	return binding.operationID != "" && binding.operationID == importContext.OperationID &&
 		binding.incidentID != uuid.Nil && binding.incidentID == importContext.IncidentID &&
-		binding.bundleVersion == 6 && binding.bundleVersion == importContext.BundleVersion &&
+		binding.bundleVersion == 7 && binding.bundleVersion == importContext.BundleVersion &&
 		binding.contractMajor == sourceport.ContractMajor
 }
 

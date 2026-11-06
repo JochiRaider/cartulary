@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { RecordImportSourcesDetails } from "../../imports/CommittedSourceContext";
 import { workbookTypography } from "../components/workbookFormStyles";
 import { genericCellLabelForField } from "../models/genericWorkbookModel";
 import { useWorkbookWorkbench } from "../navigation/WorkbookWorkbenchContext";
@@ -86,6 +87,7 @@ export function WorkbookInspectorSavedDetails({
           [data-inspector-field-layout="property"] > [data-inspector-field-actions] { grid-column: 2; grid-row: 2; }
         }
       `}</style>
+      <RecordImportSourcesDetails recordId={row.record_id} />
       {contract.fields.map((field) => {
         const cell = row.cells[field.fieldKey];
         const value = cell?.value;

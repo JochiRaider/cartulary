@@ -50,16 +50,22 @@ function run(name, selection) {
   return { invocation, result, details, report, rows: adaptVitestInvocation(invocation, { details, report, status: result.status }) };
 }
 function runObserved(name, selection) {
-  const runtime = createRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID });
+  // Independently owned runtimes need distinct immutable recovery identities.
+  const runID = `vitest-${name}-${randomUUID()}`;
+  const observedRoot = path.join(output, runID);
+  mkdirSync(observedRoot, { mode: 0o700 });
+  const runtime = createRuntime({ repoRoot: root, runRoot: observedRoot, runID });
   const channel = openExecutionChannel(runtime);
   const before = { ...fixtureEnvironment };
   Object.assign(fixtureEnvironment, channel.environment, {
+    CARTULARY_TEST_RESULTS_DIR: output,
+    CARTULARY_TEST_RUN_ID: runID,
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
     CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
   });
   try {
-    const result = run(name, selection);
+    const result = run(runID, selection);
     channel.close();
     return { ...result, activities: channel.records().map((entry) => entry.record ?? entry).filter((entry) => entry.kind === "activity") };
   } finally {

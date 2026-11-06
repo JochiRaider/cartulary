@@ -2,6 +2,7 @@
 
 import assert from "node:assert/strict";
 import "./test-package-smoke-cleanup.mjs";
+import "./test-selected-evidence.mjs";
 import "./test-package-operation.mjs";
 import "./test-package-release.mjs";
 import path from "node:path";
@@ -34,7 +35,7 @@ for (const target of ["standup-package-smoke", "standup-operational-recovery-smo
   assert.ok(readinessClosure.has(unit.unit_id), "readiness must wait for qualification and cleanup");
   assert.deepEqual(unit.service_dependencies, ["object_store", "postgres"]);
   assert.ok(unit.resource_claims.object_store >= 2 && unit.resource_claims.postgres >= 2, "admit both isolated deployments");
-  assert.equal(unit.resource_claims.volume, 1, "serialize package-owned volume allocation");
+  assert.equal(unit.resource_claims.volume, 1, "require a writable volume capability");
   assert.equal(unit.cache_policy, "none", "package qualification needs fresh execution evidence");
   assert.ok(unit.needs.includes("operation:harness.package_release"), "qualify the immutable producer output");
 }
@@ -45,3 +46,9 @@ for (const target of ["credential-capacity-assessment", "cryptographic-policy-as
   assert.equal(units.get(`operation:harness.${target.replaceAll("-", "_")}`).cache_policy,"none");
 }
 assert.ok(units.get("operation:harness.credential_capacity_assessment").needs.includes("operation:harness.package_release"));
+for (const candidate of [plan.graph, new WorkGraphCompiler(root, { targetInputs: { "package-inspect": { CHECK: "all" } } }).compileTarget("package-inspect")]) {
+  const capacity = candidate.units.find(unit => unit.unit_id === "operation:harness.credential_capacity_assessment");
+  assert.ok(capacity, "package qualification includes credential capacity");
+  assert.deepEqual(capacity.shared_locks, []);
+  assert.deepEqual(capacity.exclusive_locks, ["host_activity"], "credential measurement excludes all other host-active graph work");
+}

@@ -15,6 +15,11 @@ const controls = {
       description: "Incident summary and workbook defaults",
     },
     {
+      section: "committed-sources",
+      label: "Original import sources",
+      description: "Inspect retained source material",
+    },
+    {
       section: "memberships",
       label: "Memberships",
       description: "Incident access and roles",
@@ -108,7 +113,9 @@ describe("account application menu interaction", () => {
         incidentControls={{ ...controls, items: controls.items.slice(1) }}
       />,
     );
-    expect(document.activeElement?.textContent).toContain("Memberships");
+    expect(document.activeElement?.textContent).toContain(
+      "Original import sources",
+    );
     await user.tab({ shift: true });
     expect(document.activeElement).toBe(trigger());
     expect(trigger().getAttribute("aria-expanded")).toBe("false");
@@ -160,23 +167,25 @@ describe("account application menu interaction", () => {
   it("opens Controls and closes the innermost menu before restoring the root trigger", async () => {
     const user = userEvent.setup();
     render(<AccountApplicationMenu {...props()} />);
-    await user.click(trigger());
-    const invoker = item("Controls");
-    invoker.focus();
-    await user.keyboard("{ArrowRight}");
-    const summary = screen
-      .getByText("Summary and preferences")
-      .closest("button");
-    expect(document.activeElement).toBe(summary);
-    await user.keyboard("{End}");
-    expect(document.activeElement?.textContent).toContain("Memberships");
-    await user.keyboard("{Escape}");
-    expect(screen.queryByText("Summary and preferences")).toBeNull();
-    expect(document.activeElement).toBe(invoker);
-    expect(trigger().getAttribute("aria-expanded")).toBe("true");
-    await user.keyboard("{Escape}");
-    expect(trigger().getAttribute("aria-expanded")).toBe("false");
-    expect(document.activeElement).toBe(trigger());
+    for (const openKey of ["{ArrowRight}", "{Enter}", " "]) {
+      await user.click(trigger());
+      const invoker = item("Controls");
+      invoker.focus();
+      await user.keyboard(openKey);
+      const summary = screen
+        .getByText("Summary and preferences")
+        .closest("button");
+      expect(document.activeElement).toBe(summary);
+      await user.keyboard("{End}");
+      expect(document.activeElement?.textContent).toContain("Memberships");
+      await user.keyboard("{Escape}");
+      expect(screen.queryByText("Summary and preferences")).toBeNull();
+      expect(document.activeElement).toBe(invoker);
+      expect(trigger().getAttribute("aria-expanded")).toBe("true");
+      await user.keyboard("{Escape}");
+      expect(trigger().getAttribute("aria-expanded")).toBe("false");
+      expect(document.activeElement).toBe(trigger());
+    }
   });
 
   it("dismisses on an outside nonfocusable pointer without restoring focus", async () => {

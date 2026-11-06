@@ -3,12 +3,14 @@ import type {
   CancelJobRequest,
   CreateImportSessionRequest,
   CreateImportUnitRegionRequest,
+  GetCommittedImportSourceResponse,
   GetImportSessionResponse,
   GetImportUnitPreviewResponse,
   GetImportUnitResponse,
   GetJobResponse,
   InspectImportUnitExtensionSourceRequest,
   InspectImportUnitExtensionSourceResponse,
+  ListCommittedImportSourcesResponse,
   ListImportUnitsResponse,
   PreviewImportUnitExtensionMappingRequest,
   PreviewImportUnitExtensionMappingResponse,
@@ -80,3 +82,6 @@ export type ExtensionSourceInspectionResource<OwnerResult> = Omit<
   InspectImportUnitExtensionSourceResponse["data"],
   "owner_result"
 > & { readonly owner_result: OwnerResult };
+
+export type CommittedImportSource = GetCommittedImportSourceResponse["data"];
+export type CommittedImportSourcesPage = ListCommittedImportSourcesResponse;

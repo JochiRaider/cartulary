@@ -10,10 +10,12 @@ func RecoveryStateContribution() recoverystate.Contribution {
 			"import_apply_unit_plans",
 			"import_committed_source_blobs",
 			"import_committed_source_chunks",
+			"import_committed_source_records",
 			"import_committed_sources",
 			"import_sessions",
 			"import_source_streams",
 			"import_unit_apply_outcomes",
+			"import_unit_projection_rows",
 			"import_units",
 		),
 		recoverystate.AuthoritativeObjectFamily(

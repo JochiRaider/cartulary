@@ -124,7 +124,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		t.Fatalf("source-port paths = %#v", descriptor.Paths)
 	}
 	for _, path := range descriptor.Paths {
-		if !slices.Equal(path.Versions, []int{6}) {
+		if !slices.Equal(path.Versions, []int{7}) {
 			t.Fatalf("%s versions = %v, want [3 4]", path.LogicalPath, path.Versions)
 		}
 	}

@@ -3211,6 +3211,7 @@
             "child_forwarding": "argv",
             "values": [
               "node",
+              "go",
               "frontend",
               "browser",
               "test-images"
@@ -3253,6 +3254,16 @@
             "configured external GOMODCACHE exact automatic-toolchain module when absent"
           ],
           "cleanup": "repo-local clean and distclean policies preserve or remove owned roots according to Section 13; the external Go cache remains borrowed and is never cleanup-owned"
+        },
+        {
+          "class": "authored_source_write",
+          "owner_section": "Section 5",
+          "paths": [
+            "go.mod",
+            "go.sum",
+            "tools/go-analysis/go.mod",
+            "tools/go-analysis/go.sum"
+          ]
         }
       ]
     },
@@ -6483,7 +6494,7 @@
     },
     {
       "name": "test-run-recover",
-      "command_id": "cartulary.harness.command.test_run_recover.v1",
+      "command_id": "cartulary.harness.command.test_run_recover.v2",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -6509,7 +6520,7 @@
             "allowed_sources": [
               "make_command_line"
             ],
-            "required": true,
+            "required": false,
             "type": "path",
             "default": null,
             "empty_string": "invalid",
@@ -6524,7 +6535,7 @@
             "allowed_sources": [
               "make_command_line"
             ],
-            "required": true,
+            "required": false,
             "type": "semantic_text",
             "default": null,
             "empty_string": "invalid",
@@ -6563,6 +6574,185 @@
           "class": "destructive_cleanup",
           "owner_section": "Section 13",
           "predicates_section": "Section 13"
+        }
+      ]
+    },
+    {
+      "name": "release-evidence-verify",
+      "command_id": "cartulary.harness.command.release_evidence_verify.v1",
+      "inputs": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "EVIDENCE_ROOTS_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_ACCOUNTING",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "required"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 3,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 40,
+          "stderr_bytes": 8000,
+          "excerpt_lines": 30,
+          "excerpt_bytes": 6000
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        }
+      ]
+    },
+    {
+      "name": "test-run-recovery-status",
+      "command_id": "cartulary.harness.command.test_run_recovery_status.v1",
+      "inputs": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 32,
+          "stdout_bytes": 8192,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
         }
       ]
     }

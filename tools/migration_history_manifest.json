@@ -6,7 +6,7 @@
     {
       "version": 1,
       "filename": "00001_database_infrastructure.sql",
-      "sha256": "d0c0be92adeefb00a14285d7025e079c9328585c65722dd62cd41f70bcd8d9ee",
+      "sha256": "a0df9b858414e6e156c8bc2a320892aff309493c07e5832d9ae3644359c64948",
       "historical_phase_shaped": false
     },
     {
@@ -277,6 +277,12 @@
       "version": 46,
       "filename": "00046_portable_attribution_mutations.sql",
       "sha256": "2cafaaf7977056cc653c1f2361d042ceafd03e4b13ccec0b31b80c2d67a9228a",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 47,
+      "filename": "00047_import_projection_rows.sql",
+      "sha256": "f1b1317328dca9772f0cd9f00d5ede9e66e6d67bdee2ff18c22c601abea8e22f",
       "historical_phase_shaped": false
     }
   ]

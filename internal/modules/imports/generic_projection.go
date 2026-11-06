@@ -29,24 +29,9 @@ func analyzeGenericCSV(ctx context.Context, source io.Reader) (genericCSVPreview
 	return scanGenericCSV(ctx, source, nil)
 }
 
-func materializeGenericCSV(ctx context.Context, source io.Reader) (discoveredUnit, error) {
-	rows := make([]map[string]any, 0)
-	preview, err := scanGenericCSV(ctx, source, func(row map[string]any) { rows = append(rows, row) })
-	if err != nil {
-		return discoveredUnit{}, err
-	}
-	return discoveredUnit{
-		LocatorKind: "csv_file", Locator: "file", SourceRectA1: preview.SourceRectA1,
-		HeaderRowRef: preview.HeaderRowRef, DataStartRowRef: preview.DataStartRowRef,
-		InferredRowCount: preview.InferredRowCount, InferredColumnCount: preview.InferredColumnCount,
-		WarningCodes: preview.WarningCodes, BlockingColumns: []int{}, Columns: preview.Columns,
-		PreviewRows: preview.PreviewRows, SourceRows: rows,
-	}, nil
-}
-
 // A nil consumer keeps only header/preview values while validating every record.
-func scanGenericCSV(ctx context.Context, source io.Reader, consume func(map[string]any)) (genericCSVPreview, error) {
-	decoder, err := tabularingest.NewDelimitedDecoder(ctx, source, "csv", 0)
+func scanGenericCSV(ctx context.Context, source io.Reader, consume func(map[string]any) error) (genericCSVPreview, error) {
+	decoder, err := tabularingest.NewDelimitedDecoder(ctx, newWorkbookTextReader(source), "csv", 0)
 	if err != nil {
 		return genericCSVPreview{}, err
 	}
@@ -87,7 +72,9 @@ func scanGenericCSV(ctx context.Context, source io.Reader, consume func(map[stri
 			result.PreviewRows = append(result.PreviewRows, row)
 		}
 		if consume != nil {
-			consume(row)
+			if err := consume(row); err != nil {
+				return genericCSVPreview{}, err
+			}
 		}
 	}
 	if recordCount == 0 {
@@ -188,12 +175,13 @@ func (s *service) prepareGenericMapping(ctx context.Context, route importSession
 			return mappingRequest{}, apiErr
 		}
 		defer func() { _ = stream.Reader.Close() }()
-		projection, err := materializeGenericCSV(ctx, stream.Reader)
+		preview, err := analyzeGenericCSV(ctx, stream.Reader)
 		if err != nil {
 			return mappingRequest{}, genericCSVError(err)
 		}
+		projection := discoveredUnit{SourceRectA1: preview.SourceRectA1, HeaderRowRef: preview.HeaderRowRef, DataStartRowRef: preview.DataStartRowRef, InferredRowCount: preview.InferredRowCount, InferredColumnCount: preview.InferredColumnCount, Columns: preview.Columns, PreviewRows: preview.PreviewRows}
 		request.Projection, request.SourceCapability = &projection, &stream.ImportSourceCapability
-		columns = projection.Columns
+		columns = preview.Columns
 	} else {
 		var raw []byte
 		if err := s.store.db.QueryRow(ctx, `SELECT columns_json FROM import_units WHERE import_session_id=$1 AND import_unit_id=$2`, route.SessionID, route.UnitID).Scan(&raw); err != nil {
@@ -209,12 +197,12 @@ func (s *service) prepareGenericMapping(ctx context.Context, route importSession
 	return request, nil
 }
 
-func saveGenericProjectionTx(ctx context.Context, tx pgx.Tx, sessionID, unitID uuid.UUID, projection discoveredUnit) error {
+func (s *store) saveGenericProjectionTx(ctx context.Context, tx pgx.Tx, sessionID, unitID uuid.UUID, projection discoveredUnit) error {
 	columns, err := json.Marshal(projection.Columns)
 	if err != nil {
 		return err
 	}
-	rows, err := json.Marshal(projection.SourceRows)
+	digest, err := s.stageGenericRowsTx(ctx, tx, sessionID, unitID, projection)
 	if err != nil {
 		return err
 	}
@@ -223,9 +211,9 @@ func saveGenericProjectionTx(ctx context.Context, tx pgx.Tx, sessionID, unitID u
 		return err
 	}
 	_, err = tx.Exec(ctx, `UPDATE import_units SET source_rect_a1=$3, header_row_ref=$4, data_start_row_ref=$5,
-inferred_row_count=$6, inferred_column_count=$7, columns_json=$8, source_rows_json=$9, preview_rows_json=$10
+inferred_row_count=$6, inferred_column_count=$7, columns_json=$8, source_rows_json=NULL, source_rows_sha256=$9, preview_rows_json=$10
 WHERE import_session_id=$1 AND import_unit_id=$2`, sessionID, unitID, projection.SourceRectA1,
 		projection.HeaderRowRef, projection.DataStartRowRef, projection.InferredRowCount, projection.InferredColumnCount,
-		columns, rows, preview)
+		columns, digest, preview)
 	return err
 }

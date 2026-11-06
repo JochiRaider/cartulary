@@ -20,8 +20,8 @@ const (
 	ProfileID = "import"
 
 	assistantProfileWorkbookImport = "workbook_import_v1"
-	parserProfileWorkbookImport    = "cartulary.import.workbook.v1"
-	parserVersionWorkbookImport    = "workbook_import_adapter_v1"
+	parserProfileWorkbookImport    = "cartulary.import.workbook.v2"
+	parserVersionWorkbookImport    = "workbook_import_adapter_v2"
 
 	sourceFileKindCSV  = "csv"
 	sourceFileKindXLSX = "xlsx"

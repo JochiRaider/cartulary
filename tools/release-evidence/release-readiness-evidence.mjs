@@ -2,6 +2,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { verifyPackageIdentity } from "./package-identity.mjs";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -24,10 +25,12 @@ function main() {
     throw new Error("release readiness marker has no canonical run manifest");
   }
   const producer = JSON.parse(readFileSync(path.join(runRoot, "package-release/artifacts/package.json"), "utf8"));
+  const consumers = [];
   for (const consumer of ["standup-package-smoke", "standup-reference-pack-smoke", "standup-operational-recovery-smoke", "credential-capacity-assessment"]) {
     const receipt = JSON.parse(readFileSync(path.join(runRoot, consumer, "artifacts/package.json"), "utf8"));
-    for (const key of ["manifest_sha256", "archive_sha256"]) if (receipt[key] !== producer[key]) throw new Error(`${consumer}: package identity mismatch`);
+    consumers.push([consumer, receipt]);
   }
+  verifyPackageIdentity(producer, consumers);
   process.stdout.write("release readiness closure reached; canonical projection pending\n");
 }
 

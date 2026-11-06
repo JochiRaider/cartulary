@@ -72,7 +72,21 @@ func (s *service) handleCommittedSources(w http.ResponseWriter, r *http.Request)
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	binding, cursor, reason := s.cursorCodec.ResolveListRequest(r.URL.Query(), "imports.committed_sources.list", principal.User.ID.String(), map[string]string{"incident_id": incidentID.String()})
+	query := r.URL.Query()
+	recordID := uuid.Nil
+	if values, present := query["record_id"]; present {
+		if len(values) != 1 {
+			writeAPIError(w, r, invalidImportRequest("record_id", "invalid_value"))
+			return
+		}
+		recordID, err = uuid.Parse(values[0])
+		if err != nil || recordID == uuid.Nil {
+			writeAPIError(w, r, invalidImportRequest("record_id", "invalid_value"))
+			return
+		}
+		query.Del("record_id")
+	}
+	binding, cursor, reason := s.cursorCodec.ResolveListRequest(query, "imports.committed_sources.list", principal.User.ID.String(), map[string]string{"incident_id": incidentID.String(), "record_id": recordID.String()})
 	if reason != "" {
 		writeAPIError(w, r, invalidPaginationRequest(reason))
 		return
@@ -86,7 +100,10 @@ func (s *service) handleCommittedSources(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	rows, err := s.store.db.Query(r.Context(), `SELECT committed_source_id,content_sha256,original_filename,target_kind,target_view_schema_id,extension_profile_id,committed_at
-FROM import_committed_sources WHERE incident_id=$1 AND committed_source_id>$2 ORDER BY committed_source_id LIMIT $3`, incidentID, after, binding.Limit+1)
+FROM import_committed_sources s WHERE incident_id=$1 AND committed_source_id>$2
+AND ($4::uuid='00000000-0000-0000-0000-000000000000' OR EXISTS (
+SELECT 1 FROM import_committed_source_records b WHERE b.incident_id=s.incident_id AND b.committed_source_id=s.committed_source_id AND b.record_id=$4))
+ORDER BY committed_source_id LIMIT $3`, incidentID, after, binding.Limit+1, recordID)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return

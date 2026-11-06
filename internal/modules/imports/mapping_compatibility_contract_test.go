@@ -259,7 +259,7 @@ func assertImportOwnerRequestCompatibility(t testing.TB) {
 				},
 				MappingFingerprint: strings.Repeat("a", 64),
 				SourceFileKind:     "csv", SourceContentSHA256: strings.Repeat("b", 64),
-				ParserProfileID: "cartulary.import.workbook.v1", ParserVersion: "workbook_import_adapter_v1",
+				ParserProfileID: "cartulary.import.workbook.v2", ParserVersion: "workbook_import_adapter_v2",
 				LocatorKind: "csv_file", Locator: "file", SourceRectA1: "A1:B2",
 			},
 			uuid.MustParse("44444444-4444-4444-8444-444444444444"),

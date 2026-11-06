@@ -196,7 +196,7 @@ func (scenario portableIntegrationScenario) importContext(
 	}
 	return sourceport.ImportContext{
 		IncidentID: scenario.incidentID, ActorUserID: scenario.actorID,
-		BundleVersion: 6, OperationID: operationID, Attributions: recorder, Actors: actors,
+		BundleVersion: 7, OperationID: operationID, Attributions: recorder, Actors: actors,
 	}
 }
 

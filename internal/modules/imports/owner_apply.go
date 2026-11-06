@@ -49,8 +49,12 @@ func (s *service) applyGenericOwnerUnitTx(
 	}
 
 	mutationSequencer := ownerfacade.NewImportMutationSequencer()
-	ownerResults := make([]map[string]any, 0, len(unit.SourceRows))
-	for index, sourceRow := range unit.SourceRows {
+	rows := newGenericRowIterator(ctx, tx, unit)
+	count := 0
+	for rows.Next() {
+		sourceRow := rows.Row()
+		index := count
+		count++
 		rowRef, _ := intFromAny(sourceRow["source_row_ref"])
 		if rowRef <= 0 {
 			return appliedUnitCommit{}, fmt.Errorf("import source row missing source_row_ref")
@@ -123,13 +127,13 @@ func (s *service) applyGenericOwnerUnitTx(
 		}); err != nil {
 			return appliedUnitCommit{}, err
 		}
-		ownerResults = append(ownerResults, map[string]any{
-			"owner_response": ownerResponse,
-			"row_refresh":    response.RowRefresh,
-		})
+
+	}
+	if err := rows.Err(); err != nil {
+		return appliedUnitCommit{}, err
 	}
 	return appliedUnitCommit{
-		OwnerResult:  ownerResults,
+		OwnerResult:  map[string]any{"row_count": count},
 		ResourceRefs: []jobs.ResourceRef{},
 		ChangeSetID:  &changeSetID,
 	}, nil

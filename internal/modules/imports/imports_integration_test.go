@@ -124,7 +124,7 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	if session["source_file_kind"] != "csv" || session["original_filename"] != "first.csv" || session["session_status"] != "discovered" {
 		t.Fatalf("unexpected import session resource: %#v", session)
 	}
-	if session["assistant_profile"] != "workbook_import_v1" || session["parser_profile_id"] != "cartulary.import.workbook.v1" || session["parser_version"] != "workbook_import_adapter_v1" {
+	if session["assistant_profile"] != "workbook_import_v1" || session["parser_profile_id"] != "cartulary.import.workbook.v2" || session["parser_version"] != "workbook_import_adapter_v2" {
 		t.Fatalf("unexpected parser provenance: %#v", session)
 	}
 
@@ -883,7 +883,7 @@ SELECT COUNT(*)
    AND o.target_view_schema_id = 'cartulary.view.timeline.v2'
    AND o.owner_binding_id = 'timeline.import_create'
    AND o.change_set_id::text = $4
-   AND jsonb_typeof(o.owner_result_json) = 'array'
+   AND jsonb_typeof(o.owner_result_json) = 'object' AND (o.owner_result_json->>'row_count')::integer > 0
 `, sessionID, unitID, applyJob["job_id"].(string), changeSetID); got != 1 {
 		t.Fatalf("expected one immutable Timeline apply plan/outcome pair, got %d", got)
 	}
@@ -1214,11 +1214,10 @@ UPDATE users
 		{
 			name: "source rows changed",
 			mutateSQL: `
-UPDATE import_units
-   SET source_rows_json = '[]'::jsonb,
-       updated_at = now()
- WHERE import_session_id::text = $1
-   AND import_unit_id::text = $2
+UPDATE import_unit_projection_rows
+   SET row_json = convert_to('{}', 'UTF8')
+ WHERE import_unit_id::text = $2
+   AND EXISTS (SELECT 1 FROM import_units WHERE import_session_id::text=$1 AND import_unit_id::text=$2)
 `,
 			errorCode:  "import_apply_blocked",
 			reasonCode: "source_changed",
@@ -3067,8 +3066,8 @@ SELECT source_metadata, source_header_json, raw_value, cell_kind,
 		"import_session_id":     sessionID,
 		"import_unit_id":        unitID,
 		"source_file_kind":      "csv",
-		"parser_profile_id":     "cartulary.import.workbook.v1",
-		"parser_version":        "workbook_import_adapter_v1",
+		"parser_profile_id":     "cartulary.import.workbook.v2",
+		"parser_version":        "workbook_import_adapter_v2",
 		"locator_kind":          "csv_file",
 		"locator":               "file",
 		"source_rect_a1":        sourceRect,

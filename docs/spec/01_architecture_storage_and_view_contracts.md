@@ -1,15 +1,5 @@
 # Cartulary Normative Core 01: Architecture, Storage, and View Contracts
 
-The current snapshot-binding and extension-derived restore contracts are
-adopted under the 2026-10-31 decision in Core 00 §1.7. Implementation validation,
-module readiness, release qualification and deployment remain separate.
-
-Complete incident portability adopts Network Flow major 10/state 7 and Incident
-Bundle version 6 under the 2026-11-05 decision in Core 00. It carries forward the
-orientation semantics adopted on 2026-11-04 under Core 00 §1.5.1 and supersedes
-that predecessor storage/portability contract. Older retained state is rejected
-unchanged. Owner adoption, implementation validation and operational deployment
-remain separate dispositions.
 
 ## 1. Architecture pattern
 
@@ -399,7 +389,7 @@ Profiles: base
 Verified by: AC-124, AC-125, AC-127, AC-131, AC-135, AC-219, AC-220, AC-231, AC-506
 
 Layout/bundle coordinated-upgrade exception. REQ-01-143's closed layout.v2
-representation and REQ-01-635's bundle version 6 are the sole current accepted
+representation and REQ-01-635's bundle version 7 are the sole current accepted
 representations. Retirement of layout.v1 requests/storage reads and bundle version
 3 import is an intentional coordinated pre-production break on the existing
 routes, extending the earlier layout.v2 response transition. It requires a matched
@@ -1961,7 +1951,7 @@ deletion tuple. Indicator source persistence MUST NOT retain an authoritative
 or fallback copy of those fields. Portable Indicator rows retain the admitted
 source-major-`2` shape by joining Indicator subtype state to the Records
 envelope; neither storage contraction nor claim rebuild changes valid bundle
-version 6 source row shapes.
+version 7 source row shapes.
 
 `indicator_active_identities` is Indicator-owned rebuildable coordination
 state keyed by `(incident_id, indicator_type, dedupe_key)` and maps one active
@@ -7453,19 +7443,18 @@ Template bundles SHOULD reuse the same integrity-verification and activation mac
 Profiles: snapshot_reporting
 Verified by: AC-058, AC-091, AC-233
 
-The current Snapshot and Reporting profile MUST provide the exact template contract `cartulary.report.default@1`. It MUST be resolved from a versioned local registry before release render admission, MUST declare the supported `output_kind` and `release_scope` vocabularies, MUST declare all export-model bindings and required fields consumed by the renderer, and MUST declare only local embedded assets. Selectors such as `latest` and `current` are invalid.
+The current Snapshot and Reporting profile MUST provide the exact template contract `cartulary.report.default@4`. It MUST be resolved from a versioned local registry before release render admission, MUST declare the supported `output_kind` and `release_scope` vocabularies, MUST declare all export-model bindings and required fields consumed by the renderer, and MUST declare only local embedded assets. Selectors such as `latest` and `current` are invalid.
 
-> **Proposed companion amendment for Reporting 1.4.0 / Composition 1.3.0;
-> adoption pending:** replace the required built-in template above with
-> `cartulary.report.default@4`. Its manifest v3 materializes template-owned
-> `author` and exact local `theme` metadata before admission. Canonical Slidev
-> source v2 emits only model slides, with first-slide layout in headmatter.
-> Retire template `@1`–`@3` and manifest v1/v2 without aliases or reconstruction.
-> The current source v2 framing remains unchanged. Retired aggregate declarations
-> and declassification settings are rejected; all contributor restrictions remain.
-> Apply the coordinated clean pre-production cutover, including rejection of
-> incompatible retained history before mutation. This paragraph does not adopt
-> the amendment or supersede the preceding adopted requirement on its own.
+The template manifest v3 materializes template-owned `author` and exact local
+`theme` metadata before admission. Canonical Slidev source v2 emits only model
+slides, with first-slide layout in headmatter. Template `@1`–`@3` and manifest
+v1/v2 are retired without aliases or reconstruction. The current source v2
+framing remains unchanged. Retired aggregate declarations and declassification
+settings are rejected; all contributor restrictions remain. Incompatible retained
+history is rejected before mutation under the coordinated clean cutover.
+
+Historical adoption: Core 00 §1.2 adopted this companion with Reporting 1.4.0 /
+Composition 1.3.0. The former proposal header is not a pending adoption gate.
 
 **REQ-01-384**
 A template renderer MUST:
@@ -7514,45 +7503,44 @@ it does not grant disclosure permission. Container `mask`, `truncate` and
 
 Profiles MUST be rejected before render admission when two rules at the same precedence match the same path or same `content_class`, unless a future owner spec defines an explicit tie-breaker.
 
-> **Proposed companion amendment for Reporting 1.4.0 / Composition 1.3.0;
-> adoption pending:** Core's authored profile projection is
-> `cartulary.redaction_profile.v3`. It explicitly binds lifecycle status,
-> allowed release scopes and superseded-record policy in addition to the
-> existing rule and presentation policies. Retired time-bucket granularity and
-> aggregate declassification members are rejected, including null or empty values.
-> Reporting consumes the normalized Tables 13-A through 13-A3 view; mask and
-> stub defaults are materialized as literals, and an explicit empty literal
-> remains empty. `rule_order` is the positive one-based position in Core's
-> authored rule list; the profile default has order `1`. Rule IDs break
-> ordering ties in the normalized interface, but duplicate selectors at the
-> same precedence remain invalid. Rule order never authorizes two competing
-> rules for one path or content class. Built-in profiles
-> `cartulary.redaction.internal`, `cartulary.redaction.tokenized_review`, and
-> `cartulary.redaction.external` advance to version `5`; their version `1`–`4`
-> tuples and authored profile schemas v1/v2 are unsupported under the coordinated
-> clean cutover. The first two permit only internal draft/review; the external
-> profile permits only external release. External use requires
-> `profile_status='adopted_current'`. Status and scopes must be explicit;
-> neither is inferred from an arbitrary profile identifier or retained hash.
->
-> The Core `internal_passthrough` materialization is the exact
-> `cartulary.redaction.internal@5` profile, not a second selector or alias.
-> A new internal draft/review request may omit both profile ID and version;
-> Core fills that pair before request normalization and retains the exact
-> authored policy and independent digest with the authorized snapshot binding.
-> Cancelable worker preparation materializes and seals the snapshot-bound
-> profile and digest; admission does not expand the source to compute them.
-> An explicit partial pair, null or empty member remains invalid. External
-> requests require both members. This request default never repairs an
-> incomplete retained payload. All three built-ins freeze exact `allow` rules for every canonical section
-> and block. Their class policies transform fields, never implicitly replace
-> typed envelopes. Internal passthrough otherwise has no rules, default `allow`, and the ordered allowed set `{public, internal_only}` plus all
-> exact Party partitions in the snapshot. Tokenized review binds that same
-> snapshot-derived allowed set while preserving its explicit rules.
-> Every scope also applies Reporting's effective allowed set under REQ-RPT-059a;
-> a profile's declarations cannot admit `blocked`, an unknown Party, or an
-> unselected external recipient. Snapshot Party membership comes from exact
-> Party source-record identities, never labels or asserted field partitions.
+Core's adopted authored profile projection is
+`cartulary.redaction_profile.v3`. It explicitly binds lifecycle status,
+allowed release scopes and superseded-record policy in addition to the
+existing rule and presentation policies. Retired time-bucket granularity and
+aggregate declassification members are rejected, including null or empty values.
+Reporting consumes the normalized Tables 13-A through 13-A3 view; mask and
+stub defaults are materialized as literals, and an explicit empty literal
+remains empty. `rule_order` is the positive one-based position in Core's
+authored rule list; the profile default has order `1`. Rule IDs break
+ordering ties in the normalized interface, but duplicate selectors at the
+same precedence remain invalid. Rule order never authorizes two competing
+rules for one path or content class. Built-in profiles
+`cartulary.redaction.internal`, `cartulary.redaction.tokenized_review`, and
+`cartulary.redaction.external` advance to version `5`; their version `1`–`4`
+tuples and authored profile schemas v1/v2 are unsupported under the coordinated
+clean cutover. The first two permit only internal draft/review; the external
+profile permits only external release. External use requires
+`profile_status='adopted_current'`. Status and scopes must be explicit;
+neither is inferred from an arbitrary profile identifier or retained hash.
+
+The Core `internal_passthrough` materialization is the exact
+`cartulary.redaction.internal@5` profile, not a second selector or alias.
+A new internal draft/review request may omit both profile ID and version;
+Core fills that pair before request normalization and retains the exact
+authored policy and independent digest with the authorized snapshot binding.
+Cancelable worker preparation materializes and seals the snapshot-bound
+profile and digest; admission does not expand the source to compute them.
+An explicit partial pair, null or empty member remains invalid. External
+requests require both members. This request default never repairs an
+incomplete retained payload. All three built-ins freeze exact `allow` rules for every canonical section
+and block. Their class policies transform fields, never implicitly replace
+typed envelopes. Internal passthrough otherwise has no rules, default `allow`, and the ordered allowed set `{public, internal_only}` plus all
+exact Party partitions in the snapshot. Tokenized review binds that same
+snapshot-derived allowed set while preserving its explicit rules.
+Every scope also applies Reporting's effective allowed set under REQ-RPT-059a;
+a profile's declarations cannot admit `blocked`, an unknown Party, or an
+unselected external recipient. Snapshot Party membership comes from exact
+Party source-record identities, never labels or asserted field partitions.
 
 **REQ-01-387**
 When recipient-specific reporting is implemented, a versioned redaction profile MUST also be able to declare zero or more allowed stable incident-local `disclosure_partition_refs[]`.
@@ -8837,7 +8825,7 @@ Verified by: AC-164, AC-166, AC-236, AC-487, AC-490
 ```json
 {
   "bundle_format": "cartulary.incident_bundle",
-  "bundle_version": 6,
+  "bundle_version": 7,
   "bundle_id": "uuid",
   "incident_id": "uuid",
   "incident_key": "string",
@@ -9058,15 +9046,15 @@ projections and MUST NOT add, remove, or reinterpret a row in these registries.
 
 **REQ-01-635**
 Every newly generated Incident Bundle MUST use
-`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=6`.
-Only version `6` is admitted for import and export. Import MUST parse
+`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=7`.
+Only version `7` is admitted for import and export. Import MUST parse
 `manifest.bundle_version` before interpreting any source payload and MUST
 select exactly one codec only from that numeric value. Filename presence, file
 order, archive order, prior import history, and caller input MUST NOT select or
 override a codec. Omitted, JSON `null`, or non-integer
 `bundle_version` MUST fail before source preparation with
 `incident_bundle_import_rejected` and `reason_code='malformed_manifest'`.
-Every integer other than `6`, including retired numeric versions `1` through `5`, MUST fail
+Every integer other than `7`, including retired numeric versions `1` through `6`, MUST fail
 at the same boundary with `reason_code='unsupported_bundle_version'`. No
 fallback version exists.
 
@@ -9074,19 +9062,20 @@ The required Timeline path set is exactly:
 
 | Version | Export | Import | Exact Timeline paths |
 | --- | --- | --- | --- |
-| `6` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
+| `7` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
 
 A retired Timeline path, a mixed retired/current path set, or an incomplete
-current path set under version `6` MUST fail before source preparation with
+current path set under version `7` MUST fail before source preparation with
 `reason_code='malformed_manifest'`. The admitted version has the following
 closed required core path registry; a missing, duplicate, or unknown member
 under `data/` MUST fail closed and every required path MUST have exactly one
 declared consumer or validator:
 
-| Family or special consumer | Version `6` paths |
+| Family or special consumer | Version `7` paths |
 | --- | --- |
 | Incident | `data/incident.json` |
 | Actors | `data/actors.ndjson` |
+| Committed sources | `data/committed_sources.ndjson`, `data/committed_source_records.ndjson` |
 | Records | `data/records.ndjson` |
 | Timeline | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
 | Parties | `data/parties.ndjson` |
@@ -9101,7 +9090,7 @@ declared consumer or validator:
 | Saved Views | `data/saved_views.ndjson` |
 | Reference Pack references | `data/reference_pack_refs.json` |
 
-Every participating source and special consumer MUST explicitly admit version 6
+Every participating source and special consumer MUST explicitly admit version 7
 only. Archive integrity MUST be verified against original bytes before source
 preparation. Version selection MUST never depend on row content. Legacy version 3
 archives fail before source preparation, target mutation or publication; no
@@ -9116,7 +9105,7 @@ Profiles: incident_portability
 Verified by: AC-487, AC-489, AC-490, AC-496, AC-506
 
 **REQ-01-636**
-The version `6` Timeline row contracts are the following closed shapes.
+The version `7` Timeline row contracts are the following closed shapes.
 “Required” means the member MUST be present. A member absent from the allowed
 set MUST fail closed. A required member MAY be JSON `null` only when its
 source-owner semantic contract admits null.
@@ -9127,7 +9116,7 @@ source-owner semantic contract admits null.
 | `timeline_records.ndjson` | `record_id` | `record_id`, `incident_id`, `capture_state`, `activity_utc_generated`, `activity_local_generated`, `activity_time_pair_state` | Required members plus `reviewed_by_user_id`, `reviewed_at`, `superseded_by_user_id`, `superseded_at`, `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, `data_source_text` |
 | `timeline_source_provenance.ndjson` | `(record_id, source_row_ordinal, source_column_ordinal, source_identity_sha256)` | `record_id`, `source_identity_sha256`, `source_row_ordinal`, `source_column_ordinal`, `source_kind`, `source_metadata`, `source_header`, `raw_value`, `created_at` | Required members plus `cell_kind` |
 
-The version-6 Timeline record-envelope fields `row_version`, `created_at`,
+The version-7 Timeline record-envelope fields `row_version`, `created_at`,
 `updated_at`, `created_by_user_id`, and `updated_by_user_id` MUST come from the
 same-record row in `data/records.ndjson`; they MUST NOT be duplicated or
 independently resolved from `timeline_records.ndjson`.
@@ -9249,7 +9238,7 @@ archive order, and database error text MUST NOT select it.
 | --- | --- |
 | Records | Every row belongs to the imported incident; record type, row version, timestamps, actor attribution, and deletion tuples are legal; every subtype-required envelope has exactly its admitted owner row. |
 | Timeline | Version `6` has its exact shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. |
-| Parties | Every row has the exact version-6 closed shape; every row has a same-incident party envelope; required identity fields, lifecycle state, and active claims are exact; every string equals the Party field-registry stored representation. |
+| Parties | Every row has the exact version-7 closed shape; every row has a same-incident party envelope; required identity fields, lifecycle state, and active claims are exact; every string equals the Party field-registry stored representation. |
 | Entities | Mentions remain observations; hosts and identities have the correct envelopes; resolution and merge-lineage tuples are coherent; aliases and preserved identifiers are normalized, classified, unique, and same-incident. |
 | Indicators | Type/value/hash representation and normalization are legal; duplicate identities are rejected; observations and state intervals are same-incident, ordered, and coherent; repeated observations are not silently merged. |
 | Artifacts | Every artifact has the correct envelope and exactly the admitted subtype; subtype lifecycle and required fields are legal; handoff-risk references target handoffs; all references are same-incident. |
@@ -9261,7 +9250,7 @@ archive order, and database error text MUST NOT select it.
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
 **REQ-01-673**
-For Incident Bundle version `6`, source family `incident`, contract major `3`,
+For Incident Bundle version `7`, source family `incident`, contract major `3`,
 `data/incident.json` MUST contain exactly one JSON object with exactly these 16
 members. Every member is required, including members whose value may be JSON
 `null`. Unknown, missing, duplicate, aliased, wrongly typed, noncanonical,
@@ -9302,14 +9291,14 @@ incident, bundle version, and contract major. Apply remaps both actor fields to
 the importing actor while retaining both original attributions, uses explicit
 fixed-column parameterized SQL, and requires one affected row. Validate compares
 all 16 admitted values with transaction state after the actor remap. Export names
-all 16 wire members explicitly and produces the current canonical version-6 bytes;
+all 16 wire members explicitly and produces the current canonical version-7 bytes;
 physical relation column order, `SELECT *`, whole-row `to_jsonb`, and database
 record-population functions are not portable-shape authority.
 Profiles: incident_portability
 Verified by: AC-566
 
 **REQ-01-666**
-For Incident Bundle version `6`, source family `entities`, contract major `3`,
+For Incident Bundle version `7`, source family `entities`, contract major `3`,
 each non-empty row of the five Entities files MUST be one exact JSON object.
 Unknown, missing, duplicate, aliased, wrongly typed, noncanonical, blank-line,
 multivalue, or trailing-content input fails admission. Nullable members remain
@@ -9362,7 +9351,7 @@ order nor raw database text may select or describe the public failure.
 Profiles: incident_portability
 Verified by: AC-559
 
-For Incident Bundle version `6`, source family `indicators`, contract
+For Incident Bundle version `7`, source family `indicators`, contract
 major `3`, each non-empty row of the three Indicator files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
@@ -9467,7 +9456,7 @@ operator output. Selection MUST NOT depend on archive order, NDJSON row order,
 filesystem order, map iteration, unsorted SQL output, constraint-reporting
 order, PostgreSQL error text, or a descriptor-default invariant.
 
-For Incident Bundle version `6`, source family `revisions`, contract
+For Incident Bundle version `7`, source family `revisions`, contract
 major `3`, each non-empty row of the three Revisions files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
@@ -9531,7 +9520,7 @@ consumer port whose providers are constructed by authoritative source owners
 and whose complete immutable catalog is validated by application composition.
 
 **REQ-01-659**
-For Incident Bundle version `6`, the outer exact member sets,
+For Incident Bundle version `7`, the outer exact member sets,
 ordering, contract major, attribution behavior, sequence repair, invariant
 precedence, and no-live-publication behavior of the Revisions source family
 remain unchanged. Every non-null `before_value`, `after_value`, `before_json`,
@@ -9751,8 +9740,8 @@ The adopted compatibility state, closed source catalog, and
 requirement-to-acceptance-to-verification mappings MUST have versioned typed
 machine projections. The source catalog projection is
 `cartulary.incident_bundle_source_catalog.v5`, declares contract major `3`, and
-admits path version `6` for every required source and special consumer.
-Each version-6 logical path MUST have exactly one source and one admitted shape.
+admits path version `7` for every required source and special consumer.
+Each version-7 logical path MUST have exactly one source and one admitted shape.
 Retired-version bindings, overlapping bindings, duplicate versions and inconsistent
 identities are invalid. Future format admission requires an explicit owner amendment.
 Each REQ-01-635 through REQ-01-646 requirement MUST map to
@@ -9767,7 +9756,7 @@ Profiles: incident_portability
 Verified by: AC-504, AC-505
 
 **REQ-01-670**
-For admitted Incident Bundle version `6`, source family `parties`, and
+For admitted Incident Bundle version `7`, source family `parties`, and
 source contract major `3`, every nonblank line of `data/parties.ndjson` MUST
 be one closed JSON object with exactly these ten required members:
 `record_id`, `incident_id`, `display_name`, `party_kind`,
@@ -9798,7 +9787,7 @@ Parties assigns every defect to exactly one invariant in this precedence:
 1. `parties.source_identity_admitted`: both identifiers are present,
    canonical, in scope, and unique;
 2. `parties.version_shape_exact`: the line and object have exactly the
-   version-6 member set, types, nullability, and framing;
+   version-7 member set, types, nullability, and framing;
 3. `parties.envelope_type_scope`: exactly one same-incident `party` Records
    envelope exists, with no orphan, wrong type, duplicate subtype, or
    cross-incident binding;
@@ -9829,7 +9818,7 @@ Profiles: incident_portability
 Verified by: AC-563
 
 **REQ-01-644**
-For Incident Bundle version `6`, source family `saved_views`,
+For Incident Bundle version `7`, source family `saved_views`,
 contract major `3`, each non-empty logical row of
 `data/saved_views.ndjson` MUST be one JSON object containing exactly these
 eleven required members:
@@ -9859,7 +9848,7 @@ Verified by: AC-508
 
 **REQ-01-645**
 `data/saved_views.ndjson` MUST be present exactly once for admitted bundle
-version `6`. Export MUST include every incident-owned private, shared,
+version `7`. Export MUST include every incident-owned private, shared,
 and system saved view, order rows by `saved_view_id` ascending, serialize
 lexicographically ordered canonical JSON with exactly one trailing LF per row,
 and emit a zero-byte member when no rows exist. Export MUST select and map the
@@ -9876,7 +9865,7 @@ their canonical values; preparation MUST reject rather than repair
 noncanonical values. Query requires present `sort` and `filters` arrays, no
 inactive `group_by`, at most `8` raw sort items, and at most `16` raw filters.
 Layout requires every member of the closed v2 grammar and widths in `40..4096`.
-The active `saved_views.row.v2` schema defines the version-6 portable row; the
+The active `saved_views.row.v2` schema defines the version-7 portable row; the
 retired v1 row schema is not an active binding. Preparation MUST reject layout.v1,
 empty-object defaults and every other invalid representation rather than convert
 or repair them. Prepared canonical v2 bytes are the authoritative apply and
@@ -10504,7 +10493,7 @@ Verified by: AC-262, AC-263, AC-264, AC-264B
 | Route | OpenAPI operation ID | Semantic class | Request contract summary | Success resource or body | Long-running | Primary family errors |
 | --- | --- | --- | --- | --- | --- | --- |
 | `POST /api/v1/import-sessions` | `createImportSession` | State-changing | Shared upload envelope with metadata `incident_id`, `client_txn_id`, and optional `assistant_profile` defaulting to `workbook_import_v1` | Common job resource; terminal success emits one `import_session` ref | Yes | `invalid_import_request`, `import_source_unsupported`, `import_source_rejected` |
-| `GET /api/v1/import-sessions/{import_session_id}` | `getImportSession` | Read-only | Singleton read | `import_session` workflow and immutable `committed_source` resources | No | `import_session_not_found`, `invalid_pagination_request` |
+| `GET /api/v1/import-sessions/{import_session_id}` | `getImportSession` | Read-only | Singleton read | `import_session` workflow resource | No | `import_session_not_found`, `invalid_pagination_request` |
 | `GET /api/v1/import-sessions/{import_session_id}/units` | `listImportUnits` | Read-only | List read under common paging | `{ import_units[] }` plus `meta.paging` | No | `import_session_not_found` |
 | `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` | `getImportUnit` | Read-only | Singleton read | `import_unit` resource | No | `import_session_not_found`, `import_unit_not_found` |
 | `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` | `getImportUnitPreview` | Read-only | Singleton read | `import_preview` resource | No | `import_session_not_found`, `import_unit_not_found` |
@@ -10515,11 +10504,14 @@ Verified by: AC-262, AC-263, AC-264, AC-264B
 | `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` | `skipImportUnit` | State-changing | JSON object with required `client_txn_id`; optional `reason` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` | `createImportUnitRegion` | State-changing | Closed object with required `client_txn_id` and one-based inclusive `source_rect={start_row,start_column,end_row,end_column}` | Created or exactly replayed `import_unit` with `locator_kind='operator_region'` | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/apply` | `applyImportSession` | State-changing | JSON object with required `client_txn_id` and optional `selected_unit_ids[]`; omitted `selected_unit_ids[]` means the session's persisted `selected_unit_ids[]` | Common job resource; terminal success emits one `import_session` ref plus owner-produced analytical extension resource refs when applicable | Yes | `invalid_import_request`, `import_apply_blocked`, `import_state_conflict` |
+| `GET /api/v1/incidents/{incident_id}/committed-sources` | `listCommittedImportSources` | Read-only | Incident-scoped opaque keyset cursor, ordered by committed-source UUID | `{ committed_sources[] }` plus `meta.paging` | No | `invalid_list_query`, `invalid_pagination_request` |
+| `GET /api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}` | `getCommittedImportSource` | Read-only | Incident-scoped singleton read; editor/reviewer/admin | Immutable `cartulary.imports.committed_source.v1` metadata | No | `committed_source_not_found`, `invalid_pagination_request` |
+| `GET /api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}/content` | `getCommittedImportSourceContent` | Read-only | Incident-scoped singleton read; editor/reviewer/admin | Exact original bytes as a streamed attachment, `no-store` and `nosniff` | No | `committed_source_not_found`, `invalid_pagination_request` |
 
 Table 17.2-A is exhaustive for Imports route mutation classification. The six
 state-changing operations require CSRF when the effective authentication mode
-is cookie. The four `GET` operations, mapping preview and source inspection are
-the six read-only operations and do not require CSRF. Bearer-authenticated requests do not require a CSRF token.
+is cookie. The seven `GET` operations, mapping preview and source inspection are
+the nine read-only operations and do not require CSRF. Bearer-authenticated requests do not require a CSRF token.
 Implementations MUST classify a route from this closed inventory and MUST NOT
 infer mutation status from the HTTP method, path spelling, or handler branch.
 
@@ -10765,7 +10757,7 @@ major-mismatched, or structurally invalid bindings fail closed before source ins
 **REQ-01-473**
 `POST /api/v1/import-sessions` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST include required `incident_id` and required `client_txn_id`. Metadata MAY include optional `assistant_profile`, which defaults to `workbook_import_v1` when omitted and MUST use that exact value when supplied in the current profile. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/import-sessions` in REQ-01-552. Those media-type values are necessary but not sufficient: the server MUST still determine CSV versus XLSX from the exact uploaded bytes and MUST enforce the route's byte-based parser and source-limit rules. Before `import_session` creation or discovery-job creation, the server MUST compare uploaded source bytes against `limits.imports.max_csv_source_bytes` for CSV and `limits.imports.max_xlsx_source_bytes` for XLSX. A CSV source that exceeds its ceiling MUST fail with `413`, `error.code='import_source_rejected'`, and `error.details.reason_code='csv_source_too_large'`. An XLSX source that exceeds its ceiling MUST fail with `413`, `error.code='import_source_rejected'`, and `error.details.reason_code='xlsx_source_too_large'`. Those rejections MUST create no durable `import_session`, no idempotency commit, and no discovery job. For an accepted source, the route MUST compute `source_content_sha256` from the exact uploaded file bytes, create or replay exactly one durable `import_session`, and start discovery as a background job. Normalized request comparison for idempotency MUST include `incident_id`, normalized `assistant_profile`, and the computed `source_content_sha256` from the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison.
 
-For the current Workbook Import profile, accepted sessions MUST stamp `parser_profile_id=cartulary.import.workbook.v1` and `parser_version=workbook_import_adapter_v1`. These identities describe the parser contract and remain part of persisted source provenance. The route MUST reject any supplied assistant profile other than `workbook_import_v1` with `unsupported_assistant_profile`, and a supplied JSON null with `field_not_nullable`, before creating an import session, discovery job, or idempotency commit. Omitted and explicitly supplied current assistant profiles MUST normalize identically. No alternate profile spelling is accepted.
+For the current Workbook Import profile, accepted sessions MUST stamp `parser_profile_id=cartulary.import.workbook.v2` and `parser_version=workbook_import_adapter_v2`. These identities describe the parser contract and remain part of persisted source provenance. The route MUST reject any supplied assistant profile other than `workbook_import_v1` with `unsupported_assistant_profile`, and a supplied JSON null with `field_not_nullable`, before creating an import session, discovery job, or idempotency commit. Omitted and explicitly supplied current assistant profiles MUST normalize identically. No alternate profile spelling is accepted.
 
 CSV admission MUST NOT invoke a CSV interpreter. Accepted original bytes and
 their exact digest are durable source authority. Discovery MUST establish one
@@ -10927,20 +10919,30 @@ including columns discovered after row 50; absent header text is null. Browser
 consumers MUST preserve source ordinals without allocating filler cells for
 missing trailing fields. XLSX geometry and blank-cell semantics are unchanged.
 
-Generic CSV approval MUST separately materialize the actual source rows and
-save the admitted projection atomically with the approved mapping, protecting
-source identity against concurrent change. Generic apply consumes that projection
-with its stored row-digest check and expresses absent CSV fields through the
-mapping kernel's existing absent-cell representation. Preview and materialization
-MUST observe cancellation during reads, lexical processing, long fields and row
-construction, release source snapshots, and publish no partial successful result.
+Generic Workbook parser `cartulary.import.workbook.v2` / `workbook_import_adapter_v2`
+requires valid UTF-8 during interpretation, including the complete preview tail.
+An optional UTF-8 BOM at byte zero is an encoding marker; embedded U+FEFF remains
+field text. Invalid sequences reject without replacement, guessing or transcoding.
+Raw upload admission and retained original bytes are unchanged. Analytical targets
+retain their own parser contracts and preview boundaries.
 
-Generic interpretation MUST NOT enforce XLSX row/column/cell/archive limits on
-CSV. Preview retention is proportional to column metadata and actual preview
-fields plus incremental decoder buffers; approval storage is proportional to
-actual fields and rows, never row count multiplied by maximum width. Approval,
-upload buffering and generic apply do not acquire a constant-memory or
-process-wide memory guarantee. No new interpretation ceiling is introduced.
+Generic CSV approval MUST stream sparse canonical JSON rows into Imports-owned
+transactional storage and atomically publish their SHA-256 seal with the approved
+mapping. The digest is over each compact row JSON followed by LF, in source order;
+row references are consecutive from 2 and count equals the inferred data-row count.
+The immutable projection is identified by its unit and seal. Source protection
+lasts through mapping publication. Cancellation or failure rolls back all staged
+rows and the seal. Generic apply consumes the approved stored rows incrementally,
+verifies the complete count/digest before commit, and never reinterprets original
+bytes under later parser defaults. Per-row owner results remain in the apply
+journal; the generic terminal owner result contains only `row_count`.
+
+Generic interpretation MUST NOT enforce XLSX geometry/archive limits on CSV or
+introduce a new source-size ceiling. Preview and approval/apply retain at most
+column metadata, actual preview fields, bounded buffers and the largest active
+record, not the complete decoded row collection. XLSX geometry and its separately
+bounded materialization remain unchanged. The guarantee concerns Imports row
+processing, not database transaction memory or other source owners' state.
 
 Before any import unit enters `ready` or `applied`, and before any imported incident data becomes visible or applicable through apply, the imports module MUST enforce the bounded ingest contract driven by Core 04 §12.3.1. For CSV, only the raw source-byte ceiling from REQ-01-473 applies. For XLSX, the route family MUST additionally enforce `limits.imports.max_rows`, `limits.imports.max_columns`, `limits.imports.max_cells`, `limits.archives.default_max_extracted_bytes`, `limits.archives.max_compression_ratio`, and `limits.archives.max_members`, treating XLSX as the ZIP-backed workbook container defined by Core 04 §12.3.1. A breach of any of those limits MUST fail the affected route or job with `413` and `error.code='import_source_rejected'`.
 
@@ -11560,7 +11562,7 @@ Verified by: AC-273, AC-274
 **REQ-01-485**
 `POST /api/v1/incident-bundles/import` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST contain required `client_txn_id`. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/incident-bundles/import` in REQ-01-552. Those media-type values are envelope gates only; bundle-member validation, integrity verification, and archive-limit enforcement remain byte-based. Route-scoped normalized request comparison for idempotency MUST include SHA-256 of the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison.
 
-For the current Workbook Import profile, accepted sessions MUST stamp `parser_profile_id=cartulary.import.workbook.v1` and `parser_version=workbook_import_adapter_v1`. These identities describe the parser contract and remain part of persisted source provenance. The route MUST reject any supplied assistant profile other than `workbook_import_v1` with `unsupported_assistant_profile`, and a supplied JSON null with `field_not_nullable`, before creating an import session, discovery job, or idempotency commit. Omitted and explicitly supplied current assistant profiles MUST normalize identically. No alternate profile spelling is accepted. A schema-valid nonempty manifest `required_capabilities[]`, including an unknown future string, MUST fail with `extension_capability_not_supported` after safe archive-path, member-type, manifest-integrity, and checksum validation and before source preparation, extension participant invocation, staged target mutation, or publication. The implementation MUST NOT retain, classify, or echo any supplied capability value. Import MUST run as a deployment-scoped `deployment_admin` background job because no target incident exists until a successful import transaction commits. Import-job admission MUST bind the job to the server-derived submitting internal `user_id`, and final publication MUST create the target-local initial-admin membership, workbook-preference objects, and membership audit event under REQ-01-609. The current profile defines no durable import resource; on success the terminal job result summary MUST use `result_summary.code='incident_bundle_imported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident', id: <incident_id>, route: '/api/v1/incidents/{incident_id}' }`. Import remains create-only into an empty incident namespace. The current profile MUST reject clone, merge, identifier-remap, remote-fetch, initial-admin selection, adoption workflow, or equivalent alternative import modes.
+A schema-valid nonempty manifest `required_capabilities[]`, including an unknown future string, MUST fail with `extension_capability_not_supported` after safe archive-path, member-type, manifest-integrity, and checksum validation and before source preparation, extension participant invocation, staged target mutation, or publication. The implementation MUST NOT retain, classify, or echo any supplied capability value. Import MUST run as a deployment-scoped `deployment_admin` background job because no target incident exists until a successful import transaction commits. Import-job admission MUST bind the job to the server-derived submitting internal `user_id`, and final publication MUST create the target-local initial-admin membership, workbook-preference objects, and membership audit event under REQ-01-609. The current profile defines no durable import resource; on success the terminal job result summary MUST use `result_summary.code='incident_bundle_imported'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'incident', id: <incident_id>, route: '/api/v1/incidents/{incident_id}' }`. Import remains create-only into an empty incident namespace. The current profile MUST reject clone, merge, identifier-remap, remote-fetch, initial-admin selection, adoption workflow, or equivalent alternative import modes.
 Profiles: incident_portability
 Verified by: AC-275, AC-442
 
@@ -12617,11 +12619,36 @@ editor/reviewer/admin mapping-approval role. A source absent from the authorized
 incident returns `committed_source_not_found` (404) with empty details. The
 collection, metadata and content routes are read-only and never create jobs.
 
+The optional collection filter `record_id` MUST be one non-nil UUID, with no
+repeated value. Its value is bound into the opaque cursor scope. The filtered
+collection returns only sources associated with that record in the addressed
+incident; unknown and other-incident records produce an empty collection. The
+filter does not grant metadata or raw-source access to ordinary incident readers.
+
+For generic Workbook application, Imports MUST publish immutable associations
+`(incident_id, committed_source_id, source_row_ref, record_id)` from successful
+owner results in the same transaction as the source and destination effects.
+Association identity is `(committed_source_id, source_row_ref)`. Original source
+row references are integers at least 2. Edits, merges and workflow cleanup MUST
+NOT repoint historical associations to a different record or application.
+The required `data/committed_source_records.ndjson` member streams closed rows
+`{schema_id, committed_source_id, source_row_ref, record_id}`, with schema ID
+`cartulary.imports.committed_source_record.v1`, in increasing source UUID and
+numeric row order. It may be empty. Every binding must reference an admitted
+generic source, a row at or after its approved data-start coordinate, and a
+record of the target's admitted type in the same incident. Duplicate identities,
+invalid UUIDs, missing members and invalid references fail before publication.
+Export, import and backup/restore preserve the exact associations, independently
+of workflow journals. Analytical owners retain their separately owned source
+associations. Bundle version 7 is current; versions 1 through 6 are rejected
+before source preparation. There is no historical bundle reader or conversion.
+
 The required `data/committed_sources.ndjson` member has the exact metadata shape
 above, increasing committed-source UUID order, and source actors expressed using
-the historical actor roster. Family `committed_sources` depends on `incident`.
+the historical actor roster. Family `committed_sources` depends on `incident` and `records`.
 Its closed invariants are `source_identity_admitted`, `metadata_exact`,
-`mapping_exact`, `blob_exact`, and `attribution_exact`, prefixed by that family.
+`mapping_exact`, `blob_exact`, `attribution_exact`, and `record_binding_exact`,
+prefixed by that family.
 Source identities bind the original successful application; importing a bundle
 preserves them. Original source objects use `sources/sha256/<lowercase digest>`;
 every such member must be referenced, and each referenced digest appears once.
@@ -12643,7 +12670,7 @@ job, export or authentication capability; failed or unpublished exports are not
 readable. Missing descriptors use `incident_bundle_not_found`; storage failures
 use the existing opaque internal-error contract.
 
-**REQ-01-686** Bundle version 6 exports ZIP and accepts ZIP, TAR and TAR.GZ with the
+**REQ-01-686** Bundle version 7 exports ZIP and accepts ZIP, TAR and TAR.GZ with the
 same logical format. All bulk transport and storage boundaries use bounded streams;
 metadata catalogs and prepared descriptors retain their existing 64 MiB per-participant
 and aggregate control limits. Bulk NDJSON and blobs count against archive member,

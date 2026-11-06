@@ -91,7 +91,7 @@ func preparePartyImport(
 		return preparedPartyImport{}, err
 	}
 	if bundle == nil || importContext.OperationID == "" ||
-		importContext.IncidentID == uuid.Nil || importContext.BundleVersion != 6 ||
+		importContext.IncidentID == uuid.Nil || importContext.BundleVersion != 7 ||
 		descriptor.ContractMajor != sourceport.ContractMajor {
 		return preparedPartyImport{}, sourceport.ErrPreparedBinding
 	}
@@ -367,7 +367,7 @@ func (prepared preparedPartyImport) matches(
 		prepared.operationID == importContext.OperationID &&
 		prepared.incidentID != uuid.Nil &&
 		prepared.incidentID == importContext.IncidentID &&
-		prepared.bundleVersion == 6 &&
+		prepared.bundleVersion == 7 &&
 		prepared.bundleVersion == importContext.BundleVersion &&
 		prepared.contractMajor == sourceport.ContractMajor &&
 		prepared.contractMajor == descriptor.ContractMajor

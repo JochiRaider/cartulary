@@ -22,7 +22,7 @@ import (
 
 const (
 	bundleFormat              = "cartulary.incident_bundle"
-	bundleVersion             = 6
+	bundleVersion             = 7
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 	tarTypeRegA               = byte(0)
 )
@@ -39,6 +39,7 @@ var requiredStructuredFiles = []string{
 	"data/incident.json",
 	"data/actors.ndjson",
 	"data/committed_sources.ndjson",
+	"data/committed_source_records.ndjson",
 	"data/records.ndjson",
 	"data/timeline_time_profiles.ndjson",
 	"data/timeline_records.ndjson",

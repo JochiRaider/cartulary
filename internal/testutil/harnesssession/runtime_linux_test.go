@@ -76,6 +76,7 @@ func TestSessionRuntimeProof(t *testing.T) {
 	testCorruptJournalDetail(t)
 	testCleanupAttempts(t)
 	testRuntimeBindings(t)
+	testRecoveryLocators(t)
 	t.Run("dependency_authority_is_explicit_immutable_and_runtime_bound", func(t *testing.T) {
 		r, _, _ := runtimeFixture(t)
 		suite, _ := r.RecoveryPath("suite.json")

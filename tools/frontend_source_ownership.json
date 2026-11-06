@@ -184,6 +184,9 @@
     {
       "owner_id": "web.imports",
       "paths": [
+        "apps/web/src/imports/CommittedSourceContext.tsx",
+        "apps/web/src/imports/CommittedSourcesPanel.test.tsx",
+        "apps/web/src/imports/CommittedSourcesPanel.tsx",
         "apps/web/src/imports/WorkbookImportController.node.test.ts",
         "apps/web/src/imports/WorkbookImportController.ts",
         "apps/web/src/imports/importCoordinator.test.ts",

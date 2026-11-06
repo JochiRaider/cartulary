@@ -36,7 +36,7 @@ func TestProductionDDLContaminationFailsBeforeMutation_Integration(t *testing.T)
 	finding := report.Findings[0]
 	if report.FromVersion != 0 || report.ToVersion != repositoryHead ||
 		finding.RawValue != nil || finding.RawValuePair.LineageTablePresent ||
-		finding.RemediationHint != "Destroy and recreate this database, then apply the Production DDL Rebaseline v3 catalog from version 1." {
+		finding.RemediationHint != "Destroy and recreate this database, then apply the Production DDL Rebaseline v4 catalog from version 1." {
 		t.Fatalf("unexpected contamination remediation: %#v", report)
 	}
 	var contaminantPresent, ledgerPresent, lineagePresent bool

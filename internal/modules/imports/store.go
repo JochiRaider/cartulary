@@ -149,20 +149,22 @@ type applyJobHandlerPayload struct {
 }
 
 type applyUnitData struct {
-	SourceCapability    ImportSourceCapability
-	UnitID              uuid.UUID
-	DiscoverySequence   int
-	SourceRows          []map[string]any
-	approvedMapping     approvedMapping
-	MappingFingerprint  string
-	SourceFileKind      string
-	SourceContentSHA256 string
-	SourceStreamRef     string
-	ParserProfileID     string
-	ParserVersion       string
-	LocatorKind         string
-	Locator             string
-	SourceRectA1        string
+	SourceProjectionDigest string
+	SourceProjectionCount  int
+	SourceCapability       ImportSourceCapability
+	UnitID                 uuid.UUID
+	DiscoverySequence      int
+	SourceRows             []map[string]any
+	approvedMapping        approvedMapping
+	MappingFingerprint     string
+	SourceFileKind         string
+	SourceContentSHA256    string
+	SourceStreamRef        string
+	ParserProfileID        string
+	ParserVersion          string
+	LocatorKind            string
+	Locator                string
+	SourceRectA1           string
 }
 
 type applyJournalParams struct {
@@ -483,7 +485,7 @@ func (s *store) saveMapping(ctx context.Context, params mappingParams) (map[stri
 			}
 		}
 		if params.Projection != nil {
-			if err := saveGenericProjectionTx(ctx, tx, params.SessionID, params.UnitID, *params.Projection); err != nil {
+			if err := s.saveGenericProjectionTx(ctx, tx, params.SessionID, params.UnitID, *params.Projection); err != nil {
 				return nil, err
 			}
 		}

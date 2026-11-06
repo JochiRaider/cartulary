@@ -941,6 +941,13 @@ type ImportCommittedSourceChunk struct {
 	SourceBytes   []byte `json:"source_bytes"`
 }
 
+type ImportCommittedSourceRecord struct {
+	IncidentID        pgtype.UUID `json:"incident_id"`
+	CommittedSourceID pgtype.UUID `json:"committed_source_id"`
+	SourceRowRef      int32       `json:"source_row_ref"`
+	RecordID          pgtype.UUID `json:"record_id"`
+}
+
 type ImportSession struct {
 	ImportSessionID         pgtype.UUID        `json:"import_session_id"`
 	IncidentID              pgtype.UUID        `json:"incident_id"`
@@ -1004,6 +1011,7 @@ type ImportUnit struct {
 	BlockingSourceColumnOrdinals []int32            `json:"blocking_source_column_ordinals"`
 	ApprovedHeaderRowRef         pgtype.Int4        `json:"approved_header_row_ref"`
 	ApprovedDataStartRowRef      pgtype.Int4        `json:"approved_data_start_row_ref"`
+	SourceRowsSha256             pgtype.Text        `json:"source_rows_sha256"`
 }
 
 type ImportUnitApplyOutcome struct {
@@ -1029,6 +1037,12 @@ type ImportUnitApplyOutcome struct {
 	CommittedAt              pgtype.Timestamptz `json:"committed_at"`
 	ErrorRetryable           bool               `json:"error_retryable"`
 	ErrorDetailsJson         []byte             `json:"error_details_json"`
+}
+
+type ImportUnitProjectionRow struct {
+	ImportUnitID pgtype.UUID `json:"import_unit_id"`
+	SourceRowRef int32       `json:"source_row_ref"`
+	RowJson      []byte      `json:"row_json"`
 }
 
 type Incident struct {

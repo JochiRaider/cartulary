@@ -181,7 +181,7 @@
         "tests": [
           "TestCatalogAppliesEveryVersionAndRejectsOrientationDowngrade_Integration",
           "TestMigrationLineagePreflightAllowsCurrentLine",
-          "TestMigrationLineagePreflightRejectsPreviousV2Lineage",
+          "TestMigrationLineagePreflightRejectsPreviousLineages",
           "TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase",
           "TestMigrationLineagePreflightReportsApplyHeadTarget",
           "TestProductionPreflightStateMatrix"

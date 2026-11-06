@@ -59,6 +59,19 @@
       }
     },
     {
+      "id": "credential_capacity_quiet",
+      "resource_claims": {
+        "cpu": 2,
+        "io": 2,
+        "memory_mb": 2048,
+        "object_store": 2,
+        "port_lane": 2,
+        "postgres": 2,
+        "process": 12,
+        "volume": 1
+      }
+    },
+    {
       "id": "harness_contract",
       "resource_claims": {
         "cpu": 4,

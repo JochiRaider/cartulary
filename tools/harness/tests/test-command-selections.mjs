@@ -122,12 +122,15 @@ test("installation operations validate all file producers before acquisition", (
   const owner = readOperationOwner(root);
   const environment = Object.fromEntries(operationBindingNames(owner).map((name) => [name, `/installed/${name}`]));
   environment.MAKE = "make";
-  for (const part of ["node", "frontend", "browser", "test_images", "full"]) {
+  for (const part of ["node", "go", "frontend", "browser", "test_images", "full"]) {
     const invocations = buildOperationSequence(owner, `harness.bootstrap_${part}`, environment);
     assert.equal(invocations[0].command, "make");
     assert.ok(invocations[0].args.slice(3).every((file) => path.isAbsolute(file)));
-    assert.equal(invocations.length, ["test_images", "full"].includes(part) ? 2 : 1);
+    assert.equal(invocations.length, ["go", "test_images", "full"].includes(part) ? 2 : 1);
   }
+  const go = buildOperationSequence(owner, "harness.bootstrap_go", environment);
+  assert.deepEqual(go[0].args.slice(3), [environment.NODE_BIN]);
+  assert.deepEqual(go[1].args.slice(-3), ["bash", "tools/harness/readiness/install-go-dependencies.sh", "--all"]);
   assert.throws(() => buildOperationSequence(owner, "harness.bootstrap_frontend", { ...environment, FRONTEND_INSTALL_STAMP: "retired-wrapper" }), /absolute file targets/u);
   assert.throws(() => buildOperationSequence(owner, "harness.bootstrap_full", { ...environment, GO_TOOLCHAIN: undefined }), /binding|template/u);
 });

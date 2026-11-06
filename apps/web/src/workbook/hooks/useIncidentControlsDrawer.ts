@@ -1,4 +1,5 @@
 import {
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -63,6 +64,8 @@ export function useIncidentControlsDrawer(
   importAssistantAvailable = false,
   onSectionChange?: (section: IncidentControlsSection | null) => void,
   reportingAvailable = false,
+  sourcesAvailable = false,
+  fallbackFocusRef?: RefObject<HTMLElement | null>,
 ) {
   const sectionChange = useRef(onSectionChange);
   sectionChange.current = onSectionChange;
@@ -112,28 +115,45 @@ export function useIncidentControlsDrawer(
     const returnFocusTarget = returnFocusTargetRef.current;
     if (returnFocusTarget?.isConnected) {
       returnFocusTarget.focus({ preventScroll: true });
+    } else if (fallbackFocusRef?.current?.isConnected) {
+      fallbackFocusRef.current.focus({ preventScroll: true });
     }
-  }, [drawerSection]);
+  }, [drawerSection, fallbackFocusRef]);
 
   useEffect(() => {
     if (
       (!importAssistantAvailable &&
         drawerSection === importAssistantMenuItem.section) ||
-      (!reportingAvailable && drawerSection === reportingMenuItem.section)
+      (!reportingAvailable && drawerSection === reportingMenuItem.section) ||
+      (!sourcesAvailable && drawerSection === "committed-sources")
     ) {
       setDrawerSection(null);
       setLastSection("summary");
     }
-  }, [drawerSection, importAssistantAvailable, reportingAvailable]);
+  }, [
+    drawerSection,
+    importAssistantAvailable,
+    reportingAvailable,
+    sourcesAvailable,
+  ]);
 
   const incidentControlsMenuItems = useMemo(
     () => [
       baseIncidentControlsMenuItems[0],
       ...(importAssistantAvailable ? [importAssistantMenuItem] : []),
       ...(reportingAvailable ? [reportingMenuItem] : []),
+      ...(sourcesAvailable
+        ? [
+            {
+              section: "committed-sources",
+              label: "Original import sources",
+              description: "Retained files, attribution, and mappings",
+            } as const,
+          ]
+        : []),
       ...baseIncidentControlsMenuItems.slice(1),
     ],
-    [importAssistantAvailable, reportingAvailable],
+    [importAssistantAvailable, reportingAvailable, sourcesAvailable],
   );
 
   const accountIncidentControls = useMemo<

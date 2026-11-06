@@ -126,6 +126,13 @@ const makeNodeTools = {
     },
   },
   "task-guide": ownerDiagnosticTool("task-guide", "task-guide"),
+  "release-evidence-verify": {
+    inputs: ["EVIDENCE_ROOTS_FILE"],
+    runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],
+    script: "./tools/release-evidence/release-evidence-verify.mjs",
+    usage: "usage: make release-evidence-verify EVIDENCE_ROOTS_FILE=<path>",
+    buildArgs(env) { return ["--evidence-roots-file", value(env, "EVIDENCE_ROOTS_FILE")]; },
+  },
   "test-evidence-audit": {
     inputs: ["OWNER", "EVIDENCE_ROOTS_FILE"],
     runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],

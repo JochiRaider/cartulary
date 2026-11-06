@@ -524,7 +524,6 @@ function requiresLiteralMakeTransport(input) {
   if (input?.child_forwarding === "argv") return true;
   return (
     input?.binding === "make_variable" &&
-    input?.required === true &&
     input?.summary_emission === "redacted_value" &&
     Array.isArray(input?.allowed_sources) &&
     input.allowed_sources.length === 1 &&

@@ -68,7 +68,7 @@ A row that cannot be classified by these tables MUST use `TODO: owner decision r
 
 An incident membership is the current relationship between an incident and a user. Its version is a concurrency token whose issued history survives removal of that relationship; the version history is operational recovery state, not portable incident membership content. Core 01 REQ-01-132b owns these behavior rules.
 
-Local composition validation describes authoring validity only. A Reporting preview is an internal-draft render attempt with its own identity; a release has a separate identity and qualification workflow. Report Composition owns authoring and validation vocabulary; Reporting owns render admission, retained dependencies and output derivation. Reporting 1.4.0 and Report Composition 1.3.0 are coordinated adopted owners under the immutable human-review record in Core 00 §1.2. This vocabulary statement does not independently establish implementation or release conformance.
+Local composition validation describes authoring validity only. A Reporting preview is an internal-draft render attempt with its own identity; a release has a separate identity and qualification workflow. Report Composition owns authoring and validation vocabulary; Reporting owns render admission, retained dependencies and output derivation. The current owners are Reporting 1.5.0 and Report Composition 1.3.1. Core 00 §1.2 preserves the historical coordinated adoption of Reporting 1.4.0 and Composition 1.3.0; later adopted amendments govern the current revisions. This vocabulary statement does not independently establish implementation or release conformance.
 
 ## 2. Purpose
 
@@ -596,6 +596,9 @@ Declared scope: repository-wide terms whose misunderstanding would cause behavio
 | Import apply dispatcher | Import-owned internal coordinator that applies an approved unit through exactly one registry-selected view-owner create facade or analytical-owner facade binding. | Workbook store, parser, grid adapter, owner source module, or target-specific mutation implementation. | `import_apply_dispatcher_v1` | §11 | Core 01/Core 03 | `extension-profile` | `current-extension-when-claimed` |
 | Import target registry | Generated Core projection that declares each view or analytical import target, its availability, owning contract, facade binding, and public disposition. | View-schema registry replacement, visible worksheet list, source scan, test inventory, or runtime callback registry. | `cartulary.import_target_registry.v1` | §11 | Core 01; target owner for analytical binding facts | `extension-profile` | `current-extension-when-claimed` |
 | Analytical import facade binding | Internal typed join between Core import orchestration and one analytical target owner's exact mapping, preview, apply, result, error, and commit contracts. | Generic callback, public bearer capability, duplicate Core definition of a target payload, or runtime plugin. | `cartulary.imports.analytical_facade_binding.v1` | §11 | Core 01 for binding shape; target NLSpec for referenced exact schemas | `extension-profile` | `current-extension-when-claimed` |
+| Committed source | Imports-owned immutable provenance for one successfully applied unit, including original bytes, interpretation, mapping and historical attribution. | Import session, unit, job, receipt, or content digest alone. | `committed_source_id` | §11.3 | Core 01 REQ-01-685; Imports | `extension-profile` | `current-extension-when-claimed` |
+| Selected-source binding | Immutable source selection and expected result of the last successful saved-graph materialization. | Refresh intent, current table names, or materialization job. | `cartulary.network_flow.selected_source_binding.v1` | §11.3 | Network Flow Activity NF-REQ-222 | `extension-profile` | `current-extension-when-claimed` |
+| Refresh intent | Query and table-selection policy for a future explicit saved-graph refresh. | The retained sources of the selected historical result. | saved-graph declaration | §11.3 | Network Flow Activity NF-REQ-222 | `extension-profile` | `current-extension-when-claimed` |
 | Network Flow table | Incident-scoped analytical resource containing one atomically published set of normalized immutable flow rows while the Network Flow Activity profile is claimed. | Core record, view schema, saved view, import unit, worksheet, filename, raw telemetry stream, or physical SQL table. | `network_flow_table_id` | §11 | Network Flow Activity NLSpec; Core 01 for import/public reference interfaces | `extension-profile` | `current-extension-when-claimed` |
 | Network Flow row | Immutable normalized analytical row owned by one Network Flow table. | `view_row_v1`, Core record revision, indicator observation, graph node, raw SIEM/EDR event, or mutable spreadsheet row. | table-scoped Network Flow row identity | §11 | Network Flow Activity NLSpec | `extension-profile` | `current-extension-when-claimed` |
 | Network Analysis workspace | Claimed extension workspace for working with active Network Flow tables and derived graph/query results. | Base built-in tab, system view, saved view, `view_schema_id`, full application module, or identity inferred from the `Network Analysis` label. | owner-adopted extension workspace identity and `sheet_ref` variant | §11 | Core 01/Core 03; Network Flow Activity NLSpec | `extension-profile` | `current-extension-when-claimed` |
@@ -680,6 +683,9 @@ Declared scope: every term row in §11. Completion rule: each §11 term appears 
 | Import apply dispatcher | Imports and Tabular Ingest | Internal apply-boundary language. |
 | Import target registry | Imports and Tabular Ingest | Registry and target-ownership language. |
 | Analytical import facade binding | Imports and Tabular Ingest | Core-to-analytical-owner contract-join language. |
+| Committed source | Imports and tabular ingest | Immutable provenance independent of operational workflow lifetime. |
+| Selected-source binding | Network Flow Analysis | Exact retained materialization history. |
+| Refresh intent | Network Flow Analysis | Future explicit-refresh policy. |
 | Network Flow table | Network Flow Analysis | Current extension-profile analytical-resource language when the profile is claimed. |
 | Network Flow row | Network Flow Analysis | Current extension-profile normalized-row language when the profile is claimed. |
 | Network Analysis workspace | Network Flow Analysis | Current claimed extension-workspace language distinct from the Base surface registry. |
@@ -699,6 +705,32 @@ Declared scope: every term row in §11. Completion rule: each §11 term appears 
 | Composition diagram declaration | Reporting and Snapshots | Extension-profile diagram authoring language. |
 | Composition diagram layout | Reporting and Snapshots | Extension-profile diagram layout authoring language. |
 | Report builder | Reporting and Snapshots | Extension-profile builder UI language. |
+
+### 11.2 Network Flow endpoint and direction vocabulary
+
+An observation retains canonical **Endpoint A** and **Endpoint B** tuples, each
+with an IP and nullable port. Storage order is independent of traffic meaning.
+Cisco Flow Search orientation reports client/server roles; declared
+source/destination exports report source/destination direction. Unknown direction
+is an accepted observation, not bidirectional traffic. Conversation totals do
+not measure bytes or packets in the arrow’s direction. Original subject/peer
+attribution is derivation evidence, not an endpoint role inferred from position.
+
+
+### 11.3 Committed source and selected graph history terminology
+
+A **committed source** is Imports-owned immutable provenance for a successfully
+applied unit: exact original source bytes, parser and locator identity, source
+columns, approved mapping, target and historical attribution. It survives
+Import workflow cleanup. An Import session, unit, job or receipt describes the
+operational workflow and is not the identity or lifetime of committed provenance.
+
+A saved graph's **selected-source binding** describes the exact retained inputs
+and expected result of its last successful materialization. **Refresh intent**
+is the query and selection policy for a future explicit refresh. Retirement or
+source soft deletion preserves selected history without permitting refresh or
+changing active-query visibility. Incident transfer moves authoritative
+investigation state; deployment recovery restores its separately owned inventory.
 
 ## 12. Entity and relationship model
 
@@ -1189,7 +1221,6 @@ Declared scope: known future-only topics that appear in the current document set
 
 | Topic | Current status | Current handling | Allowed locations now | Required next step |
 | --- | --- | --- | --- | --- |
-| Network Flow Activity claim and runtime behavior | Adopted/current bounded extension identity, claimable only after deployment configuration validates. | Permit unclaimed discovery identity; expose route, workspace, storage, and conformance behavior only when claimed. | Adopted NLSpec, Core owner amendments, validated deployment configuration, implementation, fixtures, and executable evidence. | Keep owner interfaces, contracts, runtime, fixtures, and evidence synchronized for each later revision. |
 | Whole-incident removal and Network Flow purge cascade | Future-only; the current incident lifecycle has only active/closed plus close/reopen. | Reject a Network Flow-specific purge route, private incident-removal state, or claim that incident closure deletes extension data. | Future profile design and explicitly labeled follow-up obligations only. | Define a generic Core incident-removal lifecycle and cascade-participant interface before admitting Network Flow. |
 | New first-class hypothesis record type | Not current-profile behavior. Hypotheses remain artifact-backed findings. | Reject current-profile implementation as a first-class `record_type`; allow only artifact-backed finding language. | §11 Finding row, roadmap text, non-normative rationale. | Define a later NLSpec or profile if promotion becomes necessary. |
 | Party merge and phone-based dedupe | Not standardized in the current profile. | Reject implementation claims of standardized party merge or phone-based dedupe. | Roadmap text or non-normative examples labeled future-only. | Define explicit party merge, phone normalization, and dedupe semantics before implementing. |
@@ -1199,29 +1230,3 @@ Declared scope: known future-only topics that appear in the current document set
 | Cross-incident analytics | Reserved for future specification work. | Reject current-profile cross-incident query or analytics claims. | Roadmap, research, or non-normative product strategy text. | Define cross-incident data model, privacy boundary, query surface, and conformance criteria. |
 | Local-account WebAuthn/passkeys | Not current-profile behavior. | Reject current-profile auth route, registration, assertion, credential enumeration, or recovery semantics. | Security roadmap text labeled future-only. | Define a later auth NLSpec or Core 04 revision. |
 | Durable local draft persistence | Not current-profile behavior unless an owner spec adds it. | Reject claims that pending browser edits survive reload, cross-tab transfer, or offline multi-master operation. | Implementation-support rationale labeled future-only. | Define local draft storage, replay, conflict, security, and cleanup semantics. |
-
-### Network Flow endpoint and direction vocabulary
-
-An observation retains canonical **Endpoint A** and **Endpoint B** tuples, each
-with an IP and nullable port. Storage order is independent of traffic meaning.
-Cisco Flow Search orientation reports client/server roles; declared
-source/destination exports report source/destination direction. Unknown direction
-is an accepted observation, not bidirectional traffic. Conversation totals do
-not measure bytes or packets in the arrow’s direction. Original subject/peer
-attribution is derivation evidence, not an endpoint role inferred from position.
-
-
-## Committed source and selected graph history terminology
-
-A **committed source** is Imports-owned immutable provenance for a successfully
-applied unit: exact original source bytes, parser and locator identity, source
-columns, approved mapping, target and historical attribution. It survives
-Import workflow cleanup. An Import session, unit, job or receipt describes the
-operational workflow and is not the identity or lifetime of committed provenance.
-
-A saved graph's **selected-source binding** describes the exact retained inputs
-and expected result of its last successful materialization. **Refresh intent**
-is the query and selection policy for a future explicit refresh. Retirement or
-source soft deletion preserves selected history without permitting refresh or
-changing active-query visibility. Incident transfer moves authoritative
-investigation state; deployment recovery restores its separately owned inventory.

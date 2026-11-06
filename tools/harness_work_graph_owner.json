@@ -329,7 +329,10 @@
       "harness.package_archive",
       "harness.package_startup",
       "harness.package_reference_pack",
-      "harness.package_recovery"
+      "harness.package_recovery",
+      {
+        "operation_id": "harness.credential_capacity_assessment"
+      }
     ],
     "harness.contract_regression": [
       "harness.assurance_execution_topology",
@@ -1123,7 +1126,7 @@
       ],
       "cache_policy": "none",
       "estimated_work_ms": 180000,
-      "resource_profile_id": "package_qualification",
+      "resource_profile_id": "credential_capacity_quiet",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -2210,7 +2213,7 @@
           "$(EMBEDDED_CLIENT_ASSET_MANIFEST)",
           "$(EMBEDDED_CLIENT_SUPPORT_REGISTRY)",
           "$(EMBEDDED_BROWSER_BOOTSTRAP)",
-        "$(EMBEDDED_EXTENSION_INTEGRITY)",
+          "$(EMBEDDED_EXTENSION_INTEGRITY)",
           "$(EMBEDDED_EXTENSION_INTEGRITY_DIGEST)",
           "$(EMBEDDED_WEB_ASSET_ARCHIVE)",
           "$(EMBEDDED_WEB_ASSET_READY_STAMP)",
@@ -5192,6 +5195,23 @@
         ]
       }
     },
+    "harness.bootstrap_go": {
+      "report_key": "bootstrap-go",
+      "kind": "artifact",
+      "execution": {
+        "type": "installation",
+        "prerequisites": ["$(NODE_BIN)"],
+        "mode": "command",
+        "command": [
+          "env",
+          "GO=$(GO)",
+          "GO_TOOLCHAIN=$(GO_TOOLCHAIN)",
+          "bash",
+          "tools/harness/readiness/install-go-dependencies.sh",
+          "--all"
+        ]
+      }
+    },
     "harness.bootstrap_frontend": {
       "report_key": "bootstrap-frontend",
       "kind": "artifact",
@@ -5765,6 +5785,34 @@
         "type": "artifact_binding"
       },
       "kind": "artifact"
+    },
+    "harness.release_evidence_verify": {
+      "report_key": "release-evidence-verify",
+      "execution": {
+        "type": "owner_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "graph_entry": true,
+        "tool_id": "release-evidence-verify"
+      },
+      "kind": "policy"
+    },
+    "harness.test_run_recovery_status": {
+      "report_key": "test-run-recovery-status",
+      "execution": {
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {},
+        "command": [
+          "$(HARNESS_RUNTIME_BIN)",
+          "recover-status"
+        ]
+      },
+      "kind": "policy"
     }
   },
   "row_execution_contexts": {

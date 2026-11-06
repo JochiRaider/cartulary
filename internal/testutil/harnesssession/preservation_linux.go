@@ -247,7 +247,7 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 			}
 			// A dead owner does not prove that its admitted detail writers or
 			// marked descendants stopped. Use the same fenced native boundary.
-			runtime := &Runtime{Root: path, RunID: owner["run_id"].(string), LeaseID: owner["lease_id"].(string), Directory: d, owned: true}
+			runtime := &Runtime{Root: path, RunID: owner["run_id"].(string), LeaseID: owner["lease_id"].(string), Directory: d, owned: true, Repository: owner["repository"].(string), RunRoot: owner["run_root"].(string)}
 			resources, err := runtime.resources(4096)
 			if err != nil {
 				return err
@@ -277,8 +277,12 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 			if err := runtime.purgeDetail("ordinary"); err != nil {
 				return err
 			}
+			if err = runtime.setRecoveryLocatorState("settling"); err != nil {
+				return err
+			}
 			if err = RemoveOwnedTree(d, path); err == nil {
 				removed++
+				err = runtime.setRecoveryLocatorState("settled")
 			}
 			return err
 		}

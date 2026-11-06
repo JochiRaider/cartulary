@@ -256,7 +256,7 @@ VALUES ($1, 'export', $2, $3, $4, $5, $5)
 		t.Fatal(readErr)
 	}
 	var manifest incidentBundleManifestMirror
-	if err := json.Unmarshal(zipMemberBytes(t, artifact, "manifest.json"), &manifest); err != nil || manifest.BundleVersion != 6 {
+	if err := json.Unmarshal(zipMemberBytes(t, artifact, "manifest.json"), &manifest); err != nil || manifest.BundleVersion != 7 {
 		t.Fatalf("previously queued export did not generate v4: version=%d err=%v", manifest.BundleVersion, err)
 	}
 }

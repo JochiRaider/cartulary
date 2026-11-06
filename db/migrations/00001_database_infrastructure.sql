@@ -73,7 +73,7 @@ GRANT SELECT ON TABLE public.schema_migration_lineage TO cartulary_runtime;
 
 GRANT SELECT ON TABLE public.schema_migration_lineage TO cartulary_recovery;
 
-INSERT INTO public.schema_migration_lineage (lineage_id, description) VALUES ('cartulary.prod_ddl_rebaseline.v3', 'PostgreSQL 18.6 consolidated owner catalog.');
+INSERT INTO public.schema_migration_lineage (lineage_id, description) VALUES ('cartulary.prod_ddl_rebaseline.v4', 'PostgreSQL 18.6 consolidated owner catalog.');
 
 GRANT SELECT ON TABLE public.goose_db_version TO cartulary_runtime, cartulary_recovery;
 

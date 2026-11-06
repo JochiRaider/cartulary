@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.release_evidence_closure.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "status",
+    "source_digest",
+    "manifest_sha256",
+    "archive_sha256",
+    "accepted"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.release_evidence_closure.v1"
+    },
+    "status": {
+      "const": "pass"
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "archive_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "accepted": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "cartulary.release_evidence_accepted.v1",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_id",
+          "run_root",
+          "graph_digest",
+          "row_ids"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "run_root": {
+            "type": "string",
+            "minLength": 1
+          },
+          "graph_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "row_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  }
+}

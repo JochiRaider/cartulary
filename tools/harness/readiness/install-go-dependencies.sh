@@ -19,6 +19,12 @@ if [[ "${1:-}" == --analysis ]]; then
 elif [[ "$#" -ne 0 ]]; then
   echo 'usage: install-go-dependencies.sh [--analysis|--all]' >&2
   exit 2
+else
+  # Explicit bootstrap is the dependency-maintenance boundary. Let Go update
+  # its managed checksum file and retire dependencies removed from imports.
+  env GOTOOLCHAIN="${GO_TOOLCHAIN:?}" GOTELEMETRY=off \
+    GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" \
+    "${GO:?}" mod tidy
 fi
 env GOTOOLCHAIN="${GO_TOOLCHAIN:?}" GOTELEMETRY=off \
   GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" \

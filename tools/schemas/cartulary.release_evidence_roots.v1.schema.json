@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.release_evidence_roots.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_roots"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.release_evidence_roots.v1"
+    },
+    "run_roots": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "maxItems": 512
+    }
+  }
+}

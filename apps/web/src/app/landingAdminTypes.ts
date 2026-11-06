@@ -10,6 +10,7 @@ export type IncidentStatusFilter = "active" | "all" | "closed";
 export type IncidentControlsSection =
   | "snapshot-reports"
   | "import-assistant"
+  | "committed-sources"
   | "incident-fields"
   | "membership-audit"
   | "memberships"

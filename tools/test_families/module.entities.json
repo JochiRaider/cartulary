@@ -487,9 +487,11 @@
         "project_id": "chromium",
         "stage": "stateful",
         "scenario_ids": [
-          "scenario_44ab7ce702f1"
+          "scenario_44ab7ce702f1",
+          "scenario_ir_shared_aliases"
         ],
         "titles": [
+          "IR shared host and identity aliases require explicit selection and retain dismissal history",
           "Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows."
         ]
       },

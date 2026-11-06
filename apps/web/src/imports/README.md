@@ -13,6 +13,8 @@ and the [Import Assistant](../workbook/features/README.md) supplies presentation
 
 | File | Responsibility |
 | --- | --- |
+| [CommittedSourceContext.tsx](CommittedSourceContext.tsx) | Narrow navigation capability from imported data to immutable source inspection. |
+| [CommittedSourcesPanel.tsx](CommittedSourcesPanel.tsx) | Bounded source-list and detail observations, original attribution and explicit byte download. |
 | [importCoordinator.ts](importCoordinator.ts) | Paginated discovery, preview, mapping approval, selection, apply, polling, and cancellation orchestration over validated Import/job operations. |
 | [importRequests.ts](importRequests.ts) | Captures immutable upload and write attempts with scope and transaction identity for replay. |
 | [WorkbookImportController.ts](WorkbookImportController.ts) | Workbook import workflow owner for upload, mapping, approval, selection, apply, and recovery. |
@@ -43,3 +45,5 @@ file contents, filenames, credentials, or an inferred completion timestamp.
 Apply acceptance precedes the mandatory current-session and selection reads; a
 replay retains the same transaction and records another dispatch, not another
 accepted action.
+
+[CommittedSourcesPanel.test.tsx](CommittedSourcesPanel.test.tsx) covers separate application identities for equal bytes, inert text, deliberate downloads and detached/read-denied observations.

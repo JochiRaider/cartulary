@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.recovery_state_catalog.v2",
-  "catalog_digest_sha256": "8c30679292984edd5c4cc412b14b4fc3ddb6b7ab2ff75651fca5dbbf1994c3df",
+  "catalog_digest_sha256": "b2b352c3fb2105c7371ae6d03f62572408fd7814fddd7203e5a3f00d25530be1",
   "contribution_digests": [
     {
       "owner_id": "module.artifacts",
@@ -48,7 +48,7 @@
     },
     {
       "owner_id": "module.imports",
-      "sha256": "729357143f6c656d9efb062dabf08bf7d2979c3fb345e3e45fec4407c8658021"
+      "sha256": "8cb73c42a037d99ab5c8a7ff4b49d6046057cdcabd657e94d1a89065b62c0ba1"
     },
     {
       "owner_id": "module.incidentbundles",
@@ -657,6 +657,15 @@
     },
     {
       "owner_id": "module.imports",
+      "table_name": "import_committed_source_records",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.imports",
       "table_name": "import_committed_sources",
       "state_class": "authoritative",
       "backup_inclusion": "authoritative_required",
@@ -685,6 +694,15 @@
     {
       "owner_id": "module.imports",
       "table_name": "import_unit_apply_outcomes",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.imports",
+      "table_name": "import_unit_projection_rows",
       "state_class": "authoritative",
       "backup_inclusion": "authoritative_required",
       "restore_action": "restore",

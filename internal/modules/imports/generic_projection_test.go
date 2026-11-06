@@ -99,7 +99,7 @@ func TestGenericCSVCancellation(t *testing.T) {
 		}
 	}
 	ctx, cancel := context.WithCancel(t.Context())
-	result, err := scanGenericCSV(ctx, strings.NewReader("a\nx\ny\n"), func(map[string]any) { cancel() })
+	result, err := scanGenericCSV(ctx, strings.NewReader("a\nx\ny\n"), func(map[string]any) error { cancel(); return nil })
 	if !errors.Is(err, context.Canceled) || !reflect.DeepEqual(result, genericCSVPreview{}) {
 		t.Fatalf("materialization cancellation: %#v %v", result, err)
 	}
@@ -133,7 +133,7 @@ func TestGenericCSVRaggedResourceBudget(t *testing.T) {
 			}
 		}
 	})
-	measure("approval", func() {
+	measure("full materialization control", func() {
 		projection, err := materializeGenericCSV(t.Context(), strings.NewReader(source))
 		if err != nil {
 			t.Fatal(err)
@@ -294,4 +294,20 @@ func TestGenericCSVAbsentMapping(t *testing.T) {
 			t.Fatalf("absent fields: %#v", plan)
 		}
 	}
+}
+
+// Test-only full-retention control; production approval always streams.
+func materializeGenericCSV(ctx context.Context, source io.Reader) (discoveredUnit, error) {
+	rows := make([]map[string]any, 0)
+	preview, err := scanGenericCSV(ctx, source, func(row map[string]any) error { rows = append(rows, row); return nil })
+	if err != nil {
+		return discoveredUnit{}, err
+	}
+	return discoveredUnit{
+		LocatorKind: "csv_file", Locator: "file", SourceRectA1: preview.SourceRectA1,
+		HeaderRowRef: preview.HeaderRowRef, DataStartRowRef: preview.DataStartRowRef,
+		InferredRowCount: preview.InferredRowCount, InferredColumnCount: preview.InferredColumnCount,
+		WarningCodes: preview.WarningCodes, BlockingColumns: []int{}, Columns: preview.Columns,
+		PreviewRows: preview.PreviewRows, SourceRows: rows,
+	}, nil
 }

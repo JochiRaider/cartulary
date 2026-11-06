@@ -201,6 +201,7 @@
             "enum": [
               "backend_capacity_isolated",
               "browser_ordinary",
+              "credential_capacity_quiet",
               "browser_measurement_quiet",
               "harness_contract",
               "harness_installed_browser",

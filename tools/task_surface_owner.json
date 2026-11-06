@@ -93,11 +93,12 @@
       "package-inspect",
       "package-release",
       "release-check",
+      "release-evidence-verify",
       "seaweedfs-compatibility",
       "seaweedfs-release-gate",
+      "source-check",
       "test-fast",
-      "test-slice",
-      "source-check"
+      "test-slice"
     ],
     "excluded_targets": [
       {
@@ -296,6 +297,11 @@
         "target": "test-run-recover",
         "owner_section": "Section 11",
         "reason": "Exact failed-run cleanup has resource-dependent work and never constitutes execution-cost or test acceptance evidence."
+      },
+      {
+        "target": "test-run-recovery-status",
+        "owner_section": "Section 11",
+        "reason": "Read-only exact recovery lookup does not execute test work."
       }
     ]
   },
@@ -317,7 +323,7 @@
       },
       {
         "target": "bootstrap",
-        "description": "install pinned tools and frontend/browser dependencies"
+        "description": "install pinned tools and dependencies; PART=go prunes and resolves Go modules"
       },
       {
         "target": "services-up",
@@ -369,7 +375,7 @@
         },
         {
           "target": "bootstrap",
-          "description": "install pinned tools and frontend/browser dependencies"
+          "description": "install pinned tools and dependencies; PART=go prunes and resolves Go modules"
         },
         {
           "target": "frontend-lockfile-update",
@@ -612,12 +618,17 @@
         },
         {
           "target": "test-run-recover",
-          "usage": "RESULTS_DIR=<exact-run> RUNTIME_ROOT=<private-runtime> RUNTIME_LEASE_ID=<lease>",
+          "usage": "RESULTS_DIR=<exact-run> [RUNTIME_ROOT=<private-runtime> RUNTIME_LEASE_ID=<lease>]",
           "description": "recover exact owned resources without changing original test evidence"
         },
         {
           "target": "source-check",
           "description": "validate authored and generated source integrity; CHECK selects a boundary"
+        },
+        {
+          "target": "test-run-recovery-status",
+          "usage": "RESULTS_DIR=<exact-run>",
+          "description": "resolve exact owner-issued recovery binding without cleanup"
         }
       ]
     },
@@ -657,6 +668,11 @@
         {
           "target": "package-inspect",
           "description": "install and inspect the exact archive without a checkout or build tools"
+        },
+        {
+          "target": "release-evidence-verify",
+          "description": "verify selected retained release evidence without launching tests",
+          "usage": "EVIDENCE_ROOTS_FILE=<path>"
         }
       ]
     }
@@ -994,6 +1010,14 @@
     "test-run-recover": {
       "type": "operation",
       "operation_id": "harness.test_run_recover"
+    },
+    "release-evidence-verify": {
+      "type": "operation",
+      "operation_id": "harness.release_evidence_verify"
+    },
+    "test-run-recovery-status": {
+      "type": "operation",
+      "operation_id": "harness.test_run_recovery_status"
     }
   },
   "targets": [
@@ -5023,6 +5047,16 @@
             "configured external GOMODCACHE exact automatic-toolchain module when absent"
           ],
           "cleanup": "repo-local clean and distclean policies preserve or remove owned roots according to Section 13; the external Go cache remains borrowed and is never cleanup-owned"
+        },
+        {
+          "class": "authored_source_write",
+          "owner_section": "Section 5",
+          "paths": [
+            "go.mod",
+            "go.sum",
+            "tools/go-analysis/go.mod",
+            "tools/go-analysis/go.sum"
+          ]
         }
       ],
       "input_contract": {
@@ -5045,6 +5079,7 @@
             "child_forwarding": "argv",
             "values": [
               "node",
+              "go",
               "frontend",
               "browser",
               "test-images"
@@ -5061,6 +5096,7 @@
         "input": "PART",
         "variants": {
           "node": "harness.bootstrap_node",
+          "go": "harness.bootstrap_go",
           "frontend": "harness.bootstrap_frontend",
           "browser": "harness.bootstrap_browser",
           "test-images": "harness.bootstrap_test_images"
@@ -9464,7 +9500,7 @@
         "raw_stream_policy": "failure_or_verbose",
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
-      "command_id": "cartulary.harness.command.test_run_recover.v1",
+      "command_id": "cartulary.harness.command.test_run_recover.v2",
       "semantic_behaviors": [
         {
           "behavior": "service_lifecycle",
@@ -9526,7 +9562,7 @@
             "allowed_sources": [
               "make_command_line"
             ],
-            "required": true,
+            "required": false,
             "type": "path",
             "default": null,
             "empty_string": "invalid",
@@ -9541,11 +9577,241 @@
             "allowed_sources": [
               "make_command_line"
             ],
-            "required": true,
+            "required": false,
             "type": "semantic_text",
             "default": null,
             "empty_string": "invalid",
             "normalization": "trim",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
+      "name": "release-evidence-verify",
+      "backing_scripts": [
+        "tools/release-evidence/release-evidence-verify.mjs",
+        "tools/release-evidence/verify-selected-evidence.mjs",
+        "tools/release-evidence/package-identity.mjs",
+        "tools/harnessruntime/main.go"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "run_and_target_summaries",
+        "success_budget": {
+          "stdout_lines": 3,
+          "stdout_bytes": 1000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 40,
+          "stderr_bytes": 8000,
+          "excerpt_lines": 30,
+          "excerpt_bytes": 6000
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.harness_run_summary.v1"
+      },
+      "command_id": "cartulary.harness.command.release_evidence_verify.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        },
+        {
+          "behavior": "scheduler_orchestration",
+          "owner_section": "Section 10"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "generated_drift",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "run_and_target_summaries"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_HARNESS_CACHE_MODE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "normal",
+              "cold",
+              "off"
+            ],
+            "default": "normal",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "EVIDENCE_ROOTS_FILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "HARNESS_ACCOUNTING",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "required"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
+      "name": "test-run-recovery-status",
+      "backing_scripts": [
+        "tools/harnessruntime/main.go",
+        "internal/testutil/harnessfixtures/recover_command_linux.go",
+        "internal/testutil/harnessfixtures/recovery_linux.go"
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 32,
+          "stdout_bytes": 8192,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.test_run_recovery_status.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 15"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
             "invalid_reason": "configuration_error",
             "summary_emission": "redacted_value",
             "child_forwarding": "runtime_env"

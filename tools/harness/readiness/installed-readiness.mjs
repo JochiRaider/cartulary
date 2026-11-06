@@ -75,17 +75,19 @@ export function coreReadiness(root = repoRoot, { runner = spawnSync, environment
   return probe("frontend_dependencies", "frontend_install", () => {
     resolvePlaywrightPackages(root);
     const manifest = json(path.join(root, "package.json"));
+    const require = createRequire(path.join(root, "package.json"));
+    const axeRequire = createRequire(require.resolve("@axe-core/playwright"));
     const versions = {};
     for (const [name, expected] of Object.entries(pins.ui_review)) {
-      const installed = json(path.join(root, "node_modules", name, "package.json"));
-      if (installed.version !== expected || manifest.devDependencies[name] !== expected) throw new Error("package pin mismatch");
+      // Validate the engine actually loaded by the adapter; no duplicate root
+      // dependency is needed merely to check its version.
+      const installed = name === "axe-core" ? json(axeRequire.resolve("axe-core/package.json")) : json(path.join(root, "node_modules", name, "package.json"));
+      if (installed.version !== expected || name !== "axe-core" && manifest.devDependencies[name] !== expected) throw new Error("package pin mismatch");
       versions[name] = installed.version;
     }
-    const require = createRequire(path.join(root, "package.json"));
     if (require("sharp").versions.sharp !== versions.sharp) throw new Error("native image runtime unavailable");
     const playwrightRequire = createRequire(require.resolve("playwright"));
-    const axeRequire = createRequire(require.resolve("@axe-core/playwright"));
-    if (Object.keys(versions).length !== 5 || versions.playwright !== versions["playwright-core"] || playwrightRequire("playwright-core/package.json").version !== versions.playwright || axeRequire("axe-core/package.json").version !== versions["axe-core"]) throw new Error("nested engine mismatch");
+    if (Object.keys(versions).length !== 5 || versions.playwright !== versions["playwright-core"] || playwrightRequire("playwright-core/package.json").version !== versions.playwright) throw new Error("nested engine mismatch");
     return { pins_sha256: hash(readFileSync(path.join(root, "tools/toolchain_pins.json"))), lock_sha256: hash(readFileSync(path.join(root, "pnpm-lock.yaml"))), node_version: pins.node_version,
       playwright_version: versions.playwright, sharp_version: versions.sharp, axe_version: versions["axe-core"] };
   });

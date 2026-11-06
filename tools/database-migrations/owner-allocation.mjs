@@ -21,4 +21,5 @@ export const ownersByVersion = new Map([
  [44, "indicators"],
  [45, "reporting"],
  [46, "incidentbundles"],
+ [47, "imports"],
 ]);

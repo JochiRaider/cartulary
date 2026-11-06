@@ -272,7 +272,7 @@ func taskDecisionImportContext(harness tasksDecisionsPortabilityHarness, operati
 	return sourceport.ImportContext{
 		IncidentID:    harness.incidentID,
 		ActorUserID:   harness.actor.ID,
-		BundleVersion: 6,
+		BundleVersion: 7,
 		OperationID:   "tasks-decisions-" + operationID,
 		Actors:        actors,
 	}

@@ -26,8 +26,8 @@ type migrationHistoryManifestEntry struct {
 }
 
 const (
-	expectedCanonicalLineageID       = "cartulary.prod_ddl_rebaseline.v3"
-	expectedCanonicalLineageBoundary = "prod_ddl_rebaseline_v3"
+	expectedCanonicalLineageID       = "cartulary.prod_ddl_rebaseline.v4"
+	expectedCanonicalLineageBoundary = "prod_ddl_rebaseline_v4"
 )
 
 func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {

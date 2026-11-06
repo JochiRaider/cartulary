@@ -47,6 +47,24 @@ export type JobScope = {
 };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ApprovedImportMapping".
+ */
+export type ApprovedImportMapping = {
+  extension_profile_id?: string;
+  owner_mapping?: {
+    [k: string]: unknown;
+  };
+  owner_mapping_schema_id?: string;
+  source_columns: ImportSourceColumnMapping[];
+  target_kind?: string;
+  target_view_schema_id?: string;
+  unknown_column_policy?: "preserve_raw_capture" | "preserve_custom_attrs" | "reject_if_unmapped";
+} & ApprovedImportMapping1;
+export type ApprovedImportMapping1 = {
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ViewMutationData".
  */
 export type ViewMutationData = ViewMutationDataFields;
@@ -141,24 +159,6 @@ export type ImportUnit = {
     "discovered" | "selected" | "mapped" | "ready" | "applying" | "applied" | "skipped" | "rejected" | "failed";
   warning_codes: string[];
 } & ImportUnit1;
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ApprovedImportMapping".
- */
-export type ApprovedImportMapping = {
-  extension_profile_id?: string;
-  owner_mapping?: {
-    [k: string]: unknown;
-  };
-  owner_mapping_schema_id?: string;
-  source_columns: ImportSourceColumnMapping[];
-  target_kind?: string;
-  target_view_schema_id?: string;
-  unknown_column_policy?: "preserve_raw_capture" | "preserve_custom_attrs" | "reject_if_unmapped";
-} & ApprovedImportMapping1;
-export type ApprovedImportMapping1 = {
-  [k: string]: unknown;
-};
 export type ImportUnit1 =
   | {
       data_start_row_ref?: null;
@@ -603,6 +603,82 @@ export interface AdministrativeAuditChange {
   before: unknown;
   field_path: string;
   value_state: "redacted" | "visible";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CommittedImportSourceEnvelope".
+ */
+export interface CommittedImportSourceEnvelope {
+  data: CommittedImportSource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CommittedImportSource".
+ */
+export interface CommittedImportSource {
+  approved_mapping: ApprovedImportMapping;
+  byte_size: number;
+  committed_at: string;
+  committed_source_id: string;
+  content_sha256: string;
+  created_by_user_id: string;
+  data_start_row_ref: number;
+  extension_profile_id: string;
+  header_row_ref: number;
+  incident_id: string;
+  locator: string;
+  locator_kind: string;
+  mapping_fingerprint: string;
+  origin_import_session_id: string;
+  origin_import_unit_id: string;
+  original_filename: string;
+  parser_profile_id: string;
+  parser_version: string;
+  schema_id: "cartulary.imports.committed_source.v1";
+  source_file_kind: string;
+  source_media_type: string;
+  source_rect_a1: string;
+  target_kind: string;
+  target_view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportSourceColumnMapping".
+ */
+export interface ImportSourceColumnMapping {
+  empty_value_policy: "omit_field" | "write_null";
+  entity_binding_mode: string | null;
+  field_key: string | null;
+  source_column_ordinal: number;
+  source_header_text: string | number | boolean | null;
+  transform_id: string | null;
+  transform_options: {
+    [k: string]: unknown;
+  };
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CommittedImportSourcesEnvelope".
+ */
+export interface CommittedImportSourcesEnvelope {
+  data: {
+    committed_sources: CommittedImportSourceSummary[];
+  };
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CommittedImportSourceSummary".
+ */
+export interface CommittedImportSourceSummary {
+  committed_at: string;
+  committed_source_id: string;
+  content_sha256: string;
+  extension_profile_id: string;
+  original_filename: string;
+  target_kind: string;
+  target_view_schema_id: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -1719,21 +1795,6 @@ export interface ImportUnitActionEnvelope {
     unit: ImportUnit;
   };
   meta: EnvelopeMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ImportSourceColumnMapping".
- */
-export interface ImportSourceColumnMapping {
-  empty_value_policy: "omit_field" | "write_null";
-  entity_binding_mode: string | null;
-  field_key: string | null;
-  source_column_ordinal: number;
-  source_header_text: string | number | boolean | null;
-  transform_id: string | null;
-  transform_options: {
-    [k: string]: unknown;
-  };
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

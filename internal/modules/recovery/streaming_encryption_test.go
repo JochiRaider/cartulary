@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
@@ -86,6 +87,42 @@ func (writer *observedStreamWriter) Write(body []byte) (int, error) {
 
 func TestStreamingBackupArtifactEnvelopeV2FailsClosedAndBoundsMemory_Unit(t *testing.T) {
 	ctx := context.Background()
+	t.Run("storage exhaustion and short writes abandon private output", func(t *testing.T) {
+		for _, failure := range []error{syscall.ENOSPC, io.ErrShortWrite, context.Canceled} {
+			t.Run(failure.Error(), func(t *testing.T) {
+				root := t.TempDir()
+				raw, err := recoveryassembly.NewFilesystemStorage(root)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = raw.Close() })
+				backend := &failingStreamBackend{FilesystemStorage: raw, failure: failure}
+				key, err := recovery.ParseRecoveryEncryptionKey(streamingRecoveryMasterKey)
+				if err != nil {
+					t.Fatal(err)
+				}
+				encrypted, err := recovery.NewEncryptedBackupStorage(backend, key)
+				if err != nil {
+					t.Fatal(err)
+				}
+				stream, err := recovery.RequireStreamingBackupStorage(encrypted)
+				if err != nil {
+					t.Fatal(err)
+				}
+				proof, err := stream.WriteArtifactStream(ctx, recovery.BackupArtifactStreamWriteRequest{
+					LogicalRef: "interrupted", EnvelopeRef: "interrupted.json", ContentType: "application/octet-stream",
+					Plaintext: bytes.NewReader(bytes.Repeat([]byte("private source"), 1024)),
+				})
+				if !errors.Is(err, failure) || proof != (recovery.BackupArtifactStreamProof{}) {
+					t.Fatalf("failed write produced a proof: %#v %v", proof, err)
+				}
+				entries, err := os.ReadDir(root)
+				if err != nil || len(entries) != 0 {
+					t.Fatalf("failed write retained private staging or published bytes: %v %v", entries, err)
+				}
+			})
+		}
+	})
 	t.Run("small and empty artifacts use the same current stream", func(t *testing.T) {
 		root, storage, _ := writeStreamingArtifact(t, strings.NewReader("seed"), "seed")
 		for index, body := range [][]byte{nil, []byte("small artifact")} {
@@ -447,6 +484,37 @@ type mutatingStreamBackend struct {
 	*recoveryassembly.FilesystemStorage
 	opens  int
 	mutate func()
+}
+
+// Inject failure after real bytes reach the production filesystem adapter's
+// private staging. Its ordinary callback failure path owns all cleanup.
+type failingStreamBackend struct {
+	*recoveryassembly.FilesystemStorage
+	failure error
+}
+
+func (backend *failingStreamBackend) WriteStoredArtifact(ctx context.Context, key, contentType string, write func(io.Writer) error) (recovery.BackupArtifactProof, error) {
+	return backend.FilesystemStorage.WriteStoredArtifact(ctx, key, contentType, func(destination io.Writer) error {
+		return write(&failingStreamWriter{destination: destination, remaining: 256, failure: backend.failure})
+	})
+}
+
+type failingStreamWriter struct {
+	destination io.Writer
+	remaining   int
+	failure     error
+}
+
+func (writer *failingStreamWriter) Write(body []byte) (int, error) {
+	if writer.remaining == 0 {
+		return 0, writer.failure
+	}
+	count, err := writer.destination.Write(body[:min(len(body), writer.remaining)])
+	writer.remaining -= count
+	if err == nil && count < len(body) {
+		err = writer.failure
+	}
+	return count, err
 }
 
 type streamReaderFunc func([]byte) (int, error)

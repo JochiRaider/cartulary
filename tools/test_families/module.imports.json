@@ -291,6 +291,35 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.imports.frontend.committed_sources",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/imports/CommittedSourcesPanel.test.tsx",
+        "project_id": "browser-unit",
+        "titles": [
+          "inspects distinct application identities and renders source text inertly with deliberate download",
+          "withdraws source details on rejected reads and ignores a detached observation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.imports.frontend.discovery_paint_qualification",
       "owner_id": "module.imports",
       "family_id": "module.imports.frontend",
@@ -1699,7 +1728,9 @@
           "TestGenericCSVPreviewRetentionBudget",
           "TestGenericCSVPreviewTailValidation",
           "TestGenericCSVRaggedResourceBudget",
-          "TestGenericCSVRowsAreSparse"
+          "TestGenericCSVRowsAreSparse",
+          "TestWorkbookCSVInterpretationVectors",
+          "TestWorkbookCSVStreamedProjectionRetention"
         ]
       },
       "evidence_class": "unit",

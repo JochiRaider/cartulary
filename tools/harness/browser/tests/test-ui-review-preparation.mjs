@@ -58,6 +58,32 @@ test("readiness rejects missing tools, damaged packages, browsers and images wit
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test("readiness checks the adapter's axe engine without a redundant root dependency", () => {
+  const root = scratch();
+  try {
+    const pins = JSON.parse(readFileSync(path.join(repoRoot, "tools/toolchain_pins.json")));
+    write(root, "tools/toolchain_pins.json", pins);
+    const devDependencies = Object.fromEntries(Object.entries(pins.ui_review).filter(([name]) => name !== "axe-core"));
+    write(root, "package.json", { devDependencies });
+    write(root, "apps/web/package.json", { devDependencies: { "@playwright/test": pins.ui_review.playwright } });
+    write(root, "packages/fixture/package.json", {});
+    for (const file of ["pnpm-lock.yaml", "pnpm-workspace.yaml", "node_modules/.pnpm/lock.yaml"]) write(root, file, "fixture");
+    for (const [name, version] of Object.entries({ ...devDependencies, "@playwright/test": pins.ui_review.playwright })) {
+      write(root, `node_modules/${name}/package.json`, { name, version, main: "index.cjs" });
+      write(root, `node_modules/${name}/index.cjs`, name === "sharp" ? `module.exports = { versions: { sharp: '${version}' } };` : "module.exports = {};");
+    }
+    write(root, "node_modules/playwright-core/browsers.json", { browsers: [{ name: "chromium", revision: "fixture", browserVersion: "fixture" }] });
+    const engine = "node_modules/@axe-core/playwright/node_modules/axe-core/package.json";
+    write(root, engine, { name: "axe-core", version: pins.ui_review["axe-core"] });
+    publishFrontendInstallation(root);
+    const options = { runner: () => ({ status: 0, stdout: pins.pnpm_version }) };
+    assert.equal(coreReadiness(root, options).axe_version, pins.ui_review["axe-core"]);
+    assert.equal(existsSync(path.join(root, "node_modules/axe-core")), false);
+    write(root, engine, { name: "axe-core", version: "0.0.0" });
+    assert.throws(() => coreReadiness(root, options), (error) => error.subject_id === "frontend_dependencies" && error.condition === "incompatible");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("Make child envelopes preserve classification, reject corruption and never disclose error text", async () => {
   const root = scratch(), runID = path.basename(root);
   const runtime = createRuntime({ repoRoot, runRoot: root, runID });

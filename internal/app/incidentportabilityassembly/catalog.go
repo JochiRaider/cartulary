@@ -64,7 +64,7 @@ func NewCatalog(revisionsPort sourceport.Port, consumer reference_data.Consumer,
 		return nil, err
 	}
 	currentPaths := []string{
-		"data/incident.json", "data/actors.ndjson", "data/committed_sources.ndjson", "data/records.ndjson",
+		"data/incident.json", "data/actors.ndjson", "data/committed_sources.ndjson", "data/committed_source_records.ndjson", "data/records.ndjson",
 		"data/timeline_time_profiles.ndjson", "data/timeline_records.ndjson",
 		"data/timeline_source_provenance.ndjson", "data/parties.ndjson",
 		"data/entity_mentions.ndjson", "data/hosts.ndjson", "data/identities.ndjson",
@@ -88,8 +88,8 @@ func NewCatalog(revisionsPort sourceport.Port, consumer reference_data.Consumer,
 	return sourceport.NewCatalog(sourceport.CatalogOptions{
 		Ports: []sourceport.Port{
 			incidentsSourcePort,
-			imports.NewIncidentBundleSourcePort(),
 			records.NewIncidentBundleSourcePort(recordSubtypeCatalog),
+			imports.NewIncidentBundleSourcePort(),
 			timeline.NewIncidentBundleSourcePort(),
 			parties.NewIncidentBundleContribution(),
 			entities.NewIncidentBundleSourcePort(),
@@ -102,7 +102,7 @@ func NewCatalog(revisionsPort sourceport.Port, consumer reference_data.Consumer,
 			revisionsPort,
 			savedviews.NewIncidentBundleSourcePort(),
 		},
-		RequiredPathsByVersion: map[int][]string{6: currentPaths},
+		RequiredPathsByVersion: map[int][]string{7: currentPaths},
 		AllowedRelationIDs: map[string]struct{}{
 			"incident-core": {}, "committed-import-sources": {}, "record-envelope": {}, "record-revisions": {},
 			"timeline-source": {},
@@ -111,7 +111,7 @@ func NewCatalog(revisionsPort sourceport.Port, consumer reference_data.Consumer,
 			"evidence-source-and-handles": {}, "assessment-source": {},
 			"links-and-tags": {}, "savedviews": {},
 		},
-		SpecialConsumers: map[int]map[string]string{6: special},
+		SpecialConsumers: map[int]map[string]string{7: special},
 	})
 }
 

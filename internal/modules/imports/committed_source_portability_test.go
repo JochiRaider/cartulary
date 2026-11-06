@@ -41,7 +41,11 @@ func TestCommittedSourcePortableAdmission(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return portabilitysupport.MapBundle{committedSourcesPath: append(raw, '\n'), committedSourceBlobPrefix + digest: bytes.Clone(original)}
+		binding, err := json.Marshal(committedSourceRecord{SchemaID: "cartulary.imports.committed_source_record.v1", CommittedSourceID: value.CommittedSourceID, SourceRowRef: 2, RecordID: uuid.New()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return portabilitysupport.MapBundle{committedSourceRecordsPath: append(binding, '\n'), committedSourcesPath: append(raw, '\n'), committedSourceBlobPrefix + digest: bytes.Clone(original)}
 	}
 	bundle := makeBundle(source)
 	prepared, err := PrepareCommittedSources(ctx, bundle, incidentID, actors)
@@ -92,6 +96,16 @@ func TestCommittedSourcePortableAdmission(t *testing.T) {
 		})
 	}
 	for name, mutate := range map[string]func(portabilitysupport.MapBundle){
+		"missing record member": func(b portabilitysupport.MapBundle) { delete(b, committedSourceRecordsPath) },
+		"duplicate record binding": func(b portabilitysupport.MapBundle) {
+			b[committedSourceRecordsPath] = append(b[committedSourceRecordsPath], b[committedSourceRecordsPath]...)
+		},
+		"unknown source binding": func(b portabilitysupport.MapBundle) {
+			b[committedSourceRecordsPath] = bytes.ReplaceAll(b[committedSourceRecordsPath], []byte(source.CommittedSourceID.String()), []byte(uuid.NewString()))
+		},
+		"invalid row reference": func(b portabilitysupport.MapBundle) {
+			b[committedSourceRecordsPath] = bytes.ReplaceAll(b[committedSourceRecordsPath], []byte(`"source_row_ref":2`), []byte(`"source_row_ref":0`))
+		},
 		"missing blob":  func(b portabilitysupport.MapBundle) { delete(b, committedSourceBlobPrefix+digest) },
 		"tampered blob": func(b portabilitysupport.MapBundle) { b[committedSourceBlobPrefix+digest][0] = 'x' },
 		"undeclared blob": func(b portabilitysupport.MapBundle) {

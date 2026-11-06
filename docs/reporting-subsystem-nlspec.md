@@ -5074,7 +5074,8 @@ and approved release bytes remain immutable after source import, rename,
 refresh, retirement or soft deletion. Historical graph retention does not make
 retired declarations eligible for new admissions.
 
-Bundle version 6 transfers permitted retained Reporting inputs and explicitly
+Current bundle version 7, adopted by the 2026-11-06 remediation amendment,
+transfers permitted retained Reporting inputs and explicitly
 selected artifacts under the existing disclosure policy. Sensitive reveal maps
 remain excluded. Imported incident publication includes admitted Reporting
 state and exact selected Graph reconstruction in the shared final transaction.

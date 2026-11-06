@@ -4555,9 +4555,17 @@
         "project_id": "chromium",
         "stage": "webserver_backed",
         "scenario_ids": [
-          "scenario_ae2c87691cbc"
+          "scenario_ae2c87691cbc",
+          "scenario_ir_clipboard_1500",
+          "scenario_ir_clipboard_499",
+          "scenario_ir_clipboard_500",
+          "scenario_ir_clipboard_501"
         ],
         "titles": [
+          "IR clipboard browser boundary 1500 rows",
+          "IR clipboard browser boundary 499 rows",
+          "IR clipboard browser boundary 500 rows",
+          "IR clipboard browser boundary 501 rows",
           "pastes 20 rows of two-column TSV starting at an existing Timeline row"
         ]
       },

@@ -37,7 +37,7 @@ func TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration(t *tes
 	})
 
 	bundle := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-retired-version")
-	for _, version := range []int{1, 2, 3, 4, 5} {
+	for _, version := range []int{1, 2, 3, 4, 5, 6} {
 		txnID := fmt.Sprintf("txn-import-retired-version-%d", version)
 		retiredBundle := replaceZipMember(t, bundle, "manifest.json", func(original []byte) []byte {
 			var manifest map[string]any

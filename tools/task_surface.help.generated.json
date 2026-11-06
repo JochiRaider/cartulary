@@ -566,6 +566,7 @@
             "child_forwarding": "argv",
             "values": [
               "node",
+              "go",
               "frontend",
               "browser",
               "test-images"
@@ -608,6 +609,16 @@
             "configured external GOMODCACHE exact automatic-toolchain module when absent"
           ],
           "cleanup": "repo-local clean and distclean policies preserve or remove owned roots according to Section 13; the external Go cache remains borrowed and is never cleanup-owned"
+        },
+        {
+          "class": "authored_source_write",
+          "owner_section": "Section 5",
+          "paths": [
+            "go.mod",
+            "go.sum",
+            "tools/go-analysis/go.mod",
+            "tools/go-analysis/go.sum"
+          ]
         }
       ]
     },

@@ -163,7 +163,7 @@ func runCurrentWorkflows(t *testing.T, scenarios []string) {
 				case "unknown_registry":
 					currentExec(t, db, `UPDATE import_apply_unit_plans SET target_registry_sha256=repeat('c',64) WHERE import_unit_id=$1`, ids.unit)
 				case "rows_changed":
-					currentExec(t, db, `UPDATE import_units SET source_rows_json='[]' WHERE import_unit_id=$1`, ids.unit)
+					currentExec(t, db, `UPDATE import_unit_projection_rows SET row_json=convert_to('{}','UTF8') WHERE import_unit_id=$1`, ids.unit)
 				case "generic_access_denied":
 					currentExec(t, db, `REVOKE SELECT ON import_units FROM cartulary_runtime; DO $$ DECLARE columns text; BEGIN SELECT string_agg(quote_ident(attname),',') INTO columns FROM pg_attribute WHERE attrelid='public.import_units'::regclass AND attnum>0 AND NOT attisdropped AND attname<>'source_rows_json'; EXECUTE 'GRANT SELECT (' || columns || ') ON public.import_units TO cartulary_runtime'; END $$;`)
 				}

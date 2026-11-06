@@ -135,6 +135,7 @@ function boundedGoClaims(claims, requestedParallelism, availablePostgresLanes) {
 
 function policyEvidenceOutputs(target) {
   if (target === "visual-registry-check") return ["visual-registry/visual-fixture-matrix.json", "visual-registry/visual-registry-metadata.json"];
+  if (target === "release-evidence-verify") return ["release-evidence-verify/closure.json"];
   if (target === "test-evidence-audit") return ["test-evidence-audit/audit.json"];
   if (target === "build-web" || target === "build-web-measurement") {
     return [`${target}/frontend-artifact.json`];
@@ -661,6 +662,9 @@ export class WorkGraphCompiler {
         },
         needs: [],
         resource_claims: resourceClaims,
+        ...(policy?.resource_profile_id === "credential_capacity_quiet"
+          ? { shared_locks: [], exclusive_locks: ["host_activity"] }
+          : {}),
         fixture_lease: fixtureLease,
         postgres_isolation: policy?.postgres_isolation ?? "none",
         service_dependencies: serviceDependencies,

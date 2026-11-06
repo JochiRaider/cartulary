@@ -84,5 +84,14 @@ WHERE s.import_session_id=$15 AND s.incident_id=$2 AND u.import_unit_id=$16`,
 	if result.RowsAffected() != 1 {
 		return importApplyBlockedError("source_changed")
 	}
+	if unit.approvedMapping.targetKindOrDefault() == ImportTargetKindViewSchema {
+		_, err = tx.Exec(ctx, `INSERT INTO import_committed_source_records
+(incident_id,committed_source_id,source_row_ref,record_id)
+SELECT $1,$2,source_row_ref,record_id FROM import_apply_journal
+WHERE import_unit_id=$3 AND mapping_fingerprint=$4`, start.IncidentID, CommittedSourceID(unit.UnitID), unit.UnitID, unit.MappingFingerprint)
+		if err != nil {
+			return fmt.Errorf("publish committed record provenance: %w", err)
+		}
+	}
 	return nil
 }

@@ -1,6 +1,7 @@
 import { networkAnalysisTestId } from "@cartulary/ui-contracts";
 import { Pencil, Trash2 } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
+import { CommittedSourceButton } from "../imports/CommittedSourceContext";
 import {
   useWorkbookRecoveryPresentation,
   useWorkbookRecoverySource,
@@ -29,8 +30,12 @@ export function TableLifecycleControls({ controller }: Props) {
   );
   if (state.activeTableId === null || state.hidden) return null;
   const id = state.activeTableId;
+  const source = state.tables.find(
+    (table) => table.network_flow_table_id === id,
+  )?.committed_source_id;
   return (
     <>
+      {source ? <CommittedSourceButton sourceId={source} /> : null}
       {state.canRename ? (
         <NetworkFlowButton
           data-testid={networkAnalysisTestId("rename-trigger")}

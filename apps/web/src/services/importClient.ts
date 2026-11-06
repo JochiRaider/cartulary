@@ -1,4 +1,7 @@
-import type { HTTPOperationID } from "@cartulary/protocol-ts/http";
+import {
+  buildHTTPOperationPath,
+  type HTTPOperationID,
+} from "@cartulary/protocol-ts/http";
 import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import {
   importProfileId,
@@ -9,6 +12,7 @@ import {
   immutableImportValue,
 } from "../imports/importRequests";
 import {
+  apiPath,
   fetchHTTPOperation,
   fetchMultipartHTTPOperation,
   type HTTPOperationResult,
@@ -16,6 +20,8 @@ import {
 } from "./browserApi";
 import { equalJSONResource } from "./commonJobContract";
 import type {
+  CommittedImportSource,
+  CommittedImportSourcesPage,
   DiscoveredImportPreview,
   DiscoveredImportUnit,
   ExtensionMappingPreviewRequest,
@@ -401,6 +407,67 @@ export class ImportClient {
     )
       return { kind: "uncertain", failure: importContractFailure() };
     return { kind: "accepted", receipt: { kind: "unit", unit } };
+  }
+
+  async listCommittedSources(
+    cursor: string | undefined,
+    signal: AbortSignal,
+    recordId?: string,
+  ): Promise<ImportReadResult<CommittedImportSourcesPage>> {
+    const result = await this.request<CommittedImportSourcesPage>(
+      "listCommittedImportSources",
+      signal,
+      {
+        paths: { incident_id: this.options.incidentId },
+        query: { limit: 50, cursor_token: cursor, record_id: recordId },
+      },
+    );
+    if (result.kind === "failed") return result;
+    const page = result.value;
+    const paging = page.meta.paging;
+    const ids = page.data.committed_sources.map(
+      (source) => source.committed_source_id,
+    );
+    return !paging ||
+      new Set(ids).size !== ids.length ||
+      (paging.has_more
+        ? !paging.next_cursor ||
+          paging.next_cursor === cursor ||
+          ids.length === 0
+        : paging.next_cursor !== null)
+      ? failed(importContractFailure())
+      : result;
+  }
+
+  async readCommittedSource(
+    sourceId: string,
+    signal: AbortSignal,
+  ): Promise<ImportReadResult<CommittedImportSource>> {
+    const result = await this.request<{ data: CommittedImportSource }>(
+      "getCommittedImportSource",
+      signal,
+      {
+        paths: {
+          incident_id: this.options.incidentId,
+          committed_source_id: sourceId,
+        },
+      },
+    );
+    if (result.kind === "failed") return result;
+    return result.value.data.incident_id === this.options.incidentId &&
+      result.value.data.committed_source_id === sourceId
+      ? received(result.value.data)
+      : failed(importContractFailure());
+  }
+
+  committedSourceDownloadURL(sourceId: string): string {
+    return apiPath(
+      this.options.apiBase,
+      buildHTTPOperationPath("getCommittedImportSourceContent", {
+        incident_id: this.options.incidentId,
+        committed_source_id: sourceId,
+      }),
+    );
   }
 
   async readJob(

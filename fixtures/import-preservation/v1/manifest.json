@@ -1,0 +1,178 @@
+{
+  "schema_id": "cartulary.import_preservation_vectors.v1",
+  "parser_profile_id": "cartulary.import.workbook.v2",
+  "cases": [
+    {
+      "id": "utf8-bom",
+      "file": "utf8-bom.csv",
+      "sha256": "468c61f07db9f9743e3271e6e42d494b426a99a8a40d53842c818657247073c0",
+      "stage": "generic_interpretation",
+      "accepted": true,
+      "records": [
+        [
+          "summary"
+        ],
+        [
+          "value"
+        ]
+      ]
+    },
+    {
+      "id": "embedded-bom",
+      "file": "embedded-bom.csv",
+      "sha256": "af89f5cf0793266e9d479c043f1aa92420e474e9e606ffbc14aeb89c0c6c9e89",
+      "stage": "generic_interpretation",
+      "accepted": true,
+      "records": [
+        [
+          "summary"
+        ],
+        [
+          "left﻿right"
+        ]
+      ]
+    },
+    {
+      "id": "multiline-unicode",
+      "file": "multiline-unicode.csv",
+      "sha256": "61c146181cd29f7c15df4492209c07c3eaa701c5a6edf3ce63a2c880fec4b15c",
+      "stage": "generic_interpretation",
+      "accepted": true,
+      "records": [
+        [
+          "summary",
+          "raw"
+        ],
+        [
+          "café",
+          "é\r\n\tC:\\Temp\\x \"quote\" "
+        ]
+      ]
+    },
+    {
+      "id": "duplicate-headers",
+      "file": "duplicate-headers.csv",
+      "sha256": "e33445f4cb0db28f2bec9c2318f628296565103ed51e33361e8dfa145d4b7298",
+      "stage": "generic_interpretation",
+      "accepted": true,
+      "records": [
+        [
+          "a",
+          "a",
+          ""
+        ],
+        [
+          "x",
+          "y",
+          "z"
+        ]
+      ]
+    },
+    {
+      "id": "sparse-empty",
+      "file": "sparse-empty.csv",
+      "sha256": "b13509479785aedb6199276f7e09e42c90c4e3b529fc33a28a08ba70eeb7448c",
+      "stage": "generic_interpretation",
+      "accepted": true,
+      "records": [
+        [
+          "a",
+          "b",
+          "c"
+        ],
+        [
+          "one"
+        ],
+        [
+          "two",
+          ""
+        ]
+      ]
+    },
+    {
+      "id": "reordered-unmapped",
+      "file": "reordered-unmapped.csv",
+      "sha256": "929b6a1ff642082ede7f244feb6f7dfb7199a14fb82e3bf5c330763106f0d3ca",
+      "stage": "generic_interpretation",
+      "accepted": true,
+      "records": [
+        [
+          "raw",
+          "extra",
+          "summary"
+        ],
+        [
+          "original",
+          " retained ",
+          "title"
+        ]
+      ]
+    },
+    {
+      "id": "invalid-utf8",
+      "file": "invalid-utf8.csv",
+      "sha256": "ead0215fe443756c2739e50b368ff79c283d540214d4ef503350fa25103198be",
+      "stage": "generic_interpretation",
+      "accepted": false,
+      "records": null
+    },
+    {
+      "id": "truncated-utf8",
+      "file": "truncated-utf8.csv",
+      "sha256": "f49306ef526f376269a2a8bf09ec8395cfdf0076619f7ed00c917b9cb6d73750",
+      "stage": "generic_interpretation",
+      "accepted": false,
+      "records": null
+    },
+    {
+      "id": "overlong-utf8",
+      "file": "overlong-utf8.csv",
+      "sha256": "7f7c739ead716ced80fbcc7a880ca7b19aba5da600cf65fde190cd9c72ee2f42",
+      "stage": "generic_interpretation",
+      "accepted": false,
+      "records": null
+    },
+    {
+      "id": "surrogate-utf8",
+      "file": "surrogate-utf8.csv",
+      "sha256": "997872a7656194a08f3c6e0468e095ae0b8830d4aef9f68e3d6d9690cf70c91e",
+      "stage": "generic_interpretation",
+      "accepted": false,
+      "records": null
+    },
+    {
+      "id": "late-invalid-utf8",
+      "file": "late-invalid-utf8.csv",
+      "sha256": "2cb5af345bf0e4c85b1cc23933accdbeb12989b0e2961f3f4853e0df45c90cde",
+      "stage": "generic_interpretation",
+      "accepted": false,
+      "records": null
+    },
+    {
+      "id": "late-broken-quote",
+      "file": "late-broken-quote.csv",
+      "sha256": "0f70408e15f8f2918d9263a26c532e0e45aa5950409825e7b30f7bc2ab84d865",
+      "stage": "generic_interpretation",
+      "accepted": false,
+      "records": null
+    },
+    {
+      "id": "quote-trailer",
+      "file": "quote-trailer.csv",
+      "sha256": "e5df5346f4464fa6e0006bd1808e885970c36fbe816157e131d563f152e53167",
+      "stage": "generic_interpretation",
+      "accepted": false,
+      "records": null
+    }
+  ],
+  "streamed_projection": {
+    "row_counts": [
+      10000,
+      100000
+    ],
+    "cell_bytes": 512,
+    "sampling_interval_rows": 1024,
+    "max_live_heap_growth_bytes": 8388608,
+    "scope": "isolated parser and row serialization; excludes database and service process capacity"
+  }
+}

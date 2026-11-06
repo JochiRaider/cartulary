@@ -2823,6 +2823,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Restrict sources to durable successful import associations for this record in the addressed incident.",
+            "in": "query",
+            "name": "record_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {

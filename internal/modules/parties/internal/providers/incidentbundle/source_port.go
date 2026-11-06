@@ -16,7 +16,7 @@ func NewContribution() sourceport.Port {
 		Paths: []sourceport.Path{{
 			LogicalPath: partyIncidentBundlePath, ContentRole: "source_rows",
 			SchemaID: "cartulary.incident_bundle.parties.row.v1",
-			Versions: []int{6}, StableIdentity: []string{"record_id"},
+			Versions: []int{7}, StableIdentity: []string{"record_id"},
 			StableIdentityInvariantID: "parties.source_identity_admitted",
 		}},
 		InvariantIDs: []string{

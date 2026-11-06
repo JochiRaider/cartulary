@@ -17,6 +17,7 @@ import (
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -228,6 +229,20 @@ func TestServerRunnerPublicationActivationFailureIsStartupFailure(t *testing.T) 
 }
 
 func TestServerRunnerMapsRuntimeSetupFailure(t *testing.T) {
+	t.Run("execution policy uses only the owner diagnostic", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		runner := newServerRunner(&stdout, &stderr)
+		runner.loadConfig = serverTestConfiguration(t)
+		runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+			return serverRuntime{}, errors.Join(errors.New("private SQL /private/root credential"), cryptography.ErrExecutionPolicy)
+		}
+		if code := runner.run(context.Background()); code != 2 {
+			t.Fatalf("exit code got %d want 2", code)
+		}
+		if stdout.Len() != 0 || stderr.String() != cryptography.ErrExecutionPolicy.Error()+"\n" {
+			t.Fatal("execution policy rejection omitted its safe diagnostic or disclosed an upstream cause")
+		}
+	})
 	t.Run("incompatible crypto state uses only the owner diagnostic", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		runner := newServerRunner(&stdout, &stderr)
@@ -379,7 +394,7 @@ func TestServerRunnerWritesMigrationRemediationToStderr(t *testing.T) {
 	runner := newServerRunner(&stdout, &stderr)
 	runner.loadConfig = serverTestConfiguration(t)
 	remediation := fakeServerRemediationFailure{
-		report: `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v3","from_version":30,"to_version":29,"findings":[{"field":"schema_migration_lineage","reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v3 catalog from version 1."}]}`,
+		report: `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v4","from_version":30,"to_version":29,"findings":[{"field":"schema_migration_lineage","reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v4 catalog from version 1."}]}`,
 	}
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
 		return serverRuntime{}, remediation

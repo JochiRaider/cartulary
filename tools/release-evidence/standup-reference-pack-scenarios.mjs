@@ -250,20 +250,30 @@ const imported = await destination.post("/api/v1/incident-bundles/import", "impo
 await destination.job(imported);
 assert.equal(selection(destination), destinationBase, "portability transported source activation");
 assert.equal(destination.sql("SELECT count(*) FROM reporting_snapshots"), "0", "portability fabricated native snapshots");
-const portableCatalog = JSON.parse(destination.sql("SELECT convert_from(content,'UTF8') FROM reporting_imported_artifact_files WHERE bundle_path='ext/snapshots/catalog.json'"));
+function portableMember(bundlePath) {
+  assert.match(bundlePath, /^[a-zA-Z0-9_./-]+$/);
+  assert.ok(!bundlePath.startsWith("/") && !bundlePath.split("/").some(part => part === "." || part === ".."));
+  const retained = JSON.parse(destination.sql(`SELECT json_build_object('sha256',f.sha256,'bytes',f.size_bytes,'content',encode((SELECT string_agg(c.content,''::bytea ORDER BY c.chunk_ordinal) FROM reporting_imported_artifact_chunks c WHERE c.incident_id=f.incident_id AND c.bundle_path=f.bundle_path),'base64')) FROM reporting_imported_artifact_files f WHERE f.incident_id='${id(incidentID)}' AND f.bundle_path='${bundlePath}'`));
+  const bytes = Buffer.from(retained.content, "base64");
+  assert.equal(bytes.length, retained.bytes);
+  assert.equal(createHash("sha256").update(bytes).digest("hex"), retained.sha256);
+  return bytes;
+}
+const portableCatalog = JSON.parse(portableMember("ext/snapshots/catalog.json").toString("utf8"));
 assert.equal(portableCatalog.snapshots.length, 1);
 assert.deepEqual(portableCatalog.releases.map(value => value.release_id).sort(), renderedReleases.map(value => value.release_id).sort());
 for (const rendered of renderedReleases) {
   const portablePath = `ext/snapshots/releases/${id(rendered.release_id)}/files/deck.pdf`;
-  const retained = JSON.parse(destination.sql(`SELECT json_build_object('sha256',encode(sha256(content),'hex'),'bytes',octet_length(content)) FROM reporting_imported_artifact_files WHERE bundle_path='${portablePath}'`));
-  assert.deepEqual(retained, {sha256:rendered.sha256, bytes:rendered.bytes});
+  const retained = portableMember(portablePath);
+  assert.equal(createHash("sha256").update(retained).digest("hex"), rendered.sha256);
+  assert.equal(retained.length, rendered.bytes);
 }
 assert.equal(destination.sql("SELECT count(*) FROM reporting_imported_artifact_files WHERE bundle_path LIKE 'ext/snapshots/releases/%/files/internal/%'"), "0");
 assert.equal(portableCatalog.schema_id, "cartulary.reporting_portable_artifacts.v3");
 assert.equal(portableCatalog.snapshots[0].snapshot_id, snapshot);
 const portableCapturePath = portableCatalog.snapshots[0].source_capture_path;
 assert.equal(portableCapturePath, `ext/snapshots/${snapshot}/source-capture.json`);
-assert.deepEqual(JSON.parse(destination.sql(`SELECT convert_from(content,'UTF8')::json->'reference_packs' FROM reporting_imported_artifact_files WHERE bundle_path='${portableCapturePath}'`)), JSON.parse(binding));
+assert.deepEqual(JSON.parse(portableMember(portableCapturePath).toString("utf8")).reference_packs, JSON.parse(binding));
 assert.equal(destination.sql("SELECT count(*) FROM reference_pack_candidates WHERE pack_key='enrichment.tor' AND pack_version='2' AND health='verified_available'"), "1");
 completed("destination-trusted portability preserves history without activation");
 

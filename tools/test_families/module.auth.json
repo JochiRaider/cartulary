@@ -1244,7 +1244,8 @@
       "selector": {
         "package": "./internal/modules/auth",
         "tests": [
-          "TestEnterpriseSAMLACS_Integration"
+          "TestEnterpriseSAMLACS_Integration",
+          "TestEnterpriseSAMLProductionACS_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1850,6 +1851,7 @@
           "TestEnterpriseProviderInputBounds",
           "TestEnterpriseSAMLAlgorithmAdmission",
           "TestEnterpriseSAMLClaimAndTrustAdmission",
+          "TestEnterpriseSAMLStructuralAdmission",
           "TestProductionOIDCVerifierAuthCodePKCEInterop",
           "TestProductionOIDCVerifierNegativeReasonCodes",
           "TestProductionSAMLVerifierClassifiesPrivateErrors",

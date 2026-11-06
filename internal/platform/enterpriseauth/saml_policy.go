@@ -24,7 +24,7 @@ func admitSAMLSigningCertificate(certificate *x509.Certificate) error {
 	return nil
 }
 
-// This is admission only. The unchanged bytes still go through crewjam's
+// This is admission only. The unchanged bytes still go through the library's
 // round-trip validator, signature canonicalization, trust and assertion checks.
 func admitSAMLResponse(encoded string) ([]byte, error) {
 	if len(encoded) == 0 || len(encoded) > base64.StdEncoding.EncodedLen(providerResponseLimit) {
@@ -33,6 +33,9 @@ func admitSAMLResponse(encoded string) ([]byte, error) {
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil || len(raw) > providerResponseLimit {
 		return nil, errProviderPolicy
+	}
+	if err := admitSAMLXML(raw); err != nil {
+		return nil, err
 	}
 	document := etree.NewDocument()
 	if document.ReadFromBytes(raw) != nil || document.Root() == nil {
@@ -75,23 +78,4 @@ func admitSAMLAlgorithms(root *etree.Element) error {
 		pending = append(pending, element.ChildElements()...)
 	}
 	return nil
-}
-
-type samlSignaturePolicy struct{}
-
-func (samlSignaturePolicy) VerifySignature(validation *dsig.ValidationContext, element *etree.Element) error {
-	if err := admitSAMLAlgorithms(element); err != nil {
-		return err
-	}
-	certificates, err := validation.CertificateStore.Certificates()
-	if err != nil {
-		return errProviderPolicy
-	}
-	for _, certificate := range certificates {
-		if err := admitSAMLSigningCertificate(certificate); err != nil {
-			return err
-		}
-	}
-	_, err = validation.Validate(element)
-	return err
 }

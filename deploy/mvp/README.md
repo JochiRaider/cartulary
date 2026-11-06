@@ -44,6 +44,23 @@ installer against that exact producer output. Consult `make help ALL=1` for the
 current public qualification routes. Qualification evidence stays outside the
 release manifest, avoiding circular identity. These commands never read this guide.
 
+For targeted qualification, use `make package-inspect CHECK=all` once. Its archive
+inspection, startup, reference-pack, recovery and credential-capacity consumers
+share one producer and verify the same archive digest. Do not invoke separate
+package-producing targets for each consumer and assume their archives match.
+Collect the other selected owner/security evidence against the frozen source,
+then run `make release-evidence-verify EVIDENCE_ROOTS_FILE=<explicit-roots-json>`.
+The roots file uses `cartulary.release_evidence_roots.v1` with a `run_roots` array.
+Closure reads retained evidence and launches no tests; missing or incompatible
+evidence fails. See the [release handoff](../../docs/handoffs/remediation-release-implementation.md)
+for the exact candidate, claims and remaining review dispositions.
+
+The current fresh-install lineage is `cartulary.prod_ddl_rebaseline.v4` and the
+current incident-bundle version is 7. Previous databases, backups and bundles
+remain artifacts for their matching releases. This release provides no converter,
+historical reader, downgrade or automatic reset. Preserve the old release and
+keys; deliberately reimporting raw source files creates new provenance.
+
 ## Configure one deployment
 
 The installer copies examples to the installation root. Replace all placeholders

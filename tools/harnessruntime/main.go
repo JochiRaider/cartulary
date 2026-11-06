@@ -28,7 +28,7 @@ func run() int {
 	switch os.Args[1] {
 	case "account":
 		return harnessaccount.Main(os.Args[2:], os.Stdout, os.Stderr)
-	case "recover":
+	case "recover", "recover-status":
 		if len(os.Args) != 2 {
 			return 2
 		}
@@ -43,6 +43,9 @@ func run() int {
 			if key, value, ok := strings.Cut(entry, "="); ok {
 				environment[key] = value
 			}
+		}
+		if os.Args[1] == "recover-status" {
+			return harnessfixtures.RecoveryStatus(root, environment, os.Stdout)
 		}
 		return harnessfixtures.RecoverRun(ctx, root, environment, os.Stdout)
 	case "graph":

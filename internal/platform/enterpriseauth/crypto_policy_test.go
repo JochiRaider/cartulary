@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	jose "github.com/go-jose/go-jose/v4"
 
@@ -214,7 +215,7 @@ func TestEnterpriseSAMLAlgorithmAdmission(t *testing.T) {
 				t.Fatal(err)
 			}
 			provider.SAMLIDPSigningCertificate = []string{base64.StdEncoding.EncodeToString(der)}
-			if _, err := SAMLServiceProvider(provider, request.PublicOrigin); err == nil {
+			if _, err := samlServiceProvider(provider, request.PublicOrigin, time.Now()); err == nil {
 				t.Fatal("unsupported signing certificate admitted")
 			}
 		})

@@ -317,7 +317,7 @@ function validateCatalogPolicy(filename, body) {
     }
   }
   if (violations.length > 0) {
-    throw new Error(`${filename} violates Production DDL Rebaseline v3 policy: ${[...new Set(violations)].sort().join(", ")}`);
+    throw new Error(`${filename} violates Production DDL Rebaseline v4 policy: ${[...new Set(violations)].sort().join(", ")}`);
   }
 }
 
@@ -352,6 +352,7 @@ function toManifestEntry(object) {
   const runtimeImmutableTables = new Set([
     "import_committed_source_blobs",
     "import_committed_source_chunks",
+    "import_committed_source_records",
     "import_committed_sources",
   ]);
   const runtimeAppendOnlyTables = new Set([

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_recovery_locator.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "repository",
+    "run_root",
+    "runtime_root",
+    "run_id",
+    "lease_id",
+    "owner_uid",
+    "state"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_recovery_locator.v1"
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "run_root": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "runtime_root": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]{1,96}$"
+    },
+    "lease_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+    },
+    "owner_uid": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "state": {
+      "enum": [
+        "active",
+        "settling",
+        "settled"
+      ]
+    }
+  }
+}

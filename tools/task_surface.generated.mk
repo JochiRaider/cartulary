@@ -85,7 +85,9 @@ else
   ui-review-stop \
   clean \
   distclean \
-  test-run-recover
+  test-run-recover \
+  release-evidence-verify \
+  test-run-recovery-status
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -96,7 +98,7 @@ TASK_SURFACE_HELP_LINES := \
 	'  make task-guide' \
 	'                                      OWNER=<owner> DETAIL=summary describe exact owner rows and verification coverage' \
 	'  make doctor                         verify required local tools and versions' \
-	'  make bootstrap                      install pinned tools and frontend/browser dependencies' \
+	'  make bootstrap                      install pinned tools and dependencies; PART=go prunes and resolves Go modules' \
 	'  make services-up                    start local services and prove readiness once' \
 	'  make db-migrate                     apply local database migrations without resetting the database or object storage' \
 	'  make db-reset' \
@@ -124,7 +126,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make help' \
 	'                                      ALL=1 JSON=1 discover commands, selectors and side effects' \
 	'  make doctor                         verify required local tools and versions' \
-	'  make bootstrap                      install pinned tools and frontend/browser dependencies' \
+	'  make bootstrap                      install pinned tools and dependencies; PART=go prunes and resolves Go modules' \
 	'  make frontend-lockfile-update       regenerate the lockfile with pinned pnpm (explicit dependency maintenance)' \
 	'  make db-migrate                     apply local database migrations without resetting the database or object storage' \
 	'  make db-reset' \
@@ -207,8 +209,10 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'                                      assess pinned-module build identity and admission (strict mode is diagnostic)' \
 	'  make credential-capacity-assessment assess bounded credential workflows on the fixed Windows 11 / WSL2 container profile' \
 	'  make test-run-recover' \
-	'                                      RESULTS_DIR=<exact-run> RUNTIME_ROOT=<private-runtime> RUNTIME_LEASE_ID=<lease> recover exact owned resources without changing original test evidence' \
+	'                                      RESULTS_DIR=<exact-run> [RUNTIME_ROOT=<private-runtime> RUNTIME_LEASE_ID=<lease>] recover exact owned resources without changing original test evidence' \
 	'  make source-check                   validate authored and generated source integrity; CHECK selects a boundary' \
+	'  make test-run-recovery-status' \
+	'                                      RESULTS_DIR=<exact-run> resolve exact owner-issued recovery binding without cleanup' \
 	'' \
 	'release:' \
 	'  make ci                             run the provider-neutral CI entrypoint' \
@@ -221,6 +225,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or remove repo-local tool/runtime caches and dependency installs' \
 	'  make package-release                assemble one immutable local archive with exact image inventories' \
 	'  make package-inspect                install and inspect the exact archive without a checkout or build tools' \
+	'  make release-evidence-verify' \
+	'                                      EVIDENCE_ROOTS_FILE=<path> verify selected retained release evidence without launching tests' \
 	'' \
 	'test-fast inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
@@ -271,8 +277,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: retained_artifacts, authored_source_write' \
 	'doctor inputs: none' \
 	'  side effects: retained_artifacts' \
-	'bootstrap inputs: PART=node|frontend|browser|test-images (optional)' \
-	'  side effects: retained_artifacts, tool_install' \
+	'bootstrap inputs: PART=node|go|frontend|browser|test-images (optional)' \
+	'  side effects: retained_artifacts, tool_install, authored_source_write' \
 	'services-up inputs: none' \
 	'  side effects: retained_artifacts, service_start' \
 	'services-down inputs: CARTULARY_CLEANUP_DRY_RUN=exact_1_bool (default false)' \
@@ -346,8 +352,12 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: destructive_cleanup' \
 	'distclean inputs: CARTULARY_CLEANUP_DRY_RUN=exact_1_bool (default false)' \
 	'  side effects: destructive_cleanup' \
-	'test-run-recover inputs: RESULTS_DIR=path (required), RUNTIME_ROOT=path (required), RUNTIME_LEASE_ID=semantic_text (required)' \
+	'test-run-recover inputs: RESULTS_DIR=path (required), RUNTIME_ROOT=path (optional), RUNTIME_LEASE_ID=semantic_text (optional)' \
 	'  side effects: retained_artifacts, destructive_cleanup' \
+	'release-evidence-verify inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
+	'  side effects: retained_artifacts' \
+	'test-run-recovery-status inputs: RESULTS_DIR=path (required)' \
+	'  side effects: retained_artifacts' \
 	''
 
 test-fast: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -646,12 +656,14 @@ bootstrap: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 bootstrap:
 	$(Q)$(if $(filter-out PART CARTULARY_MACHINE_CACHE_DIR GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR CARTULARY_HARNESS_SCRATCH_ROOT,$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)),echo 'bootstrap received an undeclared input' >&2; exit 2;,:)
 ifneq ($(findstring command line,$(origin PART)),)
-	$(Q)case $(call task_surface_shell_quote_trimmed,PART) in node|frontend|browser|test-images) : ;; *) echo 'PART has an invalid value' >&2; exit 2;; esac
+	$(Q)case $(call task_surface_shell_quote_trimmed,PART) in node|go|frontend|browser|test-images) : ;; *) echo 'PART has an invalid value' >&2; exit 2;; esac
 endif
 	+$(Q)env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,bootstrap)
 ifeq ($(if $(findstring command line,$(origin PART)),$(strip $(value PART)),),node)
 	$(Q)$(NODE_BIN) tools/harness/execution/operation-runner-cli.mjs harness.bootstrap_node
+else ifeq ($(if $(findstring command line,$(origin PART)),$(strip $(value PART)),),go)
+	$(Q)$(NODE_BIN) tools/harness/execution/operation-runner-cli.mjs harness.bootstrap_go
 else ifeq ($(if $(findstring command line,$(origin PART)),$(strip $(value PART)),),frontend)
 	$(Q)$(NODE_BIN) tools/harness/execution/operation-runner-cli.mjs harness.bootstrap_frontend
 else ifeq ($(if $(findstring command line,$(origin PART)),$(strip $(value PART)),),browser)
@@ -976,5 +988,28 @@ test-run-recover:
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN) $(TEST_SERVICES_BIN))
 	$(Q)$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUNTIME_LEASE_ID RUNTIME_ROOT) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR RUNTIME_LEASE_ID RUNTIME_ROOT)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-run-recover}" $(RUN_STEP_SCRIPT) "test-run-recover" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUNTIME_LEASE_ID RUNTIME_ROOT) CARTULARY_MAKE_INPUT_SOURCES="$(call \
 	  TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR RUNTIME_LEASE_ID RUNTIME_ROOT)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" NODE_BIN="$(NODE_BIN)" $(HARNESS_RUNTIME_BIN) recover
+
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
+release-evidence-verify: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+release-evidence-verify:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-evidence-verify)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,release-evidence-verify,$(call TASK_SURFACE_ARGV_ENV,EVIDENCE_ROOTS_FILE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)",release-evidence-verify)
+else
+release-evidence-verify: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+release-evidence-verify:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-evidence-verify)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,EVIDENCE_ROOTS_FILE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+	  EVIDENCE_ROOTS_FILE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target release-evidence-verify
+endif
+
+test-run-recovery-status: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+test-run-recovery-status:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-run-recovery-status)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-run-recovery-status}" $(RUN_STEP_SCRIPT) "test-run-recovery-status" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR)" $(HARNESS_RUNTIME_BIN) recover-status
 
 endif

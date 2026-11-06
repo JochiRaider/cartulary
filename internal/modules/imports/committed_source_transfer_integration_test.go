@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"reflect"
 	"testing"
 
@@ -49,7 +50,74 @@ func TestCommittedSourcesTransferThroughPublicBundleOperations_Integration(t *te
 	if len(before) != 2 {
 		t.Fatal("successful application identities collapsed")
 	}
+	assertRecordBindings := func(origin string, login authcookietest.AuthCookies) {
+		t.Helper()
+		seen := map[string]bool{}
+		for _, row := range irQueryAll(t, origin, login, id, "cartulary.view.timeline.v2") {
+			data := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, origin, login, http.MethodGet, "/api/v1/incidents/"+id+"/committed-sources?record_id="+row["record_id"].(string), nil), http.StatusOK)["data"].(map[string]any)
+			sources := data["committed_sources"].([]any)
+			if len(sources) != 1 {
+				t.Fatalf("record binding count = %d, want one exact application", len(sources))
+			}
+			seen[sources[0].(map[string]any)["committed_source_id"].(string)] = true
+		}
+		if len(seen) != 2 {
+			t.Fatal("identical source bytes collapsed distinct record associations")
+		}
+	}
+	assertRecordBindings(source.Server.HTTP.URL, sourceLogin)
+	listPath := "/api/v1/incidents/" + id + "/committed-sources"
+	firstPage := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, source.Server.HTTP.URL, sourceLogin, http.MethodGet, listPath+"?limit=1", nil), http.StatusOK)
+	cursor := firstPage["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor"].(string)
+	recordID := irQueryAll(t, source.Server.HTTP.URL, sourceLogin, id, "cartulary.view.timeline.v2")[0]["record_id"].(string)
+	for _, query := range []string{
+		"?record_id=" + recordID + "&cursor_token=" + url.QueryEscape(cursor),
+		"?record_id=" + recordID + "&record_id=" + recordID,
+		"?record_id=invalid",
+	} {
+		response := doImportJSON(t, source.Server.HTTP.URL, sourceLogin, http.MethodGet, listPath+query, nil)
+		if response.StatusCode != http.StatusBadRequest {
+			t.Fatalf("invalid source filter/cursor accepted: %d", response.StatusCode)
+		}
+		_ = response.Body.Close()
+	}
+	// Source access is narrower than incident read. Recheck it for list, scoped
+	// list, metadata, bytes and an already issued continuation after revocation.
+	const email, password = "source-reader@example.test", "SourceReader1!"
+	readerID := flowtest.SeedLocalUser(t, source.DB, email, "Source reader", password, false)
+	readerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, source.Server.HTTP.URL, email, password, nil)
+	membership := scenariotest.CreateMembership(t, source.Server, sourceLogin, id, map[string]any{"client_txn_id": "source-reader-membership", "email": email, "role": "editor"})
+	var readerCursor string
+	for _, role := range []string{"editor", "reviewer", "admin", "viewer", "removed"} {
+		if role == "removed" {
+			scenariotest.DeleteMembership(t, source.Server, sourceLogin, id, readerID, map[string]any{"base_membership_version": membership["membership_version"]})
+		} else if role != "editor" {
+			membership = scenariotest.PatchMembership(t, source.Server, sourceLogin, id, readerID, map[string]any{"base_membership_version": membership["membership_version"], "role": role})
+		}
+		if role == "editor" {
+			page := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, source.Server.HTTP.URL, readerLogin, http.MethodGet, listPath+"?limit=1", nil), http.StatusOK)
+			readerCursor = page["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor"].(string)
+		}
+		for _, suffix := range []string{"", "?record_id=" + recordID, "?cursor_token=" + url.QueryEscape(readerCursor), "/" + before[0]["committed_source_id"].(string), "/" + before[0]["committed_source_id"].(string) + "/content"} {
+			response := doImportJSON(t, source.Server.HTTP.URL, readerLogin, http.MethodGet, listPath+suffix, nil)
+			status := http.StatusOK
+			if role == "viewer" {
+				status = http.StatusForbidden
+			}
+			if role == "removed" {
+				status = http.StatusNotFound
+			}
+			body := httptestx.ReadResponseBody(t, response, status)
+			if status != http.StatusOK && (bytes.Contains(body, []byte("original.csv")) || bytes.Contains(body, []byte(before[0]["content_sha256"].(string)))) {
+				t.Fatal("source authority rejection disclosed protected content")
+			}
+		}
+	}
 	bundle := readPublicBundle(t, source.Server.HTTP.URL, sourceLogin, id, "export")
+	if _, err := source.DB.ExecContext(t.Context(), `DELETE FROM import_sessions WHERE incident_id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	assertRecordBindings(source.Server.HTTP.URL, sourceLogin)
 	zipReader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
 	if err != nil {
 		t.Fatal(err)
@@ -75,6 +143,7 @@ func TestCommittedSourcesTransferThroughPublicBundleOperations_Integration(t *te
 	if !reflect.DeepEqual(before, after) {
 		t.Fatal("committed source summaries changed across transfer")
 	}
+	assertRecordBindings(target.Server.HTTP.URL, targetLogin)
 	for _, summary := range before {
 		path := "/api/v1/incidents/" + id + "/committed-sources/" + summary["committed_source_id"].(string)
 		originalMetadata := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, source.Server.HTTP.URL, sourceLogin, http.MethodGet, path, nil), http.StatusOK)["data"]
@@ -106,12 +175,16 @@ func TestCommittedSourcesTransferThroughPublicBundleOperations_Integration(t *te
 	if !bytes.Equal(sourceBundleMember(t, bundle, "data/committed_sources.ndjson"), sourceBundleMember(t, again, "data/committed_sources.ndjson")) {
 		t.Fatal("re-export changed historical provenance")
 	}
+	if !bytes.Equal(sourceBundleMember(t, bundle, "data/committed_source_records.ndjson"), sourceBundleMember(t, again, "data/committed_source_records.ndjson")) {
+		t.Fatal("re-export changed record-to-source associations")
+	}
 	// Subsequent destination work must supersede only its mutable attribution.
 	// The importer is the physical FK actor before and after this edit, so
 	// comparing only user IDs would incorrectly retain the original author.
 	rows := irQueryAll(t, target.Server.HTTP.URL, targetLogin, id, "cartulary.view.timeline.v2")
 	client := irPublicClient{t: t, origin: target.Server.HTTP.URL, login: targetLogin, incident: id}
 	edited := client.patch("cartulary.view.timeline.v2", "destination-edit", rows[0], irValue("timeline.activity_synopsis_text", "Destination investigation continues"))
+	assertRecordBindings(target.Server.HTTP.URL, targetLogin)
 	changed := readPublicBundle(t, client.origin, targetLogin, id, "export-after-destination-edit")
 	var originalRow, changedRow map[string]any
 	for _, pair := range []struct {

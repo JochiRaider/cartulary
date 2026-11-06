@@ -53,29 +53,39 @@ func TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase(t *testing.T) {
 	}
 }
 
-func TestMigrationLineagePreflightRejectsPreviousV2Lineage(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
-	db := migrationDB.SQL()
-	if _, err := db.ExecContext(context.Background(), `
-DELETE FROM schema_migration_lineage;
-INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.prod_ddl_rebaseline.v2', 'previous production lineage');
-`); err != nil {
-		t.Fatalf("simulate wrong migration line: %v", err)
-	}
-
-	err := postgres.Apply(context.Background(), db, canonicalMigrationSource(t))
-	finding := requireMigrationRemediation(t, err).Findings[0]
-	if finding.RawValue == nil || *finding.RawValue != "cartulary.prod_ddl_rebaseline.v2" {
-		t.Fatalf("unexpected raw observed lineage: %#v", finding)
-	}
-	if got := finding.RawValuePair.ObservedLineageIDs; len(got) != 1 || got[0] != "cartulary.prod_ddl_rebaseline.v2" {
-		t.Fatalf("unexpected observed lineages: %#v", got)
-	}
-	if finding.RawValuePair.ExpectedLineageID != expectedCanonicalLineageID ||
-		!finding.RawValuePair.LineageTablePresent {
-		t.Fatalf("unexpected remediation facts: %#v", finding.RawValuePair)
+func TestMigrationLineagePreflightRejectsPreviousLineages(t *testing.T) {
+	for _, lineage := range []string{"cartulary.prod_ddl_rebaseline.v2", "cartulary.prod_ddl_rebaseline.v3"} {
+		t.Run(lineage, func(t *testing.T) {
+			postgresHarness := pgtest.Start(t)
+			migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
+			db := migrationDB.SQL()
+			if _, err := db.ExecContext(t.Context(), `DELETE FROM schema_migration_lineage`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.ExecContext(t.Context(), `INSERT INTO schema_migration_lineage (lineage_id, description) VALUES ($1, 'previous production lineage')`, lineage); err != nil {
+				t.Fatal(err)
+			}
+			err := postgres.Apply(t.Context(), db, canonicalMigrationSource(t))
+			finding := requireMigrationRemediation(t, err).Findings[0]
+			if finding.RawValue == nil || *finding.RawValue != lineage {
+				t.Fatalf("unexpected observed lineage: %#v", finding)
+			}
+			if got := finding.RawValuePair.ObservedLineageIDs; len(got) != 1 || got[0] != lineage {
+				t.Fatalf("unexpected lineages: %#v", got)
+			}
+			if finding.RawValuePair.ExpectedLineageID != expectedCanonicalLineageID || !finding.RawValuePair.LineageTablePresent {
+				t.Fatalf("unexpected remediation facts: %#v", finding.RawValuePair)
+			}
+			var head int64
+			var retained string
+			var recordsPresent bool
+			if err := db.QueryRowContext(t.Context(), `SELECT (SELECT max(version_id) FROM goose_db_version WHERE is_applied), lineage_id, to_regclass('public.records') IS NOT NULL FROM schema_migration_lineage`).Scan(&head, &retained, &recordsPresent); err != nil {
+				t.Fatal(err)
+			}
+			if head != 1 || retained != lineage || recordsPresent {
+				t.Fatal("incompatible lineage changed before rejection")
+			}
+		})
 	}
 }
 

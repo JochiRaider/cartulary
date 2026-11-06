@@ -9,14 +9,17 @@ import {
   mentionRestoreUnresolvedButtonTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
+  rowHistoryPanelTestId,
   timelineInspectorTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import {
   hostsViewSchemaId,
+  identitiesViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Page, Route } from "@playwright/test";
+import { admitIRCorpus } from "../../../tools/harness/fixtures/ir-incident.mjs";
 import { expect, test } from "./fixtures";
 import {
   addRelationshipTokenViaUI,
@@ -25,6 +28,7 @@ import {
   collectionItems,
   findRow,
   hostRefsFieldKey,
+  identityRefsFieldKey,
   publicEntityMentionId,
   readMentionAction,
   readMentionActionRequest,
@@ -40,11 +44,105 @@ import {
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
+import {
+  fetchFullRecordHistory,
+  openHistoryEventDetails,
+} from "./support/workbook/history";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 
 const exactScenarioTitle =
   "Verify manual mention resolution, dismissal, auto-resolution disclosure, and undo through public mutation routes and refreshed rows.";
+
+test("IR shared host and identity aliases require explicit selection and retain dismissal history", async ({
+  page,
+}, info) => {
+  const corpus = await admitIRCorpus(info.outputPath("ir-alias-inputs"));
+  const expected = JSON.parse(
+    corpus.read("ir-incident/v1/expected.json").toString(),
+  ) as { ambiguous_aliases: Record<string, string[]> };
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("IR-ALIASES"),
+    "Explicit incident alias investigation",
+  );
+  for (const [alias, view, prefix, canonical, field] of [
+    ["research-files", hostsViewSchemaId, "host", "hostname", hostRefsFieldKey],
+    [
+      "nsr-admin",
+      identitiesViewSchemaId,
+      "identity",
+      "upn",
+      identityRefsFieldKey,
+    ],
+  ] as const) {
+    const names = expected.ambiguous_aliases[alias];
+    if (!names || names.length !== 2)
+      throw new Error("Missing independent ambiguous alias expectation");
+    const chosenName = names[1];
+    if (!chosenName) throw new Error("Missing second alias candidate");
+    const targets = [];
+    for (const name of names)
+      targets.push(
+        await createViewRow(page, incidentId, view, {
+          client_txn_id: uniqueTxn("ir-alias-target"),
+          [`${prefix}.display_name`]: name,
+          [`${prefix}.${canonical}`]: name,
+          [`${prefix}.aliases`]: aliasCollectionActionsPayload([alias]),
+        }),
+      );
+    const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+      client_txn_id: uniqueTxn("ir-alias-mention"),
+      "timeline.activity_synopsis_text": `Investigate ${alias}`,
+      [field]: collectionActionsPayload([alias]),
+    });
+    const mention = requireItemByRawText(collectionItems(row, field), alias);
+    expect(mention.resolved_record_id ?? null).toBeNull();
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await openTimelineInspector(page, row.record_id);
+    await page.getByTestId(mentionItemTestId(String(mention.item_ref))).click();
+    await expect(
+      page.getByTestId(mentionResolveExistingButtonTestId()),
+    ).toBeDisabled();
+    await page.getByTestId(mentionResolveTargetSelectTestId()).fill(alias);
+    for (const name of names)
+      await expect(
+        page.getByRole("option", { name, exact: true }),
+      ).toBeVisible();
+    await page.getByRole("option", { name: chosenName, exact: true }).click();
+    const resolving = waitForMentionAction(page, mention);
+    await page.getByTestId(mentionResolveExistingButtonTestId()).click();
+    const resolved = await readMentionAction(await resolving, row.record_id);
+    expect(resolved.data.entity_mention.resolved_record_id).toBe(
+      targets[1]?.record_id,
+    );
+    await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
+      chosenName,
+    );
+    const dismissing = waitForMentionAction(page, mention);
+    await page.getByTestId(mentionDismissButtonTestId()).click();
+    const dismissed = await readMentionAction(await dismissing, row.record_id);
+    expect(dismissed.data.entity_mention.resolution_status).toBe("dismissed");
+    await expect(
+      page.getByTestId(mentionItemTestId(String(mention.item_ref))),
+    ).toHaveAccessibleName(`Dismissed mention: ${alias}`);
+    await page.reload();
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await openTimelineInspector(page, row.record_id);
+    const current = await refreshedTimelineRow(page, incidentId, row.record_id);
+    expect(collectionItems(current, field)).toHaveLength(0);
+    await page
+      .getByRole("button", { name: "Open history", exact: true })
+      .press("Enter");
+    const history = await fetchFullRecordHistory(page, row.record_id);
+    expect(history.items.length).toBeGreaterThanOrEqual(3);
+    const historyPanel = page.getByTestId(rowHistoryPanelTestId());
+    for (const item of history.items)
+      await openHistoryEventDetails(historyPanel, item.history_item_ref);
+    await expect(historyPanel).toContainText(alias);
+  }
+});
 
 test(exactScenarioTitle, async ({ page }) => {
   const incidentId = await createIncident(

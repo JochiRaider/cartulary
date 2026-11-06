@@ -64,6 +64,7 @@ import {
 const incidentControlsSections = [
   "summary",
   "import-assistant",
+  "committed-sources",
   "snapshot-reports",
   "incident-fields",
   "memberships",
@@ -142,6 +143,7 @@ describe("@cartulary/ui-contracts application selectors", () => {
     expect(incidentControlsSections).toEqual([
       "summary",
       "import-assistant",
+      "committed-sources",
       "snapshot-reports",
       "incident-fields",
       "memberships",
@@ -154,6 +156,9 @@ describe("@cartulary/ui-contracts application selectors", () => {
       "incident-controls-menu-item-import-assistant",
     );
     expect(workbookImportAssistantTestId()).toBe("workbook-import-assistant");
+    expect(incidentControlsMenuItemTestId("committed-sources")).toBe(
+      "incident-controls-menu-item-committed-sources",
+    );
     expect(incidentControlsMenuItemTestId("incident-fields")).toBe(
       "incident-controls-menu-item-incident-fields",
     );

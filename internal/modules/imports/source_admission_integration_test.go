@@ -170,9 +170,9 @@ func TestNetworkFlowPublicSourceAdmission(t *testing.T) {
 		{"literal_quotes", strings.Replace(sourceAdmissionRow, "Gi0/1", "Gi\"0/1", 1), true, true, true, 1},
 		{"generic_limits_do_not_gate_csv", strings.Repeat(sourceAdmissionRow, 2), true, true, false, 2},
 		{"early_bad_quote", "\"unclosed\n", false, false, true, 0},
-		{"early_bad_encoding", strings.Replace(sourceAdmissionRow, "Gi0/1", "\xff", 1), false, false, false, 0},
+		{"early_bad_encoding", strings.Replace(sourceAdmissionRow, "Gi0/1", "\xff", 1), false, false, true, 0},
 		{"late_bad_quote", strings.Repeat(sourceAdmissionRow, 50) + "\"unclosed\n", true, false, true, 0},
-		{"late_bad_encoding", strings.Repeat(sourceAdmissionRow, 50) + strings.Replace(sourceAdmissionRow, "Gi0/1", "\xff", 1), true, false, false, 0},
+		{"late_bad_encoding", strings.Repeat(sourceAdmissionRow, 50) + strings.Replace(sourceAdmissionRow, "Gi0/1", "\xff", 1), true, false, true, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			session, unit := startCSVImportSession(t, h.Server.HTTP.URL, login, incident, "upload-"+tc.name, sourceAdmissionHeader+tc.body, tc.name+".csv")
@@ -180,6 +180,12 @@ func TestNetworkFlowPublicSourceAdmission(t *testing.T) {
 			if tc.genericFails {
 				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+base+"/preview", nil, httptestx.WithCookies(login.Session))
 				httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "import_source_unsupported")
+				mapping := map[string]any{"client_txn_id": "generic-reject-" + tc.name, "target_view_schema_id": "cartulary.view.timeline.v2", "header_row_ref": 1, "data_start_row_ref": 2, "unknown_column_policy": "preserve_raw_capture", "source_columns": []map[string]any{{"source_column_ordinal": 1, "source_header_text": "Source IP Address", "field_key": "timeline.activity_synopsis_text", "entity_binding_mode": nil, "transform_id": nil, "transform_options": map[string]any{}, "empty_value_policy": "omit_field"}}}
+				approval := doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPut, base+"/mapping", mapping)
+				httptestx.RequireErrorEnvelope(t, approval, http.StatusConflict, "import_source_unsupported")
+				if dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM import_unit_projection_rows WHERE import_unit_id::text=$1`, unit) != 0 || dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM import_units WHERE import_unit_id::text=$1 AND approved_mapping_json IS NOT NULL`, unit) != 0 {
+					t.Fatal("invalid interpretation published mapping or staged rows")
+				}
 			} else if tc.name == "generic_limits_do_not_gate_csv" {
 				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+base+"/preview", nil, httptestx.WithCookies(login.Session))
 				httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
@@ -343,7 +349,7 @@ func TestGenericCSVRaggedPublicLifecycle(t *testing.T) {
 	}
 	preview()
 	var count int
-	if err := h.DB.QueryRowContext(t.Context(), `SELECT sum(jsonb_array_length(r->'cells')) FROM import_units u, LATERAL jsonb_array_elements(u.source_rows_json) r WHERE import_unit_id::text=$1`, unit).Scan(&count); err != nil || count != 4 {
+	if err := h.DB.QueryRowContext(t.Context(), `SELECT sum(jsonb_array_length(convert_from(row_json,'UTF8')::jsonb->'cells')) FROM import_unit_projection_rows WHERE import_unit_id::text=$1`, unit).Scan(&count); err != nil || count != 4 {
 		t.Fatalf("materialized cell count %d: %v", count, err)
 	}
 	selected := doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPost, base+"/select", map[string]any{"client_txn_id": "ragged-select"})

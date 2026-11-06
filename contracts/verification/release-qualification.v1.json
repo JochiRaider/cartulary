@@ -1,0 +1,727 @@
+{
+  "schema_id": "cartulary.release_qualification.v1",
+  "required_operations": [
+    "harness.backend_module_boundary_check",
+    "harness.build_production",
+    "harness.contract_default",
+    "harness.contract_smoke",
+    "harness.credential_capacity_assessment",
+    "harness.cryptographic_policy_assessment",
+    "harness.deployable_shape",
+    "harness.frontend_fallow_static",
+    "harness.frontend_import_boundary_check",
+    "harness.frontend_typecheck",
+    "harness.generated_artifact_policy_check",
+    "harness.go_gosec_audit",
+    "harness.go_gosec_targeted",
+    "harness.go_vulncheck",
+    "harness.json_shape_check",
+    "harness.license_report",
+    "harness.lint_biome",
+    "harness.lint_go",
+    "harness.lint_scripts",
+    "harness.lint_shell",
+    "harness.migration_input_drift",
+    "harness.otel_conformance",
+    "harness.package_inspect",
+    "harness.sbom",
+    "harness.seaweedfs_compatibility",
+    "harness.seaweedfs_release_gate",
+    "harness.semantic_identity_check",
+    "harness.source_generated",
+    "harness.standup_operational_recovery_smoke",
+    "harness.standup_package_smoke",
+    "harness.standup_reference_pack_smoke",
+    "harness.suite_browser_support",
+    "harness.test_catalog_check"
+  ],
+  "obligations": [
+    {
+      "obligation_id": "dependencies.maintenance",
+      "normative_owners": ["TestingHarness", "Core04"],
+      "capability": "Dependency pruning and runtime engine admission",
+      "expectation": "Explicit Go maintenance prunes unused requirements before tool compilation; the actual nested accessibility engine matches its pin without a redundant root dependency",
+      "owner_ids": ["harness.command_surface", "harness.browser"],
+      "row_ids": [
+        "harness.command_surface.behavior.public_registry_parity",
+        "harness.browser.boundary_support.ui_review_lifecycle"
+      ]
+    },
+    {
+      "obligation_id": "auth.protocol",
+      "normative_owners": [
+        "Core04"
+      ],
+      "capability": "Native SAML and OIDC admission",
+      "expectation": "Protocol bytes, singleton/namespace/signature/issuer/audience/correlation/time bounds; no session on rejection",
+      "owner_ids": [
+        "module.auth"
+      ],
+      "row_ids": [
+        "module.auth.unit.enterprise_provider_cryptographic_policy",
+        "module.auth.integration.saml_sp_initiated_begin_acs_verifies_determinist_3b5547023b"
+      ]
+    },
+    {
+      "obligation_id": "auth.accounts",
+      "normative_owners": [
+        "Core04"
+      ],
+      "capability": "Account and credential administration",
+      "expectation": "Current deployment administrator, actor-scoped replay, original committed credential result and revocation",
+      "owner_ids": [
+        "module.auth"
+      ],
+      "row_ids": [
+        "module.auth.integration.administrative_routes_require_current_deployment_71dd666a37",
+        "module.auth.integration.admin_password_reset_totp_reset_and_revoke_all_r_eaa09b4d6c",
+        "module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb"
+      ]
+    },
+    {
+      "obligation_id": "auth.sessions",
+      "normative_owners": [
+        "Core04"
+      ],
+      "capability": "Session lifecycle and enterprise bindings",
+      "expectation": "Durable session, current binding authority, exact replay and scope-safe audit",
+      "owner_ids": [
+        "module.auth"
+      ],
+      "row_ids": [
+        "module.auth.integration.real_login_creates_one_durable_session_row_sessi_fffac0a9af",
+        "module.auth.integration.deployment_admin_binding_create_replay_divergent_85cb20830a"
+      ]
+    },
+    {
+      "obligation_id": "incident.authority",
+      "normative_owners": [
+        "Core02",
+        "Core04"
+      ],
+      "capability": "Incident lifecycle, membership and isolation",
+      "expectation": "Last-administrator invariant, current membership, close/reopen transition and replay",
+      "owner_ids": [
+        "module.incidents"
+      ],
+      "row_ids": [
+        "module.incidents.integration.incident_membership_current_authorization_5018f673df",
+        "module.incidents.integration.concurrent_cross_admin_deletion_preserves_an_ad_9f25d8ef61",
+        "module.incidents.integration.incident_lifecycle_close_reopen_authorization_re_6ac1f84d20"
+      ]
+    },
+    {
+      "obligation_id": "timeline.history",
+      "normative_owners": [
+        "Core02",
+        "Core03"
+      ],
+      "capability": "Timeline authoring and historical attribution",
+      "expectation": "Create, patch, review and supersede retain owner history; failed journal/revision contributions roll back",
+      "owner_ids": [
+        "module.timeline"
+      ],
+      "row_ids": [
+        "module.timeline.integration.real_http_create_patch_review_supersede_replay_m_37e5c78ca1",
+        "module.timeline.integration.create_patch_mark_reviewed_supersede_query_and_w_90276912d7"
+      ]
+    },
+    {
+      "obligation_id": "entities.resolution",
+      "normative_owners": [
+        "Core02",
+        "Core03"
+      ],
+      "capability": "Entities, aliases, mentions and merge",
+      "expectation": "Ambiguous candidates remain explicit; selection, dismissal and resolution history; merge repoints admitted live references",
+      "owner_ids": [
+        "module.entities"
+      ],
+      "row_ids": [
+        "module.entities.integration.candidate_discovery",
+        "module.entities.integration.the_explicit_merge_route_repoints_live_fan_out_p_0ec76e8044",
+        "module.entities.browser_stateful.verify_manual_mention_resolution_dismissal_auto_dfa355e592",
+        "module.entities.browser.entity_merge_exact_recovery"
+      ]
+    },
+    {
+      "obligation_id": "indicators.lifecycle",
+      "normative_owners": [
+        "Core02"
+      ],
+      "capability": "Canonical indicators and observations",
+      "expectation": "Explicit identity and lifecycle, concurrent convergence, authorization and revision failure atomicity",
+      "owner_ids": [
+        "module.indicators"
+      ],
+      "row_ids": [
+        "module.indicators.integration.production_observation_and_lifecycle_routes",
+        "module.indicators.target_resolution.role_failures_are_atomic",
+        "module.indicators.identity.z_concurrent_find_or_create_convergence",
+        "module.indicators.transaction.indicator_repository_writes_roll_back_when_revis_c37659989d"
+      ]
+    },
+    {
+      "obligation_id": "parties.identity",
+      "normative_owners": [
+        "Core02"
+      ],
+      "capability": "Parties and portable historical identity",
+      "expectation": "Active owner references, exact semantic replay, transferable identities; analyst names do not create Parties",
+      "owner_ids": [
+        "module.parties"
+      ],
+      "row_ids": [
+        "module.parties.references.party_reference_targets_must_be_active_parties_i_6ca84ebe53",
+        "module.parties.idempotency.party_replay_storage_preserves_semantic_results_478b92a552",
+        "module.parties.portability.party_portable_apply_preserves_exact_state_claim_7a428a3abd"
+      ]
+    },
+    {
+      "obligation_id": "evidence.attachments",
+      "normative_owners": [
+        "Core01",
+        "Core02",
+        "Core04"
+      ],
+      "capability": "Evidence, attachment replacement, handles and custody",
+      "expectation": "Owner/incident checks, atomic attachment change, inaccessible revoked handles and no object-store disclosure",
+      "owner_ids": [
+        "module.evidence"
+      ],
+      "row_ids": [
+        "module.evidence.integration.evidence_blob_attachment_and_handle_route_contra_9ce6c25e48",
+        "module.evidence.integration.attach_route_validation_authorization_route_owne_7567e19cd9",
+        "module.evidence.integration.initial_blob_create_atomic_replay_concealment_73c81fe329",
+        "module.evidence.integration.a_redeemed_preview_or_download_handle_fails_clos_cbb006eb24",
+        "module.evidence.integration.public_evidence_responses_do_not_leak_object_sto_9e5c545bd7"
+      ]
+    },
+    {
+      "obligation_id": "notes.associations",
+      "normative_owners": [
+        "Core02",
+        "Core03"
+      ],
+      "capability": "Notes, associations and source references",
+      "expectation": "Public owner guards, association history and paging; reference text does not fabricate Evidence",
+      "owner_ids": [
+        "module.workbook"
+      ],
+      "row_ids": [
+        "module.workbook.integration.note_associations_public_contract",
+        "module.workbook.browser.authoring_candidates_note_source"
+      ]
+    },
+    {
+      "obligation_id": "tasks.decisions",
+      "normative_owners": [
+        "Core02",
+        "Core03"
+      ],
+      "capability": "Tasks and decisions",
+      "expectation": "Owner references and portable invariants are atomic; lifecycle and supersession retries retain exact identities",
+      "owner_ids": [
+        "module.tasksdecisions"
+      ],
+      "row_ids": [
+        "module.tasksdecisions.import_create.owner_reference_contract_and_atomicity",
+        "module.tasksdecisions.incident_portability.source_port_invariants_and_atomicity",
+        "module.tasksdecisions.browser.task_lifecycle_patch_recovery",
+        "module.tasksdecisions.browser.decision_supersession_exact_recovery"
+      ]
+    },
+    {
+      "obligation_id": "relationships.tags",
+      "normative_owners": [
+        "Core02"
+      ],
+      "capability": "Links and tags",
+      "expectation": "Association mutation updates projections, revisions and publication together; active views retain typed identities",
+      "owner_ids": [
+        "module.links"
+      ],
+      "row_ids": [
+        "module.links.integration.link_and_tag_mutations_atomically_update_project_03f8283906",
+        "module.links.integration.active_links_and_tags_views_v1_contract_eaf4aac3b7"
+      ]
+    },
+    {
+      "obligation_id": "workbook.query",
+      "normative_owners": [
+        "Core01",
+        "Core03"
+      ],
+      "capability": "Workbook query and coordination surfaces",
+      "expectation": "Sort/filter/group/search/page semantics, live authorization on continuation, typed collections and projection rebuild",
+      "owner_ids": [
+        "module.workbook"
+      ],
+      "row_ids": [
+        "module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b",
+        "module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538",
+        "module.workbook.integration.required_surface_persistence_queries_through_wor_fc52555181",
+        "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4"
+      ]
+    },
+    {
+      "obligation_id": "workbook.saved_views",
+      "normative_owners": [
+        "Core03"
+      ],
+      "capability": "Saved views and keyboard recovery",
+      "expectation": "Independent read contract, restored query/layout/home and focus continuity during replacement or failure",
+      "owner_ids": [
+        "module.savedviews",
+        "module.workbook"
+      ],
+      "row_ids": [
+        "module.savedviews.integration.independent_read_contract",
+        "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674",
+        "module.workbook.browser_stateful.query_recovery_focus"
+      ]
+    },
+    {
+      "obligation_id": "workbook.editing",
+      "normative_owners": [
+        "Core03"
+      ],
+      "capability": "Conflicts, uncertain saves and collaboration",
+      "expectation": "Different-field convergence, same-field explicit resolution, same-identity uncertain retry, revocation and no retargeted drafts",
+      "owner_ids": [
+        "module.collaboration",
+        "module.timeline"
+      ],
+      "row_ids": [
+        "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab",
+        "module.collaboration.browser.verify_conflict_resolver_actions_submit_public_m_0c77fae932",
+        "module.collaboration.browser_stateful.session_recovery_revoke_all",
+        "module.timeline.browser.draft_create_uncertainty",
+        "module.timeline.browser.conflict_completion_preserves_newer_grouped_draf_caa2cd651a"
+      ]
+    },
+    {
+      "obligation_id": "workbook.clipboard",
+      "normative_owners": [
+        "Core01",
+        "Core03"
+      ],
+      "capability": "Clipboard and batch atomicity",
+      "expectation": "499/500 accepted and 501/1500 rejected with zero partial effects; original multiline/Unicode/empty values retained",
+      "owner_ids": [
+        "module.timeline",
+        "module.workbook"
+      ],
+      "row_ids": [
+        "module.timeline.integration.ir_public_clipboard",
+        "module.workbook.browser.live_workbook_timeline_grid_accepts_a_representa_20a3b81a1a",
+        "module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770"
+      ]
+    },
+    {
+      "obligation_id": "imports.interpretation",
+      "normative_owners": [
+        "Core01"
+      ],
+      "capability": "Raw admission and Workbook interpretation",
+      "expectation": "Original bytes/digest retained separately; UTF-8 v2 validates through EOF, sparse ordinals and exact text",
+      "owner_ids": [
+        "module.imports"
+      ],
+      "row_ids": [
+        "module.imports.unit.target_neutral_csv_source_admission",
+        "module.imports.integration.target_neutral_public_source_admission",
+        "module.imports.integration.mapping_source_protection"
+      ]
+    },
+    {
+      "obligation_id": "imports.atomicity",
+      "normative_owners": [
+        "Core01"
+      ],
+      "capability": "Sealed projection and application lifecycle",
+      "expectation": "Approval seal and typed iterator; cancellation, journal failure and lost acknowledgement leave zero or one complete unit",
+      "owner_ids": [
+        "module.imports"
+      ],
+      "row_ids": [
+        "module.imports.integration.current_workflows",
+        "module.imports.integration.timeline_unit_atomic_rollback_61c5e452e8",
+        "module.imports.integration.unit_commit_crash_recovery_108cd054a6",
+        "module.imports.integration.uncommitted_unit_cancellation"
+      ]
+    },
+    {
+      "obligation_id": "imports.provenance",
+      "normative_owners": [
+        "Core01",
+        "Core03"
+      ],
+      "capability": "Committed source investigation and transfer",
+      "expectation": "Successful application identity distinguishes equal bytes; authorized exact download and immutable attribution survive workflow cleanup/transfer",
+      "owner_ids": [
+        "module.imports"
+      ],
+      "row_ids": [
+        "module.imports.frontend.committed_sources",
+        "module.imports.browser.ir_corpus_import",
+        "module.imports.integration.committed_source_transfer"
+      ]
+    },
+    {
+      "obligation_id": "flow.interpretation",
+      "normative_owners": [
+        "NetworkFlow"
+      ],
+      "capability": "Network Flow parsing, orientation and multiplicity",
+      "expectation": "4500 observations, 500 overlaps, 3903637992 bytes, 4412353 packets; null ports and unknown direction; count connection counters once",
+      "owner_ids": [
+        "module.networkflow"
+      ],
+      "row_ids": [
+        "module.networkflow.integration.orientation_corpus",
+        "module.networkflow.unit.csv_fixture_compares_logical_records_exact_bytes_74b37b1093",
+        "module.networkflow.unit.orientation_diagnostic_dependencies",
+        "module.networkflow.unit.timestamp_fixture_compares_grammar_precision_utc_d5c6e48edb"
+      ]
+    },
+    {
+      "obligation_id": "flow.history",
+      "normative_owners": [
+        "NetworkFlow",
+        "GraphProjection"
+      ],
+      "capability": "Selected graph history and refresh",
+      "expectation": "New tables do not alter saved results; explicit successful refresh changes selection, failed refresh retains prior state",
+      "owner_ids": [
+        "module.networkflow"
+      ],
+      "row_ids": [
+        "module.networkflow.integration.selected_source_history",
+        "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
+        "module.networkflow.browser.table_lifecycle_continuity"
+      ]
+    },
+    {
+      "obligation_id": "graph.projection",
+      "normative_owners": [
+        "GraphProjection"
+      ],
+      "capability": "Graph engine and publication",
+      "expectation": "Independent semantic matrix, deterministic restore rebuild and atomic result publication under maximum admitted bounds",
+      "owner_ids": [
+        "module.graphprojection"
+      ],
+      "row_ids": [
+        "module.graphprojection.engine.v2_semantic_matrix",
+        "module.graphprojection.engine.v2_maximum_semantic_bounds",
+        "module.graphprojection.engine.v2_deterministic_current_restore_rebuild",
+        "module.graphprojection.storage.restore_publication"
+      ]
+    },
+    {
+      "obligation_id": "reporting.frozen",
+      "normative_owners": [
+        "Reporting"
+      ],
+      "capability": "Frozen reporting and graph inputs",
+      "expectation": "Persist exact immutable input/result bindings and portable rendered artifact streams",
+      "owner_ids": [
+        "module.reporting"
+      ],
+      "row_ids": [
+        "module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c",
+        "module.reporting.integration.graph_input_admission_reads_the_exact_selected_c_4c42af0393",
+        "module.reporting.integration.portable_artifact_stream_retention"
+      ]
+    },
+    {
+      "obligation_id": "reporting.authority",
+      "normative_owners": [
+        "Reporting",
+        "Core04"
+      ],
+      "capability": "Report publication, recipients and redaction",
+      "expectation": "Initiating authority rechecked at work/publication; distinct external reviewer; deterministic recipient redaction",
+      "owner_ids": [
+        "module.reporting"
+      ],
+      "row_ids": [
+        "module.reporting.integration.current_snapshot_workers_enforce_initiating_auth_ae8ac370b2",
+        "module.reporting.integration.external_releases_require_distinct_reviewer_and_0df12b0a47",
+        "module.reporting.unit.snapshot_reporting_recipient_redaction_profiles_75c820718c",
+        "module.reporting.unit.snapshot_reporting_redaction_applies_determinist_7f142ce89d"
+      ]
+    },
+    {
+      "obligation_id": "composition.lifecycle",
+      "normative_owners": [
+        "ReportComposition"
+      ],
+      "capability": "Composition publication and release tuple",
+      "expectation": "Current public lifecycle authority and closed release-tuple reason matrix; no optional builder claim",
+      "owner_ids": [
+        "module.reportcomposition"
+      ],
+      "row_ids": [
+        "module.reportcomposition.integration.public_lifecycle_authority",
+        "module.reportcomposition.integration.resolve_release_tuple_tx_reason_matrix_ad31a02455"
+      ]
+    },
+    {
+      "obligation_id": "reference.trust",
+      "normative_owners": [
+        "ReferencePack"
+      ],
+      "capability": "Reference packs, trust and activation",
+      "expectation": "All admitted consumer profiles use canonical persisted state; authorization rederived; failed activation retains prior active pack",
+      "owner_ids": [
+        "module.reference_data"
+      ],
+      "row_ids": [
+        "module.reference_data.integration.all_profiles_consumer_boundary",
+        "module.reference_data.integration.canonical_persistence",
+        "module.reference_data.integration.reference_pack_import_jobs_re_derive_route_famil_dd456a1690",
+        "module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a"
+      ]
+    },
+    {
+      "obligation_id": "transfer.integrity",
+      "normative_owners": [
+        "Core01",
+        "NetworkFlow",
+        "Reporting"
+      ],
+      "capability": "Incident transfer and joined investigation lifecycle",
+      "expectation": "Original identity, actor attribution, sources, overlap observations, frozen reports/graphs retained; publication rechecks membership",
+      "owner_ids": [
+        "module.incidentbundles"
+      ],
+      "row_ids": [
+        "module.incidentbundles.integration.network_flow_portability",
+        "module.incidentbundles.integration.network_flow_historical_portability",
+        "module.incidentbundles.integration.incident_bundle_import_final_publication_recheck_b7b07b3e93",
+        "module.incidentbundles.integration.large_member_public_transfer"
+      ]
+    },
+    {
+      "obligation_id": "recovery.integrity",
+      "normative_owners": [
+        "Core01",
+        "Core04"
+      ],
+      "capability": "Backup, restore and fresh-only cutover",
+      "expectation": "No unclassified authoritative table, no mutation of incompatible state, crypto format identity retained and restored investigation usable",
+      "owner_ids": [
+        "module.database_migrations",
+        "module.recovery"
+      ],
+      "row_ids": [
+        "module.recovery.integration.database_coverage_rejects_an_unclassified_recove_a609c7d3a3",
+        "module.recovery.integration.reset_preserves_crypto_format_identity",
+        "module.recovery.integration.restore_target_serving_admission_cancels_mutatio_f73b480d23",
+        "module.database_migrations.integration.schema_bootstrap",
+        "module.database_migrations.integration.production_preflight_state_matrix",
+        "module.recovery.browser.ir_restored_investigation",
+        "module.recovery.browser.ir_transferred_investigation",
+        "module.recovery.process.real_operator_interruption_preserves_quarantine_ed07ead5c1",
+        "module.recovery.unit.streaming_authenticated_envelope_v2_75ff1a51f9"
+      ]
+    },
+    {
+      "obligation_id": "objects.lifetime",
+      "normative_owners": [
+        "Core01"
+      ],
+      "capability": "Staged objects and object storage",
+      "expectation": "Owned allocation/publication/cleanup; qualified streaming and managed service binding preserve bytes and cancellation",
+      "owner_ids": [
+        "module.stagedobjects",
+        "platform.objectstore"
+      ],
+      "row_ids": [
+        "module.stagedobjects.integration.allocation_publication_cleanup_7f6ad80724",
+        "platform.objectstore.support_integration.qualified_streaming",
+        "platform.objectstore.support_integration.managed_service_object_store_binding_4d6aaf4bd9"
+      ]
+    },
+    {
+      "obligation_id": "jobs.recovery",
+      "normative_owners": [
+        "Core01",
+        "Core04"
+      ],
+      "capability": "Jobs, interruption and publication",
+      "expectation": "Claim/recovery/publication authority, supervised shutdown and failure privacy reconcile all terminal effects",
+      "owner_ids": [
+        "platform.jobs"
+      ],
+      "row_ids": [
+        "platform.jobs.integration.claim_recovery_and_publication",
+        "platform.jobs.integration.runner_failure_security",
+        "platform.jobs.integration.runner_and_recovery",
+        "platform.jobs.integration.supervised_runner"
+      ]
+    },
+    {
+      "obligation_id": "extensions.admission",
+      "normative_owners": [
+        "Extensions"
+      ],
+      "capability": "Extension claims, state and jobs",
+      "expectation": "Closed claim admission, concurrent owner state, canceled/finalized jobs and inactive reconciliation",
+      "owner_ids": [
+        "module.extensions"
+      ],
+      "row_ids": [
+        "module.extensions.integration.admission_preflight_v6",
+        "module.extensions.integration.state_concurrent_admission",
+        "module.extensions.integration.job_finalization_cancellation_and_reconciliation_2c712826c2"
+      ]
+    },
+    {
+      "obligation_id": "configuration.limits",
+      "normative_owners": [
+        "Core04",
+        "Extensions",
+        "NetworkFlow"
+      ],
+      "capability": "Configuration and deployment limits",
+      "expectation": "Closed deployment profile, deterministic resource bounds, independent extension and analytical owner admission; startup rejections retain fixed owner diagnostics without private causes",
+      "owner_ids": [
+        "platform.config",
+        "app.server"
+      ],
+      "row_ids": [
+        "platform.config.unit.every_supported_deployment_profile_requires_the_53e1336e64",
+        "platform.config.unit.resource_limit_validation_resolves_defaults_dete_13cd1f63b3",
+        "platform.config.unit.network_flow_claim_admission",
+        "platform.config.unit.extension_runtime_defaults_and_bounds_8528ff7cc9",
+        "app.server.support_unit.server_runner_writes_diagnostics_and_returns_fai_1f2addc1fd"
+      ]
+    },
+    {
+      "obligation_id": "telemetry.privacy",
+      "normative_owners": [
+        "OpenTelemetry",
+        "Core04"
+      ],
+      "capability": "Telemetry and diagnostic privacy",
+      "expectation": "No source text, credentials or private paths; exporter failures preserve product behavior; bounded queues",
+      "owner_ids": [
+        "platform.jobs",
+        "platform.telemetry"
+      ],
+      "row_ids": [
+        "platform.telemetry.unit.privacy_and_redaction",
+        "platform.telemetry.unit.exporter_failure_invariance",
+        "platform.telemetry.unit.log_mapping_and_queue_behavior",
+        "platform.jobs.integration.operational_telemetry"
+      ]
+    },
+    {
+      "obligation_id": "resilience.budgets",
+      "normative_owners": [
+        "Core05",
+        "Core01",
+        "NetworkFlow"
+      ],
+      "capability": "Supported-profile scale and cancellation",
+      "expectation": "Adopted discovery/apply and analytical limits; editing remains responsive during bounded import cancellation",
+      "owner_ids": [
+        "module.imports",
+        "module.networkflow"
+      ],
+      "row_ids": [
+        "module.imports.measurement.csv_apply",
+        "module.imports.measurement.csv_discovery",
+        "module.networkflow.integration.resource_limits_fixture_compares_application_con_77d0adda0f",
+        "module.networkflow.integration.effective_resource_limit_discovery"
+      ]
+    },
+    {
+      "obligation_id": "harness.recovery",
+      "normative_owners": [
+        "TestingHarness"
+      ],
+      "capability": "Exact recovery ownership",
+      "expectation": "Private keyed locator, bounded read-only resolution, independent resource authority, idempotent settlement and immutable failed evidence",
+      "owner_ids": [
+        "harness.browser",
+        "harness.evidence_accounting"
+      ],
+      "row_ids": [
+        "harness.evidence_accounting.behavior.native_session",
+        "harness.browser.unit.native_fixtures"
+      ]
+    },
+    {
+      "obligation_id": "release.closure",
+      "normative_owners": [
+        "TestingHarness",
+        "Core04",
+        "Core05"
+      ],
+      "capability": "Targeted exact-package evidence closure",
+      "expectation": "Explicit compatible roots only; no test launch; mandatory rows/policies, privacy/cleanup and one producer/archive identity across consumers",
+      "owner_ids": [
+        "harness.release"
+      ],
+      "row_ids": [
+        "harness.release.behavior.current_owner_evidence"
+      ]
+    },
+    {
+      "obligation_id": "assessments.lifecycle",
+      "normative_owners": [
+        "Core01",
+        "Core03"
+      ],
+      "capability": "Compromise assessments and assessor attribution",
+      "expectation": "Append-only states, current assessor membership and transaction failure/replay preserve exact owner effects",
+      "owner_ids": [
+        "module.assessments"
+      ],
+      "row_ids": [
+        "module.assessments.store.facade_transaction_participant_rollback_and_replay",
+        "module.assessments.store.assessment_assessor_membership_contract_743da311fe",
+        "module.assessments.store.http_filter_validation_characterization"
+      ]
+    },
+    {
+      "obligation_id": "artifacts.lifecycle",
+      "normative_owners": [
+        "Core01",
+        "Core03"
+      ],
+      "capability": "Findings, investigative queries, forensic keywords and handoff risks",
+      "expectation": "Typed collection semantics, source mutation/version envelopes and rollback preserve each owner family",
+      "owner_ids": [
+        "module.artifacts"
+      ],
+      "row_ids": [
+        "module.artifacts.collection_semantics.artifact_collection_mutations_preserve_typed_col_ab3546b03e",
+        "module.artifacts.source_mutations.managed_service_assertions_for_artifact_source_c_a67a87fbf9",
+        "module.artifacts.rollback_provider.artifact_rollback_service_executes_all_eight_sour_0dcd05ed0a"
+      ]
+    },
+    {
+      "obligation_id": "revisions.lifecycle",
+      "normative_owners": [
+        "Core01",
+        "Core03"
+      ],
+      "capability": "Record history, rollback, deletion and restore",
+      "expectation": "Current destructive authority, injected rollback failures, bounded history pagination and portable attribution remain exact",
+      "owner_ids": [
+        "module.revisions"
+      ],
+      "row_ids": [
+        "module.revisions.rollback.transaction_failure_injection_8c5e3f2a11",
+        "module.revisions.store.destructive_commands_authorize_the_current_actor_ad6fddd708",
+        "module.revisions.integration.history_logical_page_boundaries",
+        "module.revisions.portability.contract_and_attribution"
+      ]
+    }
+  ]
+}

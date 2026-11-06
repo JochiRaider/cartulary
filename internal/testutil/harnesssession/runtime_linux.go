@@ -87,23 +87,9 @@ func newRuntime(repository, runRoot, runID, scratch string, ownerProcess harness
 	if !component.MatchString(runID) || runID == "." || runID == ".." || len(runID) > 96 {
 		return nil, harnesslocal.ErrUnsafe
 	}
-	if scratch == "" {
-		if configured, ok := os.LookupEnv("CARTULARY_HARNESS_SCRATCH_ROOT"); ok {
-			scratch = configured
-		} else {
-			cache, configured := os.LookupEnv("CARTULARY_MACHINE_CACHE_DIR")
-			if !configured {
-				if xdg := os.Getenv("XDG_CACHE_HOME"); filepath.IsAbs(xdg) {
-					cache = filepath.Join(xdg, "cartulary")
-				} else if home := os.Getenv("HOME"); filepath.IsAbs(home) {
-					cache = filepath.Join(home, ".cache", "cartulary")
-				}
-			}
-			if !canonicalPath(cache) {
-				return nil, harnesslocal.ErrUnsafe
-			}
-			scratch = filepath.Join(cache, "harness-scratch")
-		}
+	scratch, err = resolveScratch(scratch)
+	if err != nil {
+		return nil, err
 	}
 	for _, name := range []string{repository, runRoot, scratch} {
 		if !canonicalPath(name) {
@@ -188,6 +174,9 @@ func newRuntime(repository, runRoot, runID, scratch string, ownerProcess harness
 		return nil, err
 	}
 	if err = harnesslocal.CheckDirectory(parent, base); err != nil {
+		return nil, err
+	}
+	if err = result.publishRecoveryLocator(); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -638,11 +627,14 @@ func (r *Runtime) Close() error {
 	if harnesslocal.CheckDirectory(r.parent, filepath.Dir(r.Root)) != nil || harnesslocal.CheckDirectory(r.Directory, r.Root) != nil {
 		return harnesslocal.ErrUnsafe
 	}
+	if err := r.setRecoveryLocatorState("settling"); err != nil {
+		return err
+	}
 	if err := RemoveOwnedTree(r.Directory, r.Root); err != nil {
 		return err
 	}
 	r.closed = true
-	return errors.Join(r.Directory.Close(), r.parent.Close())
+	return errors.Join(r.setRecoveryLocatorState("settled"), r.Directory.Close(), r.parent.Close())
 }
 
 // ReleaseHandles ends a supervisor's access after either successful removal or

@@ -260,7 +260,7 @@ SELECT u.import_unit_id,
 		if plan.targetKind == ImportTargetKindViewSchema {
 			// Generic workbook content remains bound to discovered row content.
 			var digest string
-			if err := tx.QueryRow(ctx, `SELECT encode(digest(convert_to(source_rows_json::text,'UTF8'),'sha256'),'hex')
+			if err := tx.QueryRow(ctx, `SELECT CASE WHEN locator_kind='csv_file' THEN source_rows_sha256 ELSE encode(digest(convert_to(source_rows_json::text,'UTF8'),'sha256'),'hex') END
 FROM import_units WHERE import_session_id=$1 AND import_unit_id=$2 AND approved_target_kind='view_schema'`, sessionID, plan.unitID).Scan(&digest); err != nil {
 				return err
 			}
@@ -445,15 +445,24 @@ SELECT u.import_unit_id,
 		if admittedTargetView == nil || *admittedTargetView != target.ViewSchemaID || admittedExtension != nil || admittedSourceRowsDigest == nil {
 			return applyUnitData{}, importApplyBlockedError("source_changed")
 		}
-		if err := querier.QueryRow(ctx, `SELECT source_rows_json FROM import_units
+		if unit.LocatorKind == "csv_file" {
+			if err := querier.QueryRow(ctx, `SELECT source_rows_sha256,inferred_row_count FROM import_units WHERE import_session_id=$1 AND import_unit_id=$2`, start.ImportSessionID, unitID).Scan(&unit.SourceProjectionDigest, &unit.SourceProjectionCount); err != nil {
+				return applyUnitData{}, err
+			}
+			if unit.SourceProjectionDigest != *admittedSourceRowsDigest {
+				return applyUnitData{}, importApplyBlockedError("source_changed")
+			}
+		} else {
+			if err := querier.QueryRow(ctx, `SELECT source_rows_json FROM import_units
 WHERE import_session_id=$1 AND import_unit_id=$2 AND approved_target_kind='view_schema'`, start.ImportSessionID, unitID).Scan(&sourceRowsJSON); err != nil {
-			return applyUnitData{}, err
-		}
-		if sha256Hex(sourceRowsJSON) != *admittedSourceRowsDigest {
-			return applyUnitData{}, importApplyBlockedError("source_changed")
-		}
-		if err := json.Unmarshal(sourceRowsJSON, &unit.SourceRows); err != nil {
-			return applyUnitData{}, err
+				return applyUnitData{}, err
+			}
+			if sha256Hex(sourceRowsJSON) != *admittedSourceRowsDigest {
+				return applyUnitData{}, importApplyBlockedError("source_changed")
+			}
+			if err := json.Unmarshal(sourceRowsJSON, &unit.SourceRows); err != nil {
+				return applyUnitData{}, err
+			}
 		}
 	} else {
 		if admittedExtension == nil || *admittedExtension != target.ExtensionProfileID || admittedTargetView != nil || admittedSourceRowsDigest != nil {

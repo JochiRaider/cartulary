@@ -100,7 +100,7 @@ func TestLinksSourceStateStrictRoundTripAndAtomicFailure_Integration(t *testing.
 				invalid["data/tags.ndjson"] = nil
 			}
 			recorder := &linksPortableAttributionRecorder{}
-			importContext := sourceport.ImportContext{IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 6, OperationID: test.name, Attributions: recorder}
+			importContext := sourceport.ImportContext{IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 7, OperationID: test.name, Attributions: recorder}
 			prepared, err := port.PrepareImport(ctx, invalid, importContext)
 			if err != nil {
 				t.Fatalf("prepare row-local valid input: %v", err)
@@ -127,7 +127,7 @@ func TestLinksSourceStateStrictRoundTripAndAtomicFailure_Integration(t *testing.
 
 	recorder := &linksPortableAttributionRecorder{}
 	importContext := sourceport.ImportContext{
-		IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 6,
+		IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 7,
 		OperationID: "links-valid-round-trip", Attributions: recorder,
 	}
 	prepared, err := port.PrepareImport(ctx, bundle, importContext)

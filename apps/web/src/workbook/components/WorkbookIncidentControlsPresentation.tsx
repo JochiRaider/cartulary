@@ -1,6 +1,8 @@
 import { lazy, type ReactNode, type RefObject, Suspense } from "react";
 import type { IncidentControlsSection } from "../../app/landingAdminTypes";
+import { CommittedSourcesPanel } from "../../imports/CommittedSourcesPanel";
 import type { WorkbookImportController } from "../../imports/WorkbookImportController";
+import type { ImportClient } from "../../services/importClient";
 import { useWorkbookSecondaryPanel } from "../../shared/WorkbookRecoveryBoundary";
 import type {
   WorkbookIncidentControlsMenuItem,
@@ -20,6 +22,9 @@ type WorkbookIncidentControlsPresentationProps = {
   readonly onAuthorizationRecovered?: WorkbookIncidentControlsRendererProps["onAuthorizationRecovered"];
   readonly activeMenuItem: WorkbookIncidentControlsMenuItem;
   readonly apiBase: string | undefined;
+  readonly sourceClient: ImportClient | null;
+  readonly sourceId: string | null;
+  readonly sourceRecordId: string | null;
   readonly importController: WorkbookImportController;
   readonly closeButtonRef: RefObject<HTMLButtonElement | null>;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
@@ -45,6 +50,9 @@ export function WorkbookIncidentControlsPresentation({
   activeMenuItem,
   apiBase,
   importController,
+  sourceClient,
+  sourceId,
+  sourceRecordId,
   closeButtonRef,
   currentIncidentRole,
   importAssistantAvailable,
@@ -61,7 +69,20 @@ export function WorkbookIncidentControlsPresentation({
   );
   if (section === null) return null;
   const content =
-    section === "import-assistant" && importAssistantAvailable ? (
+    section === "committed-sources" ? (
+      sourceClient ? (
+        <CommittedSourcesPanel
+          key={`${incidentId}:${sourceId ?? "list"}:${sourceRecordId ?? "all"}`}
+          client={sourceClient}
+          initialSourceId={sourceId}
+          recordId={sourceRecordId}
+        />
+      ) : (
+        <p role="status">
+          Source inspection is unavailable for your current access.
+        </p>
+      )
+    ) : section === "import-assistant" && importAssistantAvailable ? (
       <Suspense fallback={<p role="status">Loading import assistant…</p>}>
         <LazyImportAssistantFeature
           density={density}

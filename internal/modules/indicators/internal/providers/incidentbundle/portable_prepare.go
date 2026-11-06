@@ -39,7 +39,7 @@ var (
 
 func prepareIndicatorImport(ctx context.Context, evaluate identity.Evaluator, bundle incidentportability.MemberReader, input sourceport.ImportContext) (preparedIndicatorImport, error) {
 	prepared := preparedIndicatorImport{binding: portableBinding{operationID: input.OperationID, incidentID: input.IncidentID, bundleVersion: input.BundleVersion, contractMajor: sourceport.ContractMajor}, evaluate: evaluate}
-	if bundle == nil || input.OperationID == "" || input.IncidentID == uuid.Nil || input.ActorUserID == uuid.Nil || input.BundleVersion != 6 {
+	if bundle == nil || input.OperationID == "" || input.IncidentID == uuid.Nil || input.ActorUserID == uuid.Nil || input.BundleVersion != 7 {
 		return preparedIndicatorImport{}, indicatorSourceFailure(representationInvariant)
 	}
 	members, err := incidentportability.BindMembers(bundle, []string{indicatorsBundlePath, observationsBundlePath, intervalsBundlePath})

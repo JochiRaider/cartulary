@@ -3664,10 +3664,10 @@
       "rationale": "REQ-01-685: enumerate durable sources through an authenticated incident-scoped keyset collection restricted to mapping approvers, without exposing source bytes in the list."
     },
     {
-      "fingerprint": "d9a5b341925afd1de90203adcb8b99113ee2ebfa5a8750fca4834acc5ad23503",
+      "fingerprint": "357b15e68decc0e8d7010665f70c51dcc6e4975bfab51823b65139857cf6a917",
       "classification": "additive",
       "owner_id": "module.imports",
-      "rationale": "REQ-01-685: enumerate durable sources through an authenticated incident-scoped keyset collection restricted to mapping approvers, without exposing source bytes in the list."
+      "rationale": "REQ-01-685 remediation adoption: optional record_id filter binds durable successful source applications to destination records; incident and source-inspection authorization remain mandatory."
     },
     {
       "fingerprint": "7c9fcc46b0620e26e1dfa5e9cdd536ed8436356f3c5372969b51d288b85d0319",

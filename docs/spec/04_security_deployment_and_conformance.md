@@ -1,15 +1,5 @@
 # Cartulary Normative Core 04: Security, Deployment, and Conformance
 
-The cancellation-grace termination and prepared-component-loss clarifications
-are adopted under the 2026-10-31 decision in Core 00 §1.7. Implementation and
-operational evidence remain separate.
-
-Complete incident portability adopts Network Flow major 10/state 7 and Incident
-Bundle version 6 under the 2026-11-05 decision in Core 00. It carries forward the
-orientation semantics adopted on 2026-11-04 under Core 00 §1.5.1 and supersedes
-that predecessor storage/portability contract. Older retained state is rejected
-unchanged. Owner adoption, implementation validation and operational deployment
-remain separate dispositions.
 
 ## 1. Authentication model
 
@@ -277,6 +267,23 @@ are bounded to 1048576 bytes. These limits do not increase smaller HTTP owner
 request bounds. SAML signing certificates must be current and have admitted
 RSA parameters and digital-signature usage; certificate rotation takes effect
 through the existing validated provider restart.
+
+SAML ACS admits one protocol Response and exactly one direct assertion. IDs and
+security-sensitive singleton elements must be unambiguous; assertion elements
+must use the SAML assertion namespace. Reject DTDs, encrypted assertions,
+more than 50000 XML tokens or nesting deeper than 64 before DOM construction.
+The unchanged original bytes then pass the supported library's round-trip,
+canonicalization and signature validation. Trust must cover either the complete
+Response or the sole assertion. Required issuer, subject, bearer confirmation,
+conditions, audience restriction and configured subject identity must be present.
+Response and confirmation request IDs must both equal the outstanding SP request;
+Destination and Recipient must equal the derived ACS URL. Both expiry bounds are
+exclusive; assertion/response issue times cannot be in the future. All audience
+restrictions must admit the configured SP, with at least one restriction. Invalid
+library time/audience warnings reject. Proxy restrictions are unsupported. An
+attribute-based subject must have exactly one nonempty value; ambiguity rejects.
+Transaction consumption remains the authentication owner's replay boundary.
+No raw assertion or library-private error is disclosed in public diagnostics.
 
 S3 connections use one explicit endpoint with path-style addressing, static
 SigV4 credentials and a configured signing region (default `us-east-1`). Region
@@ -2307,7 +2314,7 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-00-071, REQ-01-650, REQ-01-659, REQ-02-204, REQ-02-216..REQ-02-218, REQ-02-265, REQ-03-066
 - **AC-530**: Indicator observations accept and persist exactly `manual_entry`, `clipboard_paste`, `csv_import`, `xlsx_import`, `api_import`, `extraction`, and trusted-internal `system`. `interactive_cell`, empty, missing, case-folded, whitespace-padded, aliased, unknown, extension-prefixed, and ordinary caller-selected `system` values fail before the first database write. Every live producer emits its assigned token; ordinary HTTP analyst entry emits `manual_entry`. Exact tokens survive history, rollback, and Incident Bundle round trips, and repeated equal-content observations with distinct stable identities remain separate. Every invalid-origin fixture proves no observation, source or Indicator version, change set, revision, projection, Collaboration intent, idempotency success, or publication effect.
   - Verifies: REQ-01-639..REQ-01-642, REQ-02-075..REQ-02-080, REQ-02-260
-- **AC-531**: Indicator source-major-`3` files for admitted bundle version `6` accept only the three exact REQ-01-640 row schemas, explicit nullable members, canonical scalar forms, and stable-identity export ordering. Interval rows accept only lifecycle state `active`, `benign`, `false_positive`, or `retired` and require unique canonical support-reference UUIDs. Independent negative fixtures exercise each of the ten Indicator invariants plus unknown, case-variant, whitespace-padded, aliased lifecycle tokens and duplicate support references; three multi-defect fixtures under different archive and row permutations always select the owner-defined lowest-precedence invariant and stable row identity. Valid v6 export/import/export preserve deterministic source rows, active and tombstoned repeated observations remain distinct, and injected failure during apply, validation, or before final commit leaves no visible state. Unsupported, hostile, and malformed values expose only `source_family_id='indicators'` and the selected closed `invariant_id`; they disclose no row value, raw digest, SQL, relation, constraint, storage, path, or internal topology through responses, jobs, logs, telemetry, readiness, administrative summaries, or operator output.
+- **AC-531**: Indicator source-major-`3` files for admitted bundle version `7` accept only the three exact REQ-01-640 row schemas, explicit nullable members, canonical scalar forms, and stable-identity export ordering. Interval rows accept only lifecycle state `active`, `benign`, `false_positive`, or `retired` and require unique canonical support-reference UUIDs. Independent negative fixtures exercise each of the ten Indicator invariants plus unknown, case-variant, whitespace-padded, aliased lifecycle tokens and duplicate support references; three multi-defect fixtures under different archive and row permutations always select the owner-defined lowest-precedence invariant and stable row identity. Valid v7 export/import/export preserve deterministic source rows, active and tombstoned repeated observations remain distinct, and injected failure during apply, validation, or before final commit leaves no visible state. Unsupported, hostile, and malformed values expose only `source_family_id='indicators'` and the selected closed `invariant_id`; they disclose no row value, raw digest, SQL, relation, constraint, storage, path, or internal topology through responses, jobs, logs, telemetry, readiness, administrative summaries, or operator output.
 
 - **AC-532**: The six Indicator observation and lifecycle route families, comprising eight HTTP operations, implement their exact read, create, resolve, dismiss, restore, and append contracts. Independent fixtures cover authenticated hidden-resource ordering, viewer denial, editor success, cookie CSRF, exact and divergent replay, stale base versions, every legal and illegal observation transition, source/view/field validation, ASCII and multibyte UTF-8 spans, mid-code-point and out-of-range spans, server-derived text/locator/manual origin, canonical candidate derivation, same-incident targets/support UUIDs, the four exact lifecycle tokens, canonical times, affected-record lock/version order, row-centric history, projection refresh, ordinary Collaboration publication, and failure atomicity. Source-record failures use `indicator_source_record_not_found`; requested resolution-target failures use `resolved_indicator_not_found`; addressed Indicator failures use `indicator_not_found`; unavailable prior observation dependencies remain concealed as `indicator_observation_not_found`; invalid support references remain invalid mutation input; and storage failures use the safe internal path without being rewritten as semantic 404 or 400 responses. Every such failure commits no source, envelope, history, projection, idempotency-success, or Collaboration effect and discloses no SQL, relation, constraint, driver value, or hidden identifier. Observation and interval pages are stable, actor/record-bound, tombstone-free, newest-first, OFFSET-free, and reject cursor replay under another actor, record, route, or limit. Discovery emits the four exact Core 01 Indicator feature rows, and the client resolves their complete semantic tuples before wildcard families. Indicator and Timeline Inspector handlers call the real routes, never generic record patch, preserve selection, expose accessible pending/empty/error/retry/paging states, and omit unsupported actions instead of rendering inert controls.
   - Verifies: REQ-01-615..REQ-01-617, REQ-01-652, REQ-01-654, REQ-02-263..REQ-02-264, REQ-03-306, REQ-04-150
@@ -2477,12 +2484,12 @@ These criteria provide direct runtime-family verification for substantive base-p
   surface or writable field through only one projection fails closed rather
   than partially registering behavior.
   - Verifies: REQ-01-660
-- **AC-542**: Production DDL Rebaseline v3 evidence proves that one pristine
+- **AC-542**: Production DDL Rebaseline v4 evidence proves that one pristine
   exact PostgreSQL 18.6 database with `server_version_num=180006` and data
-  checksums enabled applies exactly the consolidated versions `1..29` under lineage
-  `cartulary.prod_ddl_rebaseline.v3`; v1, v2, foreign, unmarked-nonzero, and
-  contaminated cryptographically admitted states fail before v3 DDL with remediation-report schema v1,
-  boundary `prod_ddl_rebaseline_v3`, reason `historical_migration_lineage`, and
+  checksums enabled applies exactly versions `1..47` under lineage
+  `cartulary.prod_ddl_rebaseline.v4`; v1, v2, v3, foreign, unmarked-nonzero, and
+  contaminated cryptographically admitted states fail before v4 DDL with remediation-report schema v1,
+  boundary `prod_ddl_rebaseline_v4`, reason `historical_migration_lineage`, and
   the exact reset-only hint; and no previous-lineage SQL, data bridge,
   export/import transition, compatibility object, dual lineage, or downgrade
   remains. Manifest and catalog evidence proves exact file, object, logical
@@ -2497,7 +2504,8 @@ These criteria provide direct runtime-family verification for substantive base-p
   object ownership, explicit ACLs, `PUBLIC` revocation, default-deny future
   objects, runtime denial of migration and restore authority, and complete
   Recovery under `cartulary_recovery`. Only Recovery may update target control state; runtime credentials can only read it.
-  Recovery remains exactly 147/114 with membership version history and the
+  Recovery contains exactly 163 catalog tables and 122 required tables, including
+  the streamed import projection and committed-source record associations, with membership version history and the
   unique Revisions conflict-fact entry; evidence remains v2, remediation
   remains v1, and public product behavior and SQLC have no unexplained delta.
   Behavioral evidence proves incident isolation, null-safe active-link identity,
@@ -2683,7 +2691,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   clipboard, Incident Bundle import, and recovery produce the same claim set.
   Go and SQL normalization agree for the versioned corpus and reject unknown
   classes. Every declared Entities bundle invariant has an independent
-  deterministic negative fixture, valid version-6 bytes round-trip exactly,
+  deterministic negative fixture, valid version-7 bytes round-trip exactly,
   and claim rows appear in neither portable nor authoritative backup content.
   Invalid source rows or duplicate active claims block migration, import, or
   recovery before partial publication and without guessing or exposing SQL,
@@ -2879,7 +2887,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   data, and effect ordering across the catalog cutover.
   - Verifies: REQ-01-336..REQ-01-341, REQ-01-671
 
-- **AC-566**: Incident source-family evidence proves that the version-6 singleton
+- **AC-566**: Incident source-family evidence proves that the version-7 singleton
   file has exactly the 16 REQ-01-673 members and canonical scalar forms. Negative
   fixtures independently cover malformed or multivalue documents, duplicate,
   missing, unknown, aliased, wrongly typed, noncanonical, and incoherent members,
@@ -3054,7 +3062,7 @@ guarantees.
   - Verifies: REQ-01-004..REQ-01-014, REQ-02-045..REQ-02-053, REQ-03-153..REQ-03-161, REQ-03-193..REQ-03-204
 
 
-- **AC-262**: `POST /api/v1/import-sessions` accepts only `multipart/form-data` with a required `boundary`, exactly two leaf parts named `metadata` and `file`, and no alternate upload framing; part order is non-semantic; the `metadata` part uses `Content-Type: application/json` or `application/json; charset=utf-8`, is UTF-8 and BOM-free, parses as one JSON object, and contains required `incident_id` plus required `client_txn_id`; the `file` part media type is exactly one of `text/csv`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, or `application/octet-stream`; omitting `assistant_profile` defaults it to `workbook_import_v1`, and explicit `workbook_import_v1` normalizes identically; unsupported profiles and a supplied JSON null fail safely with `unsupported_assistant_profile` and `field_not_nullable` respectively, without durable side effects; accepted sessions expose parser provenance `cartulary.import.workbook.v1` / `workbook_import_adapter_v1`; duplicate or unexpected parts, malformed metadata JSON, duplicate metadata keys, a metadata JSON value that is not an object, invalid part content type, an unknown metadata member, or any envelope failure create no durable `import_session`, no idempotency commit, and no discovery job; replaying the same normalized metadata and file bytes by the same actor with the same `(incident_id, client_txn_id)` returns the original accepted `202` result even when boundary text, part order, or advisory filename differ; and when the discovery job succeeds, the terminal job summary uses `result_summary.code='import_session_discovered'` and exactly one `resource_refs[]` item `{ kind='import_session', id=<import_session_id>, route='/api/v1/import-sessions/{import_session_id}' }`.
+- **AC-262**: `POST /api/v1/import-sessions` accepts only `multipart/form-data` with a required `boundary`, exactly two leaf parts named `metadata` and `file`, and no alternate upload framing; part order is non-semantic; the `metadata` part uses `Content-Type: application/json` or `application/json; charset=utf-8`, is UTF-8 and BOM-free, parses as one JSON object, and contains required `incident_id` plus required `client_txn_id`; the `file` part media type is exactly one of `text/csv`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, or `application/octet-stream`; omitting `assistant_profile` defaults it to `workbook_import_v1`, and explicit `workbook_import_v1` normalizes identically; unsupported profiles and a supplied JSON null fail safely with `unsupported_assistant_profile` and `field_not_nullable` respectively, without durable side effects; accepted sessions expose parser provenance `cartulary.import.workbook.v2` / `workbook_import_adapter_v2`; duplicate or unexpected parts, malformed metadata JSON, duplicate metadata keys, a metadata JSON value that is not an object, invalid part content type, an unknown metadata member, or any envelope failure create no durable `import_session`, no idempotency commit, and no discovery job; replaying the same normalized metadata and file bytes by the same actor with the same `(incident_id, client_txn_id)` returns the original accepted `202` result even when boundary text, part order, or advisory filename differ; and when the discovery job succeeds, the terminal job summary uses `result_summary.code='import_session_discovered'` and exactly one `resource_refs[]` item `{ kind='import_session', id=<import_session_id>, route='/api/v1/import-sessions/{import_session_id}' }`.
   - CSV upload and discovery admit original bytes and one source-only unit without generic CSV interpretation. Network Flow literal quotes, malformed framing/encoding beyond its 50-record preview boundary, and valid 100001-row sources below the byte ceiling reach the owner. Imports row/column/cell limits do not gate CSV; XLSX limits remain enforced. Generic interpretation failure does not poison the source or prevent analytical inspection/preview/approval. Source integrity, byte-overflow no-side-effects, authorization, cancellation and exact replay remain enforced.
   - Verifies: REQ-01-033, REQ-01-466..REQ-01-473, REQ-01-549..REQ-01-553
 - **AC-263**: `GET /api/v1/import-sessions/{import_session_id}` returns exactly the durable `import_session resource` members; `GET /api/v1/import-sessions/{import_session_id}/units` returns `data.import_units[]` with each element using the exact durable `import_unit resource` shape; `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` returns that same exact durable `import_unit resource`; the two singleton import reads reject pagination members; `GET /api/v1/import-sessions/{import_session_id}/units` uses the common cursor-pagination contract; `selected_unit_ids[]`, `blocking_diagnostics[]`, `nonblocking_warning_codes[]`, and `warning_codes[]` always serialize as `[]` when empty; `mapping_fingerprint` and `approved_mapping` are absent before mapping approval; the five-member tabular metadata group is all-null for source-only CSV units and otherwise all non-null, with positive 1-based `header_row_ref` and `data_start_row_ref` within `source_rect_a1`; and preview stays read-only against incident state, is not inlined into the durable unit resource, and exposes exactly the declared preview top-level members, exact `columns[]`, `preview_rows[]`, and `cells[]` shapes, the closed `cell_kind` vocabulary, preserved source order, and the first-50-row cap with `truncated` state.
@@ -4101,13 +4109,13 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   provenance, and satisfies generated-artifact policy with no manually edited
   generated root or dependency lockfile.
   - Verifies: REQ-01-643
-- **AC-506**: Incident Bundle version 6 is the sole admitted import/export format.
+- **AC-506**: Incident Bundle version 7 is the sole admitted import/export format.
   Version dispatch selects only the integer manifest version before source
-  preparation. Retired versions 1/2/3/4/5 and all other integers fail with the safe
+  preparation. Retired versions 1/2/3/4/5/6 and all other integers fail with the safe
   unsupported-version error and no fallback, target mutation or publication.
   Malformed/omitted/null versions use the malformed-manifest error. An already
   admitted asynchronous legacy job terminates safely with no source preparation.
-  All source and special-consumer path/schema bindings admit only version 6.
+  All source and special-consumer path/schema bindings admit only version 7.
   Matched client/server cutover retires incompatible attempts and jobs; immutable
   historical schemas, baselines, artifacts and receipts remain unchanged. The
   narrow REQ-01-021 exception does not weaken general API versioning.
@@ -4117,7 +4125,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   closed malformed, duplicate, mismatched, unknown, or unclaimed cases, invoke
   exactly their admitted consumer, and publish no unauthorized state.
   - Verifies: REQ-01-635, REQ-01-640, REQ-01-642
-- **AC-508**: For admitted version `6`,
+- **AC-508**: For admitted version `7`,
   `data/saved_views.ndjson` is always present and contains only the exact
   eleven-member REQ-01-644 row. Deterministic export covers private, shared,
   system, and zero-row incidents without relation-derived fields. Preparation
@@ -5328,7 +5336,7 @@ change the backend cancellation/commit rules.
 
 ## Complete incident portability security amendment (2026-11-05)
 
-Current complete-incident transfer requires bundle version 6 and compatible,
+Current complete-incident transfer requires bundle version 7 and compatible,
 enabled Network Flow major 10/state 7 whenever that state is present. Transfer
 never grants source permissions, creates login accounts from historical actors,
 automatically enables profiles or silently omits extension data. Committed

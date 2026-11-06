@@ -1173,7 +1173,11 @@ claims an exclusive write key for its output. Measurement work is admitted only
 when no ordinary unit holds the resources covered by its quiet profile. Every
 executable graph unit that consumes CPU, memory, process, I/O, database,
 object-store, service-stack, or browser resources MUST hold `host_activity` in
-shared mode. A `browser_measurement_quiet` session MUST hold `host_activity` in
+shared mode unless its adopted quiet profile requires exclusive mode. The
+`credential_capacity_quiet` package operation MUST hold `host_activity` in
+exclusive mode throughout its execution and cleanup, so other package consumers
+cannot overlap the fixed-profile credential measurement. A
+`browser_measurement_quiet` session MUST hold `host_activity` in
 exclusive mode from reset through fixture preparation, readiness and traffic
 stabilization, warm-up, measured operations, artifact finalization, cleanup,
 and lease release. Once an exclusive waiter is ready, later shared work MUST
@@ -3127,7 +3131,7 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `help` | `cartulary.harness.command.help.v2` | `help_discovery` | `check` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Optional `ALL=1` and `JSON=1`; complete discovery includes selectors and side effects; no readiness mutation. |
 | `doctor` | `cartulary.harness.command.doctor.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `bootstrap` | `cartulary.harness.command.bootstrap.v3` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` | Optional `PART` selects node, frontend, browser or test images; omission selects full bootstrap. |
+| `bootstrap` | `cartulary.harness.command.bootstrap.v3` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install`, `authored_source_write` | `public_active` | Optional `PART` selects node, Go modules, frontend, browser or test images; omission selects full bootstrap. |
 | `frontend-lockfile-update` | `cartulary.harness.command.frontend_lockfile_update.v1` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write` | `public_active` | Explicit pinned-pnpm lockfile preparation; never a normal installation prerequisite. |
 | `db-migrate` | `cartulary.harness.command.db_migrate.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Proves local Postgres readiness under Section 11, starting an owned instance when absent, and applies current-line migrations without resetting the database or object storage. |
 | `db-reset` | `cartulary.harness.command.db_reset.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `destructive_safety` (Section 13), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `destructive_cleanup` | `public_active` | Requires `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset` unless `CARTULARY_CLEANUP_DRY_RUN=1`; resets only the local database and does not reset object storage. |
@@ -3296,6 +3300,14 @@ public target result. Node runtime bootstrap MUST serialize mutation of the
 repo-local runtime and archive paths, download into temporary files, publish an
 archive only after checksum verification, remove corrupt or partial archive
 candidates, and use bounded retry for transient download failures.
+
+`bootstrap PART=go` is the explicit Go dependency-maintenance path. It tidies
+both the product and analysis-tool modules using the pinned Go toolchain, removes
+unused requirements, and lets Go regenerate checksums. It must not depend on
+analysis-tool compilation, so edited module inputs can be resolved before those
+tools are rebuilt. Full bootstrap and ordinary verification remain separate
+from this narrow operation; no dependency is retained merely to preserve an
+obsolete requirement.
 
 For scheduler work graphs, `command.executable="node"` is a logical command
 identity, not a request to search the caller's `PATH`. Before managed service
@@ -3696,7 +3708,7 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `go-vulncheck` | `GOVULNCHECK_DB` | `path` | no | make command line, environment, makefile default | none | omitted | `omitted` | `path_token` | `path` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `build` | `SERVER_HARNESS_BIN` | `path` | no | make command line, environment, makefile default | `$(CURDIR)/server-harness` | use `$(CURDIR)/server-harness` | `invalid` | `path_token` | `path` | `configuration_error`, exit `2` | `source_and_value` | `none` |
 | `build` | `OPERATOR_BIN` | `path` | no | make command line, environment, makefile default | `$(CURDIR)/operator` | use `$(CURDIR)/operator` | `invalid` | `path_token` | `path` | `configuration_error`, exit `2` | `source_and_value` | `none` |
-| `bootstrap` | `PART` | `enum` | no | make command line | none | omitted | `invalid` | `trim` | `node`, `frontend`, `browser`, `test-images` | `usage_error`, exit `2` | `value` | `argv` |
+| `bootstrap` | `PART` | `enum` | no | make command line | none | omitted | `invalid` | `trim` | `node`, `go`, `frontend`, `browser`, `test-images` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-slice` | `SUITE` | `enum` | no | make command line | none | omitted | `invalid` | `trim` | `backend-unit`, `backend-store`, `backend-integration`, `backend-process`, `frontend-unit` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-slice` | `SCOPE` | `enum` | no | make command line | `all` | use `all` | `invalid` | `trim` | `all`, `services` | `usage_error`, exit `2` | `value` | `argv` |
 | `browser-e2e` | `SUITE` | `enum` | yes | make command line | none | missing required input | `invalid` | `trim` | `all`, `functional`, `stateful`, `measurement`, `accessibility`, `visual`, `support` | `usage_error`, exit `2` | `value` | `argv` |
@@ -10956,3 +10968,53 @@ Adoption of `cartulary.testing_harness.current.v3` adopts only Sections 1 throug
 The general third-party diagnostic format exclusion does not exclude the UI review
 Cartulary wrapper schemas adopted in Sections 8.4–8.8. Python analysis, OCR, video,
 alternate MCP adapters, and hosted review/export remain outside this amendment.
+
+## Targeted release evidence amendment — 2026-11-06
+
+The user-approved targeted release path MUST preserve the mandatory release
+predicates while admitting explicitly selected compatible retained invocations.
+`make release-evidence-verify EVIDENCE_ROOTS_FILE=<file>` consumes a closed
+machine-readable list of exact run roots. It MUST NOT launch tests, build a
+package, select the newest run, repair evidence, or treat absent evidence as a
+pass. Source, contract, graph, selected-row, cleanup and retained-secret evidence
+must all close. Required operations and product rows belong to an authored
+machine-readable qualification policy; they are downstream reviewable projections.
+
+The package producer, archive inspection, startup, Reference Pack, operational
+recovery and credential-capacity consumers MUST bind one exact manifest and
+archive digest. `package-inspect CHECK=all` selects these package consumers with
+one producer. Other qualification commands can be invoked independently. Existing
+CI and release aggregates remain optional conveniences; neither is required by
+this targeted path. Machine evidence closure does not substitute for human review
+of specification fidelity, notices or unsupported capability dispositions.
+
+
+## Exact recovery resolution amendment — 2026-11-06
+
+Before a native runtime exposes resource-acquisition authority, it publishes a
+private, owner-issued recovery locator keyed by the canonical repository, exact
+run directory and run ID. The locator binds one runtime root and lease, remains
+outside retained artifacts, and contains no credentials. Publication uses the
+existing secure private-file boundary. Reusing an exact run identity cannot
+replace its locator.
+
+`make test-run-recovery-status RESULTS_DIR=<exact-run>` performs read-only keyed
+resolution. It reports an opaque lease and binding state; it does not scan for
+processes or directories, expose private coordinates, or grant cleanup authority.
+A missing historical locator is explicitly unresolved. Invalid, foreign,
+symlinked or mismatched receipts fail closed.
+
+`make test-run-recover RESULTS_DIR=<exact-run>` may resolve the owner-issued
+binding internally. A complete explicit runtime-root and lease pair remains
+available for historical runs. Native process admission, resource-owner proof,
+dependency ordering and fencing continue to govern all cleanup. Supplying only
+one part of the explicit pair is invalid.
+
+The locator survives failed acquisition, launch, execution, release and provider
+closure. Only after all resources and private detail settle may the owner mark
+root removal in progress. Successful root removal seals a terminal locator;
+interruption between removal and sealing is resolved from that owner-issued
+removal state and the absence of the exact root. A terminal locator makes repeated
+recovery a no-op. Minimal terminal locators remain private control receipts, not
+retained execution evidence. Original failed runs are immutable; each recovery
+invocation produces separate evidence and never changes the original test result.

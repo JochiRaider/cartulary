@@ -143,6 +143,7 @@ const landingAdminPanelTokens = [
 type LandingAdminShellSelector = "heading" | "menu" | "shell" | "status-strip";
 
 type IncidentControlsSectionSelectorToken =
+  | "committed-sources"
   | "snapshot-reports"
   | "import-assistant"
   | "incident-fields"
@@ -195,6 +196,7 @@ type IncidentAdministrationSelector =
 const incidentControlsSections = [
   "summary",
   "import-assistant",
+  "committed-sources",
   "snapshot-reports",
   "incident-fields",
   "memberships",

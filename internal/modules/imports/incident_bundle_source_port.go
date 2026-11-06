@@ -18,14 +18,18 @@ import (
 )
 
 const committedSourcesPath = "data/committed_sources.ndjson"
+const committedSourceRecordsPath = "data/committed_source_records.ndjson"
 const committedSourceBlobPrefix = "sources/sha256/"
 
 func committedSourceDescriptor() sourceport.Descriptor {
 	return sourceport.Descriptor{
 		FamilyID: "committed_sources", ContractMajor: sourceport.ContractMajor, OwnerID: "module.imports",
-		OwnerRelationIDs: []string{"committed-import-sources"}, Dependencies: []string{"incident"},
-		Paths:        []sourceport.Path{{LogicalPath: committedSourcesPath, ContentRole: "source_rows", SchemaID: "cartulary.imports.committed_source.v1", Versions: []int{6}, StableIdentity: []string{"committed_source_id"}, StableIdentityInvariantID: "committed_sources.source_identity_admitted"}},
-		InvariantIDs: []string{"committed_sources.source_identity_admitted", "committed_sources.metadata_exact", "committed_sources.mapping_exact", "committed_sources.blob_exact", "committed_sources.attribution_exact"},
+		OwnerRelationIDs: []string{"committed-import-sources"}, Dependencies: []string{"incident", "records"},
+		Paths: []sourceport.Path{
+			{LogicalPath: committedSourcesPath, ContentRole: "source_rows", SchemaID: "cartulary.imports.committed_source.v1", Versions: []int{7}, StableIdentity: []string{"committed_source_id"}, StableIdentityInvariantID: "committed_sources.source_identity_admitted"},
+			{LogicalPath: committedSourceRecordsPath, ContentRole: "source_rows", SchemaID: "cartulary.imports.committed_source_record.v1", Versions: []int{7}, StableIdentity: []string{"committed_source_id", "source_row_ref"}, StableIdentityInvariantID: "committed_sources.source_identity_admitted"},
+		},
+		InvariantIDs: []string{"committed_sources.source_identity_admitted", "committed_sources.metadata_exact", "committed_sources.mapping_exact", "committed_sources.blob_exact", "committed_sources.attribution_exact", "committed_sources.record_binding_exact"},
 	}
 }
 
@@ -57,11 +61,47 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			if count != prepared.count {
 				return descriptor.DeclaredFailure("committed_sources.source_identity_admitted")
 			}
+			if err := prepared.validateRecordBindings(ctx, tx); err != nil {
+				return err
+			}
 			if err := incidentportability.ValidateTopLevelAttributions(ctx, prepared.members, committedSourcesPath, "import_committed_sources", "committed_source_id", input.Attributions); err != nil {
 				return descriptor.DeclaredFailure("committed_sources.attribution_exact")
 			}
 			return nil
 		},
+	})
+}
+
+// The transport is one bounded row per association, never a source-sized array.
+func exportCommittedSourceRecords(ctx context.Context, input sourceport.ExportContext) error {
+	return incidentportability.WriteMemberFrom(ctx, input.Members, committedSourceRecordsPath, func(ctx context.Context, out io.Writer) error {
+		afterSource, afterRow := uuid.Nil, 0
+		for {
+			value := committedSourceRecord{SchemaID: "cartulary.imports.committed_source_record.v1"}
+			err := input.Query.QueryRow(ctx, `SELECT committed_source_id,source_row_ref,record_id
+FROM import_committed_source_records WHERE incident_id=$1 AND (committed_source_id,source_row_ref)>($2,$3)
+ORDER BY committed_source_id,source_row_ref LIMIT 1`, input.IncidentID, afterSource, afterRow).Scan(&value.CommittedSourceID, &value.SourceRowRef, &value.RecordID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			raw, err := json.Marshal(value)
+			if err != nil {
+				return err
+			}
+			canonical, err := incidentportability.CanonicalRawJSON(raw)
+			if err != nil {
+				return err
+			}
+			if n, err := out.Write(canonical); err != nil {
+				return err
+			} else if n != len(canonical) {
+				return io.ErrShortWrite
+			}
+			afterSource, afterRow = value.CommittedSourceID, value.SourceRowRef
+		}
 	})
 }
 
@@ -126,6 +166,9 @@ func exportCommittedSources(ctx context.Context, input sourceport.ExportContext)
 	if err != nil {
 		return err
 	}
+	if err := exportCommittedSourceRecords(ctx, input); err != nil {
+		return err
+	}
 	after := ""
 	for {
 		var digest string
@@ -156,14 +199,15 @@ func exportCommittedSources(ctx context.Context, input sourceport.ExportContext)
 // sealed inputs. Consumers can request sources only within the admitted incident.
 // It never exposes an archive, SQL handle, storage key or live Import workflow.
 type PreparedCommittedSources struct {
-	incidentID uuid.UUID
-	members    *incidentportability.BoundMembers
-	count      int64
+	incidentID  uuid.UUID
+	members     *incidentportability.BoundMembers
+	count       int64
+	recordCount int64
 }
 
 func PrepareCommittedSources(ctx context.Context, members incidentportability.MemberReader, incidentID uuid.UUID, actors sourceport.ActorCatalog) (*PreparedCommittedSources, error) {
 	descriptor := committedSourceDescriptor()
-	sourceRows, err := sourceport.PrepareMembers(ctx, descriptor, members, 6)
+	sourceRows, err := sourceport.PrepareMembers(ctx, descriptor, members, 7)
 	if err != nil {
 		return nil, err
 	}
@@ -182,8 +226,9 @@ func PrepareCommittedSources(ctx context.Context, members incidentportability.Me
 	}
 	used := map[string]bool{}
 	origins := map[uuid.UUID]bool{}
+	firstRows := map[uuid.UUID]int{}
 	var count int64
-	paths := []string{committedSourcesPath}
+	paths := []string{committedSourcesPath, committedSourceRecordsPath}
 	err = walkCommittedSources(ctx, sourceRows, func(source CommittedSource) error {
 		if err := validateCommittedSource(source, incidentID); err != nil {
 			return err
@@ -195,10 +240,13 @@ func PrepareCommittedSources(ctx context.Context, members incidentportability.Me
 			return descriptor.DeclaredFailure("committed_sources.source_identity_admitted")
 		}
 		// Origin identities are a bounded validation index, separate from bulk bytes.
-		if len(origins) >= 64*1024*1024/16 {
+		if len(origins) >= 64*1024*1024/128 {
 			return descriptor.DeclaredFailure("committed_sources.metadata_exact")
 		}
 		origins[source.OriginImportUnitID] = true
+		if source.TargetKind == ImportTargetKindViewSchema {
+			firstRows[source.CommittedSourceID] = source.DataStartRowRef
+		}
 		path := committedSourceBlobPrefix + source.ContentSHA256
 		member, ok := catalog[path]
 		if !ok || member.ByteSize != source.ByteSize {
@@ -229,7 +277,18 @@ func PrepareCommittedSources(ctx context.Context, members incidentportability.Me
 	if err != nil {
 		return nil, err
 	}
-	return &PreparedCommittedSources{incidentID: incidentID, members: bound, count: count}, nil
+	prepared := &PreparedCommittedSources{incidentID: incidentID, members: bound, count: count}
+	if err := walkCommittedSourceRecords(ctx, bound, func(record committedSourceRecord) error {
+		first, ok := firstRows[record.CommittedSourceID]
+		if !ok || record.SourceRowRef < first {
+			return recordBindingFailure()
+		}
+		prepared.recordCount++
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return prepared, nil
 }
 
 func (p *PreparedCommittedSources) ReadSource(ctx context.Context, id uuid.UUID) (CommittedSource, error) {
@@ -384,7 +443,7 @@ func (p *PreparedCommittedSources) apply(ctx context.Context, tx pgx.Tx, input s
 			return err
 		}
 	}
-	return walkCommittedSources(ctx, p.members, func(source CommittedSource) error {
+	err := walkCommittedSources(ctx, p.members, func(source CommittedSource) error {
 		if err := input.Attributions.RecordImportedAttribution("import_committed_sources", source.CommittedSourceID.String(), "created_by_user_id", source.CreatedByUserID.String()); err != nil {
 			return err
 		}
@@ -393,6 +452,10 @@ func (p *PreparedCommittedSources) apply(ctx context.Context, tx pgx.Tx, input s
 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`, source.CommittedSourceID, source.IncidentID, source.ContentSHA256, source.SourceFileKind, source.SourceMediaType, source.OriginalFilename, source.ParserProfileID, source.ParserVersion, source.LocatorKind, source.Locator, source.SourceRectA1, source.HeaderRowRef, source.DataStartRowRef, source.ApprovedMapping, source.MappingFingerprint, source.TargetKind, source.TargetViewSchemaID, source.ExtensionProfileID, source.OriginImportSessionID, source.OriginImportUnitID, input.ActorUserID, source.CommittedAt)
 		return err
 	})
+	if err != nil {
+		return err
+	}
+	return p.applyRecordBindings(ctx, tx)
 }
 func (p *PreparedCommittedSources) insertBlob(ctx context.Context, tx pgx.Tx, member incidentportability.Member, digest string) error {
 	reader, err := incidentportability.OpenVerifiedMember(ctx, p.members, member)

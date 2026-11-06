@@ -10,18 +10,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"html"
 	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"regexp"
 	"testing"
 	"time"
 
-	"github.com/crewjam/saml"
-	dsig "github.com/russellhaering/goxmldsig"
+	saml2 "github.com/russellhaering/gosaml2"
 
 	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/testutil/tlstest"
@@ -285,77 +282,6 @@ func TestProductionOIDCVerifierNegativeReasonCodes(t *testing.T) {
 	}
 }
 
-func signedSAMLFixture(t *testing.T) SAMLACSVerificationRequest {
-	t.Helper()
-	key, cert := testSAMLKeyPair(t)
-	publicOrigin := "https://cartulary.example.test"
-	relayState := "saml-relay-state"
-	subject := "saml-subject-123"
-	idpMetadataURL := url.URL{Scheme: "https", Host: "idp.example.test", Path: "/metadata"}
-	idpSSOURL := url.URL{Scheme: "https", Host: "idp.example.test", Path: "/sso"}
-	idpEntityID := idpMetadataURL.String()
-	spEntityID := SAMLMetadataURL(publicOrigin, "corp-saml")
-	provider := authn.EnterpriseAuthProviderRecord{
-		ProviderKey:               "corp-saml",
-		ProviderType:              "saml",
-		SAMLIDPEntityID:           &idpEntityID,
-		SAMLSSOURL:                strPtr(idpSSOURL.String()),
-		SAMLIDPSigningCertificate: []string{base64.StdEncoding.EncodeToString(cert.Raw)},
-		SAMLSPHostEntityID:        &spEntityID,
-		SAMLSubjectSource:         &authn.EnterpriseAuthSAMLSubjectSource{Kind: "name_id"},
-	}
-	transaction := authn.EnterpriseAuthTransactionRecord{
-		ProviderKey:  provider.ProviderKey,
-		ProviderType: provider.ProviderType,
-		RelayState:   &relayState,
-	}
-	begin, err := BuildBeginRedirect(provider, publicOrigin, transaction, "")
-	if err != nil {
-		t.Fatalf("build SAML begin redirect: %v", err)
-	}
-	if begin.SAMLRequestID == nil || *begin.SAMLRequestID == "" {
-		t.Fatalf("expected SAML request ID")
-	}
-	transaction.SAMLRequestID = begin.SAMLRequestID
-
-	sp, err := SAMLServiceProvider(provider, publicOrigin)
-	if err != nil {
-		t.Fatalf("build SAML SP: %v", err)
-	}
-	idp := saml.IdentityProvider{
-		Key:                     key,
-		SignatureMethod:         dsig.RSASHA256SignatureMethod,
-		Certificate:             cert,
-		MetadataURL:             idpMetadataURL,
-		SSOURL:                  idpSSOURL,
-		ServiceProviderProvider: staticSAMLServiceProvider{metadata: sp.Metadata()},
-		SessionProvider: staticSAMLSessionProvider{session: &saml.Session{
-			ID:           "session-1",
-			CreateTime:   time.Now().UTC().Add(-time.Minute),
-			ExpireTime:   time.Now().UTC().Add(time.Hour),
-			NameID:       subject,
-			NameIDFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
-		}},
-	}
-
-	redirectURL, err := url.Parse(begin.URL)
-	if err != nil {
-		t.Fatalf("parse SAML redirect: %v", err)
-	}
-	request := httptest.NewRequest(http.MethodGet, redirectURL.String(), nil)
-	response := httptest.NewRecorder()
-	idp.ServeSSO(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("SAML IdP SSO status: got %d body %s", response.Code, response.Body.String())
-	}
-	values := url.Values{
-		"SAMLResponse": []string{hiddenInputValue(t, response.Body.String(), "SAMLResponse")},
-		"RelayState":   []string{hiddenInputValue(t, response.Body.String(), "RelayState")},
-	}
-
-	return SAMLACSVerificationRequest{Provider: provider, Transaction: transaction, Values: values, PublicOrigin: publicOrigin, Now: time.Now().UTC()}
-}
-
 func TestProductionSAMLVerifierSPInitiatedInterop(t *testing.T) {
 	request := signedSAMLFixture(t)
 	result, apiErr := (ProductionSAMLVerifier{}).VerifyACS(context.Background(), request)
@@ -432,27 +358,27 @@ func TestProductionSAMLVerifierClassifiesPrivateErrors(t *testing.T) {
 	}{
 		{
 			name:       "request correlation mismatch",
-			err:        &saml.InvalidResponseError{PrivateErr: errors.New("`InResponseTo` does not match any of the possible request IDs")},
+			err:        saml2.ErrInvalidValue{Key: "InResponseTo"},
 			wantReason: "relay_state_mismatch",
 		},
 		{
 			name:       "issuer mismatch",
-			err:        &saml.InvalidResponseError{PrivateErr: errors.New("response Issuer does not match the IDP metadata")},
+			err:        saml2.ErrInvalidValue{Key: "Issuer"},
 			wantReason: "issuer_mismatch",
 		},
 		{
 			name:       "audience mismatch",
-			err:        &saml.InvalidResponseError{PrivateErr: errors.New("assertion Conditions AudienceRestriction does not contain service provider")},
+			err:        saml2.ErrInvalidValue{Key: "Recipient"},
 			wantReason: "audience_mismatch",
 		},
 		{
 			name:       "assertion expired",
-			err:        &saml.InvalidResponseError{PrivateErr: errors.New("assertion Conditions is expired")},
+			err:        saml2.ErrInvalidValue{Key: "NotOnOrAfter"},
 			wantReason: "assertion_expired",
 		},
 		{
 			name:       "signature invalid fallback",
-			err:        &saml.InvalidResponseError{PrivateErr: errors.New("cannot validate signature on Response")},
+			err:        errors.New("cannot validate signature on Response"),
 			wantReason: "signature_invalid",
 		},
 	} {
@@ -492,22 +418,6 @@ func TestProductionVerifierReasonRegistriesRemainClosed(t *testing.T) {
 	if got := normalizeProviderIdentityReason("unsupported"); got != "no_linked_user" {
 		t.Fatalf("unsupported provider identity reason escaped: got %q", got)
 	}
-}
-
-type staticSAMLServiceProvider struct {
-	metadata *saml.EntityDescriptor
-}
-
-func (p staticSAMLServiceProvider) GetServiceProvider(*http.Request, string) (*saml.EntityDescriptor, error) {
-	return p.metadata, nil
-}
-
-type staticSAMLSessionProvider struct {
-	session *saml.Session
-}
-
-func (p staticSAMLSessionProvider) GetSession(http.ResponseWriter, *http.Request, *saml.IdpAuthnRequest) *saml.Session {
-	return p.session
 }
 
 func writeJSON(t testing.TB, w http.ResponseWriter, value any) {
@@ -754,16 +664,6 @@ func testSAMLKeyPair(t testing.TB) (*rsa.PrivateKey, *x509.Certificate) {
 		t.Fatalf("parse SAML certificate: %v", err)
 	}
 	return key, cert
-}
-
-func hiddenInputValue(t testing.TB, body string, name string) string {
-	t.Helper()
-	pattern := regexp.MustCompile(`<input type="hidden" name="` + regexp.QuoteMeta(name) + `" value="([^"]*)" />`)
-	matches := pattern.FindStringSubmatch(body)
-	if len(matches) != 2 {
-		t.Fatalf("missing hidden input %q in %s", name, body)
-	}
-	return html.UnescapeString(matches[1])
 }
 
 func strPtr(value string) *string {

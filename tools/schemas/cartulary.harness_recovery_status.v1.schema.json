@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_recovery_status.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "lease_id",
+    "status"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_recovery_status.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]{1,96}$"
+    },
+    "lease_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 36
+    },
+    "status": {
+      "enum": [
+        "runtime_bound",
+        "settled",
+        "unresolved"
+      ]
+    }
+  }
+}

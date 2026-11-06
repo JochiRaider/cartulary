@@ -8,3 +8,5 @@ import (
 )
 
 func RecoverRun(context.Context, string, map[string]string, io.Writer) int { return 2 }
+
+func RecoveryStatus(string, map[string]string, io.Writer) int { return 2 }

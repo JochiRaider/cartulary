@@ -20,6 +20,7 @@ const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./ -]+$/;
 const ownerCommandTargets = new Set([
   "task-guide",
   "test-evidence-audit",
+  "release-evidence-verify",
   "test-slice",
 ]);
 

@@ -123,9 +123,9 @@ test("bootstrap admits a closed selector before installing Node and dispatches o
   const root = path.resolve(import.meta.dirname, "../../../..");
   let manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
   const entry = manifest.targets.find((value) => value.name === "bootstrap");
-  entry.input_contract.inputs = [{ name: "PART", type: "enum", values: ["node", "frontend", "browser", "test-images"],
+  entry.input_contract.inputs = [{ name: "PART", type: "enum", values: ["node", "go", "frontend", "browser", "test-images"],
       binding: "make_variable", child_forwarding: "argv", allowed_sources: ["make_command_line"], required: false, default: null }];
-  entry.selection_binding = { kind: "selector", input: "PART", variants: { node: "harness.bootstrap_node", frontend: "harness.bootstrap_frontend",
+  entry.selection_binding = { kind: "selector", input: "PART", variants: { node: "harness.bootstrap_node", go: "harness.bootstrap_go", frontend: "harness.bootstrap_frontend",
       browser: "harness.bootstrap_browser", "test-images": "harness.bootstrap_test_images" }, default_selection: "harness.bootstrap_full" };
   manifest.make_recipes.bootstrap = { type: "bootstrap", prerequisites: [] };
   manifest = projectOperationBindings(manifest, readOperationOwner(root));
@@ -159,7 +159,7 @@ test("bootstrap admits a closed selector before installing Node and dispatches o
     assert.deepEqual(readFileSync(events, "utf8").trim().split("\n"), ["install", "preflight", `tools/harness/execution/operation-runner-cli.mjs ${operation}`]);
   }
 });
-test("required literal recovery inputs reach wrapper admission and its physical child", (t) => {
+test("required and optional literal recovery inputs reach wrapper admission and its physical child", (t) => {
   const root = path.resolve(import.meta.dirname, "../../../..");
   const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
   const scratch = mkdtempSync(path.join(tmpdir(), "recovery-make-transport-"));

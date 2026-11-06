@@ -170,6 +170,10 @@ const incidentControlsSectionMeta = {
     title: "Snapshots and reports",
     description: "Create snapshots and internal report drafts.",
   },
+  "committed-sources": {
+    title: "Original import sources",
+    description: "Inspect retained source files and original mappings.",
+  },
   "import-assistant": {
     title: "Import workbook",
     description:

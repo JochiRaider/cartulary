@@ -2,8 +2,6 @@ package enterpriseauth
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,7 +11,6 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/crewjam/saml"
 	"golang.org/x/oauth2"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -184,39 +181,6 @@ func (verifierPolicy ProductionOIDCVerifier) VerifyCallback(ctx context.Context,
 	return OIDCCallback{State: state, Nonce: idToken.Nonce, ProviderSubject: idToken.Subject}, nil
 }
 
-type ProductionSAMLVerifier struct{}
-
-func (ProductionSAMLVerifier) VerifyACS(_ context.Context, request SAMLACSVerificationRequest) (SAMLAssertionResult, *httpapi.APIError) {
-	if strings.TrimSpace(request.Values.Get("SAMLResponse")) == "" {
-		return SAMLAssertionResult{}, providerResponseRejected("missing_required_field")
-	}
-	relayState := strings.TrimSpace(request.Values.Get("RelayState"))
-	if request.Transaction.RelayState == nil || relayState != *request.Transaction.RelayState {
-		return SAMLAssertionResult{}, providerResponseRejected("relay_state_mismatch")
-	}
-	sp, err := SAMLServiceProvider(request.Provider, request.PublicOrigin)
-	if err != nil {
-		return SAMLAssertionResult{}, providerResponseRejected("signature_invalid")
-	}
-	raw, err := admitSAMLResponse(request.Values.Get("SAMLResponse"))
-	if err != nil {
-		return SAMLAssertionResult{}, providerResponseRejected("signature_invalid")
-	}
-	requestIDs := make([]string, 0, 1)
-	if request.Transaction.SAMLRequestID != nil && *request.Transaction.SAMLRequestID != "" {
-		requestIDs = append(requestIDs, *request.Transaction.SAMLRequestID)
-	}
-	assertion, err := sp.ParseXMLResponse(raw, requestIDs, sp.AcsURL)
-	if err != nil {
-		return SAMLAssertionResult{}, providerResponseRejected(classifySAMLVerificationError(err))
-	}
-	subject := assertionSubject(assertion, request.Provider.SAMLSubjectSource)
-	if subject == "" {
-		return SAMLAssertionResult{}, providerIdentityRejected("subject_missing")
-	}
-	return SAMLAssertionResult{ProviderSubject: subject}, nil
-}
-
 func OIDCRedirectURL(publicOrigin string, providerKey string) string {
 	return strings.TrimRight(publicOrigin, "/") + "/api/v1/auth/oidc/" + url.PathEscape(providerKey) + "/callback"
 }
@@ -267,99 +231,10 @@ func BuildBeginRedirect(provider authn.EnterpriseAuthProviderRecord, publicOrigi
 		if transaction.RelayState == nil {
 			return BeginRedirect{}, errors.New("enterprise auth SAML transaction missing relay state")
 		}
-		sp, err := SAMLServiceProvider(provider, publicOrigin)
-		if err != nil {
-			return BeginRedirect{}, err
-		}
-		ssoURL, err := requiredString(provider.SAMLSSOURL, "missing SAML SSO URL")
-		if err != nil {
-			return BeginRedirect{}, err
-		}
-		authnRequest, err := sp.MakeAuthenticationRequest(ssoURL, saml.HTTPRedirectBinding, saml.HTTPPostBinding)
-		if err != nil {
-			return BeginRedirect{}, err
-		}
-		if transaction.SAMLRequestID != nil && *transaction.SAMLRequestID != "" {
-			authnRequest.ID = *transaction.SAMLRequestID
-		}
-		redirectURL, err := authnRequest.Redirect(*transaction.RelayState, &sp)
-		if err != nil {
-			return BeginRedirect{}, err
-		}
-		requestID := authnRequest.ID
-		return BeginRedirect{URL: redirectURL.String(), SAMLRequestID: &requestID}, nil
+		return buildSAMLRedirect(provider, publicOrigin, transaction)
 	default:
 		return BeginRedirect{}, fmt.Errorf("unsupported enterprise auth provider type %q", provider.ProviderType)
 	}
-}
-
-func SAMLServiceProvider(provider authn.EnterpriseAuthProviderRecord, publicOrigin string) (saml.ServiceProvider, error) {
-	entityID, err := requiredString(provider.SAMLSPHostEntityID, "missing SAML SP entity ID")
-	if err != nil {
-		return saml.ServiceProvider{}, err
-	}
-	idpEntityID, err := requiredString(provider.SAMLIDPEntityID, "missing SAML IdP entity ID")
-	if err != nil {
-		return saml.ServiceProvider{}, err
-	}
-	ssoURL, err := requiredString(provider.SAMLSSOURL, "missing SAML SSO URL")
-	if err != nil {
-		return saml.ServiceProvider{}, err
-	}
-	metadataURL, err := url.Parse(SAMLMetadataURL(publicOrigin, provider.ProviderKey))
-	if err != nil {
-		return saml.ServiceProvider{}, err
-	}
-	acsURL, err := url.Parse(SAMLACSURL(publicOrigin, provider.ProviderKey))
-	if err != nil {
-		return saml.ServiceProvider{}, err
-	}
-	keyDescriptors := make([]saml.KeyDescriptor, 0, len(provider.SAMLIDPSigningCertificate))
-	if !validHTTPSProviderURL(ssoURL) || len(provider.SAMLIDPSigningCertificate) == 0 {
-		return saml.ServiceProvider{}, errProviderPolicy
-	}
-	for _, certificate := range provider.SAMLIDPSigningCertificate {
-		raw, err := base64.StdEncoding.DecodeString(certificate)
-		if err != nil {
-			return saml.ServiceProvider{}, errProviderPolicy
-		}
-		parsed, err := x509.ParseCertificate(raw)
-		if err != nil || admitSAMLSigningCertificate(parsed) != nil {
-			return saml.ServiceProvider{}, errProviderPolicy
-		}
-		keyDescriptors = append(keyDescriptors, saml.KeyDescriptor{
-			Use: "signing",
-			KeyInfo: saml.KeyInfo{
-				X509Data: saml.X509Data{
-					X509Certificates: []saml.X509Certificate{{Data: certificate}},
-				},
-			},
-		})
-	}
-	return saml.ServiceProvider{
-		SignatureVerifier: samlSignaturePolicy{},
-		EntityID:          entityID,
-		MetadataURL:       *metadataURL,
-		AcsURL:            *acsURL,
-		IDPMetadata: &saml.EntityDescriptor{
-			EntityID: idpEntityID,
-			IDPSSODescriptors: []saml.IDPSSODescriptor{{
-				SSODescriptor: saml.SSODescriptor{
-					RoleDescriptor: saml.RoleDescriptor{
-						ProtocolSupportEnumeration: "urn:oasis:names:tc:SAML:2.0:protocol",
-						KeyDescriptors:             keyDescriptors,
-					},
-				},
-				SingleSignOnServices: []saml.Endpoint{{
-					Binding:  saml.HTTPRedirectBinding,
-					Location: ssoURL,
-				}, {
-					Binding:  saml.HTTPPostBinding,
-					Location: ssoURL,
-				}},
-			}},
-		},
-	}, nil
 }
 
 func verifierUnavailable() *httpapi.APIError {
@@ -394,37 +269,6 @@ func resolveOIDCClientSecret(provider authn.EnterpriseAuthProviderRecord, env ma
 		return "", providerResponseRejected("code_exchange_failed")
 	}
 	return value, nil
-}
-
-func assertionSubject(assertion *saml.Assertion, source *authn.EnterpriseAuthSAMLSubjectSource) string {
-	if assertion == nil {
-		return ""
-	}
-	if source == nil || source.Kind == "name_id" {
-		if assertion.Subject == nil || assertion.Subject.NameID == nil {
-			return ""
-		}
-		return strings.TrimSpace(assertion.Subject.NameID.Value)
-	}
-	if source.Kind != "attribute" || source.AttributeName == "" {
-		return ""
-	}
-	for _, statement := range assertion.AttributeStatements {
-		for _, attribute := range statement.Attributes {
-			if attribute.Name != source.AttributeName {
-				continue
-			}
-			for _, value := range attribute.Values {
-				if strings.TrimSpace(value.Value) != "" {
-					return strings.TrimSpace(value.Value)
-				}
-				if value.NameID != nil && strings.TrimSpace(value.NameID.Value) != "" {
-					return strings.TrimSpace(value.NameID.Value)
-				}
-			}
-		}
-	}
-	return ""
 }
 
 func providerResponseRejected(reasonCode string) *httpapi.APIError {
@@ -487,27 +331,6 @@ func classifyOIDCVerificationError(err error) string {
 		return "issuer_mismatch"
 	case strings.Contains(message, "expected audience"), strings.Contains(message, "clientID must be provided"):
 		return "audience_mismatch"
-	default:
-		return "signature_invalid"
-	}
-}
-
-func classifySAMLVerificationError(err error) string {
-	var invalidResponse *saml.InvalidResponseError
-	if errors.As(err, &invalidResponse) && invalidResponse.PrivateErr != nil {
-		err = invalidResponse.PrivateErr
-	}
-	message := err.Error()
-	switch {
-	case strings.Contains(message, "InResponseTo"), strings.Contains(message, "possible request IDs"):
-		return "relay_state_mismatch"
-	case strings.Contains(message, "Issuer does not match"), strings.Contains(message, "issuer is not"):
-		return "issuer_mismatch"
-	case strings.Contains(message, "AudienceRestriction"), strings.Contains(message, "audience restriction"),
-		strings.Contains(message, "Recipient is not"), strings.Contains(message, "Destination"):
-		return "audience_mismatch"
-	case strings.Contains(message, "expired"), strings.Contains(message, "not yet valid"):
-		return "assertion_expired"
 	default:
 		return "signature_invalid"
 	}

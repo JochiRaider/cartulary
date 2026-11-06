@@ -589,6 +589,22 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_recovery_locator.v1",
+      "path": "tools/schemas/cartulary.harness_recovery_locator.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native runtime recovery owner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_recovery_status.v1",
+      "path": "tools/schemas/cartulary.harness_recovery_status.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "native runtime recovery status",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.harness_renderer_attachment.v1",
       "path": "tools/schemas/cartulary.harness_renderer_attachment.v1.schema.json",
       "classification": "shared_component",
@@ -1350,6 +1366,27 @@
       "path": "tools/schemas/cartulary.reference_pack_progress_measurement_proof.v1.schema.json",
       "classification": "public_contract",
       "producer": "Reference Pack progress measurement projection",
+      "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.release_evidence_closure.v1",
+      "path": "tools/schemas/cartulary.release_evidence_closure.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "targeted release evidence owner",
+      "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.release_evidence_roots.v1",
+      "path": "tools/schemas/cartulary.release_evidence_roots.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "targeted release evidence owner",
+      "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.release_qualification.v1",
+      "path": "tools/schemas/cartulary.release_qualification.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "targeted release evidence owner",
       "validation": "harness.json_shape_check"
     },
     {
