@@ -14,6 +14,7 @@ import (
 )
 
 const snapshotCaptureSchemaID = "cartulary.reporting_snapshot_capture.v1"
+const maxSnapshotCaptureBytes = 64 << 20
 
 // A capture retains source-owner facts exactly once. Sections, Core record
 // summaries and Timeline presentation are projections of these facts, not
@@ -75,12 +76,18 @@ func freezeSnapshotCapture(incident IncidentMetadataSnapshot, snapshotID string,
 	if err != nil {
 		return nil, "", err
 	}
+	if len(raw) > maxSnapshotCaptureBytes {
+		return nil, "", errors.New("reporting: snapshot source capture byte limit")
+	}
 	return raw, reportingObjectDigest(snapshotCaptureSchemaID, raw), nil
 }
 
 func decodeSnapshotCapture(raw []byte, digest string) (snapshotCapture, error) {
 	var capture snapshotCapture
 	invalid := errors.New("reporting: invalid retained snapshot capture")
+	if len(raw) > maxSnapshotCaptureBytes {
+		return capture, errors.New("reporting: snapshot source capture byte limit")
+	}
 	canonical, err := canonicalReportingBytes(raw)
 	if err != nil || reportingObjectDigest(snapshotCaptureSchemaID, canonical) != digest {
 		return capture, invalid

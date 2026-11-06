@@ -124,6 +124,33 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.links.store.bundle_validation_commit_isolation",
+      "owner_id": "module.links",
+      "family_id": "module.links.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.links.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/links",
+        "tests": [
+          "TestLinksBundleValidationCommitIsolation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.links.store.typed_links_and_tags_persist_as_structured_rows_8daeea1ad1",
       "owner_id": "module.links",
       "family_id": "module.links.store",

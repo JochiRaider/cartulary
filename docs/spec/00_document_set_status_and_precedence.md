@@ -2,8 +2,8 @@
 
 ## 1. Status
 
-The current Network Flow major-9/state-6 declarations and coordinated owner
-amendments are adopted under the explicit implementation instruction in §1.5.1.
+The current Network Flow major-10/state-7 declarations and coordinated owner
+amendments are adopted under the complete incident portability instruction recorded below.
 Earlier adoption records, including major 8 in §1.3, remain historical evidence.
 Implementation evidence remains separate from adoption and
 specification-to-projection fidelity.
@@ -113,7 +113,7 @@ handoff do not independently confer specification authority or release approval.
 | Reporting 1.4.0 | `docs/reporting-subsystem-nlspec.md` | Current render/export requirements, retained snapshot/pack/template inputs, distinct release and preview identities, canonical serialization/digests, disclosure/redaction, bounded confined rendering, fenced terminal publication and sensitive recovery. Includes §7 derivation profile v2, its algorithm vocabulary and Table 7-A1 obligations. Table 28 future-only behavior remains excluded. |
 | Report Composition 1.3.0 | `docs/report-composition-nlspec.md` | Closed authoring data and draft/version/freeze lifecycle, local-only validation v2, exact immutable composition tuples, internal-draft preview identity and Reporting consumer boundary. No new builder implementation is implied. |
 | Core 00 current corpus | `docs/spec/00_document_set_status_and_precedence.md` | Owner recognition and precedence, including §4.2 review obligations. |
-| Core 01 current corpus and reviewed incident amendments | `docs/spec/01_architecture_storage_and_view_contracts.md` | Incident admission/receipts, canonical strings, durable membership history, bounded Unicode-strict requests, live keyset paging and bundle v5; §§10/17.3 snapshot, route, tuple, preview, Graph and retained-pack conventions. |
+| Core 01 current corpus and reviewed incident amendments | `docs/spec/01_architecture_storage_and_view_contracts.md` | Incident admission/receipts, canonical strings, durable membership history, bounded Unicode-strict requests, live keyset paging and bundle v6; §§10/17.3 snapshot, route, tuple, preview, Graph and retained-pack conventions. |
 | Core 02 current corpus | `docs/spec/02_domain_model_schema_and_history.md` | Source metadata, Party assignments, canonical incident fields and persistence minima. |
 | Core 03 current corpus | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` | Workbook/inspector source editing and authoring presentation boundaries. |
 | Core 04 current corpus | `docs/spec/04_security_deployment_and_conformance.md` | Current-role authorization, reveal-map retention/access, sandbox confinement, authored-text defaults and release gates. Proposed benchmark/job-progress material is excluded. |
@@ -1020,3 +1020,21 @@ This core resolves those areas as follows:
 - optional extension profiles capture source behaviors that were described as important but not uniformly day-one,
 - future-evolution questions, historical source-question material, and editorial backlog remain in Appendix E,
 - the original artifact remains preserved in Appendix G.
+
+
+## Complete incident portability adoption (2026-11-05)
+
+The maintainer explicitly adopts Network Flow major 10/state 7, Incident Bundle
+version 6, all-applied-unit committed provenance and historical selected graphs.
+This coordinated amendment supersedes earlier current-line declarations of
+Network Flow major 9/state 6, bundle version 5 and Network Flow portability
+blocking. Earlier adoption records remain historical; no converter is adopted.
+
+Core 01 REQ-01-685 through REQ-01-689 own committed provenance, streamed bundle
+coordination, atomic publication and Recovery distinction. Network Flow section
+30 owns its participant and selected-source semantics. Extensions owns scoped
+member-stream participation, Graph Projection owns exact computation and scoped
+publication, Reporting owns retained input/disclosure rules, and Core 04 owns
+security and deployment admission. Typed contracts are downstream projections.
+Completion requires independent transfer, operator restore, public API/browser
+verification and compatible retained evidence; adoption alone is not validation.

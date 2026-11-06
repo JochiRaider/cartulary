@@ -60,12 +60,14 @@ func TestSavedGraphReadFailures_Unit(t *testing.T) {
 			switch name {
 			case "no job":
 				probe.declaration.LatestJobID = nil
+				want = selectedResultUnmaterialized
 			case "retained failure":
 				probe.declaration.LatestJobID = nil
 				probe.declaration.LastFailureCode = &failed
 				want = selectedResultFailed
 			case "missing history":
 				probe.err = jobs.ErrNotFound
+				want = selectedResultUnmaterialized
 			case "missing failed history":
 				probe.err = jobs.ErrNotFound
 				probe.declaration.LastFailureCode = &failed

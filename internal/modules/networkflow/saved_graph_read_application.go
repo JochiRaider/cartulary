@@ -42,8 +42,9 @@ type savedGraphContributorsOutcome struct {
 type missingSelectedResultReason string
 
 const (
-	selectedResultPending missingSelectedResultReason = "initial_materialization_pending"
-	selectedResultFailed  missingSelectedResultReason = "initial_materialization_failed"
+	selectedResultUnmaterialized missingSelectedResultReason = "unmaterialized"
+	selectedResultPending        missingSelectedResultReason = "initial_materialization_pending"
+	selectedResultFailed         missingSelectedResultReason = "initial_materialization_failed"
 )
 
 func (s *savedGraphReadApplication) list(ctx context.Context, who readIdentity) ([]graphViewDeclaration, *semanticFailure) {
@@ -61,7 +62,7 @@ func (s *savedGraphReadApplication) get(ctx context.Context, who readIdentity, i
 		return graphViewDeclaration{}, failure
 	}
 	declaration, err := s.declarations.GetGraphViewDeclaration(ctx, who.IncidentID, id)
-	if errors.Is(err, errGraphViewDeclarationNotFound) || err == nil && declaration.DeclarationState != graphViewDeclarationStateActive {
+	if errors.Is(err, errGraphViewDeclarationNotFound) {
 		return graphViewDeclaration{}, newSemanticFailure(failureGraphViewNotFound, "graph_view_id", "not_found")
 	}
 	if err != nil {
@@ -77,7 +78,7 @@ func (s *savedGraphReadApplication) missingSelectedResult(ctx context.Context, d
 		if declaration.LastFailureCode != nil {
 			return selectedResultFailed
 		}
-		return selectedResultPending
+		return selectedResultUnmaterialized
 	}
 	if declaration.LatestJobID == nil {
 		return retained(), nil
@@ -128,17 +129,11 @@ func (s *savedGraphReadApplication) result(ctx context.Context, who readIdentity
 	if err := json.Unmarshal(completed.ResultJSON, &result); err != nil {
 		return nil, internalSemanticFailure(err)
 	}
-	semantic, failure := decodeGraphSemanticRequest(declaration.SemanticQueryJSON, s.limits)
-	if failure != nil {
-		return nil, malformedStoredGraphResult()
-	}
-	composition, failure := s.verifier.composeGraphSourceFromSemantic(ctx, who.IncidentID, semantic)
-	if failure != nil || graphSourceSnapshotDigest(who.IncidentID, composition.SourceTables, composition.Digest) != declaration.SelectedResult.SourceSnapshotID {
-		failureOut := malformedStoredGraphResult()
-		if failure != nil {
-			failureOut.cause = failure
-		}
-		return nil, failureOut
+	composition, semantic, err := s.verifier.composeSelectedSource(ctx, declaration)
+	if err != nil {
+		failure := malformedStoredGraphResult()
+		failure.cause = err
+		return nil, failure
 	}
 	composition.GraphProjection = result
 	if semantic.Aggregation.Mode == "time_bucket_v1" {
@@ -162,15 +157,17 @@ func (s *savedGraphReadApplication) contributors(ctx context.Context, who readId
 	if _, err := s.results.ReadExactResult(ctx, graphViewResultBinding(declaration)); err != nil {
 		return nil, internalSemanticFailure(err)
 	}
-	semantic, failure := decodeGraphSemanticRequest(declaration.SemanticQueryJSON, s.limits)
-	if failure != nil {
-		return nil, malformedStoredGraphResult()
+	historical, semantic, err := s.composer.forSelectedSource(ctx, declaration)
+	if err != nil {
+		return nil, internalSemanticFailure(err)
 	}
+	bound := *s
+	bound.composer = historical
 	digest, err := graphQueryDigestForSemantic(who.IncidentID, semantic.SelectedTableIDs, semantic)
 	if err != nil {
 		return nil, internalSemanticFailure(err)
 	}
-	return s.querySavedGraphContributors(ctx, who.ActorID.String(), who.SessionID.String(), who.IncidentID, id, declaration.SelectedResult.ProjectionResultID, semantic, digest, request)
+	return bound.querySavedGraphContributors(ctx, who.ActorID.String(), who.SessionID.String(), who.IncidentID, id, declaration.SelectedResult.ProjectionResultID, semantic, digest, request)
 }
 func (s *savedGraphReadApplication) querySavedGraphContributors(
 	ctx context.Context,

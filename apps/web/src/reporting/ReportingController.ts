@@ -17,6 +17,7 @@ import {
   type ReportingClient,
   type ReportingJob,
   type ReportingReceipt,
+  type RetainedReportArtifact,
 } from "../services/reportingClient";
 
 export type ReportingBinding = {
@@ -29,6 +30,11 @@ export type ReportingBinding = {
   readonly accessFailure: () => void;
 };
 type ReportingState = {
+  readonly retainedArtifacts:
+    | readonly (RetainedReportArtifact & { readonly downloadHref: string })[]
+    | null;
+  readonly retainedBusy: boolean;
+  readonly retainedProblem: string | null;
   readonly available: boolean;
   readonly writable: boolean;
   readonly presented: boolean;
@@ -43,6 +49,9 @@ type ReportingState = {
   readonly problem: string | null;
 };
 const initial = (): ReportingState => ({
+  retainedArtifacts: null,
+  retainedBusy: false,
+  retainedProblem: null,
   available: false,
   writable: false,
   presented: false,
@@ -71,6 +80,8 @@ export class ReportingController {
   private observingUntil = 0;
   private reading = false;
   private disposed = false;
+  private retainedEpoch = 0;
+  private cancelRetainedRead = () => {};
   constructor(
     private readonly clock: ObservationClock = browserObservationClock,
     private readonly transactionId: () => string = () =>
@@ -109,6 +120,13 @@ export class ReportingController {
     this.update({ presented });
   }
   pause() {
+    ++this.retainedEpoch;
+    this.cancelRetainedRead();
+    this.update({
+      retainedArtifacts: null,
+      retainedBusy: false,
+      retainedProblem: null,
+    });
     ++this.epoch;
     this.cancelPoll();
     this.cancelObservation();
@@ -154,6 +172,57 @@ export class ReportingController {
       (!this.state.job || terminalCommonJob(this.state.job))
     );
   }
+  loadRetainedArtifacts = async () => {
+    const b = this.authority(true);
+    if (!b || this.state.retainedBusy) return;
+    const epoch = ++this.retainedEpoch;
+    this.update({ retainedBusy: true, retainedProblem: null });
+    const observation = observeAsyncOperation(
+      (signal) => b.client.retainedArtifacts(b.incidentId, signal),
+      this.clock,
+    );
+    this.cancelRetainedRead = observation.cancel;
+    const result = await observation.result;
+    if (epoch !== this.retainedEpoch || this.disposed) return;
+    if (!b.current()) {
+      this.pause();
+      return;
+    }
+    if (
+      result.kind === "completed" &&
+      result.value.ok &&
+      result.value.status === 200 &&
+      result.value.payload.data.incident_id === b.incidentId
+    ) {
+      const artifacts = result.value.payload.data.artifacts;
+      // Construct local download routes from admitted identities, never follow a returned URL.
+      if (
+        artifacts.every((item) => /^[0-9a-f]{64}$/.test(item.artifact_id)) &&
+        new Set(artifacts.map((item) => item.artifact_id)).size ===
+          artifacts.length
+      ) {
+        this.update({
+          retainedBusy: false,
+          retainedArtifacts: artifacts.map((item) => ({
+            ...item,
+            downloadHref: b.client.retainedArtifactHref(
+              b.incidentId,
+              item.artifact_id,
+            ),
+          })),
+        });
+        return;
+      }
+    }
+    this.update({
+      retainedBusy: false,
+      retainedArtifacts: null,
+      retainedProblem:
+        "Transferred report files could not be loaded. Try again after checking access.",
+    });
+    if (result.kind === "completed" && [401, 403].includes(result.value.status))
+      b.accessFailure();
+  };
   private newIdentity() {
     try {
       return this.transactionId();

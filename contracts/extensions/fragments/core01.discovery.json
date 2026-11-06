@@ -1,5 +1,6 @@
 {
   "facts": [
+    {"fact_kind": "route_family", "profile_id": "snapshot_reporting", "route_family": "/api/v1/incidents/{incident_id}/retained-report-artifacts"},
     {
       "fact_kind": "route_family",
       "profile_id": "enterprise_authentication",
@@ -59,6 +60,11 @@
       "fact_kind": "route_family",
       "profile_id": "snapshot_reporting",
       "route_family": "/api/v1/snapshots"
+    },
+    {
+      "fact_kind": "route_family",
+      "profile_id": "import",
+      "route_family": "/api/v1/incidents/{incident_id}/committed-sources"
     }
   ],
   "owner_fragment_id": "core01.extension_discovery_v1",

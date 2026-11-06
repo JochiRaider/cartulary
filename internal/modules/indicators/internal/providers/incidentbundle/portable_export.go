@@ -1,10 +1,10 @@
 package incidentbundle
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 	"time"
 
@@ -17,47 +17,28 @@ import (
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
 )
 
-func exportFiles(
-	evaluate identity.Evaluator,
-	ctx context.Context,
-	exportContext sourceport.ExportContext,
-) ([]incidentportability.File, error) {
-	indicators, err := loadPortableIndicators(ctx, evaluate, exportContext)
-	if err != nil {
-		return nil, err
+func exportFiles(evaluate identity.Evaluator, ctx context.Context, input sourceport.ExportContext) error {
+	if err := exportSourceMember(ctx, input, indicatorsBundlePath, func(ctx context.Context, input sourceport.ExportContext, after *uuid.UUID) ([]portableIndicatorRow, error) {
+		return loadPortableIndicatorsPage(ctx, evaluate, input, after)
+	}, func(row portableIndicatorRow) uuid.UUID { return row.RecordID }, encodePortableIndicators); err != nil {
+		return err
 	}
-	observations, err := loadPortableObservations(ctx, evaluate, exportContext)
-	if err != nil {
-		return nil, err
+	if err := exportSourceMember(ctx, input, observationsBundlePath, func(ctx context.Context, input sourceport.ExportContext, after *uuid.UUID) ([]portableObservationRow, error) {
+		return loadPortableObservationsPage(ctx, evaluate, input, after)
+	}, func(row portableObservationRow) uuid.UUID { return row.ObservationID }, encodePortableObservations); err != nil {
+		return err
 	}
-	intervals, err := loadPortableIntervals(ctx, exportContext)
-	if err != nil {
-		return nil, err
+	if err := exportSourceMember(ctx, input, intervalsBundlePath, loadPortableIntervalsPage, func(row portableIntervalRow) uuid.UUID { return row.IntervalID }, encodePortableIntervals); err != nil {
+		return err
 	}
-	indicatorPayload, err := encodePortableIndicators(ctx, exportContext, indicators)
-	if err != nil {
-		return nil, err
-	}
-	observationPayload, err := encodePortableObservations(ctx, exportContext, observations)
-	if err != nil {
-		return nil, err
-	}
-	intervalPayload, err := encodePortableIntervals(ctx, exportContext, intervals)
-	if err != nil {
-		return nil, err
-	}
-	return []incidentportability.File{
-		{Path: indicatorsBundlePath, Payload: indicatorPayload},
-		{Path: observationsBundlePath, Payload: observationPayload},
-		{Path: intervalsBundlePath, Payload: intervalPayload},
-	}, nil
+	return nil
 }
 
-func loadPortableIndicators(
+func loadPortableIndicatorsPage(
 	ctx context.Context,
 	evaluate identity.Evaluator,
 	exportContext sourceport.ExportContext,
-) ([]portableIndicatorRow, error) {
+	after *uuid.UUID) ([]portableIndicatorRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT indicator.record_id, indicator.incident_id, indicator.indicator_type,
        indicator.value_kind, indicator.display_value, indicator.normalized_value,
@@ -72,8 +53,10 @@ SELECT indicator.record_id, indicator.incident_id, indicator.indicator_type,
    AND envelope.incident_id = indicator.incident_id
    AND envelope.record_type = 'indicator'
  WHERE indicator.incident_id = $1
+ AND ($2::uuid IS NULL OR indicator.record_id > $2)
  ORDER BY indicator.record_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, errors.New("indicator portability export query failed")
 	}
@@ -116,11 +99,11 @@ SELECT indicator.record_id, indicator.incident_id, indicator.indicator_type,
 	return result, nil
 }
 
-func loadPortableObservations(
+func loadPortableObservationsPage(
 	ctx context.Context,
 	evaluate identity.Evaluator,
 	exportContext sourceport.ExportContext,
-) ([]portableObservationRow, error) {
+	after *uuid.UUID) ([]portableObservationRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT indicator_observation_id, incident_id, source_record_id, source_field_key,
        origin_kind, origin_locator, observed_text, parsed_indicator_type,
@@ -129,8 +112,10 @@ SELECT indicator_observation_id, incident_id, source_record_id, source_field_key
        resolved_at, resolution_method, deleted_at, deleted_by_user_id
   FROM indicator_observations
  WHERE incident_id = $1
+ AND ($2::uuid IS NULL OR indicator_observation_id > $2)
  ORDER BY indicator_observation_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, errors.New("indicator observation portability export query failed")
 	}
@@ -179,10 +164,10 @@ SELECT indicator_observation_id, incident_id, source_record_id, source_field_key
 	return result, nil
 }
 
-func loadPortableIntervals(
+func loadPortableIntervalsPage(
 	ctx context.Context,
 	exportContext sourceport.ExportContext,
-) ([]portableIntervalRow, error) {
+	after *uuid.UUID) ([]portableIntervalRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT indicator_state_interval_id, incident_id, indicator_record_id,
        lifecycle_state, valid_from, valid_to, confidence, rationale,
@@ -190,8 +175,10 @@ SELECT indicator_state_interval_id, incident_id, indicator_record_id,
        created_at, deleted_at, deleted_by_user_id
   FROM indicator_state_intervals
  WHERE incident_id = $1
+ AND ($2::uuid IS NULL OR indicator_state_interval_id > $2)
  ORDER BY indicator_state_interval_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, errors.New("indicator interval portability export query failed")
 	}
@@ -248,37 +235,36 @@ func encodePortableIndicators(
 	ctx context.Context,
 	exportContext sourceport.ExportContext,
 	rows []portableIndicatorRow,
-) ([]byte, error) {
+	output io.Writer) error {
 	created := portableActorMap(ctx, exportContext, "records", "created_by_user_id", indicatorIDs(rows, false))
 	updated := portableActorMap(ctx, exportContext, "records", "updated_by_user_id", indicatorIDs(rows, false))
 	deleted := portableActorMap(ctx, exportContext, "records", "deleted_by_user_id", indicatorIDs(rows, true))
 	if created.err != nil || updated.err != nil || deleted.err != nil {
-		return nil, errors.New("indicator portability attribution resolution failed")
+		return errors.New("indicator portability attribution resolution failed")
 	}
-	var payload bytes.Buffer
 	for _, row := range rows {
 		rowID := row.RecordID.String()
-		createdBy, err := portableActorID(created.values[rowID], row.RuntimeCreatedByID)
+		createdBy, err := incidentportability.ExportActorID(exportContext.Actors, created.values[rowID], row.RuntimeCreatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		updatedBy, err := portableActorID(updated.values[rowID], row.RuntimeUpdatedByID)
+		updatedBy, err := incidentportability.ExportActorID(exportContext.Actors, updated.values[rowID], row.RuntimeUpdatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		var deletedAt any
 		var deletedBy any
 		if row.DeletedAt != nil {
 			deletedAt = formatPortableTimestamp(*row.DeletedAt)
 			if row.RuntimeDeletedByID == nil {
-				return nil, errors.New("indicator portability export deletion tuple is invalid")
+				return errors.New("indicator portability export deletion tuple is invalid")
 			}
-			deletedBy, err = portableActorID(deleted.values[rowID], *row.RuntimeDeletedByID)
+			deletedBy, err = incidentportability.ExportActorID(exportContext.Actors, deleted.values[rowID], *row.RuntimeDeletedByID)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
-		if err := appendPortableRow(&payload, map[string]any{
+		if err := appendPortableRow(output, map[string]any{
 			"record_id": rowID, "incident_id": row.IncidentID.String(),
 			"indicator_type": row.IndicatorType, "value_kind": row.ValueKind,
 			"display_value": row.DisplayValue, "normalized_value": row.NormalizedValue,
@@ -290,45 +276,44 @@ func encodePortableIndicators(
 			"created_by_user_id": createdBy, "updated_by_user_id": updatedBy,
 			"deleted_at": deletedAt, "deleted_by_user_id": deletedBy,
 		}); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return payload.Bytes(), nil
+	return nil
 }
 
 func encodePortableObservations(
 	ctx context.Context,
 	exportContext sourceport.ExportContext,
 	rows []portableObservationRow,
-) ([]byte, error) {
+	output io.Writer) error {
 	created := portableActorMap(ctx, exportContext, "indicator_observations", "created_by_user_id", observationIDs(rows, "created"))
 	resolved := portableActorMap(ctx, exportContext, "indicator_observations", "resolved_by_user_id", observationIDs(rows, "resolved"))
 	deleted := portableActorMap(ctx, exportContext, "indicator_observations", "deleted_by_user_id", observationIDs(rows, "deleted"))
 	if created.err != nil || resolved.err != nil || deleted.err != nil {
-		return nil, errors.New("indicator observation portability attribution resolution failed")
+		return errors.New("indicator observation portability attribution resolution failed")
 	}
-	var payload bytes.Buffer
 	for _, row := range rows {
 		rowID := row.ObservationID.String()
-		createdBy, err := portableActorID(created.values[rowID], row.RuntimeCreatedByID)
+		createdBy, err := incidentportability.ExportActorID(exportContext.Actors, created.values[rowID], row.RuntimeCreatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		var resolvedBy any
 		if row.RuntimeResolvedByID != nil {
-			resolvedBy, err = portableActorID(resolved.values[rowID], *row.RuntimeResolvedByID)
+			resolvedBy, err = incidentportability.ExportActorID(exportContext.Actors, resolved.values[rowID], *row.RuntimeResolvedByID)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 		var deletedBy any
 		if row.RuntimeDeletedByID != nil {
-			deletedBy, err = portableActorID(deleted.values[rowID], *row.RuntimeDeletedByID)
+			deletedBy, err = incidentportability.ExportActorID(exportContext.Actors, deleted.values[rowID], *row.RuntimeDeletedByID)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
-		if err := appendPortableRow(&payload, map[string]any{
+		if err := appendPortableRow(output, map[string]any{
 			"indicator_observation_id": rowID, "incident_id": row.IncidentID.String(),
 			"source_record_id": row.SourceRecordID.String(), "source_field_key": row.SourceFieldKey,
 			"origin_kind": row.OriginKind.String(), "origin_locator": row.OriginLocator,
@@ -340,37 +325,36 @@ func encodePortableObservations(
 			"resolved_at": nullableTimestampString(row.ResolvedAt), "resolution_method": row.ResolutionMethod,
 			"deleted_at": nullableTimestampString(row.DeletedAt), "deleted_by_user_id": deletedBy,
 		}); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return payload.Bytes(), nil
+	return nil
 }
 
 func encodePortableIntervals(
 	ctx context.Context,
 	exportContext sourceport.ExportContext,
 	rows []portableIntervalRow,
-) ([]byte, error) {
+	output io.Writer) error {
 	created := portableActorMap(ctx, exportContext, "indicator_state_intervals", "created_by_user_id", intervalIDs(rows, false))
 	deleted := portableActorMap(ctx, exportContext, "indicator_state_intervals", "deleted_by_user_id", intervalIDs(rows, true))
 	if created.err != nil || deleted.err != nil {
-		return nil, errors.New("indicator interval portability attribution resolution failed")
+		return errors.New("indicator interval portability attribution resolution failed")
 	}
-	var payload bytes.Buffer
 	for _, row := range rows {
 		rowID := row.IntervalID.String()
-		createdBy, err := portableActorID(created.values[rowID], row.RuntimeCreatedByID)
+		createdBy, err := incidentportability.ExportActorID(exportContext.Actors, created.values[rowID], row.RuntimeCreatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		var deletedBy any
 		if row.RuntimeDeletedByID != nil {
-			deletedBy, err = portableActorID(deleted.values[rowID], *row.RuntimeDeletedByID)
+			deletedBy, err = incidentportability.ExportActorID(exportContext.Actors, deleted.values[rowID], *row.RuntimeDeletedByID)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
-		if err := appendPortableRow(&payload, map[string]any{
+		if err := appendPortableRow(output, map[string]any{
 			"indicator_state_interval_id": rowID, "incident_id": row.IncidentID.String(),
 			"indicator_record_id": row.IndicatorRecordID.String(), "lifecycle_state": row.LifecycleState,
 			"valid_from": formatPortableTimestamp(row.ValidFrom), "valid_to": nullableTimestampString(row.ValidTo),
@@ -380,10 +364,10 @@ func encodePortableIntervals(
 			"created_by_user_id": createdBy, "created_at": formatPortableTimestamp(row.CreatedAt),
 			"deleted_at": nullableTimestampString(row.DeletedAt), "deleted_by_user_id": deletedBy,
 		}); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return payload.Bytes(), nil
+	return nil
 }
 
 type actorMapResult struct {
@@ -407,27 +391,8 @@ func portableActorMap(
 	return actorMapResult{values: values, err: err}
 }
 
-func portableActorID(sourceActorID string, runtimeActorID uuid.UUID) (string, error) {
-	if sourceActorID == "" {
-		if runtimeActorID == uuid.Nil {
-			return "", errors.New("indicator portability export actor is invalid")
-		}
-		return runtimeActorID.String(), nil
-	}
-	parsed, err := uuid.Parse(sourceActorID)
-	if err != nil || parsed.String() != sourceActorID {
-		return "", errors.New("indicator portability export attribution is invalid")
-	}
-	return sourceActorID, nil
-}
-
-func appendPortableRow(payload *bytes.Buffer, row map[string]any) error {
-	encoded, err := incidentportability.CanonicalJSONString(row)
-	if err != nil {
-		return errors.New("indicator portability export encoding failed")
-	}
-	payload.Write(encoded)
-	return nil
+func appendPortableRow(output io.Writer, row map[string]any) error {
+	return incidentportability.WriteNDJSONRecord(output, row)
 }
 
 func validatePortableIndicatorForExport(evaluate identity.Evaluator, row portableIndicatorRow, incidentID uuid.UUID) error {
@@ -589,4 +554,28 @@ func uuidFromPG(value pgtype.UUID) *uuid.UUID {
 		return nil
 	}
 	return &result
+}
+
+func exportSourceMember[T any](ctx context.Context, input sourceport.ExportContext, path string,
+	load func(context.Context, sourceport.ExportContext, *uuid.UUID) ([]T, error),
+	identity func(T) uuid.UUID,
+	encode func(context.Context, sourceport.ExportContext, []T, io.Writer) error,
+) error {
+	return incidentportability.WriteMemberFrom(ctx, input.Members, path, func(ctx context.Context, output io.Writer) error {
+		var after *uuid.UUID
+		for {
+			rows, err := load(ctx, input, after)
+			if err != nil {
+				return err
+			}
+			if len(rows) == 0 {
+				return nil
+			}
+			if err := encode(ctx, input, rows, output); err != nil {
+				return err
+			}
+			last := identity(rows[len(rows)-1])
+			after = &last
+		}
+	})
 }

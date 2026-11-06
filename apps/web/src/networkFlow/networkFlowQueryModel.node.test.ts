@@ -171,7 +171,7 @@ function row(id: string, bytes: string): NetworkFlowRow {
   return {
     network_flow_row_id: id,
     "network_flow.bytes_count": bytes,
-    "network_flow.observation_source_ref": { import_unit_id: "unit-1" },
+    "network_flow.observation_source_ref": { committed_source_id: "source-1" },
   } as NetworkFlowRow;
 }
 

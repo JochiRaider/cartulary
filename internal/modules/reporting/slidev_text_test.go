@@ -9,9 +9,10 @@ import (
 	"testing"
 )
 
-func TestSlidevMarkdownEscapeV2(t *testing.T) {
+func TestSlidevMarkdownEscapeV3(t *testing.T) {
 	for _, tc := range []struct{ input, want string }{
 		{"Café 漢字 (report).", "Café 漢字 (report)."},
+		{"\t# literal\r\nnext\r<script>", "&#9;# literal&#13;\nnext&#13;\\<script>"},
 		{"{{ 7 * 7 }}", "{{ 7 \\* 7 }}"},
 		{"&lt; <script> &amp;", "\\&lt; \\<script> \\&amp;"},
 		{"# title\n  > quote\n- list\n+ list\n= heading", "\\# title\n  \\> quote\n\\- list\n\\+ list\n\\= heading"},
@@ -34,6 +35,7 @@ func TestSlidevFieldTextCanonicalValues(t *testing.T) {
 		{"null", nil, ""},
 		{"text", "Café 漢字 < &", "Café 漢字 < &"},
 		{"paragraph lines", "first\nsecond", "first\nsecond"},
+		{"documentary whitespace", "Café\t漢字\r\nsecond\rthird", "Café\t漢字\r\nsecond\rthird"},
 		{"integer", json.Number("-9007199254740991"), "-9007199254740991"},
 		{"producer integer", int64(42), "42"},
 		{"decoded integer", float64(42), "42"},
@@ -50,14 +52,14 @@ func TestSlidevFieldTextCanonicalValues(t *testing.T) {
 		})
 	}
 	for _, value := range []any{map[string]any{}, []any{[]any{}}, []any{map[string]any{}},
-		[]byte("opaque"), "bad\xff", "bad\x00", "bad\t", "bad\r", "bad\u0085", "bad\u007f",
+		[]byte("opaque"), "bad\xff", "bad\x00", "bad\x0b", "bad\u0085", "bad\u007f",
 		json.Number("-0"), json.Number("+1"), json.Number("01"), json.Number("1.0"), json.Number("1e2"),
 		json.Number("9007199254740992"), int64(9007199254740992), math.NaN(), math.Inf(1), 1.25, math.Copysign(0, -1),
 	} {
 		got, err := fieldValueToText(value, true)
 		assertSlidevSourceFailure(t, []byte(got), err, "invalid_field_value_for_text")
 	}
-	for _, value := range []any{"first\nsecond", []any{"first\nsecond"}} {
+	for _, value := range []any{"first\nsecond", []any{"first\nsecond"}, "first\tsecond", "first\rsecond", []any{"first\r\nsecond"}} {
 		got, err := fieldValueToText(value, false)
 		assertSlidevSourceFailure(t, []byte(got), err, "invalid_field_value_for_text")
 	}

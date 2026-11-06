@@ -1,10 +1,14 @@
 package incidentportability
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
+
+	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
 const MaxNDJSONLogicalLineBytes = 16 * 1024 * 1024
@@ -19,105 +23,86 @@ func (e *StrictNDJSONDecodeError) Error() string {
 	return "strict NDJSON decode failed at admitted path and row"
 }
 
-func DecodeStrictNDJSONObjects(payload []byte, logicalPath string) ([]map[string]any, error) {
-	if len(payload) == 0 {
-		return []map[string]any{}, nil
+// WalkNDJSON bounds allocation by one owner's admitted record, independently of
+// member size. It rejects invalid Unicode, duplicate fields at every depth,
+// blank records and trailing JSON values before calling the owner. The visitor
+// must not retain rows when processing bulk members.
+func WalkNDJSON(ctx context.Context, source io.Reader, logicalPath string, maximumRecordBytes int, visit func(map[string]any) error) error {
+	if source == nil || visit == nil || maximumRecordBytes < 1 || maximumRecordBytes > MaxNDJSONLogicalLineBytes {
+		return strictNDJSONError(logicalPath, 0, "invalid_record_limit")
 	}
-	lines := bytes.Split(payload, []byte{'\n'})
-	rows := make([]map[string]any, 0, len(lines))
-	for index, line := range lines {
-		if index == len(lines)-1 && len(line) == 0 {
-			continue
+	reader := bufio.NewReaderSize(source, 32<<10)
+	for ordinal := 1; ; ordinal++ {
+		var line []byte
+		for {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			fragment, err := reader.ReadSlice('\n')
+			final := len(fragment) > 0 && fragment[len(fragment)-1] == '\n'
+			if final {
+				fragment = fragment[:len(fragment)-1]
+			}
+			if len(fragment) > maximumRecordBytes-len(line) {
+				return strictNDJSONError(logicalPath, ordinal, "line_too_long")
+			}
+			line = append(line, fragment...)
+			if errors.Is(err, bufio.ErrBufferFull) {
+				continue
+			}
+			if err != nil && !errors.Is(err, io.EOF) {
+				return err
+			}
+			if errors.Is(err, io.EOF) && len(line) == 0 {
+				return nil
+			}
+			break
 		}
-		ordinal := index + 1
 		if len(bytes.TrimSpace(line)) == 0 {
-			return nil, strictNDJSONError(logicalPath, ordinal, "blank_line")
+			return strictNDJSONError(logicalPath, ordinal, "blank_line")
 		}
-		if len(line) > MaxNDJSONLogicalLineBytes {
-			return nil, strictNDJSONError(logicalPath, ordinal, "line_too_long")
+		_, err := strictjson.DecodeBoundedUnicodeObject(bytes.NewReader(line), int64(maximumRecordBytes))
+		if err != nil {
+			kind := "malformed_json"
+			switch {
+			case errors.Is(err, strictjson.ErrDuplicateMember):
+				kind = "duplicate_member"
+			case errors.Is(err, strictjson.ErrNotObject):
+				kind = "row_not_object"
+			case errors.Is(err, strictjson.ErrTrailingData):
+				kind = "multiple_values"
+			}
+			return strictNDJSONError(logicalPath, ordinal, kind)
 		}
+		var row map[string]any
 		decoder := json.NewDecoder(bytes.NewReader(line))
 		decoder.UseNumber()
-		value, err := decodeStrictJSONValue(decoder)
-		if err != nil {
-			var strictErr *StrictNDJSONDecodeError
-			if errors.As(err, &strictErr) {
-				strictErr.LogicalPath = logicalPath
-				strictErr.RowOrdinal = ordinal
-				return nil, strictErr
-			}
-			return nil, strictNDJSONError(logicalPath, ordinal, "malformed_json")
+		if err := decoder.Decode(&row); err != nil {
+			return strictNDJSONError(logicalPath, ordinal, "malformed_json")
 		}
-		if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-			return nil, strictNDJSONError(logicalPath, ordinal, "multiple_values")
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-		row, ok := value.(map[string]any)
-		if !ok {
-			return nil, strictNDJSONError(logicalPath, ordinal, "row_not_object")
+		if err := visit(row); err != nil {
+			return err
 		}
+	}
+}
+
+// DecodeStrictNDJSONObjects is for owners whose admitted input is already a
+// bounded in-memory document. Bulk member consumers use WalkNDJSON directly.
+func DecodeStrictNDJSONObjects(payload []byte, logicalPath string) ([]map[string]any, error) {
+	rows := []map[string]any{}
+	err := WalkNDJSON(context.Background(), bytes.NewReader(payload), logicalPath, MaxNDJSONLogicalLineBytes, func(row map[string]any) error {
 		rows = append(rows, row)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return rows, nil
 }
 
-func decodeStrictJSONValue(decoder *json.Decoder) (any, error) {
-	token, err := decoder.Token()
-	if err != nil {
-		return nil, err
-	}
-	delim, isDelim := token.(json.Delim)
-	if !isDelim {
-		return token, nil
-	}
-	switch delim {
-	case '{':
-		value := map[string]any{}
-		for decoder.More() {
-			keyToken, err := decoder.Token()
-			if err != nil {
-				return nil, err
-			}
-			key, ok := keyToken.(string)
-			if !ok {
-				return nil, strictNDJSONError("", 0, "malformed_object")
-			}
-			if _, duplicate := value[key]; duplicate {
-				return nil, strictNDJSONError("", 0, "duplicate_member")
-			}
-			member, err := decodeStrictJSONValue(decoder)
-			if err != nil {
-				return nil, err
-			}
-			value[key] = member
-		}
-		closing, err := decoder.Token()
-		if err != nil || closing != json.Delim('}') {
-			return nil, strictNDJSONError("", 0, "malformed_object")
-		}
-		return value, nil
-	case '[':
-		value := []any{}
-		for decoder.More() {
-			item, err := decodeStrictJSONValue(decoder)
-			if err != nil {
-				return nil, err
-			}
-			value = append(value, item)
-		}
-		closing, err := decoder.Token()
-		if err != nil || closing != json.Delim(']') {
-			return nil, strictNDJSONError("", 0, "malformed_array")
-		}
-		return value, nil
-	default:
-		return nil, strictNDJSONError("", 0, "unexpected_delimiter")
-	}
-}
-
 func strictNDJSONError(logicalPath string, rowOrdinal int, kind string) *StrictNDJSONDecodeError {
-	return &StrictNDJSONDecodeError{
-		LogicalPath: logicalPath,
-		RowOrdinal:  rowOrdinal,
-		Kind:        kind,
-	}
+	return &StrictNDJSONDecodeError{LogicalPath: logicalPath, RowOrdinal: rowOrdinal, Kind: kind}
 }

@@ -1,8 +1,10 @@
 package stagedobjects
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -30,8 +32,8 @@ func TestService_Unit_AllocationReadyAbandonAndFatalOutcomes(t *testing.T) {
 		}
 		allocation := repository.allocations[0]
 		if allocation.OperationID != "operation-1" ||
-			allocation.ByteSize != 7 ||
-			allocation.SHA256 != "239f59ed55e737c77147cf55ad0c1b030b6d7ee748a7426952f9b852d5a935e5" ||
+			repository.sealed.ByteSize != 7 ||
+			repository.sealed.SHA256 != "239f59ed55e737c77147cf55ad0c1b030b6d7ee748a7426952f9b852d5a935e5" ||
 			!allocation.ExpiresAt.Equal(now.Add(StagingLifetime)) {
 			t.Fatalf("allocation contract = %#v", allocation)
 		}
@@ -277,6 +279,7 @@ func TestJanitor_Unit_PeriodicErrorsAreSurfacedWithoutStoppingRecovery(t *testin
 type serviceRepositoryFake struct {
 	allocations []Allocation
 	ready       []string
+	sealed      SealedReference
 	abandoned   []string
 	allocateErr error
 	readyErr    error
@@ -288,11 +291,20 @@ func (r *serviceRepositoryFake) Allocate(_ context.Context, allocation Allocatio
 	return r.allocateErr
 }
 
-func (r *serviceRepositoryFake) MarkReady(_ context.Context, stagingID string, _ time.Time) error {
-	r.ready = append(r.ready, stagingID)
+func (r *serviceRepositoryFake) Seal(_ context.Context, _, _ string, sealed SealedReference, _ time.Time) error {
+	r.sealed = sealed
+	r.ready = append(r.ready, sealed.StagingID)
 	return r.readyErr
 }
 
+func (r *serviceRepositoryFake) ReadSealed(_ context.Context, op, profile string, ref Reference, _ time.Time) (SealedObject, error) {
+	for _, a := range r.allocations {
+		if a.StagingID == ref.StagingID && a.OperationID == op && a.OwnerProfileID == profile && r.sealed.Reference == ref {
+			return SealedObject{StorageIdentity: a.StorageIdentity, ContentBinding: r.sealed.ContentBinding}, nil
+		}
+	}
+	return SealedObject{}, ErrScopeDenied
+}
 func (r *serviceRepositoryFake) Abandon(_ context.Context, stagingID string, _ time.Time) error {
 	r.abandoned = append(r.abandoned, stagingID)
 	return r.abandonErr
@@ -322,12 +334,19 @@ type byteStoreFake struct {
 	beforeDelete   func()
 }
 
-func (s *byteStoreFake) Put(_ context.Context, identity string, payload []byte) (ByteWriteOutcome, error) {
+func (s *byteStoreFake) Put(_ context.Context, identity string, payload io.Reader) (ByteWriteOutcome, error) {
 	s.putIdentity = identity
-	s.putPayload = append([]byte(nil), payload...)
+	var err error
+	s.putPayload, err = io.ReadAll(payload)
+	if err != nil {
+		return ByteWriteIntegrity, err
+	}
 	return s.putOutcome, s.putErr
 }
 
+func (s *byteStoreFake) Open(_ context.Context, _ string) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader(s.putPayload)), nil
+}
 func (s *byteStoreFake) Delete(_ context.Context, identity string) (DeleteOutcome, error) {
 	if s.beforeDelete != nil {
 		s.beforeDelete()
@@ -368,7 +387,7 @@ func (c *publicationCapabilityFake) OperationID() string {
 	return c.operationID
 }
 
-func (c *publicationCapabilityFake) PublishStagedObject(_ context.Context, publication Publication) error {
+func (c *publicationCapabilityFake) PublishStagedObject(_ context.Context, _ string, publication Publication) error {
 	c.published = append(c.published, publication)
 	return nil
 }
@@ -390,10 +409,13 @@ func (r *janitorRepositoryFake) Allocate(context.Context, Allocation) error {
 	return nil
 }
 
-func (r *janitorRepositoryFake) MarkReady(context.Context, string, time.Time) error {
+func (r *janitorRepositoryFake) Seal(context.Context, string, string, SealedReference, time.Time) error {
 	return nil
 }
 
+func (r *janitorRepositoryFake) ReadSealed(context.Context, string, string, Reference, time.Time) (SealedObject, error) {
+	return SealedObject{}, ErrScopeDenied
+}
 func (r *janitorRepositoryFake) Abandon(context.Context, string, time.Time) error {
 	return nil
 }

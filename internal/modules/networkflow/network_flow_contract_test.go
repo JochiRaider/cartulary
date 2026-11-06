@@ -200,9 +200,9 @@ func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
 	if binding.SchemaID != "cartulary.imports.analytical_facade_binding.v1" ||
 		binding.TargetKind != targetKindNetworkFlowTable ||
 		binding.ExtensionProfileID != ProfileID ||
-		binding.OwnerContractRef != "network_flow_activity@9" ||
+		binding.OwnerContractRef != "network_flow_activity@10" ||
 		binding.FacadeID != "network_flow_import_facade_v1" ||
-		binding.ContractMajor != 9 ||
+		binding.ContractMajor != 10 ||
 		binding.MappingSchemaID != "cartulary.network_flow.approved_mapping.v2" ||
 		binding.PreviewRequestSchemaID != "cartulary.network_flow.import_preview_request.v2" ||
 		binding.PreviewResultSchemaID != "cartulary.network_flow.import_preview_result.v2" ||

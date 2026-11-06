@@ -1209,3 +1209,19 @@ source/destination exports report source/destination direction. Unknown directio
 is an accepted observation, not bidirectional traffic. Conversation totals do
 not measure bytes or packets in the arrow’s direction. Original subject/peer
 attribution is derivation evidence, not an endpoint role inferred from position.
+
+
+## Committed source and selected graph history terminology
+
+A **committed source** is Imports-owned immutable provenance for a successfully
+applied unit: exact original source bytes, parser and locator identity, source
+columns, approved mapping, target and historical attribution. It survives
+Import workflow cleanup. An Import session, unit, job or receipt describes the
+operational workflow and is not the identity or lifetime of committed provenance.
+
+A saved graph's **selected-source binding** describes the exact retained inputs
+and expected result of its last successful materialization. **Refresh intent**
+is the query and selection policy for a future explicit refresh. Retirement or
+source soft deletion preserves selected history without permitting refresh or
+changing active-query visibility. Incident transfer moves authoritative
+investigation state; deployment recovery restores its separately owned inventory.

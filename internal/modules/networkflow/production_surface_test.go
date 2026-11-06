@@ -11,12 +11,20 @@ import (
 
 func assertProductionSurface(t *testing.T) {
 	allowed := map[string]bool{
-		"const ReportingGraphSourceContributionID":      false,
-		"const ReportingGraphSourceParticipantID":       false,
-		"const ReportingGraphSourceReadAlgorithmID":     false,
-		"const ReportingGraphSourceOrderingAlgorithmID": false,
-		"const ReportingGraphSourceStateFamilyID":       false,
-		"const ReportingGraphSourceMaxLabelBytes":       false,
+		// Incident portability exposes only assembly factories and the typed
+		// participant. Bulk records and owner storage capabilities stay private.
+		"func NewPortabilityDependencies":                  false,
+		"func NewPortabilityExportAccess":                  false,
+		"const PortabilityTransactionParticipantID":        false,
+		"method Module.IncidentPortability":                false,
+		"type PortabilityAttributionFactory":               false,
+		"method Module.PortabilityTransactionCapabilities": false,
+		"const ReportingGraphSourceContributionID":         false,
+		"const ReportingGraphSourceParticipantID":          false,
+		"const ReportingGraphSourceReadAlgorithmID":        false,
+		"const ReportingGraphSourceOrderingAlgorithmID":    false,
+		"const ReportingGraphSourceStateFamilyID":          false,
+		"const ReportingGraphSourceMaxLabelBytes":          false,
 
 		"const GraphViewMaterializationJobKind":                                false,
 		"const ImportApplyParticipantID":                                       false,

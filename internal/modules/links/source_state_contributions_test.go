@@ -20,8 +20,8 @@ func TestSourceStateContributionsRemainExact_Unit(t *testing.T) {
 		gotPaths = append(gotPaths, path.LogicalPath)
 		gotRoles = append(gotRoles, path.ContentRole)
 		gotIdentities = append(gotIdentities, path.StableIdentity)
-		if !reflect.DeepEqual(path.Versions, []int{5}) {
-			t.Fatalf("path %q versions = %v, want [5]", path.LogicalPath, path.Versions)
+		if !reflect.DeepEqual(path.Versions, []int{6}) {
+			t.Fatalf("path %q versions = %v, want [6]", path.LogicalPath, path.Versions)
 		}
 	}
 	if want := []string{"data/record_links.ndjson", "data/tags.ndjson", "data/record_tags.ndjson"}; !reflect.DeepEqual(gotPaths, want) {
@@ -49,8 +49,13 @@ func TestSourceStateContributionsRemainExact_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construct Links Recovery contribution: %v", err)
 	}
-	if contribution.OwnerID != "module.links" || len(contribution.Tables) != 2 {
-		t.Fatalf("Recovery contribution = %#v, want module.links with two tables", contribution)
+	if contribution.OwnerID != "module.links" || len(contribution.Tables) != 5 {
+		t.Fatalf("Recovery contribution = %#v, want module.links with two authoritative and three transient tables", contribution)
+	}
+	for _, table := range contribution.Tables[2:] {
+		if table.StateClass != "transient" || table.BackupInclusion != "excluded_transient" || table.RestoreAction != "invalidate" {
+			t.Fatalf("scratch table entered retained inventory: %#v", table)
+		}
 	}
 	gotTables := []string{contribution.Tables[0].TableName, contribution.Tables[1].TableName}
 	if want := []string{"record_links", "record_tags"}; !reflect.DeepEqual(gotTables, want) {

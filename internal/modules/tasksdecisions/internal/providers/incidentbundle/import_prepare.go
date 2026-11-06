@@ -1,6 +1,8 @@
 package incidentbundle
 
 import (
+	"context"
+	"errors"
 	"strings"
 
 	"github.com/google/uuid"
@@ -11,58 +13,61 @@ import (
 )
 
 type preparedTasksDecisionsImport struct {
-	tasks     []portableTaskRequest
-	decisions []portableDecision
+	members             *incidentportability.BoundMembers
+	incidentID, actorID uuid.UUID
 }
 
-func prepareTasksDecisionsImport(
-	bundle interface{ File(string) ([]byte, bool) },
-	importContext sourceport.ImportContext,
-) (preparedTasksDecisionsImport, error) {
-	taskPayload, ok := bundle.File(taskRequestsBundlePath)
-	if !ok {
-		return preparedTasksDecisionsImport{}, tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
-	}
-	decisionPayload, ok := bundle.File(decisionsBundlePath)
-	if !ok {
-		return preparedTasksDecisionsImport{}, tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
-	}
-	taskRows, err := incidentportability.DecodeStrictNDJSONObjects(taskPayload, taskRequestsBundlePath)
+func prepareTasksDecisionsImport(ctx context.Context, bundle incidentportability.MemberReader, importContext sourceport.ImportContext) (preparedTasksDecisionsImport, error) {
+	members, err := incidentportability.BindMembers(bundle, []string{taskRequestsBundlePath, decisionsBundlePath})
 	if err != nil {
 		return preparedTasksDecisionsImport{}, tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 	}
-	decisionRows, err := incidentportability.DecodeStrictNDJSONObjects(decisionPayload, decisionsBundlePath)
-	if err != nil {
-		return preparedTasksDecisionsImport{}, tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
+	prepared := preparedTasksDecisionsImport{members: members, incidentID: importContext.IncidentID, actorID: importContext.ActorUserID}
+	previous := ""
+	admit := func(id uuid.UUID) error {
+		if id.String() <= previous {
+			return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
+		}
+		previous = id.String()
+		return nil
 	}
-	prepared := preparedTasksDecisionsImport{
-		tasks:     make([]portableTaskRequest, 0, len(taskRows)),
-		decisions: make([]portableDecision, 0, len(decisionRows)),
+	if err := prepared.walkTasks(ctx, importContext, func(row portableTaskRequest) error { return admit(row.RecordID) }); err != nil {
+		return preparedTasksDecisionsImport{}, err
 	}
-	seen := make(map[uuid.UUID]struct{}, len(taskRows)+len(decisionRows))
-	for _, raw := range taskRows {
-		row, rowErr := preparePortableTaskRequest(raw, importContext)
-		if rowErr != nil {
-			return preparedTasksDecisionsImport{}, rowErr
-		}
-		if _, duplicate := seen[row.RecordID]; duplicate {
-			return preparedTasksDecisionsImport{}, tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
-		}
-		seen[row.RecordID] = struct{}{}
-		prepared.tasks = append(prepared.tasks, row)
-	}
-	for _, raw := range decisionRows {
-		row, rowErr := preparePortableDecision(raw, importContext)
-		if rowErr != nil {
-			return preparedTasksDecisionsImport{}, rowErr
-		}
-		if _, duplicate := seen[row.RecordID]; duplicate {
-			return preparedTasksDecisionsImport{}, tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
-		}
-		seen[row.RecordID] = struct{}{}
-		prepared.decisions = append(prepared.decisions, row)
+	previous = ""
+	if err := prepared.walkDecisions(ctx, importContext, func(row portableDecision) error { return admit(row.RecordID) }); err != nil {
+		return preparedTasksDecisionsImport{}, err
 	}
 	return prepared, nil
+}
+func (p preparedTasksDecisionsImport) walk(ctx context.Context, importContext sourceport.ImportContext, path string, visit func(map[string]any) error) error {
+	if p.members == nil || p.incidentID != importContext.IncidentID || p.actorID != importContext.ActorUserID {
+		return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
+	}
+	err := incidentportability.WalkPath(ctx, p.members, path, visit)
+	var malformed *incidentportability.StrictNDJSONDecodeError
+	if errors.As(err, &malformed) {
+		return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
+	}
+	return err
+}
+func (p preparedTasksDecisionsImport) walkTasks(ctx context.Context, importContext sourceport.ImportContext, visit func(portableTaskRequest) error) error {
+	return p.walk(ctx, importContext, taskRequestsBundlePath, func(raw map[string]any) error {
+		row, err := preparePortableTaskRequest(raw, importContext)
+		if err != nil {
+			return err
+		}
+		return visit(row)
+	})
+}
+func (p preparedTasksDecisionsImport) walkDecisions(ctx context.Context, importContext sourceport.ImportContext, visit func(portableDecision) error) error {
+	return p.walk(ctx, importContext, decisionsBundlePath, func(raw map[string]any) error {
+		row, err := preparePortableDecision(raw, importContext)
+		if err != nil {
+			return err
+		}
+		return visit(row)
+	})
 }
 
 func preparePortableTaskRequest(raw map[string]any, importContext sourceport.ImportContext) (portableTaskRequest, error) {

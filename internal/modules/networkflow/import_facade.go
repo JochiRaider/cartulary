@@ -23,7 +23,7 @@ type importFacade struct {
 const (
 	importFacadeBindingSchemaID          = "cartulary.imports.analytical_facade_binding.v1"
 	importFacadeID                       = "network_flow_import_facade_v1"
-	importOwnerContractRef               = "network_flow_activity@9"
+	importOwnerContractRef               = "network_flow_activity@10"
 	importMappingSchemaID                = "cartulary.network_flow.approved_mapping.v2"
 	importPreviewRequestID               = "cartulary.network_flow.import_preview_request.v2"
 	importPreviewResultSchemaID          = "cartulary.network_flow.import_preview_result.v2"
@@ -45,7 +45,7 @@ func (f *importFacade) Binding() imports.ExtensionImportFacadeBinding {
 		ExtensionProfileID:              ProfileID,
 		OwnerContractRef:                importOwnerContractRef,
 		FacadeID:                        importFacadeID,
-		ContractMajor:                   9,
+		ContractMajor:                   10,
 		MappingSchemaID:                 importMappingSchemaID,
 		PreviewRequestSchemaID:          importPreviewRequestID,
 		SourceInspectionRequestSchemaID: importSourceInspectionRequestID,
@@ -234,24 +234,27 @@ func (f *importFacade) prepareImportApply(ctx context.Context, tx pgx.Tx, reques
 		now = time.Now().UTC()
 	}
 	params := createTableParams{
-		IncidentID:                request.IncidentID,
-		ActorUserID:               request.ActorUserID,
-		ImportSessionID:           request.ImportSessionID,
-		ImportUnitID:              request.ImportUnitID,
-		ClientTxnID:               request.ClientTxnID,
-		SourceContentSHA256:       first.SourceSHA,
-		OriginalFilename:          originalFilename,
-		SourceFilenameDigest:      filenameDigest,
-		SourceFilenameDigestKeyID: filenameDigestKeyID,
-		MappingFingerprint:        fingerprint,
-		SourceProfileID:           mapping.SourceProfileID,
-		ParserProfileID:           mapping.ParserProfileID,
-		DisplayNameOverride:       mapping.DisplayNameOverride,
-		RowCountAccepted:          first.Accepted,
-		RowCountRejected:          first.Rejected,
-		Diagnostics:               first.Diagnostics,
-		DiagnosticsTruncated:      first.DiagnosticCount > int64(len(first.Diagnostics)),
-		Now:                       now,
+		IncidentID:                 request.IncidentID,
+		ActorUserID:                request.ActorUserID,
+		ImportSessionID:            request.ImportSessionID,
+		ImportUnitID:               request.ImportUnitID,
+		CommittedSourceID:          imports.CommittedSourceID(request.ImportUnitID),
+		SourceInterpretationSHA256: first.ValidationSHA,
+		SourceRawCellScalarLimit:   f.limits.MaxRawCellScalarLength,
+		ClientTxnID:                request.ClientTxnID,
+		SourceContentSHA256:        first.SourceSHA,
+		OriginalFilename:           originalFilename,
+		SourceFilenameDigest:       filenameDigest,
+		SourceFilenameDigestKeyID:  filenameDigestKeyID,
+		MappingFingerprint:         fingerprint,
+		SourceProfileID:            mapping.SourceProfileID,
+		ParserProfileID:            mapping.ParserProfileID,
+		DisplayNameOverride:        mapping.DisplayNameOverride,
+		RowCountAccepted:           first.Accepted,
+		RowCountRejected:           first.Rejected,
+		Diagnostics:                first.Diagnostics,
+		DiagnosticsTruncated:       first.DiagnosticCount > int64(len(first.Diagnostics)),
+		Now:                        now,
 	}
 	params.VisitRows = func(visit func(normalizedRow) error) error {
 		second, err := f.validateImportPass(ctx, tx, request, mapping, false, visit)

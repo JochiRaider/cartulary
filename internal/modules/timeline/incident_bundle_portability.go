@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
@@ -39,7 +40,7 @@ var timelineBundleProvenanceFields = fieldSet(
 	"source_header", "raw_value", "cell_kind", "created_at",
 )
 
-func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID) ([]incidentportability.File, error) {
+func ExportIncidentBundleFiles(ctx context.Context, input sourceport.ExportContext) error {
 	specs := []struct {
 		path  string
 		query string
@@ -55,8 +56,8 @@ SELECT jsonb_build_object(
     'updated_by_user_id', profile.updated_by_user_id
 )
   FROM timeline_time_conversion_profiles AS profile
- WHERE profile.incident_id = $1
- ORDER BY profile.incident_id`},
+ WHERE profile.incident_id = $1 AND ($2::uuid IS NULL OR profile.incident_id>$2)
+ ORDER BY profile.incident_id LIMIT 128`},
 		{timelineBundleRecordsPath, `
 SELECT jsonb_build_object(
     'record_id', event.record_id,
@@ -81,8 +82,8 @@ SELECT jsonb_build_object(
     'activity_time_pair_state', event.activity_time_pair_state
 )
   FROM timeline_events AS event
- WHERE event.incident_id = $1
- ORDER BY event.record_id`},
+ WHERE event.incident_id = $1 AND ($2::uuid IS NULL OR event.record_id>$2)
+ ORDER BY event.record_id LIMIT 128`},
 		{timelineBundleProvenancePath, `
 SELECT jsonb_build_object(
     'record_id', provenance.record_id,
@@ -102,34 +103,40 @@ SELECT jsonb_build_object(
  ORDER BY provenance.record_id, provenance.source_row_ordinal,
           provenance.source_column_ordinal, provenance.source_identity_hash`},
 	}
-	files := make([]incidentportability.File, 0, len(specs))
 	for _, spec := range specs {
-		file, err := incidentportability.ExportNDJSON(ctx, q, incidentID, spec.path, spec.query)
-		if err != nil {
-			return nil, err
+		var err error
+		switch spec.path {
+		case timelineBundleRecordsPath:
+			err = sourceport.ExportAttributedRows(ctx, input, sourceport.AttributedRows{Path: spec.path, Table: "timeline_events", Identity: "record_id", ActorColumns: []string{"reviewed_by_user_id", "superseded_by_user_id"}, Query: spec.query})
+		case timelineBundleProfilesPath:
+			err = sourceport.ExportAttributedRows(ctx, input, sourceport.AttributedRows{Path: spec.path, Table: "timeline_time_conversion_profiles", Identity: "incident_id", ActorColumns: []string{"updated_by_user_id"}, Query: spec.query})
+		default:
+			err = incidentportability.ExportNDJSONTo(ctx, input.Query, input.IncidentID, spec.path, spec.query, input.Members)
 		}
-		files = append(files, file)
+		if err != nil {
+			return err
+		}
 	}
-	return files, nil
+	return nil
 }
 
 func ImportIncidentBundleFilesTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	files map[string][]byte,
+	files incidentportability.MemberReader,
 	bundleVersion int,
 	actorUserID uuid.UUID,
 	attributions incidentportability.AttributionRecorder,
 ) error {
 	switch bundleVersion {
-	case 5:
-		if err := importTimelineProfilesTx(ctx, tx, timelineBundleProfilesPath, files[timelineBundleProfilesPath], actorUserID, attributions); err != nil {
+	case 6:
+		if err := importTimelineProfilesTx(ctx, tx, timelineBundleProfilesPath, files, actorUserID, attributions); err != nil {
 			return err
 		}
-		if err := importTimelineRecordsTx(ctx, tx, files[timelineBundleRecordsPath], actorUserID, attributions); err != nil {
+		if err := importTimelineRecordsTx(ctx, tx, files, actorUserID, attributions); err != nil {
 			return err
 		}
-		return importTimelineProvenanceTx(ctx, tx, files[timelineBundleProvenancePath])
+		return importTimelineProvenanceTx(ctx, tx, files)
 	default:
 		return malformedTimelineBundle()
 	}
@@ -139,15 +146,11 @@ func importTimelineProfilesTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	logicalPath string,
-	payload []byte,
+	members incidentportability.MemberReader,
 	actorUserID uuid.UUID,
 	attributions incidentportability.AttributionRecorder,
 ) error {
-	rows, err := decodeLogicalRows(payload)
-	if err != nil {
-		return err
-	}
-	for _, row := range rows {
+	return incidentportability.WalkPath(ctx, members, logicalPath, func(row map[string]any) error {
 		if err := requireExactFields(row, timelineBundleProfileFields, "incident_id", "enabled", "profile_version", "updated_at"); err != nil {
 			return err
 		}
@@ -179,22 +182,18 @@ SELECT
 		if tag.RowsAffected() != 1 {
 			return incidentportability.FixedImportFailure(logicalPath)
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func importTimelineRecordsTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	payload []byte,
+	members incidentportability.MemberReader,
 	actorUserID uuid.UUID,
 	attributions incidentportability.AttributionRecorder,
 ) error {
-	rows, err := decodeLogicalRows(payload)
-	if err != nil {
-		return err
-	}
-	for _, row := range rows {
+	return incidentportability.WalkPath(ctx, members, timelineBundleRecordsPath, func(row map[string]any) error {
 		if err := requireExactFields(row, timelineBundleRecordFields, "record_id", "incident_id", "capture_state", "activity_utc_generated", "activity_local_generated", "activity_time_pair_state"); err != nil {
 			return err
 		}
@@ -212,16 +211,12 @@ func importTimelineRecordsTx(
 		if tag.RowsAffected() != 1 {
 			return incidentportability.FixedImportFailure(timelineBundleRecordsPath)
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
-func importTimelineProvenanceTx(ctx context.Context, tx pgx.Tx, payload []byte) error {
-	rows, err := decodeLogicalRows(payload)
-	if err != nil {
-		return err
-	}
-	for _, row := range rows {
+func importTimelineProvenanceTx(ctx context.Context, tx pgx.Tx, members incidentportability.MemberReader) error {
+	return incidentportability.WalkPath(ctx, members, timelineBundleProvenancePath, func(row map[string]any) error {
 		if err := requireExactFields(row, timelineBundleProvenanceFields,
 			"record_id", "source_identity_sha256", "source_row_ordinal",
 			"source_column_ordinal", "source_kind", "source_metadata",
@@ -262,12 +257,8 @@ SELECT
 		if tag.RowsAffected() != 1 {
 			return incidentportability.FixedImportFailure(timelineBundleProvenancePath)
 		}
-	}
-	return nil
-}
-
-func decodeLogicalRows(payload []byte) ([]map[string]any, error) {
-	return incidentportability.DecodeNDJSON(payload)
+		return nil
+	})
 }
 
 func fieldSet(fields ...string) map[string]struct{} {

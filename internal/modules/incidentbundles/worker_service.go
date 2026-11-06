@@ -14,7 +14,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
@@ -75,8 +77,8 @@ type sourcePortCatalog interface {
 }
 
 type portabilityCoordinator interface {
-	Export(context.Context, StatePresenceQuery, uuid.UUID) ([]ExtensionPayload, error)
-	PrepareImport(context.Context, string, uuid.UUID, map[string][]byte) (PreparedPortability, error)
+	Export(context.Context, ExportSnapshotQuery, uuid.UUID, incidentportability.MemberWriter, incidentportability.ActorReferences) error
+	PrepareImport(context.Context, PortabilityImportContext, incidentportability.MemberReader) (PreparedPortability, error)
 	ValidatePublication(context.Context, StatePresenceQuery, uuid.UUID) error
 }
 
@@ -85,6 +87,7 @@ type transactionCoordinator interface {
 }
 
 type incidentBundleWorker struct {
+	staging            stagedobjects.Allocator
 	artifactReferences ArtifactReferenceSource
 	store              *store
 	pool               *pgxpool.Pool
@@ -105,8 +108,9 @@ type incidentBundleWorker struct {
 	now                func() time.Time
 }
 
-func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOperations, jobRunner JobRunner, storage BundleStorage, importFinalizer importfinalizerport.Finalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, projectionRebuild ImportProjectionRebuilder, sourceCatalog *sourceport.Catalog, blobPort BlobPortability, referencePacks reference_data.IncidentReferences, artifactReferences ArtifactReferenceSource, limits Limits, now func() time.Time) *incidentBundleWorker {
+func newIncidentBundleWorker(store *store, pool *pgxpool.Pool, jobManager JobOperations, jobRunner JobRunner, storage BundleStorage, staging stagedobjects.StreamAllocator, importFinalizer importfinalizerport.Finalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, publicationLock IncidentPublicationLock, projectionRebuild ImportProjectionRebuilder, sourceCatalog *sourceport.Catalog, blobPort BlobPortability, referencePacks reference_data.IncidentReferences, artifactReferences ArtifactReferenceSource, limits Limits, now func() time.Time) *incidentBundleWorker {
 	return &incidentBundleWorker{
+		staging:            staging,
 		artifactReferences: artifactReferences,
 		store:              store,
 		pool:               pool,
@@ -198,17 +202,19 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution j
 	}
 	bundleID := uuid.New()
 	exportedAt := w.now().UTC()
-	builder := bundleBuilder{limits: w.limits, artifactReferences: w.artifactReferences, pool: w.pool, blobPort: w.blobPort, portability: w.portability, sourceCatalog: w.sourceCatalog, referencePacks: w.referencePacks}
+	builder := bundleBuilder{staging: w.staging, limits: w.limits, artifactReferences: w.artifactReferences, pool: w.pool, blobPort: w.blobPort, portability: w.portability, sourceCatalog: w.sourceCatalog, referencePacks: w.referencePacks}
 	built, err := builder.build(ctx, *payload.IncidentID, request, bundleID, exportedAt)
 	if err != nil {
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_export_rejected", err)
 		return
 	}
-	storageReference, err := w.storage.Publish(ctx, bundleID.String(), built.Archive.Bytes)
+	defer func() { _ = built.scope.Abandon(context.WithoutCancel(ctx)) }()
+	published, err := w.storage.Publish(ctx, bundleID.String(), incidentBundleArchiveByteLimit(w.limits.IncidentBundles.MaxExtractedBytes), built.Archive.Write)
 	if err != nil {
 		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
+	storageReference := published.BundleStorageRef
 	completeParams := exportCompleteParams{
 		JobID: payload.JobID, ActorUserID: payload.ActorUserID,
 		IncidentID: *payload.IncidentID, BundleID: bundleID, ExportedAt: exportedAt,
@@ -216,7 +222,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution j
 		ReferencePackMode:    built.Archive.Manifest.ReferencePackMode,
 		OptionalSections:     built.Archive.Manifest.OptionalSections,
 		RequiredCapabilities: built.Archive.Manifest.RequiredCapabilities,
-		BundleSHA256:         built.BundleSHA256, BundleByteSize: built.BundleByteSize,
+		BundleSHA256:         published.SHA256, BundleByteSize: published.ByteSize,
 		BundleStorageRef: storageReference, ManifestFiles: built.Archive.Manifest.Files,
 	}
 	var record descriptorRecord
@@ -277,12 +283,41 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 	if !w.prepareClaimedJob(ctx, execution, 1) {
 		return
 	}
-	data, err := w.storage.ReadStaged(*payload.BundleStagingRef, incidentBundleStagingReadLimit(w.limits.IncidentBundles.MaxExtractedBytes))
+	archive, archiveSize, err := w.storage.OpenStaged(*payload.BundleStagingRef, incidentBundleArchiveByteLimit(w.limits.IncidentBundles.MaxExtractedBytes))
 	if err != nil {
 		w.results.completeFailed(ctx, execution, failedCompletion("incident_bundle_import_rejected", map[string]any{"reason_code": "missing_required_file"}))
 		return
 	}
-	verified, err := verifyBundle(verificationInput{Bundle: data, Limits: w.limits})
+	defer archive.Close()
+	if payload.UploadedSHA256 == nil {
+		w.results.completeInternalFailure(ctx, execution)
+		return
+	}
+	if err := verifyStagedArchiveDigest(ctx, archive, archiveSize, *payload.UploadedSHA256); err != nil {
+		w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
+		return
+	}
+	memberScope, err := stagedobjects.NewScope(payload.JobID.String(), ProfileID, w.staging)
+	if err != nil {
+		w.results.completeInternalFailure(ctx, execution)
+		return
+	}
+	defer func() {
+		if !finalityUnknown {
+			_ = memberScope.Abandon(context.WithoutCancel(ctx))
+		}
+	}()
+	members, err := newMemberStore(payload.JobID.String(), memberScope, w.limits)
+	if err != nil {
+		w.results.completeInternalFailure(ctx, execution)
+		return
+	}
+	if err := stageBundleArchive(ctx, archive, archiveSize, members); err != nil {
+		w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
+		return
+	}
+	members.Seal()
+	verified, err := verifyBundle(ctx, members)
 	if err != nil {
 		if errors.Is(err, errExtensionCapabilityNotSupported) {
 			w.results.completeFailedFromError(ctx, execution, "extension_capability_not_supported", err)
@@ -318,6 +353,12 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		RequestID:          &requestID,
 		OperationID:        payload.JobID.String(),
 	}
+	rewritten, err := newMemberStore(payload.JobID.String(), memberScope, w.limits)
+	if err != nil {
+		w.finishImportFailure(baseCtx, scope, execution, err)
+		return
+	}
+	importParams.RewrittenMembers = rewritten
 	prepared, err := importer.prepareImport(ctx, verified, importParams)
 	if err != nil {
 		w.finishImportFailure(baseCtx, scope, execution, err)
@@ -329,7 +370,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 			prepared.cleanup(context.WithoutCancel(ctx))
 		}
 	}()
-	portability, err := w.portability.PrepareImport(ctx, payload.JobID.String(), prepared.IncidentID, verified.Files)
+	portability, err := w.portability.PrepareImport(ctx, PortabilityImportContext{OperationID: payload.JobID.String(), IncidentID: prepared.IncidentID, ActorUserID: payload.ActorUserID, Actors: prepared.importContext.Actors}, verified.Members)
 	if err != nil {
 		w.finishImportFailure(baseCtx, scope, execution, err)
 		return
@@ -351,6 +392,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		Finalizer: importJobTransactionFinalizer{
 			finalizer: w.jobFinalizer, execution: execution,
 			manifestSHA256: verified.ManifestSHA256,
+			publications:   append([]stagedobjects.PublicationPlan{prepared.stagedObjects.Plan()}, portability.Publications...),
 		},
 	})
 	if err != nil {
@@ -364,8 +406,8 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 	// Execute has proved commit. Output-shape checks cannot authorize deleting
 	// objects that are now referenced by the committed incident.
 	committed = true
-	prepared.stagedObjectKeys = nil
-	portability.Committed()
+	prepared.stagedObjects = nil
+	_ = portability.Committed(ctx)
 	value, ok := result.ParticipantValues[ImportTransactionParticipantID].(importTransactionResult)
 	if !ok || value.IncidentID != prepared.IncidentID {
 		return
@@ -388,13 +430,13 @@ func (w *incidentBundleWorker) removeTerminalImportInput(ctx context.Context, jo
 	}
 }
 
-func incidentBundleStagingReadLimit(maxExtractedBytes int64) int64 {
+func incidentBundleArchiveByteLimit(maxExtractedBytes int64) int64 {
 	const (
 		archiveOverheadBytes int64 = 64 << 20
 		maxInt64                   = int64(1<<63 - 1)
 	)
 	if maxExtractedBytes <= 0 {
-		return archiveOverheadBytes
+		maxExtractedBytes = defaultIncidentBundleMaxExtractedBytes
 	}
 	if maxExtractedBytes > maxInt64-archiveOverheadBytes {
 		return maxInt64

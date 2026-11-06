@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/gen/networkflowroutes"
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -30,22 +31,23 @@ type ImportSourcePort interface {
 }
 
 type ModuleDependencies struct {
-	TableIDEntropy  io.Reader
-	Postgres        postgres.DB
-	ImportSources   ImportSourcePort
-	KeyRings        *KeyRings
-	EffectiveLimits EffectiveLimits
-	Now             func() time.Time
-	IncidentLocks   IncidentLockPort
-	AuditAppender   AdministrativeAuditPort
-	Indicators      IndicatorParticipationPort
-	ResourceIntents ResourceIntentAppender
-	GraphViewJobs   GraphViewJobTransactions
-	JobManager      GraphViewJobManager
-	JobRunner       GraphViewJobRunner
-	JobFinalizer    GraphViewJobFinalizer
-	GraphTelemetry  GraphTelemetryObserver
-	GraphStateReady func() bool
+	TableIDEntropy       io.Reader
+	Postgres             postgres.DB
+	ImportSources        ImportSourcePort
+	ImportedAttributions sourceport.PortableAttributionResolver
+	KeyRings             *KeyRings
+	EffectiveLimits      EffectiveLimits
+	Now                  func() time.Time
+	IncidentLocks        IncidentLockPort
+	AuditAppender        AdministrativeAuditPort
+	Indicators           IndicatorParticipationPort
+	ResourceIntents      ResourceIntentAppender
+	GraphViewJobs        GraphViewJobTransactions
+	JobManager           GraphViewJobManager
+	JobRunner            GraphViewJobRunner
+	JobFinalizer         GraphViewJobFinalizer
+	GraphTelemetry       GraphTelemetryObserver
+	GraphStateReady      func() bool
 }
 
 // Module is the single Network Flow composition facade. Transport and generic
@@ -81,6 +83,9 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	if dependencies.ImportSources == nil {
 		return nil, errors.New("network flow module requires Imports source capability")
 	}
+	if dependencies.ImportedAttributions == nil {
+		return nil, errors.New("network flow module requires historical attribution resolver")
+	}
 	if dependencies.GraphStateReady == nil {
 		return nil, errors.New("network flow module requires Graph state readiness")
 	}
@@ -115,6 +120,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		withSafeDigester(safeDigester),
 		withTableIDEntropy(dependencies.TableIDEntropy),
 		withResourceIntentAppender(dependencies.ResourceIntents),
+		withImportedAttributions(dependencies.ImportedAttributions),
 	)
 	module := &Module{
 		store: store, importSources: dependencies.ImportSources,

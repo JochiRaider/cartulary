@@ -202,6 +202,15 @@
       },
       "fact_kind": "contribution",
       "profile_id": "reference_pack"
+    },
+    {
+      "contribution": {
+        "contribution_id": "import.committed_sources_route",
+        "kind": "http_route_family",
+        "route_family": "/api/v1/incidents/{incident_id}/committed-sources"
+      },
+      "fact_kind": "contribution",
+      "profile_id": "import"
     }
   ],
   "owner_fragment_id": "core01.extension_profile_classifications_v1",

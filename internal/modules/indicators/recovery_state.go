@@ -22,5 +22,6 @@ func RecoveryStateContribution() (recoverystate.Contribution, error) {
 			relation.TableName,
 		)...)
 	}
+	tables = append(tables, recoverystate.TransientStateTables("indicators.invalidate_bundle_validation.v1", "indicators_bundle_validation_sources")...)
 	return recoverystate.NewContribution("module.indicators", tables), nil
 }

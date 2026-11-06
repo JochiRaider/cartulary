@@ -124,6 +124,27 @@ func TestImportEnvelopeFailuresCreateNoDurableState_Integration(t *testing.T) {
 			wantReason: "unsupported_upload_envelope",
 		},
 		{
+			name: "duplicate file after streamed input",
+			build: func(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies) *http.Request {
+				return newImportEnvelopeRequest(t, server, login, []uploadPart{
+					fileUploadPart("file", "first.zip", incidentBundleZIPMediaType, validFile),
+					jsonUploadPart("metadata", "", `{"client_txn_id":"txn-envelope-late-duplicate"}`),
+					fileUploadPart("file", "second.zip", incidentBundleZIPMediaType, validFile),
+				})
+			},
+			wantReason: "duplicate_part", wantPart: "file",
+		},
+		{
+			name: "malformed metadata after streamed input",
+			build: func(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies) *http.Request {
+				return newImportEnvelopeRequest(t, server, login, []uploadPart{
+					fileUploadPart("file", "first.zip", incidentBundleZIPMediaType, validFile),
+					jsonUploadPart("metadata", "", `{"client_txn_id":`),
+				})
+			},
+			wantReason: "malformed_metadata_json", wantPart: "metadata",
+		},
+		{
 			name: "duplicate metadata part",
 			build: func(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies) *http.Request {
 				return newImportEnvelopeRequest(t, server, login, []uploadPart{

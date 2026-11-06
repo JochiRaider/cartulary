@@ -22,7 +22,7 @@ import (
 
 const (
 	maxIncidentSourceBytes      = 262144
-	incidentSourceContractMajor = 2
+	incidentSourceContractMajor = 3
 )
 
 const (
@@ -125,7 +125,7 @@ func (prepared preparedIncidentSource) matches(
 		prepared.schemaID == contract.source.Path.SchemaID &&
 		prepared.operationID != "" && prepared.operationID == importContext.operationID &&
 		prepared.incidentID != uuid.Nil && prepared.incidentID == importContext.incidentID &&
-		prepared.bundleVersion == 5 && prepared.bundleVersion == importContext.bundleVersion &&
+		prepared.bundleVersion == 6 && prepared.bundleVersion == importContext.bundleVersion &&
 		prepared.contractMajor == incidentSourceContractMajor &&
 		prepared.contractMajor == contract.source.ContractMajor
 }
@@ -174,7 +174,7 @@ func prepareIncidentBundleIncident(
 	importContext incidentSourceImportContext,
 ) (preparedIncidentSource, error) {
 	if len(payload) == 0 || importContext.operationID == "" || importContext.incidentID == uuid.Nil ||
-		importContext.actorUserID == uuid.Nil || importContext.bundleVersion != 5 || importContext.actorAdmitted == nil ||
+		importContext.actorUserID == uuid.Nil || importContext.bundleVersion != 6 || importContext.actorAdmitted == nil ||
 		contract.source.ContractMajor != incidentSourceContractMajor || len(contract.columns) != 16 {
 		return preparedIncidentSource{}, fmt.Errorf("%w: Incidents source binding is invalid", errIncidentSourceCatalog)
 	}
@@ -480,17 +480,6 @@ func applyIncidentBundleIncidentTx(
 		return fmt.Errorf("%w: Incidents prepared import binding mismatch", errIncidentSourcePreparedBinding)
 	}
 	row := prepared.row
-	rowID := row.ID.String()
-	if err := importContext.attributions.RecordImportedAttribution(
-		"incidents", rowID, "created_by_user_id", row.CreatedByUserID.String(),
-	); err != nil {
-		return err
-	}
-	if err := importContext.attributions.RecordImportedAttribution(
-		"incidents", rowID, "updated_by_user_id", row.UpdatedByUserID.String(),
-	); err != nil {
-		return err
-	}
 	tag, err := db.Exec(
 		ctx,
 		insertIncidentSourceSQL,
@@ -516,6 +505,17 @@ func applyIncidentBundleIncidentTx(
 	}
 	if tag.RowsAffected() != 1 {
 		return incidentportability.FixedImportFailure(prepared.logicalPath)
+	}
+	rowID := row.ID.String()
+	if err := importContext.attributions.RecordImportedAttribution(
+		"incidents", rowID, "created_by_user_id", row.CreatedByUserID.String(),
+	); err != nil {
+		return err
+	}
+	if err := importContext.attributions.RecordImportedAttribution(
+		"incidents", rowID, "updated_by_user_id", row.UpdatedByUserID.String(),
+	); err != nil {
+		return err
 	}
 	return nil
 }

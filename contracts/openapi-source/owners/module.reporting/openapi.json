@@ -501,6 +501,160 @@
         "x-cartulary-availability": "snapshot_reporting",
         "x-cartulary-state-changing": true
       }
+    },
+    "/api/v1/incidents/{incident_id}/retained-report-artifacts": {
+      "get": {
+        "tags": [
+          "snapshot-reporting"
+        ],
+        "operationId": "getRetainedReportArtifacts",
+        "summary": "Inspect transferred reporting evidence without creating native reporting workflow state.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retained reporting evidence catalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetainedReportArtifactsEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident or retained artifact is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current incident role does not permit source capture inspection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
+      }
+    },
+    "/api/v1/incidents/{incident_id}/retained-report-artifacts/{artifact_id}/content": {
+      "get": {
+        "tags": [
+          "snapshot-reporting"
+        ],
+        "operationId": "getRetainedReportArtifactContent",
+        "summary": "Download one immutable transferred reporting file.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact retained bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Incident or retained artifact is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current incident role does not permit source capture inspection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
+      }
     }
   },
   "components": {
@@ -934,6 +1088,106 @@
           "invalidated_at",
           "published_at",
           "invalidation_reason"
+        ]
+      },
+      "RetainedReportArtifact": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "catalog",
+              "source_capture",
+              "release_manifest",
+              "release_file"
+            ]
+          },
+          "filename": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "snapshot_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "release_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "content_href": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "kind",
+          "filename",
+          "byte_size",
+          "sha256",
+          "snapshot_id",
+          "release_id",
+          "content_href"
+        ]
+      },
+      "RetainedReportArtifactsResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_id": {
+            "type": "string",
+            "const": "cartulary.retained_report_artifacts.v1"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "artifacts": {
+            "type": "array",
+            "maxItems": 10000,
+            "items": {
+              "$ref": "#/components/schemas/RetainedReportArtifact"
+            }
+          }
+        },
+        "required": [
+          "schema_id",
+          "incident_id",
+          "artifacts"
+        ]
+      },
+      "RetainedReportArtifactsEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RetainedReportArtifactsResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       }
     }

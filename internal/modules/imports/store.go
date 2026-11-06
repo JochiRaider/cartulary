@@ -510,6 +510,8 @@ SELECT blocking_source_column_ordinals
 	   SET unit_status = $4,
 	       header_row_ref = CASE WHEN $9 = 'view_schema' THEN $5 ELSE header_row_ref END,
 	       data_start_row_ref = CASE WHEN $9 = 'view_schema' THEN $6 ELSE data_start_row_ref END,
+	       approved_header_row_ref = $5,
+	       approved_data_start_row_ref = $6,
 	       mapping_fingerprint = $7,
 	       approved_mapping_json = $8,
 	       approved_target_kind = $9,

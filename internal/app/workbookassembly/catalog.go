@@ -14,6 +14,7 @@ import (
 	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
@@ -38,6 +39,7 @@ type ContributionDependencies struct {
 	EntityMutationRows    entityports.MutationRows
 	EntityQueryReader     entityports.QueryReader
 	AssessmentProjections assessmentprojection.Rows
+	LinkProjections       links.ProjectionRows
 	PartyProjections      partyprojection.Rows
 	IndicatorOwner        *indicators.Application
 	TimelineOwner         TimelineOperations
@@ -88,6 +90,7 @@ func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookC
 		projectionQueries:     projectionQueries,
 		entityStore:           entityStore,
 		assessmentProjections: assessmentProjections,
+		linkProjections:       input.LinkProjections,
 		partyProjections:      partyProjections,
 		indicatorOwner:        indicatorOwner,
 		timelineOwner:         timelineOwner,
@@ -171,6 +174,7 @@ type contributionAssemblyInput struct {
 	projectionQueries     projectionQueryCatalog
 	entityStore           *hostidentity.Store
 	assessmentProjections assessmentprojection.Rows
+	linkProjections       links.ProjectionRows
 	partyProjections      partyprojection.Rows
 	indicatorOwner        *indicators.Application
 	timelineOwner         TimelineOperations
@@ -206,6 +210,7 @@ func buildContributionCatalog(input contributionAssemblyInput) (*workbook.Workbo
 	assessmentFacade, err := NewAssessmentMutationContribution(
 		pool,
 		assessmentProjections,
+		input.linkProjections,
 		hostidentity.NewSourceFacts(),
 		appender,
 		input.collaborationIntents,

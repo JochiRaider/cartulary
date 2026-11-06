@@ -5,10 +5,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -22,15 +24,15 @@ func RequireLinksPortableRoundTrip(t testing.TB, db postgres.DB, incidentID, act
 	if err != nil {
 		t.Fatal(err)
 	}
-	exported, err := port.Export(ctx, sourceport.ExportContext{Query: db, IncidentID: incidentID})
+	exported, err := portabilitysupport.Export(port, ctx, sourceport.ExportContext{Query: db, IncidentID: incidentID, PortableAttributions: incidentbundles.PortableSourceAttributions()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle := sourceport.MapBundle{}
+	bundle := portabilitysupport.MapBundle{}
 	for _, file := range exported {
 		bundle[file.Path] = file.Payload
 	}
-	imported := sourceport.ImportContext{IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 5, OperationID: "note-associations-round-trip", Attributions: &associationAttributions{}}
+	imported := sourceport.ImportContext{IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 6, OperationID: "note-associations-round-trip", Attributions: &associationAttributions{}}
 	prepared, err := port.PrepareImport(ctx, bundle, imported)
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +53,7 @@ func RequireLinksPortableRoundTrip(t testing.TB, db postgres.DB, incidentID, act
 	if err := port.ValidateImportTx(ctx, tx, prepared, imported); err != nil {
 		t.Fatal(err)
 	}
-	again, err := port.Export(ctx, sourceport.ExportContext{Query: tx, IncidentID: incidentID})
+	again, err := portabilitysupport.Export(port, ctx, sourceport.ExportContext{Query: tx, IncidentID: incidentID, PortableAttributions: incidentbundles.PortableSourceAttributions()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,4 +77,15 @@ func (a *associationAttributions) RecordImportedAttribution(table, row, column, 
 }
 func (a *associationAttributions) ImportedAttributions() []incidentportability.ImportedAttribution {
 	return a.values
+}
+
+func (r *associationAttributions) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
+	for _, row := range r.ImportedAttributions() {
+		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
+			if err := visit(row); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

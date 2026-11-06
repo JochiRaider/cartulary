@@ -13,10 +13,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 func TestIncidentBundleSavedViewCanonicalExport_Integration(t *testing.T) {
@@ -101,11 +103,11 @@ INSERT INTO saved_views (
 		}
 	}
 
-	first, err := exportIncidentBundleFiles(ctx, savedViewExportContext{Query: db, IncidentID: incidentID})
+	first, err := exportSavedViewTestFiles(ctx, savedViewExportContext{Query: db, IncidentID: incidentID})
 	if err != nil {
 		t.Fatalf("first saved-view export: %v", err)
 	}
-	second, err := exportIncidentBundleFiles(ctx, savedViewExportContext{Query: db, IncidentID: incidentID})
+	second, err := exportSavedViewTestFiles(ctx, savedViewExportContext{Query: db, IncidentID: incidentID})
 	if err != nil {
 		t.Fatalf("second saved-view export: %v", err)
 	}
@@ -162,7 +164,7 @@ INSERT INTO saved_views (
 		}
 	}
 
-	emptyFiles, err := exportIncidentBundleFiles(ctx, savedViewExportContext{Query: db, IncidentID: emptyIncidentID})
+	emptyFiles, err := exportSavedViewTestFiles(ctx, savedViewExportContext{Query: db, IncidentID: emptyIncidentID})
 	if err != nil {
 		t.Fatalf("zero-row saved-view export: %v", err)
 	}
@@ -182,7 +184,7 @@ INSERT INTO saved_views (
 			if _, err := db.Exec(ctx, `UPDATE saved_views SET view_schema_id='cartulary.view.notes.v1', layout_json=$2, query_json=$3 WHERE saved_view_id=$1`, rows[0].id, layout, query); err != nil {
 				t.Fatal(err)
 			}
-			files, err := exportIncidentBundleFiles(ctx, savedViewExportContext{Query: db, IncidentID: incidentID})
+			files, err := exportSavedViewTestFiles(ctx, savedViewExportContext{Query: db, IncidentID: incidentID})
 			if query == invalid {
 				if err == nil {
 					t.Fatal("export admitted contradictory timestamp range")
@@ -249,13 +251,13 @@ INSERT INTO incidents (
 	payload = append(payload, encodePortableSavedViewRow(t, systemRow)...)
 	attributions := &recordingAttributionRecorder{localUserID: targetActorID}
 	importContext := savedViewImportContext{
-		BundleVersion: 5,
+		BundleVersion: 6,
 		IncidentID:    incidentID,
 		ActorUserID:   targetActorID,
 		Attributions:  attributions,
 		ActorAdmitted: savedViewActorAdmission(sourceActorID),
 	}
-	prepared, err := prepareSavedViewImport(
+	prepared, err := prepareSavedViewImport(context.Background(),
 		savedViewMapBundle{"data/saved_views.ndjson": payload},
 		importContext,
 	)
@@ -315,7 +317,7 @@ SELECT saved_view_id, scope, owner_user_id
 		}
 	}
 
-	exported, err := exportIncidentBundleFiles(ctx, savedViewExportContext{
+	exported, err := exportSavedViewTestFiles(ctx, savedViewExportContext{
 		Query:                tx,
 		IncidentID:           incidentID,
 		PortableAttributions: attributions,
@@ -413,7 +415,7 @@ UPDATE saved_views SET saved_view_version = saved_view_version + 1 WHERE saved_v
 			recorder := &recordingAttributionRecorder{localUserID: targetActorID}
 			caseContext := importContext
 			caseContext.Attributions = recorder
-			casePrepared, err := prepareSavedViewImport(
+			casePrepared, err := prepareSavedViewImport(context.Background(),
 				savedViewMapBundle{
 					"data/saved_views.ndjson": encodePortableSavedViewRow(t, privateRow),
 				},
@@ -445,7 +447,7 @@ UPDATE saved_views SET saved_view_version = saved_view_version + 1 WHERE saved_v
 		recorder := &recordingAttributionRecorder{localUserID: targetActorID}
 		caseContext := importContext
 		caseContext.Attributions = recorder
-		casePrepared, err := prepareSavedViewImport(
+		casePrepared, err := prepareSavedViewImport(context.Background(),
 			savedViewMapBundle{
 				"data/saved_views.ndjson": encodePortableSavedViewRow(t, privateRow),
 			},
@@ -550,7 +552,7 @@ func TestIncidentBundleSavedViewStrictPrepareFramingAndShape_Unit(t *testing.T) 
 	canonicalRow := validPortableSavedViewRow(t)
 	canonicalLine := encodePortableSavedViewRow(t, canonicalRow)
 
-	if _, err := prepareSavedViewImport(
+	if _, err := prepareSavedViewImport(context.Background(),
 		savedViewMapBundle{"data/saved_views.ndjson": canonicalLine},
 		importContext,
 	); err != nil {
@@ -795,7 +797,7 @@ func TestIncidentBundleSavedViewStrictPrepareFramingAndShape_Unit(t *testing.T) 
 
 	for name, payload := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := prepareSavedViewImport(
+			_, err := prepareSavedViewImport(context.Background(),
 				savedViewMapBundle{"data/saved_views.ndjson": payload},
 				importContext,
 			)
@@ -828,10 +830,10 @@ func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 			}
 			row["query_json"] = map[string]any{"sort": []any{}, "filters": []any{map[string]any{"field_key": "note.updated_at", "op": "range", "arg": map[string]any{"gte": lower, "lte": upper}}}}
 			original := encodePortableSavedViewRow(t, row)
-			prepared, err := prepareSavedViewImport(savedViewMapBundle{"data/saved_views.ndjson": original}, strictSavedViewImportContext(t))
+			prepared, err := prepareSavedViewImport(context.Background(), savedViewMapBundle{"data/saved_views.ndjson": original}, strictSavedViewImportContext(t))
 			if reverse {
 				requireSavedViewInvariantFailure(t, err, "saved_views.query_layout_legal")
-			} else if err != nil || len(prepared.rows) != 1 || !bytes.Contains(prepared.rows[0].QueryJSON, []byte(lower)) {
+			} else if err != nil || prepared.count != 1 || !bytes.Contains(readPreparedSavedViewRow(t, prepared, strictSavedViewImportContext(t)).QueryJSON, []byte(lower)) {
 				t.Fatalf("lost valid timestamp query: %v", err)
 			}
 			if !bytes.Equal(original, encodePortableSavedViewRow(t, row)) {
@@ -840,7 +842,7 @@ func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 		}
 	})
 	t.Run("versioned layout grammar and lossless current preparation", func(t *testing.T) {
-		for _, version := range []int{5} {
+		for _, version := range []int{6} {
 			row := validPortableSavedViewRow(t)
 			layout := row["layout_json"].(map[string]any)
 			boundary := any("timeline.activity_synopsis_text")
@@ -848,12 +850,12 @@ func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 			original := encodePortableSavedViewRow(t, row)
 			ctx := strictSavedViewImportContext(t)
 			ctx.BundleVersion = version
-			prepared, err := prepareSavedViewImport(savedViewMapBundle{"data/saved_views.ndjson": original}, ctx)
+			prepared, err := prepareSavedViewImport(context.Background(), savedViewMapBundle{"data/saved_views.ndjson": original}, ctx)
 			if err != nil {
 				t.Fatalf("version %d: %v", version, err)
 			}
 			var got map[string]any
-			if len(prepared.rows) != 1 || json.Unmarshal(prepared.rows[0].LayoutJSON, &got) != nil {
+			if prepared.count != 1 || json.Unmarshal(readPreparedSavedViewRow(t, prepared, ctx).LayoutJSON, &got) != nil {
 				t.Fatal("invalid prepared rows")
 			}
 			if got["layout_schema_id"] != viewschema.LayoutSchemaID || got["frozen_through_field_key"] != boundary {
@@ -863,7 +865,7 @@ func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 				t.Fatal("original archive row mutated")
 			}
 			ctx.BundleVersion = 7 - version
-			if _, err := prepareSavedViewImport(savedViewMapBundle{"data/saved_views.ndjson": original}, ctx); err == nil {
+			if _, err := prepareSavedViewImport(context.Background(), savedViewMapBundle{"data/saved_views.ndjson": original}, ctx); err == nil {
 				t.Fatal("layout/bundle version mismatch accepted")
 			}
 		}
@@ -1034,7 +1036,7 @@ func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			row := validPortableSavedViewRow(t)
 			testCase.mutate(row)
-			_, err := prepareSavedViewImport(
+			_, err := prepareSavedViewImport(context.Background(),
 				savedViewMapBundle{"data/saved_views.ndjson": encodePortableSavedViewRow(t, row)},
 				importContext,
 			)
@@ -1045,7 +1047,7 @@ func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 	t.Run("duplicate stable identity", func(t *testing.T) {
 		line := encodePortableSavedViewRow(t, validPortableSavedViewRow(t))
 		payload := append(append([]byte(nil), line...), line...)
-		_, err := prepareSavedViewImport(
+		_, err := prepareSavedViewImport(context.Background(),
 			savedViewMapBundle{"data/saved_views.ndjson": payload},
 			importContext,
 		)
@@ -1088,17 +1090,12 @@ func validPortableSavedViewRow(t testing.TB) map[string]any {
 
 var strictSavedViewIncidentID = uuid.MustParse("00000000-0000-4000-8000-000000110402")
 
-type savedViewMapBundle map[string][]byte
-
-func (b savedViewMapBundle) File(path string) ([]byte, bool) {
-	payload, ok := b[path]
-	return payload, ok
-}
+type savedViewMapBundle = portabilitysupport.MapBundle
 
 func strictSavedViewImportContext(t testing.TB) savedViewImportContext {
 	t.Helper()
 	return savedViewImportContext{
-		BundleVersion: 5,
+		BundleVersion: 6,
 		IncidentID:    strictSavedViewIncidentID,
 		ActorUserID:   uuid.MustParse("00000000-0000-4000-8000-000000110499"),
 		ActorAdmitted: savedViewActorAdmission(
@@ -1141,4 +1138,32 @@ func errorText(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+func exportSavedViewTestFiles(ctx context.Context, input savedViewExportContext) ([]portabilitysupport.File, error) {
+	return portabilitysupport.Export(NewIncidentBundleSourcePort(), ctx, sourceport.ExportContext{Query: input.Query, IncidentID: input.IncidentID, PortableAttributions: input.PortableAttributions})
+}
+
+func (r *recordingAttributionRecorder) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
+	for _, row := range r.ImportedAttributions() {
+		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
+			if err := visit(row); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func readPreparedSavedViewRow(t testing.TB, prepared preparedSavedViewImport, importContext savedViewImportContext) preparedSavedViewRow {
+	t.Helper()
+	var result preparedSavedViewRow
+	count := 0
+	if err := prepared.walk(context.Background(), importContext, func(row preparedSavedViewRow) error { result = row; count++; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("expected one prepared source row, got %d", count)
+	}
+	return result
 }

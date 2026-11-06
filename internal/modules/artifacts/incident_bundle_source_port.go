@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func NewIncidentBundleSourcePort() (sourceport.Port, error) {
@@ -25,12 +26,12 @@ func NewIncidentBundleSourcePort() (sourceport.Port, error) {
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
-		Descriptor: descriptor, Export: sourceport.QueryExport(exportIncidentBundleFiles),
-		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
+		Descriptor: descriptor, Export: exportIncidentBundleFiles,
+		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
+			return sourceport.PrepareMembers(ctx, descriptor, bundle, importContext.BundleVersion)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			return importIncidentBundleFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.ActorUserID, importContext.Attributions)
+			return importIncidentBundleFilesTx(ctx, tx, value.(*incidentportability.BoundMembers), importContext.ActorUserID, importContext.Attributions)
 		},
 		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
 			var invalid bool

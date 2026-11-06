@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func NewIncidentBundleSourcePort() sourceport.Port {
@@ -14,9 +15,9 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		OwnerID: "module.timeline", OwnerRelationIDs: []string{"timeline-source"},
 		Dependencies: []string{"records"},
 		Paths: []sourceport.Path{
-			{LogicalPath: timelineBundleProfilesPath, ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"incident_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
-			{LogicalPath: timelineBundleRecordsPath, ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
-			{LogicalPath: timelineBundleProvenancePath, ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"record_id", "source_row_ordinal", "source_column_ordinal", "source_identity_sha256"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
+			{LogicalPath: timelineBundleProfilesPath, ContentRole: "source_rows", Versions: []int{6}, StableIdentity: []string{"incident_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
+			{LogicalPath: timelineBundleRecordsPath, ContentRole: "source_rows", Versions: []int{6}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
+			{LogicalPath: timelineBundleProvenancePath, ContentRole: "source_rows", Versions: []int{6}, StableIdentity: []string{"record_id", "source_row_ordinal", "source_column_ordinal", "source_identity_sha256"}, StableIdentityInvariantID: "timeline.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"timeline.version_shape_exact", "timeline.envelope_type_scope",
@@ -27,12 +28,12 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
-		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
-		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
+		Descriptor: descriptor, Export: ExportIncidentBundleFiles,
+		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
+			return sourceport.PrepareMembers(ctx, descriptor, bundle, importContext.BundleVersion)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			return ImportIncidentBundleFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.BundleVersion, importContext.ActorUserID, importContext.Attributions)
+			return ImportIncidentBundleFilesTx(ctx, tx, value.(*incidentportability.BoundMembers), importContext.BundleVersion, importContext.ActorUserID, importContext.Attributions)
 		},
 		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
 			var invalid bool

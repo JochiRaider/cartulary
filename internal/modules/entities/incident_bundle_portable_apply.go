@@ -3,8 +3,6 @@ package entities
 import (
 	"context"
 	"errors"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
 
 type entityPortableEnvelope struct {
@@ -33,9 +30,9 @@ func applyPreparedEntityImportTx(ctx context.Context, tx pgx.Tx, prepared prepar
 		return err
 	}
 	for _, merged := range []bool{false, true} {
-		for _, row := range prepared.hosts {
+		if err := prepared.hosts(ctx, importContext, func(row portableHostRow) error {
 			if (row.State == "merged") != merged {
-				continue
+				return nil
 			}
 			if err := insertPortableHost(ctx, tx, row); err != nil {
 				return err
@@ -46,10 +43,14 @@ func applyPreparedEntityImportTx(ctx context.Context, tx pgx.Tx, prepared prepar
 			}, entityEnvelopeTypeScope); err != nil {
 				return err
 			}
+
+			return nil
+		}); err != nil {
+			return err
 		}
-		for _, row := range prepared.identities {
+		if err := prepared.identities(ctx, importContext, func(row portableIdentityRow) error {
 			if (row.State == "merged") != merged {
-				continue
+				return nil
 			}
 			if err := insertPortableIdentity(ctx, tx, row); err != nil {
 				return err
@@ -60,9 +61,13 @@ func applyPreparedEntityImportTx(ctx context.Context, tx pgx.Tx, prepared prepar
 			}, entityEnvelopeTypeScope); err != nil {
 				return err
 			}
+
+			return nil
+		}); err != nil {
+			return err
 		}
 	}
-	for _, row := range prepared.mentions {
+	if err := prepared.mentions(ctx, importContext, func(row portableMentionRow) error {
 		tag, err := tx.Exec(ctx, `
 INSERT INTO entity_mentions (
     entity_mention_id, source_record_id, entity_type, source_field_key,
@@ -85,26 +90,38 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
 		}, entityMentionsObserved); err != nil {
 			return err
 		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
-	for _, row := range prepared.hosts {
+	if err := prepared.hosts(ctx, importContext, func(row portableHostRow) error {
 		if row.SeedMentionID == nil {
-			continue
+			return nil
 		}
 		tag, err := tx.Exec(ctx, `UPDATE hosts SET seed_entity_mention_id = $2 WHERE record_id = $1`, row.RecordID, row.SeedMentionID)
 		if err != nil || tag.RowsAffected() != 1 {
 			return classifyEntityApplyError(err, entitySourceIdentity)
 		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
-	for _, row := range prepared.identities {
+	if err := prepared.identities(ctx, importContext, func(row portableIdentityRow) error {
 		if row.SeedMentionID == nil {
-			continue
+			return nil
 		}
 		tag, err := tx.Exec(ctx, `UPDATE identities SET seed_entity_mention_id = $2 WHERE record_id = $1`, row.RecordID, row.SeedMentionID)
 		if err != nil || tag.RowsAffected() != 1 {
 			return classifyEntityApplyError(err, entitySourceIdentity)
 		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
-	for _, row := range prepared.preserved {
+	if err := prepared.preserved(ctx, importContext, func(row portablePreservedIdentifierRow) error {
 		tag, err := tx.Exec(ctx, `
 INSERT INTO entity_preserved_identifiers (
     entity_preserved_identifier_id, incident_id, record_id, entity_type,
@@ -123,8 +140,12 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		}, entitySourceIdentity); err != nil {
 			return err
 		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
-	for _, row := range prepared.aliases {
+	if err := prepared.aliases(ctx, importContext, func(row portableAliasRow) error {
 		tag, err := tx.Exec(ctx, `
 INSERT INTO entity_aliases (
     entity_alias_id, incident_id, record_id, entity_type, raw_text,
@@ -142,6 +163,10 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		}, entitySourceIdentity); err != nil {
 			return err
 		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }
@@ -185,109 +210,20 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL, $10, $11, $12, $13, $14, $15, 
 	return nil
 }
 
-func validateEntityCrossRowsBeforeApply(ctx context.Context, tx pgx.Tx, prepared preparedEntityImport, importContext sourceport.ImportContext) error {
-	envelopes, err := loadEntityPortableEnvelopes(ctx, tx, importContext.IncidentID)
+func loadEntityPortableEnvelope(ctx context.Context, tx pgx.Tx, incidentID, recordID uuid.UUID) (entityPortableEnvelope, bool, error) {
+	var envelope entityPortableEnvelope
+	var deletedAt pgtype.Timestamptz
+	err := tx.QueryRow(ctx, `SELECT record_id, incident_id, record_type, row_version, created_at, updated_at, created_by_user_id, updated_by_user_id, deleted_at FROM records WHERE incident_id = $1 AND record_id = $2`, incidentID, recordID).Scan(&envelope.recordID, &envelope.incidentID, &envelope.recordType, &envelope.rowVersion, &envelope.createdAt, &envelope.updatedAt, &envelope.createdByUserID, &envelope.updatedByUserID, &deletedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return envelope, false, nil
+	}
 	if err != nil {
-		return entitySourceFailure(entityEnvelopeTypeScope)
+		return envelope, false, err
 	}
-	var failures []entityFailureCandidate
-	hosts := make(map[uuid.UUID]portableHostRow, len(prepared.hosts))
-	identities := make(map[uuid.UUID]portableIdentityRow, len(prepared.identities))
-	for _, row := range prepared.hosts {
-		hosts[row.RecordID] = row
-		envelope, present := envelopes[row.RecordID]
-		if !present || !hostMatchesPortableEnvelope(row, envelope) {
-			failures = append(failures, entityFailure(entityEnvelopeTypeScope, hostsBundlePath, row.RecordID.String(), row.RecordID))
-		}
+	if deletedAt.Valid {
+		envelope.deletedAt = &deletedAt.Time
 	}
-	for _, row := range prepared.identities {
-		identities[row.RecordID] = row
-		envelope, present := envelopes[row.RecordID]
-		if !present || !identityMatchesPortableEnvelope(row, envelope) {
-			failures = append(failures, entityFailure(entityEnvelopeTypeScope, identitiesBundlePath, row.RecordID.String(), row.RecordID))
-		}
-	}
-	for _, row := range prepared.hosts {
-		if row.MergedIntoRecordID != nil {
-			target, present := hosts[*row.MergedIntoRecordID]
-			if !present || target.State == "merged" {
-				failures = append(failures, entityFailure(entityResolutionMerge, hostsBundlePath, row.RecordID.String(), row.MergedIntoRecordID))
-			}
-		}
-		if row.SeedMentionID != nil && !preparedHasMention(prepared.mentions, *row.SeedMentionID) {
-			failures = append(failures, entityFailure(entitySourceIdentity, hostsBundlePath, row.RecordID.String(), row.SeedMentionID))
-		}
-	}
-	for _, row := range prepared.identities {
-		if row.MergedIntoRecordID != nil {
-			target, present := identities[*row.MergedIntoRecordID]
-			if !present || target.State == "merged" {
-				failures = append(failures, entityFailure(entityResolutionMerge, identitiesBundlePath, row.RecordID.String(), row.MergedIntoRecordID))
-			}
-		}
-		if row.SeedMentionID != nil && !preparedHasMention(prepared.mentions, *row.SeedMentionID) {
-			failures = append(failures, entityFailure(entitySourceIdentity, identitiesBundlePath, row.RecordID.String(), row.SeedMentionID))
-		}
-	}
-	for _, row := range prepared.mentions {
-		source, present := envelopes[row.SourceRecordID]
-		if !present || source.incidentID != importContext.IncidentID {
-			failures = append(failures, entityFailure(entityResolutionMerge, entityMentionsBundlePath, row.MentionID.String(), row.SourceRecordID))
-		}
-		if row.ResolvedRecordID != nil {
-			target, present := envelopes[*row.ResolvedRecordID]
-			if !present || target.incidentID != importContext.IncidentID || target.recordType != row.EntityType {
-				failures = append(failures, entityFailure(entityResolutionMerge, entityMentionsBundlePath, row.MentionID.String(), row.ResolvedRecordID))
-			}
-		}
-	}
-	for _, row := range prepared.preserved {
-		if !entityOwnerPrepared(hosts, identities, row.RecordID, row.EntityType) {
-			failures = append(failures, entityFailure(entitySameIncident, preservedIDsBundlePath, row.PreservedID.String(), row.RecordID))
-		}
-	}
-	for _, row := range prepared.aliases {
-		if !entityOwnerPrepared(hosts, identities, row.RecordID, row.EntityType) {
-			failures = append(failures, entityFailure(entitySameIncident, entityAliasesBundlePath, row.AliasID.String(), row.RecordID))
-		}
-	}
-	failures = append(failures, entityClaimFailures(prepared, envelopes)...)
-	if existing, err := existingEntityClaimFailures(ctx, tx, importContext.IncidentID, prepared); err != nil {
-		return entitySourceFailure(entityUnique)
-	} else {
-		failures = append(failures, existing...)
-	}
-	return selectedEntityFailure(failures)
-}
-
-func loadEntityPortableEnvelopes(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (map[uuid.UUID]entityPortableEnvelope, error) {
-	rows, err := tx.Query(ctx, `
-SELECT record_id, incident_id, record_type, row_version, created_at, updated_at,
-       created_by_user_id, updated_by_user_id, deleted_at
-  FROM records
- WHERE incident_id = $1
- ORDER BY record_id
-`, incidentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	result := map[uuid.UUID]entityPortableEnvelope{}
-	for rows.Next() {
-		var envelope entityPortableEnvelope
-		var deletedAt pgtype.Timestamptz
-		if err := rows.Scan(&envelope.recordID, &envelope.incidentID, &envelope.recordType,
-			&envelope.rowVersion, &envelope.createdAt, &envelope.updatedAt,
-			&envelope.createdByUserID, &envelope.updatedByUserID, &deletedAt); err != nil {
-			return nil, err
-		}
-		if deletedAt.Valid {
-			value := deletedAt.Time
-			envelope.deletedAt = &value
-		}
-		result[envelope.recordID] = envelope
-	}
-	return result, rows.Err()
+	return envelope, true, nil
 }
 
 func hostMatchesPortableEnvelope(row portableHostRow, envelope entityPortableEnvelope) bool {
@@ -300,86 +236,6 @@ func identityMatchesPortableEnvelope(row portableIdentityRow, envelope entityPor
 	return envelope.recordID == row.RecordID && envelope.incidentID == row.IncidentID && envelope.recordType == "identity" &&
 		envelope.rowVersion == row.RowVersion && envelope.createdAt.Equal(row.CreatedAt) && envelope.updatedAt.Equal(row.UpdatedAt) &&
 		envelope.createdByUserID == row.RuntimeCreatedByID && envelope.updatedByUserID == row.RuntimeUpdatedByID
-}
-
-func preparedHasMention(rows []portableMentionRow, id uuid.UUID) bool {
-	index := sort.Search(len(rows), func(i int) bool { return rows[i].MentionID.String() >= id.String() })
-	return index < len(rows) && rows[index].MentionID == id
-}
-
-func entityOwnerPrepared(hosts map[uuid.UUID]portableHostRow, identities map[uuid.UUID]portableIdentityRow, recordID uuid.UUID, entityType string) bool {
-	if entityType == "host" {
-		_, present := hosts[recordID]
-		return present
-	}
-	if entityType == "identity" {
-		_, present := identities[recordID]
-		return present
-	}
-	return false
-}
-
-func entityClaimFailures(prepared preparedEntityImport, envelopes map[uuid.UUID]entityPortableEnvelope) []entityFailureCandidate {
-	type claimOwner struct {
-		recordID uuid.UUID
-		path     string
-	}
-	claims := map[string]claimOwner{}
-	var failures []entityFailureCandidate
-	add := func(recordID uuid.UUID, entityType, identifierType string, rawValue *string, path string, identity string) {
-		if rawValue == nil {
-			return
-		}
-		normalized, ok := fieldnorm.NormalizeIdentifier(identifierType, *rawValue)
-		if !ok {
-			failures = append(failures, entityFailure(entitySourceIdentity, path, identity, rawValue))
-			return
-		}
-		key := strings.Join([]string{entityType, identifierType, normalized}, "\x00")
-		if prior, duplicate := claims[key]; duplicate && prior.recordID != recordID {
-			failures = append(failures,
-				entityFailure(entityUnique, prior.path, prior.recordID.String(), key),
-				entityFailure(entityUnique, path, identity, key),
-			)
-			return
-		}
-		claims[key] = claimOwner{recordID: recordID, path: path}
-	}
-	for _, row := range prepared.hosts {
-		if envelope := envelopes[row.RecordID]; envelope.deletedAt == nil && row.State != "merged" {
-			add(row.RecordID, "host", "aad_device_id", row.AADDeviceID, hostsBundlePath, row.RecordID.String())
-			add(row.RecordID, "host", "fqdn", row.FQDN, hostsBundlePath, row.RecordID.String())
-			add(row.RecordID, "host", "hostname", row.Hostname, hostsBundlePath, row.RecordID.String())
-		}
-	}
-	for _, row := range prepared.identities {
-		if envelope := envelopes[row.RecordID]; envelope.deletedAt == nil && row.State != "merged" {
-			add(row.RecordID, "identity", "aad_object_id", row.AADObjectID, identitiesBundlePath, row.RecordID.String())
-			add(row.RecordID, "identity", "sid", row.SID, identitiesBundlePath, row.RecordID.String())
-			add(row.RecordID, "identity", "upn", row.UPN, identitiesBundlePath, row.RecordID.String())
-			add(row.RecordID, "identity", "email", row.Email, identitiesBundlePath, row.RecordID.String())
-			add(row.RecordID, "identity", "sam_account_name", row.SAMAccountName, identitiesBundlePath, row.RecordID.String())
-		}
-	}
-	for _, row := range prepared.preserved {
-		envelope := envelopes[row.RecordID]
-		if envelope.deletedAt == nil && row.DeletedAt == nil && row.Classification == "exact_match_reuse" {
-			value := row.RawValue
-			add(row.RecordID, row.EntityType, row.IdentifierType, &value, preservedIDsBundlePath, row.PreservedID.String())
-		}
-	}
-	return failures
-}
-
-func existingEntityClaimFailures(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, prepared preparedEntityImport) ([]entityFailureCandidate, error) {
-	var count int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM entity_active_identifier_claims WHERE incident_id = $1`, incidentID).Scan(&count); err != nil {
-		return nil, err
-	}
-	if count == 0 {
-		return nil, nil
-	}
-	return []entityFailureCandidate{entityFailure(entityUnique, hostsBundlePath, "", prepared.binding.incidentID)}, nil
 }
 
 type entityPortableAttribution struct {

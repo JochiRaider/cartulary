@@ -96,6 +96,13 @@ func classifyMigrationState(source *Source, snapshot migrationStateSnapshot) (mi
 			sourceHeadVersion(source),
 		)
 	}
+	// The incident-portability release replaces authoritative representations.
+	// Reject a predecessor installation under the existing read-only admission
+	// lock, before Goose can apply even the first successor DDL statement. Fresh
+	// initialization traverses the catalog in one admitted provider invocation.
+	if sourceLineageID(source) == canonicalLineageID && sourceHeadVersion(source) >= 39 && currentVersion < 39 {
+		return migrationClassification{}, newMigrationFailure(reasonSchemaFreshStateRequired, nil)
+	}
 
 	switch {
 	case currentVersion < sourceHeadVersion(source):

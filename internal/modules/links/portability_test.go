@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 	"slices"
 	"testing"
 	"time"
@@ -60,12 +61,12 @@ func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T
 				t.Fatalf("encode unknown-member link row: %v", err)
 			}
 			attributions := &countingLinkAttributions{}
-			_, err = port.PrepareImport(context.Background(), sourceport.MapBundle{
+			_, err = port.PrepareImport(context.Background(), portabilitysupport.MapBundle{
 				"data/record_links.ndjson": append(payload, '\n'),
 				"data/tags.ndjson":         {},
 				"data/record_tags.ndjson":  {},
 			}, sourceport.ImportContext{
-				IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 5,
+				IncidentID: incident.ID, ActorUserID: actor.ID, BundleVersion: 6,
 				OperationID: "unknown-member-" + member, Attributions: attributions,
 			})
 			var failure *sourceport.Failure
@@ -125,4 +126,15 @@ func (recorder *countingLinkAttributions) RecordImportedAttribution(string, stri
 
 func (*countingLinkAttributions) ImportedAttributions() []incidentportability.ImportedAttribution {
 	return []incidentportability.ImportedAttribution{}
+}
+
+func (r *countingLinkAttributions) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
+	for _, row := range r.ImportedAttributions() {
+		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
+			if err := visit(row); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +41,7 @@ func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {
 		return httpapi.BindOwnerRoutes(mux, deps, "module.incidentbundles", map[string]http.HandlerFunc{
 			"exportIncidentBundle":        service.handleExport,
 			"getIncidentBundleDescriptor": service.handleBundleMember,
+			"getIncidentBundleContent":    service.handleBundleContent,
 			"importIncidentBundle":        service.handleImport,
 		})
 	}
@@ -64,11 +67,20 @@ func newService(deps httpapi.DependencySet, module *Module) (*service, error) {
 }
 
 func (s *service) handleBundleMember(w http.ResponseWriter, r *http.Request) {
+	s.serveBundle(w, r, false)
+}
+func (s *service) handleBundleContent(w http.ResponseWriter, r *http.Request) {
+	s.serveBundle(w, r, true)
+}
+func (s *service) serveBundle(w http.ResponseWriter, r *http.Request, content bool) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 	bundleIDText := strings.TrimPrefix(r.URL.Path, "/api/v1/incident-bundles/")
+	if content {
+		bundleIDText = strings.TrimSuffix(bundleIDText, "/content")
+	}
 	if bundleIDText == "" || strings.Contains(bundleIDText, "/") {
 		http.NotFound(w, r)
 		return
@@ -105,6 +117,28 @@ func (s *service) handleBundleMember(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError())
+		return
+	}
+	if content {
+		if record.BundleStorageRef.String() != "incident-bundles/"+record.BundleID.String()+".zip" {
+			writeAPIError(w, r, internalAPIError())
+			return
+		}
+		reader, err := s.storage.OpenPublished(r.Context(), record.BundleStorageRef, ArchiveContent{ByteSize: record.BundleByteSize, SHA256: record.BundleSHA256})
+		if err != nil {
+			writeAPIError(w, r, internalAPIError())
+			return
+		}
+		defer reader.Close()
+		w.Header().Set("Content-Type", "application/zip")
+		w.Header().Set("Content-Disposition", `attachment; filename="incident-`+record.BundleID.String()+`.zip"`)
+		w.Header().Set("Content-Length", strconv.FormatInt(record.BundleByteSize, 10))
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("ETag", `"sha256:`+record.BundleSHA256+`"`)
+		if _, err := io.CopyBuffer(w, reader, make([]byte, 32<<10)); err != nil {
+			panic(http.ErrAbortHandler)
+		}
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, record.resource())
@@ -170,7 +204,28 @@ func (s *service) handleImport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	envelope, envelopeErr := httpapi.ParseUploadEnvelope(r, httpapi.UploadEnvelopePolicy{FileContentTypes: acceptedIncidentBundleFileContentTypes()})
+	var staged StagedBundle
+	accepted := false
+	defer func() {
+		if !accepted && staged.BundleStagingRef.String() != "" {
+			_ = s.storage.RemoveStaged(staged.BundleStagingRef)
+		}
+	}()
+	envelope, envelopeErr, receiveErr := httpapi.ParseStreamingUploadEnvelope(r,
+		httpapi.UploadEnvelopePolicy{FileContentTypes: acceptedIncidentBundleFileContentTypes()}, PortabilityParticipantByteLimit,
+		func(source io.Reader) (string, error) {
+			var err error
+			staged, err = s.storage.Stage(r.Context(), source, incidentBundleArchiveByteLimit(s.worker.limits.IncidentBundles.MaxExtractedBytes))
+			return staged.SHA256, err
+		})
+	if receiveErr != nil {
+		if errors.Is(receiveErr, ErrArchiveBytesExceeded) {
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "incident_bundle_import_rejected", Details: map[string]any{"reason_code": "archive_bytes_exceeded"}})
+		} else {
+			writeAPIError(w, r, internalAPIError())
+		}
+		return
+	}
 	if envelopeErr != nil {
 		writeAPIError(w, r, uploadEnvelopeAPIError(envelopeErr))
 		return
@@ -180,11 +235,7 @@ func (s *service) handleImport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	stagingReference, err := s.storage.Stage(r.Context(), envelope.FileSHA256Hex, envelope.File)
-	if err != nil {
-		writeAPIError(w, r, internalAPIError())
-		return
-	}
+	stagingReference := staged.BundleStagingRef
 	result, err := s.store.acceptImport(r.Context(), importAcceptedParams{
 		ActorUserID:       principal.User.ID,
 		Request:           request,
@@ -194,19 +245,19 @@ func (s *service) handleImport(w http.ResponseWriter, r *http.Request) {
 		Now:               s.now(),
 	})
 	if errors.Is(err, authn.ErrClientTxnConflict) {
-		_ = s.storage.RemoveStaged(stagingReference)
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	}
 	if err != nil {
-		_ = s.storage.RemoveStaged(stagingReference)
+		if errors.Is(err, errJobAdmissionIndeterminate) {
+			accepted = true
+		}
 		writeAPIError(w, r, internalAPIError())
 		return
 	}
 	if !result.Replayed {
+		accepted = true
 		_ = s.worker.dispatch(result.Job.JobID)
-	} else {
-		_ = s.storage.RemoveStaged(stagingReference)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError())

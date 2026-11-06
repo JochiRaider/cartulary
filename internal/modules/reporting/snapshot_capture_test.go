@@ -12,9 +12,17 @@ import (
 )
 
 func TestSnapshotCaptureRetainsSourceOnce(t *testing.T) {
+	t.Run("source control ceiling before decoding", func(t *testing.T) {
+		raw := bytes.Repeat([]byte{' '}, maxSnapshotCaptureBytes+1)
+		if _, err := decodeSnapshotCapture(raw, strings.Repeat("0", 64)); err == nil || !strings.Contains(err.Error(), "byte limit") {
+			t.Fatal("oversized source control entered decoding", err)
+		}
+	})
 	incident := IncidentMetadataSnapshot{ID: "11111111-1111-4111-8111-111111111111", Title: "Capture", Status: "active", Version: 1}
 	source := SnapshotSource{SourceFacts: exportprovider.EmptySourceFacts(), Fields: []ExportField{{SourceRecordID: "22222222-2222-4222-8222-222222222222", SourceRecordType: "host", Path: "/hosts/22222222-2222-4222-8222-222222222222", ContentClass: ContentClassSourceEvidence, SourceFamily: "host", Value: map[string]any{"display_name": "unique frozen source value", "nullable": nil}}}, Timeline: []exportprovider.TimelineSortFact{}}
 	at := time.Date(2026, 10, 16, 7, 0, 0, 0, time.UTC)
+	const documentary = "Café\t漢字\r\nsecond\rthird <script> =SUM(A1)"
+	source.Fields[0].Value.(map[string]any)["notes"] = documentary
 	raw, digest, err := freezeSnapshotCapture(incident, fixtureSnapshotID, at, "boundary", reference_data.SetBinding{}, source)
 	if err != nil {
 		t.Fatal(err)
@@ -27,6 +35,18 @@ func TestSnapshotCaptureRetainsSourceOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	gotIncident, gotSource := decoded.source()
+	if gotSource.Fields[0].Value.(map[string]any)["notes"] != documentary {
+		t.Fatal("capture changed documentary whitespace or source text")
+	}
+	fields, _, err := projectReportingSourceFields(gotSource.Fields[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range fields {
+		if field.FieldKey == "notes" && field.Value != documentary {
+			t.Fatal("materialization changed documentary whitespace or source text")
+		}
+	}
 	if gotIncident.ID != incident.ID || len(gotSource.Fields) != 1 || len(gotSource.Timeline) != 0 || gotSource.Fields[0].Value.(map[string]any)["nullable"] != nil {
 		t.Fatal("source shape changed")
 	}

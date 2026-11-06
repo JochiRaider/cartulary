@@ -52,3 +52,53 @@ SELECT source_stream_ref, source_media_type, source_byte_size,
 		},
 	)
 }
+
+// VNextCommittedSourceInventory retains metadata only. Each object streams
+// bounded chunks from the same caller-owned Recovery snapshot on demand.
+func VNextCommittedSourceInventory() recovery.VNextObjectInventoryProvider {
+	return recovery.NewVNextObjectInventoryProvider("module.imports", "imports.committed_sources", "imports.snapshot_committed_source_inventory.v1",
+		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
+			rows, err := snapshot.QueryRows(ctx, `SELECT content_sha256,byte_size FROM import_committed_source_blobs ORDER BY content_sha256`)
+			if err != nil {
+				return nil, fmt.Errorf("inventory committed source blobs: %w", err)
+			}
+			defer rows.Close()
+			members := []recovery.VNextObjectMember{}
+			for rows.Next() {
+				var digest string
+				var size int64
+				if err := rows.Scan(&digest, &size); err != nil {
+					return nil, err
+				}
+				members = append(members, recovery.VNextObjectMember{LogicalObjectID: digest, StorageKey: "database-inline/import_committed_source_blobs/" + digest,
+					ContentType: mediaTypeOctetStream, PlaintextBytes: size, PlaintextSHA256: digest,
+					Open: func(readCtx context.Context) (io.ReadCloser, error) {
+						reader := newSourceReader(readCtx, nil, ImportSourceCapability{SourceStreamRef: digest, SourceContentSHA256: digest, SourceByteSize: size}, false)
+						reader.readChunk = func(offset, length int64) ([]byte, error) {
+							chunks, err := snapshot.QueryRows(readCtx, committedBlobChunkQuery, digest, offset, length)
+							if err != nil {
+								return nil, err
+							}
+							defer chunks.Close()
+							if !chunks.Next() {
+								if err := chunks.Err(); err != nil {
+									return nil, err
+								}
+								return nil, fmt.Errorf("committed source chunk unavailable")
+							}
+							var value []byte
+							if err := chunks.Scan(&value); err != nil {
+								return nil, err
+							}
+							if chunks.Next() {
+								return nil, fmt.Errorf("committed source chunk is not unique")
+							}
+							return value, chunks.Err()
+						}
+						return reader, nil
+					},
+				})
+			}
+			return members, rows.Err()
+		})
+}

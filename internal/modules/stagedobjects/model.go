@@ -6,9 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 const (
@@ -90,15 +93,51 @@ func (r Reference) String() string {
 	return r.StagingID
 }
 
+type ResourceBinding struct {
+	Kind string
+	ID   string
+}
+
+func (r ResourceBinding) Valid() bool {
+	if !semanticIDPattern.MatchString(r.Kind) || len(r.ID) < 1 || len(r.ID) > 512 || !utf8.ValidString(r.ID) {
+		return false
+	}
+	for _, value := range r.ID {
+		if unicode.IsControl(value) {
+			return false
+		}
+	}
+	return true
+}
+
+// ResourceIdentity is supplied by application assembly, never by an import archive.
+type ResourceIdentity func(profileID string, resource ResourceBinding, stagingID string) (string, error)
+
 type Allocation struct {
+	Resource        *ResourceBinding
 	StagingID       string
 	OperationID     string
 	OwnerProfileID  string
 	StorageIdentity string
-	ByteSize        int64
-	SHA256          string
 	StagedAt        time.Time
 	ExpiresAt       time.Time
+}
+
+type ContentBinding struct {
+	ByteSize int64
+	SHA256   string
+}
+
+// SealedReference is issued only after complete streamed content has been
+// durably written, hashed and sealed in the allocating operation.
+type SealedReference struct {
+	Reference
+	ContentBinding
+}
+
+type SealedObject struct {
+	StorageIdentity string
+	ContentBinding
 }
 
 type CleanupCandidate struct {
@@ -116,7 +155,8 @@ type DeletionFailure struct {
 
 type Repository interface {
 	Allocate(context.Context, Allocation) error
-	MarkReady(context.Context, string, time.Time) error
+	Seal(context.Context, string, string, SealedReference, time.Time) error
+	ReadSealed(context.Context, string, string, Reference, time.Time) (SealedObject, error)
 	Abandon(context.Context, string, time.Time) error
 	PrepareCleanupBatch(context.Context, time.Time, time.Time, int) ([]CleanupCandidate, error)
 	RecordDeletionSuccess(context.Context, string) error
@@ -143,7 +183,8 @@ const (
 )
 
 type ByteStore interface {
-	Put(context.Context, string, []byte) (ByteWriteOutcome, error)
+	Put(context.Context, string, io.Reader) (ByteWriteOutcome, error)
+	Open(context.Context, string) (io.ReadCloser, error)
 	Delete(context.Context, string) (DeleteOutcome, error)
 }
 
@@ -219,26 +260,38 @@ type Publication struct {
 	SHA256       string
 }
 
+type PublicationPlan struct {
+	Transfer     Transfer
+	Publications []Publication
+}
+
 type PublicationCapability interface {
 	OperationID() string
-	PublishStagedObject(context.Context, Publication) error
+	PublishStagedObject(context.Context, string, Publication) error
 }
 
 func PublishTransferred(ctx context.Context, transfer Transfer, publications []Publication, capability PublicationCapability) error {
-	if capability == nil ||
-		transfer.operationID == "" ||
-		transfer.operationID != capability.OperationID() ||
-		len(publications) != len(transfer.references) {
+	if capability == nil || transfer.operationID != capability.OperationID() {
+		return ErrScopeDenied
+	}
+	if err := validatePublications(transfer, publications); err != nil {
+		return err
+	}
+	for _, publication := range publications {
+		if err := capability.PublishStagedObject(ctx, transfer.profileID, publication); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func validatePublications(transfer Transfer, publications []Publication) error {
+	if transfer.operationID == "" || len(publications) != len(transfer.references) {
 		return ErrScopeDenied
 	}
 	expected := append([]string(nil), transfer.references...)
 	actual := make([]string, len(publications))
 	for index, publication := range publications {
-		if publication.StagingID == "" ||
-			publication.ResourceKind == "" ||
-			publication.ResourceID == "" ||
-			publication.ByteSize < 0 ||
-			!validSHA256(publication.SHA256) {
+		if publication.StagingID == "" || !(ResourceBinding{Kind: publication.ResourceKind, ID: publication.ResourceID}).Valid() || publication.ByteSize < 0 || !validSHA256(publication.SHA256) {
 			return ErrInvalidLifecycle
 		}
 		actual[index] = publication.StagingID
@@ -247,9 +300,9 @@ func PublishTransferred(ctx context.Context, transfer Transfer, publications []P
 	if !equalStrings(expected, actual) {
 		return ErrScopeDenied
 	}
-	for _, publication := range publications {
-		if err := capability.PublishStagedObject(ctx, publication); err != nil {
-			return err
+	for i := 1; i < len(actual); i++ {
+		if actual[i] == actual[i-1] {
+			return ErrScopeDenied
 		}
 	}
 	return nil
@@ -265,4 +318,39 @@ func equalStrings(left, right []string) bool {
 		}
 	}
 	return true
+}
+
+// PreparedResources owns cleanup until a final transaction publishes the plan.
+// Abandon is used only after the caller has proved that publication did not commit.
+type PreparedResources struct {
+	plan      PublicationPlan
+	allocator Allocator
+}
+
+func (s *Scope) PrepareResources(publications []Publication) (*PreparedResources, error) {
+	if s == nil || s.closed {
+		return nil, ErrScopeDenied
+	}
+	transfer := Transfer{operationID: s.operationID, profileID: s.profileID, references: s.Refs()}
+	if err := validatePublications(transfer, publications); err != nil {
+		return nil, err
+	}
+	s.closed = true
+	return &PreparedResources{plan: PublicationPlan{Transfer: transfer, Publications: append([]Publication(nil), publications...)}, allocator: s.allocator}, nil
+}
+func (p *PreparedResources) Plan() PublicationPlan {
+	if p == nil {
+		return PublicationPlan{}
+	}
+	return PublicationPlan{Transfer: p.plan.Transfer, Publications: append([]Publication(nil), p.plan.Publications...)}
+}
+func (p *PreparedResources) Abandon(ctx context.Context) error {
+	if p == nil {
+		return nil
+	}
+	var joined error
+	for _, ref := range p.plan.Transfer.references {
+		joined = errors.Join(joined, p.allocator.Abandon(ctx, Reference{StagingID: ref}))
+	}
+	return joined
 }

@@ -1,0 +1,168 @@
+{
+  "schema_id": "cartulary.ir_fixture_manifest.v1",
+  "fixture_id": "ir-incident",
+  "revision": 1,
+  "source_files": [
+    {
+      "logical_path": "aliases.csv",
+      "size_bytes": 15005,
+      "sha256": "d6bbe6f78045a4e7c08d5004b85adddcde5f1ada5323fbcfdec0a0898dd19c7f",
+      "records": 222,
+      "columns": [
+        "entity_type",
+        "canonical_identifier",
+        "alias_type",
+        "alias_value"
+      ],
+      "use": "entity_alias_operations",
+      "field_keys": []
+    },
+    {
+      "logical_path": "hosts.csv",
+      "size_bytes": 5113,
+      "sha256": "beaa09d6a77fb1f3c04bc0118ca95dc94a537a3575378d4466874e3987bb34e1",
+      "records": 30,
+      "columns": [
+        "host.display_name",
+        "host.hostname",
+        "host.location",
+        "host.os_platform",
+        "host.business_owner",
+        "host.criticality",
+        "host.containment_status"
+      ],
+      "use": "file_upload",
+      "field_keys": [
+        "host.display_name",
+        "host.hostname",
+        "host.location",
+        "host.os_platform",
+        "host.business_owner",
+        "host.criticality",
+        "host.containment_status"
+      ]
+    },
+    {
+      "logical_path": "identities.csv",
+      "size_bytes": 4404,
+      "sha256": "0dfb5ed9f845392a96a7c26108db63276c29431cd91e7735cb322e2e10cb9a33",
+      "records": 20,
+      "columns": [
+        "identity.display_name",
+        "identity.upn",
+        "identity.email",
+        "identity.sam_account_name",
+        "identity.privilege_level",
+        "identity.mfa_state",
+        "identity.reset_status"
+      ],
+      "use": "file_upload",
+      "field_keys": [
+        "identity.display_name",
+        "identity.upn",
+        "identity.email",
+        "identity.sam_account_name",
+        "identity.privilege_level",
+        "identity.mfa_state",
+        "identity.reset_status"
+      ]
+    },
+    {
+      "logical_path": "timeline.csv",
+      "size_bytes": 1602175,
+      "sha256": "628ed84a8a53b5982b1036d64397a322fb11c86641f6bd081a8a175b9cbbcc2d",
+      "records": 1500,
+      "columns": [
+        "Date Entered",
+        "Analyst",
+        "MITRE",
+        "Device/Object",
+        "IP Address",
+        "Activity Date (UTC)",
+        "Activity Date (Local Time)",
+        "RAW Activity",
+        "Activity Synopsis",
+        "Data Source"
+      ],
+      "use": "file_upload",
+      "field_keys": [
+        "timeline.date_entered_text",
+        "timeline.analyst_text",
+        "timeline.mitre_stage_text",
+        "timeline.device_object_text",
+        "timeline.ip_address_text",
+        "timeline.activity_utc_text",
+        "timeline.activity_local_text",
+        "timeline.raw_activity_text",
+        "timeline.activity_synopsis_text",
+        "timeline.data_source_text"
+      ]
+    },
+    {
+      "logical_path": "timeline.tsv",
+      "size_bytes": 1602175,
+      "sha256": "54e570f84e1aafc4e705f1c77330377cc7693d983c2fd20e49644a2baf37426c",
+      "records": 1500,
+      "columns": [
+        "Date Entered",
+        "Analyst",
+        "MITRE",
+        "Device/Object",
+        "IP Address",
+        "Activity Date (UTC)",
+        "Activity Date (Local Time)",
+        "RAW Activity",
+        "Activity Synopsis",
+        "Data Source"
+      ],
+      "use": "clipboard",
+      "field_keys": [
+        "timeline.date_entered_text",
+        "timeline.analyst_text",
+        "timeline.mitre_stage_text",
+        "timeline.device_object_text",
+        "timeline.ip_address_text",
+        "timeline.activity_utc_text",
+        "timeline.activity_local_text",
+        "timeline.raw_activity_text",
+        "timeline.activity_synopsis_text",
+        "timeline.data_source_text"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "dependency_id": "network-flow-orientation",
+      "revision": 1,
+      "manifest_path": "network-flow-orientation/v1/manifest.json",
+      "manifest_sha256": "b03c5eabba8732d596cf4ed42c24bbff1bafd25bb1e502c3dcbc1d65d4dce3dd",
+      "datasets": [
+        "day1",
+        "day2",
+        "overlap"
+      ]
+    }
+  ],
+  "expected_file": {
+    "logical_path": "expected.json",
+    "size_bytes": 10077,
+    "sha256": "da798f47dc4ec8525e5402e8c88f499203fc96e6c0d907aa78f35dbe519aac47"
+  },
+  "supplement_files": [
+    {
+      "logical_path": "supplement/evidence-original.txt",
+      "size_bytes": 105,
+      "sha256": "809043eed55c7ccb74a35d515ca50b977e4ede14c9d01e3579a231ebb8186f2d"
+    },
+    {
+      "logical_path": "supplement/evidence-replacement.txt",
+      "size_bytes": 107,
+      "sha256": "80942eda97edbe7fcf37a956f658accc70e354e0eb43a74d3c6c0631ad13784a"
+    },
+    {
+      "logical_path": "supplement/records.json",
+      "size_bytes": 1064,
+      "sha256": "76e04d8d5fa8c40453bba0fd99026e1c7c0bcd70e2f108533b7d74681cce2c98"
+    }
+  ]
+}

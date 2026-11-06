@@ -4,10 +4,12 @@ The current snapshot-binding and extension-derived restore contracts are
 adopted under the 2026-10-31 decision in Core 00 §1.7. Implementation validation,
 module readiness, release qualification and deployment remain separate.
 
-The coordinated Network Flow major-9/state-6 orientation amendment (Core 00 §1.5.1), carrying forward the bounded-import
-clarifications from Core 00 §1.3, is adopted by the explicit 2026-11-04 instruction
-in Core 00 §1.5.1. Older Network Flow state is rejected unchanged. Owner adoption,
-implementation validation and operational deployment are separate dispositions.
+Complete incident portability adopts Network Flow major 10/state 7 and Incident
+Bundle version 6 under the 2026-11-05 decision in Core 00. It carries forward the
+orientation semantics adopted on 2026-11-04 under Core 00 §1.5.1 and supersedes
+that predecessor storage/portability contract. Older retained state is rejected
+unchanged. Owner adoption, implementation validation and operational deployment
+remain separate dispositions.
 
 ## 1. Architecture pattern
 
@@ -397,7 +399,7 @@ Profiles: base
 Verified by: AC-124, AC-125, AC-127, AC-131, AC-135, AC-219, AC-220, AC-231, AC-506
 
 Layout/bundle coordinated-upgrade exception. REQ-01-143's closed layout.v2
-representation and REQ-01-635's bundle version 5 are the sole current accepted
+representation and REQ-01-635's bundle version 6 are the sole current accepted
 representations. Retirement of layout.v1 requests/storage reads and bundle version
 3 import is an intentional coordinated pre-production break on the existing
 routes, extending the earlier layout.v2 response transition. It requires a matched
@@ -1039,7 +1041,7 @@ Profiles: base
 Verified by: AC-552
 
 **REQ-01-033**
-Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/reference-packs/*`, `/api/v1/incidents/{incident_id}/report-compositions/*`, `/api/v1/snapshots/*` and `/api/v1/releases/*`, `/api/v1/incident-bundles/*`, `/api/v1/auth/providers/*`, `/api/v1/auth/oidc/*`, `/api/v1/auth/saml/*`, and `/api/v1/users/{user_id}/auth-bindings*` for the corresponding claimed extension profiles.
+Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/incidents/{incident_id}/committed-sources/*`, `/api/v1/reference-packs/*`, `/api/v1/incidents/{incident_id}/report-compositions/*`, `/api/v1/snapshots/*`, `/api/v1/releases/*`, `/api/v1/incidents/{incident_id}/retained-report-artifacts/*`, `/api/v1/incident-bundles/*`, `/api/v1/auth/providers/*`, `/api/v1/auth/oidc/*`, `/api/v1/auth/saml/*`, and `/api/v1/users/{user_id}/auth-bindings*` for the corresponding claimed extension profiles.
 Profiles: base, import, snapshot_reporting, incident_portability, reference_pack, enterprise_authentication
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-232, AC-233, AC-234, AC-235, AC-236, AC-370, AC-371
 
@@ -1093,6 +1095,7 @@ Verified by: AC-370, EXT-AC-156, EXT-AC-157
   - `/api/v1/reference-packs`
 - `snapshot_reporting`
   - `/api/v1/incidents/{incident_id}/report-compositions`
+  - `/api/v1/incidents/{incident_id}/retained-report-artifacts`
   - `/api/v1/releases`
   - `/api/v1/snapshots`
 
@@ -1958,7 +1961,7 @@ deletion tuple. Indicator source persistence MUST NOT retain an authoritative
 or fallback copy of those fields. Portable Indicator rows retain the admitted
 source-major-`2` shape by joining Indicator subtype state to the Records
 envelope; neither storage contraction nor claim rebuild changes valid bundle
-version 5 source row shapes.
+version 6 source row shapes.
 
 `indicator_active_identities` is Indicator-owned rebuildable coordination
 state keyed by `(incident_id, indicator_type, dedupe_key)` and maps one active
@@ -4049,6 +4052,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `import_apply_blocked` | `409` | `false` | The import apply request is structurally valid but blocked by duplicate-apply detection, overlapping selected units, units that are not ready, unavailable target-owner contracts, source-change detection, or target-owner validation during apply. `error.details.reason_code` MUST use the `import_apply_blocked` registry in §3.3.6.2. |  |  |  |
 | `invalid_snapshot_request` | `400` | `false` | A snapshot-create request is malformed, omits a required member, uses `null` where forbidden, or includes an unknown top-level member. |  |  |  |
 | `snapshot_not_found` | `404` | `false` | No visible snapshot exists for the supplied `snapshot_id`. |  |  |  |
+| `report_artifact_not_found` | `404` | `false` | No retained artifact exists in the authorized incident. Details are empty. |  |  |  |
 | `invalid_release_request` | `400` | `false` | A release-create or release-action request is malformed, omits a required member, supplies `null` where forbidden, or attempts to rely on implicit version selection rather than exact versioned identifiers where exact versioning is required. |  |  |  |
 | `release_not_found` | `404` | `false` | No visible release exists for the supplied `release_id`. |  |  |  |
 | `release_state_conflict` | `409` | `false` | The addressed release exists, but its current `release_state` does not allow the requested approve, publish, or invalidate action. `error.details.reason_code` MUST use the `release_state_conflict` registry in §3.3.6.2. |  |  |  |
@@ -4167,8 +4171,8 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 
 | `reason_code` | Canonical meaning |
 | --- | --- |
-| `object_blob_storage_key_malformed` | The persisted physical object key does not parse as `object_blob_storage_key_v1`. |
-| `object_blob_storage_key_identity_mismatch` | The persisted physical object key parses as `object_blob_storage_key_v1`, but its incident or object-blob UUID does not match the authoritative evidence/blob identity. |
+| `object_blob_storage_key_malformed` | The persisted physical object key does not parse as `object_blob_storage_key_v2`. |
+| `object_blob_storage_key_identity_mismatch` | The persisted physical object key parses as `object_blob_storage_key_v2`, but its incident or object-blob UUID does not match the authoritative evidence/blob identity. |
 
 
 `evidence_attach_rejected` `error.details.reason_code` values:
@@ -5005,7 +5009,7 @@ Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-368
 
 **REQ-01-267A**
-`extension_resource_changed.payload` MUST include `extension_profile_id`, `resource_kind`, `resource_id`, `change_kind`, and `reason_code`. `extension_profile_id` MUST be a claimed extension-profile identifier. `resource_kind` MUST be an owner-defined extension resource kind; Network Flow Activity contract major 9 registers `network_flow_table`, `network_flow_graph_view`, and `network_flow_indicator_binding` within their adopted Network Flow scopes. `resource_id` MUST be the owner-defined stable resource identifier and MUST NOT be a `record_id`, `view_schema_id`, `saved_view_id`, import unit locator, visible label, route, or storage identifier. `change_kind` MUST be one of `invalidate` or `remove`. `reason_code` MUST be one of `renamed`, `soft_deleted`, `authorization_lost`, or an owner-declared future additive reason that clients can safely treat as `invalidate`.
+`extension_resource_changed.payload` MUST include `extension_profile_id`, `resource_kind`, `resource_id`, `change_kind`, and `reason_code`. `extension_profile_id` MUST be a claimed extension-profile identifier. `resource_kind` MUST be an owner-defined extension resource kind; Network Flow Activity contract major 10 registers `network_flow_table`, `network_flow_graph_view`, and `network_flow_indicator_binding` within their adopted Network Flow scopes. `resource_id` MUST be the owner-defined stable resource identifier and MUST NOT be a `record_id`, `view_schema_id`, `saved_view_id`, import unit locator, visible label, route, or storage identifier. `change_kind` MUST be one of `invalidate` or `remove`. `reason_code` MUST be one of `renamed`, `soft_deleted`, `authorization_lost`, or an owner-declared future additive reason that clients can safely treat as `invalidate`.
 
 An `extension_resource_changed` event MAY include `workspace_refs[]`. When present, every item MUST be an `extension_workspace` `sheet_ref` for the same `extension_profile_id`, sorted by `workspace_key asc`, and duplicate workspace keys are forbidden. The event MUST NOT include raw row values, source bytes, import-source locators, cursor payloads, graph payloads, old labels, new labels, or authorization diagnostics. Rename is represented by `change_kind='invalidate'` and `reason_code='renamed'`; soft delete and authorization loss are represented by `change_kind='remove'` with their matching reason codes.
 Profiles: base, network_flow_activity
@@ -6401,7 +6405,7 @@ Verified by: AC-045, AC-097, AC-231
     - The `object://{object_blob_uuid}` form is reserved for blob attach/finalization logic. User-authored workbook mutations and other direct mutation payloads MUST NOT set a value matching the reserved server-managed form. Such attempts fail before persistence with public error code `invalid_mutation_payload` and reason `reserved_server_managed_ref`.
     - User-authored external locators remain governed by `locator_text_v1` and MAY be stored when they do not match the reserved server-managed form. External backend transitions MUST NOT rewrite, normalize, or reinterpret existing non-server external locators.
     - `object_blobs.storage_key` is the private physical bucket-relative object key. It MUST NOT be exposed through workbook rows, evidence preview/download handles, public API payloads, or release-shareable artifacts as the evidence identity.
-    - The server-generated physical key grammar is `object_blob_storage_key_v1`: canonical form `incidents/{incident_uuid}/object-blobs/{object_blob_uuid}` where both UUIDs are lowercase RFC 4122 text. The key is composed of slash-separated ASCII segments, has no empty segments, is not absolute, contains no traversal segment (`.` or `..`), and contains no NUL, CR, or LF. The canonical key MUST be at most 1024 UTF-8 bytes.
+    - The server-generated physical key grammar is `object_blob_storage_key_v2`: canonical form `incidents/{incident_uuid}/object-blobs/{object_blob_uuid}/objects/{generation_uuid}` where all three UUIDs are lowercase RFC 4122 text and the generation UUID is newly allocated for each physical object attempt. The key is composed of slash-separated ASCII segments, has no empty segments, is not absolute, contains no traversal segment (`.` or `..`), and contains no NUL, CR, or LF. The canonical key MUST be at most 1024 UTF-8 bytes.
     - Malformed server-generated physical keys and persisted physical keys that do not match the authoritative incident/blob identity fail before object-store calls with public error code `object_store_invalid_request`. `error.details.reason_code` MUST be `object_blob_storage_key_malformed` for grammar violations or `object_blob_storage_key_identity_mismatch` for parsed-key identity mismatches.
     - The current profile defines no in-product or release-support MinIO-source migration. A deployment that still uses a retired source realization MUST complete an operator-owned external migration before upgrade or remain on a release that supports that realization. External storage migration MUST preserve server-managed logical refs and MUST NOT reinterpret `evidence_records.storage_ref`.
   - `evidence.collector_party_text`: read `collector_party_text`; write target `evidence_records.collector_party_text`; `string_contract_id=party_text_v1`; `conflict_resolution_class=text_compare_merge`
@@ -6939,6 +6943,16 @@ Verified by: AC-013, AC-125, AC-231
 
 **REQ-01-351**
 Projection rows MUST be updated transactionally with the source write that changes them.
+
+Ordinary relationship creation, collection edits and removal MUST also refresh
+both affected endpoints through Links' transaction-bound projection capability.
+Removed endpoints come from the admitted mutation, not an active-link query
+after removal. Projections dispatches only registered source-owner contributions
+for those endpoints, after serializing their envelope reads. A derived count
+change alone does not advance an unrelated record's source version or fabricate
+history. Coordinators that already publish a complete scope (merge, rollback,
+import and recovery) retain that responsibility; relationship storage alone is
+not sufficient composition for ordinary authoring.
 
 Interactive rollback, row restore, soft-delete and restore MUST refresh an explicit, source-owner-derived set of affected projection rows. They MUST NOT rebuild every projection in the incident. The refresh set includes the mutated records and direct dependents whose projection reads those records or their authoritative relationships. Links owns relationship endpoint dependencies; Entities owns resolved-mention and alias-provenance dependencies in the current base profile. New cross-record derivations require an explicit dependency contribution from their source owner. Discovery MUST include retained relationships with inactive endpoints when needed for restore, MUST remain incident-scoped, and MUST NOT expand transitively through unrelated records.
 
@@ -8823,7 +8837,7 @@ Verified by: AC-164, AC-166, AC-236, AC-487, AC-490
 ```json
 {
   "bundle_format": "cartulary.incident_bundle",
-  "bundle_version": 5,
+  "bundle_version": 6,
   "bundle_id": "uuid",
   "incident_id": "uuid",
   "incident_key": "string",
@@ -8918,6 +8932,20 @@ Import MUST materialize every actor referenced by imported history as either:
 
 - an inert imported actor that is not login-capable and is not automatically added to incident membership, or
 - a historical actor descriptor bound to an existing local user without rewriting the source bundle actor identifier used by imported history.
+
+Historical attribution overrides apply to the source action that created them.
+An effective destination mutation MUST atomically retire the override for each
+actor field whose attributed action changes. Creation and immutable history
+attribution MUST remain intact. An unchanged assignment or other no-op MUST NOT
+retire attribution. Later reassignment MUST NOT resurrect a retired override.
+Source owners declare exact actor/action tuples: envelope and incident updates
+use their version/timestamp, review and resolution use their action timestamp,
+deletions use their deletion tuple, and current ownership uses the assignment.
+The attribution owner provides transaction-bound persistence; source owners do
+not inspect or modify its tables. Database trigger bindings MAY implement that
+boundary when their field inventories are explicit and scoped to the same row
+and incident. Import insertion and deployment restore MUST preserve admitted
+historical attribution without manufacturing a native mutation.
 Profiles: incident_portability
 Verified by: AC-167, AC-168, AC-236
 
@@ -9030,15 +9058,15 @@ projections and MUST NOT add, remove, or reinterpret a row in these registries.
 
 **REQ-01-635**
 Every newly generated Incident Bundle MUST use
-`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=5`.
-Only version `5` is admitted for import and export. Import MUST parse
+`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=6`.
+Only version `6` is admitted for import and export. Import MUST parse
 `manifest.bundle_version` before interpreting any source payload and MUST
 select exactly one codec only from that numeric value. Filename presence, file
 order, archive order, prior import history, and caller input MUST NOT select or
 override a codec. Omitted, JSON `null`, or non-integer
 `bundle_version` MUST fail before source preparation with
 `incident_bundle_import_rejected` and `reason_code='malformed_manifest'`.
-Every integer other than `5`, including retired numeric versions `1`, `2`, `3` and `4`, MUST fail
+Every integer other than `6`, including retired numeric versions `1` through `5`, MUST fail
 at the same boundary with `reason_code='unsupported_bundle_version'`. No
 fallback version exists.
 
@@ -9046,16 +9074,16 @@ The required Timeline path set is exactly:
 
 | Version | Export | Import | Exact Timeline paths |
 | --- | --- | --- | --- |
-| `5` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
+| `6` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
 
 A retired Timeline path, a mixed retired/current path set, or an incomplete
-current path set under version `5` MUST fail before source preparation with
+current path set under version `6` MUST fail before source preparation with
 `reason_code='malformed_manifest'`. The admitted version has the following
 closed required core path registry; a missing, duplicate, or unknown member
 under `data/` MUST fail closed and every required path MUST have exactly one
 declared consumer or validator:
 
-| Family or special consumer | Version `5` paths |
+| Family or special consumer | Version `6` paths |
 | --- | --- |
 | Incident | `data/incident.json` |
 | Actors | `data/actors.ndjson` |
@@ -9073,7 +9101,7 @@ declared consumer or validator:
 | Saved Views | `data/saved_views.ndjson` |
 | Reference Pack references | `data/reference_pack_refs.json` |
 
-Every participating source and special consumer MUST explicitly admit version 5
+Every participating source and special consumer MUST explicitly admit version 6
 only. Archive integrity MUST be verified against original bytes before source
 preparation. Version selection MUST never depend on row content. Legacy version 3
 archives fail before source preparation, target mutation or publication; no
@@ -9088,7 +9116,7 @@ Profiles: incident_portability
 Verified by: AC-487, AC-489, AC-490, AC-496, AC-506
 
 **REQ-01-636**
-The version `5` Timeline row contracts are the following closed shapes.
+The version `6` Timeline row contracts are the following closed shapes.
 “Required” means the member MUST be present. A member absent from the allowed
 set MUST fail closed. A required member MAY be JSON `null` only when its
 source-owner semantic contract admits null.
@@ -9099,7 +9127,7 @@ source-owner semantic contract admits null.
 | `timeline_records.ndjson` | `record_id` | `record_id`, `incident_id`, `capture_state`, `activity_utc_generated`, `activity_local_generated`, `activity_time_pair_state` | Required members plus `reviewed_by_user_id`, `reviewed_at`, `superseded_by_user_id`, `superseded_at`, `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, `data_source_text` |
 | `timeline_source_provenance.ndjson` | `(record_id, source_row_ordinal, source_column_ordinal, source_identity_sha256)` | `record_id`, `source_identity_sha256`, `source_row_ordinal`, `source_column_ordinal`, `source_kind`, `source_metadata`, `source_header`, `raw_value`, `created_at` | Required members plus `cell_kind` |
 
-The version-5 Timeline record-envelope fields `row_version`, `created_at`,
+The version-6 Timeline record-envelope fields `row_version`, `created_at`,
 `updated_at`, `created_by_user_id`, and `updated_by_user_id` MUST come from the
 same-record row in `data/records.ndjson`; they MUST NOT be duplicated or
 independently resolved from `timeline_records.ndjson`.
@@ -9170,7 +9198,7 @@ Every port MUST provide the following behavioral interface:
 | Apply import transaction | Supplied transaction, matching prepared value, and immutable import context | Success or typed failure | Uses fixed owner-controlled SQL or SQLC, writes only owner relations, and requires affected-row equality. |
 | Validate import transaction | Supplied transaction, matching prepared value, and immutable import context | Success or typed failure | Compares admitted input with transaction state and proves aggregate, cross-row, and declared cross-family invariants before publication. |
 
-The current source-port contract major is `2`. A prepared value is bound to
+The current source-port contract major is `3`. A prepared value is bound to
 that major in addition to its creating port, operation, incident, and admitted
 bundle version.
 
@@ -9191,7 +9219,7 @@ Profiles: incident_portability
 Verified by: AC-496, AC-498, AC-501, AC-503
 
 **REQ-01-640**
-The current contract-major-`2` source catalog and closed invariant IDs are:
+The current contract-major-`3` source catalog and closed invariant IDs are:
 
 | Family | Dependencies | Required invariant IDs |
 | --- | --- | --- |
@@ -9220,8 +9248,8 @@ archive order, and database error text MUST NOT select it.
 | Family | Required invariant meaning |
 | --- | --- |
 | Records | Every row belongs to the imported incident; record type, row version, timestamps, actor attribution, and deletion tuples are legal; every subtype-required envelope has exactly its admitted owner row. |
-| Timeline | Version `4` has its exact shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. |
-| Parties | Every row has the exact version-5 closed shape; every row has a same-incident party envelope; required identity fields, lifecycle state, and active claims are exact; every string equals the Party field-registry stored representation. |
+| Timeline | Version `6` has its exact shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. |
+| Parties | Every row has the exact version-6 closed shape; every row has a same-incident party envelope; required identity fields, lifecycle state, and active claims are exact; every string equals the Party field-registry stored representation. |
 | Entities | Mentions remain observations; hosts and identities have the correct envelopes; resolution and merge-lineage tuples are coherent; aliases and preserved identifiers are normalized, classified, unique, and same-incident. |
 | Indicators | Type/value/hash representation and normalization are legal; duplicate identities are rejected; observations and state intervals are same-incident, ordered, and coherent; repeated observations are not silently merged. |
 | Artifacts | Every artifact has the correct envelope and exactly the admitted subtype; subtype lifecycle and required fields are legal; handoff-risk references target handoffs; all references are same-incident. |
@@ -9233,7 +9261,7 @@ archive order, and database error text MUST NOT select it.
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
 **REQ-01-673**
-For Incident Bundle version `5`, source family `incident`, contract major `2`,
+For Incident Bundle version `6`, source family `incident`, contract major `3`,
 `data/incident.json` MUST contain exactly one JSON object with exactly these 16
 members. Every member is required, including members whose value may be JSON
 `null`. Unknown, missing, duplicate, aliased, wrongly typed, noncanonical,
@@ -9274,14 +9302,14 @@ incident, bundle version, and contract major. Apply remaps both actor fields to
 the importing actor while retaining both original attributions, uses explicit
 fixed-column parameterized SQL, and requires one affected row. Validate compares
 all 16 admitted values with transaction state after the actor remap. Export names
-all 16 wire members explicitly and produces the current canonical version-5 bytes;
+all 16 wire members explicitly and produces the current canonical version-6 bytes;
 physical relation column order, `SELECT *`, whole-row `to_jsonb`, and database
 record-population functions are not portable-shape authority.
 Profiles: incident_portability
 Verified by: AC-566
 
 **REQ-01-666**
-For Incident Bundle version `5`, source family `entities`, contract major `2`,
+For Incident Bundle version `6`, source family `entities`, contract major `3`,
 each non-empty row of the five Entities files MUST be one exact JSON object.
 Unknown, missing, duplicate, aliased, wrongly typed, noncanonical, blank-line,
 multivalue, or trailing-content input fails admission. Nullable members remain
@@ -9334,8 +9362,8 @@ order nor raw database text may select or describe the public failure.
 Profiles: incident_portability
 Verified by: AC-559
 
-For Incident Bundle version `5`, source family `indicators`, contract
-major `2`, each non-empty row of the three Indicator files MUST be one exact
+For Incident Bundle version `6`, source family `indicators`, contract
+major `3`, each non-empty row of the three Indicator files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
 noncanonical, blank-line, multivalue, or trailing-content input fails
@@ -9439,8 +9467,8 @@ operator output. Selection MUST NOT depend on archive order, NDJSON row order,
 filesystem order, map iteration, unsorted SQL output, constraint-reporting
 order, PostgreSQL error text, or a descriptor-default invariant.
 
-For Incident Bundle version `5`, source family `revisions`, contract
-major `2`, each non-empty row of the three Revisions files MUST be one exact
+For Incident Bundle version `6`, source family `revisions`, contract
+major `3`, each non-empty row of the three Revisions files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
 noncanonical, blank-line, multivalue, or trailing-content input fails
@@ -9503,7 +9531,7 @@ consumer port whose providers are constructed by authoritative source owners
 and whose complete immutable catalog is validated by application composition.
 
 **REQ-01-659**
-For Incident Bundle version `5`, the outer exact member sets,
+For Incident Bundle version `6`, the outer exact member sets,
 ordering, contract major, attribution behavior, sequence repair, invariant
 precedence, and no-live-publication behavior of the Revisions source family
 remain unchanged. Every non-null `before_value`, `after_value`, `before_json`,
@@ -9573,7 +9601,7 @@ Verified by: AC-488, AC-489, AC-491, AC-496, AC-497, AC-498, AC-499,
  AC-507, AC-508, AC-525, AC-527
 
 **REQ-01-651**
-For source contract major `2`, every nonblank row in
+For source contract major `3`, every nonblank row in
 `data/records.ndjson` MUST be one exact JSON object with exactly these
 members:
 
@@ -9624,7 +9652,7 @@ The exact Records invariant rules are:
 | `records.envelope_legal` | Exact shape, stable identity, UUIDs, record type, positive version, canonical timestamps, actor references, and deletion tuple satisfy this requirement. |
 | `records.subtype_complete` | Every envelope has exactly one compatible primary source-owner binding, and no primary source-owner binding targets a missing, different-incident, or incompatible envelope. |
 
-Version `4` uses this contract-major-`2` Records row and type mapping. It has no
+Version `6` uses this contract-major-`3` Records row and type mapping. It has no
 additive-field tolerance, and no legacy-invalid-record switch exists. Export
 MUST emit the exact shape in `record_id` order and MUST preserve portable
 source actor attribution on re-export. Apply MUST use fixed parameterized SQL
@@ -9722,9 +9750,9 @@ Verified by: AC-490, AC-499, AC-502, AC-503, AC-507, AC-525
 The adopted compatibility state, closed source catalog, and
 requirement-to-acceptance-to-verification mappings MUST have versioned typed
 machine projections. The source catalog projection is
-`cartulary.incident_bundle_source_catalog.v5`, declares contract major `2`, and
-admits path version `5` for every required source and special consumer.
-Each version-5 logical path MUST have exactly one source and one admitted shape.
+`cartulary.incident_bundle_source_catalog.v5`, declares contract major `3`, and
+admits path version `6` for every required source and special consumer.
+Each version-6 logical path MUST have exactly one source and one admitted shape.
 Retired-version bindings, overlapping bindings, duplicate versions and inconsistent
 identities are invalid. Future format admission requires an explicit owner amendment.
 Each REQ-01-635 through REQ-01-646 requirement MUST map to
@@ -9739,8 +9767,8 @@ Profiles: incident_portability
 Verified by: AC-504, AC-505
 
 **REQ-01-670**
-For admitted Incident Bundle version `5`, source family `parties`, and
-source contract major `2`, every nonblank line of `data/parties.ndjson` MUST
+For admitted Incident Bundle version `6`, source family `parties`, and
+source contract major `3`, every nonblank line of `data/parties.ndjson` MUST
 be one closed JSON object with exactly these ten required members:
 `record_id`, `incident_id`, `display_name`, `party_kind`,
 `organization_name`, `role_title`, `primary_email`, `timezone_name`,
@@ -9770,7 +9798,7 @@ Parties assigns every defect to exactly one invariant in this precedence:
 1. `parties.source_identity_admitted`: both identifiers are present,
    canonical, in scope, and unique;
 2. `parties.version_shape_exact`: the line and object have exactly the
-   version-5 member set, types, nullability, and framing;
+   version-6 member set, types, nullability, and framing;
 3. `parties.envelope_type_scope`: exactly one same-incident `party` Records
    envelope exists, with no orphan, wrong type, duplicate subtype, or
    cross-incident binding;
@@ -9781,29 +9809,28 @@ Parties assigns every defect to exactly one invariant in this precedence:
 
 Prepare MUST perform bounded duplicate-aware exact decoding, canonical scalar
 parsing, row-local admission, normalization recomputation, and deterministic
-candidate ordering without mutation. Apply MUST accept only the prepared value
+canonical increasing source-identity admission without mutation. Descending or duplicate Party source identities fail `parties.source_identity_admitted` before semantic validation; imports do not reorder source rows. Apply MUST accept only the prepared value
 bound to the same port, operation, incident, version, and major, then use
 fixed-column parameterized owner SQL with affected-row equality. Validate MUST
 compare the complete admitted row set to transaction state, prove all five
 invariants and exact active-claim state, and run before publication in the one
 final transaction. Multiple defects select the lowest invariant number, then
-canonical `record_id`, independently of archive order, row order, map
-iteration, unsorted SQL, constraint-reporting order, or database text.
+canonical `record_id`, within admitted canonical source order and independently of archive member order, map iteration, SQL delivery order, constraint-reporting order, or database text.
 
 Failures expose only `source_family_id='parties'` and the selected declared
 invariant when safe. They expose no row value, Party identity, SQL, relation,
 constraint, path, driver diagnostic, or storage topology. Cancellation or
 failure in prepare, apply, validation, claim validation, projection rebuild,
 or publication leaves no visible incident, Party, claim, projection,
-attribution, success result, or final object. Versions `1`, `2`, `3`, `4` and every integer other than `5`
+attribution, success result, or final object. Versions `1` through `5` and every integer other than `6`
 are unsupported; no version-2 reader, converter, translator, feature
 flag, alias, fallback, or dual decoder exists.
 Profiles: incident_portability
 Verified by: AC-563
 
 **REQ-01-644**
-For Incident Bundle version `5`, source family `saved_views`,
-contract major `2`, each non-empty logical row of
+For Incident Bundle version `6`, source family `saved_views`,
+contract major `3`, each non-empty logical row of
 `data/saved_views.ndjson` MUST be one JSON object containing exactly these
 eleven required members:
 
@@ -9832,7 +9859,7 @@ Verified by: AC-508
 
 **REQ-01-645**
 `data/saved_views.ndjson` MUST be present exactly once for admitted bundle
-version `5`. Export MUST include every incident-owned private, shared,
+version `6`. Export MUST include every incident-owned private, shared,
 and system saved view, order rows by `saved_view_id` ascending, serialize
 lexicographically ordered canonical JSON with exactly one trailing LF per row,
 and emit a zero-byte member when no rows exist. Export MUST select and map the
@@ -9849,7 +9876,7 @@ their canonical values; preparation MUST reject rather than repair
 noncanonical values. Query requires present `sort` and `filters` arrays, no
 inactive `group_by`, at most `8` raw sort items, and at most `16` raw filters.
 Layout requires every member of the closed v2 grammar and widths in `40..4096`.
-The active `saved_views.row.v2` schema defines the version-5 portable row; the
+The active `saved_views.row.v2` schema defines the version-6 portable row; the
 retired v1 row schema is not an active binding. Preparation MUST reject layout.v1,
 empty-object defaults and every other invalid representation rather than convert
 or repair them. Prepared canonical v2 bytes are the authoritative apply and
@@ -10372,9 +10399,9 @@ Contract tables. The tables in §17 are the compact owner-local route-family con
 
 | Family | Reserved root(s) | Mutating routes require `client_txn_id` | Upload envelope | Long-running completion | Family-owned durable outputs |
 | --- | --- | --- | --- | --- | --- |
-| Import | `/api/v1/import-sessions` | Yes | Yes for `POST /api/v1/import-sessions` | Discovery and apply use the common job resource | `import_session` resource |
-| Network Flow Activity | `/api/v1/incidents/{incident_id}/network-flow` | Yes for mutating Network Flow routes; Core import apply uses Import idempotency | No; source upload remains owned by Import | Import apply uses the common job resource; Network Flow query and graph routes are synchronous unless a later owner says otherwise | `network_flow_table` resources |
-| Snapshot and Reporting | `/api/v1/incidents/{incident_id}/report-compositions`, `/api/v1/snapshots`, `/api/v1/releases` | Yes | No | Snapshot create, release create, and report-composition preview use job or attempt identity as declared by the owner specs; release approve, publish, and invalidate are synchronous | `snapshot`, `release`, `report_composition`, and `report_composition_version` resources |
+| Import | `/api/v1/import-sessions`, `/api/v1/incidents/{incident_id}/committed-sources` | Yes | Yes for `POST /api/v1/import-sessions` | Discovery and apply use the common job resource | `import_session` workflow and immutable `committed_source` resources |
+| Network Flow Activity | `/api/v1/incidents/{incident_id}/network-flow` | Yes for mutating Network Flow routes; Core import apply uses Import idempotency | No; source upload remains owned by Import | Import apply uses the common job resource; queries are synchronous; saved-graph creation and explicit refresh use materialization jobs | `network_flow_table` resources |
+| Snapshot and Reporting | `/api/v1/incidents/{incident_id}/report-compositions`, `/api/v1/snapshots`, `/api/v1/releases`, `/api/v1/incidents/{incident_id}/retained-report-artifacts` | Yes for mutations | No | Snapshot create, release create, and report-composition preview use job or attempt identity as declared by the owner specs; release approve, publish, and invalidate are synchronous | `snapshot`, `release`, `report_composition`, and `report_composition_version` resources |
 | Reference Pack | `/api/v1/reference-packs` | Yes | Yes for `POST /api/v1/reference-packs/import` | Import, reverify, and refresh are background jobs; activate and disable may be sync or backgrounded | `reference_pack_version` resource |
 | Incident Portability | `/api/v1/incident-bundles` | Yes | Yes for `POST /api/v1/incident-bundles/import` | Export and import use the common job resource | `incident_bundle` export descriptor on export; imported `incident` on success |
 
@@ -10477,7 +10504,7 @@ Verified by: AC-262, AC-263, AC-264, AC-264B
 | Route | OpenAPI operation ID | Semantic class | Request contract summary | Success resource or body | Long-running | Primary family errors |
 | --- | --- | --- | --- | --- | --- | --- |
 | `POST /api/v1/import-sessions` | `createImportSession` | State-changing | Shared upload envelope with metadata `incident_id`, `client_txn_id`, and optional `assistant_profile` defaulting to `workbook_import_v1` | Common job resource; terminal success emits one `import_session` ref | Yes | `invalid_import_request`, `import_source_unsupported`, `import_source_rejected` |
-| `GET /api/v1/import-sessions/{import_session_id}` | `getImportSession` | Read-only | Singleton read | `import_session` resource | No | `import_session_not_found`, `invalid_pagination_request` |
+| `GET /api/v1/import-sessions/{import_session_id}` | `getImportSession` | Read-only | Singleton read | `import_session` workflow and immutable `committed_source` resources | No | `import_session_not_found`, `invalid_pagination_request` |
 | `GET /api/v1/import-sessions/{import_session_id}/units` | `listImportUnits` | Read-only | List read under common paging | `{ import_units[] }` plus `meta.paging` | No | `import_session_not_found` |
 | `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` | `getImportUnit` | Read-only | Singleton read | `import_unit` resource | No | `import_session_not_found`, `import_unit_not_found` |
 | `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` | `getImportUnitPreview` | Read-only | Singleton read | `import_preview` resource | No | `import_session_not_found`, `import_unit_not_found` |
@@ -11130,7 +11157,7 @@ The import route family MUST use only `invalid_import_request`, `import_session_
 
 `import_source_unsupported` MUST use only `encrypted_or_unparseable_workbook`, `unsupported_named_range`, and `formula_cached_value_missing`.
 
-`import_source_rejected` MUST use only `csv_source_too_large`, `xlsx_source_too_large`, `import_rows_exceeded`, `import_columns_exceeded`, `import_cells_exceeded`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, and `archive_member_count_exceeded`.
+`import_source_rejected` MUST use only `csv_source_too_large`, `xlsx_source_too_large`, `import_rows_exceeded`, `import_columns_exceeded`, `import_cells_exceeded`, `archive_bytes_exceeded`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, and `archive_member_count_exceeded`.
 
 `import_apply_blocked` MUST use only `overlapping_units`, `duplicate_apply_blocked`, `unit_not_ready`, `target_view_schema_not_importable`, `target_kind_not_importable`, `owner_create_contract_unavailable`, `owner_apply_contract_unavailable`, `owner_create_validation_failed`, `owner_apply_validation_failed`, and `source_changed`.
 Profiles: import
@@ -11139,7 +11166,7 @@ Verified by: AC-265, AC-323, AC-324, AC-325
 ### 17.3 Snapshot and Reporting Extension Profile public contract
 
 **REQ-01-476**
-The Snapshot and Reporting Extension Profile MUST expose exactly this minimum public route surface under `/api/v1/snapshots/*`, `/api/v1/releases/*`, and `/api/v1/incidents/{incident_id}/report-compositions/*`:
+The Snapshot and Reporting Extension Profile MUST expose this minimum public route surface under `/api/v1/snapshots/*`, `/api/v1/releases/*`, `/api/v1/incidents/{incident_id}/retained-report-artifacts/*`, and `/api/v1/incidents/{incident_id}/report-compositions/*`:
 
 - `POST /api/v1/snapshots`,
 - `GET /api/v1/snapshots/{snapshot_id}`,
@@ -11148,6 +11175,8 @@ The Snapshot and Reporting Extension Profile MUST expose exactly this minimum pu
 - `POST /api/v1/releases/{release_id}/approve`,
 - `POST /api/v1/releases/{release_id}/publish`,
 - `POST /api/v1/releases/{release_id}/invalidate`,
+- `GET /api/v1/incidents/{incident_id}/retained-report-artifacts`,
+- `GET /api/v1/incidents/{incident_id}/retained-report-artifacts/{artifact_id}/content`,
 - the report-composition route family adopted from `docs/report-composition-nlspec.md`.
 Profiles: snapshot_reporting
 Verified by: AC-266, AC-267, AC-268
@@ -11158,6 +11187,8 @@ Verified by: AC-266, AC-267, AC-268
 | --- | --- | --- | --- | --- |
 | `POST /api/v1/snapshots` | JSON object with required `incident_id`, required `client_txn_id`, and optional `source_change_set_high_watermark` checked against the worker's consistent capture when supplied | Common job resource; terminal success emits one `snapshot` ref | Yes | `invalid_snapshot_request` |
 | `GET /api/v1/snapshots/{snapshot_id}` | Singleton read | `snapshot` resource | No | `snapshot_not_found`, `invalid_pagination_request` |
+| `GET /api/v1/incidents/{incident_id}/retained-report-artifacts` | Singleton incident-scoped read; editor, reviewer or admin | Reporting REQ-RPT-046pb catalog | No | `incident_not_found`, `authorization_denied`, `invalid_pagination_request` |
+| `GET /api/v1/incidents/{incident_id}/retained-report-artifacts/{artifact_id}/content` | Same incident authorization; exact retained locator | Streamed historical file with attachment disposition | No | `incident_not_found`, `authorization_denied`, `report_artifact_not_found`, `invalid_pagination_request` |
 | `POST /api/v1/releases` | JSON object with required `snapshot_id`, `client_txn_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, and `output_kind`; optional `release_scope` defaulting to `internal_draft`; optional non-null `recipient_partition_refs[]`, `output_options`, `graph_projection_refs[]`, and all-or-none composition tuple fields | Common job resource; terminal success emits one `release` ref; failure after preparation persists a `render_failed` release; failure before preparation retains Job diagnostics without a release | Yes | `invalid_release_request`, `release_render_failed` |
 | `GET /api/v1/releases/{release_id}` | Singleton read | `release` resource | No | `release_not_found`, `invalid_pagination_request` |
 | `POST /api/v1/releases/{release_id}/approve` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with the post-commit `release` resource | No | `invalid_release_request`, `release_state_conflict`, `release_approval_rejected` |
@@ -11485,6 +11516,7 @@ The Incident Portability Extension Profile MUST expose exactly this minimum publ
 
 - `POST /api/v1/incident-bundles/export`,
 - `GET /api/v1/incident-bundles/{bundle_id}`,
+- `GET /api/v1/incident-bundles/{bundle_id}/content`,
 - `POST /api/v1/incident-bundles/import`.
 Profiles: incident_portability
 Verified by: AC-273, AC-274, AC-275
@@ -11495,6 +11527,7 @@ Verified by: AC-273, AC-274, AC-275
 | --- | --- | --- | --- | --- |
 | `POST /api/v1/incident-bundles/export` | JSON object with required `incident_id` and `client_txn_id`; optional `reference_pack_mode`, `optional_sections[]`, and `required_capabilities[]`; `history_mode` and `blob_mode` are forbidden user inputs | Common job resource; terminal success emits one `incident_bundle` ref | Yes | `invalid_incident_bundle_request`, `extension_capability_not_supported`, `incident_bundle_export_rejected` |
 | `GET /api/v1/incident-bundles/{bundle_id}` | Singleton read | Durable export descriptor | No | `incident_bundle_not_found`, `invalid_pagination_request` |
+| `GET /api/v1/incident-bundles/{bundle_id}/content` | Singleton authenticated read under the descriptor's current authorization | Exact retained ZIP bytes, streamed with private/no-store caching and nosniff | No | `incident_bundle_not_found`, `invalid_pagination_request` |
 | `POST /api/v1/incident-bundles/import` | Shared upload envelope with required `client_txn_id` in metadata | Common job resource; terminal success emits one imported `incident` ref | Yes | `invalid_incident_bundle_request`, `extension_capability_not_supported`, `incident_bundle_import_rejected` |
 
 **Table 17.5-B. Export descriptor and import metadata summary**
@@ -11556,7 +11589,7 @@ profile MUST be the first after ascending UTF-8 byte ordering.
 `remote_fetch_required`,
 `missing_required_file`, `missing_required_blob`, `malformed_manifest`,
 `unsupported_bundle_version`, `source_family_invalid`,
-`archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`,
+`archive_bytes_exceeded`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`,
 `archive_member_count_exceeded`, and `initial_admin_unavailable`.
 `unsupported_bundle_version` and `source_family_invalid` use only the safe
 details in REQ-01-642. `initial_admin_unavailable` means the import submitter no
@@ -12425,7 +12458,7 @@ Profiles: base
 Verified by: EXT-AC-154
 
 **REQ-01-631**
-Incident Portability export and import use distinct result schemas. Export may return only `cartulary.extension_portability_export_result.v1`. Import participant invocation is side-effect-free preparation returning only `cartulary.extension_portability_import_preparation_result.v1`; the participant receives a read-only bundle accessor and, when needed, a process-local scoped staged-output capability that cannot publish or mutate authoritative state. Per-participant and aggregate import input each stop at `67108864` bytes. Every authoritative import mutation and staged-output publication occurs later through REQ-01-629 in one final transaction. The prior combined portability participant result has no alias or reader. Bundle compatibility exists only when this owner section explicitly admits the exact logical bundle version.
+Incident Portability export and import use distinct result schemas. Export may return only `cartulary.extension_portability_export_result.v2`. Import participant invocation is side-effect-free preparation returning only `cartulary.extension_portability_import_preparation_result.v2`; the participant receives confined admitted member readers, operation-scoped preparation streams and, when needed, a process-local scoped staged-output capability that cannot publish or mutate authoritative state. Per-participant and aggregate control metadata each stop at `67108864` bytes. Bulk members obey REQ-01-686 archive limits independently. Every authoritative import mutation and staged-output publication occurs later through REQ-01-629 in one final transaction. The prior combined portability participant result has no alias or reader. Bundle compatibility exists only when this owner section explicitly admits the exact logical bundle version.
 Profiles: incident_portability
 Verified by: EXT-AC-144
 
@@ -12547,3 +12580,167 @@ job and worker facts in the adopted Reporting NLSpec.
 Profiles: base, import, incident_portability, reference_pack, snapshot_reporting
 Verified by: EXT-AC-051, EXT-AC-052, EXT-AC-053, EXT-AC-080, EXT-AC-088,
  EXT-AC-115, EXT-AC-158
+
+
+## 21. Complete incident portability and committed-source amendment
+
+This coordinated amendment is adopted on 2026-11-05. It replaces the previous
+inline-only incident portability representation and live-workflow provenance
+requirements. Historical adoption and migration records remain historical.
+
+**REQ-01-685**
+Imports MUST create one immutable committed-source record for each successfully
+applied unit, atomically with its target effects and unit outcome. Exact replay
+creates no additional record. Distinct applications retain distinct provenance
+identities even when their source blobs deduplicate by SHA-256. Each record
+retains exact original bytes (including unmapped content), media type, original
+filename, parser identity, unit locator, exact approved header/data-start row
+references, source columns, approved mapping and
+fingerprint, target identity, committed time and historical actor attribution.
+Approved header/data-start coordinates MUST be retained independently of the
+unit's optional discovery projection. Analytical source approval validates and
+retains these coordinates even when Core tabular discovery fields are absent;
+commit copies the approved coordinates and MUST NOT invent a Core projection.
+Original workflow IDs are inert metadata, never foreign-key dependencies.
+Committed source lifetime is independent of session, job and receipt cleanup.
+Imports owns incident-scoped read-only metadata and streamed content access under
+the corresponding target's existing source-inspection/mapping-approval role.
+Source bytes MUST NOT be disclosed solely because a caller can read an incident.
+Other owners consume typed Imports ports and cannot query its private tables.
+The read family is `GET /api/v1/incidents/{incident_id}/committed-sources`,
+`GET /api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}`,
+and the latter path plus `/content`. The list uses the shared bounded opaque
+keyset cursor contract, ordered by committed-source UUID, and emits summaries.
+Metadata uses `cartulary.imports.committed_source.v1`; original content streams
+as an attachment with `no-store` and `nosniff`. Every route requires the existing
+editor/reviewer/admin mapping-approval role. A source absent from the authorized
+incident returns `committed_source_not_found` (404) with empty details. The
+collection, metadata and content routes are read-only and never create jobs.
+
+The required `data/committed_sources.ndjson` member has the exact metadata shape
+above, increasing committed-source UUID order, and source actors expressed using
+the historical actor roster. Family `committed_sources` depends on `incident`.
+Its closed invariants are `source_identity_admitted`, `metadata_exact`,
+`mapping_exact`, `blob_exact`, and `attribution_exact`, prefixed by that family.
+Source identities bind the original successful application; importing a bundle
+preserves them. Original source objects use `sources/sha256/<lowercase digest>`;
+every such member must be referenced, and each referenced digest appears once.
+Exact hashes and sizes, supported parser/target identities, approved source-column
+shape, row selection and mapping fingerprints must validate before publication.
+Raw content remains independently retained after workflow cleanup. Source metadata
+reads and re-export resolve original actor attribution through the historical
+attribution owner rather than presenting the destination administrator as author.
+
+A completed export is downloadable at
+`GET /api/v1/incident-bundles/{bundle_id}/content`. This read requires the same
+current deployment-admin and incident-visibility authorization as its descriptor.
+It rejects query parameters under the singleton-read contract and exposes no
+filesystem path or storage reference. Before response headers, storage verifies
+the retained size and SHA-256 from the completed export. Success streams that exact
+ZIP as an attachment named `incident-<bundle_id>.zip`, with `no-store`, `nosniff`,
+exact Content-Length and the quoted `sha256:<digest>` ETag. This route creates no
+job, export or authentication capability; failed or unpublished exports are not
+readable. Missing descriptors use `incident_bundle_not_found`; storage failures
+use the existing opaque internal-error contract.
+
+**REQ-01-686** Bundle version 6 exports ZIP and accepts ZIP, TAR and TAR.GZ with the
+same logical format. All bulk transport and storage boundaries use bounded streams;
+metadata catalogs and prepared descriptors retain their existing 64 MiB per-participant
+and aggregate control limits. Bulk NDJSON and blobs count against archive member,
+extracted-byte and compression limits instead. Existing resource ceilings are not
+raised. Per-record allocation is bounded by owner schemas. Digest-addressed blobs and
+ordered NDJSON members are checked incrementally and sealed in the existing
+operation-scoped staged-object owner. Allocation persists operation and owner identity
+before upload, with no fabricated size or digest. Streaming enforces the admitted member
+ceiling, hashes incrementally and seals actual size and digest only after complete
+acknowledged writes. Private preparation reads and final publication validate the same
+operation, owner, unexpired lease and immutable seal. Failure abandons the allocation
+through the existing janitor lifecycle; published objects remain protected by their
+committed references. Evidence blob staging reserves the typed incident/object-blob
+resource identity before its first byte is written. An application-injected Evidence
+resolver derives a unique generation key for each attempt. Archives cannot select
+physical destination keys. The final publication transaction checks the reserved
+resource identity as well as operation, profile, lease, size and digest. It publishes
+all Core and extension object references together with incident state and the local
+operation receipt. Failed or competing imports can abandon only their own generation;
+they cannot overwrite or delete another attempt's committed bytes. Local uploads and
+transferred blobs use the same current key grammar; no old-key reader is retained.
+
+The encoded archive transport ceiling is the effective extracted-byte ceiling plus 64
+MiB of framing allowance, with overflow-safe arithmetic; omission uses the existing
+default extracted-byte ceiling. Exceeding it rejects with
+`incident_bundle_import_rejected` / `archive_bytes_exceeded`. Upload metadata retains
+the 64 MiB control ceiling. Invalid multipart trailers or later parts abandon the
+unadmitted upload. Route admission serializes each idempotency identity. After an
+uncertain admission commit, receipt resolution acquires the same serialization lock
+before deciding whether cleanup is safe; unresolved outcomes retain input for
+reconciliation.
+
+Core source-row members use increasing typed stable-identity order (UTF-8 strings and
+mathematical integer order for integer identity components); duplicate or decreasing
+identities fail admission. Custody events use custody-event identity for transport
+order; their occurrence times continue to govern custody chronology. Record-tag
+transport uses record-tag identity; tag-catalog tuples use bytewise UTF-8 collation.
+Source identity and row-local semantic preparation use bounded ordered passes.
+
+Links collection-wide catalog, uniqueness and endpoint checks use transaction-local
+owner staging before authoritative rows or attribution are written. The collection
+checks retain the owner precedence: source identity, exact tag catalog, active
+uniqueness, incident scope.
+
+Entities likewise uses transaction-local identity and normalized-claim indexes for
+merge-target, association and claim validation; it retains only the minimum invariant
+failure while scanning source records. Claim expectations are bound to the operation,
+incident, importing actor and sealed source-member catalog, then compared exactly with
+reconstructed claims before publication.
+
+Owner scratch tables have no public incident visibility and contain only
+transaction-local rows. Their identities include the current full transaction ID,
+checked at write time, so concurrent operations do not share uniqueness keys. Deferred
+owner constraints prohibit committing any scratch rows. Owners delete their rows after
+validation; rollback removes failed preparations. Recovery classifies these schema
+relations as excluded transient state and invalidates them. Runtime and schema-owner
+roles receive no database TEMPORARY privilege or new DDL authority.
+
+Indicators uses the same separation: immutable source members and bounded row-local
+admission, followed by transaction-local active-identity and source-reference validation
+before source writes. Repeated observations are compared by their distinct identities in
+an ordered merge; absence or multiplicity changes remain distinct from changed row
+values. This separates row-local preparation from collection validation without
+weakening atomic publication.
+
+No whole-archive byte slice, base64 bulk metadata or inline-only compatibility adapter
+is admitted.
+
+**REQ-01-687**
+Core and extension export read through restricted capabilities from one
+repeatable-read consistent snapshot. Immutable blob references remain protected
+until export finishes. Typed actor references from all participants, including
+committed provenance, are collected before finalizing the actor roster. Complete
+Network Flow state participates automatically. A compatible enabled destination
+is mandatory; no automatic enabling, stripping, merge or identity renumbering
+is admitted. Historical actor descriptors grant neither login nor membership.
+Deployment-keyed values are excluded from portable semantic identity.
+
+**REQ-01-688**
+Source-port major 3 and extension member-stream participation share admitted
+member readers/writers, immutable catalogs and operation-bound prepared values.
+Before publication, validate versions, member declarations, checksums, counts,
+owner schemas, actors, source mappings, references and exact Graph bindings.
+Prepare Graph computation from sealed sources, then publish Core, provenance,
+Network Flow, incident-scoped derived Graph state, selected Reporting artifacts,
+attribution, object references and the destination receipt in one final atomic
+transaction. Recheck actor/profile admission at that boundary. Preparation
+exposes no incident and grants no read access to staging. Cancellation before
+commit rolls back; uncertain commit outcome resolves the durable receipt before
+cleanup. Exact replay returns the committed result without additional effects.
+
+**REQ-01-689**
+Recovery generation `recovery.incident_portability.v1` is the sole current
+successor generation. It includes committed source records and blobs and
+state-7 Network Flow source reconstruction. Incident-transfer exclusions do not
+redefine Recovery's authoritative deployment inventory. Recovery retains its
+operator lifecycle, session invalidation, job reconciliation and serving gates.
+Older generation/state admission fails before destructive or schema work.
+Fresh initialization and current-state reopening are supported; conversion,
+backfill, dual readers, automatic reset and in-place downgrade are not.

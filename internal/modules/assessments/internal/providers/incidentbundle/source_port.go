@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 const assessmentsBundlePath = "data/compromise_assessments.ndjson"
@@ -17,7 +18,7 @@ func NewSourcePort() sourceport.Port {
 		Dependencies: []string{"evidence"},
 		Paths: []sourceport.Path{{
 			LogicalPath: assessmentsBundlePath, ContentRole: "source_rows",
-			Versions: []int{5}, StableIdentity: []string{"record_id"},
+			Versions: []int{6}, StableIdentity: []string{"record_id"},
 			StableIdentityInvariantID: "assessments.source_identity_admitted",
 		}},
 		InvariantIDs: []string{
@@ -29,15 +30,15 @@ func NewSourcePort() sourceport.Port {
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor,
-		Export:     sourceport.QueryExport(exportIncidentBundleFiles),
-		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
+		Export:     exportIncidentBundleFiles,
+		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
+			return sourceport.PrepareMembers(ctx, descriptor, bundle, importContext.BundleVersion)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
 			return importIncidentBundleFilesTx(
 				ctx,
 				tx,
-				map[string][]byte(value.(sourceport.PreparedFiles)),
+				value.(*incidentportability.BoundMembers),
 				importContext.ActorUserID,
 				importContext.Attributions,
 			)

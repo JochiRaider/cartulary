@@ -14,7 +14,7 @@ import (
 
 func TestMigrationLineagePreflightAllowsCurrentLine(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
+	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 39)
 	db := migrationDB.SQL()
 
 	if err := postgres.Apply(context.Background(), db, canonicalMigrationSource(t)); err != nil {

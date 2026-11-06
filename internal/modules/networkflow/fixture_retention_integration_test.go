@@ -94,7 +94,7 @@ func retentionAliases(t *testing.T, value any, bindingID string, closedAt time.T
 	return visit(result).(map[string]any)
 }
 func TestNetworkFlowRetentionFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-027-retention-soft-delete", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-027-retention-soft-delete", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runPublicationFamily(t, bundle, func(r *publicationFixtureRuntime, input publicationFixtureCase, result map[string]any) error {
 			root := "/api/v1/incidents/" + input.IncidentID
 			nfroot := root + "/network-flow"

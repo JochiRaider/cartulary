@@ -3,11 +3,21 @@
   "$id": "cartulary.network_flow_key_rings.v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "cursor_key_ring", "safe_digest_key_ring"],
+  "required": [
+    "schema_id",
+    "cursor_key_ring",
+    "safe_digest_key_ring"
+  ],
   "properties": {
-    "schema_id": { "const": "cartulary.network_flow_key_rings.v1" },
-    "cursor_key_ring": { "$ref": "#/$defs/cursor_key_ring" },
-    "safe_digest_key_ring": { "$ref": "#/$defs/safe_digest_key_ring" }
+    "schema_id": {
+      "const": "cartulary.network_flow_key_rings.v1"
+    },
+    "cursor_key_ring": {
+      "$ref": "#/$defs/cursor_key_ring"
+    },
+    "safe_digest_key_ring": {
+      "$ref": "#/$defs/safe_digest_key_ring"
+    }
   },
   "$defs": {
     "key_id": {
@@ -21,23 +31,37 @@
     "secret_ref": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "name"],
+      "required": [
+        "kind",
+        "name"
+      ],
       "properties": {
-        "kind": { "const": "env" },
-        "name": { "$ref": "#/$defs/key_id" }
+        "kind": {
+          "const": "env"
+        },
+        "name": {
+          "$ref": "#/$defs/key_id"
+        }
       }
     },
     "cursor_key_ring": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["algorithm", "keys"],
+      "required": [
+        "algorithm",
+        "keys"
+      ],
       "properties": {
-        "algorithm": { "const": "aes_256_gcm_v1" },
+        "algorithm": {
+          "const": "aes_256_gcm_v1"
+        },
         "keys": {
           "type": "array",
           "minItems": 1,
           "maxItems": 8,
-          "items": { "$ref": "#/$defs/cursor_key" }
+          "items": {
+            "$ref": "#/$defs/cursor_key"
+          }
         }
       }
     },
@@ -46,23 +70,49 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["cursor_key_id", "state", "secret_ref"],
+          "required": [
+            "cursor_key_id",
+            "state",
+            "secret_ref"
+          ],
           "properties": {
-            "cursor_key_id": { "$ref": "#/$defs/key_id" },
-            "state": { "const": "active" },
-            "secret_ref": { "$ref": "#/$defs/secret_ref" }
+            "cursor_key_id": {
+              "$ref": "#/$defs/key_id"
+            },
+            "state": {
+              "const": "active"
+            },
+            "secret_ref": {
+              "$ref": "#/$defs/secret_ref"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["cursor_key_id", "state", "secret_ref", "deactivated_at", "retire_at"],
+          "required": [
+            "cursor_key_id",
+            "state",
+            "secret_ref",
+            "deactivated_at",
+            "retire_at"
+          ],
           "properties": {
-            "cursor_key_id": { "$ref": "#/$defs/key_id" },
-            "state": { "const": "decrypt_only" },
-            "secret_ref": { "$ref": "#/$defs/secret_ref" },
-            "deactivated_at": { "$ref": "#/$defs/timestamp" },
-            "retire_at": { "$ref": "#/$defs/timestamp" }
+            "cursor_key_id": {
+              "$ref": "#/$defs/key_id"
+            },
+            "state": {
+              "const": "decrypt_only"
+            },
+            "secret_ref": {
+              "$ref": "#/$defs/secret_ref"
+            },
+            "deactivated_at": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "retire_at": {
+              "$ref": "#/$defs/timestamp"
+            }
           }
         }
       ]
@@ -70,14 +120,21 @@
     "safe_digest_key_ring": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["algorithm", "keys"],
+      "required": [
+        "algorithm",
+        "keys"
+      ],
       "properties": {
-        "algorithm": { "const": "hmac_sha256_v1" },
+        "algorithm": {
+          "const": "hmac_sha256_v1"
+        },
         "keys": {
           "type": "array",
           "minItems": 1,
           "maxItems": 8,
-          "items": { "$ref": "#/$defs/safe_digest_key" }
+          "items": {
+            "$ref": "#/$defs/safe_digest_key"
+          }
         }
       }
     },
@@ -86,23 +143,49 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["safe_digest_key_id", "state", "secret_ref"],
+          "required": [
+            "safe_digest_key_id",
+            "state",
+            "secret_ref"
+          ],
           "properties": {
-            "safe_digest_key_id": { "$ref": "#/$defs/key_id" },
-            "state": { "const": "active" },
-            "secret_ref": { "$ref": "#/$defs/secret_ref" }
+            "safe_digest_key_id": {
+              "$ref": "#/$defs/key_id"
+            },
+            "state": {
+              "const": "active"
+            },
+            "secret_ref": {
+              "$ref": "#/$defs/secret_ref"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["safe_digest_key_id", "state", "secret_ref", "deactivated_at", "retain_until"],
+          "required": [
+            "safe_digest_key_id",
+            "state",
+            "secret_ref",
+            "deactivated_at",
+            "retain_until"
+          ],
           "properties": {
-            "safe_digest_key_id": { "$ref": "#/$defs/key_id" },
-            "state": { "const": "inactive" },
-            "secret_ref": { "$ref": "#/$defs/secret_ref" },
-            "deactivated_at": { "$ref": "#/$defs/timestamp" },
-            "retain_until": { "$ref": "#/$defs/timestamp" }
+            "safe_digest_key_id": {
+              "$ref": "#/$defs/key_id"
+            },
+            "state": {
+              "const": "inactive"
+            },
+            "secret_ref": {
+              "$ref": "#/$defs/secret_ref"
+            },
+            "deactivated_at": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "retain_until": {
+              "$ref": "#/$defs/timestamp"
+            }
           }
         }
       ]

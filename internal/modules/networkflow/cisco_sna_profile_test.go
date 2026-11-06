@@ -11,7 +11,6 @@ import (
 func TestCiscoSNAFlowSearchProfile(t *testing.T) {
 	testEndpointOrientation(t)
 	testOrientationImportBoundaries(t)
-	testOrientationCorpus(t)
 	assertCiscoDefaultPolicies(t)
 	const profileID = "cisco_sna_flow_search_csv_v2"
 	profile := timestampProfile{SchemaID: timestampProfileSchemaID, Mode: "cisco_sna_datetime_v1", Precision: "milliseconds"}

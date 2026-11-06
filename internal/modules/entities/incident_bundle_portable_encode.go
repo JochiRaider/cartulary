@@ -1,9 +1,9 @@
 package entities
 
 import (
-	"bytes"
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,24 +13,23 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-func encodePortableHosts(ctx context.Context, exportContext sourceport.ExportContext, rows []portableHostRow) ([]byte, error) {
+func encodePortableHosts(ctx context.Context, exportContext sourceport.ExportContext, rows []portableHostRow, output io.Writer) error {
 	ids := entityHostIDs(rows)
 	created := entityPortableActorMap(ctx, exportContext, "hosts", "created_by_user_id", ids)
 	updated := entityPortableActorMap(ctx, exportContext, "hosts", "updated_by_user_id", ids)
 	if created.err != nil || updated.err != nil {
-		return nil, errors.New("entity host portability attribution resolution failed")
+		return errors.New("entity host portability attribution resolution failed")
 	}
-	var payload bytes.Buffer
 	for _, row := range rows {
-		createdBy, err := entityPortableActorID(created.values[row.RecordID.String()], row.RuntimeCreatedByID)
+		createdBy, err := incidentportability.ExportActorID(exportContext.Actors, created.values[row.RecordID.String()], row.RuntimeCreatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		updatedBy, err := entityPortableActorID(updated.values[row.RecordID.String()], row.RuntimeUpdatedByID)
+		updatedBy, err := incidentportability.ExportActorID(exportContext.Actors, updated.values[row.RecordID.String()], row.RuntimeUpdatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if err := appendEntityPortableRow(&payload, map[string]any{
+		if err := appendEntityPortableRow(output, map[string]any{
 			"record_id": row.RecordID.String(), "incident_id": row.IncidentID.String(), "display_name": row.DisplayName,
 			"hostname": row.Hostname, "aad_device_id": row.AADDeviceID, "fqdn": row.FQDN, "entity_origin": row.EntityOrigin,
 			"seed_entity_mention_id": entityNullableUUIDString(row.SeedMentionID), "host_state": row.State,
@@ -40,30 +39,29 @@ func encodePortableHosts(ctx context.Context, exportContext sourceport.ExportCon
 			"os_platform": row.OSPlatform, "business_owner": row.BusinessOwner, "criticality": row.Criticality,
 			"containment_status": row.ContainmentStatus,
 		}); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return payload.Bytes(), nil
+	return nil
 }
 
-func encodePortableIdentities(ctx context.Context, exportContext sourceport.ExportContext, rows []portableIdentityRow) ([]byte, error) {
+func encodePortableIdentities(ctx context.Context, exportContext sourceport.ExportContext, rows []portableIdentityRow, output io.Writer) error {
 	ids := entityIdentityIDs(rows)
 	created := entityPortableActorMap(ctx, exportContext, "identities", "created_by_user_id", ids)
 	updated := entityPortableActorMap(ctx, exportContext, "identities", "updated_by_user_id", ids)
 	if created.err != nil || updated.err != nil {
-		return nil, errors.New("entity identity portability attribution resolution failed")
+		return errors.New("entity identity portability attribution resolution failed")
 	}
-	var payload bytes.Buffer
 	for _, row := range rows {
-		createdBy, err := entityPortableActorID(created.values[row.RecordID.String()], row.RuntimeCreatedByID)
+		createdBy, err := incidentportability.ExportActorID(exportContext.Actors, created.values[row.RecordID.String()], row.RuntimeCreatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		updatedBy, err := entityPortableActorID(updated.values[row.RecordID.String()], row.RuntimeUpdatedByID)
+		updatedBy, err := incidentportability.ExportActorID(exportContext.Actors, updated.values[row.RecordID.String()], row.RuntimeUpdatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if err := appendEntityPortableRow(&payload, map[string]any{
+		if err := appendEntityPortableRow(output, map[string]any{
 			"record_id": row.RecordID.String(), "incident_id": row.IncidentID.String(), "display_name": row.DisplayName,
 			"upn": row.UPN, "email": row.Email, "sam_account_name": row.SAMAccountName, "aad_object_id": row.AADObjectID,
 			"sid": row.SID, "entity_origin": row.EntityOrigin, "seed_entity_mention_id": entityNullableUUIDString(row.SeedMentionID),
@@ -73,32 +71,31 @@ func encodePortableIdentities(ctx context.Context, exportContext sourceport.Expo
 			"updated_by_user_id": updatedBy, "privilege_level": row.PrivilegeLevel, "mfa_state": row.MFAState,
 			"reset_status": row.ResetStatus,
 		}); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return payload.Bytes(), nil
+	return nil
 }
 
-func encodePortableMentions(ctx context.Context, exportContext sourceport.ExportContext, rows []portableMentionRow) ([]byte, error) {
+func encodePortableMentions(ctx context.Context, exportContext sourceport.ExportContext, rows []portableMentionRow, output io.Writer) error {
 	created := entityPortableActorMap(ctx, exportContext, "entity_mentions", "created_by_user_id", entityMentionIDs(rows, false))
 	resolved := entityPortableActorMap(ctx, exportContext, "entity_mentions", "resolved_by_user_id", entityMentionIDs(rows, true))
 	if created.err != nil || resolved.err != nil {
-		return nil, errors.New("entity mention portability attribution resolution failed")
+		return errors.New("entity mention portability attribution resolution failed")
 	}
-	var payload bytes.Buffer
 	for _, row := range rows {
-		createdBy, err := entityPortableActorID(created.values[row.MentionID.String()], row.RuntimeCreatedByID)
+		createdBy, err := incidentportability.ExportActorID(exportContext.Actors, created.values[row.MentionID.String()], row.RuntimeCreatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		var resolvedBy any
 		if row.RuntimeResolvedByID != nil {
-			resolvedBy, err = entityPortableActorID(resolved.values[row.MentionID.String()], *row.RuntimeResolvedByID)
+			resolvedBy, err = incidentportability.ExportActorID(exportContext.Actors, resolved.values[row.MentionID.String()], *row.RuntimeResolvedByID)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
-		if err := appendEntityPortableRow(&payload, map[string]any{
+		if err := appendEntityPortableRow(output, map[string]any{
 			"entity_mention_id": row.MentionID.String(), "source_record_id": row.SourceRecordID.String(),
 			"entity_type": row.EntityType, "source_field_key": row.SourceFieldKey, "origin_kind": row.OriginKind,
 			"origin_locator": row.OriginLocator, "raw_text": row.RawText, "normalized_text": row.NormalizedText,
@@ -107,58 +104,56 @@ func encodePortableMentions(ctx context.Context, exportContext sourceport.Export
 			"resolved_record_id": entityNullableUUIDString(row.ResolvedRecordID), "resolved_by_user_id": resolvedBy,
 			"resolved_at": entityNullableTimestampString(row.ResolvedAt), "resolution_method": row.ResolutionMethod,
 		}); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return payload.Bytes(), nil
+	return nil
 }
 
-func encodePortablePreserved(ctx context.Context, exportContext sourceport.ExportContext, rows []portablePreservedIdentifierRow) ([]byte, error) {
+func encodePortablePreserved(ctx context.Context, exportContext sourceport.ExportContext, rows []portablePreservedIdentifierRow, output io.Writer) error {
 	created := entityPortableActorMap(ctx, exportContext, "entity_preserved_identifiers", "created_by_user_id", entityPreservedIDs(rows))
 	if created.err != nil {
-		return nil, errors.New("entity preserved identifier portability attribution resolution failed")
+		return errors.New("entity preserved identifier portability attribution resolution failed")
 	}
-	var payload bytes.Buffer
 	for _, row := range rows {
-		createdBy, err := entityPortableActorID(created.values[row.PreservedID.String()], row.RuntimeCreatedByID)
+		createdBy, err := incidentportability.ExportActorID(exportContext.Actors, created.values[row.PreservedID.String()], row.RuntimeCreatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if err := appendEntityPortableRow(&payload, map[string]any{
+		if err := appendEntityPortableRow(output, map[string]any{
 			"entity_preserved_identifier_id": row.PreservedID.String(), "incident_id": row.IncidentID.String(),
 			"record_id": row.RecordID.String(), "entity_type": row.EntityType, "identifier_type": row.IdentifierType,
 			"raw_value": row.RawValue, "normalized_value": row.NormalizedValue, "classification": row.Classification,
 			"created_by_user_id": createdBy, "created_at": entityFormatTimestamp(row.CreatedAt),
 			"deleted_at": entityNullableTimestampString(row.DeletedAt),
 		}); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return payload.Bytes(), nil
+	return nil
 }
 
-func encodePortableAliases(ctx context.Context, exportContext sourceport.ExportContext, rows []portableAliasRow) ([]byte, error) {
+func encodePortableAliases(ctx context.Context, exportContext sourceport.ExportContext, rows []portableAliasRow, output io.Writer) error {
 	created := entityPortableActorMap(ctx, exportContext, "entity_aliases", "created_by_user_id", entityAliasIDs(rows))
 	if created.err != nil {
-		return nil, errors.New("entity alias portability attribution resolution failed")
+		return errors.New("entity alias portability attribution resolution failed")
 	}
-	var payload bytes.Buffer
 	for _, row := range rows {
-		createdBy, err := entityPortableActorID(created.values[row.AliasID.String()], row.RuntimeCreatedByID)
+		createdBy, err := incidentportability.ExportActorID(exportContext.Actors, created.values[row.AliasID.String()], row.RuntimeCreatedByID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if err := appendEntityPortableRow(&payload, map[string]any{
+		if err := appendEntityPortableRow(output, map[string]any{
 			"entity_alias_id": row.AliasID.String(), "incident_id": row.IncidentID.String(),
 			"record_id": row.RecordID.String(), "entity_type": row.EntityType, "raw_text": row.RawText,
 			"normalized_text": row.NormalizedText, "classification": row.Classification,
 			"created_by_user_id": createdBy, "created_at": entityFormatTimestamp(row.CreatedAt),
 			"deleted_at": entityNullableTimestampString(row.DeletedAt),
 		}); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return payload.Bytes(), nil
+	return nil
 }
 
 type entityActorMapResult struct {
@@ -176,27 +171,8 @@ func entityPortableActorMap(ctx context.Context, exportContext sourceport.Export
 	return entityActorMapResult{values: values, err: err}
 }
 
-func entityPortableActorID(sourceActorID string, runtimeActorID uuid.UUID) (string, error) {
-	if sourceActorID == "" {
-		if runtimeActorID == uuid.Nil {
-			return "", errors.New("entity portability export actor is invalid")
-		}
-		return runtimeActorID.String(), nil
-	}
-	parsed, err := uuid.Parse(sourceActorID)
-	if err != nil || parsed.String() != sourceActorID {
-		return "", errors.New("entity portability export attribution is invalid")
-	}
-	return sourceActorID, nil
-}
-
-func appendEntityPortableRow(payload *bytes.Buffer, row map[string]any) error {
-	encoded, err := incidentportability.CanonicalJSONString(row)
-	if err != nil {
-		return errors.New("entity portability export encoding failed")
-	}
-	payload.Write(encoded)
-	return nil
+func appendEntityPortableRow(output io.Writer, row map[string]any) error {
+	return incidentportability.WriteNDJSONRecord(output, row)
 }
 
 func entityTextFromPG(value pgtype.Text) *string {

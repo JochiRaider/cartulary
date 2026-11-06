@@ -62,9 +62,9 @@ func TestVNextGraphRestoreCurrentProjectionContract_Unit(t *testing.T) {
 	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &binding); err != nil {
 		t.Fatalf("decode generated Graph restore current binding: %v", err)
 	}
-	if binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v8" ||
+	if binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v9" ||
 		binding["algorithm_id"] != "graphprojection.restore_rebuild.v5" ||
-		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v6" ||
+		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v7" ||
 		binding["projection_schema_id"] != "graph_projection.v2" ||
 		binding["recovery_state_catalog_sha256"] != projected.CatalogDigestSHA256 ||
 		binding["source_registry_sha256"] != projected.GraphSourceRegistrySHA256 ||

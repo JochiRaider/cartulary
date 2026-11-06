@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
 )
 
@@ -19,7 +18,7 @@ func NewIncidentBundleSourcePort(subtypeCatalog *subtypepresence.Catalog) source
 		Paths: []sourceport.Path{{
 			LogicalPath: recordsBundlePath, ContentRole: "source_rows",
 			SchemaID: "cartulary.incident_bundle.records.row.v1",
-			Versions: []int{5}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "records.source_identity_admitted",
+			Versions: []int{6}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "records.source_identity_admitted",
 		}},
 		InvariantIDs: []string{
 			"records.incident_scope", "records.envelope_legal",
@@ -29,22 +28,15 @@ func NewIncidentBundleSourcePort(subtypeCatalog *subtypepresence.Catalog) source
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor:       descriptor,
 		ValidateContract: subtypeCatalog.ValidateContract,
-		Export: func(
-			ctx context.Context,
-			exportContext sourceport.ExportContext,
-		) ([]incidentportability.File, error) {
-			return exportIncidentBundleFiles(ctx, recordsExportContext{
-				Query:                exportContext.Query,
-				IncidentID:           exportContext.IncidentID,
-				PortableAttributions: exportContext.PortableAttributions,
-			})
+		Export: func(ctx context.Context, input sourceport.ExportContext) error {
+			return exportIncidentBundleFiles(ctx, recordsExportContext{Actors: input.Actors, Query: input.Query, IncidentID: input.IncidentID, PortableAttributions: input.PortableAttributions}, input.Members)
 		},
 		Prepare: func(
-			_ context.Context,
+			ctx context.Context,
 			bundle sourceport.Bundle,
 			importContext sourceport.ImportContext,
 		) (any, error) {
-			prepared, err := prepareRecordsImport(
+			prepared, err := prepareRecordsImport(ctx,
 				bundle,
 				recordsPrivateImportContext(importContext),
 			)

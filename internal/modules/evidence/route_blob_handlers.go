@@ -56,7 +56,7 @@ func (s *service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 	now := s.now().UTC().Truncate(time.Microsecond)
 	objectBlobID := uuid.New()
 	leaseID := uuid.New()
-	storageKey, err := blobref.ObjectBlobStorageKey(request.IncidentID, objectBlobID)
+	storageKey, err := blobref.ObjectBlobStorageKey(request.IncidentID, objectBlobID, uuid.New())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(fmt.Errorf("build object blob storage key: %w", err)))
 		return

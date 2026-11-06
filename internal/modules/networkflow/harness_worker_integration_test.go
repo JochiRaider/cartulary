@@ -47,7 +47,7 @@ func assertNetworkFlowWorkerFaultConsumers(t *testing.T) {
 					arm["error_code"] = "worker_fault_probe"
 				}
 				httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, h.Server.HTTP.URL+"/api/v1/test/runtime/network-flow-faults", arm, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
-				body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v4", "client_txn_id": fmt.Sprintf("worker-fault-%d-%d", i, j), "display_name": "Fault graph", "semantic_query": map[string]any{"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table.TableID}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}}
+				body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v5", "refresh_scope": "selected_tables", "client_txn_id": fmt.Sprintf("worker-fault-%d-%d", i, j), "display_name": "Fault graph", "semantic_query": map[string]any{"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table.TableID}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}}
 				path := h.Server.HTTP.URL + "/api/v1/incidents/" + incidentText + "/network-flow/graph-views"
 				accepted := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, path, body, options...), http.StatusAccepted)["data"].(map[string]any)
 				job := accepted["job"].(map[string]any)["job_id"].(string)

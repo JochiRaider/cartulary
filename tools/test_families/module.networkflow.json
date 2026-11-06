@@ -1887,6 +1887,43 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.networkflow.integration.orientation_corpus",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.graphprojection",
+        "module.imports",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestOrientationIncidentCorpusService"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/network-flow-orientation/v1",
+        "fixtures/network-flow/NF-FIX-029-cisco-sna-flow-search"
+      ]
+    },
+    {
       "row_id": "module.networkflow.integration.original_cisco_flow_search_export_imports_1200_r_6e0167c488",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
@@ -1917,7 +1954,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/network-flow"
+      ]
     },
     {
       "row_id": "module.networkflow.integration.pagination_recovery",
@@ -2245,7 +2285,7 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.networkflow.integration.saved_graph_cutover_v6",
+      "row_id": "module.networkflow.integration.saved_graph_current_admission",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
       "collaborator_ids": [
@@ -2301,6 +2341,39 @@
           "TestNetworkFlowGraphReconstructionBindingFailureRollsBack_Integration",
           "TestNetworkFlowSavedGraphLifecycleRoutes_Integration",
           "TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.networkflow.integration.selected_source_history",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.graphprojection",
+        "module.imports",
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowSelectedSourceHistory_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -2654,6 +2727,9 @@
       "postgres_isolation": "exclusive",
       "runtime_binary_ids": [
         "server-harness"
+      ],
+      "fixture_input_roots": [
+        "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal"
       ]
     },
     {
@@ -3156,7 +3232,10 @@
       "fixture_capability": "none",
       "aggregate_placement": "fast",
       "service_dependencies": [],
-      "postgres_isolation": "none"
+      "postgres_isolation": "none",
+      "fixture_input_roots": [
+        "fixtures/network-flow"
+      ]
     },
     {
       "row_id": "module.networkflow.unit.graph_telemetry_boundary",
@@ -4167,6 +4246,34 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.networkflow.unit.orientation_corpus",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestOrientationCorpus"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none",
+      "fixture_input_roots": [
+        "fixtures/network-flow-orientation/v1"
+      ]
+    },
+    {
       "row_id": "module.networkflow.unit.orientation_diagnostic_dependencies",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.unit",
@@ -4179,6 +4286,36 @@
         "package": "./internal/modules/networkflow",
         "tests": [
           "TestNetworkFlowOrientationDiagnosticDependencies"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.networkflow.unit.portable_member_admission",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "module.imports",
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowPortableMemberAdmission",
+          "TestNetworkFlowPortableSelectedGraphHistory"
         ]
       },
       "evidence_class": "unit",

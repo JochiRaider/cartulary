@@ -230,6 +230,54 @@
       "filename": "00038_network_flow_orientation.sql",
       "sha256": "48b8fe9c1c4117c32a4e801e7ec0094cc0ca059f34cfbd36a732a6e95b47e06c",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 39,
+      "filename": "00039_committed_import_sources.sql",
+      "sha256": "cc830ccf02f5fe48e5e51cfa4365630e904ee547ef1519c268eeb1920fae5bd8",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 40,
+      "filename": "00040_network_flow_incident_portability.sql",
+      "sha256": "ab39a0c24668c1d675f3f6ae2f392606c982a03f36f299afc061a7ccfbfbdf56",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 41,
+      "filename": "00041_operation_scoped_stream_staging.sql",
+      "sha256": "4a10a82af5e61a0274f6e861293feb21689a7cc2c91f8f7a9ceb322ca7a59af7",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 42,
+      "filename": "00042_links_bundle_validation.sql",
+      "sha256": "afc9e671f7cf37776cedf6e66452d2d70afe4c1b68c56c1cbadcd3ec3b5101cf",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 43,
+      "filename": "00043_entities_bundle_validation.sql",
+      "sha256": "a810fbc6da9f260bd8daa3859724c74571a4ff92a017061052a8a10b6d947ed6",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 44,
+      "filename": "00044_indicators_bundle_validation.sql",
+      "sha256": "51cc3e6d6474b9e91ffbbf52279e3b941d0bc2bcc8db03bf34149bbd8675fc64",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 45,
+      "filename": "00045_reporting_portable_member_streams.sql",
+      "sha256": "805f31b2e802e82f936205b952788a97e32bee628ee0b650946f369d34ac1727",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 46,
+      "filename": "00046_portable_attribution_mutations.sql",
+      "sha256": "2cafaaf7977056cc653c1f2361d042ceafd03e4b13ccec0b31b80c2d67a9228a",
+      "historical_phase_shaped": false
     }
   ]
 }

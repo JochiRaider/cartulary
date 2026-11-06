@@ -40,7 +40,7 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 		conflicttest.NewCodec("artifacts-linked-notes"),
 		revisionsupport.MustAppender(t),
 		conflictFields,
-		appsupport.ArtifactProjectionRows(harness.DB),
+		appsupport.ArtifactProjectionRows(harness.DB), appsupport.LinkProjectionRows(harness.DB),
 		collaborationsupport.NewRecordChangedAppender(),
 	)
 	if err != nil {
@@ -52,6 +52,11 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 		recordType := recordType
 		t.Run(recordType, func(t *testing.T) {
 			sourceRecordID := seedLinkedNoteSource(t, harness, incident.ID, actor.ID, recordType, now)
+			if recordType == "evidence" {
+				if _, err := harness.DB.Exec(ctx, `INSERT INTO evidence(record_id,incident_id,title,lifecycle_state,created_at,updated_at) VALUES($1,$2,'Synthetic request','requested',$3,$3)`, sourceRecordID, incident.ID, now); err != nil {
+					t.Fatal(err)
+				}
+			}
 			title := "Synthetic " + recordType + " note"
 			clientTxnID := fmt.Sprintf("txn-artifacts-linked-note-%02d", index)
 			command := artifacts.ContextualNoteCreateCommand{
@@ -91,6 +96,9 @@ SELECT count(*)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM record_tags WHERE record_id = $1 AND normalized_tag_name = 'synthetic' AND deleted_at IS NULL`, result.RecordID, 1)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1 AND row_version = 1`, result.RecordID, 1)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM artifact_grid_projection WHERE record_id = $1 AND artifact_type = 'note'`, result.RecordID, 1)
+			if recordType == "evidence" {
+				requireLinkedNoteCount(t, harness, `SELECT count(*) FROM evidence_grid_projection WHERE record_id=$1 AND linked_record_count=1`, sourceRecordID, 1)
+			}
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1`, result.ChangeSetID, 3)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1 AND target_kind = 'record_link'`, result.ChangeSetID, 1)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1 AND target_kind = 'record_tag'`, result.ChangeSetID, 1)

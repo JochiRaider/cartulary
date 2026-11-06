@@ -471,7 +471,7 @@ func currentRestoreFixture(t *testing.T) (*RestoreSourceRegistry, RestoreSourceR
 	registration := RestoreSourceRegistration{
 		Entry: RestoreSourceRegistryEntry{
 			SourceRegistrationID: "network_flow_activity.graph_views.v1", SourceOwnerID: "network_flow_activity",
-			AuthoritativeFamilyID: "network_flow_activity.graph_views", EnumeratorBindingID: "network_flow_activity.graph_view_restore_enumerator_v2",
+			AuthoritativeFamilyID: "network_flow_activity.graph_views", EnumeratorBindingID: "network_flow_activity.graph_view_restore_enumerator_v3",
 			SemanticQuerySchemaIDs:     []string{"cartulary.network_flow.graph_semantic_query.v3"},
 			ProjectionInputContractID:  graphprojection.ProjectionSchemaIDV2,
 			ProjectionResultContractID: "graph_projection_result.v2", Status: "active",

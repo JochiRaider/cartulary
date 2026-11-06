@@ -23,8 +23,7 @@ import (
 // to keep the reviewed expectation compact. Full durable bytes and transport
 // are retained by the publication adapter.
 func TestCiscoSNAFlowSearchExampleFixtureComparison(t *testing.T) {
-	t.Run("incident corpus service boundaries", testOrientationIncidentCorpusService)
-	RunFixtureComparison(t, "NF-FIX-029-cisco-sna-flow-search", 7, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-029-cisco-sna-flow-search", 8, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		data, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return nil, err

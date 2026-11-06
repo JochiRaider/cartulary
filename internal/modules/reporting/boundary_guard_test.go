@@ -15,6 +15,7 @@ func TestReportingProductionImportBoundaries(t *testing.T) {
 	// Owner facades and shared wire contracts constrain dependency direction;
 	// private file placement is not an ownership boundary.
 	allowedModuleImports := map[string]bool{
+		reportingRepoImportPrefix + "internal/modules/incidentportability":                 true,
 		reportingRepoImportPrefix + "internal/modules/entities/mentions/reportingprovider": true,
 		reportingRepoImportPrefix + "internal/modules/graphprojection":                     true,
 		reportingRepoImportPrefix + "internal/modules/graphprojection/postgresresult":      true,

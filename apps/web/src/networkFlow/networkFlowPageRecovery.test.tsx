@@ -557,7 +557,7 @@ describe("Network Flow page recovery boundaries", () => {
     }
     const row = pageRow();
     const accepted = {
-      schema_id: "cartulary.network_flow.table_query_result.v2",
+      schema_id: "cartulary.network_flow.table_query_result.v3",
       network_flow_table_id: tableId,
       rows: [row],
       meta: { query: acceptedMeta, paging: paging(null) },
@@ -707,8 +707,7 @@ function pageRow(): NetworkFlowRow {
     "network_flow.application_label": null,
     unmapped_raw: {},
     "network_flow.observation_source_ref": {
-      import_session_id: table.source_import_session_id,
-      import_unit_id: table.source_import_unit_id,
+      committed_source_id: table.committed_source_id,
       source_content_sha256: table.source_content_sha256,
       source_profile_id: table.source_profile_id,
       parser_profile_id: table.parser_profile_id,

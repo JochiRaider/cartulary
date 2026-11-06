@@ -3,9 +3,12 @@ package savedviews
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
+	"io"
 	"strconv"
 	"time"
 
@@ -20,10 +23,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-type savedViewBundle interface {
-	File(string) ([]byte, bool)
-}
-
 type savedViewPortableAttributionResolver interface {
 	ResolvePortableSourceActors(
 		context.Context,
@@ -36,6 +35,7 @@ type savedViewPortableAttributionResolver interface {
 }
 
 type savedViewExportContext struct {
+	Actors               incidentportability.ActorReferences
 	Query                incidentportability.Queryer
 	IncidentID           uuid.UUID
 	PortableAttributions savedViewPortableAttributionResolver
@@ -57,7 +57,23 @@ func (e *savedViewInvariantError) Error() string {
 	return "saved views failed invariant " + e.InvariantID
 }
 
-func exportIncidentBundleFiles(ctx context.Context, exportContext savedViewExportContext) ([]incidentportability.File, error) {
+func exportIncidentBundleFiles(ctx context.Context, exportContext savedViewExportContext, members incidentportability.MemberWriter) error {
+	return incidentportability.WriteMemberFrom(ctx, members, "data/saved_views.ndjson", func(ctx context.Context, output io.Writer) error {
+		var after *uuid.UUID
+		for {
+			next, err := exportIncidentBundlePage(ctx, exportContext, after, output)
+			if err != nil {
+				return err
+			}
+			if next == nil {
+				return nil
+			}
+			after = next
+		}
+	})
+}
+
+func exportIncidentBundlePage(ctx context.Context, exportContext savedViewExportContext, after *uuid.UUID, output io.Writer) (*uuid.UUID, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT saved_view_id,
        incident_id,
@@ -71,9 +87,10 @@ SELECT saved_view_id,
        updated_at,
        saved_view_version
   FROM saved_views
- WHERE incident_id = $1
+ WHERE incident_id = $1 AND ($2::uuid IS NULL OR saved_view_id > $2)
  ORDER BY saved_view_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, err
 	}
@@ -195,22 +212,19 @@ SELECT saved_view_id,
 		}
 	}
 
-	var payload bytes.Buffer
+	rows.Close()
 	for _, row := range exportRows {
 		owner := any(nil)
 		if row.Scope != scopeSystem {
-			if sourceOwner := portableOwners[row.SavedViewID.String()]; sourceOwner != "" {
-				if _, err := uuid.Parse(sourceOwner); err != nil {
-					return nil, fmt.Errorf("export saved view portable owner is invalid")
-				}
-				owner = sourceOwner
-			} else if row.OwnerUserID != nil {
-				owner = row.OwnerUserID.String()
-			} else {
+			if row.OwnerUserID == nil {
 				return nil, fmt.Errorf("export saved view runtime owner is missing")
 			}
+			owner, err = incidentportability.ExportActorID(exportContext.Actors, portableOwners[row.SavedViewID.String()], *row.OwnerUserID)
+			if err != nil {
+				return nil, err
+			}
 		}
-		encoded, err := incidentportability.CanonicalJSONString(map[string]any{
+		err = incidentportability.WriteNDJSONRecord(output, map[string]any{
 			"saved_view_id":      row.SavedViewID.String(),
 			"incident_id":        row.IncidentID.String(),
 			"view_schema_id":     row.ViewSchemaID,
@@ -226,12 +240,12 @@ SELECT saved_view_id,
 		if err != nil {
 			return nil, err
 		}
-		payload.Write(encoded)
 	}
-	return []incidentportability.File{{
-		Path:    "data/saved_views.ndjson",
-		Payload: payload.Bytes(),
-	}}, nil
+	if len(exportRows) == 0 {
+		return nil, nil
+	}
+	last := exportRows[len(exportRows)-1].SavedViewID
+	return &last, nil
 }
 
 type savedViewPortableRow struct {
@@ -259,7 +273,9 @@ func decodeSavedViewPortableJSON(raw []byte) (any, error) {
 }
 
 type preparedSavedViewImport struct {
-	rows []preparedSavedViewRow
+	members             *incidentportability.BoundMembers
+	incidentID, actorID uuid.UUID
+	count               uint64
 }
 
 type preparedSavedViewRow struct {
@@ -277,33 +293,48 @@ type preparedSavedViewRow struct {
 	SavedViewVersion int64
 }
 
-func prepareSavedViewImport(bundle savedViewBundle, importContext savedViewImportContext) (preparedSavedViewImport, error) {
-	const logicalPath = "data/saved_views.ndjson"
-	if importContext.BundleVersion != 5 {
+const savedViewMemberPath = "data/saved_views.ndjson"
+
+func prepareSavedViewImport(ctx context.Context, bundle incidentportability.MemberReader, importContext savedViewImportContext) (preparedSavedViewImport, error) {
+	if importContext.BundleVersion != 6 {
 		return preparedSavedViewImport{}, savedViewInvariantFailure("saved_views.query_layout_legal")
 	}
-	payload, ok := bundle.File(logicalPath)
-	if !ok {
-		return preparedSavedViewImport{}, savedViewInvariantFailure("saved_views.row_shape_exact")
-	}
-	rows, err := incidentportability.DecodeStrictNDJSONObjects(payload, logicalPath)
+	members, err := incidentportability.BindMembers(bundle, []string{savedViewMemberPath})
 	if err != nil {
 		return preparedSavedViewImport{}, savedViewInvariantFailure("saved_views.row_shape_exact")
 	}
-	prepared := preparedSavedViewImport{rows: make([]preparedSavedViewRow, 0, len(rows))}
-	seen := make(map[uuid.UUID]struct{}, len(rows))
-	for _, row := range rows {
-		parsed, err := prepareSavedViewRow(row, importContext)
-		if err != nil {
-			return preparedSavedViewImport{}, err
+	prepared := preparedSavedViewImport{members: members, incidentID: importContext.IncidentID, actorID: importContext.ActorUserID}
+	previous := ""
+	err = prepared.walk(ctx, importContext, func(row preparedSavedViewRow) error {
+		id := row.SavedViewID.String()
+		if id <= previous {
+			return savedViewInvariantFailure("saved_views.identity_scope_legal")
 		}
-		if _, duplicate := seen[parsed.SavedViewID]; duplicate {
-			return preparedSavedViewImport{}, savedViewInvariantFailure("saved_views.identity_scope_legal")
-		}
-		seen[parsed.SavedViewID] = struct{}{}
-		prepared.rows = append(prepared.rows, parsed)
+		previous = id
+		prepared.count++
+		return nil
+	})
+	if err != nil {
+		return preparedSavedViewImport{}, err
 	}
 	return prepared, nil
+}
+func (p preparedSavedViewImport) walk(ctx context.Context, importContext savedViewImportContext, visit func(preparedSavedViewRow) error) error {
+	if p.members == nil || p.incidentID != importContext.IncidentID || p.actorID != importContext.ActorUserID {
+		return savedViewInvariantFailure("saved_views.identity_scope_legal")
+	}
+	err := incidentportability.WalkPath(ctx, p.members, savedViewMemberPath, func(raw map[string]any) error {
+		row, err := prepareSavedViewRow(raw, importContext)
+		if err != nil {
+			return err
+		}
+		return visit(row)
+	})
+	var malformed *incidentportability.StrictNDJSONDecodeError
+	if errors.As(err, &malformed) {
+		return savedViewInvariantFailure("saved_views.row_shape_exact")
+	}
+	return err
 }
 
 func prepareSavedViewRow(row map[string]any, importContext savedViewImportContext) (preparedSavedViewRow, error) {
@@ -683,7 +714,7 @@ func applyPreparedSavedViewImportTx(
 	importContext savedViewImportContext,
 ) error {
 	queries := sqlc.New(tx)
-	for _, row := range prepared.rows {
+	return prepared.walk(ctx, importContext, func(row preparedSavedViewRow) error {
 		affected, err := queries.ImportSavedView(ctx, sqlc.ImportSavedViewParams{
 			SavedViewID:      pgUUID(row.SavedViewID),
 			IncidentID:       pgUUID(row.IncidentID),
@@ -704,7 +735,7 @@ func applyPreparedSavedViewImportTx(
 			return savedViewInvariantFailure("saved_views.identity_scope_legal")
 		}
 		if row.PortableOwnerID == nil {
-			continue
+			return nil
 		}
 		if importContext.Attributions == nil {
 			return savedViewInvariantFailure("saved_views.owner_tuple_legal")
@@ -717,8 +748,8 @@ func applyPreparedSavedViewImportTx(
 		); err != nil {
 			return savedViewInvariantFailure("saved_views.owner_tuple_legal")
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func optionalPGUUID(value *uuid.UUID) pgtype.UUID {
@@ -751,10 +782,6 @@ func validatePreparedSavedViewImportTx(
 	prepared preparedSavedViewImport,
 	importContext savedViewImportContext,
 ) error {
-	expected := make(map[uuid.UUID]preparedSavedViewRow, len(prepared.rows))
-	for _, row := range prepared.rows {
-		expected[row.SavedViewID] = row
-	}
 
 	rows, err := tx.Query(ctx, `
 SELECT saved_view_id,
@@ -777,8 +804,14 @@ SELECT saved_view_id,
 	}
 	defer rows.Close()
 
-	seen := make(map[uuid.UUID]struct{}, len(expected))
-	for rows.Next() {
+	err = prepared.walk(ctx, importContext, func(expectedRow preparedSavedViewRow) error {
+		if !rows.Next() {
+			if err := rows.Err(); err != nil {
+				return err
+			}
+			return savedViewInvariantFailure("saved_views.row_shape_exact")
+		}
+
 		var (
 			savedViewID  pgtype.UUID
 			incidentID   pgtype.UUID
@@ -811,14 +844,9 @@ SELECT saved_view_id,
 		if err != nil {
 			return savedViewInvariantFailure("saved_views.identity_scope_legal")
 		}
-		expectedRow, ok := expected[parsedSavedViewID]
-		if !ok {
-			return savedViewInvariantFailure("saved_views.row_shape_exact")
-		}
-		if _, duplicate := seen[parsedSavedViewID]; duplicate {
+		if parsedSavedViewID != expectedRow.SavedViewID {
 			return savedViewInvariantFailure("saved_views.identity_scope_legal")
 		}
-		seen[parsedSavedViewID] = struct{}{}
 
 		parsedIncidentID, err := uuidFromPG(incidentID)
 		if err != nil ||
@@ -848,14 +876,20 @@ SELECT saved_view_id,
 			version != expectedRow.SavedViewVersion {
 			return savedViewInvariantFailure("saved_views.version_timestamps_legal")
 		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if rows.Next() {
+		return savedViewInvariantFailure("saved_views.row_shape_exact")
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	if len(seen) != len(expected) {
-		return savedViewInvariantFailure("saved_views.row_shape_exact")
-	}
-	if err := validateSavedViewAttributions(prepared, importContext); err != nil {
+	rows.Close()
+
+	if err := validateSavedViewAttributions(ctx, prepared, importContext); err != nil {
 		return err
 	}
 	// Saved Views neither consumes nor mutates Reference Packs. Exact equality
@@ -872,48 +906,41 @@ func pgUUIDMatches(actual pgtype.UUID, expected *uuid.UUID) bool {
 	return err == nil && parsed == *expected
 }
 
-func validateSavedViewAttributions(
-	prepared preparedSavedViewImport,
-	importContext savedViewImportContext,
-) error {
-	expected := make(map[string]preparedSavedViewRow)
-	for _, row := range prepared.rows {
-		if row.PortableOwnerID != nil {
-			expected[row.SavedViewID.String()] = row
-		}
+func validateSavedViewAttributions(ctx context.Context, prepared preparedSavedViewImport, importContext savedViewImportContext) error {
+	expected, actual := sha256.New(), sha256.New()
+	var expectedCount, actualCount uint64
+	write := func(digest hash.Hash, rowID, actorID string) {
+		_, _ = io.WriteString(digest, rowID+"\x00owner_user_id\x00"+actorID+"\x00"+importContext.ActorUserID.String()+"\x00")
 	}
-	if len(expected) == 0 {
-		if importContext.Attributions == nil {
-			return nil
-		}
-		for _, entry := range importContext.Attributions.ImportedAttributions() {
-			if entry.SourceTable == "saved_views" {
-				return savedViewInvariantFailure("saved_views.owner_tuple_legal")
-			}
+	if err := prepared.walk(ctx, importContext, func(row preparedSavedViewRow) error {
+		if row.PortableOwnerID != nil {
+			expectedCount++
+			write(expected, row.SavedViewID.String(), row.PortableOwnerID.String())
 		}
 		return nil
+	}); err != nil {
+		return err
 	}
 	if importContext.Attributions == nil {
+		if expectedCount == 0 {
+			return nil
+		}
 		return savedViewInvariantFailure("saved_views.owner_tuple_legal")
 	}
-	seen := make(map[string]struct{}, len(expected))
-	for _, entry := range importContext.Attributions.ImportedAttributions() {
-		if entry.SourceTable != "saved_views" {
-			continue
-		}
-		expectedRow, ok := expected[entry.SourceRowID]
-		if !ok ||
-			entry.SourceColumn != "owner_user_id" ||
-			entry.SourceActorID != expectedRow.PortableOwnerID.String() ||
-			entry.LocalUserID != importContext.ActorUserID {
+	previous := ""
+	err := importContext.Attributions.VisitImportedAttributions("saved_views", "", func(entry incidentportability.ImportedAttribution) error {
+		if entry.SourceTable != "saved_views" || entry.SourceRowID <= previous || entry.SourceColumn != "owner_user_id" || entry.LocalUserID != importContext.ActorUserID {
 			return savedViewInvariantFailure("saved_views.owner_tuple_legal")
 		}
-		if _, duplicate := seen[entry.SourceRowID]; duplicate {
-			return savedViewInvariantFailure("saved_views.owner_tuple_legal")
-		}
-		seen[entry.SourceRowID] = struct{}{}
+		previous = entry.SourceRowID
+		actualCount++
+		write(actual, entry.SourceRowID, entry.SourceActorID)
+		return nil
+	})
+	if err != nil {
+		return err
 	}
-	if len(seen) != len(expected) {
+	if actualCount != expectedCount || !bytes.Equal(actual.Sum(nil), expected.Sum(nil)) {
 		return savedViewInvariantFailure("saved_views.owner_tuple_legal")
 	}
 	return nil

@@ -9,15 +9,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path"
 	"sort"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 const (
@@ -29,9 +30,9 @@ const (
 	ClaimStateUnclaimed             = "unclaimed"
 	ClaimStateRecognizedUnclaimable = "recognized_unclaimable"
 
-	ExtensionExportResultSchema = "cartulary.extension_portability_export_result.v1"
-	ExtensionImportResultSchema = "cartulary.extension_portability_import_preparation_result.v1"
-	ExtensionPayloadSchema      = "cartulary.incident_bundle_extension_payload.v1"
+	ExtensionExportResultSchema  = "cartulary.extension_portability_export_result.v2"
+	ExtensionImportResultSchema  = "cartulary.extension_portability_import_preparation_result.v2"
+	ExtensionMemberCatalogSchema = "cartulary.incident_bundle_extension_members.v2"
 
 	PortabilityParticipantByteLimit = 64 * 1024 * 1024
 )
@@ -76,32 +77,77 @@ type StatePresenceQuery interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
+// ExportSnapshotQuery is available only to application assembly and the owner's
+// physical capability factory. Participant code receives the refined logical
+// capability, never this query interface or a transaction handle.
+type ExportSnapshotQuery interface {
+	StatePresenceQuery
+	incidentportability.Queryer
+}
+
+type ExportReadCapability interface {
+	ProfileScope() string
+	IncidentScope() uuid.UUID
+}
+
+type ExportReadFactory interface {
+	ForSnapshot(ExportSnapshotQuery, uuid.UUID, string) (ExportReadCapability, error)
+}
+
 type ExportInvocation struct {
 	ProfileID     string
 	ContractMajor int
 	ClaimState    string
 	IncidentID    uuid.UUID
-	StatePresent  bool
+	ReadAccess    ExportReadCapability
+	Members       incidentportability.MemberWriter
+	Actors        incidentportability.ActorReferences
 }
 
 type ExportResult struct {
-	SchemaID             string
-	Kind                 string
-	PayloadSchemaID      string
-	PayloadContractMajor int
-	StateVersion         int
-	Payload              []byte
+	SchemaID        string
+	Kind            string
+	ContentSchemaID string
+	ContractMajor   int
+	StateVersion    int
+}
+
+type PortabilityImportContext struct {
+	OperationID string
+	IncidentID  uuid.UUID
+	ActorUserID uuid.UUID
+	Actors      sourceport.ActorCatalog
+}
+
+// ImportDependencyAccess is refined by each owner to the admitted logical source
+// dependencies it needs. The participant never receives the whole bundle.
+type ImportDependencyAccess interface {
+	ProfileScope() string
+	IncidentScope() uuid.UUID
+}
+type ImportDependencyFactory interface {
+	ForImport(context.Context, PortabilityImportContext, incidentportability.MemberReader, string) (ImportDependencyAccess, error)
+}
+
+// PreparationMembers holds derived, operation-owned scratch inputs. It is
+// sealed after preparation and abandoned after either commit or rollback; it
+// never becomes an incident artifact or an exported bundle member.
+type PreparationMembers interface {
+	incidentportability.MemberReader
+	incidentportability.MemberWriter
 }
 
 type ImportInvocation struct {
-	OperationID   string
-	ProfileID     string
-	ContractMajor int
-	ClaimState    string
-	IncidentID    uuid.UUID
-	StateVersion  int
-	PayloadSchema string
-	Payload       []byte
+	PreparationMembers PreparationMembers
+	Dependencies       ImportDependencyAccess
+	PortabilityImportContext
+	ProfileID       string
+	ContractMajor   int
+	ClaimState      string
+	StateVersion    int
+	ContentSchemaID string
+	CatalogSHA256   string
+	Members         incidentportability.MemberReader
 }
 
 type ImportPreparation struct {
@@ -127,20 +173,48 @@ type ExtensionParticipant interface {
 // to participant code. The underlying staging identity remains private to the
 // shared staged-object owner and is retained solely for abandon/transfer.
 type PortabilityStagedOutputScope struct {
-	scope      *stagedobjects.Scope
-	references []stagedobjects.Reference
+	scope        *stagedobjects.Scope
+	references   []stagedobjects.Reference
+	budget       *memberBudget
+	publications []stagedobjects.Publication
 }
 
-func (s *PortabilityStagedOutputScope) Allocate(ctx context.Context, operationID string, payload []byte) (string, error) {
-	if s == nil || s.scope == nil {
+func (s *PortabilityStagedOutputScope) Allocate(ctx context.Context, operationID string, resource stagedobjects.ResourceBinding, payload []byte) (string, error) {
+	if s == nil || s.scope == nil || s.budget == nil || !resource.Valid() {
 		return "", stagedobjects.ErrScopeDenied
+	}
+	if s.budget.members <= 0 || int64(len(payload)) > s.budget.bytes || len(payload) > PortabilityParticipantByteLimit {
+		return "", ErrPortabilityLimit
 	}
 	stagingID, err := s.scope.Allocate(ctx, operationID, payload)
 	if err != nil {
 		return "", err
 	}
+	s.budget.bytes -= int64(len(payload))
+	s.budget.members--
 	s.references = append(s.references, stagedobjects.Reference{StagingID: stagingID})
+	s.publications = append(s.publications, stagedobjects.Publication{StagingID: stagingID, ResourceKind: resource.Kind, ResourceID: resource.ID, ByteSize: int64(len(payload)), SHA256: digestBytes(payload)})
 	return stagedOutputLogicalRef(stagingID), nil
+}
+
+// AllocateStream retains bytes under the operation lease and returns a logical
+// content binding. Physical identity and publication remain with shared owners.
+func (s *PortabilityStagedOutputScope) AllocateStream(ctx context.Context, operationID string, resource stagedobjects.ResourceBinding, source io.Reader, maximumBytes int64) (string, stagedobjects.ContentBinding, error) {
+	if s == nil || s.scope == nil || s.budget == nil || !resource.Valid() {
+		return "", stagedobjects.ContentBinding{}, stagedobjects.ErrScopeDenied
+	}
+	if s.budget.members <= 0 || maximumBytes < 0 || maximumBytes > s.budget.bytes {
+		return "", stagedobjects.ContentBinding{}, ErrPortabilityLimit
+	}
+	sealed, err := s.scope.AllocateStream(ctx, operationID, source, maximumBytes)
+	if err != nil {
+		return "", stagedobjects.ContentBinding{}, err
+	}
+	s.budget.bytes -= sealed.ByteSize
+	s.budget.members--
+	s.references = append(s.references, sealed.Reference)
+	s.publications = append(s.publications, stagedobjects.Publication{StagingID: sealed.StagingID, ResourceKind: resource.Kind, ResourceID: resource.ID, ByteSize: sealed.ByteSize, SHA256: sealed.SHA256})
+	return stagedOutputLogicalRef(sealed.StagingID), sealed.ContentBinding, nil
 }
 
 func (s *PortabilityStagedOutputScope) Refs() []string {
@@ -155,21 +229,13 @@ func (s *PortabilityStagedOutputScope) Refs() []string {
 	return result
 }
 
-type ExtensionPayload struct {
-	ProfileID       string
-	ContractMajor   int
-	StateVersion    int
-	PayloadSchemaID string
-	PayloadSHA256   string
-	Payload         []byte
-}
-
 type PreparedPortability struct {
-	Participants []crossownertransaction.Participant
-	Transfers    []stagedobjects.Transfer
-	scopes       []*stagedobjects.Scope
-	allocator    stagedobjects.Allocator
-	references   []stagedobjects.Reference
+	Participants      []crossownertransaction.Participant
+	Publications      []stagedobjects.PublicationPlan
+	scopes            []*stagedobjects.Scope
+	preparationScopes []*stagedobjects.Scope
+	allocator         stagedobjects.Allocator
+	references        []stagedobjects.Reference
 }
 
 func (p *PreparedPortability) Abandon(ctx context.Context) error {
@@ -177,29 +243,39 @@ func (p *PreparedPortability) Abandon(ctx context.Context) error {
 		return nil
 	}
 	var joined error
+	for _, scope := range p.preparationScopes {
+		joined = errors.Join(joined, scope.Abandon(context.WithoutCancel(ctx)))
+	}
+	p.preparationScopes = nil
 	for _, scope := range p.scopes {
 		joined = errors.Join(joined, scope.Abandon(context.WithoutCancel(ctx)))
 	}
-	if len(p.scopes) == 0 && p.allocator != nil {
+	if p.allocator != nil {
 		for _, reference := range p.references {
 			joined = errors.Join(joined, p.allocator.Abandon(context.WithoutCancel(ctx), reference))
 		}
 	}
 	p.scopes = nil
-	p.Transfers = nil
+	p.Publications = nil
 	p.Participants = nil
 	p.references = nil
 	return joined
 }
 
-func (p *PreparedPortability) Committed() {
+func (p *PreparedPortability) Committed(ctx context.Context) error {
 	if p == nil {
-		return
+		return nil
 	}
+	var joined error
+	for _, scope := range p.preparationScopes {
+		joined = errors.Join(joined, scope.Abandon(context.WithoutCancel(ctx)))
+	}
+	p.preparationScopes = nil
 	p.scopes = nil
 	p.references = nil
-	p.Transfers = nil
+	p.Publications = nil
 	p.Participants = nil
+	return joined
 }
 
 type PortabilityOrchestrator struct {
@@ -207,9 +283,23 @@ type PortabilityOrchestrator struct {
 	presence     StatePresence
 	participants map[string]ExtensionParticipant
 	allocator    stagedobjects.Allocator
+	reads        ExportReadFactory
+	dependencies ImportDependencyFactory
+	limits       Limits
 }
 
-func NewPortabilityOrchestrator(policies []ExtensionPolicy, presence StatePresence, participants []ExtensionParticipant, allocator stagedobjects.Allocator) (*PortabilityOrchestrator, error) {
+type PortabilityOptions struct {
+	Policies           []ExtensionPolicy
+	Presence           StatePresence
+	Participants       []ExtensionParticipant
+	Allocator          stagedobjects.Allocator
+	SnapshotReads      ExportReadFactory
+	ImportDependencies ImportDependencyFactory
+	Limits             Limits
+}
+
+func NewPortabilityOrchestrator(options PortabilityOptions) (*PortabilityOrchestrator, error) {
+	policies, presence, participants, allocator := options.Policies, options.Presence, options.Participants, options.Allocator
 	resolved := append([]ExtensionPolicy(nil), policies...)
 	sort.Slice(resolved, func(i, j int) bool {
 		return bytes.Compare([]byte(resolved[i].ProfileID), []byte(resolved[j].ProfileID)) < 0
@@ -271,22 +361,22 @@ func NewPortabilityOrchestrator(policies []ExtensionPolicy, presence StatePresen
 		}
 		previous = policy.ProfileID
 	}
-	if len(admittedParticipants) != len(participantMap) {
+	if len(admittedParticipants) != len(participantMap) || len(participantMap) > 0 && options.SnapshotReads == nil {
 		return nil, ErrPortabilityResult
 	}
 	return &PortabilityOrchestrator{
-		policies: resolved, presence: presence, participants: participantMap, allocator: allocator,
+		policies: resolved, presence: presence, participants: participantMap, allocator: allocator, reads: options.SnapshotReads, dependencies: options.ImportDependencies, limits: options.Limits,
 	}, nil
 }
 
-func (o *PortabilityOrchestrator) Export(ctx context.Context, query StatePresenceQuery, incidentID uuid.UUID) ([]ExtensionPayload, error) {
-	if o == nil || query == nil || incidentID == uuid.Nil {
-		return nil, ErrPortabilityUnavailable
+func (o *PortabilityOrchestrator) Export(ctx context.Context, query ExportSnapshotQuery, incidentID uuid.UUID, members incidentportability.MemberWriter, actors incidentportability.ActorReferences) error {
+	if o == nil || query == nil || incidentID == uuid.Nil || members == nil || actors == nil {
+		return ErrPortabilityUnavailable
 	}
-	results := make([]ExtensionPayload, 0)
+	var metadataBytes int64
 	for _, policy := range o.policies {
 		if err := contextError(ctx); err != nil {
-			return nil, err
+			return err
 		}
 		families := policy.AuthoritativeFamilyIDs
 		if policy.Mode == PortabilityModeBlockedWhenPresent {
@@ -297,44 +387,63 @@ func (o *PortabilityOrchestrator) Export(ctx context.Context, query StatePresenc
 			var err error
 			present, err = o.presence.AuthoritativeStatePresent(ctx, query, incidentID, policy.ProfileID, families)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 		switch policy.Mode {
 		case PortabilityModeNoAuthoritativeState:
 			if present {
-				return nil, newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
+				return newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
 			}
 		case PortabilityModeBlockedWhenPresent:
 			if present {
-				return nil, newPortabilityFailure(ErrPortabilityBlocked, policy.ProfileID)
+				return newPortabilityFailure(ErrPortabilityBlocked, policy.ProfileID)
 			}
 		case PortabilityModeParticipant:
 			if !present {
 				continue
 			}
 			if policy.ClaimState != ClaimStateClaimed {
-				return nil, newPortabilityFailure(ErrPortabilityUnavailable, policy.ProfileID)
+				return newPortabilityFailure(ErrPortabilityUnavailable, policy.ProfileID)
 			}
-			participant := o.participants[policy.ParticipantID]
-			result, err := participant.Export(ctx, ExportInvocation{
-				ProfileID: policy.ProfileID, ContractMajor: policy.ContractMajor,
-				ClaimState: policy.ClaimState, IncidentID: incidentID, StatePresent: true,
+			access, err := o.reads.ForSnapshot(snapshotReadOnly{query}, incidentID, policy.ProfileID)
+			if err != nil || access == nil || access.ProfileScope() != policy.ProfileID || access.IncidentScope() != incidentID {
+				return newPortabilityFailure(ErrPortabilityUnavailable, policy.ProfileID)
+			}
+			emitter := &extensionMemberWriter{destination: members, profileID: policy.ProfileID, paths: map[string]incidentportability.Member{}}
+			result, err := o.participants[policy.ParticipantID].Export(ctx, ExportInvocation{
+				ProfileID: policy.ProfileID, ContractMajor: policy.ContractMajor, ClaimState: policy.ClaimState,
+				IncidentID: incidentID, ReadAccess: access, Members: emitter, Actors: actors,
 			})
+			emitter.closed = true
 			if err != nil {
-				return nil, newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
+				return newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
 			}
-			payload, include, err := validateExportResult(policy, result)
+			if result.SchemaID != ExtensionExportResultSchema || result.Kind != "members" ||
+				result.ContentSchemaID == "" || result.ContractMajor != policy.ContractMajor || result.StateVersion < 1 || len(emitter.paths) == 0 {
+				return newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
+			}
+			catalog := extensionMemberCatalog{SchemaID: ExtensionMemberCatalogSchema, ProfileID: policy.ProfileID,
+				ContractMajor: result.ContractMajor, StateVersion: result.StateVersion, ContentSchemaID: result.ContentSchemaID, Members: emitter.members()}
+			encoded, err := encodeExtensionCatalog(catalog)
 			if err != nil {
-				return nil, newPortabilityFailure(err, policy.ProfileID)
+				return err
 			}
-			if include {
-				results = append(results, payload)
+			if int64(len(encoded)) > policy.MaximumOutputBytes || int64(len(encoded)) > PortabilityParticipantByteLimit-metadataBytes {
+				return ErrPortabilityLimit
+			}
+			metadataBytes += int64(len(encoded))
+			if _, err := members.WriteMember(ctx, extensionCatalogPath(policy.ProfileID), bytes.NewReader(encoded)); err != nil {
+				return err
 			}
 		}
 	}
-	return results, nil
+	return nil
 }
+
+// This wrapper deliberately hides any Exec, Commit or Rollback methods on the
+// caller's concrete transaction before invoking the trusted capability factory.
+type snapshotReadOnly struct{ ExportSnapshotQuery }
 
 // ValidatePublication is the authoritative last-moment guard. It evaluates
 // only declarative blockers and never invokes extension participant code.
@@ -360,23 +469,31 @@ func (o *PortabilityOrchestrator) ValidatePublication(ctx context.Context, query
 	return nil
 }
 
-func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, operationID string, incidentID uuid.UUID, files map[string][]byte) (PreparedPortability, error) {
-	if o == nil || operationID == "" || incidentID == uuid.Nil {
+func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, input PortabilityImportContext, files incidentportability.MemberReader) (PreparedPortability, error) {
+	operationID, incidentID := input.OperationID, input.IncidentID
+	if o == nil || operationID == "" || incidentID == uuid.Nil || input.ActorUserID == uuid.Nil {
 		return PreparedPortability{}, ErrPortabilityPayload
 	}
-	payloads, err := decodeExtensionPayloads(files)
+	payloads, err := decodeExtensionCatalogs(ctx, files)
 	if err != nil {
 		return PreparedPortability{}, err
 	}
 	if len(payloads) == 0 {
-		return PreparedPortability{Participants: []crossownertransaction.Participant{}, Transfers: []stagedobjects.Transfer{}}, nil
+		return PreparedPortability{Participants: []crossownertransaction.Participant{}, Publications: []stagedobjects.PublicationPlan{}}, nil
 	}
 	policies := make(map[string]ExtensionPolicy, len(o.policies))
 	for _, policy := range o.policies {
 		policies[policy.ProfileID] = policy
 	}
 	prepared := PreparedPortability{allocator: o.allocator}
-	var aggregate int64
+	var aggregate, preparedBytes int64
+	budget := memberBudget{bytes: o.limits.IncidentBundles.MaxExtractedBytes, members: o.limits.Archives.MaxMembers}
+	if budget.bytes <= 0 {
+		budget.bytes = defaultIncidentBundleMaxExtractedBytes
+	}
+	if budget.members <= 0 {
+		budget.members = defaultArchiveMaxMembers
+	}
 	for _, payload := range payloads {
 		if err := contextError(ctx); err != nil {
 			_ = prepared.Abandon(ctx)
@@ -390,7 +507,7 @@ func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, operationID
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, newPortabilityFailure(ErrPortabilityPayload, payload.ProfileID)
 		}
-		size := int64(len(payload.Payload))
+		size := payload.byteSize
 		if size > policy.MaximumInputBytes || aggregate > PortabilityParticipantByteLimit-size {
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, ErrPortabilityLimit
@@ -407,55 +524,78 @@ func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, operationID
 			return PreparedPortability{}, err
 		}
 		prepared.scopes = append(prepared.scopes, scope)
-		participantScope := &PortabilityStagedOutputScope{scope: scope}
+		participantScope := &PortabilityStagedOutputScope{scope: scope, budget: &budget}
+		var preparation *memberStore
+		var preparationMembers PreparationMembers
+		if _, ok := o.allocator.(stagedobjects.StreamAllocator); ok {
+			preparationScope, scopeErr := stagedobjects.NewScope(operationID, payload.ProfileID, o.allocator)
+			if scopeErr != nil {
+				_ = prepared.Abandon(ctx)
+				return PreparedPortability{}, scopeErr
+			}
+			prepared.preparationScopes = append(prepared.preparationScopes, preparationScope)
+			preparation, err = newMemberStore(operationID, preparationScope, o.limits)
+			if err != nil {
+				_ = prepared.Abandon(ctx)
+				return PreparedPortability{}, err
+			}
+			preparation.pathPrefix = "prepared/" + payload.ProfileID + "/"
+			preparation.sharedBudget = &budget
+			preparationMembers = preparation
+		}
+		var dependencies ImportDependencyAccess
+		if o.dependencies != nil {
+			dependencies, err = o.dependencies.ForImport(ctx, input, files, payload.ProfileID)
+			if err != nil || dependencies == nil || dependencies.ProfileScope() != payload.ProfileID || dependencies.IncidentScope() != incidentID {
+				_ = prepared.Abandon(ctx)
+				return PreparedPortability{}, newPortabilityFailure(ErrPortabilityPayload, payload.ProfileID)
+			}
+		}
 		result, err := participant.PrepareImport(ctx, ImportInvocation{
-			OperationID: operationID, ProfileID: payload.ProfileID, ContractMajor: policy.ContractMajor,
-			ClaimState: policy.ClaimState, IncidentID: incidentID, StateVersion: payload.StateVersion,
-			PayloadSchema: payload.PayloadSchemaID, Payload: bytes.Clone(payload.Payload),
+			PreparationMembers: preparationMembers, Dependencies: dependencies, PortabilityImportContext: input, ProfileID: payload.ProfileID, ContractMajor: policy.ContractMajor,
+			ClaimState: policy.ClaimState, StateVersion: payload.StateVersion,
+			ContentSchemaID: payload.ContentSchemaID, CatalogSHA256: payload.sha256, Members: payload.bound,
 		}, participantScope)
+		if preparation != nil {
+			preparation.Seal()
+		}
 		if err != nil || validateImportPreparation(result, participantScope) != nil {
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, newPortabilityFailure(ErrPortabilityResult, payload.ProfileID)
 		}
-		prepared.references = append(prepared.references, participantScope.references...)
-		prepared.Participants = append(prepared.Participants, &preparedPortabilityParticipant{
-			delegate: result.TransactionParticipant,
-			input:    bytes.Clone(result.ParticipantInput),
-			sha256:   result.ParticipantInputSHA256,
+		metadata, err := canonicaljson.MarshalExtension(map[string]any{
+			"schema_id": result.SchemaID, "status": result.Status,
+			"participant_input":        json.RawMessage(result.ParticipantInput),
+			"participant_input_sha256": result.ParticipantInputSHA256,
+			"staged_output_refs":       result.StagedOutputRefs,
+			"staged_publications":      participantScope.publications,
 		})
-	}
-	for _, scope := range prepared.scopes {
-		transfer, err := scope.Transfer(operationID)
 		if err != nil {
 			_ = prepared.Abandon(ctx)
-			return PreparedPortability{}, err
+			return PreparedPortability{}, ErrPortabilityResult
 		}
-		prepared.Transfers = append(prepared.Transfers, transfer)
+		resultSize := int64(len(metadata))
+		if resultSize > policy.MaximumOutputBytes || resultSize > PortabilityParticipantByteLimit-preparedBytes {
+			_ = prepared.Abandon(ctx)
+			return PreparedPortability{}, ErrPortabilityLimit
+		}
+		preparedBytes += resultSize
+		prepared.references = append(prepared.references, participantScope.references...)
+		transfer, transferErr := scope.Transfer(operationID)
+		if transferErr != nil {
+			_ = prepared.Abandon(ctx)
+			return PreparedPortability{}, transferErr
+		}
+		prepared.Publications = append(prepared.Publications, stagedobjects.PublicationPlan{Transfer: transfer, Publications: participantScope.publications})
+		prepared.Participants = append(prepared.Participants, &preparedPortabilityParticipant{
+			delegate:    result.TransactionParticipant,
+			operationID: operationID,
+			input:       bytes.Clone(result.ParticipantInput),
+			sha256:      result.ParticipantInputSHA256,
+		})
 	}
 	prepared.scopes = nil
 	return prepared, nil
-}
-
-func validateExportResult(policy ExtensionPolicy, result ExportResult) (ExtensionPayload, bool, error) {
-	if result.SchemaID != ExtensionExportResultSchema {
-		return ExtensionPayload{}, false, ErrPortabilityResult
-	}
-	if result.Kind == "omit" {
-		if result.PayloadSchemaID != "" || result.PayloadContractMajor != 0 || result.StateVersion != 0 || result.Payload != nil {
-			return ExtensionPayload{}, false, ErrPortabilityResult
-		}
-		return ExtensionPayload{}, false, nil
-	}
-	if result.Kind != "payload" || result.PayloadSchemaID == "" || result.PayloadContractMajor < 1 ||
-		result.StateVersion < 1 || result.Payload == nil || int64(len(result.Payload)) > policy.MaximumOutputBytes {
-		return ExtensionPayload{}, false, ErrPortabilityResult
-	}
-	sum := sha256.Sum256(result.Payload)
-	return ExtensionPayload{
-		ProfileID: policy.ProfileID, ContractMajor: result.PayloadContractMajor,
-		StateVersion: result.StateVersion, PayloadSchemaID: result.PayloadSchemaID,
-		PayloadSHA256: hex.EncodeToString(sum[:]), Payload: bytes.Clone(result.Payload),
-	}, true, nil
 }
 
 func validateImportPreparation(result ImportPreparation, scope *PortabilityStagedOutputScope) error {
@@ -474,9 +614,10 @@ func validateImportPreparation(result ImportPreparation, scope *PortabilityStage
 // to the later admitted transaction participant. A participant cannot replace
 // or reinterpret those bytes after the bundle owner has accepted them.
 type preparedPortabilityParticipant struct {
-	delegate crossownertransaction.Participant
-	input    []byte
-	sha256   string
+	delegate    crossownertransaction.Participant
+	input       []byte
+	sha256      string
+	operationID string
 }
 
 func (p *preparedPortabilityParticipant) ID() string {
@@ -487,7 +628,7 @@ func (p *preparedPortabilityParticipant) ID() string {
 }
 
 func (p *preparedPortabilityParticipant) BuildInput(ctx context.Context, operation crossownertransaction.OperationContext) (crossownertransaction.Input, error) {
-	if p == nil || p.delegate == nil || p.sha256 != digestBytes(p.input) {
+	if p == nil || p.delegate == nil || p.sha256 != digestBytes(p.input) || operation.OperationID != p.operationID {
 		return crossownertransaction.Input{}, ErrPortabilityResult
 	}
 	input, err := p.delegate.BuildInput(ctx, operation)
@@ -512,77 +653,6 @@ func (p *preparedPortabilityParticipant) Write(ctx context.Context, invocation c
 
 func stagedOutputLogicalRef(stagingID string) string {
 	return "cartulary:staged_output:" + stagingID
-}
-
-type extensionPayloadEnvelope struct {
-	SchemaID        string          `json:"schema_id"`
-	ProfileID       string          `json:"profile_id"`
-	ContractMajor   int             `json:"contract_major"`
-	StateVersion    int             `json:"state_version"`
-	PayloadSchemaID string          `json:"payload_schema_id"`
-	PayloadSHA256   string          `json:"payload_sha256"`
-	Payload         json.RawMessage `json:"payload"`
-}
-
-func extensionPayloadPath(profileID string) string {
-	return "ext/extensions/" + profileID + "/payload.json"
-}
-
-func EncodeExtensionPayload(payload ExtensionPayload) (string, []byte, error) {
-	if payload.ProfileID == "" || payload.ContractMajor < 1 || payload.StateVersion < 1 ||
-		payload.PayloadSchemaID == "" || payload.Payload == nil || payload.PayloadSHA256 != digestBytes(payload.Payload) {
-		return "", nil, ErrPortabilityPayload
-	}
-	encoded, err := json.Marshal(extensionPayloadEnvelope{
-		SchemaID: ExtensionPayloadSchema, ProfileID: payload.ProfileID,
-		ContractMajor: payload.ContractMajor, StateVersion: payload.StateVersion,
-		PayloadSchemaID: payload.PayloadSchemaID, PayloadSHA256: payload.PayloadSHA256,
-		Payload: bytes.Clone(payload.Payload),
-	})
-	if err != nil {
-		return "", nil, err
-	}
-	return extensionPayloadPath(payload.ProfileID), append(encoded, '\n'), nil
-}
-
-func decodeExtensionPayloads(files map[string][]byte) ([]ExtensionPayload, error) {
-	paths := make([]string, 0)
-	for filePath := range files {
-		if strings.HasPrefix(filePath, "ext/extensions/") {
-			paths = append(paths, filePath)
-		}
-	}
-	sort.Strings(paths)
-	results := make([]ExtensionPayload, 0, len(paths))
-	previous := ""
-	for _, filePath := range paths {
-		clean := path.Clean(filePath)
-		parts := strings.Split(clean, "/")
-		if clean != filePath || len(parts) != 4 || parts[0] != "ext" || parts[1] != "extensions" || parts[3] != "payload.json" {
-			return nil, ErrPortabilityPayload
-		}
-		var envelope extensionPayloadEnvelope
-		decoder := json.NewDecoder(bytes.NewReader(files[filePath]))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&envelope); err != nil || envelope.SchemaID != ExtensionPayloadSchema ||
-			envelope.ProfileID != parts[2] || envelope.ProfileID == previous ||
-			envelope.ContractMajor < 1 || envelope.StateVersion < 1 ||
-			envelope.PayloadSchemaID == "" || envelope.Payload == nil ||
-			envelope.PayloadSHA256 != digestBytes(envelope.Payload) {
-			return nil, ErrPortabilityPayload
-		}
-		var extra any
-		if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-			return nil, ErrPortabilityPayload
-		}
-		results = append(results, ExtensionPayload{
-			ProfileID: envelope.ProfileID, ContractMajor: envelope.ContractMajor,
-			StateVersion: envelope.StateVersion, PayloadSchemaID: envelope.PayloadSchemaID,
-			PayloadSHA256: envelope.PayloadSHA256, Payload: bytes.Clone(envelope.Payload),
-		})
-		previous = envelope.ProfileID
-	}
-	return results, nil
 }
 
 type PortabilityFailure struct {

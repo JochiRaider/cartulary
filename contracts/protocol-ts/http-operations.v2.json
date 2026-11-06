@@ -51,6 +51,7 @@
     "getReferencePackValidationSummary",
     "getReferencePackVersion",
     "getRelease",
+    "getRetainedReportArtifacts",
     "getSnapshot",
     "getTimelineTimeConversionProfile",
     "getViewSchema",

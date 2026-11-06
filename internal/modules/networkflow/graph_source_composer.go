@@ -9,27 +9,40 @@ import (
 	"github.com/google/uuid"
 )
 
-type graphSourceReader interface {
+type graphCompositionSourceReader interface {
 	tableScopeReader
 	IterateRowsForTables(context.Context, uuid.UUID, []string, func(flowRow) error) error
+}
+type graphContributorSourceReader interface {
 	IterateGraphContributorRows(context.Context, uuid.UUID, []string, graphContributorPredicate, func(flowRow) error) error
+}
+type graphSourceReader interface {
+	graphCompositionSourceReader
+	graphContributorSourceReader
 }
 
 type graphSourceComposer struct {
-	store           graphSourceReader
-	limits          EffectiveLimits
-	graphProjection graphProjectionPort
-	graphTelemetry  GraphTelemetryObserver
+	store             graphCompositionSourceReader
+	limits            EffectiveLimits
+	graphProjection   graphProjectionPort
+	graphTelemetry    GraphTelemetryObserver
+	resolveRowAuthors func(context.Context, uuid.UUID, []flowRow) error
 }
 
-func newGraphSourceComposer(source graphSourceReader, limits EffectiveLimits, projection graphProjectionPort, observer GraphTelemetryObserver) (*graphSourceComposer, error) {
+func newGraphSourceComposer(source graphCompositionSourceReader, limits EffectiveLimits, projection graphProjectionPort, observer GraphTelemetryObserver) (*graphSourceComposer, error) {
 	if source == nil || projection == nil {
 		return nil, errors.New("network flow graph composition dependencies are required")
 	}
 	if err := checkEffectiveLimits(limits); err != nil {
 		return nil, err
 	}
-	return &graphSourceComposer{store: source, limits: limits, graphProjection: projection, graphTelemetry: observer}, nil
+	composer := &graphSourceComposer{store: source, limits: limits, graphProjection: projection, graphTelemetry: observer}
+	if attributed, ok := source.(interface {
+		resolveRowAuthors(context.Context, uuid.UUID, []flowRow) error
+	}); ok {
+		composer.resolveRowAuthors = attributed.resolveRowAuthors
+	}
+	return composer, nil
 }
 
 func (s *graphSourceComposer) composeGraph(ctx context.Context, incidentID uuid.UUID, request graphQueryRequest) (graphComposition, *semanticFailure) {
@@ -229,7 +242,11 @@ func (s *graphSourceComposer) queryGraphContributorPage(ctx context.Context, inc
 
 	rows := make([]flowRow, 0, limit+1)
 	matchedAny := false
-	err = s.store.IterateGraphContributorRows(ctx, incidentID, tableIDs, predicate, func(row flowRow) error {
+	contributors, ok := s.store.(graphContributorSourceReader)
+	if !ok {
+		return nil, false, nil, internalSemanticFailure(errors.New("graph contributor source capability unavailable"))
+	}
+	err = contributors.IterateGraphContributorRows(ctx, incidentID, tableIDs, predicate, func(row flowRow) error {
 		matched, matchErr := rowMatchesGraphQuery(row, semantic.Filters, semantic.TimeRange, semantic.Aggregation)
 		if matchErr != nil {
 			apiErr = matchErr
@@ -270,6 +287,11 @@ func (s *graphSourceComposer) queryGraphContributorPage(ctx context.Context, inc
 	hasMore := len(rows) > limit
 	if hasMore {
 		rows = rows[:limit]
+	}
+	if s.resolveRowAuthors != nil {
+		if err := s.resolveRowAuthors(ctx, incidentID, rows); err != nil {
+			return nil, false, nil, internalSemanticFailure(err)
+		}
 	}
 	return rows, hasMore, tableRanks, nil
 }

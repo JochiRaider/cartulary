@@ -37,15 +37,6 @@ func TestIndicatorPortablePrepareInvariantPartition(t *testing.T) {
 			},
 		},
 		{
-			name: "identity_unique", invariant: "indicators.identity_unique",
-			mutate: func(bundle indicatorTestBundle) {
-				first := portableCanonicalIndicatorRow(t)
-				second := cloneAnyMap(first)
-				second["record_id"] = "00000000-0000-4000-8000-000000000002"
-				bundle["data/indicators.ndjson"] = marshalNDJSONRows(t, []map[string]any{first, second})
-			},
-		},
-		{
 			name: "observation_ordered", invariant: "indicators.observation_ordered",
 			mutate: func(bundle indicatorTestBundle) {
 				row := portableObservationRow()

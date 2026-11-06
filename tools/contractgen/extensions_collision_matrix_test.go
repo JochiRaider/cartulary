@@ -241,7 +241,7 @@ func requireCollisionGroup(t *testing.T, findings []map[string]any, class string
 
 func migrationCollisionFacets(t *testing.T) (map[string]any, map[string]any) {
 	t.Helper()
-	definition := map[string]any{"schema_id": "cartulary.extension_migration_definition.v1", "profile_id": "network_flow_activity", "migration_lineage_id": "network_flow_activity.state_v1", "migration_id": "network_flow_activity.advance_v1", "from_state_version": 5, "to_state_version": 6, "apply_algorithm_id": "network_flow_activity.advance_v1", "validation_algorithm_id": "network_flow_activity.validate_state_v6"}
+	definition := map[string]any{"schema_id": "cartulary.extension_migration_definition.v1", "profile_id": "network_flow_activity", "migration_lineage_id": "network_flow_activity.state_v1", "migration_id": "network_flow_activity.advance_v1", "from_state_version": 5, "to_state_version": 6, "apply_algorithm_id": "network_flow_activity.advance_v1", "validation_algorithm_id": "network_flow_activity.validate_state_v7"}
 	digest, err := extensionCanonicalDigest(definition)
 	if err != nil {
 		t.Fatal(err)

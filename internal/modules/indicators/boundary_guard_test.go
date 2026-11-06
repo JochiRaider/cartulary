@@ -120,7 +120,7 @@ func indicatorAdmissionImportAllowed(imported string) bool {
 func indicatorPackageImportAllowed(directory, dependency string) bool {
 	// Capability ownership is package-local; source filenames have no policy role.
 	allowed := map[string][]string{
-		".":                                 {"collaboration", "collaboration/protocol", "imports/ownerfacade", "incidentbundles/sourceport", "records", "records/subtypepresence", "reference_data", "revisions", "revisions/historycontract"},
+		".":                                 {"collaboration", "collaboration/protocol", "imports/ownerfacade", "incidentbundles/sourceport", "incidentportability", "records", "records/subtypepresence", "reference_data", "revisions", "revisions/historycontract"},
 		"admission":                         {"indicators"},
 		"httpapi":                           {"incidents/admission", "indicators", "records"},
 		"internal/identity":                 {"reference_data"},

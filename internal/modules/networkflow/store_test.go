@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	importsfixture "github.com/JochiRaider/cartulary/internal/modules/imports/testsupport"
 	"strconv"
 	"strings"
 	"testing"
@@ -34,7 +35,7 @@ import (
 )
 
 const (
-	testSHA1 = "1111111111111111111111111111111111111111111111111111111111111111"
+	testSHA1 = "513077db146066f4e4358eee48f6f4d478f44a757a3294419ae6fac418600216"
 	testSHA2 = "2222222222222222222222222222222222222222222222222222222222222222"
 	testSHA3 = "3333333333333333333333333333333333333333333333333333333333333333"
 	testSHA4 = "4444444444444444444444444444444444444444444444444444444444444444"
@@ -161,7 +162,7 @@ func assertNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testin
 	if err := json.Unmarshal(loadedRows[0].ObservationSourceRef, &observation); err != nil {
 		t.Fatalf("unmarshal observation source ref: %v", err)
 	}
-	if observation["import_session_id"] != sessionID.String() || observation["source_row_number"].(float64) != 1 {
+	if observation["committed_source_id"] != table.CommittedSourceID.String() || observation["import_session_id"] != nil || observation["import_unit_id"] != nil || observation["source_row_number"].(float64) != 1 {
 		t.Fatalf("unexpected observation source ref: %#v", observation)
 	}
 	counts, err := store.RetainedCounts(context.Background(), incidentID)
@@ -655,7 +656,7 @@ INSERT INTO import_sessions (
     source_file_kind, original_filename, source_content_sha256, source_media_type, source_byte_size,
     parser_profile_id, parser_version, session_status, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, 'network_flow_test', 'csv', $5, $6, 'text/csv', 12,
+    $1, $2, $3, $4, 'network_flow_test', 'csv', $5, $6, 'text/csv', 13,
     $7, 'test', 'ready_to_apply', $8, $8
 )
 `, sessionID, incidentID, actorID, "txn-import-"+unitID.String(), filename, testSHA1, ParserProfileRFC4180HeaderedCSV, now); err != nil {
@@ -675,6 +676,9 @@ INSERT INTO import_units (
 )
 `, unitID, sessionID, testSHA3, ProfileID, now); err != nil {
 		t.Fatalf("seed import unit: %v", err)
+	}
+	if err := importsfixture.RetainUnitSource(context.Background(), db, unitID); err != nil {
+		t.Fatal(err)
 	}
 	return sessionID, unitID
 }

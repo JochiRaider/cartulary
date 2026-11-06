@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 func TestRecordsIncidentBundleSourcePortRejectsDuplicateIdentity_Unit(t *testing.T) {
@@ -29,7 +30,7 @@ func TestRecordsIncidentBundleSourcePortRejectsDuplicateIdentity_Unit(t *testing
 	port := newRecordsTestPort(t, true)
 	_, err := port.PrepareImport(
 		context.Background(),
-		sourceport.MapBundle{recordsBundlePath: payload},
+		portabilitysupport.MapBundle{recordsBundlePath: payload},
 		recordsTestImportContext(t, incidentID, actorID, "records-duplicate", nil),
 	)
 	requireRecordsFailure(t, err, "records.envelope_legal")
@@ -62,7 +63,7 @@ func TestRecordsIncidentBundleSourcePortAppliesAndRollsBack_Integration(t *testi
 	)
 	prepared, err := port.PrepareImport(
 		ctx,
-		sourceport.MapBundle{recordsBundlePath: payload},
+		portabilitysupport.MapBundle{recordsBundlePath: payload},
 		importContext,
 	)
 	if err != nil {
@@ -118,7 +119,7 @@ func TestRecordsPortableEnvelopeInvariantContract_Integration(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "records-portable-envelope-invariants")
 	actorID, incidentID := seedEnvelopeOwnerContext(t, db, "portable-envelope")
 	port := newRecordsTestPort(t, true)
-	for _, bundleVersion := range []int{5} {
+	for _, bundleVersion := range []int{6} {
 		t.Run(fmt.Sprintf("bundle_version_%d", bundleVersion), func(t *testing.T) {
 			recordID := uuid.New()
 			now := time.Date(2026, time.July, 29, 19, bundleVersion, 0, bundleVersion, time.UTC)
@@ -137,7 +138,7 @@ func TestRecordsPortableEnvelopeInvariantContract_Integration(t *testing.T) {
 			importContext.BundleVersion = bundleVersion
 			prepared, err := port.PrepareImport(
 				ctx,
-				sourceport.MapBundle{recordsBundlePath: payload},
+				portabilitysupport.MapBundle{recordsBundlePath: payload},
 				importContext,
 			)
 			if err != nil {
@@ -207,7 +208,7 @@ func TestRecordsPortableEnvelopeRejectsEveryInvalidCategory_Unit(t *testing.T) {
 			delete(row, member)
 			_, err := port.PrepareImport(
 				context.Background(),
-				sourceport.MapBundle{recordsBundlePath: encodeRecordsPortableRow(t, row)},
+				portabilitysupport.MapBundle{recordsBundlePath: encodeRecordsPortableRow(t, row)},
 				baseContext,
 			)
 			requireRecordsFailure(t, err, "records.envelope_legal")
@@ -314,7 +315,7 @@ func TestRecordsPortableEnvelopeRejectsEveryInvalidCategory_Unit(t *testing.T) {
 			testCase.context.OperationID = "records-invalid-" + name
 			_, err := port.PrepareImport(
 				context.Background(),
-				sourceport.MapBundle{recordsBundlePath: testCase.payload},
+				portabilitysupport.MapBundle{recordsBundlePath: testCase.payload},
 				testCase.context,
 			)
 			requireRecordsFailure(t, err, testCase.invariantID)
@@ -335,7 +336,7 @@ func TestRecordsPortableEnvelopeRejectsIncompleteSubtypeBindings_Integration(t *
 	)
 	prepared, err := port.PrepareImport(
 		ctx,
-		sourceport.MapBundle{
+		portabilitysupport.MapBundle{
 			recordsBundlePath: encodeRecordsPortableRow(
 				t,
 				validRecordsPortableMap(recordID, incidentID, actorID, now),
@@ -365,11 +366,17 @@ func TestRecordsPortableExportPreservesSourceActorsAndExactShape_Integration(t *
 	ctx := context.Background()
 	db := pgtest.Start(t).BeginRollbackDBT(t, "records-portable-export")
 	runtimeActorID, incidentID := seedEnvelopeOwnerContext(t, db, "records-export")
-	recordID := uuid.New()
 	sourceActorID := uuid.New()
 	createdAt := time.Date(2026, time.July, 29, 20, 4, 0, 123000, time.UTC)
 	updatedAt := createdAt.Add(time.Minute)
-	if _, err := db.Exec(ctx, `
+	resolver := recordsTestPortableResolver{"created_by_user_id": {}, "updated_by_user_id": {}}
+	const count = 257
+	for i := 0; i < count; i++ {
+		recordID := uuid.New()
+		resolver["created_by_user_id"][recordID.String()] = sourceActorID.String()
+		resolver["updated_by_user_id"][recordID.String()] = sourceActorID.String()
+
+		if _, err := db.Exec(ctx, `
 INSERT INTO records (
     record_id, incident_id, record_type,
     created_by_user_id, created_at,
@@ -378,13 +385,10 @@ INSERT INTO records (
 )
 VALUES ($1, $2, 'timeline_event', $3, $4, $3, $5, 2)
 `, recordID, incidentID, runtimeActorID, createdAt, updatedAt); err != nil {
-		t.Fatalf("seed exported envelope: %v", err)
+			t.Fatalf("seed exported envelope: %v", err)
+		}
 	}
-	resolver := recordsTestPortableResolver{
-		"created_by_user_id": {recordID.String(): sourceActorID.String()},
-		"updated_by_user_id": {recordID.String(): sourceActorID.String()},
-	}
-	files, err := newRecordsTestPort(t, true).Export(
+	files, err := portabilitysupport.Export(newRecordsTestPort(t, true),
 		ctx,
 		sourceport.ExportContext{
 			Query:                db,
@@ -405,14 +409,19 @@ VALUES ($1, $2, 'timeline_event', $3, $4, $3, $5, 2)
 	if err != nil {
 		t.Fatalf("decode exported records: %v", err)
 	}
-	if len(rows) != 1 || len(rows[0]) != 10 {
-		t.Fatalf("exported record rows = %#v", rows)
+	if len(rows) != count {
+		t.Fatalf("exported %d records, want %d across page boundaries", len(rows), count)
 	}
-	if rows[0]["created_by_user_id"] != sourceActorID.String() ||
-		rows[0]["updated_by_user_id"] != sourceActorID.String() ||
-		rows[0]["created_at"] != createdAt.Format(time.RFC3339Nano) ||
-		rows[0]["updated_at"] != updatedAt.Format(time.RFC3339Nano) {
-		t.Fatalf("portable attribution or timestamps changed: %#v", rows[0])
+	previous := ""
+	for _, row := range rows {
+		id := row["record_id"].(string)
+		if id <= previous || len(row) != 10 || resolver["created_by_user_id"][id] == "" {
+			t.Fatalf("invalid or duplicate exported envelope: %#v", row)
+		}
+		previous = id
+		if row["created_by_user_id"] != sourceActorID.String() || row["updated_by_user_id"] != sourceActorID.String() || row["created_at"] != createdAt.Format(time.RFC3339Nano) || row["updated_at"] != updatedAt.Format(time.RFC3339Nano) {
+			t.Fatalf("changed source attribution: %#v", row)
+		}
 	}
 }
 
@@ -425,13 +434,14 @@ func (s recordsTestSubtypeSource) SupportedRecordTypes() []subtypepresence.Recor
 	return append([]subtypepresence.RecordType(nil), s.types...)
 }
 
-func (s recordsTestSubtypeSource) ListSubtypeBindingsTx(
+func (s recordsTestSubtypeSource) VisitSubtypeBindingsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
-) ([]subtypepresence.Binding, error) {
+	visit func(subtypepresence.Binding) error,
+) error {
 	if !s.mirror {
-		return nil, nil
+		return nil
 	}
 	typeNames := make([]string, 0, len(s.types))
 	for _, recordType := range s.types {
@@ -445,10 +455,9 @@ SELECT record_id, incident_id, record_type
  ORDER BY record_id
 `, incidentID, typeNames)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
-	var bindings []subtypepresence.Binding
 	for rows.Next() {
 		var binding subtypepresence.Binding
 		if err := rows.Scan(
@@ -456,11 +465,13 @@ SELECT record_id, incident_id, record_type
 			&binding.IncidentID,
 			&binding.RecordType,
 		); err != nil {
-			return nil, err
+			return err
 		}
-		bindings = append(bindings, binding)
+		if err := visit(binding); err != nil {
+			return err
+		}
 	}
-	return bindings, rows.Err()
+	return rows.Err()
 }
 
 func newRecordsTestPort(t testing.TB, mirror bool) sourceport.Port {
@@ -539,7 +550,7 @@ func recordsTestImportContext(
 	return sourceport.ImportContext{
 		IncidentID:    incidentID,
 		ActorUserID:   actorID,
-		BundleVersion: 5,
+		BundleVersion: 6,
 		OperationID:   operationID,
 		Attributions:  attributions,
 		Actors:        actors,
@@ -620,8 +631,19 @@ func TestRecordsPortableEnvelopeRejectsTrailingContent_Unit(t *testing.T) {
 	payload = append(payload, []byte(" true\n")...)
 	_, err := newRecordsTestPort(t, true).PrepareImport(
 		context.Background(),
-		sourceport.MapBundle{recordsBundlePath: payload},
+		portabilitysupport.MapBundle{recordsBundlePath: payload},
 		recordsTestImportContext(t, incidentID, actorID, "records-trailing", nil),
 	)
 	requireRecordsFailure(t, err, "records.envelope_legal")
+}
+
+func (r *recordsTestAttributions) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
+	for _, row := range r.ImportedAttributions() {
+		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
+			if err := visit(row); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

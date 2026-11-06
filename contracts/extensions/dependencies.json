@@ -52,18 +52,22 @@
       "dependency_id": "network_flow_activity",
       "imported_schema_ids": [
         "cartulary.extension_profile_configuration_contract.v4",
-        "cartulary.extension_state_blocking_predicate.v1",
         "cartulary.extension_state_initialization_definition.v1",
         "cartulary.extension_state_presence_manifest.v1",
+        "cartulary.network_flow.incident_import_input.v1",
+        "cartulary.network_flow.incident_members.v1",
         "cartulary.network_flow.reporting_graph_source.v3",
         "cartulary.network_flow_key_ring_manifest_path.v1",
         "cartulary.network_flow_resource_limits_configuration.v2"
       ],
       "imported_algorithm_ids": [
-        "network_flow_activity.orientation_cutover_v1",
+        "network_flow_activity.incident_export_v1",
+        "network_flow_activity.incident_import_v1",
+        "network_flow_activity.incident_member_order_v1",
+        "network_flow_activity.incident_portability_cutover_v1",
         "network_flow_activity.reporting_graph_order_v1",
         "network_flow_activity.reporting_graph_source_v2",
-        "network_flow_activity.validate_state_v6"
+        "network_flow_activity.validate_state_v7"
       ],
       "imported_artifacts": []
     },

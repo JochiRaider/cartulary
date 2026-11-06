@@ -22,15 +22,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
 // BlobPortability is the Incident Bundles-owned consumer port for blob data.
 // Application assembly supplies the Evidence-owned implementation.
 type BlobPortability interface {
-	ExportBlobFiles(context.Context, incidentportability.Queryer, uuid.UUID, map[string][]byte) error
-	RewriteAndStageObjectBlobs(context.Context, map[string][]byte, uuid.UUID, uuid.UUID, incidentportability.AttributionRecorder) ([]byte, []string, error)
-	CleanupStagedObjects(context.Context, []string)
+	ExportBlobFiles(context.Context, incidentportability.Queryer, uuid.UUID, incidentportability.MemberWriter) error
+	RewriteAndStageObjectBlobs(context.Context, incidentportability.MemberReader, incidentportability.MemberWriter, uuid.UUID, string) (*stagedobjects.PreparedResources, error)
 }
 
 // ArtifactReferenceSource exposes exact retained bindings in the same export
@@ -42,6 +42,7 @@ type ArtifactReferenceSource interface {
 }
 
 type bundleBuilder struct {
+	staging            stagedobjects.Allocator
 	limits             Limits
 	artifactReferences ArtifactReferenceSource
 	pool               *pgxpool.Pool
@@ -62,10 +63,9 @@ type importer struct {
 }
 
 type builtIncidentBundle struct {
-	Archive        bundleArchive
-	IncidentKey    string
-	BundleSHA256   string
-	BundleByteSize int64
+	scope       *stagedobjects.Scope
+	Archive     bundleArchive
+	IncidentKey string
 }
 
 type importParams struct {
@@ -76,14 +76,14 @@ type importParams struct {
 	PublishedAt        time.Time
 	RequestID          *string
 	OperationID        string
+	RewrittenMembers   *memberStore
 }
 
 type preparedImport struct {
 	IncidentID         uuid.UUID
-	files              map[string][]byte
-	attributions       importedAttributionBuffer
-	stagedObjectKeys   []string
-	blobPort           BlobPortability
+	members            incidentportability.MemberReader
+	rewrittenMembers   incidentportability.MemberReader
+	stagedObjects      *stagedobjects.PreparedResources
 	sourcePreparations []preparedSource
 	importContext      sourceport.ImportContext
 	referencePacks     *reference_data.PreparedReferenceImport
@@ -95,12 +95,11 @@ type preparedSource struct {
 	prepared sourceport.Prepared
 }
 
-func (p *preparedImport) cleanup(ctx context.Context) {
-	if p == nil || len(p.stagedObjectKeys) == 0 {
-		return
+func (p *preparedImport) cleanup(ctx context.Context) error {
+	if p == nil {
+		return nil
 	}
-	p.blobPort.CleanupStagedObjects(context.WithoutCancel(ctx), p.stagedObjectKeys)
-	p.stagedObjectKeys = nil
+	return p.stagedObjects.Abandon(context.WithoutCancel(ctx))
 }
 
 // ImportProjectionRebuilder reconstructs imported incident projections inside
@@ -116,13 +115,29 @@ func (b bundleBuilder) build(ctx context.Context, incidentID uuid.UUID, request 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	files := map[string][]byte{}
+	scope, err := stagedobjects.NewScope("incident-bundle-export:"+bundleID.String(), ProfileID, b.staging)
+	if err != nil {
+		return builtIncidentBundle{}, err
+	}
+	retained := false
+	defer func() {
+		if !retained {
+			_ = scope.Abandon(context.WithoutCancel(ctx))
+		}
+	}()
+	members, err := newMemberStore("incident-bundle-export:"+bundleID.String(), scope, b.limits)
+	if err != nil {
+		return builtIncidentBundle{}, err
+	}
 	if b.sourceCatalog == nil {
 		return builtIncidentBundle{}, errors.New("incident bundle source catalog is required")
 	}
+	actorReferences := newActorReferenceSet()
 	for _, port := range b.sourceCatalog.Ports() {
-		exportedFiles, err := port.Export(ctx, sourceport.ExportContext{
-			Query:                tx,
+		err := port.Export(ctx, sourceport.ExportContext{
+			Members:              members,
+			Actors:               actorReferences,
+			Query:                snapshotReadOnly{tx},
 			IncidentID:           incidentID,
 			PortableAttributions: portableAttributionResolver{},
 		})
@@ -132,13 +147,10 @@ func (b bundleBuilder) build(ctx context.Context, incidentID uuid.UUID, request 
 			}
 			return builtIncidentBundle{}, err
 		}
-		for _, file := range exportedFiles {
-			files[file.Path] = file.Payload
-		}
 	}
-	incidentJSON, ok := files["data/incident.json"]
-	if !ok {
-		return builtIncidentBundle{}, errors.New("incident bundle incident source is required")
+	incidentJSON, err := readControlMember(ctx, members, "data/incident.json", PortabilityParticipantByteLimit)
+	if err != nil {
+		return builtIncidentBundle{}, err
 	}
 	var incidentIdentity struct {
 		IncidentKey string `json:"incident_key"`
@@ -157,50 +169,49 @@ func (b bundleBuilder) build(ctx context.Context, incidentID uuid.UUID, request 
 	if err != nil {
 		return builtIncidentBundle{}, err
 	}
-	files["data/reference_pack_refs.json"], err = b.referencePacks.ExportTx(ctx, tx, incidentID, bindings)
+	references, err := b.referencePacks.ExportTx(ctx, tx, incidentID, bindings)
 	if err != nil {
 		return builtIncidentBundle{}, err
 	}
+	if _, err := members.WriteMember(ctx, "data/reference_pack_refs.json", bytes.NewReader(references)); err != nil {
+		return builtIncidentBundle{}, err
+	}
 	if slices.Contains(request.OptionalSections, "snapshots") {
-		if err := b.artifactReferences.ExportArtifactsTx(ctx, tx, incidentID, files["data/reference_pack_refs.json"], boundedContainerSink(files, b.limits)); err != nil {
+		if err := b.artifactReferences.ExportArtifactsTx(ctx, tx, incidentID, references, boundedContainerSink(members)); err != nil {
 			return builtIncidentBundle{}, err
 		}
 	}
 	contentManifest, err := b.referencePacks.ExportContentTx(ctx, tx, reference_data.IncidentReferenceExportRequest{
-		IncidentID: incidentID, References: files["data/reference_pack_refs.json"], Embed: request.ReferencePackMode == referencePackModeEmbedded,
-		WriteContainer: boundedContainerSink(files, b.limits),
+		IncidentID: incidentID, References: references, Embed: request.ReferencePackMode == referencePackModeEmbedded,
+		WriteContainer: boundedContainerSink(members),
 	})
 	if err != nil {
 		return builtIncidentBundle{}, err
 	}
 	if contentManifest != nil {
-		files[reference_data.IncidentPackContentPath] = contentManifest
+		if _, err := members.WriteMember(ctx, reference_data.IncidentPackContentPath, bytes.NewReader(contentManifest)); err != nil {
+			return builtIncidentBundle{}, err
+		}
 	}
-	actors, err := b.exportActors(ctx, tx, incidentID, files)
+	if b.portability != nil {
+		if err := b.portability.Export(ctx, tx, incidentID, members, actorReferences); err != nil {
+			return builtIncidentBundle{}, err
+		}
+	}
+	actors, err := b.exportActors(ctx, tx, incidentID, actorReferences)
 	if err != nil {
 		return builtIncidentBundle{}, err
 	}
-	files["data/actors.ndjson"] = actors
+	if _, err := members.WriteMember(ctx, "data/actors.ndjson", bytes.NewReader(actors)); err != nil {
+		return builtIncidentBundle{}, err
+	}
 	if b.blobPort == nil {
 		return builtIncidentBundle{}, errors.New("incident bundle blob portability is required")
 	}
-	if err := b.blobPort.ExportBlobFiles(ctx, tx, incidentID, files); err != nil {
+	if err := b.blobPort.ExportBlobFiles(ctx, tx, incidentID, members); err != nil {
 		return builtIncidentBundle{}, verificationErrorFromPort(err)
 	}
-	if b.portability != nil {
-		payloads, err := b.portability.Export(ctx, tx, incidentID)
-		if err != nil {
-			return builtIncidentBundle{}, err
-		}
-		for _, payload := range payloads {
-			filePath, encoded, err := EncodeExtensionPayload(payload)
-			if err != nil {
-				return builtIncidentBundle{}, err
-			}
-			files[filePath] = encoded
-		}
-	}
-	archive, err := buildBundleArchive(manifestInput{
+	archive, err := buildBundleArchive(ctx, manifestInput{
 		Limits:               &b.limits,
 		BundleID:             bundleID.String(),
 		IncidentID:           incidentID.String(),
@@ -209,43 +220,27 @@ func (b bundleBuilder) build(ctx context.Context, incidentID uuid.UUID, request 
 		ReferencePackMode:    request.ReferencePackMode,
 		OptionalSections:     request.OptionalSections,
 		RequiredCapabilities: request.RequiredCapabilities,
-	}, files)
+	}, members)
 	if err != nil {
 		return builtIncidentBundle{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return builtIncidentBundle{}, err
 	}
+	retained = true
 	return builtIncidentBundle{
-		Archive:        archive,
-		IncidentKey:    incidentKey,
-		BundleSHA256:   hashHex(archive.Bytes),
-		BundleByteSize: int64(len(archive.Bytes)),
+		scope:       scope,
+		Archive:     archive,
+		IncidentKey: incidentKey,
 	}, nil
 }
 
-func (b bundleBuilder) exportActors(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID, files map[string][]byte) ([]byte, error) {
-	actorIDs := map[string]struct{}{}
-	for path, payload := range files {
-		if path == "data/actors.ndjson" || path == "data/reference_pack_refs.json" || !strings.HasPrefix(path, "data/") {
-			continue
-		}
-		if path == "data/incident.json" {
-			var row map[string]any
-			if err := json.Unmarshal(bytes.TrimSpace(payload), &row); err != nil {
-				return nil, err
-			}
-			collectActorIDs(row, actorIDs)
-			continue
-		}
-		rows, err := incidentportability.DecodeNDJSON(payload)
-		if err != nil {
-			return nil, err
-		}
-		for _, row := range rows {
-			collectActorIDs(row, actorIDs)
-		}
+func (b bundleBuilder) exportActors(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID, references *actorReferenceSet) ([]byte, error) {
+	if references == nil {
+		return nil, errors.New("typed actor references are required")
 	}
+	actorIDs := references.ids
+
 	if len(actorIDs) == 0 {
 		return []byte{}, nil
 	}
@@ -255,6 +250,21 @@ func (b bundleBuilder) exportActors(ctx context.Context, q incidentportability.Q
 	}
 	sort.Strings(ids)
 	descriptors := map[string]portableActorDescriptor{}
+	var descriptorBytes int
+	admitDescriptor := func(descriptor portableActorDescriptor) error {
+		if _, exists := descriptors[descriptor.ActorID]; !exists {
+			encoded, err := incidentportability.CanonicalJSONString(map[string]any{"actor_id": descriptor.ActorID, "display_name": descriptor.DisplayName, "email_hint": descriptor.EmailHint})
+			if err != nil {
+				return err
+			}
+			if len(encoded) > PortabilityParticipantByteLimit-descriptorBytes {
+				return ErrPortabilityLimit
+			}
+			descriptorBytes += len(encoded)
+		}
+		return mergePortableActorDescriptor(descriptors, descriptor)
+	}
+
 	localRows, err := q.Query(ctx, `
 SELECT u.id::text,
        u.display_name,
@@ -272,7 +282,7 @@ SELECT u.id::text,
 			localRows.Close()
 			return nil, err
 		}
-		if err := mergePortableActorDescriptor(descriptors, descriptor); err != nil {
+		if err := admitDescriptor(descriptor); err != nil {
 			localRows.Close()
 			return nil, err
 		}
@@ -305,7 +315,7 @@ SELECT source_actor_id,
 			importedRows.Close()
 			return nil, err
 		}
-		if err := mergePortableActorDescriptor(descriptors, portableActorDescriptor{
+		if err := admitDescriptor(portableActorDescriptor{
 			ActorID:     actorID,
 			DisplayName: displayName.String,
 			EmailHint:   emailHint.String,
@@ -337,6 +347,9 @@ SELECT source_actor_id,
 		if err != nil {
 			return nil, err
 		}
+		if len(encoded) > PortabilityParticipantByteLimit-payload.Len() {
+			return nil, ErrPortabilityLimit
+		}
 		payload.Write(encoded)
 	}
 	return payload.Bytes(), nil
@@ -359,18 +372,6 @@ func mergePortableActorDescriptor(descriptors map[string]portableActorDescriptor
 	return nil
 }
 
-func collectActorIDs(row map[string]any, actorIDs map[string]struct{}) {
-	for key, value := range row {
-		if !strings.HasSuffix(key, "_user_id") || value == nil {
-			continue
-		}
-		id := strings.TrimSpace(incidentportability.StringFromAny(value))
-		if _, err := uuid.Parse(id); err == nil {
-			actorIDs[id] = struct{}{}
-		}
-	}
-}
-
 func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, params importParams) (*preparedImport, error) {
 	if params.OperationID == "" {
 		return nil, errors.New("incident bundle import operation ID is required")
@@ -389,18 +390,20 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 	if i.sourceCatalog == nil {
 		return nil, errors.New("incident bundle source catalog is required")
 	}
-	attributions := importedAttributionBuffer{IncidentID: incidentID, LocalUserID: params.ActorUserID}
 	importContext := sourceport.ImportContext{
 		IncidentID: incidentID, ActorUserID: params.ActorUserID,
 		BundleVersion: verified.Manifest.BundleVersion, OperationID: params.OperationID,
-		Attributions: &attributions,
 	}
-	actorCatalog, err := validateImportedActors(verified.Files, incidentID)
+	actorCatalog, err := validateImportedActors(ctx, verified.Members, incidentID)
 	if err != nil {
 		return nil, err
 	}
 	importContext.Actors = actorCatalog
-	if err := reference_data.ValidateIncidentBundleReferences(verified.Files["data/reference_pack_refs.json"]); err != nil {
+	references, err := incidentportability.ReadControl(ctx, verified.Members, "data/reference_pack_refs.json", PortabilityParticipantByteLimit)
+	if err != nil {
+		return nil, err
+	}
+	if err := reference_data.ValidateIncidentBundleReferences(references); err != nil {
 		invariantID, ok := reference_data.IncidentBundleReferenceInvariant(err)
 		if !ok {
 			return nil, err
@@ -418,22 +421,22 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 	if err != nil {
 		return nil, errors.New("incident bundle import operation identity is invalid")
 	}
-	referenceRequest := reference_data.IncidentReferenceImportRequest{References: verified.Files["data/reference_pack_refs.json"], IncidentID: incidentID, OperationID: operationID, ActorID: params.ActorUserID, At: params.PublishedAt, Execution: params.Execution, ExecutionStarted: params.ExecutionStarted, ExecutionScope: params.ReferenceExecution, OpenContainer: func(readCtx context.Context, path string) (io.ReadCloser, error) {
+	referenceRequest := reference_data.IncidentReferenceImportRequest{References: references, IncidentID: incidentID, OperationID: operationID, ActorID: params.ActorUserID, At: params.PublishedAt, Execution: params.Execution, ExecutionStarted: params.ExecutionStarted, ExecutionScope: params.ReferenceExecution, OpenContainer: func(readCtx context.Context, path string) (io.ReadCloser, error) {
 		if err := readCtx.Err(); err != nil {
 			return nil, err
 		}
-		data, present := verified.Files[path]
-		if !present {
-			return nil, reference_data.ErrArtifactUnavailable
-		}
-		return io.NopCloser(bytes.NewReader(data)), nil
+		reader, _, err := verified.Members.OpenMember(readCtx, path)
+		return reader, err
 	}}
-	if content, present := verified.Files[reference_data.IncidentPackContentPath]; present {
-		referenceRequest.ContentManifest = &content
-	}
-	for path := range verified.Files {
-		if strings.HasPrefix(path, "ext/reference_packs/") && path != reference_data.IncidentPackContentPath {
-			referenceRequest.EmbeddedPaths = append(referenceRequest.EmbeddedPaths, path)
+	for _, member := range verified.Members.Members() {
+		if member.Path == reference_data.IncidentPackContentPath {
+			content, err := incidentportability.ReadControl(ctx, verified.Members, member.Path, PortabilityParticipantByteLimit)
+			if err != nil {
+				return nil, err
+			}
+			referenceRequest.ContentManifest = &content
+		} else if strings.HasPrefix(member.Path, "ext/reference_packs/") {
+			referenceRequest.EmbeddedPaths = append(referenceRequest.EmbeddedPaths, member.Path)
 		}
 	}
 	referencePacks, err := i.referencePacks.PrepareImport(ctx, referenceRequest)
@@ -443,12 +446,12 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 	if i.artifactReferences == nil {
 		return nil, errors.New("incident bundle artifact source is required")
 	}
-	artifacts, err := i.artifactReferences.PrepareArtifactImport(ctx, artifactport.ImportRequest{IncidentID: incidentID, OperationID: operationID, References: verified.Files["data/reference_pack_refs.json"], Bundle: sourceport.MapBundle(verified.Files)})
+	artifacts, err := i.artifactReferences.PrepareArtifactImport(ctx, artifactport.ImportRequest{IncidentID: incidentID, OperationID: operationID, References: references, Bundle: verified.Members})
 	if err != nil {
 		return nil, verificationErrorFromPort(err)
 	}
 	sourcePreparations := make([]preparedSource, 0, len(i.sourceCatalog.Ports()))
-	bundle := sourceport.MapBundle(verified.Files)
+	bundle := verified.Members
 	for _, port := range i.sourceCatalog.Ports() {
 		prepared, err := port.PrepareImport(ctx, bundle, importContext)
 		if err != nil {
@@ -459,19 +462,17 @@ func (i importer) prepareImport(ctx context.Context, verified verifiedBundle, pa
 	if i.blobPort == nil {
 		return nil, errors.New("incident bundle blob portability is required")
 	}
-	rewrittenObjectBlobs, writtenObjectKeys, err := i.blobPort.RewriteAndStageObjectBlobs(ctx, verified.Files, incidentID, params.ActorUserID, &attributions)
+	if params.RewrittenMembers == nil {
+		return nil, errors.New("incident import member staging is required")
+	}
+	stagedObjects, err := i.blobPort.RewriteAndStageObjectBlobs(ctx, verified.Members, params.RewrittenMembers, incidentID, params.OperationID)
 	if err != nil {
-		i.blobPort.CleanupStagedObjects(context.WithoutCancel(ctx), writtenObjectKeys)
 		return nil, verificationErrorFromPort(err)
 	}
-	importFiles := make(map[string][]byte, len(verified.Files))
-	for path, payload := range verified.Files {
-		importFiles[path] = append([]byte(nil), payload...)
-	}
-	importFiles["data/object_blobs.ndjson"] = rewrittenObjectBlobs
+	params.RewrittenMembers.Seal()
 	return &preparedImport{
-		IncidentID: incidentID, files: importFiles, attributions: attributions,
-		stagedObjectKeys: writtenObjectKeys, blobPort: i.blobPort,
+		IncidentID: incidentID, members: verified.Members, rewrittenMembers: params.RewrittenMembers,
+		stagedObjects:      stagedObjects,
 		sourcePreparations: sourcePreparations, importContext: importContext,
 		referencePacks: referencePacks, artifacts: artifacts,
 	}, nil
@@ -493,10 +494,10 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	if existing > 0 {
 		return uuid.UUID{}, &verificationError{ReasonCode: "duplicate_incident_id"}
 	}
-	attributions := prepared.attributions
+	attributions := transactionAttributions{ctx: ctx, tx: tx, incidentID: incidentID, localUserID: params.ActorUserID, actors: prepared.importContext.Actors}
 	importContext := prepared.importContext
 	importContext.Attributions = &attributions
-	importContext.RewrittenObjectBlobs = prepared.files["data/object_blobs.ndjson"]
+	importContext.RewrittenObjectBlobs = prepared.rewrittenMembers
 	if len(prepared.sourcePreparations) == 0 ||
 		prepared.sourcePreparations[0].port.Descriptor().FamilyID != "incident" {
 		return uuid.UUID{}, errors.New("incident source port must be first")
@@ -506,7 +507,7 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	); err != nil {
 		return uuid.UUID{}, verificationErrorFromDeclaredPort(prepared.sourcePreparations[0].port, err)
 	}
-	if err := i.importActors(ctx, tx, prepared.files["data/actors.ndjson"], incidentID); err != nil {
+	if err := i.importActors(ctx, tx, prepared.members, incidentID); err != nil {
 		return uuid.UUID{}, verificationErrorFromPort(err)
 	}
 	if i.referencePacks == nil {
@@ -538,9 +539,6 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	); err != nil {
 		return uuid.UUID{}, revisionsSequenceRepairVerificationError()
 	}
-	if err := attributions.flush(ctx, tx); err != nil {
-		return uuid.UUID{}, err
-	}
 	projectionRebuild := i.projectionRebuild
 	if projectionRebuild == nil {
 		return uuid.UUID{}, errors.New("incident bundle projection rebuild is required")
@@ -562,7 +560,6 @@ func (i importer) applyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 		}
 		return uuid.UUID{}, err
 	}
-	prepared.attributions = attributions
 	return incidentID, nil
 }
 
@@ -627,96 +624,81 @@ func verificationErrorFromDeclaredPort(port sourceport.Port, err error) error {
 	}
 }
 
-func validateImportedActors(files map[string][]byte, incidentID uuid.UUID) (sourceport.ActorCatalog, error) {
-	rows, err := incidentportability.DecodeNDJSON(files["data/actors.ndjson"])
-	if err != nil {
-		return sourceport.ActorCatalog{}, &verificationError{
-			ReasonCode:     "source_family_invalid",
-			SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
+func validateImportedActors(ctx context.Context, members incidentportability.MemberReader, incidentID uuid.UUID) (sourceport.ActorCatalog, error) {
+	descriptors := []sourceport.ActorDescriptor{}
+	var rosterBytes int64
+	err := incidentportability.WalkPath(ctx, members, "data/actors.ndjson", func(row map[string]any) error {
+		encoded, err := incidentportability.CanonicalJSONString(row)
+		if err != nil {
+			return actorReferenceFailure()
 		}
-	}
-	descriptors := make([]sourceport.ActorDescriptor, 0, len(rows))
-	for _, row := range rows {
+		rosterBytes += int64(len(encoded))
+		if rosterBytes > PortabilityParticipantByteLimit {
+			return actorReferenceFailure()
+		}
 		for key := range row {
 			switch key {
 			case "actor_id", "source_actor_id", "display_name", "email_hint", "provider_subject_hint":
 			default:
-				return sourceport.ActorCatalog{}, &verificationError{
-					ReasonCode:     "source_family_invalid",
-					SourceFamilyID: "actors", InvariantID: "actors.inert",
-				}
+				return &verificationError{ReasonCode: "source_family_invalid", SourceFamilyID: "actors", InvariantID: "actors.inert"}
 			}
 		}
 		sourceActorID := strings.TrimSpace(incidentportability.StringFromAny(row["actor_id"]))
 		if sourceActorID == "" {
 			sourceActorID = strings.TrimSpace(incidentportability.StringFromAny(row["source_actor_id"]))
 		}
-		if _, parseErr := uuid.Parse(sourceActorID); parseErr != nil {
-			return sourceport.ActorCatalog{}, &verificationError{
-				ReasonCode:     "source_family_invalid",
-				SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
-			}
+		if _, err := uuid.Parse(sourceActorID); err != nil {
+			return actorReferenceFailure()
 		}
 		displayName, _ := row["display_name"].(string)
 		emailHint, _ := row["email_hint"].(string)
 		providerSubjectHint, _ := row["provider_subject_hint"].(string)
-		descriptors = append(descriptors, sourceport.ActorDescriptor{
-			SourceActorID:       sourceActorID,
-			DisplayName:         displayName,
-			EmailHint:           emailHint,
-			ProviderSubjectHint: providerSubjectHint,
-		})
+		descriptors = append(descriptors, sourceport.ActorDescriptor{SourceActorID: sourceActorID, DisplayName: displayName, EmailHint: emailHint, ProviderSubjectHint: providerSubjectHint})
+		return nil
+	})
+	if err != nil {
+		return sourceport.ActorCatalog{}, err
 	}
 	catalog, err := sourceport.NewActorCatalog(descriptors)
 	if err != nil {
-		return sourceport.ActorCatalog{}, &verificationError{
-			ReasonCode:     "source_family_invalid",
-			SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
-		}
+		return sourceport.ActorCatalog{}, actorReferenceFailure()
 	}
-	referenced := map[string]struct{}{}
-	for filePath, payload := range files {
-		if filePath == "data/actors.ndjson" || filePath == "data/incident.json" ||
-			filePath == "data/reference_pack_refs.json" ||
-			!strings.HasPrefix(filePath, "data/") {
+	for _, member := range members.Members() {
+		if member.Path == "data/actors.ndjson" || !strings.HasPrefix(member.Path, "data/") || !strings.HasSuffix(member.Path, ".ndjson") {
 			continue
 		}
-		var sourceRows []map[string]any
-		decoded, err := incidentportability.DecodeNDJSON(payload)
-		if err != nil {
-			continue
-		}
-		sourceRows = decoded
-		for _, row := range sourceRows {
+		missingActor := false
+		err := incidentportability.WalkMember(ctx, members, member, func(row map[string]any) error {
 			for key, value := range row {
 				if !strings.HasSuffix(key, "_user_id") || value == nil {
 					continue
 				}
-				actorID := strings.TrimSpace(incidentportability.StringFromAny(value))
-				if actorID != "" {
-					referenced[actorID] = struct{}{}
+				id := strings.TrimSpace(incidentportability.StringFromAny(value))
+				if id != "" {
+					if _, ok := catalog.Lookup(id); !ok {
+						missingActor = true
+						return actorReferenceFailure()
+					}
 				}
 			}
+			return nil
+		})
+		if missingActor {
+			return sourceport.ActorCatalog{}, actorReferenceFailure()
 		}
-	}
-	for actorID := range referenced {
-		if _, ok := catalog.Lookup(actorID); !ok {
-			return sourceport.ActorCatalog{}, &verificationError{
-				ReasonCode:     "source_family_invalid",
-				SourceFamilyID: "actors", InvariantID: "actors.reference_complete",
-			}
+		// The source owner supplies its declared row-shape diagnostic. Stream
+		// integrity and cancellation failures must never be swallowed here.
+		var malformed *incidentportability.StrictNDJSONDecodeError
+		if err != nil && !errors.As(err, &malformed) {
+			return sourceport.ActorCatalog{}, err
 		}
 	}
 	_ = incidentID
 	return catalog, nil
 }
 
-func (i importer) importActors(ctx context.Context, tx pgx.Tx, payload []byte, incidentID uuid.UUID) error {
-	rows, err := incidentportability.DecodeNDJSON(payload)
-	if err != nil {
-		return err
-	}
-	for _, row := range rows {
+func (i importer) importActors(ctx context.Context, tx pgx.Tx, members incidentportability.MemberReader, incidentID uuid.UUID) error {
+	return incidentportability.WalkPath(ctx, members, "data/actors.ndjson", func(row map[string]any) error {
 		sourceActorID, _ := row["actor_id"].(string)
 		if strings.TrimSpace(sourceActorID) == "" {
 			sourceActorID, _ = row["source_actor_id"].(string)
@@ -726,18 +708,15 @@ func (i importer) importActors(ctx context.Context, tx pgx.Tx, payload []byte, i
 		}
 		displayName, _ := row["display_name"].(string)
 		emailHint, _ := row["email_hint"].(string)
-		tag, err := tx.Exec(ctx, `
-INSERT INTO incident_bundle_imported_actors (incident_id, source_actor_id, display_name, email_hint, local_user_id)
-VALUES ($1, $2, $3, $4, $5)
-`, incidentID, sourceActorID, nullableString(displayName), nullableString(emailHint), nil)
+		tag, err := tx.Exec(ctx, `INSERT INTO incident_bundle_imported_actors (incident_id, source_actor_id, display_name, email_hint, local_user_id) VALUES ($1, $2, $3, $4, $5)`, incidentID, sourceActorID, nullableString(displayName), nullableString(emailHint), nil)
 		if err != nil {
 			return err
 		}
 		if tag.RowsAffected() != 1 {
 			return actorReferenceFailure()
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func actorReferenceFailure() error {
@@ -746,73 +725,6 @@ func actorReferenceFailure() error {
 		SourceFamilyID: "actors",
 		InvariantID:    "actors.reference_complete",
 	}
-}
-
-type importedAttributionBuffer struct {
-	IncidentID  uuid.UUID
-	LocalUserID uuid.UUID
-	rows        []incidentportability.ImportedAttribution
-}
-
-func (b *importedAttributionBuffer) RecordImportedAttribution(table string, sourceRowID string, column string, sourceActorID string) error {
-	sourceActorID = strings.TrimSpace(sourceActorID)
-	sourceRowID = strings.TrimSpace(sourceRowID)
-	if b == nil || sourceActorID == "" || sourceRowID == "" ||
-		strings.TrimSpace(table) == "" || strings.TrimSpace(column) == "" {
-		return errors.New("incident bundle attribution is invalid")
-	}
-	if _, err := uuid.Parse(sourceActorID); err != nil {
-		return errors.New("incident bundle attribution is invalid")
-	}
-	for _, row := range b.rows {
-		if row.SourceTable == table && row.SourceRowID == sourceRowID && row.SourceColumn == column {
-			if row.SourceActorID == sourceActorID && row.LocalUserID == b.LocalUserID {
-				return nil
-			}
-			return errors.New("incident bundle attribution conflicts")
-		}
-	}
-	b.rows = append(b.rows, incidentportability.ImportedAttribution{
-		SourceTable:   table,
-		SourceRowID:   sourceRowID,
-		SourceColumn:  column,
-		SourceActorID: sourceActorID,
-		LocalUserID:   b.LocalUserID,
-	})
-	return nil
-}
-
-func (b *importedAttributionBuffer) ImportedAttributions() []incidentportability.ImportedAttribution {
-	if b == nil {
-		return nil
-	}
-	return append([]incidentportability.ImportedAttribution(nil), b.rows...)
-}
-
-func (b *importedAttributionBuffer) flush(ctx context.Context, tx pgx.Tx) error {
-	if b == nil {
-		return nil
-	}
-	for _, row := range b.rows {
-		tag, err := tx.Exec(ctx, `
-INSERT INTO incident_bundle_imported_attributions (
-    incident_id,
-    source_table,
-    source_row_id,
-    source_column,
-    source_actor_id,
-    local_user_id
-)
-VALUES ($1, $2, $3, $4, $5, $6)
-`, b.IncidentID, row.SourceTable, row.SourceRowID, row.SourceColumn, row.SourceActorID, row.LocalUserID)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() != 1 {
-			return &incidentportability.VerificationFailure{ReasonCode: "duplicate_source_row"}
-		}
-	}
-	return nil
 }
 
 func nullableString(value string) any {

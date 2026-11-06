@@ -28,10 +28,13 @@ type sourceReader struct {
 	buffer     []byte
 	offset     int64
 	digest     hash.Hash
+	readQuery  string
+	readChunk  func(int64, int64) ([]byte, error)
 }
 
 func newSourceReader(ctx context.Context, tx pgx.Tx, capability ImportSourceCapability, owned bool) *sourceReader {
-	r := &sourceReader{ctx: ctx, tx: tx, capability: capability, owned: owned, digest: sha256.New()}
+	r := &sourceReader{ctx: ctx, tx: tx, capability: capability, owned: owned, digest: sha256.New(),
+		readQuery: `SELECT substring(source_bytes FROM $2 FOR $3) FROM import_source_streams WHERE source_stream_ref=$1`}
 	r.mu.Lock()
 	r.stop = context.AfterFunc(ctx, func() {
 		r.mu.Lock()
@@ -64,8 +67,12 @@ func (r *sourceReader) Read(dst []byte) (int, error) {
 			length = remaining + 1
 		}
 		var data []byte
-		err := r.tx.QueryRow(r.ctx, `SELECT substring(source_bytes FROM $2 FOR $3)
-FROM import_source_streams WHERE source_stream_ref=$1`, r.capability.SourceStreamRef, r.offset+1, length).Scan(&data)
+		var err error
+		if r.readChunk != nil {
+			data, err = r.readChunk(r.offset+1, length)
+		} else {
+			err = r.tx.QueryRow(r.ctx, r.readQuery, r.capability.SourceStreamRef, r.offset+1, length).Scan(&data)
+		}
 		if err != nil {
 			return 0, r.finish(err)
 		}

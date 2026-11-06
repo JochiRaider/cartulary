@@ -1,9 +1,12 @@
 package incidentbundle
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
-	"sort"
+	"hash"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -47,22 +50,16 @@ type preparedPartyImport struct {
 	incidentID    uuid.UUID
 	bundleVersion int
 	contractMajor int
-	rows          []partyPortableRow
-}
-
-type partyActiveKeyClaim struct {
-	incidentID      uuid.UUID
-	keyKind         string
-	normalizedValue string
-	recordID        uuid.UUID
+	members       *incidentportability.BoundMembers
 }
 
 func exportIncidentBundleFiles(
 	ctx context.Context,
 	q incidentportability.Queryer,
 	incidentID uuid.UUID,
-) ([]incidentportability.File, error) {
-	file, err := incidentportability.ExportNDJSON(ctx, q, incidentID, partyIncidentBundlePath, `
+	members incidentportability.MemberWriter,
+) error {
+	err := incidentportability.ExportNDJSONTo(ctx, q, incidentID, partyIncidentBundlePath, `
 SELECT jsonb_build_object(
            'record_id', record_id,
            'incident_id', incident_id,
@@ -77,11 +74,11 @@ SELECT jsonb_build_object(
        )
   FROM parties
  WHERE incident_id = $1
- ORDER BY record_id`)
+ ORDER BY record_id`, members)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return []incidentportability.File{file}, nil
+	return nil
 }
 
 func preparePartyImport(
@@ -94,71 +91,68 @@ func preparePartyImport(
 		return preparedPartyImport{}, err
 	}
 	if bundle == nil || importContext.OperationID == "" ||
-		importContext.IncidentID == uuid.Nil || importContext.BundleVersion != 5 ||
+		importContext.IncidentID == uuid.Nil || importContext.BundleVersion != 6 ||
 		descriptor.ContractMajor != sourceport.ContractMajor {
 		return preparedPartyImport{}, sourceport.ErrPreparedBinding
 	}
-	payload, present := bundle.File(partyIncidentBundlePath)
-	if !present {
-		return preparedPartyImport{}, &incidentportability.VerificationFailure{ReasonCode: "missing_required_file"}
-	}
-	rawRows, err := incidentportability.DecodeStrictNDJSONObjects(payload, partyIncidentBundlePath)
+
+	members, err := incidentportability.BindMembers(bundle, []string{partyIncidentBundlePath})
 	if err != nil {
-		return preparedPartyImport{}, descriptor.DeclaredFailure("parties.version_shape_exact")
+		return preparedPartyImport{}, err
 	}
-
-	// Stable identity is admitted before every other member so malformed rows
-	// cannot change invariant selection through member or row ordering.
-	seen := make(map[uuid.UUID]struct{}, len(rawRows))
-	type identifiedRow struct {
-		recordID uuid.UUID
-		raw      map[string]any
-	}
-	ordered := make([]identifiedRow, 0, len(rawRows))
-	for _, raw := range rawRows {
-		recordID, admitted := canonicalPartyPortableUUID(raw["record_id"])
-		if !admitted {
-			return preparedPartyImport{}, descriptor.DeclaredFailure("parties.source_identity_admitted")
+	prepared := preparedPartyImport{operationID: importContext.OperationID, incidentID: importContext.IncidentID, bundleVersion: importContext.BundleVersion, contractMajor: descriptor.ContractMajor, members: members}
+	previous := ""
+	err = incidentportability.WalkPath(ctx, members, partyIncidentBundlePath, func(raw map[string]any) error {
+		recordID, ok := canonicalPartyPortableUUID(raw["record_id"])
+		incidentID, inScope := canonicalPartyPortableUUID(raw["incident_id"])
+		if !ok || !inScope || incidentID != importContext.IncidentID || recordID.String() <= previous {
+			return descriptor.DeclaredFailure("parties.source_identity_admitted")
 		}
-		incidentID, admitted := canonicalPartyPortableUUID(raw["incident_id"])
-		if !admitted || incidentID != importContext.IncidentID {
-			return preparedPartyImport{}, descriptor.DeclaredFailure("parties.source_identity_admitted")
-		}
-		if _, duplicate := seen[recordID]; duplicate {
-			return preparedPartyImport{}, descriptor.DeclaredFailure("parties.source_identity_admitted")
-		}
-		seen[recordID] = struct{}{}
-		ordered = append(ordered, identifiedRow{recordID: recordID, raw: raw})
-	}
-	sort.Slice(ordered, func(left, right int) bool {
-		return ordered[left].recordID.String() < ordered[right].recordID.String()
+		previous = recordID.String()
+		return nil
 	})
-
-	rows := make([]partyPortableRow, 0, len(ordered))
-	for _, candidate := range ordered {
-		row, admitted := partyPortableRowShape(candidate.raw)
-		if !admitted {
-			return preparedPartyImport{}, descriptor.DeclaredFailure("parties.version_shape_exact")
-		}
-		rows = append(rows, row)
+	if err != nil {
+		return preparedPartyImport{}, partyStreamFailure(descriptor, err)
 	}
-	for _, row := range rows {
+	// Each bounded pass preserves the owner's semantic precedence without sorting
+	// or retaining the complete source collection.
+	if err := prepared.walk(ctx, descriptor, func(partyPortableRow) error { return nil }); err != nil {
+		return preparedPartyImport{}, err
+	}
+	if err := prepared.walk(ctx, descriptor, func(row partyPortableRow) error {
 		if row.DisplayName == "" || !partyKindAdmitted(row.PartyKind) {
-			return preparedPartyImport{}, descriptor.DeclaredFailure("parties.identity_lifecycle")
+			return descriptor.DeclaredFailure("parties.identity_lifecycle")
 		}
+		return nil
+	}); err != nil {
+		return preparedPartyImport{}, err
 	}
-	for _, row := range rows {
+	if err := prepared.walk(ctx, descriptor, func(row partyPortableRow) error {
 		if !partyPortableNormalizationExact(row) {
-			return preparedPartyImport{}, descriptor.DeclaredFailure("parties.normalization_exact")
+			return descriptor.DeclaredFailure("parties.normalization_exact")
 		}
+		return nil
+	}); err != nil {
+		return preparedPartyImport{}, err
 	}
-	return preparedPartyImport{
-		operationID:   importContext.OperationID,
-		incidentID:    importContext.IncidentID,
-		bundleVersion: importContext.BundleVersion,
-		contractMajor: descriptor.ContractMajor,
-		rows:          rows,
-	}, nil
+	return prepared, nil
+}
+func (p preparedPartyImport) walk(ctx context.Context, descriptor sourceport.Descriptor, visit func(partyPortableRow) error) error {
+	err := incidentportability.WalkPath(ctx, p.members, partyIncidentBundlePath, func(raw map[string]any) error {
+		row, valid := partyPortableRowShape(raw)
+		if !valid {
+			return descriptor.DeclaredFailure("parties.version_shape_exact")
+		}
+		return visit(row)
+	})
+	return partyStreamFailure(descriptor, err)
+}
+func partyStreamFailure(descriptor sourceport.Descriptor, err error) error {
+	var malformed *incidentportability.StrictNDJSONDecodeError
+	if errors.As(err, &malformed) {
+		return descriptor.DeclaredFailure("parties.version_shape_exact")
+	}
+	return err
 }
 
 func applyPreparedPartyImportTx(
@@ -171,7 +165,7 @@ func applyPreparedPartyImportTx(
 	if !prepared.matches(importContext, descriptor) || tx == nil {
 		return sourceport.ErrPreparedBinding
 	}
-	for _, row := range prepared.rows {
+	return prepared.walk(ctx, descriptor, func(row partyPortableRow) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -197,8 +191,8 @@ INSERT INTO parties (
 		if tag.RowsAffected() != 1 {
 			return descriptor.DeclaredFailure("parties.source_identity_admitted")
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func validatePreparedPartyImportTx(
@@ -260,15 +254,30 @@ SELECT EXISTS (
 		return descriptor.DeclaredFailure("parties.identity_lifecycle")
 	}
 
-	actualRows, err := loadPortablePartyRowsTx(ctx, tx, importContext.IncidentID)
+	actualRows, err := tx.Query(ctx, `
+ SELECT party.record_id,party.incident_id,party.display_name,party.party_kind,
+ party.organization_name,party.role_title,party.primary_email,party.timezone_name,
+ party.external_ref,party.notes,record.deleted_at IS NULL
+ FROM parties party JOIN records record ON record.record_id=party.record_id
+ WHERE party.incident_id=$1 ORDER BY party.record_id
+ `, importContext.IncidentID)
 	if err != nil {
 		return err
 	}
-	if len(actualRows) != len(prepared.rows) {
-		return descriptor.DeclaredFailure("parties.source_identity_admitted")
-	}
-	for index, actual := range actualRows {
-		expected := prepared.rows[index]
+	defer actualRows.Close()
+	expectedClaims := newPartyClaimInventory()
+	err = prepared.walk(ctx, descriptor, func(expected partyPortableRow) error {
+		if !actualRows.Next() {
+			if err := actualRows.Err(); err != nil {
+				return err
+			}
+			return descriptor.DeclaredFailure("parties.source_identity_admitted")
+		}
+		var actual partyPortableRow
+		var active bool
+		if err := actualRows.Scan(&actual.RecordID, &actual.IncidentID, &actual.DisplayName, &actual.PartyKind, &actual.OrganizationName, &actual.RoleTitle, &actual.PrimaryEmail, &actual.TimezoneName, &actual.ExternalRef, &actual.Notes, &active); err != nil {
+			return err
+		}
 		if actual.RecordID != expected.RecordID || actual.IncidentID != expected.IncidentID {
 			return descriptor.DeclaredFailure("parties.source_identity_admitted")
 		}
@@ -285,26 +294,80 @@ SELECT EXISTS (
 			!optionalPartyStringEqual(actual.Notes, expected.Notes) {
 			return descriptor.DeclaredFailure("parties.normalization_exact")
 		}
-	}
-	claimsValid, err := partyActiveKeyClaimsValidTx(ctx, tx, importContext.IncidentID, actualRows)
+		if active {
+			for _, candidate := range []struct {
+				field, key string
+				value      *string
+			}{
+				{"party.external_ref", "external_ref", actual.ExternalRef},
+				{"party.primary_email", "primary_email", actual.PrimaryEmail},
+			} {
+				admitted, err := policy.AdmitStored(candidate.field, candidate.value)
+				if err != nil {
+					return descriptor.DeclaredFailure("parties.normalization_exact")
+				}
+				if normalized, present := admitted.ExactMatchClaimValue(); present {
+					expectedClaims.add(importContext.IncidentID, actual.RecordID, candidate.key, normalized)
+				}
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	if !claimsValid {
+	if actualRows.Next() {
+		return descriptor.DeclaredFailure("parties.source_identity_admitted")
+	}
+	if err := actualRows.Err(); err != nil {
+		return err
+	}
+	actualRows.Close()
+	claimRows, err := tx.Query(ctx, `SELECT party_record_id,key_kind,normalized_value FROM party_active_key_claims WHERE incident_id=$1 ORDER BY party_record_id,key_kind,normalized_value`, importContext.IncidentID)
+	if err != nil {
+		return err
+	}
+	defer claimRows.Close()
+	actualClaims := newPartyClaimInventory()
+	for claimRows.Next() {
+		var recordID uuid.UUID
+		var key, value string
+		if err := claimRows.Scan(&recordID, &key, &value); err != nil {
+			return err
+		}
+		actualClaims.add(importContext.IncidentID, recordID, key, value)
+	}
+	if err := claimRows.Err(); err != nil {
+		return err
+	}
+	if expectedClaims.count != actualClaims.count || !bytes.Equal(expectedClaims.digest.Sum(nil), actualClaims.digest.Sum(nil)) {
 		return descriptor.DeclaredFailure("parties.identity_lifecycle")
 	}
 	return nil
+}
+
+type partyClaimInventory struct {
+	count  uint64
+	digest hash.Hash
+}
+
+func newPartyClaimInventory() *partyClaimInventory { return &partyClaimInventory{digest: sha256.New()} }
+func (i *partyClaimInventory) add(incidentID, recordID uuid.UUID, key, value string) {
+	encoded, _ := json.Marshal([]string{incidentID.String(), recordID.String(), key, value})
+	_, _ = i.digest.Write(encoded)
+	_, _ = i.digest.Write([]byte{'\n'})
+	i.count++
 }
 
 func (prepared preparedPartyImport) matches(
 	importContext sourceport.ImportContext,
 	descriptor sourceport.Descriptor,
 ) bool {
-	return prepared.operationID != "" &&
+	return prepared.members != nil && prepared.operationID != "" &&
 		prepared.operationID == importContext.OperationID &&
 		prepared.incidentID != uuid.Nil &&
 		prepared.incidentID == importContext.IncidentID &&
-		prepared.bundleVersion == 5 &&
+		prepared.bundleVersion == 6 &&
 		prepared.bundleVersion == importContext.BundleVersion &&
 		prepared.contractMajor == sourceport.ContractMajor &&
 		prepared.contractMajor == descriptor.ContractMajor
@@ -401,134 +464,6 @@ func partyPortableNormalizationExact(row partyPortableRow) bool {
 		}
 	}
 	return true
-}
-
-func loadPortablePartyRowsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-) ([]partyPortableRow, error) {
-	rows, err := tx.Query(ctx, `
-SELECT record_id, incident_id, display_name, party_kind,
-       organization_name, role_title, primary_email, timezone_name,
-       external_ref, notes
-  FROM parties
- WHERE incident_id = $1
- ORDER BY record_id`, incidentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	result := make([]partyPortableRow, 0)
-	for rows.Next() {
-		var row partyPortableRow
-		if err := rows.Scan(
-			&row.RecordID, &row.IncidentID, &row.DisplayName, &row.PartyKind,
-			&row.OrganizationName, &row.RoleTitle, &row.PrimaryEmail,
-			&row.TimezoneName, &row.ExternalRef, &row.Notes,
-		); err != nil {
-			return nil, err
-		}
-		result = append(result, row)
-	}
-	return result, rows.Err()
-}
-
-func partyActiveKeyClaimsValidTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	partyRows []partyPortableRow,
-) (bool, error) {
-	activeRecordRows, err := tx.Query(ctx, `
-SELECT record_id
-  FROM records
- WHERE incident_id = $1
-   AND record_type = 'party'
-   AND deleted_at IS NULL`, incidentID)
-	if err != nil {
-		return false, err
-	}
-	activeRecordIDs := make(map[uuid.UUID]struct{})
-	for activeRecordRows.Next() {
-		var recordID uuid.UUID
-		if err := activeRecordRows.Scan(&recordID); err != nil {
-			activeRecordRows.Close()
-			return false, err
-		}
-		activeRecordIDs[recordID] = struct{}{}
-	}
-	if err := activeRecordRows.Err(); err != nil {
-		activeRecordRows.Close()
-		return false, err
-	}
-	activeRecordRows.Close()
-
-	expected := make(map[partyActiveKeyClaim]struct{})
-	for _, row := range partyRows {
-		if _, active := activeRecordIDs[row.RecordID]; !active {
-			continue
-		}
-		for _, candidate := range []struct {
-			fieldKey string
-			keyKind  string
-			value    *string
-		}{
-			{fieldKey: "party.primary_email", keyKind: "primary_email", value: row.PrimaryEmail},
-			{fieldKey: "party.external_ref", keyKind: "external_ref", value: row.ExternalRef},
-		} {
-			admitted, admissionErr := policy.AdmitStored(candidate.fieldKey, candidate.value)
-			if admissionErr != nil {
-				return false, nil
-			}
-			normalizedValue, present := admitted.ExactMatchClaimValue()
-			if !present {
-				continue
-			}
-			expected[partyActiveKeyClaim{
-				incidentID:      incidentID,
-				keyKind:         candidate.keyKind,
-				normalizedValue: normalizedValue,
-				recordID:        row.RecordID,
-			}] = struct{}{}
-		}
-	}
-
-	claimRows, err := tx.Query(ctx, `
-SELECT incident_id, key_kind, normalized_value, party_record_id
-  FROM party_active_key_claims
- WHERE incident_id = $1`, incidentID)
-	if err != nil {
-		return false, err
-	}
-	actual := make(map[partyActiveKeyClaim]struct{})
-	for claimRows.Next() {
-		var claim partyActiveKeyClaim
-		if err := claimRows.Scan(
-			&claim.incidentID,
-			&claim.keyKind,
-			&claim.normalizedValue,
-			&claim.recordID,
-		); err != nil {
-			claimRows.Close()
-			return false, err
-		}
-		actual[claim] = struct{}{}
-	}
-	if err := claimRows.Err(); err != nil {
-		claimRows.Close()
-		return false, err
-	}
-	claimRows.Close()
-	if len(expected) != len(actual) {
-		return false, nil
-	}
-	for claim := range expected {
-		if _, present := actual[claim]; !present {
-			return false, nil
-		}
-	}
-	return true, nil
 }
 
 func optionalPartyStringEqual(left, right *string) bool {

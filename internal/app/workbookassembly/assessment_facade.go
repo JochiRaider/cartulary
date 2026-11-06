@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -142,6 +143,7 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 func NewAssessmentMutationContribution(
 	pool postgres.DB,
 	projectionRows assessmentprojection.Rows,
+	linkRows links.ProjectionRows,
 	entitySourceFacts *hostidentity.SourceFacts,
 	appender *revisions.Appender,
 	publications collaboration.RecordChangedAppender,
@@ -172,6 +174,10 @@ func NewAssessmentMutationContribution(
 	if err != nil {
 		return nil, fmt.Errorf("compose assessment facade: %w", err)
 	}
+	supportLinks, err := assessmentassembly.NewSupportLinkApplier(linkRows)
+	if err != nil {
+		return nil, err
+	}
 	authStore := authn.NewStore(pool)
 	return assessments.NewFacade(pool, assessments.FacadeDependencies{
 		Idempotency:    assessmentIdempotencyAdapter{store: authStore},
@@ -179,7 +185,7 @@ func NewAssessmentMutationContribution(
 		Assessors:      assessors,
 		SupportTargets: supportTargets,
 		Records:        recordEnvelopes,
-		SupportLinks:   assessmentassembly.NewSupportLinkApplier(),
+		SupportLinks:   supportLinks,
 		Revisions:      assessmentRevisionAdapter{appender: appender, publications: publications},
 		Projections:    projections,
 	})

@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
@@ -33,7 +34,7 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 		validContext := importContext
 		validContext.OperationID = "entities-portable-valid"
 		validContext.Attributions = attributions
-		prepared, err := prepareEntityImport(base, validContext)
+		prepared, err := prepareEntityImport(ctx, base, validContext)
 		if err != nil {
 			t.Fatalf("prepare valid entity source: %v", err)
 		}
@@ -48,7 +49,7 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 		if err := validatePreparedEntityImportTx(ctx, tx, prepared, validContext); err != nil {
 			t.Fatalf("validate valid entity source: %v", err)
 		}
-		files, err := exportEntityIncidentBundleFiles(ctx, sourceport.ExportContext{Query: tx, IncidentID: incidentID})
+		files, err := portabilitysupport.Export(NewIncidentBundleSourcePort(), ctx, sourceport.ExportContext{Query: tx, IncidentID: incidentID})
 		if err != nil {
 			t.Fatalf("export imported entity source: %v", err)
 		}
@@ -69,49 +70,51 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 
 	prepareFailures := []struct {
 		name, invariant string
-		mutate          func(sourceport.MapBundle)
+		mutate          func(portabilitysupport.MapBundle)
 	}{
-		{"source identity admitted", entitySourceIdentity, func(bundle sourceport.MapBundle) {
+		{"source identity admitted", entitySourceIdentity, func(bundle portabilitysupport.MapBundle) {
 			row := entityPortableHostMap(hostRecordID, incidentID, actorID, timestamp)
 			row["undeclared"] = true
 			bundle[hostsBundlePath] = entityMarshalPortableRows(t, row)
 		}},
-		{"mentions observational", entityMentionsObserved, func(bundle sourceport.MapBundle) {
+		{"mentions observational", entityMentionsObserved, func(bundle portabilitysupport.MapBundle) {
 			row := entityPortableMentionMap(uuid.New(), hostRecordID, actorID, timestamp)
 			row["origin_kind"] = "legacy"
 			bundle[entityMentionsBundlePath] = entityMarshalPortableRows(t, row)
 		}},
-		{"resolution merge coherent", entityResolutionMerge, func(bundle sourceport.MapBundle) {
+		{"resolution merge coherent", entityResolutionMerge, func(bundle portabilitysupport.MapBundle) {
 			row := entityPortableHostMap(hostRecordID, incidentID, actorID, timestamp)
 			row["host_state"], row["merged_into_record_id"] = "merged", hostRecordID.String()
 			bundle[hostsBundlePath] = entityMarshalPortableRows(t, row)
 		}},
-		{"alias identifier normalized", entityNormalized, func(bundle sourceport.MapBundle) {
+		{"alias identifier normalized", entityNormalized, func(bundle portabilitysupport.MapBundle) {
 			row := entityPortableAliasMap(uuid.New(), incidentID, hostRecordID, actorID, timestamp)
 			row["raw_text"], row["normalized_text"] = " padded ", "wrong"
 			bundle[entityAliasesBundlePath] = entityMarshalPortableRows(t, row)
 		}},
-		{"alias identifier classified", entityClassified, func(bundle sourceport.MapBundle) {
+		{"alias identifier classified", entityClassified, func(bundle portabilitysupport.MapBundle) {
 			row := entityPortablePreservedMap(uuid.New(), incidentID, hostRecordID, actorID, timestamp)
 			row["identifier_type"], row["raw_value"], row["normalized_value"] = "sid", "S-1-5-21", "S-1-5-21"
 			bundle[preservedIDsBundlePath] = entityMarshalPortableRows(t, row)
-		}},
-		{"alias identifier unique", entityUnique, func(bundle sourceport.MapBundle) {
-			first := entityPortableAliasMap(uuid.MustParse("00000000-0000-4000-8000-000000000201"), incidentID, hostRecordID, actorID, timestamp)
-			second := entityPortableAliasMap(uuid.MustParse("00000000-0000-4000-8000-000000000202"), incidentID, hostRecordID, actorID, timestamp)
-			bundle[entityAliasesBundlePath] = entityMarshalPortableRows(t, first, second)
 		}},
 	}
 	for _, test := range prepareFailures {
 		t.Run(test.name, func(t *testing.T) {
 			bundle := cloneEntityPortableBundle(base)
 			test.mutate(bundle)
-			_, err := prepareEntityImport(bundle, importContext)
+			_, err := prepareEntityImport(ctx, bundle, importContext)
 			requireEntityPortableFailure(t, err, test.invariant)
 			assertNoEntityPortableRows(t, ctx, db, incidentID)
 		})
 	}
 
+	t.Run("alias identifier unique", func(t *testing.T) {
+		bundle := cloneEntityPortableBundle(base)
+		first := entityPortableAliasMap(uuid.MustParse("00000000-0000-4000-8000-000000000201"), incidentID, hostRecordID, actorID, timestamp)
+		second := entityPortableAliasMap(uuid.MustParse("00000000-0000-4000-8000-000000000202"), incidentID, hostRecordID, actorID, timestamp)
+		bundle[entityAliasesBundlePath] = entityMarshalPortableRows(t, first, second)
+		requireEntityPortableApplyFailure(t, ctx, db, bundle, importContext, entityUnique)
+	})
 	t.Run("envelope type scope", func(t *testing.T) {
 		bundle := entityPortableTestBundle(t, entityPortableHostMap(mismatchedRecordID, incidentID, actorID, timestamp))
 		requireEntityPortableApplyFailure(t, ctx, db, bundle, importContext, entityEnvelopeTypeScope)
@@ -129,7 +132,7 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 		alias := entityPortableAliasMap(uuid.New(), incidentID, hostRecordID, actorID, timestamp)
 		alias["normalized_text"] = "wrong"
 		bundle[entityAliasesBundlePath] = entityMarshalPortableRows(t, alias)
-		_, err := prepareEntityImport(bundle, importContext)
+		_, err := prepareEntityImport(ctx, bundle, importContext)
 		requireEntityPortableFailure(t, err, entitySourceIdentity)
 	})
 }
@@ -172,14 +175,14 @@ func entityPortableTestContext(t testing.TB, incidentID, actorID uuid.UUID, oper
 		t.Fatalf("construct entity portable actor catalog: %v", err)
 	}
 	return sourceport.ImportContext{
-		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 5,
+		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 6,
 		OperationID: operationID, Actors: actors,
 	}
 }
 
-func entityPortableTestBundle(t testing.TB, host map[string]any) sourceport.MapBundle {
+func entityPortableTestBundle(t testing.TB, host map[string]any) portabilitysupport.MapBundle {
 	t.Helper()
-	return sourceport.MapBundle{
+	return portabilitysupport.MapBundle{
 		entityMentionsBundlePath: {},
 		hostsBundlePath:          entityMarshalPortableRows(t, host),
 		identitiesBundlePath:     {},
@@ -241,8 +244,8 @@ func entityMarshalPortableRows(t testing.TB, rows ...map[string]any) []byte {
 	return payload
 }
 
-func cloneEntityPortableBundle(bundle sourceport.MapBundle) sourceport.MapBundle {
-	result := sourceport.MapBundle{}
+func cloneEntityPortableBundle(bundle portabilitysupport.MapBundle) portabilitysupport.MapBundle {
+	result := portabilitysupport.MapBundle{}
 	for path, payload := range bundle {
 		result[path] = append([]byte(nil), payload...)
 	}
@@ -257,13 +260,13 @@ func requireEntityPortableFailure(t testing.TB, err error, invariant string) {
 	}
 }
 
-func requireEntityPortableApplyFailure(t testing.TB, ctx context.Context, db *pgtest.RollbackDB, bundle sourceport.MapBundle, baseContext sourceport.ImportContext, invariant string) {
+func requireEntityPortableApplyFailure(t testing.TB, ctx context.Context, db *pgtest.RollbackDB, bundle portabilitysupport.MapBundle, baseContext sourceport.ImportContext, invariant string) {
 	t.Helper()
 	attributions := &entityPortableTestAttributions{}
 	importContext := baseContext
 	importContext.OperationID = "entities-portable-" + invariant
 	importContext.Attributions = attributions
-	prepared, err := prepareEntityImport(bundle, importContext)
+	prepared, err := prepareEntityImport(ctx, bundle, importContext)
 	if err != nil {
 		t.Fatalf("prepare cross-row entity failure: %v", err)
 	}
@@ -312,4 +315,15 @@ func (r *entityPortableTestAttributions) RecordImportedAttribution(table, rowID,
 
 func (r *entityPortableTestAttributions) ImportedAttributions() []incidentportability.ImportedAttribution {
 	return append([]incidentportability.ImportedAttribution(nil), r.rows...)
+}
+
+func (r *entityPortableTestAttributions) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
+	for _, row := range r.ImportedAttributions() {
+		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
+			if err := visit(row); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -301,6 +301,8 @@ func assertTableAccessClass(t testing.TB, db *sql.DB, objectName string, class s
 	switch class {
 	case "table_read_write":
 		want = truePrivileges("SELECT", "INSERT", "UPDATE", "DELETE")
+	case "table_immutable":
+		want = truePrivileges("SELECT", "INSERT", "DELETE")
 	case "table_append_only":
 		want = truePrivileges("SELECT", "INSERT")
 	case "table_read_update":

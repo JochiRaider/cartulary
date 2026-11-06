@@ -446,7 +446,7 @@ func contractFamilyPackage(familyDir string) string {
 func writeGraphProjectionRestoreBindingGo(root string, families []family) error {
 	const (
 		registryPath = "contracts/recovery/fixtures/graph-projection-restore-source-registry.v6.json"
-		bindingPath  = "contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v8.json"
+		bindingPath  = "contracts/recovery/fixtures/graph-projection-restore-implementation-binding.v9.json"
 	)
 	var registryArtifact artifact
 	var bindingArtifact artifact

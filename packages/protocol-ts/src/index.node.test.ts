@@ -934,25 +934,25 @@ describe("@cartulary/protocol-ts family conformance", () => {
   it("decodes exact Network Flow contracts without exposing payload data on failure", () => {
     expect(networkFlowContractDescriptor).toEqual({
       profile_id: "network_flow_activity",
-      contract_major: 9,
+      contract_major: 10,
     });
 
     const valid = networkFlowDecoders.tableList.decode({
-      schema_id: "cartulary.network_flow_table_list.v2",
+      schema_id: "cartulary.network_flow_table_list.v3",
       tables: [],
       meta: { count: 0 },
     });
     expect(valid).toEqual({
       ok: true,
       value: {
-        schema_id: "cartulary.network_flow_table_list.v2",
+        schema_id: "cartulary.network_flow_table_list.v3",
         tables: [],
         meta: { count: 0 },
       },
     });
 
     const invalid = networkFlowDecoders.tableList.decode({
-      schema_id: "cartulary.network_flow_table_list.v2",
+      schema_id: "cartulary.network_flow_table_list.v3",
       tables: [],
       meta: { count: 0 },
       raw_source_value: "must-not-leak",
@@ -963,7 +963,7 @@ describe("@cartulary/protocol-ts family conformance", () => {
         boundary: "generated_protocol",
         instancePath: "/raw_source_value",
         reasonCategory: "unknown_member",
-        schemaId: "cartulary.network_flow_table_list.v2",
+        schemaId: "cartulary.network_flow_table_list.v3",
       },
     });
     expect(JSON.stringify(invalid)).not.toContain("must-not-leak");

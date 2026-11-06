@@ -15,22 +15,62 @@ export const savedGraphTestAuthority: SavedGraphAuthority = {
 export function savedGraphFixture(
   patch: Partial<NetworkFlowSavedGraph> = {},
 ): NetworkFlowSavedGraph {
+  const semanticQuery = patch.semantic_query ?? {
+    schema_id: "cartulary.network_flow.graph_semantic_query.v3" as const,
+    selected_table_ids: [`nft_${"c".repeat(32)}`] as [string],
+    filters: [] as [],
+    time_range: { start_utc: null, end_utc: null },
+    aggregation: {
+      mode: "default_flow_edge_v1" as const,
+      include_example_row_refs: false,
+    },
+  };
+  const selectedSource: NetworkFlowSavedGraph["selected_source_binding"] =
+    patch.selected_result_binding
+      ? {
+          schema_id: "cartulary.network_flow.selected_source_binding.v1",
+          algorithm_id: "network_flow_activity.selected_source.v1",
+          semantic_query: semanticQuery,
+          expected_result_binding: patch.selected_result_binding,
+          computation_limits: {
+            max_vertices: 5000,
+            max_edges: 10000,
+            max_example_row_refs_per_edge: 10,
+            max_aggregate_counter_digits: 39,
+            max_contributing_rows: 250000,
+            max_time_buckets: 256,
+          },
+          tables: semanticQuery.selected_table_ids.map((tableId) => ({
+            network_flow_table_id: tableId,
+            table_version: 1,
+            committed_source_id: "11111111-1111-4111-8111-111111111111",
+            source_content_sha256: "a".repeat(64),
+            source_interpretation_sha256: "b".repeat(64),
+            mapping_fingerprint: "c".repeat(64),
+            source_profile_id: "cisco_sna_netflow_csv_v2",
+            parser_profile_id: "rfc4180_headered_csv_v1",
+            row_count_accepted: 1,
+            row_count_rejected: 0,
+            content_fingerprint:
+              "d8481d0e966816edf6a0416a45eb95325333b2a63c15b5f1018dac9a21307518",
+          })) as NonNullable<
+            NetworkFlowSavedGraph["selected_source_binding"]
+          >["tables"],
+        }
+      : null;
   const graph = {
-    schema_id: "cartulary.network_flow.graph_view.v5" as const,
+    schema_id: "cartulary.network_flow.graph_view.v6" as const,
     graph_view_id: `nfgv_${"a".repeat(32)}`,
     incident_id: savedGraphTestAuthority.incidentId,
     display_name: "Graph A",
     state: "active" as const,
-    semantic_query: {
-      schema_id: "cartulary.network_flow.graph_semantic_query.v3" as const,
-      selected_table_ids: [`nft_${"c".repeat(32)}`] as [string],
-      filters: [] as [],
-      time_range: { start_utc: null, end_utc: null },
-      aggregation: {
-        mode: "default_flow_edge_v1" as const,
-        include_example_row_refs: false,
-      },
+    semantic_query: semanticQuery,
+    refresh_intent: {
+      schema_id: "cartulary.network_flow.refresh_intent.v1" as const,
+      scope: "selected_tables" as const,
+      semantic_query: semanticQuery,
     },
+    selected_source_binding: selectedSource,
     semantic_query_sha256: "a".repeat(64),
     desired_source_snapshot_id: "snapshot-1",
     selected_result_binding: null,
@@ -58,7 +98,7 @@ export function savedGraphAccepted(
   return {
     kind: "accepted",
     value: {
-      schema_id: "cartulary.network_flow.graph_view_accepted.v5",
+      schema_id: "cartulary.network_flow.graph_view_accepted.v6",
       graph_view: graph,
       job: {
         job_id: graph.latest_job_id ?? "",
@@ -98,7 +138,7 @@ export function savedGraphResultFixture(
   if (graph.selected_result_binding === null)
     throw new Error("Fixture requires selected binding");
   return {
-    schema_id: "cartulary.network_flow.graph_view_result.v5",
+    schema_id: "cartulary.network_flow.graph_view_result.v6",
     graph_view: graph,
     result: {
       schema_id: "cartulary.network_flow.graph_query_result.v3",

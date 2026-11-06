@@ -196,6 +196,11 @@ function fixtureRows(count: number): NetworkFlowRow[] {
     const ordinal = index + 1;
     const suffix = String(ordinal).padStart(4, "0");
     return {
+      incident_id: "00000000-0000-4000-8000-000000000001",
+      source_row_digest_sha256: "b".repeat(64),
+      normalized_row_digest_sha256: "c".repeat(64),
+      created_at: "2026-07-16T00:00:00Z",
+      created_by_user_id: "00000000-0000-4000-8000-000000000002",
       mapping_fingerprint: "a".repeat(64),
       network_flow_row_id: `nfr_load_${suffix}`,
       network_flow_table_id: `nft_load_${(index % 4) + 1}`,
@@ -239,7 +244,13 @@ function fixtureRows(count: number): NetworkFlowRow[] {
       "network_flow.input_interface": `ingress-${index % 4}`,
       "network_flow.ip_protocol": 6,
       "network_flow.observation_source_ref": {
-        import_unit_id: `niu_load_${(index % 4) + 1}`,
+        committed_source_id: "00000000-0000-4000-8000-000000000003",
+        source_content_sha256: "d".repeat(64),
+        source_profile_id: "cisco_sna_netflow_csv_v2",
+        parser_profile_id: "rfc4180_headered_csv_v1",
+        mapping_fingerprint: "a".repeat(64),
+        source_row_number: ordinal,
+        source_row_digest_sha256: "b".repeat(64),
       },
       "network_flow.output_interface": `egress-${index % 4}`,
       "network_flow.packets_count": String(ordinal * 4),
@@ -249,7 +260,7 @@ function fixtureRows(count: number): NetworkFlowRow[] {
       },
 
       "network_flow.tcp_flags": index % 256,
-    } as NetworkFlowRow;
+    } satisfies NetworkFlowRow;
   });
 }
 
@@ -437,7 +448,7 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     },
   };
   const graph: NetworkFlowSavedGraph = {
-    schema_id: "cartulary.network_flow.graph_view.v5",
+    schema_id: "cartulary.network_flow.graph_view.v6",
     graph_view_id: "nfgv_11111111111111111111111111111111",
     incident_id: "00000000-0000-0000-0000-000000000000",
     display_name: "Supported-load saved graph",
@@ -445,6 +456,12 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     materialization_generation: 1,
     state: "active",
     semantic_query: semanticQuery,
+    refresh_intent: {
+      schema_id: "cartulary.network_flow.refresh_intent.v1",
+      scope: "selected_tables",
+      semantic_query: semanticQuery,
+    },
+    selected_source_binding: null,
     selected_result_binding: {
       projection_result_id: `gpres_${"1".repeat(64)}`,
       source_snapshot_id: "supported-load-snapshot",
@@ -463,6 +480,38 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     created_at: "2026-07-16T00:00:00Z",
     updated_at: "2026-07-16T00:00:00Z",
   };
+  if (graph.selected_result_binding) {
+    graph.selected_source_binding = {
+      schema_id: "cartulary.network_flow.selected_source_binding.v1",
+      algorithm_id: "network_flow_activity.selected_source.v1",
+      semantic_query: semanticQuery,
+      expected_result_binding: graph.selected_result_binding,
+      computation_limits: {
+        max_vertices: 5000,
+        max_edges: 10000,
+        max_example_row_refs_per_edge: 10,
+        max_aggregate_counter_digits: 39,
+        max_contributing_rows: 250000,
+        max_time_buckets: 256,
+      },
+      tables: [
+        {
+          network_flow_table_id: "nft_load_1",
+          table_version: 1,
+          committed_source_id: "11111111-1111-4111-8111-111111111111",
+          source_content_sha256: "a".repeat(64),
+          source_interpretation_sha256: "b".repeat(64),
+          mapping_fingerprint: "c".repeat(64),
+          source_profile_id: "cisco_sna_netflow_csv_v2",
+          parser_profile_id: "rfc4180_headered_csv_v1",
+          row_count_accepted: 1,
+          row_count_rejected: 0,
+          content_fingerprint:
+            "d8481d0e966816edf6a0416a45eb95325333b2a63c15b5f1018dac9a21307518",
+        },
+      ],
+    };
+  }
   const projectionResult: NetworkFlowGraphResult["graph_projection_result"] = {
     projection_schema_id: "graph_projection.v2" as const,
     projection_result_id:
@@ -503,7 +552,7 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     },
   };
   return {
-    schema_id: "cartulary.network_flow.graph_view_result.v5",
+    schema_id: "cartulary.network_flow.graph_view_result.v6",
     graph_view: graph,
     result: {
       schema_id: "cartulary.network_flow.graph_query_result.v3",

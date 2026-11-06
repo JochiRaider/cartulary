@@ -2,6 +2,7 @@ package networkflow
 
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -14,6 +15,7 @@ import (
 type constructionPorts struct {
 	postgres.DB
 	ImportSourcePort
+	sourceport.PortableAttributionResolver
 	IncidentLockPort
 	AdministrativeAuditPort
 	IndicatorParticipationPort
@@ -33,7 +35,7 @@ func (p *constructionPorts) RegisterHandlerWhenReady(_ string, _ jobs.HandlerFun
 func constructionModule(t *testing.T, active bool) (*Module, *constructionPorts) {
 	t.Helper()
 	ports := &constructionPorts{}
-	deps := ModuleDependencies{Postgres: ports, ImportSources: ports, IncidentLocks: ports,
+	deps := ModuleDependencies{Postgres: ports, ImportSources: ports, ImportedAttributions: ports, IncidentLocks: ports,
 		AuditAppender: ports, Indicators: ports, ResourceIntents: ports, EffectiveLimits: defaultEffectiveLimits(),
 		GraphViewJobs: ports, JobManager: ports, JobRunner: ports, JobFinalizer: ports, GraphStateReady: func() bool { return active },
 		Now: func() time.Time { return time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC) },

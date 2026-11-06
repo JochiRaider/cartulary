@@ -174,7 +174,7 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	// A checksummed but undeclared retained file is corruption, even when it
 	// could not be reached through normal import. Use only the disposable DB.
 	extraPath := "ext/snapshots/corrupt-retained-file.json"
-	if _, err := target.DB.Exec(`INSERT INTO reporting_imported_artifact_files(incident_id,bundle_path,operation_id,size_bytes,sha256,content) VALUES($1,$2,$3,2,$4,$5)`, incidentID, extraPath, terminalImport["job_id"], hashHexBytes([]byte(`{}`)), []byte(`{}`)); err != nil {
+	if _, err := target.DB.Exec(`INSERT INTO reporting_imported_artifact_files(incident_id,bundle_path,operation_id,size_bytes,sha256) VALUES($1,$2,$3,2,$4)`, incidentID, extraPath, terminalImport["job_id"], hashHexBytes([]byte(`{}`))); err != nil {
 		t.Fatal(err)
 	}
 	recoveryErr := reporting.ValidateRetainedArtifacts(t.Context(), target.Pool, referenceCatalog)
@@ -193,7 +193,7 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = tx.Exec(t.Context(), `UPDATE reporting_imported_artifact_files SET content=content WHERE incident_id=$1`, incidentID)
+	_, err = tx.Exec(t.Context(), `UPDATE reporting_imported_artifact_files SET size_bytes=size_bytes WHERE incident_id=$1`, incidentID)
 	_ = tx.Rollback(t.Context())
 	if err == nil {
 		t.Fatal("retained artifact update was allowed")

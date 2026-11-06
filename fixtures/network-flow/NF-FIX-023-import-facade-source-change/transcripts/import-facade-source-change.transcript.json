@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-023-import-facade-source-change",
-  "freeze_revision": 5,
+  "freeze_revision": 6,
   "outcomes": [
     {
       "case": "expected_digest_pass_0",
@@ -1247,7 +1247,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -2520,7 +2520,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -3793,7 +3793,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -5066,7 +5066,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -6339,7 +6339,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -7612,7 +7612,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -8885,7 +8885,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -10158,7 +10158,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -11432,7 +11432,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -12706,7 +12706,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -13980,7 +13980,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -15253,7 +15253,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -16527,7 +16527,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -17801,7 +17801,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -19075,7 +19075,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0

@@ -6,15 +6,14 @@ import (
 	"encoding/json"
 	"path"
 	"regexp"
-	"slices"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/artifactport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -47,7 +46,7 @@ type portableArtifactCatalog struct {
 type preparedArtifactImport struct {
 	incident  uuid.UUID
 	operation uuid.UUID
-	files     map[string][]byte
+	members   *incidentportability.BoundMembers
 }
 
 var portableDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -158,29 +157,37 @@ func (PortableReferenceSource) PrepareArtifactImport(ctx context.Context, reques
 	if err != nil {
 		return nil, artifactport.ErrInvalid
 	}
-	files := map[string][]byte{}
-	for _, name := range request.Bundle.Paths() {
-		if strings.HasPrefix(name, "ext/snapshots/") {
-			data, ok := request.Bundle.File(name)
-			if !ok {
-				return nil, artifactport.ErrInvalid
-			}
-			files[name] = data
+	paths := []string{}
+	for _, member := range request.Bundle.Members() {
+		if strings.HasPrefix(member.Path, "ext/snapshots/") {
+			paths = append(paths, member.Path)
 		}
 	}
-	p := &preparedArtifactImport{incident: request.IncidentID, operation: request.OperationID, files: map[string][]byte{}}
-	if len(files) == 0 {
+	members, err := incidentportability.BindMembers(request.Bundle, paths)
+	if err != nil {
+		return nil, artifactport.ErrInvalid
+	}
+	p := &preparedArtifactImport{incident: request.IncidentID, operation: request.OperationID, members: members}
+	if len(paths) == 0 {
 		return p, nil
 	}
-	c, err := decodePortableCatalog(files[portableArtifactCatalogPath], request.IncidentID)
+	catalogBytes, err := incidentportability.ReadControl(ctx, members, portableArtifactCatalogPath, portableCatalogBytes)
+	if err != nil {
+		return nil, artifactport.ErrInvalid
+	}
+	c, err := decodePortableCatalog(catalogBytes, request.IncidentID)
 	if err != nil {
 		return nil, err
 	}
 	used := map[string]bool{portableArtifactCatalogPath: true}
 	bindings := map[string]reference_data.SetBinding{}
 	for _, s := range c.Snapshots {
-		model, encoded, err := decodePortableObject[snapshotCapture](files[s.CapturePath], s.CaptureSHA256)
-		if err != nil || !bytes.Equal(encoded, files[s.CapturePath]) || validateSnapshotCapture(model) != nil || model.DerivationVersion != DerivationVersion || model.SnapshotID != s.SnapshotID || model.IncidentID != c.IncidentID {
+		raw, err := incidentportability.ReadControl(ctx, members, s.CapturePath, incidentportability.MaxControlMemberBytes)
+		if err != nil {
+			return nil, artifactport.ErrInvalid
+		}
+		model, encoded, err := decodePortableObject[snapshotCapture](raw, s.CaptureSHA256)
+		if err != nil || !bytes.Equal(encoded, raw) || validateSnapshotCapture(model) != nil || model.DerivationVersion != DerivationVersion || model.SnapshotID != s.SnapshotID || model.IncidentID != c.IncidentID {
 			return nil, artifactport.ErrInvalid
 		}
 		if err := reference_data.ValidatePortableBinding(refs, model.ReferencePacks); err != nil {
@@ -190,8 +197,12 @@ func (PortableReferenceSource) PrepareArtifactImport(ctx context.Context, reques
 		bindings[s.SnapshotID] = model.ReferencePacks
 	}
 	for _, r := range c.Releases {
-		manifest, encoded, err := decodePortableObject[RenderBundleManifest](files[r.ManifestPath], r.ManifestSHA256)
-		if err != nil || !bytes.Equal(encoded, files[r.ManifestPath]) || validateBundleIdentity(manifest) != nil || manifest.ReleaseID == nil || *manifest.ReleaseID != r.ReleaseID || manifest.SnapshotID != r.SnapshotID || manifest.BundleCreatedAt != manifest.RenderAdmittedAt || manifest.SchemaID != RenderBundleManifestSchemaID || manifest.ManifestVersion != RenderBundleManifestVersion || manifest.Files == nil || len(manifest.Files) == 0 || len(manifest.Files) > 10000 {
+		raw, err := incidentportability.ReadControl(ctx, members, r.ManifestPath, incidentportability.MaxControlMemberBytes)
+		if err != nil {
+			return nil, artifactport.ErrInvalid
+		}
+		manifest, encoded, err := decodePortableObject[RenderBundleManifest](raw, r.ManifestSHA256)
+		if err != nil || !bytes.Equal(encoded, raw) || validateBundleIdentity(manifest) != nil || manifest.ReleaseID == nil || *manifest.ReleaseID != r.ReleaseID || manifest.SnapshotID != r.SnapshotID || manifest.BundleCreatedAt != manifest.RenderAdmittedAt || manifest.SchemaID != RenderBundleManifestSchemaID || manifest.ManifestVersion != RenderBundleManifestVersion || manifest.Files == nil || len(manifest.Files) == 0 || len(manifest.Files) > 10000 {
 			return nil, artifactport.ErrInvalid
 		}
 		expected, _ := canonicaljson.Marshal(bindings[r.SnapshotID])
@@ -200,99 +211,15 @@ func (PortableReferenceSource) PrepareArtifactImport(ctx context.Context, reques
 			return nil, artifactport.ErrInvalid
 		}
 		used[r.ManifestPath] = true
-		previous := ""
-		primary := false
-		validationCount := 0
-		publicArtifacts := []RenderBundleFile{}
-		for _, f := range manifest.Files {
-			if !portableMemberPath(f.Path) || f.Path <= previous || f.SizeBytes < 0 || !portableDigestPattern.MatchString(f.SHA256) || !shareableBundleMember(f) {
-				return nil, artifactport.ErrInvalid
-			}
-			previous = f.Path
-			name := portableReleasePath(r.ReleaseID, f.Path)
-			data, ok := files[name]
-			if !ok || int64(len(data)) != f.SizeBytes || hashHex(data) != f.SHA256 {
-				return nil, artifactport.ErrInvalid
-			}
-			used[name] = true
-			publicArtifacts = append(publicArtifacts, RenderBundleFile{RenderBundleManifestFile: f, Bytes: data})
-			if f.Role == renderBundleRoleValidationSummary {
-				validationCount++
-				if f.Path != "validation/summary.json" || validatePassedRenderSummary(data, manifest) != nil {
-					return nil, artifactport.ErrInvalid
-				}
-			}
-			if f.Path == manifest.PrimaryPath && f.MediaType == manifest.PrimaryMediaType {
-				primary = true
-			}
-		}
-		if !primary || validationCount != 1 || validatePublicRedactionArtifacts(manifest, publicArtifacts) != nil || validateBundleToolchain(manifest, publicArtifacts) != nil || validateBundleFilesSelfContained(publicArtifacts) != nil {
-			return nil, artifactport.ErrInvalid
-		}
-	}
-	if len(used) != len(files) {
-		return nil, artifactport.ErrInvalid
-	}
-	for name, data := range files {
-		p.files[name] = bytes.Clone(data)
-	}
-	return p, nil
-}
-
-func (p *preparedArtifactImport) ApplyTx(ctx context.Context, tx pgx.Tx) error {
-	if tx == nil || p == nil {
-		return artifactport.ErrInvalid
-	}
-	names := make([]string, 0, len(p.files))
-	for name := range p.files {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	for _, name := range names {
-		data := p.files[name]
-		// Exact replay is idempotent; an existing identity with different bytes or
-		// operation attribution is never overwritten.
-		tag, err := tx.Exec(ctx, `INSERT INTO reporting_imported_artifact_files(incident_id,bundle_path,operation_id,size_bytes,sha256,content) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, p.incident, name, p.operation, len(data), hashHex(data), data)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() == 0 {
-			var same bool
-			err = tx.QueryRow(ctx, `SELECT operation_id=$3 AND content=$4 FROM reporting_imported_artifact_files WHERE incident_id=$1 AND bundle_path=$2`, p.incident, name, p.operation, data).Scan(&same)
-			if err != nil {
-				return err
-			}
-			if !same {
-				return artifactport.ErrInvalid
-			}
-		}
-	}
-	return nil
-}
-
-func loadImportedArtifactFiles(ctx context.Context, tx pgx.Tx, incident uuid.UUID) (map[string][]byte, error) {
-	rows, err := tx.Query(ctx, `SELECT bundle_path,content,sha256,size_bytes FROM reporting_imported_artifact_files WHERE incident_id=$1 ORDER BY bundle_path`, incident)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	files := map[string][]byte{}
-	for rows.Next() {
-		var name, digest string
-		var data []byte
-		var size int64
-		if err := rows.Scan(&name, &data, &digest, &size); err != nil {
+		if err := validatePortableReleaseMembers(ctx, members, manifest, r.ReleaseID, used); err != nil {
 			return nil, err
 		}
-		if int64(len(data)) != size || hashHex(data) != digest || len(files) >= 10000 {
-			return nil, artifactport.ErrInvalid
-		}
-		files[name] = data
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+
+	if len(used) != len(paths) {
+		return nil, artifactport.ErrInvalid
 	}
-	return files, nil
+	return p, nil
 }
 
 var _ artifactport.Prepared = (*preparedArtifactImport)(nil)

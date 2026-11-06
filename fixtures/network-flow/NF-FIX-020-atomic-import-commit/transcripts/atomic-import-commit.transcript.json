@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-020-atomic-import-commit",
-  "freeze_revision": 4,
+  "freeze_revision": 5,
   "outcomes": [
     {
       "case": "before_owner_apply",
@@ -1421,7 +1421,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -2856,7 +2856,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -4291,7 +4291,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [],
         "meta": {
           "count": 0
@@ -5714,8 +5714,6 @@
             "display_name": "atomic-import-commit",
             "table_version": 1,
             "table_status": "active",
-            "source_import_session_id": "00000000-0000-4000-8000-000000000003",
-            "source_import_unit_id": "00000000-0000-4000-8000-000000000004",
             "source_content_sha256": "23611155c65157e2c0bd5de6dc608a0b394eef2cd831693bd9af2f27414dd5f1",
             "source_filename_display": "atomic-import-commit.csv",
             "source_filename_digest": "01c5ad4700782d4f14a629e51b4409ea40cbb7a3f50790b6d03c1ffe8701a84e",
@@ -5729,7 +5727,10 @@
             "created_by_user_id": "00000000-0000-4000-8000-000000000001",
             "created_at": "2026-07-10T12:00:00+00:00",
             "updated_at": "2026-07-10T12:00:00+00:00",
-            "deleted_at": null
+            "deleted_at": null,
+            "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9",
+            "source_interpretation_sha256": "e5094650dce011d954700b68aee85eadd486de0d5b26dae95bca255849b6fa27",
+            "source_raw_cell_scalar_limit": 4096
           }
         ],
         "rows": [
@@ -5753,14 +5754,13 @@
             "application_label": null,
             "unmapped_raw": {},
             "observation_source_ref": {
-              "import_session_id": "00000000-0000-4000-8000-000000000003",
-              "import_unit_id": "00000000-0000-4000-8000-000000000004",
               "source_content_sha256": "23611155c65157e2c0bd5de6dc608a0b394eef2cd831693bd9af2f27414dd5f1",
               "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "mapping_fingerprint": "6bbc8135f50f0887b5db6a5adfecb64f166d597d39cfa393be28aad54f10070f",
               "source_row_number": 2,
-              "source_row_digest_sha256": "c9f179bee38439fb1c264010c9158bb717fbc0ca2dcfeca66b254932b9911188"
+              "source_row_digest_sha256": "c9f179bee38439fb1c264010c9158bb717fbc0ca2dcfeca66b254932b9911188",
+              "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
             },
             "created_at": "2026-07-10T12:00:00+00:00",
             "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -5926,7 +5926,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [
           {
             "network_flow_table_id": "nft_00000000000040008000000000000005",
@@ -5934,8 +5934,6 @@
             "display_name": "atomic-import-commit",
             "table_version": 1,
             "table_status": "active",
-            "source_import_session_id": "00000000-0000-4000-8000-000000000003",
-            "source_import_unit_id": "00000000-0000-4000-8000-000000000004",
             "source_content_sha256": "23611155c65157e2c0bd5de6dc608a0b394eef2cd831693bd9af2f27414dd5f1",
             "source_filename_display": "atomic-import-commit.csv",
             "source_filename_digest": "01c5ad4700782d4f14a629e51b4409ea40cbb7a3f50790b6d03c1ffe8701a84e",
@@ -5950,7 +5948,10 @@
             "created_at": "2026-07-10T12:00:00Z",
             "updated_at": "2026-07-10T12:00:00Z",
             "deleted_at": null,
-            "counter_semantics": "source_reported_flow_total"
+            "counter_semantics": "source_reported_flow_total",
+            "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9",
+            "source_interpretation_sha256": "e5094650dce011d954700b68aee85eadd486de0d5b26dae95bca255849b6fa27",
+            "source_raw_cell_scalar_limit": 4096
           }
         ],
         "meta": {
@@ -5958,7 +5959,7 @@
         }
       },
       "rows": {
-        "schema_id": "cartulary.network_flow.table_query_result.v2",
+        "schema_id": "cartulary.network_flow.table_query_result.v3",
         "network_flow_table_id": "nft_00000000000040008000000000000005",
         "rows": [
           {
@@ -5981,14 +5982,13 @@
             "network_flow.application_label": null,
             "unmapped_raw": {},
             "network_flow.observation_source_ref": {
-              "import_session_id": "00000000-0000-4000-8000-000000000003",
-              "import_unit_id": "00000000-0000-4000-8000-000000000004",
               "source_content_sha256": "23611155c65157e2c0bd5de6dc608a0b394eef2cd831693bd9af2f27414dd5f1",
               "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "mapping_fingerprint": "6bbc8135f50f0887b5db6a5adfecb64f166d597d39cfa393be28aad54f10070f",
               "source_row_number": 2,
-              "source_row_digest_sha256": "c9f179bee38439fb1c264010c9158bb717fbc0ca2dcfeca66b254932b9911188"
+              "source_row_digest_sha256": "c9f179bee38439fb1c264010c9158bb717fbc0ca2dcfeca66b254932b9911188",
+              "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
             },
             "created_at": "2026-07-10T12:00:00Z",
             "created_by_user_id": "00000000-0000-4000-8000-000000000001",

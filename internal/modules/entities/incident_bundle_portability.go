@@ -3,64 +3,35 @@ package entities
 import (
 	"context"
 	"errors"
+	"io"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-func exportEntityIncidentBundleFiles(ctx context.Context, exportContext sourceport.ExportContext) ([]incidentportability.File, error) {
-	mentions, err := loadPortableEntityMentions(ctx, exportContext)
-	if err != nil {
-		return nil, err
+func exportEntityIncidentBundleFiles(ctx context.Context, input sourceport.ExportContext) error {
+	if err := exportSourceMember(ctx, input, hostsBundlePath, loadPortableHostsPage, func(row portableHostRow) uuid.UUID { return row.RecordID }, encodePortableHosts); err != nil {
+		return err
 	}
-	hosts, err := loadPortableHosts(ctx, exportContext)
-	if err != nil {
-		return nil, err
+	if err := exportSourceMember(ctx, input, identitiesBundlePath, loadPortableIdentitiesPage, func(row portableIdentityRow) uuid.UUID { return row.RecordID }, encodePortableIdentities); err != nil {
+		return err
 	}
-	identities, err := loadPortableIdentities(ctx, exportContext)
-	if err != nil {
-		return nil, err
+	if err := exportSourceMember(ctx, input, entityMentionsBundlePath, loadPortableEntityMentionsPage, func(row portableMentionRow) uuid.UUID { return row.MentionID }, encodePortableMentions); err != nil {
+		return err
 	}
-	preserved, err := loadPortablePreservedIdentifiers(ctx, exportContext)
-	if err != nil {
-		return nil, err
+	if err := exportSourceMember(ctx, input, preservedIDsBundlePath, loadPortablePreservedIdentifiersPage, func(row portablePreservedIdentifierRow) uuid.UUID { return row.PreservedID }, encodePortablePreserved); err != nil {
+		return err
 	}
-	aliases, err := loadPortableAliases(ctx, exportContext)
-	if err != nil {
-		return nil, err
+	if err := exportSourceMember(ctx, input, entityAliasesBundlePath, loadPortableAliasesPage, func(row portableAliasRow) uuid.UUID { return row.AliasID }, encodePortableAliases); err != nil {
+		return err
 	}
-	mentionPayload, err := encodePortableMentions(ctx, exportContext, mentions)
-	if err != nil {
-		return nil, err
-	}
-	hostPayload, err := encodePortableHosts(ctx, exportContext, hosts)
-	if err != nil {
-		return nil, err
-	}
-	identityPayload, err := encodePortableIdentities(ctx, exportContext, identities)
-	if err != nil {
-		return nil, err
-	}
-	preservedPayload, err := encodePortablePreserved(ctx, exportContext, preserved)
-	if err != nil {
-		return nil, err
-	}
-	aliasPayload, err := encodePortableAliases(ctx, exportContext, aliases)
-	if err != nil {
-		return nil, err
-	}
-	return []incidentportability.File{
-		{Path: entityMentionsBundlePath, Payload: mentionPayload},
-		{Path: hostsBundlePath, Payload: hostPayload},
-		{Path: identitiesBundlePath, Payload: identityPayload},
-		{Path: preservedIDsBundlePath, Payload: preservedPayload},
-		{Path: entityAliasesBundlePath, Payload: aliasPayload},
-	}, nil
+	return nil
 }
 
-func loadPortableHosts(ctx context.Context, exportContext sourceport.ExportContext) ([]portableHostRow, error) {
+func loadPortableHostsPage(ctx context.Context, exportContext sourceport.ExportContext, after *uuid.UUID) ([]portableHostRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT record_id, incident_id, display_name, hostname, aad_device_id, fqdn,
        entity_origin, seed_entity_mention_id, host_state, merged_into_record_id,
@@ -68,8 +39,10 @@ SELECT record_id, incident_id, display_name, hostname, aad_device_id, fqdn,
        location, os_platform, business_owner, criticality, containment_status
   FROM hosts
  WHERE incident_id = $1
+ AND ($2::uuid IS NULL OR record_id > $2)
  ORDER BY record_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, errors.New("entity host portability export query failed")
 	}
@@ -97,7 +70,7 @@ SELECT record_id, incident_id, display_name, hostname, aad_device_id, fqdn,
 	return result, nil
 }
 
-func loadPortableIdentities(ctx context.Context, exportContext sourceport.ExportContext) ([]portableIdentityRow, error) {
+func loadPortableIdentitiesPage(ctx context.Context, exportContext sourceport.ExportContext, after *uuid.UUID) ([]portableIdentityRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT record_id, incident_id, display_name, upn, email::text, sam_account_name,
        aad_object_id, sid, entity_origin, seed_entity_mention_id, identity_state,
@@ -105,8 +78,10 @@ SELECT record_id, incident_id, display_name, upn, email::text, sam_account_name,
        created_by_user_id, updated_by_user_id, privilege_level, mfa_state, reset_status
   FROM identities
  WHERE incident_id = $1
+ AND ($2::uuid IS NULL OR record_id > $2)
  ORDER BY record_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, errors.New("entity identity portability export query failed")
 	}
@@ -134,7 +109,7 @@ SELECT record_id, incident_id, display_name, upn, email::text, sam_account_name,
 	return result, nil
 }
 
-func loadPortableEntityMentions(ctx context.Context, exportContext sourceport.ExportContext) ([]portableMentionRow, error) {
+func loadPortableEntityMentionsPage(ctx context.Context, exportContext sourceport.ExportContext, after *uuid.UUID) ([]portableMentionRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT mention.entity_mention_id, mention.source_record_id, mention.entity_type,
        mention.source_field_key, mention.origin_kind, mention.origin_locator,
@@ -146,8 +121,10 @@ SELECT mention.entity_mention_id, mention.source_record_id, mention.entity_type,
   JOIN records AS source_record
     ON source_record.record_id = mention.source_record_id
  WHERE source_record.incident_id = $1
+ AND ($2::uuid IS NULL OR mention.entity_mention_id > $2)
  ORDER BY mention.entity_mention_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, errors.New("entity mention portability export query failed")
 	}
@@ -175,15 +152,17 @@ SELECT mention.entity_mention_id, mention.source_record_id, mention.entity_type,
 	return result, nil
 }
 
-func loadPortablePreservedIdentifiers(ctx context.Context, exportContext sourceport.ExportContext) ([]portablePreservedIdentifierRow, error) {
+func loadPortablePreservedIdentifiersPage(ctx context.Context, exportContext sourceport.ExportContext, after *uuid.UUID) ([]portablePreservedIdentifierRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT entity_preserved_identifier_id, incident_id, record_id, entity_type,
        identifier_type, raw_value, normalized_value, classification,
        created_by_user_id, created_at, deleted_at
   FROM entity_preserved_identifiers
  WHERE incident_id = $1
+ AND ($2::uuid IS NULL OR entity_preserved_identifier_id > $2)
  ORDER BY entity_preserved_identifier_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, errors.New("entity preserved identifier portability export query failed")
 	}
@@ -206,14 +185,16 @@ SELECT entity_preserved_identifier_id, incident_id, record_id, entity_type,
 	return result, nil
 }
 
-func loadPortableAliases(ctx context.Context, exportContext sourceport.ExportContext) ([]portableAliasRow, error) {
+func loadPortableAliasesPage(ctx context.Context, exportContext sourceport.ExportContext, after *uuid.UUID) ([]portableAliasRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT entity_alias_id, incident_id, record_id, entity_type, raw_text,
        normalized_text::text, classification, created_by_user_id, created_at, deleted_at
   FROM entity_aliases
  WHERE incident_id = $1
+ AND ($2::uuid IS NULL OR entity_alias_id > $2)
  ORDER BY entity_alias_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, errors.New("entity alias portability export query failed")
 	}
@@ -234,4 +215,28 @@ SELECT entity_alias_id, incident_id, record_id, entity_type, raw_text,
 		return nil, errors.New("entity alias portability export iteration failed")
 	}
 	return result, nil
+}
+
+func exportSourceMember[T any](ctx context.Context, input sourceport.ExportContext, path string,
+	load func(context.Context, sourceport.ExportContext, *uuid.UUID) ([]T, error),
+	identity func(T) uuid.UUID,
+	encode func(context.Context, sourceport.ExportContext, []T, io.Writer) error,
+) error {
+	return incidentportability.WriteMemberFrom(ctx, input.Members, path, func(ctx context.Context, output io.Writer) error {
+		var after *uuid.UUID
+		for {
+			rows, err := load(ctx, input, after)
+			if err != nil {
+				return err
+			}
+			if len(rows) == 0 {
+				return nil
+			}
+			if err := encode(ctx, input, rows, output); err != nil {
+				return err
+			}
+			last := identity(rows[len(rows)-1])
+			after = &last
+		}
+	})
 }

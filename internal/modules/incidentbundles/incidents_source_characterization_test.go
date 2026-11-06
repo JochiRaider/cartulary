@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
@@ -35,7 +36,7 @@ func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
 	}
 	path := descriptor.Paths[0]
 	if path.LogicalPath != "data/incident.json" || path.ContentRole != "singleton_json" ||
-		!slices.Equal(path.Versions, []int{5}) || !slices.Equal(path.StableIdentity, []string{"id"}) ||
+		!slices.Equal(path.Versions, []int{6}) || !slices.Equal(path.StableIdentity, []string{"id"}) ||
 		path.StableIdentityInvariantID != "incident.source_identity_admitted" {
 		t.Fatalf("incident source path drifted: %#v", path)
 	}
@@ -53,9 +54,10 @@ func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
 
 	const portableRow = `{"closed_at":null,"created_at":"2026-08-28T12:34:56.123456+00:00","created_by_user_id":"22222222-2222-4222-8222-222222222222","current_phase":"triage","description":"Portable description","id":"11111111-1111-4111-8111-111111111111","incident_key":"IR-PORTABLE-1","incident_key_canonical":"IR-PORTABLE-1","incident_version":7,"primary_external_case_ref":null,"severity":"high","status":"active","title":"Portable incident","tlp":"TLP:AMBER","updated_at":"2026-08-28T12:34:56.123456+00:00","updated_by_user_id":"22222222-2222-4222-8222-222222222222"}`
 	wantPayload := []byte(portableRow + "\n")
-	files, err := port.Export(context.Background(), sourceport.ExportContext{
-		Query:      incidentSourceQueryFake{raw: []byte(portableRow), incidentKey: "IR-PORTABLE-1"},
-		IncidentID: incidentID,
+	files, err := portabilitysupport.Export(port, context.Background(), sourceport.ExportContext{
+		Query:                incidentSourceQueryFake{raw: []byte(portableRow), incidentKey: "IR-PORTABLE-1"},
+		IncidentID:           incidentID,
+		PortableAttributions: noImportedIncidentAttribution{},
 	})
 	if err != nil {
 		t.Fatalf("export incident source: %v", err)
@@ -69,10 +71,10 @@ func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
 		t.Fatalf("construct actor catalog: %v", err)
 	}
 	operationID := "incident-source-characterization"
-	prepared, err := port.PrepareImport(context.Background(), sourceport.MapBundle{
+	prepared, err := port.PrepareImport(context.Background(), portabilitysupport.MapBundle{
 		"data/incident.json": wantPayload,
 	}, sourceport.ImportContext{
-		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 5,
+		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 6,
 		OperationID: operationID, Actors: actors,
 	})
 	if err != nil {
@@ -86,6 +88,12 @@ func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
 type incidentSourceQueryFake struct {
 	raw         []byte
 	incidentKey string
+}
+
+type noImportedIncidentAttribution struct{}
+
+func (noImportedIncidentAttribution) ResolvePortableSourceActors(context.Context, incidentportability.Queryer, uuid.UUID, string, string, []string) (map[string]string, error) {
+	return map[string]string{}, nil
 }
 
 func (incidentSourceQueryFake) Query(context.Context, string, ...any) (pgx.Rows, error) {

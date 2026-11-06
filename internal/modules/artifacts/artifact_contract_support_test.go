@@ -352,6 +352,7 @@ func mustArtifactMutationFacade(
 		revisionsupport.MustAppender(t),
 		mustConflictFieldResolver(t),
 		appsupport.ArtifactProjectionRows(pool),
+		appsupport.LinkProjectionRows(pool),
 		collaborationsupport.NewRecordChangedAppender(),
 	)
 	if err != nil {

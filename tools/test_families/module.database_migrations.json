@@ -146,6 +146,7 @@
         "tests": [
           "TestConsolidatedBaselineIntegrity_Integration",
           "TestHistoricalProductionDDLRollbackThroughZeroResidue_Integration",
+          "TestIncidentPortabilityCutoverRejectsPredecessorBeforeDDL_Integration",
           "TestProductionDDLCatalogManifestParity_Integration",
           "TestProductionDDLContaminationFailsBeforeMutation_Integration",
           "TestProductionDDLExtensionPrerequisiteMatrix_Integration"

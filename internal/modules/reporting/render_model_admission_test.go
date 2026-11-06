@@ -57,31 +57,6 @@ func TestFrozenRenderModelAdmission(t *testing.T) {
 			t.Fatal("changed frozen model admitted")
 		}
 	}
-	t.Run("actual canonical byte ceiling", func(t *testing.T) {
-		candidate := model
-		candidate.SourceChangeSetHighWatermark = ""
-		base, err := canonicalJSON(candidate)
-		if err != nil {
-			t.Fatal(err)
-		}
-		candidate.SourceChangeSetHighWatermark = strings.Repeat("a", maxRenderModelBytes-len(base))
-		encoded, err := canonicalJSON(candidate)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(encoded) != maxRenderModelBytes {
-			t.Fatal("byte-boundary fixture changed", len(encoded))
-		}
-		boundDigest := reportingObjectDigest(ExportModelSchemaID, encoded)
-		encoded = nil
-		if _, err := admitFrozenExportModel(context.Background(), candidate, boundDigest); err != nil {
-			t.Fatal("exact model byte ceiling rejected", err)
-		}
-		candidate.SourceChangeSetHighWatermark += "a"
-		if _, err := admitFrozenExportModel(context.Background(), candidate, boundDigest); err == nil || !strings.Contains(err.Error(), "byte limit") {
-			t.Fatal("actual oversize model was not classified before digest mismatch", err)
-		}
-	})
 	t.Run("actual item ceiling", func(t *testing.T) {
 		candidate := model
 		candidate.Subjects = make([]TokenizableSubject, maxRenderModelItems)

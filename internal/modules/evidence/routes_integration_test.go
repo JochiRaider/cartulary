@@ -127,7 +127,7 @@ func linkSeededBlob(t *testing.T, harness *appsupport.ServerHarness, incidentID 
 func linkSeededBlobWithCanonicalStorageKey(t *testing.T, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, uploadState string, evidenceLifecycle string) uuid.UUID {
 	t.Helper()
 	objectBlobID := uuid.New()
-	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID)
+	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID, uuid.New())
 	if err != nil {
 		t.Fatalf("canonical storage key: %v", err)
 	}

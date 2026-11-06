@@ -144,7 +144,11 @@ func (s *service) publishUnitTx(ctx context.Context, tx pgx.Tx, execution jobs.E
 	if err != nil || !currentActor.IsActive {
 		return unitApplyOutcome{}, errImportActorUnauthorized
 	}
-	return s.store.insertAppliedUnitOutcomeTx(ctx, tx, start, unit, target, currentActor.ID, commit, s.now().UTC())
+	now := s.now().UTC()
+	if err := commitSourceTx(ctx, tx, start, unit, currentActor.ID, now); err != nil {
+		return unitApplyOutcome{}, err
+	}
+	return s.store.insertAppliedUnitOutcomeTx(ctx, tx, start, unit, target, currentActor.ID, commit, now)
 }
 
 func sourceRowCellsByOrdinal(sourceRow map[string]any) map[int]map[string]any {

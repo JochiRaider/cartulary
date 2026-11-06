@@ -22,7 +22,10 @@ func applyPreparedIndicatorImportTx(
 		importContext.ActorUserID == uuid.Nil || importContext.Attributions == nil {
 		return indicatorSourceFailure(representationInvariant)
 	}
-	for _, row := range prepared.indicators {
+	if err := validateIndicatorSourceReferences(ctx, tx, prepared, importContext); err != nil {
+		return err
+	}
+	if err := prepared.indicators(ctx, importContext, func(row portableIndicatorRow) error {
 		tag, err := tx.Exec(ctx, `
 INSERT INTO indicators (
     record_id, incident_id, indicator_type, value_kind, display_value,
@@ -41,8 +44,12 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		if err := recordIndicatorAttributions(importContext, row); err != nil {
 			return err
 		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
-	for _, row := range prepared.observations {
+	if err := prepared.observations(ctx, importContext, func(row portableObservationRow) error {
 		if err := requirePortableRecordReference(
 			ctx, tx, row.IncidentID, row.SourceRecordID, observationIncidentInvariant,
 		); err != nil {
@@ -78,8 +85,12 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
 		if err := recordObservationAttributions(importContext, row); err != nil {
 			return err
 		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
-	for _, row := range prepared.intervals {
+	if err := prepared.intervals(ctx, importContext, func(row portableIntervalRow) error {
 		if err := requirePortableIndicatorReference(
 			ctx, tx, row.IncidentID, row.IndicatorRecordID, intervalIncidentInvariant,
 		); err != nil {
@@ -116,6 +127,10 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15,
 		if err := recordIntervalAttributions(importContext, row); err != nil {
 			return err
 		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }

@@ -2950,6 +2950,13 @@ request replay, canceled and failed jobs, keyboard access, ordinary grid editing
 while progress is visible, and the Core 04 timing predicate. Full builder, release
 approval and rendered-artifact design remain separate work.
 
+The same drawer offers a read-only `Transferred report files` section to current
+editors, reviewers and admins. Loading is explicit. Show distinct loading, empty,
+failure and successful states; list retained filenames, byte sizes and historical
+snapshot or release identities with download links. State that source approval
+status is historical. Clear loaded data when incident, session or role authority
+changes. This surface neither recreates source jobs nor grants destination approval.
+
 ### Orientation-aware Network Analysis
 
 Rows use Endpoint A/B labels and a separate direction display derived from typed

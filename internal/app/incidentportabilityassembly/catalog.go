@@ -8,6 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
@@ -63,7 +64,7 @@ func NewCatalog(revisionsPort sourceport.Port, consumer reference_data.Consumer,
 		return nil, err
 	}
 	currentPaths := []string{
-		"data/incident.json", "data/actors.ndjson", "data/records.ndjson",
+		"data/incident.json", "data/actors.ndjson", "data/committed_sources.ndjson", "data/records.ndjson",
 		"data/timeline_time_profiles.ndjson", "data/timeline_records.ndjson",
 		"data/timeline_source_provenance.ndjson", "data/parties.ndjson",
 		"data/entity_mentions.ndjson", "data/hosts.ndjson", "data/identities.ndjson",
@@ -87,6 +88,7 @@ func NewCatalog(revisionsPort sourceport.Port, consumer reference_data.Consumer,
 	return sourceport.NewCatalog(sourceport.CatalogOptions{
 		Ports: []sourceport.Port{
 			incidentsSourcePort,
+			imports.NewIncidentBundleSourcePort(),
 			records.NewIncidentBundleSourcePort(recordSubtypeCatalog),
 			timeline.NewIncidentBundleSourcePort(),
 			parties.NewIncidentBundleContribution(),
@@ -100,16 +102,16 @@ func NewCatalog(revisionsPort sourceport.Port, consumer reference_data.Consumer,
 			revisionsPort,
 			savedviews.NewIncidentBundleSourcePort(),
 		},
-		RequiredPathsByVersion: map[int][]string{5: currentPaths},
+		RequiredPathsByVersion: map[int][]string{6: currentPaths},
 		AllowedRelationIDs: map[string]struct{}{
-			"incident-core": {}, "record-envelope": {}, "record-revisions": {},
+			"incident-core": {}, "committed-import-sources": {}, "record-envelope": {}, "record-revisions": {},
 			"timeline-source": {},
 			"parties":         {}, "entity-source": {}, "indicator-source": {},
 			"artifacts-and-optional-surfaces": {}, "tasks-and-decisions": {},
 			"evidence-source-and-handles": {}, "assessment-source": {},
 			"links-and-tags": {}, "savedviews": {},
 		},
-		SpecialConsumers: map[int]map[string]string{5: special},
+		SpecialConsumers: map[int]map[string]string{6: special},
 	})
 }
 

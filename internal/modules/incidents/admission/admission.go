@@ -116,12 +116,27 @@ func (c *Checker) Check(
 	if err := validateChecker(c); err != nil {
 		return Grant{}, err
 	}
+	return checkRead(ctx, c.db, incidentID, userID, requirement)
+}
+
+// CheckReadTx binds authorization to the caller's read snapshot without taking
+// mutation locks. It is for immutable reads, never write admission.
+func (c *Checker) CheckReadTx(ctx context.Context, tx pgx.Tx, incidentID, userID uuid.UUID, requirement Requirement) (Grant, error) {
+	if err := validateChecker(c, tx); err != nil {
+		return Grant{}, err
+	}
+	return checkRead(ctx, tx, incidentID, userID, requirement)
+}
+
+func checkRead(ctx context.Context, query interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, incidentID, userID uuid.UUID, requirement Requirement) (Grant, error) {
 	if err := validateRequirement(requirement); err != nil {
 		return Grant{}, err
 	}
 	var storedRole string
 	var storedStatus string
-	err := c.db.QueryRow(ctx, `
+	err := query.QueryRow(ctx, `
 SELECT m.role, i.status
   FROM incidents i
   JOIN incident_memberships m

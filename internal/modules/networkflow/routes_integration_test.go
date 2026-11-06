@@ -1314,7 +1314,7 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, unsupportedResp, http.StatusBadRequest, "network_flow_invalid_request")
 
 	createBody := map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view_create_request.v4", "client_txn_id": "txn-temporal-saved-create", "display_name": "Temporal graph",
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v5", "refresh_scope": "selected_tables", "client_txn_id": "txn-temporal-saved-create", "display_name": "Temporal graph",
 		"semantic_query": map[string]any{
 			"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table.TableID}, "filters": []any{},
 			"time_range":  map[string]any{"start_utc": "2026-07-10T09:00:00Z", "end_utc": "2026-07-10T09:04:00Z"},
@@ -1341,7 +1341,7 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 		t.Fatalf("temporal HTTP and worker source composition differs: %#v / %#v", ephemeral, result)
 	}
 
-	if resource["schema_id"] != "cartulary.network_flow.graph_view_result.v5" || result["schema_id"] != "cartulary.network_flow.graph_query_result.v3" || projection["projection_version"] != "network_flow_activity.time_bucket.v2" {
+	if resource["schema_id"] != "cartulary.network_flow.graph_view_result.v6" || result["schema_id"] != "cartulary.network_flow.graph_query_result.v3" || projection["projection_version"] != "network_flow_activity.time_bucket.v2" {
 		t.Fatalf("temporal saved result contract = %#v", resource)
 	}
 	buckets := result["result_variant"].(map[string]any)["time_buckets"].([]any)
@@ -1422,7 +1422,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 
 	collectionPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
 	createBody := map[string]any{
-		"schema_id":     "cartulary.network_flow.graph_view_create_request.v4",
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v5", "refresh_scope": "selected_tables",
 		"client_txn_id": "txn-network-flow-graph-create",
 		"display_name":  "Shared flow graph",
 		"semantic_query": map[string]any{
@@ -1570,6 +1570,10 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	unsupportedDeclaration.DisplayName = "Installed unsupported flow graph"
 	unsupportedDeclaration.NormalizedDisplayName = "installed unsupported flow graph"
 	unsupportedDeclaration.SemanticQueryJSON = unsupportedSemanticQuery
+	unsupportedRefreshIntent, err := json.Marshal(map[string]any{"schema_id": "cartulary.network_flow.refresh_intent.v1", "scope": "selected_tables", "semantic_query": json.RawMessage(unsupportedSemanticQuery)})
+	if err != nil {
+		t.Fatal(err)
+	}
 	unsupportedDeclaration.SemanticQuerySHA256 = GraphViewSemanticQuerySHA256(unsupportedSemanticQuery)
 	unsupportedDeclaration.DesiredSourceSnapshotID = "pre-refresh-unsupported-placeholder"
 	unsupportedTx, err := harness.Pool.Begin(context.Background())
@@ -1579,6 +1583,12 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	if err := store.InsertGraphViewDeclarationTx(context.Background(), unsupportedTx, unsupportedDeclaration); err != nil {
 		_ = unsupportedTx.Rollback(context.Background())
 		t.Fatalf("insert unsupported declaration: %v", err)
+	}
+	// The current storage boundary rejects unsupported refresh intent. Inject
+	// corrupted persisted state explicitly to exercise defensive route handling.
+	if _, err := unsupportedTx.Exec(context.Background(), `UPDATE network_flow_graph_views SET refresh_intent_json = $2 WHERE graph_view_id = $1`, unsupportedGraphViewID, unsupportedRefreshIntent); err != nil {
+		_ = unsupportedTx.Rollback(context.Background())
+		t.Fatalf("inject unsupported refresh intent: %v", err)
 	}
 	if err := unsupportedTx.Commit(context.Background()); err != nil {
 		t.Fatalf("commit unsupported declaration: %v", err)
@@ -1872,11 +1882,14 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, deleteTableResp, http.StatusOK)
 	invalidatedResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath, nil, httptestx.WithCookies(adminLogin.Session))
 	invalidated := httptestx.RequireSuccessEnvelope(t, invalidatedResp, http.StatusOK)["data"].(map[string]any)["graph_view"].(map[string]any)
-	if invalidated["graph_view_version"] != float64(4) || invalidated["materialization_generation"] != float64(3) || invalidated["selected_result_binding"] != nil || invalidated["last_failure_code"] != "network_flow_source_table_deleted" {
-		t.Fatalf("source retirement did not invalidate saved graph: %#v", invalidated)
+	if invalidated["graph_view_version"] != float64(4) || invalidated["materialization_generation"] != float64(3) || invalidated["selected_result_binding"] == nil || invalidated["last_failure_code"] != "network_flow_source_table_deleted" {
+		t.Fatalf("source deletion did not retain selected graph: %#v", invalidated)
 	}
 	invalidatedResultResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.Session))
-	httptestx.RequireErrorEnvelope(t, invalidatedResultResp, http.StatusConflict, "network_flow_graph_view_not_materialized")
+	retainedResult := httptestx.RequireSuccessEnvelope(t, invalidatedResultResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"]
+	if !reflect.DeepEqual(retainedResult, refreshedResult) {
+		t.Fatal("source deletion changed selected result")
+	}
 
 	retireBody := map[string]any{
 		"schema_id": "cartulary.network_flow.graph_view_retire_request.v1", "client_txn_id": "txn-network-flow-graph-retire",
@@ -1887,11 +1900,11 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		httptestx.RequireNoContent(t, retireResp)
 	}
 	retired, err := store.GetGraphViewDeclaration(context.Background(), incidentID, graphViewID)
-	if err != nil || retired.DeclarationState != GraphViewDeclarationStateRetired || retired.GraphViewVersion != 5 || retired.MaterializationGeneration != 4 || retired.SelectedResult != nil {
+	if err != nil || retired.DeclarationState != GraphViewDeclarationStateRetired || retired.GraphViewVersion != 5 || retired.MaterializationGeneration != 4 || retired.SelectedResult == nil {
 		t.Fatalf("retired declaration drifted: %#v %v", retired, err)
 	}
 	getRetired := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, resourcePath, nil, httptestx.WithCookies(adminLogin.Session))
-	httptestx.RequireErrorEnvelope(t, getRetired, http.StatusNotFound, "network_flow_graph_view_not_found")
+	httptestx.RequireSuccessEnvelope(t, getRetired, http.StatusOK)
 	retiredReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collectionPath, createBody, mutationOptions...), http.StatusAccepted)["data"]
 	if !reflect.DeepEqual(retiredReplay, created) {
 		t.Fatal("retirement altered original creation receipt")
@@ -2185,7 +2198,7 @@ func assertRestoreSourceComposition(t *testing.T, db postgres.DB, graphViewID st
 	}
 
 	// Enumerate through one borrowed transaction: out-of-order selected declarations
-	// are deterministic; inactive and unselected declarations never enter restore.
+	// are deterministic; retired selections survive, while unselected declarations are omitted.
 	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
 		t.Fatal(err)
@@ -2208,6 +2221,16 @@ func assertRestoreSourceComposition(t *testing.T, db postgres.DB, graphViewID st
 			"selected_projection_result_id": binding.ProjectionResultID, "selected_source_snapshot_id": binding.SourceSnapshotID, "selected_projection_schema_id": binding.ProjectionSchemaID, "selected_projection_version": binding.ProjectionVersion,
 			"selected_normalized_configuration_sha256": binding.NormalizedConfigurationSHA256, "selected_normalized_source_sha256": binding.NormalizedSourceSHA256, "selected_canonical_output_sha256": binding.CanonicalOutputSHA256,
 		}
+		var sourceBinding map[string]any
+		if err := tx.QueryRow(context.Background(), "SELECT selected_source_binding_json FROM network_flow_graph_views WHERE graph_view_id = $1", graphViewID).Scan(&sourceBinding); err != nil {
+			t.Fatal(err)
+		}
+		sourceBinding["expected_result_binding"] = map[string]any{
+			"projection_result_id": binding.ProjectionResultID, "source_snapshot_id": binding.SourceSnapshotID,
+			"projection_schema_id": binding.ProjectionSchemaID, "projection_version": binding.ProjectionVersion,
+			"normalized_configuration_sha256": binding.NormalizedConfigurationSHA256, "normalized_source_sha256": binding.NormalizedSourceSHA256, "canonical_output_sha256": binding.CanonicalOutputSHA256,
+		}
+		overrides["selected_source_binding_json"] = sourceBinding
 		if n == 4 {
 			overrides["declaration_state"], overrides["retired_at"] = "retired", time.Now().UTC()
 		}
@@ -2218,7 +2241,7 @@ func assertRestoreSourceComposition(t *testing.T, db postgres.DB, graphViewID st
 				}
 			}
 		}
-		if n < 3 {
+		if n != 3 {
 			wantedIDs = append(wantedIDs, id)
 		}
 		encoded, err := json.Marshal(overrides)
@@ -2245,8 +2268,13 @@ func assertRestoreSourceComposition(t *testing.T, db postgres.DB, graphViewID st
 		if _, err := tx.Exec(context.Background(), "UPDATE network_flow_graph_views SET "+column+" = 'mismatch' WHERE graph_view_id = $1", graphViewID); err != nil {
 			t.Fatal(err)
 		}
-		if partial, err := registration.Enumerate(context.Background()); err == nil || partial != nil {
-			t.Fatalf("restore accepted snapshot mismatch: %#v %v", partial, err)
+		partial, err := registration.Enumerate(context.Background())
+		if column == "desired_source_snapshot_id" {
+			if err != nil || len(partial) != len(wantedIDs) {
+				t.Fatalf("refresh intent changed selected reconstruction: %v", err)
+			}
+		} else if err == nil || partial != nil {
+			t.Fatalf("restore accepted selected snapshot mismatch: %#v %v", partial, err)
 		}
 		if _, err := tx.Exec(context.Background(), "UPDATE network_flow_graph_views SET "+column+" = $2 WHERE graph_view_id = $1", graphViewID, candidate.ExpectedBinding.SourceSnapshotID); err != nil {
 			t.Fatal(err)

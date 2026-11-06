@@ -2,6 +2,7 @@ package subtypepresence
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"testing"
 
@@ -20,8 +21,8 @@ func (s *testSource) SupportedRecordTypes() []RecordType {
 	return append([]RecordType(nil), s.types...)
 }
 
-func (*testSource) ListSubtypeBindingsTx(context.Context, pgx.Tx, uuid.UUID) ([]Binding, error) {
-	return nil, nil
+func (*testSource) VisitSubtypeBindingsTx(context.Context, pgx.Tx, uuid.UUID, func(Binding) error) error {
+	return nil
 }
 
 func TestCatalogRejectsInvalidContributions(t *testing.T) {
@@ -58,7 +59,7 @@ func TestCatalogAcceptsClosedTenTypeCoverage(t *testing.T) {
 func TestValidateBindingsRequiresExactForwardAndReverseCoverage(t *testing.T) {
 	incidentID := uuid.New()
 	recordID := uuid.New()
-	envelopes := []Envelope{{
+	envelopes := []Binding{{
 		RecordID: recordID, IncidentID: incidentID, RecordType: RecordTypeHost,
 	}}
 	valid := []Binding{{
@@ -109,4 +110,73 @@ func replaceContribution(
 		}
 	}
 	return result
+}
+
+func validateBindings(incidentID uuid.UUID, envelopes, bindings []Binding) error {
+	expected, actual := NewInventory(incidentID), NewInventory(incidentID)
+	for _, value := range envelopes {
+		if err := expected.Add(value); err != nil {
+			return err
+		}
+	}
+	for _, value := range bindings {
+		if err := actual.Add(value); err != nil {
+			return err
+		}
+	}
+	if !expected.Summary().Equal(actual.Summary()) {
+		return ErrIncompleteBindings
+	}
+	return nil
+}
+
+func TestInventoryStreamsExactOrderedBindings(t *testing.T) {
+	incidentID := uuid.New()
+	expected, actual := NewInventory(incidentID), NewInventory(incidentID)
+	var last Binding
+	for n := uint64(1); n <= 70000; n++ {
+		id := uuid.UUID{}
+		binary.BigEndian.PutUint64(id[8:], n)
+		kind := RecordTypeHost
+		if n%2 == 0 {
+			kind = RecordTypeIdentity
+		}
+		last = Binding{RecordID: id, IncidentID: incidentID, RecordType: kind}
+		if err := expected.Add(last); err != nil {
+			t.Fatal(err)
+		}
+		if n < 70000 {
+			if err := actual.Add(last); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	frozen := expected.Summary()
+	if frozen.Equal(actual.Summary()) {
+		t.Fatal("missing final binding was accepted")
+	}
+	if err := actual.Add(last); err != nil {
+		t.Fatal(err)
+	}
+	if !frozen.Equal(actual.Summary()) {
+		t.Fatal("identical streams differ")
+	}
+	if err := actual.Add(last); !errors.Is(err, ErrIncompleteBindings) {
+		t.Fatal("duplicate accepted", err)
+	}
+	earlier := last
+	earlier.RecordID[15]--
+	if err := actual.Add(earlier); !errors.Is(err, ErrIncompleteBindings) {
+		t.Fatal("unordered binding accepted", err)
+	}
+	last.RecordID[0] = 1
+	if err := expected.Add(last); err != nil {
+		t.Fatal(err)
+	}
+	if frozen.Equal(expected.Summary()) {
+		t.Fatal("summary changed with its source or extra binding was ignored")
+	}
+	if frozen.Equal(NewInventory(uuid.New()).Summary()) {
+		t.Fatal("cross-incident inventory accepted")
+	}
 }

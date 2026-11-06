@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 	"testing"
 	"time"
 
@@ -35,10 +36,12 @@ func TestIndicatorPortableFinalStateInvariants_Integration(t *testing.T) {
 	testCases := []struct {
 		name      string
 		invariant string
+		duplicate bool
 		arrange   func(testing.TB, pgx.Tx, *portableIntegrationScenario)
 		mutate    func(testing.TB, pgx.Tx, portableIntegrationScenario)
 	}{
 		{name: "valid"},
+		{name: "identity_unique", invariant: "indicators.identity_unique", duplicate: true},
 		{
 			name: "observation_same_incident", invariant: "indicators.observation_same_incident",
 			arrange: func(_ testing.TB, _ pgx.Tx, scenario *portableIntegrationScenario) {
@@ -100,14 +103,42 @@ func TestIndicatorPortableFinalStateInvariants_Integration(t *testing.T) {
 				t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
 			}
 			port := contribution.SourcePort
-			prepared, err := port.PrepareImport(ctx, scenario.bundle(t), importContext)
+			bundle := scenario.bundle(t)
+			if testCase.duplicate {
+				id := uuid.MustParse("00000000-0000-4000-8000-000000000002")
+				seedPortableRecordEnvelope(t, tx, scenario.incidentID, id, "indicator", scenario.actorID, scenario.timestamp)
+				for _, column := range []string{"created_by_user_id", "updated_by_user_id"} {
+					if err := recorder.RecordImportedAttribution("records", id.String(), column, scenario.actorID.String()); err != nil {
+						t.Fatal(err)
+					}
+				}
+				rows, err := incidentportability.DecodeNDJSON(bundle["data/indicators.ndjson"])
+				if err != nil {
+					t.Fatal(err)
+				}
+				duplicate := map[string]any{}
+				for key, value := range rows[0] {
+					duplicate[key] = value
+				}
+				duplicate["record_id"] = id.String()
+				bundle["data/indicators.ndjson"] = marshalPortableRows(t, rows[0], duplicate)
+			}
+			beforeAttributions := len(recorder.rows)
+			prepared, err := port.PrepareImport(ctx, bundle, importContext)
 			if err != nil {
 				t.Fatalf("prepare portable scenario: %v", err)
 			}
 			if err := port.ApplyImportTx(ctx, tx, prepared, importContext); err != nil {
-				if testCase.invariant == "indicators.observation_same_incident" ||
+				if testCase.invariant == "indicators.identity_unique" || testCase.invariant == "indicators.observation_same_incident" ||
 					testCase.invariant == "indicators.interval_same_incident" {
 					assertPortableIndicatorInvariant(t, err, testCase.invariant)
+					var rows int
+					if err := tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM indicators WHERE incident_id=$1)+(SELECT count(*) FROM indicator_observations WHERE incident_id=$1)+(SELECT count(*) FROM indicator_state_intervals WHERE incident_id=$1)`, scenario.incidentID).Scan(&rows); err != nil {
+						t.Fatal(err)
+					}
+					if rows != 0 || len(recorder.rows) != beforeAttributions {
+						t.Fatalf("rejection wrote rows=%d attributions=%d", rows, len(recorder.rows)-beforeAttributions)
+					}
 					return
 				}
 				t.Fatalf("apply portable scenario: %v", err)
@@ -165,11 +196,11 @@ func (scenario portableIntegrationScenario) importContext(
 	}
 	return sourceport.ImportContext{
 		IncidentID: scenario.incidentID, ActorUserID: scenario.actorID,
-		BundleVersion: 5, OperationID: operationID, Attributions: recorder, Actors: actors,
+		BundleVersion: 6, OperationID: operationID, Attributions: recorder, Actors: actors,
 	}
 }
 
-func (scenario portableIntegrationScenario) bundle(t testing.TB) sourceport.MapBundle {
+func (scenario portableIntegrationScenario) bundle(t testing.TB) portabilitysupport.MapBundle {
 	t.Helper()
 	canonical, err := identity.Canonicalize(referencefixture.EvaluateIndicator, identity.Input{
 		IndicatorType: "domain_name", ValueKind: "atomic", DisplayValue: "example.test",
@@ -209,7 +240,7 @@ func (scenario portableIntegrationScenario) bundle(t testing.TB) sourceport.MapB
 		"created_by_user_id": scenario.actorID.String(), "created_at": createdAt,
 		"deleted_at": nil, "deleted_by_user_id": nil,
 	}
-	return sourceport.MapBundle{
+	return portabilitysupport.MapBundle{
 		"data/indicators.ndjson":                marshalPortableRows(t, indicatorRow),
 		"data/indicator_observations.ndjson":    marshalPortableRows(t, observationRow),
 		"data/indicator_state_intervals.ndjson": marshalPortableRows(t, intervalRow),
@@ -318,4 +349,15 @@ func (recorder *indicatorPortableAttributionRecorder) ImportedAttributions() []i
 		return nil
 	}
 	return append([]incidentportability.ImportedAttribution(nil), recorder.rows...)
+}
+
+func (r *indicatorPortableAttributionRecorder) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
+	for _, row := range r.ImportedAttributions() {
+		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
+			if err := visit(row); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

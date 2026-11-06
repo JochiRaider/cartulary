@@ -29,7 +29,7 @@ func TestIncidentBundleRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing
 	}
 	t.Cleanup(storage.Close)
 
-	staged, err := storage.Stage(context.Background(), strings.Repeat("a", 64), []byte("staged bundle"))
+	staged, err := storage.Stage(context.Background(), strings.NewReader("staged bundle"), 1024)
 	if err != nil {
 		t.Fatalf("Stage: %v", err)
 	}
@@ -38,22 +38,27 @@ func TestIncidentBundleRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing
 	}
 	stagedPath := filepath.Join(temporaryRoot, filepath.FromSlash(staged.String()))
 	assertPrivateRegularFile(t, stagedPath, []byte("staged bundle"))
-	data, err := storage.ReadStaged(staged, 1024)
+	source, size, err := storage.OpenStaged(staged.BundleStagingRef, 1024)
 	if err != nil {
 		t.Fatalf("ReadStaged: %v", err)
+	}
+	data, err := io.ReadAll(io.NewSectionReader(source, 0, size))
+	_ = source.Close()
+	if err != nil {
+		t.Fatal(err)
 	}
 	if string(data) != "staged bundle" {
 		t.Fatalf("ReadStaged = %q", data)
 	}
-	if err := storage.RemoveStaged(staged); err != nil {
+	if err := storage.RemoveStaged(staged.BundleStagingRef); err != nil {
 		t.Fatalf("RemoveStaged: %v", err)
 	}
-	if err := storage.RemoveStaged(staged); err != nil {
+	if err := storage.RemoveStaged(staged.BundleStagingRef); err != nil {
 		t.Fatalf("RemoveStaged idempotent retry: %v", err)
 	}
 
 	bundleID := "22222222-2222-4222-8222-222222222222"
-	published, err := storage.Publish(context.Background(), bundleID, []byte("published bundle"))
+	published, err := storage.Publish(context.Background(), bundleID, 1024, writeTestArchive("published bundle"))
 	if err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
@@ -62,7 +67,7 @@ func TestIncidentBundleRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing
 	}
 	publishedPath := filepath.Join(exportRoot, filepath.FromSlash(published.String()))
 	assertPrivateRegularFile(t, publishedPath, []byte("published bundle"))
-	if _, err := storage.Publish(context.Background(), bundleID, []byte("replacement")); !errors.Is(err, os.ErrExist) {
+	if _, err := storage.Publish(context.Background(), bundleID, 1024, writeTestArchive("replacement")); !errors.Is(err, os.ErrExist) {
 		t.Fatalf("duplicate Publish error = %v; want exclusive destination failure", err)
 	}
 	assertPrivateRegularFile(t, publishedPath, []byte("published bundle"))
@@ -146,7 +151,7 @@ func TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplace
 		t.Cleanup(storage.Close)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		if _, err := storage.Stage(ctx, strings.Repeat("b", 64), []byte("must not publish")); err == nil {
+		if _, err := storage.Stage(ctx, strings.NewReader("must not publish"), 1024); err == nil {
 			t.Fatal("canceled Stage succeeded")
 		}
 		entries, err := os.ReadDir(filepath.Join(temporaryRoot, "incident-bundles", "imports"))
@@ -178,7 +183,7 @@ func TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplace
 			t.Fatal(err)
 		}
 		t.Cleanup(storage.Close)
-		if _, err := storage.Stage(context.Background(), strings.Repeat("c", 64), []byte("escape")); err == nil {
+		if _, err := storage.Stage(context.Background(), strings.NewReader("escape"), 1024); err == nil {
 			t.Fatal("Stage followed a symlinked component")
 		} else if strings.Contains(err.Error(), temporaryRoot) || strings.Contains(err.Error(), outside) {
 			t.Fatalf("Stage error disclosed host root: %v", err)
@@ -213,7 +218,7 @@ func TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplace
 		if err := os.Mkdir(temporaryRoot, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := storage.Stage(context.Background(), strings.Repeat("d", 64), []byte("replacement")); !errors.Is(err, rootedfs.ErrRootIdentityChanged) {
+		if _, err := storage.Stage(context.Background(), strings.NewReader("replacement"), 1024); !errors.Is(err, rootedfs.ErrRootIdentityChanged) {
 			t.Fatalf("Stage after root replacement error = %v; want ErrRootIdentityChanged", err)
 		}
 		entries, err := os.ReadDir(temporaryRoot)
@@ -242,4 +247,8 @@ func assertPrivateRegularFile(t testing.TB, path string, want []byte) {
 	if string(data) != string(want) {
 		t.Fatalf("%s bytes = %q want %q", path, data, want)
 	}
+}
+
+func writeTestArchive(value string) func(io.Writer) error {
+	return func(destination io.Writer) error { _, err := io.WriteString(destination, value); return err }
 }

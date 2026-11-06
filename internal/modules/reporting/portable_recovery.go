@@ -123,7 +123,7 @@ func ValidateRetainedArtifacts(ctx context.Context, pool *pgxpool.Pool, referenc
 		if operations != 1 {
 			return artifactport.ErrInvalid
 		}
-		files, err := loadImportedArtifactFiles(ctx, tx, incident)
+		files, err := loadImportedArtifactMembers(ctx, tx, incident)
 		if err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func ValidateRetainedArtifacts(ctx context.Context, pool *pgxpool.Pool, referenc
 		if err != nil {
 			return err
 		}
-		_, err = (PortableReferenceSource{}).PrepareArtifactImport(ctx, artifactport.ImportRequest{IncidentID: incident, OperationID: incident, References: refs, Bundle: artifactFiles(files)})
+		_, err = (PortableReferenceSource{}).PrepareArtifactImport(ctx, artifactport.ImportRequest{IncidentID: incident, OperationID: incident, References: refs, Bundle: files})
 		if err != nil {
 			return err
 		}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,40 +15,45 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-func exportIncidentBundleFiles(
-	ctx context.Context,
-	exportContext sourceport.ExportContext,
-) ([]incidentportability.File, error) {
-	changeSets, err := exportPortableChangeSets(ctx, exportContext)
-	if err != nil {
-		return nil, err
+func exportIncidentBundleFiles(ctx context.Context, input sourceport.ExportContext) error {
+	for _, member := range []struct {
+		path  string
+		write func(context.Context, sourceport.ExportContext, io.Writer) error
+	}{
+		{changeSetsBundlePath, exportPortableChangeSets},
+		{changeSetMutationsPath, exportPortableMutations},
+		{recordRevisionsBundlePath, exportPortableRecordRevisions},
+	} {
+		if err := incidentportability.WriteMemberFrom(ctx, input.Members, member.path, func(ctx context.Context, output io.Writer) error { return member.write(ctx, input, output) }); err != nil {
+			return err
+		}
 	}
-	mutations, err := exportPortableMutations(ctx, exportContext)
-	if err != nil {
-		return nil, err
-	}
-	revisions, err := exportPortableRecordRevisions(ctx, exportContext)
-	if err != nil {
-		return nil, err
-	}
-	return []incidentportability.File{
-		{Path: changeSetsBundlePath, Payload: changeSets},
-		{Path: changeSetMutationsPath, Payload: mutations},
-		{Path: recordRevisionsBundlePath, Payload: revisions},
-	}, nil
+	return nil
 }
 
-func exportPortableChangeSets(
-	ctx context.Context,
-	exportContext sourceport.ExportContext,
-) ([]byte, error) {
+func exportPortableChangeSets(ctx context.Context, input sourceport.ExportContext, output io.Writer) error {
+	var after *uuid.UUID
+	for {
+		next, err := exportPortableChangeSetPage(ctx, input, after, output)
+		if err != nil {
+			return err
+		}
+		if next == nil {
+			return nil
+		}
+		after = next
+	}
+}
+
+func exportPortableChangeSetPage(ctx context.Context, exportContext sourceport.ExportContext, after *uuid.UUID, output io.Writer) (*uuid.UUID, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT change_set_id, incident_id, actor_user_id, source, reason,
        client_txn_id, request_id, created_at
   FROM change_sets
- WHERE incident_id = $1
+ WHERE incident_id = $1 AND ($2::uuid IS NULL OR change_set_id > $2)
  ORDER BY change_set_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, err
 	}
@@ -102,17 +108,13 @@ SELECT change_set_id, incident_id, actor_user_id, source, reason,
 			return nil, err
 		}
 	}
-	var payload bytes.Buffer
+	rows.Close()
 	for _, row := range changeSets {
-		actorID := row.RuntimeActorID.String()
-		if sourceActorID := portableActors[row.ChangeSetID.String()]; sourceActorID != "" {
-			parsed, parseErr := uuid.Parse(sourceActorID)
-			if parseErr != nil || parsed.String() != sourceActorID {
-				return nil, errors.New("revisions export attribution is invalid")
-			}
-			actorID = sourceActorID
+		actorID, err := incidentportability.ExportActorID(exportContext.Actors, portableActors[row.ChangeSetID.String()], row.RuntimeActorID)
+		if err != nil {
+			return nil, err
 		}
-		encoded, err := incidentportability.CanonicalJSONString(map[string]any{
+		err = incidentportability.WriteNDJSONRecord(output, map[string]any{
 			"change_set_id": row.ChangeSetID.String(),
 			"incident_id":   row.IncidentID.String(),
 			"actor_user_id": actorID,
@@ -125,15 +127,19 @@ SELECT change_set_id, incident_id, actor_user_id, source, reason,
 		if err != nil {
 			return nil, err
 		}
-		payload.Write(encoded)
 	}
-	return payload.Bytes(), nil
+	if len(changeSets) == 0 {
+		return nil, nil
+	}
+	last := changeSets[len(changeSets)-1].ChangeSetID
+	return &last, nil
 }
 
 func exportPortableMutations(
 	ctx context.Context,
 	exportContext sourceport.ExportContext,
-) ([]byte, error) {
+	output io.Writer,
+) error {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT mutation.change_set_id, mutation.sequence_no, mutation.target_kind,
        mutation.target_id, mutation.operation_kind, mutation.before_version_id,
@@ -145,10 +151,9 @@ SELECT mutation.change_set_id, mutation.sequence_no, mutation.target_kind,
  ORDER BY mutation.change_set_id, mutation.sequence_no
 `, exportContext.IncidentID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
-	var payload bytes.Buffer
 	for rows.Next() {
 		var row portableChangeSetMutation
 		var beforeVersion, afterVersion pgtype.Text
@@ -164,19 +169,19 @@ SELECT mutation.change_set_id, mutation.sequence_no, mutation.target_kind,
 			&beforeRaw,
 			&afterRaw,
 		); err != nil {
-			return nil, err
+			return err
 		}
 		row.BeforeVersionID = textPointer(beforeVersion)
 		row.AfterVersionID = textPointer(afterVersion)
 		row.BeforeValue, err = decodeDatabaseJSON(beforeRaw)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		row.AfterValue, err = decodeDatabaseJSON(afterRaw)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		encoded, err := incidentportability.CanonicalJSONString(map[string]any{
+		err = incidentportability.WriteNDJSONRecord(output, map[string]any{
 			"change_set_id":     row.ChangeSetID.String(),
 			"sequence_no":       row.SequenceNo,
 			"target_kind":       row.TargetKind,
@@ -188,20 +193,20 @@ SELECT mutation.change_set_id, mutation.sequence_no, mutation.target_kind,
 			"after_value":       row.AfterValue,
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
-		payload.Write(encoded)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return err
 	}
-	return payload.Bytes(), nil
+	return nil
 }
 
 func exportPortableRecordRevisions(
 	ctx context.Context,
 	exportContext sourceport.ExportContext,
-) ([]byte, error) {
+	output io.Writer,
+) error {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT revision.revision_id, revision.change_set_id, revision.record_id,
        revision.row_version, revision.before_json, revision.after_json,
@@ -213,10 +218,9 @@ SELECT revision.revision_id, revision.change_set_id, revision.record_id,
  ORDER BY revision.revision_id
 `, exportContext.IncidentID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
-	var payload bytes.Buffer
 	for rows.Next() {
 		var row portableRecordRevision
 		var beforeRaw, afterRaw []byte
@@ -229,17 +233,17 @@ SELECT revision.revision_id, revision.change_set_id, revision.record_id,
 			&afterRaw,
 			&row.CreatedAt,
 		); err != nil {
-			return nil, err
+			return err
 		}
 		before, err := decodeDatabaseJSONObject(beforeRaw)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		after, err := decodeDatabaseJSONObject(afterRaw)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		encoded, err := incidentportability.CanonicalJSONString(map[string]any{
+		err = incidentportability.WriteNDJSONRecord(output, map[string]any{
 			"revision_id":   row.RevisionID,
 			"change_set_id": row.ChangeSetID.String(),
 			"record_id":     row.RecordID.String(),
@@ -249,14 +253,13 @@ SELECT revision.revision_id, revision.change_set_id, revision.record_id,
 			"created_at":    row.CreatedAt.UTC().Format(time.RFC3339Nano),
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
-		payload.Write(encoded)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return err
 	}
-	return payload.Bytes(), nil
+	return nil
 }
 
 func textPointer(value pgtype.Text) *string {

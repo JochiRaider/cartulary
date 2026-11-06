@@ -2,6 +2,9 @@ package networkflow
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"sort"
@@ -9,6 +12,7 @@ import (
 )
 
 type createTableFixtureParams struct {
+	CommittedSourceID         uuid.UUID
 	IncidentID                uuid.UUID
 	ActorUserID               uuid.UUID
 	ImportSessionID           uuid.UUID
@@ -34,7 +38,20 @@ type createTableFixtureParams struct {
 func (s *store) CreateTable(ctx context.Context, fixture createTableFixtureParams) (tableRecord, error) {
 	ordered := append([]normalizedRow(nil), fixture.Rows...)
 	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].SourceRowNumber < ordered[j].SourceRowNumber })
+	digest := sha256.New()
+	for _, row := range ordered {
+		digest.Write([]byte(row.SourceRowDigestSHA256 + row.NormalizedRowDigestSHA256))
+	}
+	for _, diagnostic := range fixture.Diagnostics {
+		raw, err := canonicalJSON(diagnostic)
+		if err != nil {
+			return tableRecord{}, err
+		}
+		digest.Write(raw)
+	}
 	params := createTableParams{
+		SourceRawCellScalarLimit: s.limits.MaxRawCellScalarLength,
+		CommittedSourceID:        imports.CommittedSourceID(fixture.ImportUnitID), SourceInterpretationSHA256: hex.EncodeToString(digest.Sum(nil)),
 		IncidentID:                fixture.IncidentID,
 		ActorUserID:               fixture.ActorUserID,
 		ImportSessionID:           fixture.ImportSessionID,
@@ -64,6 +81,9 @@ func (s *store) CreateTable(ctx context.Context, fixture createTableFixtureParam
 		},
 	}
 
+	if fixture.CommittedSourceID != uuid.Nil {
+		params.CommittedSourceID = fixture.CommittedSourceID
+	}
 	var table tableRecord
 	err := withinTransaction(ctx, s.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		var err error

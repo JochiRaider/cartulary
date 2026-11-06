@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 const (
@@ -59,12 +60,11 @@ type portableRecordRevision struct {
 }
 
 type preparedRevisionsImport struct {
-	incidentID   uuid.UUID
-	runtimeActor uuid.UUID
-	actors       sourceport.ActorCatalog
-	changeSets   []portableChangeSet
-	mutations    []portableChangeSetMutation
-	revisions    []portableRecordRevision
+	incidentID                               uuid.UUID
+	runtimeActor                             uuid.UUID
+	actors                                   sourceport.ActorCatalog
+	members                                  *incidentportability.BoundMembers
+	sequenceInvalid, revisionIdentityInvalid bool
 }
 
 type revisionsParseFailure struct {

@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
@@ -67,6 +70,10 @@ type TransactionCapabilityMux struct {
 
 func (m TransactionCapabilityMux) TransactionCapabilities(participantID string, tx pgx.Tx) (crossownertransaction.ReadCapability, crossownertransaction.WriteCapability, error) {
 	switch participantID {
+	case networkflow.PortabilityTransactionParticipantID:
+		return m.NetworkFlow.PortabilityTransactionCapabilities(tx, func(ctx context.Context, incidentID, actorID uuid.UUID, actors sourceport.ActorCatalog) (incidentportability.AttributionRecorder, error) {
+			return incidentbundles.NewImportedAttributionRecorder(ctx, tx, incidentID, actorID, actors)
+		})
 	case networkflow.ImportApplyParticipantID, networkflow.IndicatorLinkParticipantID:
 		return m.NetworkFlow.TransactionCapabilities(participantID, tx)
 	case incidentbundles.ImportTransactionParticipantID:

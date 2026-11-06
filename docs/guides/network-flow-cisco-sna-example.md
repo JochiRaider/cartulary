@@ -11,15 +11,15 @@ such as `2026-10-29T00:00:07.117+0000` and blank ICMP ports.
 1. Open an active incident in a deployment with Network Flow enabled. Select
    **More views → Network Analysis** and upload the linked CSV.
 2. In the mapping panel, select **Cisco Secure Network Analytics Flow Search CSV**.
-   This selects the export's nine mapped columns, compact-offset timestamp mode
+   This selects the export's eleven mapped inputs, compact-offset timestamp mode
    and millisecond precision. Optionally name the table **Cisco SNA synthetic example**.
-3. Keep **Preserve unmapped raw** so the remaining 107 columns stay with each
+3. Keep **Preserve unmapped raw** so the remaining 105 columns stay with each
    row's source provenance. Preview the mapping: the first 50 records should
    all be accepted, with no diagnostics.
 4. Choose **Approve and apply**. The complete import should accept **1,200 rows**,
    reject **0**, and open the resulting table.
 5. Switch to **Graph**, with the active table selected and no filters or time
-   buckets. Expect **173 endpoint vertices** and **944 aggregated edges**.
+   buckets. Expect **173 endpoint vertices** and **875 aggregated edges**.
 6. Open **Saved graphs → Save current graph**, enter a name such as
    **Cisco SNA — 29 October 2026**, then choose **Save graph**. Wait for
    **Materialization succeeded**.
@@ -31,30 +31,35 @@ such as `2026-10-29T00:00:07.117+0000` and blank ICMP ports.
    creates a separate job and advances the generation while preserving the
    semantic query and totals. An unchanged immutable projection can be reused.
 
-For a smaller exploration, filter the destination port to `53` to inspect
-peer-side DNS traffic, or select one endpoint and inspect its contributors.
+For a smaller exploration, filter **Endpoint B port** to `53` to inspect
+observations whose canonical Endpoint B uses that port, or select one
+endpoint and inspect its contributors.
 Remove filters before checking the complete-example totals below. This is an
 example dataset, not evidence of suspicious activity or a vendor-completeness
 claim.
 
 ## Interpret the graph
 
-The profile maps **search subject → peer**. A subject can be a client or a
-server; an arrow does not establish client/server roles, packet direction, or
-which endpoint sent the connection's bytes. Each flow contributes
-`connection.transferBytes` and `connection.transferPackets` exactly once.
-The graph groups by subject IP, peer IP, IP protocol and peer port; it does not
-group by source port. Multiple rows can therefore contribute to one edge.
+The profile retains both endpoints and derives direction from the exporter's
+client/server orientation. A server-first observation is reversed for directed
+graph aggregation; a pair with both orientations absent remains undirected.
+Direction does not establish compromise or which endpoint sent the connection's
+bytes. Each observation contributes `connection.transferBytes` and
+`connection.transferPackets` exactly once as conversation totals. Directed edges
+group by client IP, server IP, protocol and server port; undirected edges retain
+both endpoint ports. Overlapping observations remain separate contributions.
 
 | Export header | Network Flow value |
 | --- | --- |
 | `firstActiveTime` | Flow start, converted to UTC |
 | `lastActiveTime` | Flow end, converted to UTC |
-| `searchSubject.ipAddress` | Source endpoint |
-| `peer.ipAddress` | Destination endpoint |
-| `searchSubject.portProtocol.port` | Source port; blank becomes null |
-| `peer.portProtocol.port` | Destination port; blank becomes null |
+| `searchSubject.ipAddress` | First reported endpoint |
+| `peer.ipAddress` | Second reported endpoint |
+| `searchSubject.portProtocol.port` | First endpoint port; blank becomes null |
+| `peer.portProtocol.port` | Second endpoint port; blank becomes null |
 | `searchSubject.portProtocol.protocol` | IP protocol |
+| `searchSubject.orientation` | First endpoint client/server role |
+| `peer.orientation` | Second endpoint client/server role |
 | `connection.transferBytes` | Connection bytes |
 | `connection.transferPackets` | Connection packets |
 
@@ -71,7 +76,7 @@ or inapplicable, distinct from port zero.
 | Imported records | 1,200 |
 | Rejected records | 0 |
 | Endpoints | 173 |
-| Default graph edges | 944 |
+| Default graph edges | 875 |
 | Sum of edge flow counts | 1,200 |
 | Connection bytes | 71,114,484,212 |
 | Connection packets | 94,893,741 |
@@ -108,12 +113,11 @@ records verification outcomes and compatibility details.
 
 ## Compatibility
 
-The separate `cisco_sna_flow_search_csv_v1` profile accepts compact numeric UTC
-offsets through `cisco_sna_datetime_v1`; it does not relax the original NetFlow
-profile's RFC3339 grammar or reinterpret existing approved mappings. Existing
-identities, historical migrations and database columns remain unchanged.
-New imports require a server and browser supporting this profile. Preserve that
-support when operating databases containing these imports; reverting the source
-alone is appropriate only before creating durable imports with the new profile.
-No database reset, data conversion, application population or deployment is part
-of adopting this repository example.
+The current `cisco_sna_flow_search_csv_v2` profile accepts compact numeric UTC
+offsets through `cisco_sna_datetime_v1` and requires both orientation columns.
+It retains conversation counters and distinguishes missing ports from zero.
+The original NetFlow profile retains its RFC3339 grammar. Historical Cisco v1
+mappings and older retained Network Flow state are not current compatibility
+formats. New imports require a compatible server and browser. No database reset,
+data conversion, application population or deployment is part of adopting this
+repository example.

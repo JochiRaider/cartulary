@@ -67,6 +67,20 @@ afterEach(() => {
 function setup() {
   let sequence = 0;
   const client: ReportingClient = {
+    retainedArtifacts: vi.fn(async () => ({
+      ok: true as const,
+      status: 200,
+      payload: {
+        meta: { request_id: "retained" },
+        data: {
+          schema_id: "cartulary.retained_report_artifacts.v1" as const,
+          incident_id: incidentId,
+          artifacts: [],
+        },
+      },
+    })),
+    retainedArtifactHref: (incident, artifact) =>
+      `/api/v1/incidents/${incident}/retained-report-artifacts/${artifact}/content`,
     submit: vi.fn(async () => receipt(job())),
     read: vi.fn(async () => receipt(job(), 200)),
     cancel: vi.fn(async () =>
@@ -108,6 +122,74 @@ function setup() {
   controller.setPresented(true);
   return { controller, client, binding };
 }
+
+it("loads historical files without creating workflow state and clears them on authority loss", async () => {
+  const { controller, client, binding } = setup();
+  const id = "a".repeat(64);
+  vi.mocked(client.retainedArtifacts).mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    payload: {
+      meta: { request_id: "files" },
+      data: {
+        schema_id: "cartulary.retained_report_artifacts.v1",
+        incident_id: incidentId,
+        artifacts: [
+          {
+            artifact_id: id,
+            filename: "report.mmd",
+            byte_size: 10,
+            sha256: "b".repeat(64),
+            kind: "release_file",
+            snapshot_id: null,
+            release_id: snapshotId,
+            content_href: "https://untrusted.invalid/file",
+          },
+        ],
+      },
+    },
+  });
+  await controller.loadRetainedArtifacts();
+  expect(controller.getSnapshot().retainedArtifacts?.[0]?.downloadHref).toBe(
+    `/api/v1/incidents/${incidentId}/retained-report-artifacts/${id}/content`,
+  );
+  expect(client.submit).not.toHaveBeenCalled();
+  expect(controller.getSnapshot().job).toBeNull();
+  controller.bind({ ...binding, role: "viewer" });
+  expect(controller.getSnapshot().retainedArtifacts).toBeNull();
+  await controller.loadRetainedArtifacts();
+  expect(client.retainedArtifacts).toHaveBeenCalledTimes(1);
+});
+
+it("discards historical file responses after incident lifetime changes", async () => {
+  const { controller, client, binding } = setup();
+  let settle!: (
+    value: Awaited<ReturnType<ReportingClient["retainedArtifacts"]>>,
+  ) => void;
+  vi.mocked(client.retainedArtifacts).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        settle = resolve;
+      }),
+  );
+  const reading = controller.loadRetainedArtifacts();
+  controller.bind({ ...binding, lifetime: "replacement" });
+  settle({
+    ok: true,
+    status: 200,
+    payload: {
+      meta: { request_id: "stale" },
+      data: {
+        schema_id: "cartulary.retained_report_artifacts.v1",
+        incident_id: incidentId,
+        artifacts: [],
+      },
+    },
+  });
+  await reading;
+  expect(controller.getSnapshot().retainedArtifacts).toBeNull();
+  expect(controller.getSnapshot().retainedBusy).toBe(false);
+});
 
 it("retains exact uncertain reporting commands and prevents duplicate admission", async () => {
   const { controller, client } = setup();

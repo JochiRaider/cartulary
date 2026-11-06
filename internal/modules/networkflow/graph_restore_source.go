@@ -16,7 +16,7 @@ import (
 const (
 	graphRestoreSourceRegistrationID = "network_flow_activity.graph_views.v1"
 	graphRestoreAuthoritativeFamily  = "network_flow_activity.graph_views"
-	graphRestoreEnumeratorBindingID  = "network_flow_activity.graph_view_restore_enumerator_v2"
+	graphRestoreEnumeratorBindingID  = "network_flow_activity.graph_view_restore_enumerator_v3"
 )
 
 // NewGraphRestoreSourceRegistration constructs Network Flow's source-owned
@@ -45,8 +45,7 @@ func NewGraphRestoreSourceRegistration(db GraphRestoreReadSession) (graphrestore
 		},
 		Enumerate: func(ctx context.Context) ([]graphrestore.RestoreCandidate, error) {
 			rows, err := db.Query(ctx, graphViewDeclarationSelect+`
- WHERE declaration_state = 'active'
-   AND selected_projection_result_id IS NOT NULL
+ WHERE selected_projection_result_id IS NOT NULL
  ORDER BY graph_view_id ASC
 `)
 			if err != nil {
@@ -72,18 +71,11 @@ func NewGraphRestoreSourceRegistration(db GraphRestoreReadSession) (graphrestore
 				if declaration.SelectedResult == nil {
 					return nil, fmt.Errorf("active selected Network Flow saved graph has no result binding")
 				}
-				semantic, apiErr := decodeGraphSemanticRequest(declaration.SemanticQueryJSON, limits)
-				if apiErr != nil {
-					return nil, fmt.Errorf("decode Network Flow saved graph %s for restore", declaration.GraphViewID)
+				composition, semantic, err := composer.composeSelectedSource(ctx, declaration)
+				if err != nil {
+					return nil, fmt.Errorf("reconstruct selected Network Flow graph %s: %w", declaration.GraphViewID, err)
 				}
-				composition, apiErr := composer.composeGraphSourceFromSemantic(ctx, declaration.IncidentID, semantic)
-				if apiErr != nil {
-					return nil, fmt.Errorf("compose Network Flow saved graph %s for restore", declaration.GraphViewID)
-				}
-				sourceSnapshotID := graphSourceSnapshotDigest(declaration.IncidentID, composition.SourceTables, composition.Digest)
-				if sourceSnapshotID != declaration.SelectedResult.SourceSnapshotID || sourceSnapshotID != declaration.DesiredSourceSnapshotID {
-					return nil, fmt.Errorf("network flow saved graph %s selected source is stale", declaration.GraphViewID)
-				}
+				sourceSnapshotID := declaration.SelectedResult.SourceSnapshotID
 				encoded, err := json.Marshal(networkFlowProjectionInput(sourceSnapshotID, composition))
 				if err != nil {
 					return nil, err

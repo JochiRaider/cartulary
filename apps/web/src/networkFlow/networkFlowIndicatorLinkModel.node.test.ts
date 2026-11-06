@@ -224,8 +224,7 @@ function flowRow(sourceRowNumber: number, sourceIP: string): NetworkFlowRow {
     "network_flow.application_label": null,
     unmapped_raw: {},
     "network_flow.observation_source_ref": {
-      import_session_id: "import-session-1",
-      import_unit_id: "import-unit-1",
+      committed_source_id: "33333333-3333-4333-8333-333333333333",
       source_content_sha256: "d".repeat(64),
       source_profile_id: "cisco_sna_netflow_csv_v2",
       parser_profile_id: "rfc4180_headered_csv_v1",

@@ -843,7 +843,7 @@ cleanup remain current.
 Graph Projection publishes only current algorithm
 `graphprojection.restore_rebuild.v5` and result schema
 `cartulary.graph_projection_restore_rebuild_result.v6`. Its matching v6 source
-registry and v8 implementation binding admit only Network Flow semantic-query v3
+registry and v9 implementation binding admit only Network Flow semantic-query v3
 declarations and rebuild Graph Projection v2 results. Earlier versions of each
 individual algorithm, result, binding and registry are unsupported and absent
 from the active build, including historical codecs, aliases and dispatchers. Recovery rejects
@@ -900,11 +900,12 @@ contracts; this scheduling change introduces no new public reason or job status.
 
 During reconstruction, affected graph workers and dependent job consumers remain
 quiescent. The participant validates the frozen catalog, typed v6 source
-registry, v8 implementation binding, admitted claim and restored generation
+registry, v9 implementation binding, admitted claim and restored generation
 before persistent changes; then, in one caller-controlled
-transaction, clears the three tables, enumerates active v2 declarations with
-selected results, reconstructs each result from the restored immutable source
-boundary, publishes immutable results, reconciles Network Flow nonterminal
+transaction, clears the three tables, enumerates retained source-owner declarations
+with selected v2 results, including retired declarations, reconstructs each result
+from its exact retained selected-source binding rather than refresh intent,
+publishes immutable results, reconciles Network Flow nonterminal
 materialization jobs and verifies exact result, digest, vertex, edge, job and
 readiness postconditions. Reconciliation is mandatory before dependent gates
 open and cannot be omitted by construction. Reporting jobs and immutable inputs
@@ -923,13 +924,13 @@ indeterminate commit invokes Core 04 fatal-integrity shutdown and keeps the
 affected admission gates closed. It never triggers automatic deletion or reset.
 
 The current implementation binding is the closed object
-`cartulary.graph_projection_restore_implementation_binding.v8` defined below.
+`cartulary.graph_projection_restore_implementation_binding.v9` defined below.
 
 | Required member | Contract |
 | --- | --- |
-| `schema_id` | `cartulary.graph_projection_restore_implementation_binding.v8` |
+| `schema_id` | `cartulary.graph_projection_restore_implementation_binding.v9` |
 | `algorithm_id` | `graphprojection.restore_rebuild.v5`, resolved to the actual typed reconstruction implementation |
-| `binding_id` | `graphprojection.restore_rebuild.network_flow_graph_views.v6` |
+| `binding_id` | `graphprojection.restore_rebuild.network_flow_graph_views.v7` |
 | `projection_schema_id` | `graph_projection.v2`, resolved to the actual typed projection input/result implementation |
 | `semantic_query_schema_ids` | Exactly the sorted semantic query schema set supported by the current typed source registrations |
 | `recovery_state_catalog_sha256` | Exact selected frozen Recovery catalog digest |
@@ -947,13 +948,13 @@ publication. Definition bytes MUST be decoded strictly: duplicate members,
 invalid Unicode, unknown members and trailing JSON are invalid. The admitted
 complete object MUST match its selected canonical definition digest.
 
-The current-only Recovery generation MUST select binding v8 and its exact
-digest. Binding v7 and earlier, removed members, unsupported algorithm/schema
+The current-only Recovery generation MUST select binding v9 and its exact
+digest. Binding v8 and earlier, removed members, unsupported algorithm/schema
 identities and stale generation pairs reject before mutation. No converter,
 alias, historical reader, automatic deletion or control-record rewrite is
 permitted. Pure projection identities and canonical bytes are unchanged.
 
-The current source registry is v6 and implementation binding is v8. No earlier
+The current source registry is v6 and implementation binding is v9. No earlier
 Graph generation is selectable or executable. Failure or cancellation in any
 clear, rebuild, publication, reconciliation, or postcondition phase rolls back
 the complete Graph mutation. An indeterminate commit keeps the target
@@ -1024,3 +1025,21 @@ result. Saved graph declarations belong to their source owner because only that
 owner can define authorization, source validity, refresh intent, and product
 lifecycle. Narrow result ports keep Graph Projection reusable without turning it
 into a second application platform.
+
+
+## Incident portability reconstruction amendment (2026-11-05)
+
+Graph Projection retains its pure v2 computation and exact immutable result
+verification boundary. Network Flow state 7 supplies immutable selected-source
+bindings independently of current refresh intent and operational jobs. Both
+incident transfer and deployment recovery reconstruct only those selected
+inputs and verify all expected result-binding members before publication.
+Retired declarations and soft-deleted bound sources remain eligible for
+historical reconstruction; they do not acquire active-query or refresh status.
+
+Incident import uses a supplied final transaction and an incident-scoped
+publication capability. It MUST NOT invoke deployment-wide Clear or ReplaceAll,
+modify another incident or publish before the authoritative source owners.
+Deployment Recovery retains its own complete replacement and serving-admission
+lifecycle. Unselected declarations require no derived result. Neither transfer
+nor reconstruction silently refreshes a declaration or fabricates a source job.

@@ -18,16 +18,20 @@ const (
 type StorageKeyParts struct {
 	IncidentID   uuid.UUID
 	ObjectBlobID uuid.UUID
+	GenerationID uuid.UUID
 }
 
-func ObjectBlobStorageKey(incidentID uuid.UUID, objectBlobID uuid.UUID) (string, error) {
+func ObjectBlobStorageKey(incidentID uuid.UUID, objectBlobID uuid.UUID, generationID uuid.UUID) (string, error) {
 	if incidentID == uuid.Nil {
 		return "", fmt.Errorf("incident_id is required")
 	}
 	if objectBlobID == uuid.Nil {
 		return "", fmt.Errorf("object_blob_id is required")
 	}
-	return storageKeyIncidentSeg + "/" + incidentID.String() + "/" + storageKeyBlobSeg + "/" + objectBlobID.String(), nil
+	if generationID == uuid.Nil {
+		return "", fmt.Errorf("generation_id is required")
+	}
+	return storageKeyIncidentSeg + "/" + incidentID.String() + "/" + storageKeyBlobSeg + "/" + objectBlobID.String() + "/objects/" + generationID.String(), nil
 }
 
 func ParseObjectBlobStorageKey(key string) (StorageKeyParts, error) {
@@ -35,8 +39,8 @@ func ParseObjectBlobStorageKey(key string) (StorageKeyParts, error) {
 		return StorageKeyParts{}, err
 	}
 	parts := strings.Split(key, "/")
-	if len(parts) != 4 || parts[0] != storageKeyIncidentSeg || parts[2] != storageKeyBlobSeg {
-		return StorageKeyParts{}, fmt.Errorf("object blob storage key must use incidents/{incident_uuid}/object-blobs/{object_blob_uuid}")
+	if len(parts) != 6 || parts[0] != storageKeyIncidentSeg || parts[2] != storageKeyBlobSeg || parts[4] != "objects" {
+		return StorageKeyParts{}, fmt.Errorf("object blob storage key must use incidents/{incident_uuid}/object-blobs/{object_blob_uuid}/objects/{generation_uuid}")
 	}
 	incidentID, err := parseCanonicalUUID(parts[1], "incident_id")
 	if err != nil {
@@ -46,7 +50,11 @@ func ParseObjectBlobStorageKey(key string) (StorageKeyParts, error) {
 	if err != nil {
 		return StorageKeyParts{}, err
 	}
-	return StorageKeyParts{IncidentID: incidentID, ObjectBlobID: objectBlobID}, nil
+	generationID, err := parseCanonicalUUID(parts[5], "generation_id")
+	if err != nil {
+		return StorageKeyParts{}, err
+	}
+	return StorageKeyParts{IncidentID: incidentID, ObjectBlobID: objectBlobID, GenerationID: generationID}, nil
 }
 
 func ObjectBlobStorageRef(objectBlobID uuid.UUID) (string, error) {

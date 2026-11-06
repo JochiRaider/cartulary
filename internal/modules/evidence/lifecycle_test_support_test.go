@@ -367,7 +367,7 @@ SELECT COUNT(*)
 func insertRouteBlob(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, uploadState string) uuid.UUID {
 	t.Helper()
 	objectBlobID := uuid.New()
-	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID)
+	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID, uuid.New())
 	if err != nil {
 		t.Fatalf("evidence_lifecycle route blob storage key: %v", err)
 	}

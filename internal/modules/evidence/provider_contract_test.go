@@ -40,12 +40,12 @@ func TestModuleEvidenceProviderContributionClosure(t *testing.T) {
 	t.Run("incident_bundle", func(t *testing.T) {
 		t.Parallel()
 		var typedNilStore *constructionObjectStore
-		if _, err := NewIncidentBundleBlobPortability(typedNilStore); err == nil {
+		if _, err := NewIncidentBundleBlobPortability(typedNilStore, nil); err == nil {
 			t.Fatal("Evidence incident-bundle contribution accepted a typed-nil object store")
 		}
 		descriptor := NewIncidentBundleSourcePort().Descriptor()
 		if descriptor.FamilyID != "evidence" ||
-			descriptor.ContractMajor != 2 ||
+			descriptor.ContractMajor != 3 ||
 			descriptor.OwnerID != "module.evidence" {
 			t.Fatalf("unexpected Evidence incident-bundle descriptor: %#v", descriptor)
 		}

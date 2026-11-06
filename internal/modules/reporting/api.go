@@ -25,6 +25,7 @@ const (
 	ProfileID = "snapshot_reporting"
 
 	SnapshotsRouteContributionID          = "snapshot_reporting.snapshots_route"
+	RetainedArtifactsRouteContributionID  = "snapshot_reporting.retained_artifacts_route"
 	ReleasesRouteContributionID           = "snapshot_reporting.releases_route"
 	ReportCompositionsRouteContributionID = "snapshot_reporting.report_compositions_route"
 	JobWorkerKind                         = "snapshot_reporting.job_worker_v2"

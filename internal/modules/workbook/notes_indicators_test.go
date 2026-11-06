@@ -594,6 +594,7 @@ func newCatalogBackedWorkbookCatalog(
 		appender,
 		conflictFields,
 		projections.TaskDecisionMutationRows(),
+		projections.LinkRows(),
 		intents,
 	)
 	if err != nil {
@@ -605,6 +606,7 @@ func newCatalogBackedWorkbookCatalog(
 		appender,
 		conflictFields,
 		projections.ArtifactPorts().Rows,
+		projections.LinkRows(),
 		intents,
 	)
 	if err != nil {
@@ -632,6 +634,7 @@ func newCatalogBackedWorkbookCatalog(
 		EntityMutationRows:    projections.EntityMutationRows(),
 		EntityQueryReader:     projections.EntityQueryReader(),
 		AssessmentProjections: projections.AssessmentPorts().Rows,
+		LinkProjections:       projections.LinkRows(),
 		PartyProjections:      projections.PartyPorts().Rows,
 		IndicatorOwner:        indicatorOwner,
 		TimelineOwner:         timelineBundle.Facade,

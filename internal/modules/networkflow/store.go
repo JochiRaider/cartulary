@@ -14,22 +14,28 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type store struct {
 	*graphSourceReadStore
-	tableIDEntropy  io.Reader
-	pool            postgres.DB
-	limits          EffectiveLimits
-	incidentLocks   IncidentLockPort
-	auditAppender   AdministrativeAuditPort
-	indicators      IndicatorParticipationPort
-	safeDigester    safeDigester
-	resourceIntents ResourceIntentAppender
+	tableIDEntropy       io.Reader
+	pool                 postgres.DB
+	limits               EffectiveLimits
+	incidentLocks        IncidentLockPort
+	auditAppender        AdministrativeAuditPort
+	indicators           IndicatorParticipationPort
+	safeDigester         safeDigester
+	resourceIntents      ResourceIntentAppender
+	importedAttributions sourceport.PortableAttributionResolver
 }
 
 type storeOption func(*store)
+
+func withImportedAttributions(resolver sourceport.PortableAttributionResolver) storeOption {
+	return func(s *store) { s.importedAttributions = resolver }
+}
 
 func withOwnerParticipants(incidentLocks IncidentLockPort, auditAppender AdministrativeAuditPort, indicatorParticipant IndicatorParticipationPort) storeOption {
 	return func(s *store) {
@@ -52,27 +58,28 @@ func withResourceIntentAppender(appender ResourceIntentAppender) storeOption {
 }
 
 type tableRecord struct {
-	TableID                   string
-	IncidentID                uuid.UUID
-	DisplayName               string
-	TableVersion              int64
-	TableStatus               string
-	SourceImportSessionID     uuid.UUID
-	SourceImportUnitID        uuid.UUID
-	SourceContentSHA256       string
-	SourceFilenameDisplay     string
-	SourceFilenameDigest      string
-	SourceFilenameDigestKeyID string
-	MappingFingerprint        string
-	SourceProfileID           string
-	ParserProfileID           string
-	RowCountAccepted          int64
-	RowCountRejected          int64
-	DiagnosticsTruncated      bool
-	CreatedByUserID           uuid.UUID
-	CreatedAt                 time.Time
-	UpdatedAt                 time.Time
-	DeletedAt                 *time.Time
+	TableID                    string
+	IncidentID                 uuid.UUID
+	DisplayName                string
+	TableVersion               int64
+	TableStatus                string
+	CommittedSourceID          uuid.UUID
+	SourceInterpretationSHA256 string
+	SourceRawCellScalarLimit   int64
+	SourceContentSHA256        string
+	SourceFilenameDisplay      string
+	SourceFilenameDigest       string
+	SourceFilenameDigestKeyID  string
+	MappingFingerprint         string
+	SourceProfileID            string
+	ParserProfileID            string
+	RowCountAccepted           int64
+	RowCountRejected           int64
+	DiagnosticsTruncated       bool
+	CreatedByUserID            uuid.UUID
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
+	DeletedAt                  *time.Time
 }
 
 type flowRow struct {
@@ -124,26 +131,29 @@ type rejectedRowDiagnostic struct {
 }
 
 type createTableParams struct {
-	IncidentID                uuid.UUID
-	ActorUserID               uuid.UUID
-	ImportSessionID           uuid.UUID
-	ImportUnitID              uuid.UUID
-	ClientTxnID               string
-	RequestID                 string
-	SourceContentSHA256       string
-	OriginalFilename          string
-	SourceFilenameDigest      string
-	SourceFilenameDigestKeyID string
-	MappingFingerprint        string
-	SourceProfileID           string
-	ParserProfileID           string
-	DisplayNameOverride       *string
-	RowCountAccepted          int64
-	VisitRows                 func(func(normalizedRow) error) error
-	RowCountRejected          int64
-	Diagnostics               []rejectedRowDiagnostic
-	DiagnosticsTruncated      bool
-	Now                       time.Time
+	IncidentID                 uuid.UUID
+	ActorUserID                uuid.UUID
+	ImportSessionID            uuid.UUID
+	ImportUnitID               uuid.UUID
+	CommittedSourceID          uuid.UUID
+	SourceInterpretationSHA256 string
+	SourceRawCellScalarLimit   int64
+	ClientTxnID                string
+	RequestID                  string
+	SourceContentSHA256        string
+	OriginalFilename           string
+	SourceFilenameDigest       string
+	SourceFilenameDigestKeyID  string
+	MappingFingerprint         string
+	SourceProfileID            string
+	ParserProfileID            string
+	DisplayNameOverride        *string
+	RowCountAccepted           int64
+	VisitRows                  func(func(normalizedRow) error) error
+	RowCountRejected           int64
+	Diagnostics                []rejectedRowDiagnostic
+	DiagnosticsTruncated       bool
+	Now                        time.Time
 }
 
 type renameTableParams struct {
@@ -219,22 +229,23 @@ func (s *store) CreateTableTx(ctx context.Context, tx pgx.Tx, params createTable
 	parserProfileID := rowContext.parserProfile
 	sourceFilenameDisplay := sanitizeSourceFilenameDisplay(params.OriginalFilename)
 	tableID, table, err := s.insertTableWithGeneratedID(ctx, tx, insertTableParams{
-		IncidentID:                params.IncidentID,
-		DisplayName:               displayName,
-		SourceImportSessionID:     params.ImportSessionID,
-		SourceImportUnitID:        params.ImportUnitID,
-		SourceContentSHA256:       params.SourceContentSHA256,
-		SourceFilenameDisplay:     sourceFilenameDisplay,
-		SourceFilenameDigest:      params.SourceFilenameDigest,
-		SourceFilenameDigestKeyID: params.SourceFilenameDigestKeyID,
-		MappingFingerprint:        params.MappingFingerprint,
-		SourceProfileID:           params.SourceProfileID,
-		ParserProfileID:           parserProfileID,
-		RowCountAccepted:          params.RowCountAccepted,
-		RowCountRejected:          params.RowCountRejected,
-		DiagnosticsTruncated:      params.DiagnosticsTruncated,
-		CreatedByUserID:           params.ActorUserID,
-		CreatedAt:                 now,
+		IncidentID:                 params.IncidentID,
+		DisplayName:                displayName,
+		CommittedSourceID:          params.CommittedSourceID,
+		SourceInterpretationSHA256: params.SourceInterpretationSHA256,
+		SourceRawCellScalarLimit:   params.SourceRawCellScalarLimit,
+		SourceContentSHA256:        params.SourceContentSHA256,
+		SourceFilenameDisplay:      sourceFilenameDisplay,
+		SourceFilenameDigest:       params.SourceFilenameDigest,
+		SourceFilenameDigestKeyID:  params.SourceFilenameDigestKeyID,
+		MappingFingerprint:         params.MappingFingerprint,
+		SourceProfileID:            params.SourceProfileID,
+		ParserProfileID:            parserProfileID,
+		RowCountAccepted:           params.RowCountAccepted,
+		RowCountRejected:           params.RowCountRejected,
+		DiagnosticsTruncated:       params.DiagnosticsTruncated,
+		CreatedByUserID:            params.ActorUserID,
+		CreatedAt:                  now,
 	})
 	if err != nil {
 		return tableRecord{}, err
@@ -294,7 +305,7 @@ func (s *store) renameTableTx(ctx context.Context, tx pgx.Tx, params renameTable
 		return tableRecord{}, err
 	}
 	if displayName == table.DisplayName {
-		return table, nil
+		return s.resolveTableAuthor(ctx, tx, table)
 	}
 	existingNames, err := activeDisplayNamesTx(ctx, tx, params.IncidentID, params.TableID)
 	if err != nil {
@@ -430,7 +441,12 @@ SELECT `+flowRowColumnList()+`
 			return flowRow{}, stateErr
 		}
 	}
-	return row, err
+	if err != nil {
+		return row, err
+	}
+	values := []flowRow{row}
+	err = s.resolveRowAuthors(ctx, incidentID, values)
+	return values[0], err
 }
 
 type graphContributorPredicate struct {
@@ -446,22 +462,23 @@ type graphContributorPredicate struct {
 }
 
 type insertTableParams struct {
-	IncidentID                uuid.UUID
-	DisplayName               string
-	SourceImportSessionID     uuid.UUID
-	SourceImportUnitID        uuid.UUID
-	SourceContentSHA256       string
-	SourceFilenameDisplay     string
-	SourceFilenameDigest      string
-	SourceFilenameDigestKeyID string
-	MappingFingerprint        string
-	SourceProfileID           string
-	ParserProfileID           string
-	RowCountAccepted          int64
-	RowCountRejected          int64
-	DiagnosticsTruncated      bool
-	CreatedByUserID           uuid.UUID
-	CreatedAt                 time.Time
+	IncidentID                 uuid.UUID
+	DisplayName                string
+	CommittedSourceID          uuid.UUID
+	SourceInterpretationSHA256 string
+	SourceRawCellScalarLimit   int64
+	SourceContentSHA256        string
+	SourceFilenameDisplay      string
+	SourceFilenameDigest       string
+	SourceFilenameDigestKeyID  string
+	MappingFingerprint         string
+	SourceProfileID            string
+	ParserProfileID            string
+	RowCountAccepted           int64
+	RowCountRejected           int64
+	DiagnosticsTruncated       bool
+	CreatedByUserID            uuid.UUID
+	CreatedAt                  time.Time
 }
 
 func (s *store) insertTableWithGeneratedID(ctx context.Context, tx pgx.Tx, params insertTableParams) (string, tableRecord, error) {
@@ -486,16 +503,16 @@ func insertTableTx(ctx context.Context, tx pgx.Tx, tableID string, params insert
 	row := tx.QueryRow(ctx, `
 INSERT INTO network_flow_tables (
     network_flow_table_id, incident_id, display_name, table_version, table_status,
-    source_import_session_id, source_import_unit_id, source_content_sha256,
+    committed_source_id, source_interpretation_sha256, source_content_sha256,
     source_filename_display, source_filename_digest, source_filename_digest_key_id,
     mapping_fingerprint, source_profile_id, parser_profile_id, row_count_accepted,
-    row_count_rejected, diagnostics_truncated, created_by_user_id, created_at, updated_at
+    row_count_rejected, diagnostics_truncated, created_by_user_id, created_at, updated_at, source_raw_cell_scalar_limit
 ) VALUES (
     $1, $2, $3, 1, 'active', $4, $5, $6, $7, $8, $9, $10, $11, $12,
-    $13, $14, $15, $16, $17, $17
+    $13, $14, $15, $16, $17, $17, $18
 )
 ON CONFLICT ON CONSTRAINT network_flow_tables_pkey DO NOTHING
-RETURNING `+tableColumnList(), tableID, params.IncidentID, params.DisplayName, params.SourceImportSessionID, params.SourceImportUnitID, params.SourceContentSHA256, params.SourceFilenameDisplay, params.SourceFilenameDigest, params.SourceFilenameDigestKeyID, params.MappingFingerprint, params.SourceProfileID, params.ParserProfileID, params.RowCountAccepted, params.RowCountRejected, params.DiagnosticsTruncated, params.CreatedByUserID, params.CreatedAt)
+RETURNING `+tableColumnList(), tableID, params.IncidentID, params.DisplayName, params.CommittedSourceID, params.SourceInterpretationSHA256, params.SourceContentSHA256, params.SourceFilenameDisplay, params.SourceFilenameDigest, params.SourceFilenameDigestKeyID, params.MappingFingerprint, params.SourceProfileID, params.ParserProfileID, params.RowCountAccepted, params.RowCountRejected, params.DiagnosticsTruncated, params.CreatedByUserID, params.CreatedAt, params.SourceRawCellScalarLimit)
 	table, err := scanTable(row)
 	if err != nil {
 		return tableRecord{}, fmt.Errorf("insert network flow table: %w", err)
@@ -519,7 +536,7 @@ RETURNING `+tableColumnList(), incidentID, tableID, displayName, now)
 	if err := s.appendTableResourceIntentTx(ctx, tx, table, "invalidate", "renamed"); err != nil {
 		return tableRecord{}, err
 	}
-	return table, nil
+	return s.resolveTableAuthor(ctx, tx, table)
 }
 
 func (s *store) updateTableSoftDeletedTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, now time.Time) (tableRecord, error) {
@@ -539,26 +556,55 @@ RETURNING `+tableColumnList(), incidentID, tableID, now)
 	if err := s.appendTableResourceIntentTx(ctx, tx, table, "remove", "soft_deleted"); err != nil {
 		return tableRecord{}, err
 	}
-	return table, nil
+	return s.resolveTableAuthor(ctx, tx, table)
 }
 
 func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createTableParams, rowContext rowImportContext) error {
 	var count, lastRow int64
+	err := insertRetainedRowsTx(ctx, tx, func(visit func(flowRow) error) error {
+		return params.VisitRows(func(source normalizedRow) error {
+			if source.SourceRowNumber <= lastRow || count >= params.RowCountAccepted {
+				return errSourceChanged
+			}
+			lastRow = source.SourceRowNumber
+			count++
+			row, err := rowContext.persistedRow(tableID, source)
+			if err != nil {
+				return err
+			}
+			return visit(row)
+		})
+	})
+	if err != nil {
+		return err
+	}
+	if count != params.RowCountAccepted {
+		return errSourceChanged
+	}
+	return nil
+}
+
+var retainedFlowRowColumns = []string{
+	"network_flow_row_id", "network_flow_table_id", "incident_id", "source_row_number",
+	"source_row_digest_sha256", "normalized_row_digest_sha256", "mapping_fingerprint",
+	"flow_start_utc", "flow_end_utc", "endpoint_a_ip", "endpoint_b_ip", "endpoint_a_port", "endpoint_b_port", "ip_protocol",
+	"bytes_count", "packets_count", "exporter_id", "input_interface", "output_interface",
+	"tcp_flags", "application_label", "unmapped_raw", "observation_source_ref", "created_at", "created_by_user_id",
+	"direction_kind", "from_endpoint", "direction_reason", "direction_evidence",
+}
+
+func retainedFlowRowValues(row flowRow) []any {
+	return []any{row.RowID, row.NetworkFlowTableID, row.IncidentID, row.SourceRowNumber, row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256, row.MappingFingerprint, row.FlowStartUTC, row.FlowEndUTC, row.EndpointAIP, row.EndpointBIP, nullableInt32(row.EndpointAPort), nullableInt32(row.EndpointBPort), row.IPProtocol, row.BytesCount, row.PacketsCount, row.ExporterID, row.InputInterface, row.OutputInterface, nullableInt32(row.TCPFlags), row.ApplicationLabel, string(row.UnmappedRaw), string(row.ObservationSourceRef), row.CreatedAt, row.CreatedByUserID, row.Direction.Kind, row.Direction.FromEndpoint, row.Direction.Reason, string(row.DirectionEvidence)}
+}
+
+func insertRetainedRowsTx(ctx context.Context, tx pgx.Tx, visit func(func(flowRow) error) error) error {
 	var batch [][]any
 	var batchBytes int
-	columns := []string{
-		"network_flow_row_id", "network_flow_table_id", "incident_id", "source_row_number",
-		"source_row_digest_sha256", "normalized_row_digest_sha256", "mapping_fingerprint",
-		"flow_start_utc", "flow_end_utc", "endpoint_a_ip", "endpoint_b_ip", "endpoint_a_port", "endpoint_b_port", "ip_protocol",
-		"bytes_count", "packets_count", "exporter_id", "input_interface", "output_interface",
-		"tcp_flags", "application_label", "unmapped_raw", "observation_source_ref", "created_at", "created_by_user_id",
-		"direction_kind", "from_endpoint", "direction_reason", "direction_evidence",
-	}
 	flush := func() error {
 		if len(batch) == 0 {
 			return nil
 		}
-		written, err := tx.CopyFrom(ctx, pgx.Identifier{"network_flow_rows"}, columns, pgx.CopyFromRows(batch))
+		written, err := tx.CopyFrom(ctx, pgx.Identifier{"network_flow_rows"}, retainedFlowRowColumns, pgx.CopyFromRows(batch))
 		if err != nil {
 			return fmt.Errorf("insert network flow row batch: %w", err)
 		}
@@ -569,19 +615,11 @@ func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createT
 		batchBytes = 0
 		return nil
 	}
-	err := params.VisitRows(func(source normalizedRow) error {
+	err := visit(func(row flowRow) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if source.SourceRowNumber <= lastRow || count >= params.RowCountAccepted {
-			return errSourceChanged
-		}
-		lastRow = source.SourceRowNumber
-		row, err := rowContext.persistedRow(tableID, source)
-		if err != nil {
-			return err
-		}
-		arguments := []any{row.RowID, row.NetworkFlowTableID, row.IncidentID, row.SourceRowNumber, row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256, row.MappingFingerprint, row.FlowStartUTC, row.FlowEndUTC, row.EndpointAIP, row.EndpointBIP, nullableInt32(row.EndpointAPort), nullableInt32(row.EndpointBPort), row.IPProtocol, row.BytesCount, row.PacketsCount, row.ExporterID, row.InputInterface, row.OutputInterface, nullableInt32(row.TCPFlags), row.ApplicationLabel, string(row.UnmappedRaw), string(row.ObservationSourceRef), row.CreatedAt, row.CreatedByUserID, row.Direction.Kind, row.Direction.FromEndpoint, row.Direction.Reason, string(row.DirectionEvidence)}
+		arguments := retainedFlowRowValues(row)
 		// Bound retained rows and variable-sized values independently. A single
 		// admitted row may exceed the byte target; it is flushed on its own.
 		rowBytes := len(arguments) * 128
@@ -602,7 +640,6 @@ func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createT
 		}
 		batch = append(batch, arguments)
 		batchBytes += rowBytes
-		count++
 		if batchBytes >= 1<<20 {
 			return flush()
 		}
@@ -610,9 +647,6 @@ func insertRowsTx(ctx context.Context, tx pgx.Tx, tableID string, params createT
 	})
 	if err != nil {
 		return err
-	}
-	if count != params.RowCountAccepted {
-		return errSourceChanged
 	}
 	return flush()
 }
@@ -759,7 +793,7 @@ func tableSelectColumns() string {
 
 func tableColumnList() string {
 	return `network_flow_table_id, incident_id, display_name, table_version, table_status,
-       source_import_session_id, source_import_unit_id, source_content_sha256,
+       committed_source_id, source_raw_cell_scalar_limit, source_interpretation_sha256, source_content_sha256,
        source_filename_display, source_filename_digest, source_filename_digest_key_id,
        mapping_fingerprint, source_profile_id, parser_profile_id, row_count_accepted,
        row_count_rejected, diagnostics_truncated, created_by_user_id, created_at, updated_at, deleted_at`
@@ -774,8 +808,9 @@ func scanTable(row pgx.Row) (tableRecord, error) {
 		&record.DisplayName,
 		&record.TableVersion,
 		&record.TableStatus,
-		&record.SourceImportSessionID,
-		&record.SourceImportUnitID,
+		&record.CommittedSourceID,
+		&record.SourceRawCellScalarLimit,
+		&record.SourceInterpretationSHA256,
 		&record.SourceContentSHA256,
 		&record.SourceFilenameDisplay,
 		&record.SourceFilenameDigest,

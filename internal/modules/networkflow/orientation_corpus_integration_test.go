@@ -18,7 +18,7 @@ import (
 // Exercise the incident corpus through the actual Imports/Jobs/SQL/query/graph
 // boundaries. Expectations are the independently retained per-observation and
 // per-connection JSON, never output captured from the application.
-func testOrientationIncidentCorpusService(t *testing.T) {
+func TestOrientationIncidentCorpusService(t *testing.T) {
 	const root = "../../../fixtures/network-flow-orientation/v1"
 	var manifest struct {
 		Datasets []struct {

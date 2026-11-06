@@ -11,7 +11,25 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/vocabulary"
 )
 
-type Store struct{}
+type Store struct {
+	projections ProjectionRows
+}
+
+// ProjectionRows publishes relationship-derived cells in the mutation's
+// transaction. Source owners retain responsibility for their record revisions.
+type ProjectionRows interface {
+	RefreshLinkedRecordsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) error
+}
+
+// NewMutationStore composes ordinary relationship writes with their projection
+// effects. NewStore is the storage capability used by coordinators that publish
+// their own complete projection scope (import, rollback and merge).
+func NewMutationStore(rows ProjectionRows) (*Store, error) {
+	if rows == nil {
+		return nil, errors.New("links: projection rows are required")
+	}
+	return &Store{projections: rows}, nil
+}
 
 var errRecordLinkNotFound = errors.New("links: record link not found")
 var errFieldReferenceNotFound = errors.New("links: field reference not found")

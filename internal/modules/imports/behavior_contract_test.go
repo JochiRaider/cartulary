@@ -41,6 +41,9 @@ func TestImportSessionMemberRouteContract(t *testing.T) {
 		{path: base + "/apply", kind: "apply", method: http.MethodPost, operationID: "applyImportSession", stateChanging: true},
 	}
 	expectedByOperationID := map[string]importRouteDescriptor{
+		"listCommittedImportSources":      {Kind: "committed_sources", Method: http.MethodGet, OperationID: "listCommittedImportSources"},
+		"getCommittedImportSource":        {Kind: "committed_source", Method: http.MethodGet, OperationID: "getCommittedImportSource"},
+		"getCommittedImportSourceContent": {Kind: "committed_source_content", Method: http.MethodGet, OperationID: "getCommittedImportSourceContent"},
 		"createImportSession": {
 			Kind:          "create_session",
 			Method:        http.MethodPost,
@@ -77,12 +80,12 @@ func TestImportSessionMemberRouteContract(t *testing.T) {
 		}
 	}
 
-	if len(importRouteCatalog) != 12 || len(expectedByOperationID) != 12 {
+	if len(importRouteCatalog) != 15 || len(expectedByOperationID) != 15 {
 		t.Fatalf("Imports route catalog count changed: catalog=%d expected=%d", len(importRouteCatalog), len(expectedByOperationID))
 	}
 	boundHandlers := (&service{}).importOperationHandlers()
 	contractOperations := httpapi.ContractOperationsForOwner("module.imports")
-	if len(boundHandlers) != 12 || len(contractOperations) != 12 {
+	if len(boundHandlers) != 15 || len(contractOperations) != 15 {
 		t.Fatalf("Imports bound operation count changed: handlers=%d contracts=%d", len(boundHandlers), len(contractOperations))
 	}
 	for _, descriptor := range importRouteCatalog {

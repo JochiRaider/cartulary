@@ -14,7 +14,7 @@ import (
 
 // The oracle was calculated with Python csv/ipaddress, independently of this
 // parser and graph composer. It includes every endpoint and every contributor.
-func testOrientationCorpus(t *testing.T) {
+func TestOrientationCorpus(t *testing.T) {
 	const root = "../../../fixtures/network-flow-orientation/v1"
 	var manifest struct {
 		Datasets []struct {

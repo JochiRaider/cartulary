@@ -36,6 +36,54 @@ async function assertDependencyClosureContract(context) {
   assert.ok(goClosure.entries.some((entry) => entry.path.startsWith("tools/harness/")));
   assert.ok(goClosure.entries.some((entry) => entry.path.startsWith("tools/harness/generated-artifacts/")), "generator identities must be closed by the package cache key");
   assert.ok(goClosure.entries.some((entry) => entry.path === `tools/test_families/${goRow.owner_id}.json`));
+  const corpusRow = context.catalog.rowByID.get("module.imports.unit.ir_corpus_admission");
+  const corpusUnit = cacheableRowUnit(context, corpusRow);
+  const corpusClosure = resolveCacheDependencyClosure({ root, entries: source.entries, profile, unit: corpusUnit });
+  for (const member of ["fixtures/ir-incident/v1/manifest.json", "fixtures/ir-incident/v1/timeline.csv", "fixtures/ir-incident/v1/expected.json", "fixtures/network-flow-orientation/v1/manifest.json", "fixtures/network-flow-orientation/v1/overlap.csv"]) {
+    assert.ok(corpusClosure.entries.some((entry) => entry.path === member), `${member} must invalidate corpus evidence`);
+    const changed = source.entries.map((entry) => entry.path === member ? { ...entry, byte_digest: `sha256:${"f".repeat(64)}` } : entry);
+    assert.notEqual(resolveCacheDependencyClosure({ root, entries: changed, profile, unit: corpusUnit }).digest, corpusClosure.digest);
+  }
+  const absent = source.entries.filter((entry) => !entry.path.startsWith("fixtures/ir-incident/v1/"));
+  const fallback = resolveCacheDependencyClosure({ root, entries: absent, profile, unit: corpusUnit });
+  assert.equal(fallback.strategy, "broad_fallback");
+  assert.notEqual(fallback.digest, corpusClosure.digest);
+  const alternateCorpusRow = {
+    ...corpusRow,
+    row_id: `${corpusRow.row_id}_alternate_dependency`,
+    fixture_input_roots: ["fixtures/network-flow"],
+  };
+  const fixtureCatalog = {
+    ...context.catalog,
+    rowByID: new Map([...context.catalog.rowByID, [alternateCorpusRow.row_id, alternateCorpusRow]]),
+  };
+  const sharedResolverCache = new Map();
+  const alternateFixtureUnit = {
+    ...corpusUnit,
+    row_bindings: corpusUnit.row_bindings.map((binding) => ({
+      ...binding, row_id: alternateCorpusRow.row_id,
+    })),
+    command: {
+      ...corpusUnit.command,
+      environment: {
+        ...corpusUnit.command.environment,
+        CARTULARY_TEST_ROWS: alternateCorpusRow.row_id,
+      },
+    },
+  };
+  const resolveFixtureUnit = (unit) => resolveCacheDependencyClosure({
+    root, entries: source.entries, profile, unit,
+    resolverCache: sharedResolverCache,
+    getCatalog: () => fixtureCatalog,
+  });
+  const firstFixtureClosure = resolveFixtureUnit(corpusUnit);
+  const secondFixtureClosure = resolveFixtureUnit(alternateFixtureUnit);
+  assert.equal(firstFixtureClosure.strategy, "go_packages");
+  assert.equal(secondFixtureClosure.strategy, "go_packages");
+  assert.notEqual(secondFixtureClosure.digest, firstFixtureClosure.digest,
+    "equal owners and packages must not reuse a different fixture dependency closure");
+  assert.ok(!secondFixtureClosure.entries.some((entry) => entry.path === "fixtures/ir-incident/v1/timeline.csv"));
+  assert.ok(secondFixtureClosure.entries.some((entry) => entry.path === "fixtures/network-flow/NF-FIX-029-cisco-sna-flow-search/manifest.json"));
   const goPackage = goRow.selector.package.replace(/^\.\//u, "");
   const added = {
     path: `${goPackage}/untracked-cache-input.fixture`,

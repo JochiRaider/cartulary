@@ -12,11 +12,12 @@ import (
 func TestObjectBlobStorageKeyContract(t *testing.T) {
 	incidentID := uuid.MustParse("00000000-0000-0000-0000-000000210001")
 	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000210002")
-	key, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID)
+	generationID := uuid.MustParse("00000000-0000-0000-0000-000000210004")
+	key, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID, generationID)
 	if err != nil {
 		t.Fatalf("build key: %v", err)
 	}
-	want := "incidents/00000000-0000-0000-0000-000000210001/object-blobs/00000000-0000-0000-0000-000000210002"
+	want := "incidents/00000000-0000-0000-0000-000000210001/object-blobs/00000000-0000-0000-0000-000000210002/objects/00000000-0000-0000-0000-000000210004"
 	if key != want {
 		t.Fatalf("key got %q want %q", key, want)
 	}
@@ -24,11 +25,12 @@ func TestObjectBlobStorageKeyContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse key: %v", err)
 	}
-	if parts.IncidentID != incidentID || parts.ObjectBlobID != objectBlobID {
+	if parts.IncidentID != incidentID || parts.ObjectBlobID != objectBlobID || parts.GenerationID != generationID {
 		t.Fatalf("parsed parts got %#v", parts)
 	}
 
 	for _, invalid := range []string{
+		"incidents/00000000-0000-0000-0000-000000210001/object-blobs/00000000-0000-0000-0000-000000210002",
 		"",
 		"/incidents/00000000-0000-0000-0000-000000210001/object-blobs/00000000-0000-0000-0000-000000210002",
 		"../incidents/00000000-0000-0000-0000-000000210001/object-blobs/00000000-0000-0000-0000-000000210002",

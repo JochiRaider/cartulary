@@ -1,7 +1,7 @@
 package entities
 
 import (
-	"sort"
+	"context"
 	"strings"
 
 	"github.com/google/uuid"
@@ -11,141 +11,71 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
 
-func prepareEntityImport(bundle sourceport.Bundle, importContext sourceport.ImportContext) (preparedEntityImport, error) {
-	prepared := preparedEntityImport{binding: entityPortableBinding{
-		operationID: importContext.OperationID, incidentID: importContext.IncidentID,
-		bundleVersion: importContext.BundleVersion, contractMajor: sourceport.ContractMajor,
-	}}
-	if bundle == nil || importContext.OperationID == "" || importContext.IncidentID == uuid.Nil ||
-		importContext.ActorUserID == uuid.Nil || importContext.BundleVersion != 5 {
+func prepareEntityImport(ctx context.Context, bundle incidentportability.MemberReader, importContext sourceport.ImportContext) (preparedEntityImport, error) {
+	prepared := preparedEntityImport{binding: entityPortableBinding{operationID: importContext.OperationID, incidentID: importContext.IncidentID, bundleVersion: importContext.BundleVersion, contractMajor: sourceport.ContractMajor}}
+	if bundle == nil || importContext.OperationID == "" || importContext.IncidentID == uuid.Nil || importContext.ActorUserID == uuid.Nil || importContext.BundleVersion != 6 {
 		return preparedEntityImport{}, entitySourceFailure(entitySourceIdentity)
 	}
-
-	var failures []entityFailureCandidate
-	mentionRows := decodeEntityRows(bundle, entityMentionsBundlePath, &failures)
-	hostRows := decodeEntityRows(bundle, hostsBundlePath, &failures)
-	identityRows := decodeEntityRows(bundle, identitiesBundlePath, &failures)
-	preservedRows := decodeEntityRows(bundle, preservedIDsBundlePath, &failures)
-	aliasRows := decodeEntityRows(bundle, entityAliasesBundlePath, &failures)
-	if len(failures) > 0 {
-		return preparedEntityImport{}, selectedEntityFailure(failures)
+	members, err := sourceport.PrepareMembers(ctx, entitySourceDescriptor(), bundle, importContext.BundleVersion)
+	if err != nil {
+		return preparedEntityImport{}, entitySourceFailure(entitySourceIdentity)
 	}
-
-	hostIDs := map[uuid.UUID]struct{}{}
-	for _, raw := range hostRows {
-		row, rowFailures := preparePortableHost(raw, importContext)
-		failures = append(failures, rowFailures...)
-		if row.RecordID != uuid.Nil {
-			if _, duplicate := hostIDs[row.RecordID]; duplicate {
-				failures = append(failures, entityFailure(entitySourceIdentity, hostsBundlePath, row.RecordID.String(), raw))
+	prepared.members = members
+	var failures entityFailureAccumulator
+	for _, path := range []string{hostsBundlePath, identitiesBundlePath, entityMentionsBundlePath, preservedIDsBundlePath, entityAliasesBundlePath} {
+		err := incidentportability.WalkPath(ctx, members, path, func(raw map[string]any) error {
+			var rowFailures []entityFailureCandidate
+			switch path {
+			case hostsBundlePath:
+				_, rowFailures = preparePortableHost(raw, importContext)
+			case identitiesBundlePath:
+				_, rowFailures = preparePortableIdentity(raw, importContext)
+			case entityMentionsBundlePath:
+				_, rowFailures = preparePortableMention(raw, importContext)
+			case preservedIDsBundlePath:
+				_, rowFailures = preparePortablePreserved(raw, importContext)
+			case entityAliasesBundlePath:
+				_, rowFailures = preparePortableAlias(raw, importContext)
 			}
-			hostIDs[row.RecordID] = struct{}{}
+			failures.candidates(rowFailures)
+			return nil
+		})
+		if err != nil {
+			return preparedEntityImport{}, entitySourceFailure(entitySourceIdentity)
 		}
-		prepared.hosts = append(prepared.hosts, row)
 	}
-	identityIDs := map[uuid.UUID]struct{}{}
-	for _, raw := range identityRows {
-		row, rowFailures := preparePortableIdentity(raw, importContext)
-		failures = append(failures, rowFailures...)
-		if row.RecordID != uuid.Nil {
-			if _, duplicate := identityIDs[row.RecordID]; duplicate {
-				failures = append(failures, entityFailure(entitySourceIdentity, identitiesBundlePath, row.RecordID.String(), raw))
-			}
-			identityIDs[row.RecordID] = struct{}{}
-		}
-		prepared.identities = append(prepared.identities, row)
+	if err := failures.err(); err != nil {
+		return preparedEntityImport{}, err
 	}
-	mentionIDs := map[uuid.UUID]struct{}{}
-	for _, raw := range mentionRows {
-		row, rowFailures := preparePortableMention(raw, importContext)
-		failures = append(failures, rowFailures...)
-		if row.MentionID != uuid.Nil {
-			if _, duplicate := mentionIDs[row.MentionID]; duplicate {
-				failures = append(failures, entityFailure(entitySourceIdentity, entityMentionsBundlePath, row.MentionID.String(), raw))
-			}
-			mentionIDs[row.MentionID] = struct{}{}
-		}
-		prepared.mentions = append(prepared.mentions, row)
-	}
-	preservedIDs := map[uuid.UUID]struct{}{}
-	activePreserved := map[string]uuid.UUID{}
-	for _, raw := range preservedRows {
-		row, rowFailures := preparePortablePreserved(raw, importContext)
-		failures = append(failures, rowFailures...)
-		if row.PreservedID != uuid.Nil {
-			if _, duplicate := preservedIDs[row.PreservedID]; duplicate {
-				failures = append(failures, entityFailure(entitySourceIdentity, preservedIDsBundlePath, row.PreservedID.String(), raw))
-			}
-			preservedIDs[row.PreservedID] = struct{}{}
-		}
-		if row.DeletedAt == nil && row.RecordID != uuid.Nil {
-			key := strings.Join([]string{row.RecordID.String(), row.EntityType, row.IdentifierType, row.NormalizedValue, row.Classification}, "\x00")
-			if prior, duplicate := activePreserved[key]; duplicate {
-				failures = append(failures,
-					entityFailure(entityUnique, preservedIDsBundlePath, prior.String(), raw),
-					entityFailure(entityUnique, preservedIDsBundlePath, row.PreservedID.String(), raw),
-				)
-			} else {
-				activePreserved[key] = row.PreservedID
-			}
-		}
-		prepared.preserved = append(prepared.preserved, row)
-	}
-	aliasIDs := map[uuid.UUID]struct{}{}
-	activeAliases := map[string]uuid.UUID{}
-	for _, raw := range aliasRows {
-		row, rowFailures := preparePortableAlias(raw, importContext)
-		failures = append(failures, rowFailures...)
-		if row.AliasID != uuid.Nil {
-			if _, duplicate := aliasIDs[row.AliasID]; duplicate {
-				failures = append(failures, entityFailure(entitySourceIdentity, entityAliasesBundlePath, row.AliasID.String(), raw))
-			}
-			aliasIDs[row.AliasID] = struct{}{}
-		}
-		if row.DeletedAt == nil && row.RecordID != uuid.Nil {
-			key := strings.Join([]string{row.RecordID.String(), row.EntityType, row.NormalizedText}, "\x00")
-			if prior, duplicate := activeAliases[key]; duplicate {
-				failures = append(failures,
-					entityFailure(entityUnique, entityAliasesBundlePath, prior.String(), raw),
-					entityFailure(entityUnique, entityAliasesBundlePath, row.AliasID.String(), raw),
-				)
-			} else {
-				activeAliases[key] = row.AliasID
-			}
-		}
-		prepared.aliases = append(prepared.aliases, row)
-	}
-	if len(failures) > 0 {
-		return preparedEntityImport{}, selectedEntityFailure(failures)
-	}
-	sort.Slice(prepared.hosts, func(i, j int) bool { return prepared.hosts[i].RecordID.String() < prepared.hosts[j].RecordID.String() })
-	sort.Slice(prepared.identities, func(i, j int) bool {
-		return prepared.identities[i].RecordID.String() < prepared.identities[j].RecordID.String()
-	})
-	sort.Slice(prepared.mentions, func(i, j int) bool {
-		return prepared.mentions[i].MentionID.String() < prepared.mentions[j].MentionID.String()
-	})
-	sort.Slice(prepared.preserved, func(i, j int) bool {
-		return prepared.preserved[i].PreservedID.String() < prepared.preserved[j].PreservedID.String()
-	})
-	sort.Slice(prepared.aliases, func(i, j int) bool {
-		return prepared.aliases[i].AliasID.String() < prepared.aliases[j].AliasID.String()
-	})
 	return prepared, nil
 }
 
-func decodeEntityRows(bundle sourceport.Bundle, path string, failures *[]entityFailureCandidate) []map[string]any {
-	payload, ok := bundle.File(path)
-	if !ok {
-		*failures = append(*failures, entityFailure(entitySourceIdentity, path, "", path))
-		return nil
+func walkEntitySource[T any](ctx context.Context, prepared preparedEntityImport, input sourceport.ImportContext, path string, parse func(map[string]any, sourceport.ImportContext) (T, []entityFailureCandidate), visit func(T) error) error {
+	if !prepared.binding.matches(input) || prepared.members == nil {
+		return entitySourceFailure(entitySourceIdentity)
 	}
-	rows, err := incidentportability.DecodeStrictNDJSONObjects(payload, path)
-	if err != nil {
-		*failures = append(*failures, entityFailure(entitySourceIdentity, path, "", payload))
-		return nil
-	}
-	return rows
+	return incidentportability.WalkPath(ctx, prepared.members, path, func(raw map[string]any) error {
+		row, failures := parse(raw, input)
+		if err := selectedEntityFailure(failures); err != nil {
+			return err
+		}
+		return visit(row)
+	})
+}
+func (p preparedEntityImport) hosts(ctx context.Context, input sourceport.ImportContext, visit func(portableHostRow) error) error {
+	return walkEntitySource(ctx, p, input, hostsBundlePath, preparePortableHost, visit)
+}
+func (p preparedEntityImport) identities(ctx context.Context, input sourceport.ImportContext, visit func(portableIdentityRow) error) error {
+	return walkEntitySource(ctx, p, input, identitiesBundlePath, preparePortableIdentity, visit)
+}
+func (p preparedEntityImport) mentions(ctx context.Context, input sourceport.ImportContext, visit func(portableMentionRow) error) error {
+	return walkEntitySource(ctx, p, input, entityMentionsBundlePath, preparePortableMention, visit)
+}
+func (p preparedEntityImport) preserved(ctx context.Context, input sourceport.ImportContext, visit func(portablePreservedIdentifierRow) error) error {
+	return walkEntitySource(ctx, p, input, preservedIDsBundlePath, preparePortablePreserved, visit)
+}
+func (p preparedEntityImport) aliases(ctx context.Context, input sourceport.ImportContext, visit func(portableAliasRow) error) error {
+	return walkEntitySource(ctx, p, input, entityAliasesBundlePath, preparePortableAlias, visit)
 }
 
 func preparePortableHost(raw map[string]any, importContext sourceport.ImportContext) (portableHostRow, []entityFailureCandidate) {

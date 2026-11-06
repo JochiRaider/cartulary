@@ -102,6 +102,23 @@ if [[ "${1:-}" == --artifact-fixture ]]; then
 fi
 
 (
+  # A live acquisition anchor does not make its exited Vite child ready.
+  exit_for_requested_shutdown() { return 0; }
+  process_group_running() { return 0; }
+  port_owned_by_process_group() { fail "bind failure reached listener polling"; }
+  write_startup_diagnostics() { printf '%s\n' "$*" >"$tmp_dir/bind-failure"; }
+  sleep() { fail "bind failure entered readiness retry"; }
+  WEB_LOG="$tmp_dir/frontend-bind.log"
+  FRONTEND_PORT=19002
+  VITE_PGID=123
+  printf 'Error: Port 19002 is already in use\n' >"$WEB_LOG"
+  readiness_status=0
+  browser_wait_frontend_ready || readiness_status=$?
+  [[ "$readiness_status" == 1 ]] || fail "frontend bind failure was admitted"
+  assert_file_contains "$tmp_dir/bind-failure" 'frontend_readiness infra resource_conflict' "bind failure with live group anchor"
+)
+
+(
   # Exercise failure under a conditional, where shell errexit cannot help.
   assert_port_free() { return 0; }
   using_test_services_stack() { return 0; }

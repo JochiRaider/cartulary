@@ -117,6 +117,7 @@ func CurrentVNextObjectInventoryCatalog(
 		stateCatalog,
 		evidence.VNextRecoveryObjectInventory(source),
 		imports.VNextRecoveryObjectInventory(),
+		imports.VNextCommittedSourceInventory(),
 		extensionsrecovery.VNextRecoveryObjectInventory(source),
 		incidentbundles.VNextRecoveryObjectInventory(exportOutputs),
 		referencedatarecovery.VNextRecoveryObjectInventory(referencePacks),

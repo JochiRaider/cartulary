@@ -54,7 +54,7 @@ func TestConsolidatedBaselineIntegrity_Integration(t *testing.T) {
 	if _, err := db.ExecContext(ctx, insertImportPayload, jobID, actor); err != nil {
 		t.Fatal("deployment import payload", err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO public.reporting_imported_artifact_files(incident_id,bundle_path,operation_id,size_bytes,sha256,content) VALUES($1,'ext/snapshots/baseline.json',$2,2,encode(sha256('{}'::bytea),'hex'),'{}'::bytea)`, incident, jobID); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO public.reporting_imported_artifact_files(incident_id,bundle_path,operation_id,size_bytes,sha256) VALUES($1,'ext/snapshots/baseline.json',$2,2,encode(sha256('{}'::bytea),'hex'))`, incident, jobID); err != nil {
 		t.Fatal("deployment import artifact", err)
 	}
 	// The nullable exception must not admit an export bound to a deployment job.

@@ -1,0 +1,43 @@
+{
+  "schema_id": "cartulary.extension_participant_specialization.v5",
+  "profile_id": "network_flow_activity",
+  "participant_id": "network_flow_activity.incident_portability_v1",
+  "participant_kind": "incident_portability",
+  "shared_context_schema_id": "cartulary.extension_portability_participant_context.v2",
+  "operations": [
+    {
+      "operation_kind": "export",
+      "algorithm_id": "network_flow_activity.incident_export_v1",
+      "ordering_algorithm_id": "network_flow_activity.incident_member_order_v1",
+      "output_schema_id": "cartulary.network_flow.incident_members.v1",
+      "result_schema_id": "cartulary.extension_portability_export_result.v2",
+      "state_family_ids": [
+        "network_flow_activity.graph_views",
+        "network_flow_activity.indicator_bindings",
+        "network_flow_activity.rejected_row_diagnostics",
+        "network_flow_activity.rows",
+        "network_flow_activity.tables"
+      ],
+      "max_input_bytes": 67108864,
+      "max_output_bytes": 67108864,
+      "max_items": 10000
+    },
+    {
+      "operation_kind": "import",
+      "algorithm_id": "network_flow_activity.incident_import_v1",
+      "ordering_algorithm_id": "network_flow_activity.incident_member_order_v1",
+      "output_schema_id": "cartulary.network_flow.incident_import_input.v1",
+      "result_schema_id": "cartulary.extension_portability_import_preparation_result.v2",
+      "state_family_ids": [
+        "network_flow_activity.graph_views",
+        "network_flow_activity.indicator_bindings",
+        "network_flow_activity.rejected_row_diagnostics",
+        "network_flow_activity.rows",
+        "network_flow_activity.tables"
+      ],
+      "max_input_bytes": 67108864,
+      "max_output_bytes": 67108864,
+      "max_items": 10000
+    }
+  ]
+}

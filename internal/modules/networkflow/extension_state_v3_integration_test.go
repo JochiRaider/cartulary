@@ -199,7 +199,7 @@ func TestNetworkFlowRestoredStateClaimAdmission_Integration(t *testing.T) {
 		if err := claim(); err == nil {
 			t.Fatal("claim of populated state without metadata admitted")
 		}
-		if _, err := pool.Exec(t.Context(), `INSERT INTO extension_state_metadata(profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at) VALUES ('network_flow_activity','network_flow_activity.state_v1',6,1,now(),now())`); err != nil {
+		if _, err := pool.Exec(t.Context(), `INSERT INTO extension_state_metadata(profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at) VALUES ('network_flow_activity','network_flow_activity.state_v1',7,1,now(),now())`); err != nil {
 			t.Fatal(err)
 		}
 		if err := claim(); err != nil {

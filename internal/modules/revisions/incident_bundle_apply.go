@@ -2,6 +2,8 @@ package revisions
 
 import (
 	"context"
+	"errors"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -17,13 +19,13 @@ func applyPreparedRevisionsImportTx(
 	validation *incidentBundleValidationCatalog,
 ) error {
 	if importContext.Attributions == nil || importContext.ActorUserID == uuid.Nil ||
-		importContext.IncidentID != prepared.incidentID || validation == nil {
+		importContext.IncidentID != prepared.incidentID || importContext.ActorUserID != prepared.runtimeActor || validation == nil {
 		return revisionsFailure(revisionsReferencesInvariant)
 	}
 	if err := validatePreparedRevisionsBeforeWriteTx(ctx, tx, prepared, validation); err != nil {
 		return err
 	}
-	for _, row := range prepared.changeSets {
+	if err := prepared.walkChangeSets(ctx, func(row portableChangeSet) error {
 		tag, err := tx.Exec(ctx, `
 INSERT INTO change_sets (
     change_set_id, incident_id, actor_user_id, source, reason,
@@ -45,8 +47,15 @@ INSERT INTO change_sets (
 		); err != nil {
 			return revisionsFailure(revisionsActorsInvariant)
 		}
+		return nil
+	}); err != nil {
+		return classifyRevisionsImportError(err)
 	}
-	for _, row := range prepared.mutations {
+
+	if err := prepared.walkMutations(ctx, func(row portableChangeSetMutation) error {
+		if err := validateImportedChangeSetTx(ctx, tx, prepared.incidentID, row.ChangeSetID); err != nil {
+			return err
+		}
 		history, err := validation.targets.DescribeValues(row.TargetKind, row.TargetID, row.OperationKind, row.BeforeValue, row.AfterValue)
 		if err != nil {
 			return revisionsFailure(revisionsHistoryInvariant)
@@ -67,8 +76,14 @@ INSERT INTO change_set_mutations (
 		if tag.RowsAffected() != 1 {
 			return revisionsFailure(revisionsSequenceInvariant)
 		}
+		return nil
+	}); err != nil {
+		return classifyRevisionsImportError(err)
 	}
-	for _, row := range prepared.revisions {
+	if err := prepared.walkRevisions(ctx, func(row portableRecordRevision) error {
+		if err := validateImportedChangeSetTx(ctx, tx, prepared.incidentID, row.ChangeSetID); err != nil {
+			return err
+		}
 		tag, err := tx.Exec(ctx, `
 INSERT INTO record_revisions (
     revision_id, change_set_id, record_id, row_version,
@@ -82,6 +97,24 @@ INSERT INTO record_revisions (
 		if tag.RowsAffected() != 1 {
 			return revisionsFailure(revisionsRecordVersionInvariant)
 		}
+		return nil
+	}); err != nil {
+		return classifyRevisionsImportError(err)
 	}
 	return nil
+}
+
+func classifyRevisionsImportError(err error) error {
+	var failure *pgconn.PgError
+	if !errors.As(err, &failure) {
+		return err
+	}
+	switch failure.ConstraintName {
+	case "record_revisions_pkey", "record_revisions_record_id_row_version_key":
+		return revisionsFailure(revisionsRecordVersionInvariant)
+	case "change_set_mutations_pkey":
+		return revisionsFailure(revisionsSequenceInvariant)
+	default:
+		return revisionsFailure(revisionsReferencesInvariant)
+	}
 }

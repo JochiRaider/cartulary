@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-const portableBundleVersion = 5
+const portableBundleVersion = 6
 
 var identifierPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 

@@ -127,18 +127,18 @@ func runGraphFixtureFamily(t *testing.T, bundle *networkflowfixtures.Bundle, aft
 }
 
 func TestNetworkFlowCrossTableGraphFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-006-cross-table-graph", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-006-cross-table-graph", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runGraphFixtureFamily(t, bundle, nil)
 	})
 }
 func TestNetworkFlowGraphAdapterFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-015-graph-adapter-input", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-015-graph-adapter-input", 7, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runGraphFixtureFamily(t, bundle, nil)
 	})
 }
 
 func TestNetworkFlowAggregateBoundsFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-028-graph-aggregate-bounds", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-028-graph-aggregate-bounds", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runGraphFixtureFamily(t, bundle, nil)
 	})
 }

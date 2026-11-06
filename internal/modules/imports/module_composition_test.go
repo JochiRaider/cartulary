@@ -124,9 +124,9 @@ func validModuleTestBinding() ExtensionImportFacadeBinding {
 		SchemaID:                        "cartulary.imports.analytical_facade_binding.v1",
 		TargetKind:                      "network_flow_table",
 		ExtensionProfileID:              "network_flow_activity",
-		OwnerContractRef:                "network_flow_activity@9",
+		OwnerContractRef:                "network_flow_activity@10",
 		FacadeID:                        "network_flow_import_facade_v1",
-		ContractMajor:                   9,
+		ContractMajor:                   10,
 		MappingSchemaID:                 "cartulary.network_flow.approved_mapping.v2",
 		PreviewRequestSchemaID:          "cartulary.network_flow.import_preview_request.v2",
 		SourceInspectionRequestSchemaID: "cartulary.network_flow.import_source_inspection_request.v1",
@@ -143,6 +143,7 @@ func validModuleTestBinding() ExtensionImportFacadeBinding {
 func validModuleTestDependencies() ModuleDependencies {
 	jobService := &moduleTestJobs{}
 	return ModuleDependencies{
+		ImportedAttributions:   moduleTestAttributions{},
 		Postgres:               &moduleTestDB{},
 		ApplyTransactions:      &moduleTestDB{},
 		AnalyticalTransactions: &crossownertransaction.Coordinator{}, // Constructor dependency check only; no execution evidence.
@@ -168,6 +169,7 @@ func TestImportsModuleRejectsEveryMissingDependency(t *testing.T) {
 	}{
 		{name: "AnalyticalTransactions", remove: func(deps *ModuleDependencies) { deps.AnalyticalTransactions = nil }},
 		{name: "ApplyTransactions", remove: func(deps *ModuleDependencies) { deps.ApplyTransactions = nil }},
+		{name: "ImportedAttributions", remove: func(deps *ModuleDependencies) { deps.ImportedAttributions = nil }},
 		{name: "Postgres", remove: func(deps *ModuleDependencies) { deps.Postgres = nil }},
 		{name: "Jobs transactions", remove: func(deps *ModuleDependencies) { deps.JobTransactions = nil }},
 		{name: "Jobs operations", remove: func(deps *ModuleDependencies) { deps.JobOperations = nil }},
@@ -350,8 +352,8 @@ func TestImportsModuleConstructsWithoutSideEffectsAndRegistersExactSurface(t *te
 	if err := module.RegisterRoutes()(http.NewServeMux(), httpapi.DependencySet{PublicRoutes: registry}); err != nil {
 		t.Fatalf("register Imports routes: %v", err)
 	}
-	if operations := registry.Snapshot(); len(operations) != 12 {
-		t.Fatalf("bound Imports operations = %d, want 12", len(operations))
+	if operations := registry.Snapshot(); len(operations) != 15 {
+		t.Fatalf("bound Imports operations = %d, want 15", len(operations))
 	}
 	if err := module.RegisterWorkers(); err != nil {
 		t.Fatalf("register Imports workers: %v", err)
@@ -385,4 +387,10 @@ func (*moduleTestFacade) InspectImportUnitSource(context.Context, ExtensionImpor
 }
 func (*moduleTestFacade) ValidateImportUnitSourceResult(ExtensionImportSourceResult) error {
 	return nil
+}
+
+type moduleTestAttributions struct{}
+
+func (moduleTestAttributions) ResolveImportedSourceActorsTx(context.Context, pgx.Tx, uuid.UUID, string, string, []string) (map[string]string, error) {
+	return map[string]string{}, nil
 }

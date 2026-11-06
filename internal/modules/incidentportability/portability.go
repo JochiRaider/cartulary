@@ -1,7 +1,6 @@
 package incidentportability
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -18,11 +17,6 @@ type Queryer interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
-type File struct {
-	Path    string
-	Payload []byte
-}
-
 type ImportedAttribution struct {
 	SourceTable   string
 	SourceRowID   string
@@ -33,7 +27,7 @@ type ImportedAttribution struct {
 
 type AttributionRecorder interface {
 	RecordImportedAttribution(table string, sourceRowID string, column string, sourceActorID string) error
-	ImportedAttributions() []ImportedAttribution
+	VisitImportedAttributions(table string, sourceRowID string, visit func(ImportedAttribution) error) error
 }
 
 type FixedImportSpec struct {
@@ -91,52 +85,10 @@ func FixedImportFailurePath(err error) (string, bool) {
 	return failure.logicalPath, true
 }
 
-func ExportNDJSON(ctx context.Context, q Queryer, incidentID uuid.UUID, path string, query string) (File, error) {
-	payload, err := ExportNDJSONPayload(ctx, q, incidentID, query)
-	if err != nil {
-		return File{}, err
-	}
-	return File{Path: path, Payload: payload}, nil
-}
-
-func ExportNDJSONPayload(ctx context.Context, q Queryer, incidentID uuid.UUID, query string) ([]byte, error) {
-	rows, err := q.Query(ctx, query, incidentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return EncodeRows(rows)
-}
-
-func EncodeRows(rows pgx.Rows) ([]byte, error) {
-	var buf bytes.Buffer
-	for rows.Next() {
-		var raw []byte
-		if err := rows.Scan(&raw); err != nil {
-			return nil, err
-		}
-		canonical, err := CanonicalRawJSON(raw)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(canonical)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func ImportFixedBundleFileNDJSON(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, files map[string][]byte, actorUserID uuid.UUID, attributions AttributionRecorder) error {
-	payload, ok := files[spec.LogicalBundlePath]
-	if !ok {
-		return &VerificationFailure{ReasonCode: "missing_required_file"}
-	}
-	rows, err := DecodeNDJSON(payload)
-	if err != nil {
-		return err
-	}
-	return ImportFixedRows(ctx, tx, spec, rows, actorUserID, attributions)
+func ImportFixedMemberNDJSON(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, members MemberReader, actorUserID uuid.UUID, attributions AttributionRecorder) error {
+	return WalkPath(ctx, members, spec.LogicalBundlePath, func(row map[string]any) error {
+		return ImportFixedRows(ctx, tx, spec, []map[string]any{row}, actorUserID, attributions)
+	})
 }
 
 func ImportFixedRows(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, rows []map[string]any, actorUserID uuid.UUID, attributions AttributionRecorder) error {
@@ -193,24 +145,9 @@ func ValidateAllowedColumns(row map[string]any, allowed []string) error {
 }
 
 func DecodeNDJSON(payload []byte) ([]map[string]any, error) {
-	scanner := bufio.NewScanner(bytes.NewReader(payload))
-	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-	var rows []map[string]any
-	for scanner.Scan() {
-		line := bytes.TrimSpace(scanner.Bytes())
-		if len(line) == 0 {
-			continue
-		}
-		var row map[string]any
-		decoder := json.NewDecoder(bytes.NewReader(line))
-		decoder.UseNumber()
-		if err := decoder.Decode(&row); err != nil {
-			return nil, &MalformedPayloadError{Err: err}
-		}
-		rows = append(rows, row)
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
+	rows, err := DecodeStrictNDJSONObjects(payload, "")
+	if err != nil {
+		return nil, &MalformedPayloadError{Err: err}
 	}
 	return rows, nil
 }

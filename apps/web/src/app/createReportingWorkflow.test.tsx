@@ -50,6 +50,7 @@ function setup() {
               route_families: [
                 "/api/v1/snapshots",
                 "/api/v1/releases",
+                "/api/v1/incidents/{incident_id}/retained-report-artifacts",
                 "/api/v1/incidents/{incident_id}/report-compositions",
               ],
             },

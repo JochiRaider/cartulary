@@ -3,10 +3,15 @@ package imports_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,8 +25,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtureartifacts"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/jackc/pgx/v5"
 )
 
 const sourceAdmissionHeader = "Source IP Address,Destination IP Address,Source Port,Destination Port,Protocol,Bytes,Packets,Flow Start Time,Flow End Time,Input Interface,Output Interface\n"
@@ -29,10 +36,67 @@ const sourceAdmissionRow = "192.0.2.10,198.51.100.1,443,51515,TCP,1234,12,2026-0
 
 // Keep failures actionable without disclosing a source value or database error.
 // The existing composition seam preserves the actual facade and transaction.
-type sourceAdmissionDiagnostics struct{ t testing.TB }
+type sourceAdmissionPass struct {
+	Bytes     int64 `json:"bytes"`
+	ReadNS    int64 `json:"read_ns"`
+	ElapsedNS int64 `json:"elapsed_ns"`
+}
+type sourceAdmissionTiming struct {
+	sync.Mutex
+	passes []sourceAdmissionPass
+}
+type sourceAdmissionDiagnostics struct {
+	t      testing.TB
+	timing *sourceAdmissionTiming
+}
 
 func (d sourceAdmissionDiagnostics) WrapDatabase(db postgres.DB) postgres.DB { return db }
+
+// Observe the real Imports-owned reader, including time between reads. This
+// distinguishes source I/O from normalization and writes without logging data.
+type sourceAdmissionPort struct {
+	networkflow.ImportSourcePort
+	t      testing.TB
+	timing *sourceAdmissionTiming
+}
+
+func (p sourceAdmissionPort) OpenSourceStreamTx(ctx context.Context, tx pgx.Tx, ref string) (imports.ImportSourceStream, error) {
+	stream, err := p.ImportSourcePort.OpenSourceStreamTx(ctx, tx, ref)
+	if err != nil {
+		return stream, err
+	}
+	stream.Reader = &sourceAdmissionReader{ReadCloser: stream.Reader, t: p.t, timing: p.timing, started: time.Now()}
+	return stream, nil
+}
+
+type sourceAdmissionReader struct {
+	io.ReadCloser
+	timing   *sourceAdmissionTiming
+	t        testing.TB
+	started  time.Time
+	readTime time.Duration
+	bytes    int64
+}
+
+func (r *sourceAdmissionReader) Read(b []byte) (int, error) {
+	start := time.Now()
+	n, err := r.ReadCloser.Read(b)
+	r.readTime += time.Since(start)
+	r.bytes += int64(n)
+	return n, err
+}
+func (r *sourceAdmissionReader) Close() error {
+	err := r.ReadCloser.Close()
+	if r.timing != nil {
+		r.timing.Lock()
+		r.timing.passes = append(r.timing.passes, sourceAdmissionPass{r.bytes, int64(r.readTime), int64(time.Since(r.started))})
+		r.timing.Unlock()
+	}
+	r.t.Logf("bounded import source pass: bytes=%d read_time=%s pass_elapsed=%s", r.bytes, r.readTime, time.Since(r.started))
+	return err
+}
 func (d sourceAdmissionDiagnostics) ConfigureNetworkFlow(deps networkflow.ModuleDependencies) networkflow.ModuleDependencies {
+	deps.ImportSources = sourceAdmissionPort{ImportSourcePort: deps.ImportSources, t: d.t, timing: d.timing}
 	return deps
 }
 func (d sourceAdmissionDiagnostics) WrapImportFacade(f imports.ExtensionImportFacade) imports.ExtensionImportFacade {
@@ -60,9 +124,31 @@ func sourceAdmissionHarness(t *testing.T, overrides map[string]string) (*appsupp
 	for k, v := range overrides {
 		env[k] = v
 	}
+	timing := &sourceAdmissionTiming{}
+	if t.Name() == "TestNetworkFlowPublicDefaultLimit100001Rows" {
+		t.Cleanup(func() {
+			root, err := fixtureartifacts.SelectedRunRoot()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			timing.Lock()
+			defer timing.Unlock()
+			raw, err := json.MarshalIndent(timing.passes, "", "  ")
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if err := os.WriteFile(filepath.Join(root, "network-flow-import-source-passes.json"), append(raw, '\n'), 0600); err != nil {
+				t.Error(err)
+			}
+		})
+	}
 	runtime := appsupport.StartRuntime(t)
 	h := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "target-neutral-source", Env: env, TestRouteMode: httptestx.TestRouteModeDisabled,
-		ConfigureRuntime: func(options *server.Options) { options.NetworkFlowComposition = sourceAdmissionDiagnostics{t} },
+		ConfigureRuntime: func(options *server.Options) {
+			options.NetworkFlowComposition = sourceAdmissionDiagnostics{t: t, timing: timing}
+		},
 	})
 	login, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, h.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, h.Server, login, map[string]any{"client_txn_id": "source-admission-incident", "incident_key": "SOURCE-ADMISSION", "title": "Source admission"})
@@ -188,10 +274,10 @@ func assertPublicAnalyticalSource(t *testing.T, h *appsupport.ServerHarness, log
 	if applyOK {
 		wantTables = 1
 	}
-	if got := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM network_flow_tables WHERE source_import_session_id::text=$1`, session); got != wantTables {
+	if got := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM network_flow_tables t JOIN import_committed_sources s USING(committed_source_id) WHERE s.origin_import_session_id::text=$1`, session); got != wantTables {
 		t.Fatalf("atomic table count=%d want=%d", got, wantTables)
 	}
-	if got := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM network_flow_rows r JOIN network_flow_tables t USING(network_flow_table_id) WHERE t.source_import_session_id::text=$1`, session); got != accepted {
+	if got := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM network_flow_rows r JOIN network_flow_tables t USING(network_flow_table_id) JOIN import_committed_sources s ON s.committed_source_id=t.committed_source_id WHERE s.origin_import_session_id::text=$1`, session); got != accepted {
 		t.Fatalf("accepted rows=%d want=%d", got, accepted)
 	}
 	var materialized bool

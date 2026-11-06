@@ -123,7 +123,7 @@ func TestCurrentCaptureRestoreUsesExactCatalogAndCodecs_Unit(t *testing.T) {
 	for _, proof := range captured.IntegrityManifest.Artifacts {
 		if proof.Kind == "graph_projection_restore_implementation_binding" || proof.Kind == "graph_projection_restore_source_registry" {
 			graphArtifactCounts[proof.Kind]++
-			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != "cartulary.graph_projection_restore_implementation_binding.v8" {
+			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != "cartulary.graph_projection_restore_implementation_binding.v9" {
 				t.Fatalf("fresh backup used non-current Graph implementation binding schema %q", proof.SchemaID)
 			}
 			if proof.Kind == "graph_projection_restore_source_registry" && proof.SchemaID != "cartulary.graph_projection_restore_source_registry.v6" {

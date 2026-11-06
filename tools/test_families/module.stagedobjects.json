@@ -20,7 +20,8 @@
         "tests": [
           "TestStagedObjects_Integration_AllocationPublicationAndCleanup",
           "TestStagedObjects_Integration_PublicationRollbackLeavesReadyAndInaccessible",
-          "TestStagedObjects_Integration_ReferenceContradictionIsFatalBeforeDelete"
+          "TestStagedObjects_Integration_ReferenceContradictionIsFatalBeforeDelete",
+          "TestStagedObjects_Integration_ReservedOwnerAndCompetingAttempts"
         ]
       },
       "evidence_class": "integration",
@@ -53,7 +54,9 @@
           "TestJanitor_Unit_RetryScheduleSaturatesAndDependencyRecovers",
           "TestJanitor_Unit_SerializesAndCoalescesExactlyOneFollowUp",
           "TestScope_Unit_OperationTransferAndFinalPublication",
-          "TestService_Unit_AllocationReadyAbandonAndFatalOutcomes"
+          "TestService_Unit_AllocationReadyAbandonAndFatalOutcomes",
+          "TestStream_Unit_BoundedBulkSealAndFailures",
+          "TestStream_Unit_PrivateReadsVerifyOperationAndContent"
         ]
       },
       "evidence_class": "unit",

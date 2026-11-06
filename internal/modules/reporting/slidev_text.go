@@ -38,7 +38,7 @@ func fieldScalarToText(value any, multiline bool) (string, bool) {
 	case nil:
 		return "", true
 	case string:
-		return value, validReportingText(value, multiline)
+		return value, validReportingFieldScalar(value, multiline)
 	case json.Number:
 		// The canonical reader has already required a finite integer token.
 		return value.String(), true
@@ -69,7 +69,7 @@ func serializeSpeakerNoteLines(notes []string) (string, error) {
 	return escapeMarkdownText(joined), nil
 }
 
-// escapeMarkdownText implements slidev_markdown_escape_v2. Markdown parsing
+// escapeMarkdownText implements slidev_markdown_escape_v3. Markdown parsing
 // preserves literal character references and structure. The renderer separately
 // protects text tokens from Vue interpolation after Markdown tokenization.
 func escapeMarkdownText(value string) string {
@@ -84,6 +84,16 @@ func escapeMarkdownText(value string) string {
 			orderedSeparator++
 		}
 		for index, character := range line {
+			// Character references preserve documentary whitespace without
+			// admitting an indented code block or a raw CR into LF-only source.
+			if character == '\t' {
+				output.WriteString("&#9;")
+				continue
+			}
+			if character == '\r' {
+				output.WriteString("&#13;")
+				continue
+			}
 			escape := strings.ContainsRune("\\`|*_[]<~$&", character)
 			if index == first && strings.ContainsRune("#>-+=", character) {
 				escape = true

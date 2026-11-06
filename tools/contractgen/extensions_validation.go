@@ -79,7 +79,7 @@ func validateExtensionArtifactShape(value any, relativePath string) error {
 		return validateExtensionBindingSources(object)
 	case "cartulary.extension_reporting_source_contract.v1":
 		return validateExtensionReportingSource(object, relativePath)
-	case "cartulary.extension_participant_specialization.v4":
+	case "cartulary.extension_participant_specialization.v5":
 		return validateExtensionParticipantSpecialization(object, relativePath)
 	case "cartulary.extension_transaction_participant_contract.v3":
 		return validateExtensionTransactionParticipantContract(object, relativePath)
@@ -234,7 +234,7 @@ func validateExtensionParticipantSpecialization(object map[string]any, relativeP
 		return err
 	}
 	contextByKind := map[string]string{
-		"incident_portability": "cartulary.extension_portability_participant_context.v1",
+		"incident_portability": "cartulary.extension_portability_participant_context.v2",
 	}
 	expectedContext, recognized := contextByKind[participantKind]
 	if !recognized || object["shared_context_schema_id"] != expectedContext {
@@ -242,8 +242,8 @@ func validateExtensionParticipantSpecialization(object map[string]any, relativeP
 	}
 	resultByKindAndOperation := map[string]map[string]string{
 		"incident_portability": {
-			"export": "cartulary.extension_portability_export_result.v1",
-			"import": "cartulary.extension_portability_import_preparation_result.v1",
+			"export": "cartulary.extension_portability_export_result.v2",
+			"import": "cartulary.extension_portability_import_preparation_result.v2",
 		},
 	}
 	operations, err := objectArray(object["operations"], relativePath+".operations")
@@ -907,7 +907,7 @@ func validateExtensionBaseReservations(object map[string]any) error {
 }
 
 func validateParticipantContributionReference(profile string, contribution, contract map[string]any) error {
-	expectedSchema := "cartulary.extension_participant_specialization.v4"
+	expectedSchema := "cartulary.extension_participant_specialization.v5"
 	ownerKey := "profile_id"
 	kind := stringValue(contribution["kind"])
 	switch kind {
@@ -954,7 +954,7 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 	}
 	for _, object := range indexed {
 		switch object["schema_id"] {
-		case "cartulary.extension_reporting_source_contract.v1", "cartulary.extension_participant_specialization.v4", "cartulary.extension_transaction_participant_contract.v3":
+		case "cartulary.extension_reporting_source_contract.v1", "cartulary.extension_participant_specialization.v5", "cartulary.extension_transaction_participant_contract.v3":
 			participantID := stringValue(object["participant_id"])
 			digest, err := extensionCanonicalDigest(object)
 			if err != nil {
@@ -977,7 +977,7 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 					}
 				}
 			}
-			if object["schema_id"] == "cartulary.extension_participant_specialization.v4" {
+			if object["schema_id"] == "cartulary.extension_participant_specialization.v5" {
 				if _, exists := schemaIDs[stringValue(object["shared_context_schema_id"])]; !exists {
 					return fmt.Errorf("participant %s has unresolved shared context schema", participantID)
 				}
@@ -1326,7 +1326,7 @@ func recognizedExtensionProfiles(indexed map[string]map[string]any) ([]string, e
 
 func retiredExtensionParticipantSchema(id string) bool {
 	switch id {
-	case "cartulary.extension_participant_specialization.v3", "cartulary.extension_snapshot_reporting_participant_context.v1", "cartulary.extension_snapshot_reporting_participant_result.v1":
+	case "cartulary.extension_participant_specialization.v4", "cartulary.extension_participant_specialization.v3", "cartulary.extension_snapshot_reporting_participant_context.v1", "cartulary.extension_snapshot_reporting_participant_result.v1":
 		return true
 	case "cartulary.extension_transaction_participant_prepare_result.v1", "cartulary.extension_transaction_participant_validation_result.v1", "cartulary.extension_transaction_participant_write_result.v1", "cartulary.network_flow_activity.indicator_link_transaction_input.v1", "cartulary.network_flow_activity.import_apply_transaction_input.v1", "cartulary.incident_portability_import_transaction_input.v1", "cartulary.extension_shared_protocol_contract_set.v4":
 		return true

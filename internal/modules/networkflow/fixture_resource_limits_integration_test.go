@@ -20,7 +20,7 @@ type resourceConfigurationFixtureCase struct {
 }
 
 func TestNetworkFlowResourceLimitsFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-018-resource-limits", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-018-resource-limits", 7, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		outcomes := []map[string]any{}
 		base, err := bundle.InputPath("source/deployment.toml")
 		if err != nil {

@@ -5,7 +5,7 @@
   "profile_id": "network_flow_activity",
   "freeze": {
     "status": "frozen",
-    "revision": 10,
+    "revision": 11,
     "change_policy": "new_fixture_revision_required"
   },
   "source_files": [
@@ -38,8 +38,8 @@
     {
       "logical_path": "expected/cisco-sna-minimal.expected.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 97245,
-      "sha256": "ffe170d08a4af72fb6a9196b91208ed1c4e8fd33e734963693469d2caac73e6d",
+      "size_bytes": 97265,
+      "sha256": "f06508aa71760b1e357b6f4573e8ec905a5f53424c93659e6bd9e34f514c1ef9",
       "role": "expected_response"
     }
   ],
@@ -47,11 +47,11 @@
     {
       "logical_path": "transcripts/cisco-sna-minimal.transcript.json",
       "media_type": "application/json; charset=utf-8",
-      "size_bytes": 97245,
-      "sha256": "ffe170d08a4af72fb6a9196b91208ed1c4e8fd33e734963693469d2caac73e6d",
+      "size_bytes": 97265,
+      "sha256": "f06508aa71760b1e357b6f4573e8ec905a5f53424c93659e6bd9e34f514c1ef9",
       "transcript_kind": "fixture_validation"
     }
   ],
   "source_bundle_sha256": "ed44bc2fe117424713d02193afabc6c7ac69617eec779b0cf873fe5bc0c0724e",
-  "expected_bundle_sha256": "143a6fe63a4018576f2422e0a8e031d85fbcefb3c4bc06407cff179794ca8d77"
+  "expected_bundle_sha256": "e74ac084e597ad849cba1555baaf3dff8c43abd4dacf08f21421b2a73c48a18e"
 }

@@ -1,10 +1,14 @@
 {
   "schema_id": "cartulary.extension_postgres_binding_mapping.v1",
   "binding_id": "network_flow_activity.tables",
-  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v2",
+  "codec_contract_ref": "cartulary.network_flow_activity.postgres_rows.v3",
   "schema_name": "public",
   "table_name": "network_flow_tables",
   "columns": [
+    {
+      "field_id": "committed_source_id",
+      "column_name": "committed_source_id"
+    },
     {
       "field_id": "created_at",
       "column_name": "created_at"
@@ -66,16 +70,16 @@
       "column_name": "source_filename_display"
     },
     {
-      "field_id": "source_import_session_id",
-      "column_name": "source_import_session_id"
-    },
-    {
-      "field_id": "source_import_unit_id",
-      "column_name": "source_import_unit_id"
+      "field_id": "source_interpretation_sha256",
+      "column_name": "source_interpretation_sha256"
     },
     {
       "field_id": "source_profile_id",
       "column_name": "source_profile_id"
+    },
+    {
+      "field_id": "source_raw_cell_scalar_limit",
+      "column_name": "source_raw_cell_scalar_limit"
     },
     {
       "field_id": "table_status",

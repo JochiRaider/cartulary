@@ -156,6 +156,7 @@
         "cmd",
         "configs",
         "contracts",
+        "fixtures",
         "go.mod",
         "go.sum",
         "internal",

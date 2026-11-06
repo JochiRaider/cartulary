@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,12 +37,12 @@ type graphAggregation struct {
 }
 
 type graphResultLimits struct {
-	MaxVertices               int
-	MaxEdges                  int
-	MaxExampleRowRefsPerEdge  int
-	MaxAggregateCounterDigits int
-	MaxContributingRows       int
-	MaxTimeBuckets            int
+	MaxVertices               int `json:"max_vertices"`
+	MaxEdges                  int `json:"max_edges"`
+	MaxExampleRowRefsPerEdge  int `json:"max_example_row_refs_per_edge"`
+	MaxAggregateCounterDigits int `json:"max_aggregate_counter_digits"`
+	MaxContributingRows       int `json:"max_contributing_rows"`
+	MaxTimeBuckets            int `json:"max_time_buckets"`
 }
 
 type graphQueryRequest struct {
@@ -660,8 +661,24 @@ func addGraphEdgeAggregate(row flowRow, tableByID map[string]tableRecord, compos
 		return counterLimitExceeded("packets_sum_digit_limit_exceeded", "network_flow.max_aggregate_counter_digits", composition.ResultLimits.MaxAggregateCounterDigits, digits)
 	}
 	edge.FlowRowCount++
-	if composition.IncludeExamples && len(edge.ExampleRows) < composition.ResultLimits.MaxExampleRowRefsPerEdge {
-		edge.ExampleRows = append(edge.ExampleRows, row)
+	if composition.IncludeExamples && composition.ResultLimits.MaxExampleRowRefsPerEdge > 0 {
+		// Keep the earliest bounded set in the established contributor order.
+		// Portable source records arrive in source order, not database time order.
+		position := sort.Search(len(edge.ExampleRows), func(i int) bool {
+			other := edge.ExampleRows[i]
+			if a, b := composition.TableRanks[row.NetworkFlowTableID], composition.TableRanks[other.NetworkFlowTableID]; a != b {
+				return a < b
+			}
+			return compareRowsCanonical(row, other) < 0
+		})
+		if position < composition.ResultLimits.MaxExampleRowRefsPerEdge {
+			edge.ExampleRows = append(edge.ExampleRows, flowRow{})
+			copy(edge.ExampleRows[position+1:], edge.ExampleRows[position:])
+			edge.ExampleRows[position] = row
+			if len(edge.ExampleRows) > composition.ResultLimits.MaxExampleRowRefsPerEdge {
+				edge.ExampleRows = edge.ExampleRows[:composition.ResultLimits.MaxExampleRowRefsPerEdge]
+			}
+		}
 	}
 	edge.ContributingTableID[row.NetworkFlowTableID] = struct{}{}
 	if table, ok := tableByID[row.NetworkFlowTableID]; ok {
@@ -682,6 +699,15 @@ func ensureGraphVertex(vertices map[string]*graphVertex, endpointID string, endp
 		vertices[endpointID] = vertex
 	}
 	return vertex
+}
+
+func compareRowsCanonical(a, b flowRow) int {
+	for _, field := range []string{fieldFlowStartUTC, fieldFlowEndUTC, "source_row_number"} {
+		if c := compareRowField(a, b, field); c != 0 {
+			return c
+		}
+	}
+	return strings.Compare(a.RowID, b.RowID)
 }
 
 func addGraphVertexRow(vertex *graphVertex, row flowRow, table tableRecord) {
@@ -1156,12 +1182,12 @@ func graphSourceSnapshotDigest(incidentID uuid.UUID, tables []tableRecord, graph
 	sortedTables := append([]tableRecord(nil), tables...)
 	sort.SliceStable(sortedTables, func(i, j int) bool { return sortedTables[i].TableID < sortedTables[j].TableID })
 	var b bytes.Buffer
-	writeDigestPart(&b, "cartulary.network_flow.source_snapshot_digest.v1")
+	writeDigestPart(&b, "cartulary.network_flow.source_snapshot_digest.v2")
 	writeDigestPart(&b, incidentID.String())
 	writeDigestPart(&b, strconv.Itoa(len(sortedTables)))
 	for _, table := range sortedTables {
 		writeDigestPart(&b, table.TableID)
-		writeDigestPart(&b, table.MappingFingerprint)
+		writeDigestPart(&b, portableTableFingerprint(table))
 	}
 	writeDigestPart(&b, graphDigest)
 	return "nfsnap_" + sha256Hex(b.Bytes())

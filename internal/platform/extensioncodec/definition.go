@@ -13,7 +13,7 @@ import (
 
 const (
 	PostgresMappingSchemaID = "cartulary.extension_postgres_binding_mapping.v1"
-	NetworkFlowRowsSchemaID = "cartulary.network_flow_activity.postgres_rows.v2"
+	NetworkFlowRowsSchemaID = "cartulary.network_flow_activity.postgres_rows.v3"
 )
 
 var (

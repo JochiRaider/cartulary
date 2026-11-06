@@ -36,7 +36,7 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 	t.Run("current Network Flow state contract", func(t *testing.T) {
 		coordinator := requireGeneratedCoordinator(t)
 		plan, ok := coordinator.StatePlan("network_flow_activity")
-		if !ok || plan.CurrentStateVersion != 6 || plan.MinimumMigratableStateVersion != 6 || len(plan.MigrationDefinitions) != 0 || len(plan.MigrationLedgerDefinitions) != 0 {
+		if !ok || plan.CurrentStateVersion != 7 || plan.MinimumMigratableStateVersion != 7 || len(plan.MigrationDefinitions) != 0 || len(plan.MigrationLedgerDefinitions) != 0 {
 			t.Fatal("current state-6-only catalog retains unsupported migration declarations")
 		}
 	})
@@ -92,7 +92,7 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 		}
 		definition := decodeMutableObject(t, artifact.JSON)
 		families, ok := definition["families"].([]any)
-		if !ok || len(families) != 5 || definition["schema_id"] != "cartulary.network_flow_activity.postgres_rows.v2" {
+		if !ok || len(families) != 5 || definition["schema_id"] != "cartulary.network_flow_activity.postgres_rows.v3" {
 			t.Fatal("logical PostgreSQL row contract is incomplete")
 		}
 	})
@@ -204,7 +204,7 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 		t.Fatalf("admit generated registry: %v", err)
 	}
 	graphAdmission := coordinator.profiles["network_flow_activity"].bindingObject
-	if graphAdmission["preflight_algorithm_id"] != "network_flow_activity.orientation_cutover_v1" || graphAdmission["post_migration_algorithm_id"] != "network_flow_activity.validate_state_v6" {
+	if graphAdmission["preflight_algorithm_id"] != "network_flow_activity.incident_portability_cutover_v1" || graphAdmission["post_migration_algorithm_id"] != "network_flow_activity.validate_state_v7" {
 		t.Fatal("packaged admission algorithms were silently omitted")
 	}
 	descriptors := coordinator.Descriptors()
@@ -249,7 +249,7 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 				if _, present := body["historical_restore_codecs"]; present {
 					t.Errorf("admitted codec %v retains historical support", body["backup_codec_id"])
 				}
-				if body["codec_contract_ref"] != "cartulary.network_flow_activity.postgres_rows.v2" {
+				if body["codec_contract_ref"] != "cartulary.network_flow_activity.postgres_rows.v3" {
 					t.Errorf("admitted codec %v omits its logical contract", body["backup_codec_id"])
 				}
 				count++
@@ -278,7 +278,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		"enterprise_authentication": 1,
 		"import":                    1,
 		"incident_portability":      1,
-		"network_flow_activity":     9,
+		"network_flow_activity":     10,
 		"reference_pack":            2,
 		"snapshot_reporting":        1,
 	}
@@ -398,7 +398,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 			t.Fatalf("invalid live worker runtime contract %#v", liveWorker)
 		}
 	}
-	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 9 {
+	if networkFlow, ok := byProfile["network_flow_activity"]; !ok || !networkFlow.Claimable || networkFlow.ContractMajor != 10 {
 		t.Fatalf("Network Flow v5 adopted profile = %#v/%t", networkFlow, ok)
 	}
 
@@ -429,8 +429,13 @@ func TestCoordinatorPortabilityPolicyProjection_Unit(t *testing.T) {
 		byProfile[policy.ProfileID] = policy
 	}
 	networkFlow := byProfile["network_flow_activity"]
-	if networkFlow.Mode != PortabilityBlockedWhenPresent ||
-		!reflect.DeepEqual(networkFlow.BlockingFamilyIDs, []string{
+	if networkFlow.Mode != PortabilityParticipant || networkFlow.ContractMajor != 10 ||
+		networkFlow.ParticipantID != "network_flow_activity.incident_portability_v1" ||
+		networkFlow.ParticipantSchemaID != "cartulary.extension_participant_specialization.v5" ||
+		len(networkFlow.ParticipantSHA256) != 64 ||
+		networkFlow.MaximumInputBytes != 64*1024*1024 || networkFlow.MaximumOutputBytes != 64*1024*1024 ||
+		len(networkFlow.BlockingFamilyIDs) != 0 ||
+		!reflect.DeepEqual(networkFlow.AuthoritativeFamilyIDs, []string{
 			"network_flow_activity.graph_views",
 			"network_flow_activity.indicator_bindings",
 			"network_flow_activity.rejected_row_diagnostics",
@@ -443,8 +448,8 @@ func TestCoordinatorPortabilityPolicyProjection_Unit(t *testing.T) {
 	if reporting.Mode != PortabilityNoAuthoritativeState || reporting.ParticipantID != "" {
 		t.Fatalf("Snapshot/Reporting portability policy = %#v", reporting)
 	}
-	policies[3].BlockingFamilyIDs[0] = "mutated"
-	if coordinator.PortabilityPolicies()[3].BlockingFamilyIDs[0] == "mutated" {
+	policies[3].AuthoritativeFamilyIDs[0] = "mutated"
+	if coordinator.PortabilityPolicies()[3].AuthoritativeFamilyIDs[0] == "mutated" {
 		t.Fatal("portability policy projection leaked mutable state")
 	}
 }
@@ -588,7 +593,7 @@ func TestCoordinatorPublicationPlan_Unit(t *testing.T) {
 			}
 		}
 	}
-	if claimed != 2 || inactive != 9 || len(plan.Workspaces()) != 1 {
+	if claimed != 3 || inactive != 10 || len(plan.Workspaces()) != 1 {
 		t.Fatalf("publication route/workspace counts = %d/%d/%d", claimed, inactive, len(plan.Workspaces()))
 	}
 	discovery := plan.Discovery()

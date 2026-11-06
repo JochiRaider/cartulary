@@ -10,24 +10,13 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/artifactport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
-
-type artifactFiles map[string][]byte
-
-func (f artifactFiles) File(name string) ([]byte, bool) { data, ok := f[name]; return data, ok }
-func (f artifactFiles) Paths() []string {
-	names := make([]string, 0, len(f))
-	for name := range f {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	return names
-}
 
 func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx pgx.Tx, incident uuid.UUID, references []byte, write artifactport.WriteFile) error {
 	if tx == nil || incident == uuid.Nil || write == nil {
@@ -38,31 +27,48 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 		return artifactport.ErrInvalid
 	}
 	catalog := emptyPortableCatalog(incident)
-	retained, err := loadImportedArtifactFiles(ctx, tx, incident)
+	retained, err := loadImportedArtifactMembers(ctx, tx, incident)
 	if err != nil {
 		return err
 	}
-	if len(retained) > 0 {
+	if len(retained.members) > 0 {
 		// Validation does not adopt source attestations as destination trust.
-		if _, err := source.PrepareArtifactImport(ctx, artifactport.ImportRequest{IncidentID: incident, OperationID: incident, References: references, Bundle: artifactFiles(retained)}); err != nil {
+		if _, err := source.PrepareArtifactImport(ctx, artifactport.ImportRequest{IncidentID: incident, OperationID: incident, References: references, Bundle: retained}); err != nil {
 			return err
 		}
-		catalog, err = decodePortableCatalog(retained[portableArtifactCatalogPath], incident)
+		catalogBytes, readErr := incidentportability.ReadControl(ctx, retained, portableArtifactCatalogPath, portableCatalogBytes)
+		if readErr != nil {
+			return readErr
+		}
+		catalog, err = decodePortableCatalog(catalogBytes, incident)
 		if err != nil {
 			return err
 		}
-		for _, name := range artifactFiles(retained).Paths() {
-			if name == portableArtifactCatalogPath {
+		for _, member := range retained.Members() {
+			if member.Path == portableArtifactCatalogPath {
 				continue
 			}
-			if err := write(ctx, name, int64(len(retained[name])), bytes.NewReader(retained[name])); err != nil {
+			reader, err := incidentportability.OpenVerifiedMember(ctx, retained, member)
+			if err != nil {
 				return err
+			}
+			writeErr := write(ctx, member.Path, member.ByteSize, reader)
+			closeErr := reader.Close()
+			if writeErr != nil {
+				return writeErr
+			}
+			if closeErr != nil {
+				return closeErr
 			}
 		}
 	}
 	snapshots := map[string]reference_data.SetBinding{}
 	for _, s := range catalog.Snapshots {
-		model, _, err := decodePortableObject[snapshotCapture](retained[s.CapturePath], s.CaptureSHA256)
+		raw, err := incidentportability.ReadControl(ctx, retained, s.CapturePath, incidentportability.MaxControlMemberBytes)
+		if err != nil {
+			return err
+		}
+		model, _, err := decodePortableObject[snapshotCapture](raw, s.CaptureSHA256)
 		if err != nil {
 			return err
 		}
@@ -106,52 +112,56 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 	if err != nil {
 		return err
 	}
-	// Close row streams before reading each release's member inventory.
-	type nativeRelease struct {
-		descriptor portableRelease
-		manifest   RenderBundleManifest
-		data       []byte
-	}
-	releases := []nativeRelease{}
-	seen := map[string]bool{}
-	for _, r := range catalog.Releases {
-		seen[r.ReleaseID] = true
-	}
-	rows, err = tx.Query(ctx, `SELECT r.release_id,r.snapshot_id,b.bundle_manifest_sha256,b.bundle_manifest_json FROM reporting_releases r JOIN reporting_render_bundles b USING(release_id) WHERE r.incident_id=$1 ORDER BY r.release_id`, incident)
+	// Retain only release identities while the cursor is open. Each manifest and
+	// its validation inputs are released before opening the next release.
+	ids := []uuid.UUID{}
+	rows, err = tx.Query(ctx, `SELECT release_id FROM reporting_releases WHERE incident_id=$1 ORDER BY release_id`, incident)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
-		var id, snapshot uuid.UUID
-		var digest string
-		var raw []byte
-		if err := rows.Scan(&id, &snapshot, &digest, &raw); err != nil {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
 			rows.Close()
 			return err
 		}
-		manifest, data, err := decodePortableObject[RenderBundleManifest](raw, digest)
-		if err != nil || validateBundleIdentity(manifest) != nil || manifest.ReleaseID == nil || *manifest.ReleaseID != id.String() || manifest.SnapshotID != snapshot.String() || manifest.SchemaID != RenderBundleManifestSchemaID || manifest.ManifestVersion != RenderBundleManifestVersion || len(manifest.Files) == 0 || len(manifest.Files) > 10000 || seen[id.String()] || len(catalog.Releases)+len(releases) >= portableReleaseLimit {
+		if len(catalog.Releases)+len(ids) >= portableReleaseLimit {
 			rows.Close()
 			return artifactport.ErrInvalid
 		}
-		binding, exists := snapshots[snapshot.String()]
-		expected, _ := canonicaljson.Marshal(binding)
-		actual, _ := canonicaljson.Marshal(manifest.ReferencePacks)
-		if !exists || !bytes.Equal(expected, actual) {
-			rows.Close()
-			return artifactport.ErrInvalid
-		}
-		descriptor := portableRelease{ReleaseID: id.String(), SnapshotID: snapshot.String(), ManifestPath: portableManifestPath(id.String()), ManifestSHA256: digest}
-		releases = append(releases, nativeRelease{descriptor, manifest, data})
-		seen[id.String()] = true
+		ids = append(ids, id)
 	}
 	err = rows.Err()
 	rows.Close()
 	if err != nil {
 		return err
 	}
-	for _, release := range releases {
-		descriptor, manifest := release.descriptor, release.manifest
+	seen := map[string]bool{}
+	for _, r := range catalog.Releases {
+		seen[r.ReleaseID] = true
+	}
+	for _, id := range ids {
+		var snapshot uuid.UUID
+		var digest string
+		var raw []byte
+		if err := tx.QueryRow(ctx, `SELECT r.snapshot_id,b.bundle_manifest_sha256,b.bundle_manifest_json FROM reporting_releases r JOIN reporting_render_bundles b USING(release_id) WHERE r.incident_id=$1 AND r.release_id=$2`, incident, id).Scan(&snapshot, &digest, &raw); err != nil {
+			return err
+		}
+		if len(raw) > int(incidentportability.MaxControlMemberBytes) {
+			return artifactport.ErrInvalid
+		}
+		manifest, data, err := decodePortableObject[RenderBundleManifest](raw, digest)
+		if err != nil || validateBundleIdentity(manifest) != nil || manifest.ReleaseID == nil || *manifest.ReleaseID != id.String() || manifest.SnapshotID != snapshot.String() || manifest.SchemaID != RenderBundleManifestSchemaID || manifest.ManifestVersion != RenderBundleManifestVersion || len(manifest.Files) == 0 || len(manifest.Files) > 10000 || seen[id.String()] {
+			return artifactport.ErrInvalid
+		}
+		binding, exists := snapshots[snapshot.String()]
+		expected, _ := canonicaljson.Marshal(binding)
+		actual, _ := canonicaljson.Marshal(manifest.ReferencePacks)
+		if !exists || !bytes.Equal(expected, actual) {
+			return artifactport.ErrInvalid
+		}
+		descriptor := portableRelease{ReleaseID: id.String(), SnapshotID: snapshot.String(), ManifestPath: portableManifestPath(id.String()), ManifestSHA256: digest}
+		seen[id.String()] = true
 		previous := ""
 		primary := false
 		publicArtifacts := []RenderBundleFile{}
@@ -233,7 +243,7 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 		if count != len(manifest.Files) {
 			return artifactport.ErrInvalid
 		}
-		if err := write(ctx, descriptor.ManifestPath, int64(len(release.data)), bytes.NewReader(release.data)); err != nil {
+		if err := write(ctx, descriptor.ManifestPath, int64(len(data)), bytes.NewReader(data)); err != nil {
 			return err
 		}
 		catalog.Releases = append(catalog.Releases, descriptor)

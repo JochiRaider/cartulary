@@ -150,7 +150,7 @@ func (r *publicationFixtureRuntime) sourceChangePrivacy(c *publicationSourceChan
 	return nil
 }
 func TestNetworkFlowSourceChangedImportFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-023-import-facade-source-change", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-023-import-facade-source-change", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return publicationFixtureOutcomes(t, bundle)
 	})
 }

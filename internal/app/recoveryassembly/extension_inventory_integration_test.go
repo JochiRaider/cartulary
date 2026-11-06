@@ -39,6 +39,12 @@ func TestExtensionRecoveryInventorySnapshot_Integration(t *testing.T) {
 	} {
 		insertExtensionInventoryRow(t, runtimeDB, row.id, row.state, row.deletion)
 	}
+	insertExtensionInventoryRow(t, runtimeDB, "owned_published", "published", "not_applicable")
+	if _, err := runtimeDB.Exec(ctx, `UPDATE extension_staged_objects SET reserved_resource_kind='object_blob', reserved_resource_id=$1 WHERE staging_id='owned_published'`, uuid.NewString()+":"+uuid.NewString()); err != nil {
+		t.Fatal(err)
+	}
+	// Published named resources are inventoried by their durable source owner;
+	// the shared registry remains in the deployment database inventory only.
 	source := &extensionInventoryBytes{bodies: map[string][]byte{
 		"staged/a_ready":     extensionInventoryBody("a_ready"),
 		"staged/z_published": extensionInventoryBody("z_published"),
@@ -252,12 +258,16 @@ func insertExtensionInventoryRow(t *testing.T, db extensionInventoryWriter, id, 
 		}
 	}
 	body := extensionInventoryBody(id)
+	var size, digest any
+	if state != "allocated" {
+		size, digest = int64(len(body)), extensionInventoryDigest(body)
+	}
 	if _, err := db.Exec(t.Context(), `INSERT INTO public.extension_staged_objects
-(staging_id, owner_profile_id, storage_identity, expected_byte_size, expected_sha256,
+(staging_id, owner_profile_id, operation_id, storage_identity, expected_byte_size, expected_sha256,
  staged_at, staging_expires_at, ready_at, published_at, abandoned_at, state,
  delete_state, delete_attempt_count, next_delete_attempt_at, last_delete_error_code)
-VALUES ($1,'import',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,0,$12,NULL)`,
-		id, "staged/"+id, int64(len(body)), extensionInventoryDigest(body), at, at.Add(24*time.Hour), ready, published, abandoned, state, deletion, nextDelete,
+VALUES ($1,'import','inventory-'||$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,0,$12,NULL)`,
+		id, "staged/"+id, size, digest, at, at.Add(24*time.Hour), ready, published, abandoned, state, deletion, nextDelete,
 	); err != nil {
 		t.Fatalf("insert lifecycle fixture %s: %v", id, err)
 	}

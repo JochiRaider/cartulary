@@ -380,6 +380,7 @@
         "apps/web/src/testing/incidentMetadataSurfaceTestSupport.tsx",
         "apps/web/src/testing/indicatorCreateTestSupport.ts",
         "apps/web/src/testing/indicatorLifecycleTestSupport.ts",
+        "apps/web/src/testing/irFixtureSupport.node.test.ts",
         "apps/web/src/testing/networkFlowFixtureSupport.node.test.ts",
         "apps/web/src/testing/observationTestSupport.ts",
         "apps/web/src/testing/referencePackTestSupport.ts",

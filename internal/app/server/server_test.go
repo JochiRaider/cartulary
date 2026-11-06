@@ -561,7 +561,7 @@ func TestServerRunnerFailingDiagnosticsWriterDoesNotPanicOrSucceed(t *testing.T)
 
 func TestSavedGraphAdmissionStartupDiagnostic(t *testing.T) {
 	for _, finding := range []extensions.StartupFinding{
-		{Path: "$", ReasonCode: "extension_admission_validation_failed", Message: "Extension admission validation failed.", Details: map[string]any{"profile_id": "network_flow_activity", "phase": "profile_preflight", "algorithm_id": "network_flow_activity.orientation_cutover_v1", "timed_out": false, "timeout_seconds": int64(60)}},
+		{Path: "$", ReasonCode: "extension_admission_validation_failed", Message: "Extension admission validation failed.", Details: map[string]any{"profile_id": "network_flow_activity", "phase": "profile_preflight", "algorithm_id": "network_flow_activity.incident_portability_cutover_v1", "timed_out": false, "timeout_seconds": int64(60)}},
 		{Path: "$", ReasonCode: "extension_state_initialization_failed", Message: "Extension state initialization failed.", Details: map[string]any{"profile_id": "network_flow_activity", "algorithm_id": "network_flow_activity.initialize_v1"}},
 		{Path: "$", ReasonCode: "extension_state_initialization_timeout", Message: "Extension state initialization exceeded its timeout.", Details: map[string]any{"profile_id": "network_flow_activity", "timeout_seconds": int64(600)}},
 	} {

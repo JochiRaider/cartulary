@@ -65,7 +65,7 @@ func (s *Store) SyncFieldReferenceWithMutationValuesTx(ctx context.Context, tx p
 		result.mutations = append(result.mutations, mutation)
 	}
 	if command.TargetID == nil || retainedTarget {
-		return result, nil
+		return result, s.publishProjectionEffectsTx(ctx, tx, command.IncidentID, result.mutations)
 	}
 	created, inserted, err := upsertFieldReferenceStateTx(ctx, tx, command.IncidentID, command.SrcRecordID, *command.TargetID, command.FieldKey, command.LinkType, command.ActorUserID, command.Now.UTC())
 	if err != nil {
@@ -78,7 +78,7 @@ func (s *Store) SyncFieldReferenceWithMutationValuesTx(ctx context.Context, tx p
 		}
 		result.mutations = append(result.mutations, mutation)
 	}
-	return result, nil
+	return result, s.publishProjectionEffectsTx(ctx, tx, command.IncidentID, result.mutations)
 }
 
 func (s *Store) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command RecordRefCollectionCommand) (CollectionMutationResult, error) {
@@ -188,7 +188,7 @@ func (s *Store) applyReferenceCollectionWithMutationValuesTx(ctx context.Context
 		}
 		result.mutations = append(result.mutations, mutation)
 	}
-	return result, nil
+	return result, s.publishProjectionEffectsTx(ctx, tx, command.incidentID, result.mutations)
 }
 
 func (s *Store) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command TagCollectionCommand) (CollectionMutationResult, error) {

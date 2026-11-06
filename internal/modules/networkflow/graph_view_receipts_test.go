@@ -43,7 +43,7 @@ func TestGraphViewReceiptIntegrityAndComparison_Unit(t *testing.T) {
 	declaration := graphViewDeclaration{
 		GraphViewID: "nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", IncidentID: incident,
 		DisplayName: "Repeated name", NormalizedDisplayName: "repeated name", DeclarationState: graphViewDeclarationStateActive,
-		SemanticQueryJSON: query, SemanticQuerySHA256: graphViewSemanticQuerySHA256(query), DesiredSourceSnapshotID: "nfsnap_example",
+		RefreshIntentJSON: canonicalTestValue(encodeRefreshIntent("selected_tables", query)), SemanticQueryJSON: query, SemanticQuerySHA256: graphViewSemanticQuerySHA256(query), DesiredSourceSnapshotID: "nfsnap_example",
 		GraphViewVersion: 1, MaterializationGeneration: 1, CreatedByUserID: actor, CreatedAt: now, UpdatedAt: now, LatestJobID: &jobID,
 	}
 	receipt := graphViewAcceptedPayload(declaration, jobID)

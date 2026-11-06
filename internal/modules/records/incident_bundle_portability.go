@@ -1,10 +1,10 @@
 package records
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"regexp"
 	"strconv"
 	"time"
@@ -34,6 +34,7 @@ type recordsPortableAttributionResolver interface {
 }
 
 type recordsExportContext struct {
+	Actors               incidentportability.ActorReferences
 	Query                incidentportability.Queryer
 	IncidentID           uuid.UUID
 	PortableAttributions recordsPortableAttributionResolver
@@ -71,13 +72,30 @@ type recordsPortableRow struct {
 }
 
 type preparedRecordsImport struct {
-	rows []recordsPortableRow
+	source     incidentportability.MemberReader
+	member     incidentportability.Member
+	envelopes  subtypepresence.Summary
+	incidentID uuid.UUID
+	actorID    uuid.UUID
 }
 
-func exportIncidentBundleFiles(
-	ctx context.Context,
-	exportContext recordsExportContext,
-) ([]incidentportability.File, error) {
+func exportIncidentBundleFiles(ctx context.Context, exportContext recordsExportContext, members incidentportability.MemberWriter) error {
+	return incidentportability.WriteMemberFrom(ctx, members, recordsBundlePath, func(ctx context.Context, output io.Writer) error {
+		var after *uuid.UUID
+		for {
+			next, err := exportIncidentBundlePage(ctx, exportContext, after, output)
+			if err != nil {
+				return err
+			}
+			if next == nil {
+				return nil
+			}
+			after = next
+		}
+	})
+}
+
+func exportIncidentBundlePage(ctx context.Context, exportContext recordsExportContext, after *uuid.UUID, output io.Writer) (*uuid.UUID, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT record_id,
        incident_id,
@@ -90,9 +108,10 @@ SELECT record_id,
        deleted_at,
        deleted_by_user_id
   FROM records
- WHERE incident_id = $1
+ WHERE incident_id = $1 AND ($2::uuid IS NULL OR record_id > $2)
  ORDER BY record_id
-`, exportContext.IncidentID)
+ LIMIT 128
+`, exportContext.IncidentID, after)
 	if err != nil {
 		return nil, err
 	}
@@ -167,14 +186,14 @@ SELECT record_id,
 		return nil, err
 	}
 
-	var payload bytes.Buffer
+	rows.Close()
 	for _, row := range exportRows {
 		rowID := row.RecordID.String()
-		createdBy, err := portableActor(createdActors[rowID], row.RuntimeCreatedByID)
+		createdBy, err := incidentportability.ExportActorID(exportContext.Actors, createdActors[rowID], row.RuntimeCreatedByID)
 		if err != nil {
 			return nil, err
 		}
-		updatedBy, err := portableActor(updatedActors[rowID], row.RuntimeUpdatedByID)
+		updatedBy, err := incidentportability.ExportActorID(exportContext.Actors, updatedActors[rowID], row.RuntimeUpdatedByID)
 		if err != nil {
 			return nil, err
 		}
@@ -185,12 +204,12 @@ SELECT record_id,
 			if row.RuntimeDeletedByID == nil {
 				return nil, errors.New("records export delete tuple is invalid")
 			}
-			deletedBy, err = portableActor(deletedActors[rowID], *row.RuntimeDeletedByID)
+			deletedBy, err = incidentportability.ExportActorID(exportContext.Actors, deletedActors[rowID], *row.RuntimeDeletedByID)
 			if err != nil {
 				return nil, err
 			}
 		}
-		encoded, err := incidentportability.CanonicalJSONString(map[string]any{
+		err = incidentportability.WriteNDJSONRecord(output, map[string]any{
 			"record_id":          row.RecordID.String(),
 			"incident_id":        row.IncidentID.String(),
 			"record_type":        string(row.RecordType),
@@ -205,12 +224,12 @@ SELECT record_id,
 		if err != nil {
 			return nil, err
 		}
-		payload.Write(encoded)
 	}
-	return []incidentportability.File{{
-		Path:    recordsBundlePath,
-		Payload: payload.Bytes(),
-	}}, nil
+	if len(exportRows) == 0 {
+		return nil, nil
+	}
+	last := exportRows[len(exportRows)-1].RecordID
+	return &last, nil
 }
 
 func resolvePortableActors(
@@ -232,20 +251,6 @@ func resolvePortableActors(
 	)
 }
 
-func portableActor(sourceActorID string, runtimeActorID uuid.UUID) (string, error) {
-	if sourceActorID == "" {
-		if runtimeActorID == uuid.Nil {
-			return "", errors.New("records export actor is invalid")
-		}
-		return runtimeActorID.String(), nil
-	}
-	parsed, err := uuid.Parse(sourceActorID)
-	if err != nil || parsed.String() != sourceActorID {
-		return "", errors.New("records export attribution is invalid")
-	}
-	return sourceActorID, nil
-}
-
 func validateRuntimePortableRow(row recordsPortableRow, incidentID uuid.UUID) error {
 	if row.RecordID == uuid.Nil ||
 		row.IncidentID != incidentID ||
@@ -264,32 +269,48 @@ func validateRuntimePortableRow(row recordsPortableRow, incidentID uuid.UUID) er
 	return nil
 }
 
-func prepareRecordsImport(
-	bundle interface{ File(string) ([]byte, bool) },
-	importContext recordsImportContext,
-) (preparedRecordsImport, error) {
-	payload, ok := bundle.File(recordsBundlePath)
-	if !ok {
+func prepareRecordsImport(ctx context.Context, bundle incidentportability.MemberReader, importContext recordsImportContext) (preparedRecordsImport, error) {
+	if bundle == nil {
 		return preparedRecordsImport{}, recordsInvariantFailure("records.envelope_legal")
 	}
-	rows, err := incidentportability.DecodeStrictNDJSONObjects(payload, recordsBundlePath)
-	if err != nil {
-		return preparedRecordsImport{}, recordsInvariantFailure("records.envelope_legal")
-	}
-	prepared := preparedRecordsImport{rows: make([]recordsPortableRow, 0, len(rows))}
-	seen := make(map[uuid.UUID]struct{}, len(rows))
-	for _, row := range rows {
-		parsed, err := prepareRecordsRow(row, importContext)
-		if err != nil {
-			return preparedRecordsImport{}, err
+	var member incidentportability.Member
+	for _, candidate := range bundle.Members() {
+		if candidate.Path == recordsBundlePath {
+			member = candidate
+			break
 		}
-		if _, duplicate := seen[parsed.RecordID]; duplicate {
+	}
+	if member.Path == "" {
+		return preparedRecordsImport{}, recordsInvariantFailure("records.envelope_legal")
+	}
+	inventory := subtypepresence.NewInventory(importContext.IncidentID)
+	previous := ""
+	err := incidentportability.WalkMember(ctx, bundle, member, func(raw map[string]any) error {
+		row, err := prepareRecordsRow(raw, importContext)
+		if err != nil {
+			return err
+		}
+		id := row.RecordID.String()
+		if id <= previous {
+			return recordsInvariantFailure("records.envelope_legal")
+		}
+		previous = id
+		if err := inventory.Add(subtypepresence.Binding{RecordID: row.RecordID, IncidentID: row.IncidentID, RecordType: row.RecordType}); err != nil {
+			return recordsInvariantFailure("records.envelope_legal")
+		}
+		return nil
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return preparedRecordsImport{}, ctx.Err()
+		}
+		var malformed *incidentportability.StrictNDJSONDecodeError
+		if errors.As(err, &malformed) {
 			return preparedRecordsImport{}, recordsInvariantFailure("records.envelope_legal")
 		}
-		seen[parsed.RecordID] = struct{}{}
-		prepared.rows = append(prepared.rows, parsed)
+		return preparedRecordsImport{}, err
 	}
-	return prepared, nil
+	return preparedRecordsImport{source: bundle, member: member, envelopes: inventory.Summary(), incidentID: importContext.IncidentID, actorID: importContext.ActorUserID}, nil
 }
 
 func prepareRecordsRow(
@@ -452,10 +473,14 @@ func applyPreparedRecordsImportTx(
 	prepared preparedRecordsImport,
 	importContext recordsImportContext,
 ) error {
-	if importContext.ActorUserID == uuid.Nil || importContext.Attributions == nil {
+	if importContext.ActorUserID == uuid.Nil || importContext.Attributions == nil || prepared.incidentID != importContext.IncidentID || prepared.actorID != importContext.ActorUserID {
 		return recordsInvariantFailure("records.envelope_legal")
 	}
-	for _, row := range prepared.rows {
+	return incidentportability.WalkMember(ctx, prepared.source, prepared.member, func(raw map[string]any) error {
+		row, err := prepareRecordsRow(raw, importContext)
+		if err != nil {
+			return err
+		}
 		tag, err := tx.Exec(ctx, `
 INSERT INTO records (
     record_id,
@@ -508,8 +533,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 				return recordsInvariantFailure("records.envelope_legal")
 			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func classifyRecordsApplyError(err error) error {
@@ -530,10 +555,10 @@ func validatePreparedRecordsImportTx(
 	if subtypeCatalog == nil {
 		return recordsInvariantFailure("records.subtype_complete")
 	}
-	expected := make(map[uuid.UUID]recordsPortableRow, len(prepared.rows))
-	for _, row := range prepared.rows {
-		expected[row.RecordID] = row
+	if prepared.incidentID != importContext.IncidentID || prepared.actorID != importContext.ActorUserID {
+		return recordsInvariantFailure("records.envelope_legal")
 	}
+	actual := subtypepresence.NewInventory(importContext.IncidentID)
 	rows, err := tx.Query(ctx, `
 SELECT record_id, incident_id, record_type
   FROM records
@@ -544,10 +569,8 @@ SELECT record_id, incident_id, record_type
 		return err
 	}
 	defer rows.Close()
-	envelopes := make([]subtypepresence.Envelope, 0, len(expected))
-	seen := make(map[uuid.UUID]struct{}, len(expected))
 	for rows.Next() {
-		var envelope subtypepresence.Envelope
+		var envelope subtypepresence.Binding
 		if err := rows.Scan(
 			&envelope.RecordID,
 			&envelope.IncidentID,
@@ -555,26 +578,18 @@ SELECT record_id, incident_id, record_type
 		); err != nil {
 			return err
 		}
-		expectedRow, present := expected[envelope.RecordID]
-		if !present ||
-			expectedRow.IncidentID != envelope.IncidentID ||
-			expectedRow.RecordType != envelope.RecordType {
+		if err := actual.Add(envelope); err != nil {
 			return recordsInvariantFailure("records.envelope_legal")
 		}
-		if _, duplicate := seen[envelope.RecordID]; duplicate {
-			return recordsInvariantFailure("records.envelope_legal")
-		}
-		seen[envelope.RecordID] = struct{}{}
-		envelopes = append(envelopes, envelope)
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
 	rows.Close()
-	if len(seen) != len(expected) {
+	if !prepared.envelopes.Equal(actual.Summary()) {
 		return recordsInvariantFailure("records.envelope_legal")
 	}
-	if err := subtypeCatalog.ValidateTx(ctx, tx, importContext.IncidentID, envelopes); err != nil {
+	if err := subtypeCatalog.ValidateTx(ctx, tx, importContext.IncidentID, prepared.envelopes); err != nil {
 		if errors.Is(err, subtypepresence.ErrIncompleteBindings) ||
 			errors.Is(err, subtypepresence.ErrInvalidCatalog) {
 			return recordsInvariantFailure("records.subtype_complete")

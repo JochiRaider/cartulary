@@ -37,7 +37,7 @@ func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testin
 	table := createTestTable(t, harness.Pool, store, actorID, incidentID, "authority.csv", nil, 1)
 	collection := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
 	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collection, map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view_create_request.v4", "client_txn_id": "authority-create", "display_name": "Authorized result",
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v5", "refresh_scope": "selected_tables", "client_txn_id": "authority-create", "display_name": "Authorized result",
 		"semantic_query": map[string]any{
 			"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table.TableID}, "filters": []any{},
 			"time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true},
@@ -89,7 +89,7 @@ func TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration(t *testin
 			if err != nil {
 				t.Fatal(err)
 			}
-			current, err = store.RefreshGraphViewDeclarationTx(ctx, tx, incidentID, graphID, current.GraphViewVersion, current.DesiredSourceSnapshotID, time.Now())
+			current, err = store.RefreshGraphViewDeclarationTx(ctx, tx, incidentID, graphID, current.GraphViewVersion, current.DesiredSourceSnapshotID, current.SemanticQueryJSON, time.Now())
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
@@ -42,14 +41,8 @@ func TestRestoredNetworkFlowClaimBoundary_Process(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			var graphID, resultID, sourceState, sourceProof, jobID string
 			fixture := captureRestoreSourceWithNetworkFlow(t, "inactive-"+scenario, func(source *processtest.Server, pool *pgxpool.Pool, login authcookietest.AuthCookies, incident string) {
-				db := stdlib.OpenDBFromPool(pool)
-				defer closeSQL(t, db)
-				var actor string
-				if err := pool.QueryRow(t.Context(), `SELECT id::text FROM users WHERE email=$1`, authenticationBootstrapAdminEmail).Scan(&actor); err != nil {
-					t.Fatal(err)
-				}
-				table := networkflowsupport.SeedGraphSource(t, db, incident, actor)
-				body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v4", "client_txn_id": "restored-claim-graph", "display_name": "Retained graph", "semantic_query": map[string]any{
+				table := networkflowsupport.SeedGraphSource(t, source.Client, source.BaseURL, login, incident)
+				body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v5", "refresh_scope": "selected_tables", "client_txn_id": "restored-claim-graph", "display_name": "Retained graph", "semantic_query": map[string]any{
 					"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table}, "filters": []any{}, "time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"},
 				}}
 				created := httptestx.RequireSuccessEnvelope(t, doJSON(t, source, http.MethodPost, "/api/v1/incidents/"+incident+"/network-flow/graph-views", body, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value)), http.StatusAccepted)["data"].(map[string]any)

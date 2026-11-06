@@ -40,7 +40,7 @@
     { "check_id": "logical-server-ref-canonical-form", "assertion": "The canonical backend-neutral server reference is object://{object_blob_uuid}.", "status": "active" },
     { "check_id": "backup-preserves-storage-ref-ownership", "assertion": "Backup and restore preserve logical storage-reference ownership while keeping physical bucket and key material private.", "status": "active" },
     { "check_id": "physical-key-canonicalization", "assertion": "Physical keys use lowercase RFC 4122 identities, slash-separated ASCII, no empty segments, and no NUL, CR, or LF.", "status": "active" },
-    { "check_id": "physical-key-grammar", "assertion": "object_blob_storage_key_v1 uses incidents/{incident_uuid}/object-blobs/{object_blob_uuid}.", "status": "active" },
+    { "check_id": "physical-key-grammar", "assertion": "object_blob_storage_key_v2 uses incidents/{incident_uuid}/object-blobs/{object_blob_uuid}/objects/{generation_uuid}.", "status": "active" },
     { "check_id": "physical-key-maximum-length", "assertion": "Physical keys are at most 1024 UTF-8 bytes.", "status": "active" },
     { "check_id": "private-physical-key-boundary", "assertion": "object_blobs.storage_key is a private physical bucket-relative object key.", "status": "active" },
     { "check_id": "reserved-server-managed-ref-write-guard", "assertion": "Client writes of reserved_server_managed_ref fail as invalid_mutation_payload.", "status": "active" }

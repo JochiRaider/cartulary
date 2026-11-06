@@ -23,8 +23,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
+	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
+	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -376,15 +380,18 @@ VALUES (
 	blobBytes := []byte("extension_profile incident bundle blob\n")
 	sum := sha256.Sum256(blobBytes)
 	blobSHA := hex.EncodeToString(sum[:])
-	sourceStorageKey := "extension_profile/source/" + incidentID + "/" + blobSHA
+	objectBlobID := uuid.NewString()
+	sourceStorageKey, keyErr := blobref.ObjectBlobStorageKey(incidentUUID, uuid.MustParse(objectBlobID), uuid.New())
+	if keyErr != nil {
+		t.Fatal(keyErr)
+	}
 	if err := harness.ObjectStore.PutObject(ctx, sourceStorageKey, bytes.NewReader(blobBytes), int64(len(blobBytes)), "text/plain"); err != nil {
 		t.Fatalf("seed source object bytes: %v", err)
 	}
 
-	var objectBlobID string
 	if err := harness.DB.QueryRow(`
 INSERT INTO object_blobs (
-    incident_id,
+    object_blob_id, incident_id,
     created_by_user_id,
     storage_key,
     upload_state,
@@ -399,9 +406,9 @@ INSERT INTO object_blobs (
     pending_expires_at,
     finalized_at
 )
-VALUES ($1, $2, $3, 'available', $4, 'extension_profile.txt', 'text/plain', $5, $4, 'text/plain', $5, now() + interval '1 hour', now() + interval '1 hour', now())
+VALUES ($6, $1, $2, $3, 'available', $4, 'extension_profile.txt', 'text/plain', $5, $4, 'text/plain', $5, now() + interval '1 hour', now() + interval '1 hour', now())
 RETURNING object_blob_id
-`, incidentID, actorUserID, sourceStorageKey, len(blobBytes), blobSHA).Scan(&objectBlobID); err != nil {
+`, incidentID, actorUserID, sourceStorageKey, len(blobBytes), blobSHA, objectBlobID).Scan(&objectBlobID); err != nil {
 		t.Fatalf("seed object blob row: %v", err)
 	}
 
@@ -1364,13 +1371,8 @@ func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarn
 			t.Fatalf("failed import must not expose imported resource refs: %#v", summary)
 		}
 	}
-	var stagingRef string
-	if err := harness.DB.QueryRow(`SELECT bundle_staging_ref FROM incident_bundle_job_payloads WHERE job_id = $1`, job["job_id"].(string)).Scan(&stagingRef); err != nil {
-		t.Fatalf("query failed import staging reference: %v", err)
-	}
-	if _, err := os.Stat(stagedBundleTestPath(t, harness.Server, stagingRef)); !os.IsNotExist(err) {
-		t.Fatalf("failed import staging reference must be cleaned up, stat err=%v ref=%s", err, stagingRef)
-	}
+	awaitImportInputCleanup(t, harness, job["job_id"].(string))
+	reclaimAbandonedBundleMembers(t, harness)
 	if countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_job_payloads WHERE job_id = $1 AND (imported_incident_id IS NOT NULL OR manifest_sha256 IS NOT NULL)`, job["job_id"].(string)) != 0 {
 		t.Fatalf("failed import must not persist imported incident id or manifest sha")
 	}
@@ -1394,6 +1396,66 @@ func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarn
 	return terminal
 }
 
+// Terminal publication establishes the cleanup decision. Input reclamation and
+// durable member abandonment complete separately from the public job result.
+func awaitImportInputCleanup(t testing.TB, harness *appsupport.ServerHarness, jobID string) {
+	t.Helper()
+	var stagingRef string
+	if err := harness.DB.QueryRow(`SELECT bundle_staging_ref FROM incident_bundle_job_payloads WHERE job_id = $1`, jobID).Scan(&stagingRef); err != nil {
+		t.Fatalf("query import staging reference: %v", err)
+	}
+	stagingPath := stagedBundleTestPath(t, harness.Server, stagingRef)
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		_, statErr := os.Stat(stagingPath)
+		var liveMembers int
+		if err := harness.DB.QueryRow(`SELECT count(*) FROM extension_staged_objects WHERE operation_id=$1 AND state IN ('allocated','ready')`, jobID).Scan(&liveMembers); err != nil {
+			t.Fatal(err)
+		}
+		if os.IsNotExist(statErr) && liveMembers == 0 {
+			return
+		}
+		if !time.Now().Before(deadline) {
+			t.Fatalf("import cleanup incomplete: input_absent=%v live_members=%d", os.IsNotExist(statErr), liveMembers)
+		}
+		select {
+		case <-t.Context().Done():
+			t.Fatal(t.Context().Err())
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
+// Abandonment is the failure transaction's cleanup decision. Physical deletion
+// belongs to the staged-object janitor, which we drain explicitly before
+// comparing the isolated object store; no application object is deleted here.
+func reclaimAbandonedBundleMembers(t testing.TB, harness *appsupport.ServerHarness) {
+	t.Helper()
+	physical, err := extensionstore.New(harness.Pool, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository, err := extensionassembly.NewStagedObjectRepository(physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objectBytes, err := extensionassembly.NewStagedObjectBytes(harness.ObjectStore)
+	if err != nil {
+		t.Fatal(err)
+	}
+	janitor, err := stagedobjects.NewJanitor(stagedobjects.JanitorOptions{
+		Repository: repository, Bytes: objectBytes,
+		BatchLimit: 100, OperationTimeout: 30 * time.Second,
+		FatalSink: func(err error) { t.Errorf("staged-object cleanup invariant: %v", err) },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := janitor.Sweep(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type importFailureState struct {
 	IncidentRows            int
 	RecordRows              int
@@ -1406,7 +1468,7 @@ type importFailureState struct {
 	SuccessAuditRows        int
 	ExportRows              int
 	ExtensionStateRows      int
-	ExtensionStagedRows     int
+	PublishedStagedRows     int
 	ImportedObjectKeys      []string
 }
 
@@ -1422,7 +1484,7 @@ func (s importFailureState) equal(other importFailureState) bool {
 		s.SuccessAuditRows == other.SuccessAuditRows &&
 		s.ExportRows == other.ExportRows &&
 		s.ExtensionStateRows == other.ExtensionStateRows &&
-		s.ExtensionStagedRows == other.ExtensionStagedRows &&
+		s.PublishedStagedRows == other.PublishedStagedRows &&
 		slices.Equal(s.ImportedObjectKeys, other.ImportedObjectKeys)
 }
 
@@ -1440,7 +1502,7 @@ func snapshotImportFailureState(t testing.TB, harness *appsupport.ServerHarness,
 		SuccessAuditRows:        countRows(t, harness.DB, `SELECT count(*) FROM deployment_admin_audit_events WHERE incident_id = $1`, incidentID),
 		ExportRows:              countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE incident_id = $1`, incidentID),
 		ExtensionStateRows:      countRows(t, harness.DB, `SELECT count(*) FROM extension_state_metadata`),
-		ExtensionStagedRows:     countRows(t, harness.DB, `SELECT count(*) FROM extension_staged_objects`),
+		PublishedStagedRows:     countRows(t, harness.DB, `SELECT count(*) FROM extension_staged_objects WHERE state = 'published'`),
 		ImportedObjectKeys:      objectKeysWithPrefix(t, harness.ObjectStore, "incidents/"+incidentID+"/object-blobs/"),
 	}
 }
@@ -1504,15 +1566,23 @@ func snapshotEnvelopeDurability(t testing.TB, db *sql.DB) envelopeDurability {
 func assertNoIncidentBundleStaging(t testing.TB, server *httptestx.Server) {
 	t.Helper()
 	stagingDir := filepath.Join(server.Config.Roots.TemporaryWork.Path, "incident-bundles", "imports")
-	entries, err := os.ReadDir(stagingDir)
-	if os.IsNotExist(err) {
-		return
-	}
-	if err != nil {
-		t.Fatalf("read staging dir: %v", err)
-	}
-	if len(entries) != 0 {
-		t.Fatalf("incident bundle staging dir must remain empty, found %d entries in %s", len(entries), stagingDir)
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		entries, err := os.ReadDir(stagingDir)
+		if os.IsNotExist(err) || err == nil && len(entries) == 0 {
+			return
+		}
+		if err != nil {
+			t.Fatalf("read staging dir: %v", err)
+		}
+		if !time.Now().Before(deadline) {
+			t.Fatalf("incident bundle input cleanup incomplete: %d entries", len(entries))
+		}
+		select {
+		case <-t.Context().Done():
+			t.Fatal(t.Context().Err())
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 }
 

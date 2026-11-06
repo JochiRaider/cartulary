@@ -34,8 +34,33 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := catalog.ContributionIDs(""); len(got) != 20 {
-		t.Fatalf("contribution catalog = %d; want 20: %v", len(got), got)
+	if got, want := catalog.ContributionIDs(""), []string{
+		"enterprise_authentication.auth_oidc_route",
+		"enterprise_authentication.auth_providers_route",
+		"enterprise_authentication.auth_saml_route",
+		"enterprise_authentication.user_auth_bindings_route",
+		"import.committed_sources_route",
+		"import.sessions_route",
+		"incident_portability.bundles_route",
+		"network_flow_activity.graph_view_resource",
+		"network_flow_activity.import_apply",
+		"network_flow_activity.import_target",
+		"network_flow_activity.incident_import",
+		"network_flow_activity.incident_portability",
+		"network_flow_activity.indicator_binding_resource",
+		"network_flow_activity.indicator_link",
+		"network_flow_activity.network_analysis_workspace",
+		"network_flow_activity.network_flow_table_resource",
+		"network_flow_activity.reporting_graph_source",
+		"network_flow_activity.route_family",
+		"network_flow_activity.websocket_invalidation",
+		"reference_pack.packs_route",
+		"snapshot_reporting.releases_route",
+		"snapshot_reporting.report_compositions_route",
+		"snapshot_reporting.retained_artifacts_route",
+		"snapshot_reporting.snapshots_route",
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("contribution catalog = %v; want %v", got, want)
 	}
 	if got, want := catalog.WorkerKinds(), []string{
 		"import.apply_worker_v1",
@@ -92,6 +117,8 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 	}
 	if got, want := catalog.ParticipantIDs(), []string{
 		"network_flow_activity.import_apply_v1",
+		"network_flow_activity.incident_import_v1",
+		"network_flow_activity.incident_portability_v1",
 		"network_flow_activity.indicator_link_v1",
 		"network_flow_activity.reporting_graph_source_v2",
 	}; !reflect.DeepEqual(got, want) {

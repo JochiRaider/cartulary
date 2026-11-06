@@ -14,12 +14,14 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/tasksdecisionassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 const (
@@ -69,8 +71,8 @@ INSERT INTO task_requests (
 	}
 
 	port := newTaskDecisionIncidentBundleSourcePort(t)
-	exported, err := port.Export(ctx, sourceport.ExportContext{
-		Query: harness.db, IncidentID: harness.incidentID,
+	exported, err := portabilitysupport.Export(port, ctx, sourceport.ExportContext{
+		Query: harness.db, IncidentID: harness.incidentID, PortableAttributions: incidentbundles.PortableSourceAttributions(),
 	})
 	if err != nil {
 		t.Fatalf("export tasks/decisions: %v", err)
@@ -99,8 +101,8 @@ INSERT INTO task_requests (
 	if err := port.ValidateImportTx(ctx, tx, prepared, importContext); err != nil {
 		t.Fatalf("validate tasks/decisions round trip: %v", err)
 	}
-	reexported, err := port.Export(ctx, sourceport.ExportContext{
-		Query: tx, IncidentID: harness.incidentID,
+	reexported, err := portabilitysupport.Export(port, ctx, sourceport.ExportContext{
+		Query: tx, IncidentID: harness.incidentID, PortableAttributions: incidentbundles.PortableSourceAttributions(),
 	})
 	if err != nil {
 		t.Fatalf("re-export tasks/decisions: %v", err)
@@ -270,7 +272,7 @@ func taskDecisionImportContext(harness tasksDecisionsPortabilityHarness, operati
 	return sourceport.ImportContext{
 		IncidentID:    harness.incidentID,
 		ActorUserID:   harness.actor.ID,
-		BundleVersion: 5,
+		BundleVersion: 6,
 		OperationID:   "tasks-decisions-" + operationID,
 		Actors:        actors,
 	}
@@ -319,8 +321,8 @@ func validPortableDecision(harness tasksDecisionsPortabilityHarness, recordID uu
 	}
 }
 
-func taskDecisionBundle(tasks []map[string]any, decisions []map[string]any) sourceport.MapBundle {
-	return sourceport.MapBundle{
+func taskDecisionBundle(tasks []map[string]any, decisions []map[string]any) portabilitysupport.MapBundle {
+	return portabilitysupport.MapBundle{
 		tasksBundlePath:     encodeTaskDecisionRows(tasks),
 		decisionsBundlePath: encodeTaskDecisionRows(decisions),
 	}
@@ -338,9 +340,9 @@ func encodeTaskDecisionRows(rows []map[string]any) []byte {
 	return payload
 }
 
-func filesToTaskDecisionBundle(t testing.TB, files []incidentportability.File) sourceport.MapBundle {
+func filesToTaskDecisionBundle(t testing.TB, files []portabilitysupport.File) portabilitysupport.MapBundle {
 	t.Helper()
-	bundle := sourceport.MapBundle{}
+	bundle := portabilitysupport.MapBundle{}
 	for _, file := range files {
 		bundle[file.Path] = append([]byte(nil), file.Payload...)
 	}
@@ -352,7 +354,7 @@ func filesToTaskDecisionBundle(t testing.TB, files []incidentportability.File) s
 	return bundle
 }
 
-func applyAndValidateTaskDecisionBundle(t testing.TB, harness tasksDecisionsPortabilityHarness, bundle sourceport.MapBundle, operationID string) error {
+func applyAndValidateTaskDecisionBundle(t testing.TB, harness tasksDecisionsPortabilityHarness, bundle portabilitysupport.MapBundle, operationID string) error {
 	t.Helper()
 	ctx := context.Background()
 	port := newTaskDecisionIncidentBundleSourcePort(t)

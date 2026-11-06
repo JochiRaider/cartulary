@@ -2,290 +2,123 @@ package entities
 
 import (
 	"context"
-
+	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
 
-type entityActiveIdentifierClaim struct {
-	incidentID      uuid.UUID
-	entityType      string
-	identifierType  string
-	normalizedValue string
-	recordID        uuid.UUID
-}
-
-func validatePreparedEntityImportTx(ctx context.Context, tx pgx.Tx, prepared preparedEntityImport, importContext sourceport.ImportContext) error {
-	if tx == nil || !prepared.binding.matches(importContext) || importContext.Attributions == nil {
+func validatePreparedEntityImportTx(ctx context.Context, tx pgx.Tx, prepared preparedEntityImport, input sourceport.ImportContext) error {
+	if tx == nil || !prepared.binding.matches(input) || input.Attributions == nil {
 		return entitySourceFailure(entitySourceIdentity)
 	}
-	actualHosts, err := loadPortableHosts(ctx, sourceport.ExportContext{Query: tx, IncidentID: importContext.IncidentID})
-	if err != nil {
-		return entitySourceFailure(entityEnvelopeTypeScope)
+	var failures entityFailureAccumulator
+	if equal, err := compareEntitySource(ctx, tx, input, func(visit func(portableHostRow) error) error { return prepared.hosts(ctx, input, visit) }, loadPortableHostsPage, func(row portableHostRow) uuid.UUID { return row.RecordID }, portableHostEqual); err != nil {
+		return err
+	} else if !equal {
+		failures.add(entityEnvelopeTypeScope)
 	}
-	actualIdentities, err := loadPortableIdentities(ctx, sourceport.ExportContext{Query: tx, IncidentID: importContext.IncidentID})
-	if err != nil {
-		return entitySourceFailure(entityEnvelopeTypeScope)
+	if equal, err := compareEntitySource(ctx, tx, input, func(visit func(portableIdentityRow) error) error { return prepared.identities(ctx, input, visit) }, loadPortableIdentitiesPage, func(row portableIdentityRow) uuid.UUID { return row.RecordID }, portableIdentityEqual); err != nil {
+		return err
+	} else if !equal {
+		failures.add(entityEnvelopeTypeScope)
 	}
-	actualMentions, err := loadPortableEntityMentions(ctx, sourceport.ExportContext{Query: tx, IncidentID: importContext.IncidentID})
-	if err != nil {
-		return entitySourceFailure(entityResolutionMerge)
+	if equal, err := compareEntitySource(ctx, tx, input, func(visit func(portableMentionRow) error) error { return prepared.mentions(ctx, input, visit) }, loadPortableEntityMentionsPage, func(row portableMentionRow) uuid.UUID { return row.MentionID }, portableMentionEqual); err != nil {
+		return err
+	} else if !equal {
+		failures.add(entityResolutionMerge)
 	}
-	actualPreserved, err := loadPortablePreservedIdentifiers(ctx, sourceport.ExportContext{Query: tx, IncidentID: importContext.IncidentID})
-	if err != nil {
-		return entitySourceFailure(entitySameIncident)
+	if equal, err := compareEntitySource(ctx, tx, input, func(visit func(portablePreservedIdentifierRow) error) error {
+		return prepared.preserved(ctx, input, visit)
+	}, loadPortablePreservedIdentifiersPage, func(row portablePreservedIdentifierRow) uuid.UUID { return row.PreservedID }, portablePreservedEqual); err != nil {
+		return err
+	} else if !equal {
+		failures.add(entitySameIncident)
 	}
-	actualAliases, err := loadPortableAliases(ctx, sourceport.ExportContext{Query: tx, IncidentID: importContext.IncidentID})
-	if err != nil {
-		return entitySourceFailure(entitySameIncident)
+	if equal, err := compareEntitySource(ctx, tx, input, func(visit func(portableAliasRow) error) error { return prepared.aliases(ctx, input, visit) }, loadPortableAliasesPage, func(row portableAliasRow) uuid.UUID { return row.AliasID }, portableAliasEqual); err != nil {
+		return err
+	} else if !equal {
+		failures.add(entitySameIncident)
 	}
-	actualEnvelopes, err := loadEntityPortableEnvelopes(ctx, tx, importContext.IncidentID)
-	if err != nil {
-		return entitySourceFailure(entityEnvelopeTypeScope)
+	if err := validateEntityAttributions(ctx, prepared, input); err != nil {
+		failures.add(entitySourceIdentity)
 	}
-
-	var failures []entityFailureCandidate
-	comparePortableHosts(prepared.hosts, actualHosts, &failures)
-	comparePortableIdentities(prepared.identities, actualIdentities, &failures)
-	comparePortableMentions(prepared.mentions, actualMentions, &failures)
-	comparePortablePreserved(prepared.preserved, actualPreserved, &failures)
-	comparePortableAliases(prepared.aliases, actualAliases, &failures)
-	if !entityAttributionsEqual(prepared, importContext) {
-		failures = append(failures, entityFailure(entitySourceIdentity, hostsBundlePath, "", importContext.IncidentID))
+	if err := validateStagedEntityClaims(ctx, tx, prepared, input); err != nil {
+		var failure *sourceport.Failure
+		if !errors.As(err, &failure) {
+			return err
+		}
+		failures.add(failure.InvariantID())
 	}
-	claimsValid, err := entityActiveIdentifierClaimsValidTx(
-		ctx,
-		tx,
-		importContext.IncidentID,
-		actualHosts,
-		actualIdentities,
-		actualPreserved,
-		actualEnvelopes,
-	)
-	if err != nil || !claimsValid {
-		failures = append(failures, entityFailure(entityUnique, preservedIDsBundlePath, "", importContext.IncidentID))
+	if err := failures.err(); err != nil {
+		return err
 	}
-	return selectedEntityFailure(failures)
+	for _, statement := range []string{`DELETE FROM public.entities_bundle_validation_claims WHERE transaction_id=pg_current_xact_id()`, `DELETE FROM public.entities_bundle_validation_binding WHERE transaction_id=pg_current_xact_id()`} {
+		if _, err := tx.Exec(ctx, statement); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func entityActiveIdentifierClaimsValidTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	hosts []portableHostRow,
-	identities []portableIdentityRow,
-	preserved []portablePreservedIdentifierRow,
-	envelopes map[uuid.UUID]entityPortableEnvelope,
-) (bool, error) {
-	expected := make(map[entityActiveIdentifierClaim]struct{})
-	add := func(recordID uuid.UUID, entityType, identifierType string, rawValue *string) bool {
-		if rawValue == nil {
-			return true
+// The source stream advances against bounded keyset pages; only one page and
+// one admitted source record are live, independent of the collection size.
+func compareEntitySource[T any](ctx context.Context, tx pgx.Tx, input sourceport.ImportContext, walk func(func(T) error) error, load func(context.Context, sourceport.ExportContext, *uuid.UUID) ([]T, error), identity func(T) uuid.UUID, equal func(T, T) bool) (bool, error) {
+	var page []T
+	var after *uuid.UUID
+	index := 0
+	same := true
+	next := func() (T, bool, error) {
+		if index == len(page) {
+			var err error
+			page, err = load(ctx, sourceport.ExportContext{Query: tx, IncidentID: input.IncidentID}, after)
+			if err != nil {
+				var zero T
+				return zero, false, err
+			}
+			index = 0
+			if len(page) > 0 {
+				last := identity(page[len(page)-1])
+				after = &last
+			}
 		}
-		normalizedValue, admitted := fieldnorm.NormalizeIdentifier(identifierType, *rawValue)
-		if !admitted {
-			return false
+		if index == len(page) {
+			var zero T
+			return zero, false, nil
 		}
-		expected[entityActiveIdentifierClaim{
-			incidentID:      incidentID,
-			entityType:      entityType,
-			identifierType:  identifierType,
-			normalizedValue: normalizedValue,
-			recordID:        recordID,
-		}] = struct{}{}
-		return true
+		row := page[index]
+		index++
+		return row, true, nil
 	}
-	hostStates := make(map[uuid.UUID]string, len(hosts))
-	for _, row := range hosts {
-		hostStates[row.RecordID] = row.State
-		envelope, present := envelopes[row.RecordID]
-		if !present || envelope.recordType != "host" || envelope.deletedAt != nil ||
-			(row.State != "stub" && row.State != "canonical") {
-			continue
+	if err := walk(func(expected T) error {
+		actual, present, err := next()
+		if err != nil {
+			return err
 		}
-		if !add(row.RecordID, "host", "aad_device_id", row.AADDeviceID) ||
-			!add(row.RecordID, "host", "fqdn", row.FQDN) ||
-			!add(row.RecordID, "host", "hostname", row.Hostname) {
-			return false, nil
+		if !present || !equal(expected, actual) {
+			same = false
 		}
-	}
-	identityStates := make(map[uuid.UUID]string, len(identities))
-	for _, row := range identities {
-		identityStates[row.RecordID] = row.State
-		envelope, present := envelopes[row.RecordID]
-		if !present || envelope.recordType != "identity" || envelope.deletedAt != nil ||
-			(row.State != "stub" && row.State != "canonical") {
-			continue
-		}
-		if !add(row.RecordID, "identity", "aad_object_id", row.AADObjectID) ||
-			!add(row.RecordID, "identity", "sid", row.SID) ||
-			!add(row.RecordID, "identity", "upn", row.UPN) ||
-			!add(row.RecordID, "identity", "email", row.Email) ||
-			!add(row.RecordID, "identity", "sam_account_name", row.SAMAccountName) {
-			return false, nil
-		}
-	}
-	for _, row := range preserved {
-		envelope, present := envelopes[row.RecordID]
-		if !present || envelope.recordType != row.EntityType || envelope.deletedAt != nil ||
-			row.DeletedAt != nil || row.Classification != "exact_match_reuse" {
-			continue
-		}
-		state := hostStates[row.RecordID]
-		if row.EntityType == "identity" {
-			state = identityStates[row.RecordID]
-		}
-		if state != "stub" && state != "canonical" {
-			continue
-		}
-		expected[entityActiveIdentifierClaim{
-			incidentID:      incidentID,
-			entityType:      row.EntityType,
-			identifierType:  row.IdentifierType,
-			normalizedValue: row.NormalizedValue,
-			recordID:        row.RecordID,
-		}] = struct{}{}
-	}
-
-	claimRows, err := tx.Query(ctx, `
-SELECT incident_id, entity_type, identifier_type, normalized_value, record_id
-  FROM entity_active_identifier_claims
- WHERE incident_id = $1`, incidentID)
-	if err != nil {
+		return nil
+	}); err != nil {
 		return false, err
 	}
-	actual := make(map[entityActiveIdentifierClaim]struct{})
-	for claimRows.Next() {
-		var claim entityActiveIdentifierClaim
-		if err := claimRows.Scan(
-			&claim.incidentID,
-			&claim.entityType,
-			&claim.identifierType,
-			&claim.normalizedValue,
-			&claim.recordID,
-		); err != nil {
-			claimRows.Close()
-			return false, err
-		}
-		actual[claim] = struct{}{}
-	}
-	if err := claimRows.Err(); err != nil {
-		claimRows.Close()
-		return false, err
-	}
-	claimRows.Close()
-	if len(expected) != len(actual) {
-		return false, nil
-	}
-	for claim := range expected {
-		if _, present := actual[claim]; !present {
-			return false, nil
-		}
-	}
-	return true, nil
+	_, extra, err := next()
+	return same && !extra, err
 }
 
-func comparePortableHosts(expected, actual []portableHostRow, failures *[]entityFailureCandidate) {
-	want := make(map[uuid.UUID]portableHostRow, len(expected))
-	for _, row := range expected {
-		want[row.RecordID] = row
-	}
-	seen := map[uuid.UUID]struct{}{}
-	for _, row := range actual {
-		expectedRow, present := want[row.RecordID]
-		if !present || !portableHostEqual(expectedRow, row) {
-			*failures = append(*failures, entityFailure(entityEnvelopeTypeScope, hostsBundlePath, row.RecordID.String(), row.RecordID))
-		}
-		seen[row.RecordID] = struct{}{}
-	}
-	for _, row := range expected {
-		if _, present := seen[row.RecordID]; !present {
-			*failures = append(*failures, entityFailure(entityEnvelopeTypeScope, hostsBundlePath, row.RecordID.String(), row.RecordID))
+func validateEntityAttributions(ctx context.Context, prepared preparedEntityImport, input sourceport.ImportContext) error {
+	for _, family := range []struct{ path, table, identity string }{
+		{hostsBundlePath, "hosts", "record_id"}, {identitiesBundlePath, "identities", "record_id"},
+		{entityMentionsBundlePath, "entity_mentions", "entity_mention_id"},
+		{preservedIDsBundlePath, "entity_preserved_identifiers", "entity_preserved_identifier_id"},
+		{entityAliasesBundlePath, "entity_aliases", "entity_alias_id"},
+	} {
+		if err := incidentportability.ValidateTopLevelAttributions(ctx, prepared.members, family.path, family.table, family.identity, input.Attributions); err != nil {
+			return err
 		}
 	}
-}
-
-func comparePortableIdentities(expected, actual []portableIdentityRow, failures *[]entityFailureCandidate) {
-	want := make(map[uuid.UUID]portableIdentityRow, len(expected))
-	for _, row := range expected {
-		want[row.RecordID] = row
-	}
-	seen := map[uuid.UUID]struct{}{}
-	for _, row := range actual {
-		expectedRow, present := want[row.RecordID]
-		if !present || !portableIdentityEqual(expectedRow, row) {
-			*failures = append(*failures, entityFailure(entityEnvelopeTypeScope, identitiesBundlePath, row.RecordID.String(), row.RecordID))
-		}
-		seen[row.RecordID] = struct{}{}
-	}
-	for _, row := range expected {
-		if _, present := seen[row.RecordID]; !present {
-			*failures = append(*failures, entityFailure(entityEnvelopeTypeScope, identitiesBundlePath, row.RecordID.String(), row.RecordID))
-		}
-	}
-}
-
-func comparePortableMentions(expected, actual []portableMentionRow, failures *[]entityFailureCandidate) {
-	want := make(map[uuid.UUID]portableMentionRow, len(expected))
-	for _, row := range expected {
-		want[row.MentionID] = row
-	}
-	seen := map[uuid.UUID]struct{}{}
-	for _, row := range actual {
-		expectedRow, present := want[row.MentionID]
-		if !present || !portableMentionEqual(expectedRow, row) {
-			*failures = append(*failures, entityFailure(entityResolutionMerge, entityMentionsBundlePath, row.MentionID.String(), row.MentionID))
-		}
-		seen[row.MentionID] = struct{}{}
-	}
-	for _, row := range expected {
-		if _, present := seen[row.MentionID]; !present {
-			*failures = append(*failures, entityFailure(entityResolutionMerge, entityMentionsBundlePath, row.MentionID.String(), row.MentionID))
-		}
-	}
-}
-
-func comparePortablePreserved(expected, actual []portablePreservedIdentifierRow, failures *[]entityFailureCandidate) {
-	want := make(map[uuid.UUID]portablePreservedIdentifierRow, len(expected))
-	for _, row := range expected {
-		want[row.PreservedID] = row
-	}
-	seen := map[uuid.UUID]struct{}{}
-	for _, row := range actual {
-		expectedRow, present := want[row.PreservedID]
-		if !present || !portablePreservedEqual(expectedRow, row) {
-			*failures = append(*failures, entityFailure(entitySameIncident, preservedIDsBundlePath, row.PreservedID.String(), row.PreservedID))
-		}
-		seen[row.PreservedID] = struct{}{}
-	}
-	for _, row := range expected {
-		if _, present := seen[row.PreservedID]; !present {
-			*failures = append(*failures, entityFailure(entitySameIncident, preservedIDsBundlePath, row.PreservedID.String(), row.PreservedID))
-		}
-	}
-}
-
-func comparePortableAliases(expected, actual []portableAliasRow, failures *[]entityFailureCandidate) {
-	want := make(map[uuid.UUID]portableAliasRow, len(expected))
-	for _, row := range expected {
-		want[row.AliasID] = row
-	}
-	seen := map[uuid.UUID]struct{}{}
-	for _, row := range actual {
-		expectedRow, present := want[row.AliasID]
-		if !present || !portableAliasEqual(expectedRow, row) {
-			*failures = append(*failures, entityFailure(entitySameIncident, entityAliasesBundlePath, row.AliasID.String(), row.AliasID))
-		}
-		seen[row.AliasID] = struct{}{}
-	}
-	for _, row := range expected {
-		if _, present := seen[row.AliasID]; !present {
-			*failures = append(*failures, entityFailure(entitySameIncident, entityAliasesBundlePath, row.AliasID.String(), row.AliasID))
-		}
-	}
+	return nil
 }
 
 func portableHostEqual(left, right portableHostRow) bool {
@@ -336,47 +169,4 @@ func portableAliasEqual(left, right portableAliasRow) bool {
 		left.EntityType == right.EntityType && left.RawText == right.RawText && left.NormalizedText == right.NormalizedText &&
 		left.Classification == right.Classification && left.RuntimeCreatedByID == right.RuntimeCreatedByID &&
 		left.CreatedAt.Equal(right.CreatedAt) && entityTimePtrEqual(left.DeletedAt, right.DeletedAt)
-}
-
-func entityAttributionsEqual(prepared preparedEntityImport, importContext sourceport.ImportContext) bool {
-	want := map[string]string{}
-	add := func(table, rowID, column string, actor *uuid.UUID) {
-		if actor != nil {
-			want[table+"\x00"+rowID+"\x00"+column] = actor.String()
-		}
-	}
-	for _, row := range prepared.hosts {
-		add("hosts", row.RecordID.String(), "created_by_user_id", &row.PortableCreatedByID)
-		add("hosts", row.RecordID.String(), "updated_by_user_id", &row.PortableUpdatedByID)
-	}
-	for _, row := range prepared.identities {
-		add("identities", row.RecordID.String(), "created_by_user_id", &row.PortableCreatedByID)
-		add("identities", row.RecordID.String(), "updated_by_user_id", &row.PortableUpdatedByID)
-	}
-	for _, row := range prepared.mentions {
-		add("entity_mentions", row.MentionID.String(), "created_by_user_id", &row.PortableCreatedByID)
-		add("entity_mentions", row.MentionID.String(), "resolved_by_user_id", row.PortableResolvedByID)
-	}
-	for _, row := range prepared.preserved {
-		add("entity_preserved_identifiers", row.PreservedID.String(), "created_by_user_id", &row.PortableCreatedByID)
-	}
-	for _, row := range prepared.aliases {
-		add("entity_aliases", row.AliasID.String(), "created_by_user_id", &row.PortableCreatedByID)
-	}
-	found := map[string]string{}
-	for _, attribution := range importContext.Attributions.ImportedAttributions() {
-		key := attribution.SourceTable + "\x00" + attribution.SourceRowID + "\x00" + attribution.SourceColumn
-		if _, relevant := want[key]; relevant {
-			found[key] = attribution.SourceActorID
-		}
-	}
-	if len(want) != len(found) {
-		return false
-	}
-	for key, actorID := range want {
-		if found[key] != actorID {
-			return false
-		}
-	}
-	return true
 }

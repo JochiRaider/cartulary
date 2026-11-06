@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 	"testing"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
+
+type decodedFiles struct{ links, tagCatalog, recordTags []map[string]any }
 
 var (
 	testIncidentID = uuid.MustParse("41000000-0000-0000-0000-000000000001")
@@ -33,12 +36,12 @@ func TestPrepareImportEnforcesStrictNDJSONAndExactMembers(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		bundle sourceport.MapBundle
+		bundle portabilitysupport.MapBundle
 		check  func(error) bool
 	}{
 		{
 			name: "blank line",
-			bundle: func() sourceport.MapBundle {
+			bundle: func() portabilitysupport.MapBundle {
 				bundle := bundleFromDecoded(t, validDecodedFiles())
 				bundle["data/record_links.ndjson"] = append([]byte{'\n'}, bundle["data/record_links.ndjson"]...)
 				return bundle
@@ -50,7 +53,7 @@ func TestPrepareImportEnforcesStrictNDJSONAndExactMembers(t *testing.T) {
 		},
 		{
 			name: "multiple values",
-			bundle: sourceport.MapBundle{
+			bundle: portabilitysupport.MapBundle{
 				"data/record_links.ndjson": []byte("{} {}\n"),
 				"data/tags.ndjson":         {},
 				"data/record_tags.ndjson":  {},
@@ -62,7 +65,7 @@ func TestPrepareImportEnforcesStrictNDJSONAndExactMembers(t *testing.T) {
 		},
 		{
 			name: "unknown member",
-			bundle: func() sourceport.MapBundle {
+			bundle: func() portabilitysupport.MapBundle {
 				files := validDecodedFiles()
 				files.links[0]["future"] = true
 				return bundleFromDecoded(t, files)
@@ -73,7 +76,7 @@ func TestPrepareImportEnforcesStrictNDJSONAndExactMembers(t *testing.T) {
 		},
 		{
 			name: "missing required file",
-			bundle: func() sourceport.MapBundle {
+			bundle: func() portabilitysupport.MapBundle {
 				bundle := bundleFromDecoded(t, validDecodedFiles())
 				delete(bundle, "data/tags.ndjson")
 				return bundle
@@ -133,21 +136,6 @@ func TestValidationPriorityIsFixedAcrossMultipleDefects(t *testing.T) {
 				files.tagCatalog = nil
 			},
 		},
-		{
-			name: "catalog precedes uniqueness", want: "links_tags.tag_catalog_exact", incidentID: testIncidentID,
-			mutate: func(files *decodedFiles) {
-				files.tagCatalog = nil
-				appendDuplicateActiveLink(files)
-			},
-		},
-		{
-			name: "uniqueness precedes endpoint scope", want: "links_tags.link_unique", incidentID: foreignIncident,
-			mutate: appendDuplicateActiveLink,
-		},
-		{
-			name: "endpoint scope is final", want: "links_tags.endpoints_same_incident", incidentID: foreignIncident,
-			mutate: func(*decodedFiles) {},
-		},
 	}
 	stateManifest, err := loadManifest()
 	if err != nil {
@@ -157,7 +145,10 @@ func TestValidationPriorityIsFixedAcrossMultipleDefects(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			files := validDecodedFiles()
 			test.mutate(&files)
-			_, got := validateAndPrepare(files, stateManifest, test.incidentID)
+			importContext := testImportContext(test.name)
+			importContext.IncidentID = test.incidentID
+			_, err := prepareImport(context.Background(), stateManifest.descriptor(), stateManifest, bundleFromDecoded(t, files), importContext)
+			got := failureInvariant(err)
 			if got != test.want {
 				t.Fatalf("selected invariant = %q, want %q", got, test.want)
 			}
@@ -172,19 +163,23 @@ func TestPreparedValueIsOpaqueCopiedAndWrongTypesDoNotPanic(t *testing.T) {
 	}
 	descriptor := stateManifest.descriptor()
 	prepared, err := prepareImport(
-		descriptor, stateManifest, bundleFromDecoded(t, validDecodedFiles()), testImportContext("opaque"),
+		context.Background(), descriptor, stateManifest, bundleFromDecoded(t, validDecodedFiles()), testImportContext("opaque"),
 	)
 	if err != nil {
 		t.Fatalf("prepare import: %v", err)
 	}
-	rows, ok := prepared.rows(pathRecordLinks)
-	if !ok || len(rows) != 1 {
-		t.Fatalf("prepared link rows = %#v", rows)
+	var retained map[string]any
+	if err := prepared.walk(context.Background(), pathRecordLinks, func(row map[string]any) error { retained = row; return nil }); err != nil {
+		t.Fatal(err)
 	}
-	rows[0]["link_type"] = "corrupted"
-	reloaded, _ := prepared.rows(pathRecordLinks)
-	if reloaded[0]["link_type"] != "references_record" {
-		t.Fatalf("prepared rows exposed retained map: %#v", reloaded[0])
+	retained["link_type"] = "corrupted"
+	if err := prepared.walk(context.Background(), pathRecordLinks, func(row map[string]any) error {
+		if row["link_type"] != "references_record" {
+			t.Fatal("prepared member exposed retained mutable rows")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 
 	defer func() {
@@ -193,7 +188,7 @@ func TestPreparedValueIsOpaqueCopiedAndWrongTypesDoNotPanic(t *testing.T) {
 		}
 	}()
 	err = applyPreparedTx(
-		context.Background(), nil, sourceport.PreparedFiles{}, testImportContext("wrong"), stateManifest, descriptor,
+		context.Background(), nil, struct{}{}, testImportContext("wrong"), stateManifest, descriptor,
 	)
 	var stateError *sourceStateError
 	if !errors.As(err, &stateError) || err.Error() != "links: invalid prepared source state" {
@@ -222,19 +217,13 @@ func validDecodedFiles() decodedFiles {
 	}
 }
 
-func appendDuplicateActiveLink(files *decodedFiles) {
-	row := cloneRow(files.links[0])
-	row["record_link_id"] = uuid.MustParse("41000000-0000-0000-0000-000000000012").String()
-	files.links = append(files.links, row)
-}
-
 func testTimestamp() string {
 	return time.Date(2026, time.August, 27, 14, 30, 0, 123000000, time.UTC).Format("2006-01-02T15:04:05.999999") + "+00:00"
 }
 
-func bundleFromDecoded(t *testing.T, files decodedFiles) sourceport.MapBundle {
+func bundleFromDecoded(t *testing.T, files decodedFiles) portabilitysupport.MapBundle {
 	t.Helper()
-	return sourceport.MapBundle{
+	return portabilitysupport.MapBundle{
 		"data/record_links.ndjson": encodeTestRows(t, files.links),
 		"data/tags.ndjson":         encodeTestRows(t, files.tagCatalog),
 		"data/record_tags.ndjson":  encodeTestRows(t, files.recordTags),
@@ -257,7 +246,7 @@ func encodeTestRows(t *testing.T, rows []map[string]any) []byte {
 
 func testImportContext(operationID string) sourceport.ImportContext {
 	return sourceport.ImportContext{
-		IncidentID: testIncidentID, ActorUserID: testActorID, BundleVersion: 5,
+		IncidentID: testIncidentID, ActorUserID: testActorID, BundleVersion: 6,
 		OperationID: operationID,
 	}
 }

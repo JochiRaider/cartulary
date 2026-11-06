@@ -13,12 +13,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 )
 
 // ModuleDependencies is the complete Incident Bundles production composition
 // boundary. NewModule rejects every missing reference dependency before any
 // worker or route can be published.
 type ModuleDependencies struct {
+	Staging                 stagedobjects.StreamAllocator
 	ArtifactReferences      ArtifactReferenceSource
 	Postgres                *pgxpool.Pool
 	JobTransactions         JobTransactions
@@ -66,6 +68,8 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		return nil, errors.New("incident bundle Jobs operations dependency is required")
 	case dependencies.JobRunner == nil:
 		return nil, errors.New("incident bundle Jobs runner dependency is required")
+	case dependencies.Staging == nil:
+		return nil, errors.New("incident bundle streamed staging dependency is required")
 	case dependencies.Storage == nil:
 		return nil, errors.New("incident bundle storage dependency is required")
 	case dependencies.ImportFinalizer == nil:
@@ -108,6 +112,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		dependencies.JobOperations,
 		dependencies.JobRunner,
 		dependencies.Storage,
+		dependencies.Staging,
 		dependencies.ImportFinalizer,
 		dependencies.JobFinalizer,
 		dependencies.Portability,

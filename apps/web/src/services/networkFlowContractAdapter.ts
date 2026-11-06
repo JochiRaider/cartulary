@@ -13,14 +13,14 @@ import {
   type GraphQueryResultV3,
   type GraphSelectorV2,
   type GraphSemanticQueryV3,
-  type GraphViewAcceptedV5,
+  type GraphViewAcceptedV6,
   type GraphViewContributorQueryRequestV3,
   type GraphViewContributorQueryResultV3,
-  type GraphViewGetV5,
-  type GraphViewListV5,
-  type GraphViewMutationResultV5,
-  type GraphViewResultV5,
-  type GraphViewV5,
+  type GraphViewGetV6,
+  type GraphViewListV6,
+  type GraphViewMutationResultV6,
+  type GraphViewResultV6,
+  type GraphViewV6,
   type ImportPreviewResult,
   type ImportSourceInspectionResult,
   type IndicatorLinkRequest,
@@ -64,13 +64,13 @@ export type NetworkFlowGraphVertex = GraphProjectionVertex;
 export type NetworkFlowGraphSelector = GraphSelectorV2;
 export type NetworkFlowGraphSemanticQuery = GraphSemanticQueryV3;
 export type NetworkFlowGraphQueryRequest = GraphQueryRequestV3;
-export type NetworkFlowSavedGraph = GraphViewV5;
-export type NetworkFlowSavedGraphAccepted = GraphViewAcceptedV5;
+export type NetworkFlowSavedGraph = GraphViewV6;
+export type NetworkFlowSavedGraphAccepted = GraphViewAcceptedV6;
 export type NetworkFlowSavedGraphContributorQueryRequest =
   GraphViewContributorQueryRequestV3;
 export type NetworkFlowSavedGraphContributorResult =
   GraphViewContributorQueryResultV3;
-export type NetworkFlowSavedGraphResult = GraphViewResultV5;
+export type NetworkFlowSavedGraphResult = GraphViewResultV6;
 export type NetworkFlowContributorPageRequest =
   | GraphContributorQueryRequestV3
   | GraphContributorQueryContinuation;
@@ -324,7 +324,7 @@ function rejectNetworkFlowPage(instancePath: string): never {
 
 export function decodeNetworkFlowSavedGraphList(
   value: unknown,
-): GraphViewListV5 {
+): GraphViewListV6 {
   const result = decodeOrThrow(networkFlowDecoders.graphViewList, value);
   for (const graph of result.graph_views) validateSavedGraphDeclaration(graph);
   return result;
@@ -332,7 +332,7 @@ export function decodeNetworkFlowSavedGraphList(
 
 export function decodeNetworkFlowSavedGraphAccepted(
   value: unknown,
-): GraphViewAcceptedV5 {
+): GraphViewAcceptedV6 {
   const result = decodeOrThrow(networkFlowDecoders.graphViewAccepted, value);
   validateSavedGraphDeclaration(result.graph_view);
   if (
@@ -346,7 +346,7 @@ export function decodeNetworkFlowSavedGraphAccepted(
 
 export function decodeNetworkFlowSavedGraphMutationResult(
   value: unknown,
-): GraphViewMutationResultV5 {
+): GraphViewMutationResultV6 {
   const result = decodeOrThrow(
     networkFlowDecoders.graphViewMutationResult,
     value,
@@ -357,7 +357,7 @@ export function decodeNetworkFlowSavedGraphMutationResult(
 
 export function decodeNetworkFlowSavedGraphResult(
   value: unknown,
-): GraphViewResultV5 {
+): GraphViewResultV6 {
   const result = decodeOrThrow(networkFlowDecoders.graphViewResult, value);
   validateSavedGraphDeclaration(result.graph_view);
   const binding = result.graph_view.selected_result_binding;
@@ -417,7 +417,7 @@ export function decodeNetworkFlowImportPreviewResult(
   return decodeOrThrow(networkFlowDecoders.importPreviewResult, value);
 }
 
-export function decodeNetworkFlowSavedGraphGet(value: unknown): GraphViewGetV5 {
+export function decodeNetworkFlowSavedGraphGet(value: unknown): GraphViewGetV6 {
   const result = decodeOrThrow(networkFlowDecoders.graphViewGet, value);
   validateSavedGraphDeclaration(result.graph_view);
   return result;
@@ -486,7 +486,7 @@ function validateSavedGraphDeclaration(graph: NetworkFlowSavedGraph): void {
 function rejectSavedGraphProjection(instancePath: string): never {
   throw new NetworkFlowContractDecodeError({
     boundary: "generated_protocol",
-    schemaId: "cartulary.network_flow.graph_view.v5",
+    schemaId: "cartulary.network_flow.graph_view.v6",
     instancePath,
     reasonCategory: "constraint_violation",
   });

@@ -85,9 +85,9 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	for _, id := range []string{"nfgv_ffffffffffffffffffffffffffffffff", "nfgv_00000000000000000000000000000001"} {
 		if _, err := recoveryPool.Exec(ctx, `INSERT INTO network_flow_graph_views
 		(graph_view_id,incident_id,display_name,normalized_display_name,declaration_state,
-		 semantic_query_json,semantic_query_sha256,desired_source_snapshot_id,
+		 refresh_intent_json,semantic_query_json,semantic_query_sha256,desired_source_snapshot_id,
 		 graph_view_version,materialization_generation,created_by_user_id,created_at,updated_at,retired_at)
-		VALUES ($1,$2,'Retained Ω','retained ω','retired',
+		VALUES ($1,$2,'Retained Ω','retained ω','retired','{}',
 		 '{"schema_id":"incompatible.profile.semantic.v1","counter":9007199254740993}',
 		 repeat('a',64),'retained-source',1,1,$3,now(),now(),now())`, id, incidentID, adminUserID); err != nil {
 			t.Fatal(err)
@@ -95,7 +95,7 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	}
 	if _, err := recoveryPool.Exec(ctx, `INSERT INTO extension_state_metadata
 	(profile_id,migration_lineage_id,state_version,metadata_version,created_at,updated_at)
-	VALUES ('network_flow_activity','network_flow_activity.state_v1',6,1,now(),now())
+VALUES ('network_flow_activity','network_flow_activity.state_v1',7,1,now(),now())
 	ON CONFLICT (profile_id) DO NOTHING`); err != nil {
 		t.Fatal(err)
 	}

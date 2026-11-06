@@ -39,7 +39,7 @@ func TestEnsureSchemaReadyRejectsBehindCurrentLine(t *testing.T) {
 	_, pool := migratedSchemaReadinessDatabase(t, "schema-ready-behind", 1)
 
 	err := postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t))
-	requireSchemaReadinessDiagnostic(t, err, "schema_migration_required")
+	requireSchemaReadinessDiagnostic(t, err, "schema_fresh_state_required")
 }
 
 func TestEnsureSchemaReadyRejectsAheadCurrentLine(t *testing.T) {

@@ -13,6 +13,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
 )
 
@@ -46,10 +48,28 @@ type portableBinding struct {
 }
 
 type preparedIndicatorImport struct {
-	binding      portableBinding
-	indicators   []portableIndicatorRow
-	observations []portableObservationRow
-	intervals    []portableIntervalRow
+	binding                          portableBinding
+	members                          *incidentportability.BoundMembers
+	evaluate                         identity.Evaluator
+	indicatorCount, observationCount uint64
+}
+type indicatorFailureAccumulator struct{ invariant string }
+
+func (a *indicatorFailureAccumulator) add(invariant string) {
+	if invariant != "" && (a.invariant == "" || indicatorInvariantRank(invariant) < indicatorInvariantRank(a.invariant)) {
+		a.invariant = invariant
+	}
+}
+func (a *indicatorFailureAccumulator) candidates(values []indicatorFailureCandidate) {
+	for _, v := range values {
+		a.add(v.invariant)
+	}
+}
+func (a indicatorFailureAccumulator) err() error {
+	if a.invariant == "" {
+		return nil
+	}
+	return indicatorSourceFailure(a.invariant)
 }
 
 type portableIndicatorRow struct {
@@ -135,7 +155,7 @@ func (binding portableBinding) matches(importContext sourceport.ImportContext) b
 		binding.incidentID != uuid.Nil &&
 		binding.incidentID == importContext.IncidentID &&
 		binding.bundleVersion == importContext.BundleVersion &&
-		binding.bundleVersion == 5 &&
+		binding.bundleVersion == 6 &&
 		binding.contractMajor == sourceport.ContractMajor
 }
 

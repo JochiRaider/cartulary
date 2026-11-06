@@ -291,21 +291,26 @@ func newTaskDecisionMutationDependencies(
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	projectionRows taskdecisionprojection.MutationRows,
+	linkRows links.ProjectionRows,
 	publications collaboration.RecordChangedAppender,
-) tasksdecisions.MutationDependencies {
+) (tasksdecisions.MutationDependencies, error) {
+	linkStore, err := links.NewMutationStore(linkRows)
+	if err != nil {
+		return tasksdecisions.MutationDependencies{}, err
+	}
 	authStore := authn.NewStore(pool)
 	return tasksdecisions.MutationDependencies{
 		IncidentState:        admission.NewChecker(pool),
 		Idempotency:          taskDecisionIdempotency{store: authStore},
 		RecordEnvelopes:      records.NewStore(),
-		Links:                links.NewStore(),
+		Links:                linkStore,
 		LinkFacts:            tasksdecisionassembly.NewLinkFactsCapability(),
 		Projections:          projectionRows,
 		Revisions:            taskDecisionRevisions{appender: appender, history: conflicttokens.NewRevisionWindowReader()},
 		ConflictFields:       conflictFields,
 		KeepSavedIdempotency: NewConflictIdempotencyPort(pool),
 		Collaboration:        publications,
-	}
+	}, nil
 }
 
 func NewTaskDecisionMutationContribution(
@@ -314,15 +319,20 @@ func NewTaskDecisionMutationContribution(
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	projectionRows taskdecisionprojection.MutationRows,
+	linkRows links.ProjectionRows,
 	publications collaboration.RecordChangedAppender,
 ) (*tasksdecisions.MutationFacade, error) {
 	if appender == nil {
 		return nil, fmt.Errorf("compose Tasks/Decisions mutation contribution: Revisions appender is required")
 	}
+	dependencies, err := newTaskDecisionMutationDependencies(pool, appender, conflictFields, projectionRows, linkRows, publications)
+	if err != nil {
+		return nil, err
+	}
 	facade, err := tasksdecisions.NewMutationContribution(
 		pool,
 		conflictTokens,
-		newTaskDecisionMutationDependencies(pool, appender, conflictFields, projectionRows, publications),
+		dependencies,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compose Tasks/Decisions mutation contribution: %w", err)

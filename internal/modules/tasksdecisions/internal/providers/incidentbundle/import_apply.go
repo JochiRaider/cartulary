@@ -6,17 +6,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 )
 
 func applyPreparedTasksDecisionsImportTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	prepared preparedTasksDecisionsImport,
-	actorUserID uuid.UUID,
-	attributions incidentportability.AttributionRecorder,
+	importContext sourceport.ImportContext,
 ) error {
-	for _, row := range prepared.tasks {
+	actorUserID, attributions := importContext.ActorUserID, importContext.Attributions
+	if err := prepared.walkTasks(ctx, importContext, func(row portableTaskRequest) error {
 		if attributions != nil && row.PortableOwnerUserID != nil {
 			if err := attributions.RecordImportedAttribution("task_requests", row.RecordID.String(), "owner_user_id", row.PortableOwnerUserID.String()); err != nil {
 				return err
@@ -46,8 +46,11 @@ INSERT INTO task_requests (
 		if tag.RowsAffected() != 1 {
 			return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
-	for _, row := range prepared.decisions {
+	if err := prepared.walkDecisions(ctx, importContext, func(row portableDecision) error {
 		if attributions != nil {
 			if err := attributions.RecordImportedAttribution("decisions", row.RecordID.String(), "owner_user_id", row.PortableOwnerUserID.String()); err != nil {
 				return err
@@ -66,6 +69,9 @@ INSERT INTO decisions (
 		if tag.RowsAffected() != 1 {
 			return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }

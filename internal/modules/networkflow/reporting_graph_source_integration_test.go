@@ -50,6 +50,7 @@ func TestReportingGraphSourceRetainsSelectedInput_Integration(t *testing.T) {
 		CanonicalOutputSHA256:         result.Binding.CanonicalOutputSHA256,
 	}
 
+	declaration.SelectedSourceBindingJSON = graphSelectedSourceFixture(declaration, *declaration.SelectedResult)
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatalf("begin fixture transaction: %v", err)
@@ -113,6 +114,9 @@ func TestReportingGraphSourceRetainsSelectedInput_Integration(t *testing.T) {
 					NormalizedConfigurationSHA256: binding.NormalizedConfigurationSHA256,
 					NormalizedSourceSHA256:        binding.NormalizedSourceSHA256, CanonicalOutputSHA256: binding.CanonicalOutputSHA256,
 				}
+			}
+			if declaration.SelectedResult != nil {
+				declaration.SelectedSourceBindingJSON = graphSelectedSourceFixture(declaration, *declaration.SelectedResult)
 			}
 			if err := store.InsertGraphViewDeclarationTx(ctx, selectionTx, declaration); err != nil {
 				t.Fatal(err)

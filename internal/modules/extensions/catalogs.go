@@ -589,7 +589,7 @@ func parseParticipantContract(row map[string]any) (ParticipantContract, error) {
 		contract.AlgorithmIDs = []string{contract.PrepareAlgorithmID, contract.ValidationAlgorithmID, contract.WriteAlgorithmID}
 		sort.Strings(contract.AlgorithmIDs)
 	}
-	if contract.ContractKind == "cartulary.extension_participant_specialization.v4" {
+	if contract.ContractKind == "cartulary.extension_participant_specialization.v5" {
 		contract.InputSchemaID = stringValue(body["shared_context_schema_id"])
 		operations, ok := objectSlice(body["operations"])
 		if !ok || len(operations) == 0 {

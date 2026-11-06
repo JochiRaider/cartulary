@@ -1,10 +1,13 @@
 package incidents
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
@@ -38,21 +41,55 @@ func NewIncidentBundleSourcePort() (sourceport.Port, error) {
 	logicalPath := contract.source.Path.LogicalPath
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor,
-		Export: func(ctx context.Context, exportContext sourceport.ExportContext) ([]incidentportability.File, error) {
+		Export: func(ctx context.Context, exportContext sourceport.ExportContext) error {
 			payload, _, err := exportIncidentBundleIncident(ctx, exportContext.Query, exportContext.IncidentID)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			return []incidentportability.File{{Path: logicalPath, Payload: payload}}, nil
+			if exportContext.PortableAttributions == nil {
+				return sourceport.ErrInvalidCatalog
+			}
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(payload, &fields); err != nil {
+				return err
+			}
+			for _, column := range []string{"created_by_user_id", "updated_by_user_id"} {
+				var local uuid.UUID
+				if err := json.Unmarshal(fields[column], &local); err != nil {
+					return err
+				}
+				historical, err := exportContext.PortableAttributions.ResolvePortableSourceActors(ctx, exportContext.Query, exportContext.IncidentID, "incidents", column, []string{exportContext.IncidentID.String()})
+				if err != nil {
+					return err
+				}
+				actor, err := incidentportability.ExportActorID(exportContext.Actors, historical[exportContext.IncidentID.String()], local)
+				if err != nil {
+					return err
+				}
+				fields[column], err = json.Marshal(actor)
+				if err != nil {
+					return err
+				}
+			}
+			payload, err = json.Marshal(fields)
+			if err != nil {
+				return err
+			}
+			payload, err = incidentportability.CanonicalRawJSON(payload)
+			if err != nil {
+				return err
+			}
+			_, err = exportContext.Members.WriteMember(ctx, logicalPath, bytes.NewReader(payload))
+			return err
 		},
-		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			files, err := sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
+		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
+			files, err := sourceport.PrepareMembers(ctx, descriptor, bundle, importContext.BundleVersion)
 			if err != nil {
 				return nil, err
 			}
-			payload, ok := files[logicalPath]
-			if !ok {
-				return nil, fmt.Errorf("%w: Incidents source path is unprepared", sourceport.ErrInvalidCatalog)
+			payload, err := incidentportability.ReadControl(ctx, files, logicalPath, incidentportability.MaxControlMemberBytes)
+			if err != nil {
+				return nil, err
 			}
 			prepared, err := prepareIncidentBundleIncident(contract, payload, incidentSourcePortImportContext(importContext))
 			return prepared, incidentSourcePortError(descriptor, err)

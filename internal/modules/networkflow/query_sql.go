@@ -74,6 +74,10 @@ func (s *store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, tableID
 	if hasMore {
 		result = result[:limit]
 	}
+	rows.Close()
+	if err := s.resolveRowAuthors(ctx, incidentID, result); err != nil {
+		return nil, false, err
+	}
 	return result, hasMore, nil
 }
 

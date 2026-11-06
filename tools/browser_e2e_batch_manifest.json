@@ -1173,6 +1173,7 @@
         "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
         "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee",
         "module.imports.browser.density_containment",
+        "module.imports.browser.ir_corpus_import",
         "module.imports.browser.keyboard_recovery",
         "module.imports.browser.partial_outcomes",
         "module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179",
@@ -1981,6 +1982,35 @@
       ]
     },
     {
+      "target": "browser-e2e-webserver-backed",
+      "kind": "duration_balanced_specs",
+      "execution_stage": "webserver-backed",
+      "frontend_artifact_id": "production",
+      "scheduler_needs": [],
+      "workers": "1",
+      "state_scope": "isolated",
+      "project": "chromium",
+      "config": "playwright.config.ts",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_ordinary",
+      "fixture_capability": "browser_stack",
+      "service_requirement": "test-services",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "preparation_operations": [],
+      "name": "partition-ea2d6ed28f084839ec8c47269b0f9788811f03f455aa6c7f590036895e63cde2",
+      "browser_session_group": "partition-ea2d6ed28f084839ec8c47269b0f9788811f03f455aa6c7f590036895e63cde2",
+      "selected_row_ids": [
+        "module.recovery.browser.ir_restored_investigation"
+      ],
+      "specs": [
+        "apps/web/e2e/restore.spec.ts"
+      ]
+    },
+    {
       "target": "browser-e2e-measurement",
       "kind": "measurement",
       "execution_stage": "measurement",
@@ -2067,6 +2097,35 @@
       ],
       "specs": [
         "apps/web/e2e/measurement/evidence-verification.spec.ts"
+      ]
+    },
+    {
+      "target": "browser-e2e-webserver-backed",
+      "kind": "duration_balanced_specs",
+      "execution_stage": "webserver-backed",
+      "frontend_artifact_id": "production",
+      "scheduler_needs": [],
+      "workers": "1",
+      "state_scope": "isolated",
+      "project": "chromium",
+      "config": "playwright.config.ts",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_ordinary",
+      "fixture_capability": "browser_stack",
+      "service_requirement": "test-services",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "preparation_operations": [],
+      "name": "partition-ffeff7f672d5ecc061ebbcdf9bf78f8fff753a43f87024afd77cc2889187b362",
+      "browser_session_group": "partition-ffeff7f672d5ecc061ebbcdf9bf78f8fff753a43f87024afd77cc2889187b362",
+      "selected_row_ids": [
+        "module.recovery.browser.ir_transferred_investigation"
+      ],
+      "specs": [
+        "apps/web/e2e/restore.spec.ts"
       ]
     }
   ],
@@ -2475,6 +2534,7 @@
           "selected_row_ids": [
             "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee",
             "module.imports.browser.density_containment",
+            "module.imports.browser.ir_corpus_import",
             "module.imports.browser.keyboard_recovery",
             "module.imports.browser.partial_outcomes",
             "module.networkflow.browser.cisco_flow_search_upload_builds_and_saves_the_co_06fe25b179",
@@ -2505,6 +2565,18 @@
           "partition": "partition-88a573c7e9d5d30cd895f455da5399fa3740ed52441ad7a825eb011bf3ebeda3",
           "selected_row_ids": [
             "harness.browser.boundary_support.frontend_artifact_lifetime"
+          ]
+        },
+        {
+          "partition": "partition-ea2d6ed28f084839ec8c47269b0f9788811f03f455aa6c7f590036895e63cde2",
+          "selected_row_ids": [
+            "module.recovery.browser.ir_restored_investigation"
+          ]
+        },
+        {
+          "partition": "partition-ffeff7f672d5ecc061ebbcdf9bf78f8fff753a43f87024afd77cc2889187b362",
+          "selected_row_ids": [
+            "module.recovery.browser.ir_transferred_investigation"
           ]
         }
       ],

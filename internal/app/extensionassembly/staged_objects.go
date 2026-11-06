@@ -1,9 +1,9 @@
 package extensionassembly
 
 import (
-	"bytes"
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -32,19 +32,36 @@ func (r *StagedObjectRepository) Allocate(ctx context.Context, allocation staged
 		!allocation.ExpiresAt.Equal(allocation.StagedAt.Add(stagedobjects.StagingLifetime)) {
 		return stagedobjects.NewFailure(stagedobjects.FailureIntegrity, "invalid_allocation", nil)
 	}
-	err := r.store.AllocateStagedObject(ctx, extensionstore.NewStagedObject(
+	object := extensionstore.NewStagedObject(
 		allocation.StagingID,
+		allocation.OperationID,
 		allocation.OwnerProfileID,
 		allocation.StorageIdentity,
-		allocation.ByteSize,
-		allocation.SHA256,
 		allocation.StagedAt,
-	))
+	)
+	if allocation.Resource != nil {
+		object.ReservedResourceKind = &allocation.Resource.Kind
+		object.ReservedResourceID = &allocation.Resource.ID
+	}
+	err := r.store.AllocateStagedObject(ctx, object)
 	return classifyStagedRepositoryError(err)
 }
 
-func (r *StagedObjectRepository) MarkReady(ctx context.Context, stagingID string, now time.Time) error {
-	return classifyStagedRepositoryError(r.store.MarkStagedReady(ctx, stagingID, now))
+func (r *StagedObjectRepository) Seal(ctx context.Context, operationID, profileID string, sealed stagedobjects.SealedReference, now time.Time) error {
+	return classifyStagedRepositoryError(r.store.SealStagedObject(ctx, operationID, profileID, sealed.StagingID, sealed.ByteSize, sealed.SHA256, now))
+}
+func (r *StagedObjectRepository) ReadSealed(ctx context.Context, operationID, profileID string, reference stagedobjects.Reference, now time.Time) (stagedobjects.SealedObject, error) {
+	object, err := r.store.StagedObject(ctx, reference.StagingID)
+	if err != nil {
+		return stagedobjects.SealedObject{}, classifyStagedRepositoryError(err)
+	}
+	if object.OperationID != operationID || object.OwnerProfileID != profileID || object.State != extensionstore.StagedReady || !now.Before(object.StagingExpiresAt) {
+		return stagedobjects.SealedObject{}, stagedobjects.ErrScopeDenied
+	}
+	if object.ExpectedByteSize == nil || object.ExpectedSHA256 == nil {
+		return stagedobjects.SealedObject{}, stagedobjects.ErrIntegrity
+	}
+	return stagedobjects.SealedObject{StorageIdentity: object.StorageIdentity, ContentBinding: stagedobjects.ContentBinding{ByteSize: *object.ExpectedByteSize, SHA256: *object.ExpectedSHA256}}, nil
 }
 
 func (r *StagedObjectRepository) Abandon(ctx context.Context, stagingID string, now time.Time) error {
@@ -112,11 +129,11 @@ func NewStagedObjectBytes(store objectstore.Store) (*StagedObjectBytes, error) {
 	return &StagedObjectBytes{store: store}, nil
 }
 
-func (s *StagedObjectBytes) Put(ctx context.Context, storageIdentity string, payload []byte) (stagedobjects.ByteWriteOutcome, error) {
+func (s *StagedObjectBytes) Put(ctx context.Context, storageIdentity string, payload io.Reader) (stagedobjects.ByteWriteOutcome, error) {
 	if s == nil || s.store == nil {
 		return stagedobjects.ByteWriteDependency, errors.New("object store unavailable")
 	}
-	err := s.store.PutObject(ctx, storageIdentity, bytes.NewReader(payload), int64(len(payload)), "application/octet-stream")
+	err := s.store.PutObject(ctx, storageIdentity, payload, -1, "application/octet-stream")
 	if err == nil {
 		return stagedobjects.ByteWriteSuccess, nil
 	}
@@ -130,6 +147,14 @@ func (s *StagedObjectBytes) Put(ctx context.Context, storageIdentity string, pay
 		}
 	}
 	return stagedobjects.ByteWriteIndeterminate, err
+}
+
+func (s *StagedObjectBytes) Open(ctx context.Context, identity string) (io.ReadCloser, error) {
+	if s == nil || s.store == nil {
+		return nil, stagedobjects.ErrDependency
+	}
+	stream, _, err := s.store.ReadObject(ctx, identity, objectstore.ReadOptions{})
+	return stream, err
 }
 
 func (s *StagedObjectBytes) Delete(ctx context.Context, storageIdentity string) (stagedobjects.DeleteOutcome, error) {
@@ -186,13 +211,15 @@ func (c *StagedPublicationCapability) OperationID() string {
 	return c.operationID
 }
 
-func (c *StagedPublicationCapability) PublishStagedObject(ctx context.Context, publication stagedobjects.Publication) error {
+func (c *StagedPublicationCapability) PublishStagedObject(ctx context.Context, profileID string, publication stagedobjects.Publication) error {
 	if c == nil || c.tx == nil {
 		return stagedobjects.ErrScopeDenied
 	}
 	err := extensionstore.MarkStagedPublished(
 		ctx,
 		c.tx,
+		c.operationID,
+		profileID,
 		publication.StagingID,
 		publication.ResourceKind,
 		publication.ResourceID,

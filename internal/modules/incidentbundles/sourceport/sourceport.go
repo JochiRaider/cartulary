@@ -15,7 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-const ContractMajor = 2
+const ContractMajor = 3
 
 var (
 	ErrInvalidCatalog  = errors.New("incident bundle source-port catalog is invalid")
@@ -49,7 +49,7 @@ type ImportContext struct {
 	OperationID          string
 	Attributions         incidentportability.AttributionRecorder
 	Actors               ActorCatalog
-	RewrittenObjectBlobs []byte
+	RewrittenObjectBlobs incidentportability.MemberReader
 }
 
 type PortableAttributionResolver interface {
@@ -64,31 +64,14 @@ type PortableAttributionResolver interface {
 }
 
 type ExportContext struct {
+	Actors               incidentportability.ActorReferences
+	Members              incidentportability.MemberWriter
 	Query                incidentportability.Queryer
 	IncidentID           uuid.UUID
 	PortableAttributions PortableAttributionResolver
 }
 
-type Bundle interface {
-	File(string) ([]byte, bool)
-	Paths() []string
-}
-
-type MapBundle map[string][]byte
-
-func (b MapBundle) File(path string) ([]byte, bool) {
-	payload, ok := b[path]
-	return payload, ok
-}
-
-func (b MapBundle) Paths() []string {
-	paths := make([]string, 0, len(b))
-	for path := range b {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
-	return paths
-}
+type Bundle = incidentportability.MemberReader
 
 type Prepared struct {
 	bindingKey string
@@ -108,7 +91,7 @@ func (p Prepared) ValueFor(portKey string, operationID string) (any, error) {
 
 type Port interface {
 	Descriptor() Descriptor
-	Export(context.Context, ExportContext) ([]incidentportability.File, error)
+	Export(context.Context, ExportContext) error
 	PrepareImport(context.Context, Bundle, ImportContext) (Prepared, error)
 	ApplyImportTx(context.Context, pgx.Tx, Prepared, ImportContext) error
 	ValidateImportTx(context.Context, pgx.Tx, Prepared, ImportContext) error
@@ -312,7 +295,7 @@ func canonicalDescriptor(descriptor Descriptor) Descriptor {
 	})
 	for index := range descriptor.Paths {
 		descriptor.Paths[index].Versions = canonicalInts(descriptor.Paths[index].Versions)
-		descriptor.Paths[index].StableIdentity = canonicalStrings(descriptor.Paths[index].StableIdentity)
+		descriptor.Paths[index].StableIdentity = append([]string(nil), descriptor.Paths[index].StableIdentity...)
 	}
 	return descriptor
 }
@@ -365,6 +348,13 @@ func validateDescriptor(descriptor Descriptor, allowedRelations map[string]struc
 				return fmt.Errorf("%w: duplicate path version %s", ErrInvalidCatalog, path.LogicalPath)
 			}
 			seenVersions[path.LogicalPath][version] = struct{}{}
+		}
+		identityFields := map[string]bool{}
+		for _, field := range path.StableIdentity {
+			if strings.TrimSpace(field) == "" || identityFields[field] {
+				return fmt.Errorf("%w: invalid stable identity for %s", ErrInvalidCatalog, path.LogicalPath)
+			}
+			identityFields[field] = true
 		}
 		if failure := descriptor.DeclaredFailure(path.StableIdentityInvariantID); errors.Is(failure, ErrInvalidCatalog) {
 			return failure

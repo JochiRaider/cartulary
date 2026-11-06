@@ -24,31 +24,33 @@ const (
 )
 
 type StagedObject struct {
-	StagingID          string
-	OwnerProfileID     string
-	StorageIdentity    string
-	ExpectedByteSize   int64
-	ExpectedSHA256     string
-	StagedAt           time.Time
-	StagingExpiresAt   time.Time
-	ReadyAt            *time.Time
-	PublishedAt        *time.Time
-	AbandonedAt        *time.Time
-	State              StagedState
-	DeleteState        DeleteState
-	DeleteAttemptCount int32
-	NextDeleteAttempt  *time.Time
-	LastDeleteError    *string
+	ReservedResourceKind *string
+	ReservedResourceID   *string
+	StagingID            string
+	OperationID          string
+	OwnerProfileID       string
+	StorageIdentity      string
+	ExpectedByteSize     *int64
+	ExpectedSHA256       *string
+	StagedAt             time.Time
+	StagingExpiresAt     time.Time
+	ReadyAt              *time.Time
+	PublishedAt          *time.Time
+	AbandonedAt          *time.Time
+	State                StagedState
+	DeleteState          DeleteState
+	DeleteAttemptCount   int32
+	NextDeleteAttempt    *time.Time
+	LastDeleteError      *string
 }
 
-func NewStagedObject(stagingID, profileID, storageIdentity string, byteSize int64, digest string, now time.Time) StagedObject {
+func NewStagedObject(stagingID, operationID, profileID, storageIdentity string, now time.Time) StagedObject {
 	stagedAt := now.UTC()
 	return StagedObject{
 		StagingID:          stagingID,
+		OperationID:        operationID,
 		OwnerProfileID:     profileID,
 		StorageIdentity:    storageIdentity,
-		ExpectedByteSize:   byteSize,
-		ExpectedSHA256:     digest,
 		StagedAt:           stagedAt,
 		StagingExpiresAt:   stagedAt.Add(24 * time.Hour),
 		ReadyAt:            nil,
@@ -63,7 +65,7 @@ func NewStagedObject(stagingID, profileID, storageIdentity string, byteSize int6
 }
 
 func (s *Store) AllocateStagedObject(ctx context.Context, object StagedObject) error {
-	if object.State != StagedAllocated || object.DeleteState != DeleteNotApplicable || object.ReadyAt != nil || object.PublishedAt != nil || object.AbandonedAt != nil || object.DeleteAttemptCount != 0 || object.NextDeleteAttempt != nil || object.LastDeleteError != nil {
+	if object.OperationID == "" || object.ExpectedByteSize != nil || object.ExpectedSHA256 != nil || object.State != StagedAllocated || object.DeleteState != DeleteNotApplicable || object.ReadyAt != nil || object.PublishedAt != nil || object.AbandonedAt != nil || object.DeleteAttemptCount != 0 || object.NextDeleteAttempt != nil || object.LastDeleteError != nil {
 		return ErrInvalidTransition
 	}
 	_, err := s.pool.Exec(ctx, `
@@ -71,20 +73,20 @@ INSERT INTO extension_staged_objects (
     staging_id, owner_profile_id, storage_identity, expected_byte_size,
     expected_sha256, staged_at, staging_expires_at, ready_at, published_at,
     abandoned_at, state, delete_state, delete_attempt_count,
-    next_delete_attempt_at, last_delete_error_code
-) VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, NULL, NULL,
-          'allocated', 'not_applicable', 0, NULL, NULL)
-`, object.StagingID, object.OwnerProfileID, object.StorageIdentity, object.ExpectedByteSize,
-		object.ExpectedSHA256, object.StagedAt.UTC(), object.StagingExpiresAt.UTC())
+    next_delete_attempt_at, last_delete_error_code, operation_id, reserved_resource_kind, reserved_resource_id
+) VALUES ($1, $2, $3, NULL, NULL, $4, $5, NULL, NULL, NULL,
+          'allocated', 'not_applicable', 0, NULL, NULL, $6, $7, $8)
+`, object.StagingID, object.OwnerProfileID, object.StorageIdentity, object.StagedAt.UTC(), object.StagingExpiresAt.UTC(), object.OperationID, object.ReservedResourceKind, object.ReservedResourceID)
 	return err
 }
 
-func (s *Store) MarkStagedReady(ctx context.Context, stagingID string, now time.Time) error {
+func (s *Store) SealStagedObject(ctx context.Context, operationID, profileID, stagingID string, byteSize int64, digest string, now time.Time) error {
 	tag, err := s.pool.Exec(ctx, `
 UPDATE extension_staged_objects
-   SET state = 'ready', ready_at = $2
+   SET state = 'ready', ready_at = $2, expected_byte_size = $5, expected_sha256 = $6
  WHERE staging_id = $1 AND state = 'allocated' AND staging_expires_at > $2
-`, stagingID, now.UTC())
+ AND operation_id = $3 AND owner_profile_id = $4
+`, stagingID, now.UTC(), operationID, profileID, byteSize, digest)
 	if err != nil {
 		return err
 	}
@@ -96,7 +98,7 @@ UPDATE extension_staged_objects
 
 // MarkStagedPublished must be invoked on the caller's final transaction so the
 // authoritative reference and publication timestamp become visible atomically.
-func MarkStagedPublished(ctx context.Context, tx pgx.Tx, stagingID, resourceKind, resourceID string, byteSize int64, digest string, now time.Time) error {
+func MarkStagedPublished(ctx context.Context, tx pgx.Tx, operationID, profileID, stagingID, resourceKind, resourceID string, byteSize int64, digest string, now time.Time) error {
 	if tx == nil {
 		return ErrInvalidTransition
 	}
@@ -108,7 +110,9 @@ UPDATE extension_staged_objects
    AND staging_expires_at > $2
    AND expected_byte_size = $3
    AND expected_sha256 = $4
-`, stagingID, now.UTC(), byteSize, digest)
+   AND operation_id = $5 AND owner_profile_id = $6
+   AND (reserved_resource_kind IS NULL OR (reserved_resource_kind = $7 AND reserved_resource_id = $8))
+`, stagingID, now.UTC(), byteSize, digest, operationID, profileID, resourceKind, resourceID)
 	if err != nil {
 		return err
 	}
@@ -163,7 +167,7 @@ const stagedObjectSelect = `
 SELECT staging_id, owner_profile_id, storage_identity, expected_byte_size,
        expected_sha256, staged_at, staging_expires_at, ready_at, published_at,
        abandoned_at, state, delete_state, delete_attempt_count,
-       next_delete_attempt_at, last_delete_error_code
+       next_delete_attempt_at, last_delete_error_code, operation_id, reserved_resource_kind, reserved_resource_id
   FROM extension_staged_objects`
 
 func scanStagedObject(row pgx.Row) (StagedObject, error) {
@@ -184,6 +188,9 @@ func scanStagedObject(row pgx.Row) (StagedObject, error) {
 		&object.DeleteAttemptCount,
 		&object.NextDeleteAttempt,
 		&object.LastDeleteError,
+		&object.OperationID,
+		&object.ReservedResourceKind,
+		&object.ReservedResourceID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return StagedObject{}, ErrNotFound

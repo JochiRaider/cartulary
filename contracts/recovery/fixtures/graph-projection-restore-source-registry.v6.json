@@ -5,7 +5,7 @@
       "source_registration_id": "network_flow_activity.graph_views.v1",
       "source_owner_id": "network_flow_activity",
       "authoritative_family_id": "network_flow_activity.graph_views",
-      "enumerator_binding_id": "network_flow_activity.graph_view_restore_enumerator_v2",
+      "enumerator_binding_id": "network_flow_activity.graph_view_restore_enumerator_v3",
       "semantic_query_schema_ids": [
         "cartulary.network_flow.graph_semantic_query.v3"
       ],

@@ -102,6 +102,7 @@
         "schema_usage",
         "table_read_write",
         "table_append_only",
+        "table_immutable",
         "table_read_only",
         "table_no_access",
         "migration_ledger_read",

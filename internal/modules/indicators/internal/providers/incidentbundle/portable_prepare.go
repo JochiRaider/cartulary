@@ -1,7 +1,7 @@
 package incidentbundle
 
 import (
-	"sort"
+	"context"
 	"strings"
 
 	"github.com/google/uuid"
@@ -37,132 +37,89 @@ var (
 	}
 )
 
-func prepareIndicatorImport(
-	evaluate identity.Evaluator,
-	bundle sourceport.Bundle,
-	importContext sourceport.ImportContext,
-) (preparedIndicatorImport, error) {
-	prepared := preparedIndicatorImport{binding: portableBinding{
-		operationID: importContext.OperationID, incidentID: importContext.IncidentID,
-		bundleVersion: importContext.BundleVersion, contractMajor: sourceport.ContractMajor,
-	}}
-	if bundle == nil || importContext.OperationID == "" || importContext.IncidentID == uuid.Nil ||
-		importContext.ActorUserID == uuid.Nil ||
-		importContext.BundleVersion != 5 {
+func prepareIndicatorImport(ctx context.Context, evaluate identity.Evaluator, bundle incidentportability.MemberReader, input sourceport.ImportContext) (preparedIndicatorImport, error) {
+	prepared := preparedIndicatorImport{binding: portableBinding{operationID: input.OperationID, incidentID: input.IncidentID, bundleVersion: input.BundleVersion, contractMajor: sourceport.ContractMajor}, evaluate: evaluate}
+	if bundle == nil || input.OperationID == "" || input.IncidentID == uuid.Nil || input.ActorUserID == uuid.Nil || input.BundleVersion != 6 {
 		return preparedIndicatorImport{}, indicatorSourceFailure(representationInvariant)
 	}
-
-	var failures []indicatorFailureCandidate
-	indicatorRows := decodeIndicatorRows(bundle, indicatorsBundlePath, &failures)
-	observationRows := decodeIndicatorRows(bundle, observationsBundlePath, &failures)
-	intervalRows := decodeIndicatorRows(bundle, intervalsBundlePath, &failures)
-	if len(failures) > 0 {
-		return preparedIndicatorImport{}, selectedIndicatorFailure(failures)
+	members, err := incidentportability.BindMembers(bundle, []string{indicatorsBundlePath, observationsBundlePath, intervalsBundlePath})
+	if err != nil {
+		return preparedIndicatorImport{}, indicatorSourceFailure(representationInvariant)
 	}
-
-	indicatorSeen := make(map[uuid.UUID]struct{}, len(indicatorRows))
-	activeIdentitySeen := make(map[string]uuid.UUID, len(indicatorRows))
-	indicatorInputOrder := make([]string, 0, len(indicatorRows))
-	for _, raw := range indicatorRows {
-		row, rowFailures := preparePortableIndicatorRow(evaluate, raw, importContext)
-		failures = append(failures, rowFailures...)
-		if len(rowFailures) > 0 && row.RecordID == uuid.Nil {
-			continue
-		}
-		identityText := row.RecordID.String()
-		indicatorInputOrder = append(indicatorInputOrder, identityText)
-		if _, duplicate := indicatorSeen[row.RecordID]; duplicate {
-			failures = append(failures, indicatorFailure(representationInvariant, indicatorsBundlePath, identityText, raw))
-		}
-		indicatorSeen[row.RecordID] = struct{}{}
-		if row.DeletedAt == nil && row.IndicatorType != "" && row.DedupeKey != "" {
-			key := row.IndicatorType + "\x00" + row.DedupeKey
-			if prior, duplicate := activeIdentitySeen[key]; duplicate {
-				failures = append(failures,
-					indicatorFailure(identityUniqueInvariant, indicatorsBundlePath, prior.String(), raw),
-					indicatorFailure(identityUniqueInvariant, indicatorsBundlePath, identityText, raw),
-				)
-			} else {
-				activeIdentitySeen[key] = row.RecordID
+	prepared.members = members
+	var failures indicatorFailureAccumulator
+	for _, path := range []string{indicatorsBundlePath, observationsBundlePath, intervalsBundlePath} {
+		previous := ""
+		err := incidentportability.WalkPath(ctx, members, path, func(raw map[string]any) error {
+			var rowFailures []indicatorFailureCandidate
+			var id uuid.UUID
+			orderInvariant := representationInvariant
+			switch path {
+			case indicatorsBundlePath:
+				row, f := preparePortableIndicatorRow(evaluate, raw, input)
+				rowFailures = f
+				id = row.RecordID
+				prepared.indicatorCount++
+			case observationsBundlePath:
+				row, f := preparePortableObservationRow(evaluate, raw, input)
+				rowFailures = f
+				id = row.ObservationID
+				prepared.observationCount++
+				orderInvariant = observationOrderedInvariant
+			case intervalsBundlePath:
+				row, f := preparePortableIntervalRow(raw, input)
+				rowFailures = f
+				id = row.IntervalID
+				orderInvariant = intervalOrderedInvariant
 			}
+			failures.candidates(rowFailures)
+			if id != uuid.Nil {
+				current := id.String()
+				if current == previous {
+					failures.add(representationInvariant)
+				} else if current < previous {
+					failures.add(orderInvariant)
+				}
+				previous = current
+			}
+			return nil
+		})
+		if err != nil {
+			return preparedIndicatorImport{}, indicatorSourceFailure(representationInvariant)
 		}
-		prepared.indicators = append(prepared.indicators, row)
 	}
-	if !sort.StringsAreSorted(indicatorInputOrder) && len(indicatorInputOrder) > 0 {
-		failures = append(failures, indicatorFailure(representationInvariant, indicatorsBundlePath, indicatorInputOrder[0], indicatorInputOrder))
+	if err := failures.err(); err != nil {
+		return preparedIndicatorImport{}, err
 	}
-
-	observationSeen := make(map[uuid.UUID]struct{}, len(observationRows))
-	observationInputOrder := make([]string, 0, len(observationRows))
-	for _, raw := range observationRows {
-		row, rowFailures := preparePortableObservationRow(evaluate, raw, importContext)
-		failures = append(failures, rowFailures...)
-		if len(rowFailures) > 0 && row.ObservationID == uuid.Nil {
-			continue
-		}
-		identityText := row.ObservationID.String()
-		observationInputOrder = append(observationInputOrder, identityText)
-		if _, duplicate := observationSeen[row.ObservationID]; duplicate {
-			failures = append(failures, indicatorFailure(representationInvariant, observationsBundlePath, identityText, raw))
-		}
-		observationSeen[row.ObservationID] = struct{}{}
-		prepared.observations = append(prepared.observations, row)
-	}
-	if !sort.StringsAreSorted(observationInputOrder) && len(observationInputOrder) > 0 {
-		failures = append(failures, indicatorFailure(observationOrderedInvariant, observationsBundlePath, observationInputOrder[0], observationInputOrder))
-	}
-
-	intervalSeen := make(map[uuid.UUID]struct{}, len(intervalRows))
-	intervalInputOrder := make([]string, 0, len(intervalRows))
-	for _, raw := range intervalRows {
-		row, rowFailures := preparePortableIntervalRow(raw, importContext)
-		failures = append(failures, rowFailures...)
-		if len(rowFailures) > 0 && row.IntervalID == uuid.Nil {
-			continue
-		}
-		identityText := row.IntervalID.String()
-		intervalInputOrder = append(intervalInputOrder, identityText)
-		if _, duplicate := intervalSeen[row.IntervalID]; duplicate {
-			failures = append(failures, indicatorFailure(representationInvariant, intervalsBundlePath, identityText, raw))
-		}
-		intervalSeen[row.IntervalID] = struct{}{}
-		prepared.intervals = append(prepared.intervals, row)
-	}
-	if !sort.StringsAreSorted(intervalInputOrder) && len(intervalInputOrder) > 0 {
-		failures = append(failures, indicatorFailure(intervalOrderedInvariant, intervalsBundlePath, intervalInputOrder[0], intervalInputOrder))
-	}
-
-	if len(failures) > 0 {
-		return preparedIndicatorImport{}, selectedIndicatorFailure(failures)
-	}
-	sort.Slice(prepared.indicators, func(i, j int) bool {
-		return prepared.indicators[i].RecordID.String() < prepared.indicators[j].RecordID.String()
-	})
-	sort.Slice(prepared.observations, func(i, j int) bool {
-		return prepared.observations[i].ObservationID.String() < prepared.observations[j].ObservationID.String()
-	})
-	sort.Slice(prepared.intervals, func(i, j int) bool {
-		return prepared.intervals[i].IntervalID.String() < prepared.intervals[j].IntervalID.String()
-	})
 	return prepared, nil
 }
 
-func decodeIndicatorRows(
-	bundle sourceport.Bundle,
-	path string,
-	failures *[]indicatorFailureCandidate,
-) []map[string]any {
-	payload, ok := bundle.File(path)
-	if !ok {
-		*failures = append(*failures, indicatorFailure(representationInvariant, path, "", path))
-		return nil
+func walkIndicatorSource[T any](ctx context.Context, prepared preparedIndicatorImport, input sourceport.ImportContext, path string, parse func(map[string]any) (T, []indicatorFailureCandidate), visit func(T) error) error {
+	if !prepared.binding.matches(input) || prepared.members == nil {
+		return indicatorSourceFailure(representationInvariant)
 	}
-	rows, err := incidentportability.DecodeStrictNDJSONObjects(payload, path)
-	if err != nil {
-		*failures = append(*failures, indicatorFailure(representationInvariant, path, "", payload))
-		return nil
-	}
-	return rows
+	return incidentportability.WalkPath(ctx, prepared.members, path, func(raw map[string]any) error {
+		row, failures := parse(raw)
+		if err := selectedIndicatorFailure(failures); err != nil {
+			return err
+		}
+		return visit(row)
+	})
+}
+func (p preparedIndicatorImport) indicators(ctx context.Context, input sourceport.ImportContext, visit func(portableIndicatorRow) error) error {
+	return walkIndicatorSource(ctx, p, input, indicatorsBundlePath, func(raw map[string]any) (portableIndicatorRow, []indicatorFailureCandidate) {
+		return preparePortableIndicatorRow(p.evaluate, raw, input)
+	}, visit)
+}
+func (p preparedIndicatorImport) observations(ctx context.Context, input sourceport.ImportContext, visit func(portableObservationRow) error) error {
+	return walkIndicatorSource(ctx, p, input, observationsBundlePath, func(raw map[string]any) (portableObservationRow, []indicatorFailureCandidate) {
+		return preparePortableObservationRow(p.evaluate, raw, input)
+	}, visit)
+}
+func (p preparedIndicatorImport) intervals(ctx context.Context, input sourceport.ImportContext, visit func(portableIntervalRow) error) error {
+	return walkIndicatorSource(ctx, p, input, intervalsBundlePath, func(raw map[string]any) (portableIntervalRow, []indicatorFailureCandidate) {
+		return preparePortableIntervalRow(raw, input)
+	}, visit)
 }
 
 func preparePortableIndicatorRow(

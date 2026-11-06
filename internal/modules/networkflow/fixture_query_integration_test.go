@@ -118,7 +118,7 @@ func runPublicationFamily(t *testing.T, bundle *networkflowfixtures.Bundle, afte
 	return results, nil
 }
 func TestNetworkFlowPagingFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-014-cursor-pagination", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-014-cursor-pagination", 7, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		return runPublicationFamily(t, bundle, func(r *publicationFixtureRuntime, input publicationFixtureCase, result map[string]any) error {
 			path := "/api/v1/incidents/" + input.IncidentID + "/network-flow/tables/nft_" + strings.ReplaceAll(input.TableUUID, "-", "")
 			initial := map[string]any{"schema_id": "cartulary.network_flow.table_query_request.v2", "limit": 1, "sort": []map[string]any{{"field_key": "network_flow.bytes_count", "direction": "desc"}}}
@@ -181,7 +181,7 @@ func (r *publicationFixtureRuntime) cursorAtExpiry(token string, expires time.Ti
 	return "nfc4.test-cursor." + base64.RawURLEncoding.EncodeToString(sealed)
 }
 func TestNetworkFlowQueryNormalizationFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-024-query-normalization-cursors", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-024-query-normalization-cursors", 7, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		raw, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return nil, err

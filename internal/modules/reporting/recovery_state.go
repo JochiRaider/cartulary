@@ -13,6 +13,7 @@ func RecoveryStateContribution() recoverystate.Contribution {
 			"reporting_job_payloads",
 			"reporting_render_failure_records",
 			"reporting_imported_artifact_files",
+			"reporting_imported_artifact_chunks",
 			"reporting_release_approvals",
 			"reporting_releases",
 			"reporting_render_bundle_files",

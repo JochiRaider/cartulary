@@ -140,10 +140,10 @@ func decodeGraphViewCreateRequestValue(reader io.Reader, limits EffectiveLimits)
 	if apiErr != nil {
 		return graphViewCreateRequest{}, apiErr
 	}
-	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_create_request.v4" {
+	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_create_request.v5" {
 		return graphViewCreateRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
-	if apiErr := ensureAllowedMembers(raw, "schema_id", "client_txn_id", "display_name", "semantic_query"); apiErr != nil {
+	if apiErr := ensureAllowedMembers(raw, "schema_id", "client_txn_id", "display_name", "semantic_query", "refresh_scope"); apiErr != nil {
 		return graphViewCreateRequest{}, apiErr
 	}
 	clientTxnID, apiErr := requiredJSONString(raw, "client_txn_id")
@@ -161,7 +161,11 @@ func decodeGraphViewCreateRequestValue(reader io.Reader, limits EffectiveLimits)
 	if semantic.SchemaID != schemaGraphSemanticQuery {
 		return graphViewCreateRequest{}, invalidNetworkFlowRequest("semantic_query.schema_id", "invalid_schema_id")
 	}
-	return graphViewCreateRequest{ClientTxnID: clientTxnID, DisplayName: displayName, Semantic: semantic}, nil
+	scope, failure := requiredJSONString(raw, "refresh_scope")
+	if failure != nil || (scope != "selected_tables" && scope != "all_active_tables") {
+		return graphViewCreateRequest{}, invalidNetworkFlowRequest("refresh_scope", "invalid_enum")
+	}
+	return graphViewCreateRequest{RefreshScope: scope, ClientTxnID: clientTxnID, DisplayName: displayName, Semantic: semantic}, nil
 }
 
 func decodeGraphViewRenameRequestValue(reader io.Reader) (graphViewRenameRequest, *semanticFailure) {

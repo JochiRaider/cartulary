@@ -367,7 +367,7 @@
         "name": "utc-below-flow_start_utc-saved_graph",
         "route": "saved_graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_view_create_request.v4",
+          "schema_id": "cartulary.network_flow.graph_view_create_request.v5",
           "client_txn_id": "utc-below-flow_start_utc-saved_graph",
           "display_name": "UTC range rejection",
           "semantic_query": {
@@ -392,7 +392,8 @@
               "mode": "default_flow_edge_v1",
               "include_example_row_refs": false
             }
-          }
+          },
+          "refresh_scope": "selected_tables"
         },
         "code": "network_flow_invalid_filter"
       },
@@ -457,7 +458,7 @@
         "name": "utc-above-flow_start_utc-saved_graph",
         "route": "saved_graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_view_create_request.v4",
+          "schema_id": "cartulary.network_flow.graph_view_create_request.v5",
           "client_txn_id": "utc-above-flow_start_utc-saved_graph",
           "display_name": "UTC range rejection",
           "semantic_query": {
@@ -482,7 +483,8 @@
               "mode": "default_flow_edge_v1",
               "include_example_row_refs": false
             }
-          }
+          },
+          "refresh_scope": "selected_tables"
         },
         "code": "network_flow_invalid_filter"
       },
@@ -547,7 +549,7 @@
         "name": "utc-below-flow_end_utc-saved_graph",
         "route": "saved_graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_view_create_request.v4",
+          "schema_id": "cartulary.network_flow.graph_view_create_request.v5",
           "client_txn_id": "utc-below-flow_end_utc-saved_graph",
           "display_name": "UTC range rejection",
           "semantic_query": {
@@ -572,7 +574,8 @@
               "mode": "default_flow_edge_v1",
               "include_example_row_refs": false
             }
-          }
+          },
+          "refresh_scope": "selected_tables"
         },
         "code": "network_flow_invalid_filter"
       },
@@ -637,7 +640,7 @@
         "name": "utc-above-flow_end_utc-saved_graph",
         "route": "saved_graph",
         "body": {
-          "schema_id": "cartulary.network_flow.graph_view_create_request.v4",
+          "schema_id": "cartulary.network_flow.graph_view_create_request.v5",
           "client_txn_id": "utc-above-flow_end_utc-saved_graph",
           "display_name": "UTC range rejection",
           "semantic_query": {
@@ -662,7 +665,8 @@
               "mode": "default_flow_edge_v1",
               "include_example_row_refs": false
             }
-          }
+          },
+          "refresh_scope": "selected_tables"
         },
         "code": "network_flow_invalid_filter"
       }

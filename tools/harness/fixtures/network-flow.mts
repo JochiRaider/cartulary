@@ -1,24 +1,25 @@
-import { createHash } from "node:crypto";
 import {
-  chmodSync,
   closeSync,
-  constants,
   fstatSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
-  openSync,
   readdirSync,
   readFileSync,
   readSync,
-  realpathSync,
-  statSync,
   writeFileSync,
-  writeSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  copyVerified,
+  digest,
+  openRegular,
+  safePath,
+  seal,
+  secureDirectory,
+  type FileRecord,
+} from "./fixture-artifacts.mjs";
 
 // Only file admission and evidence belong here. Owner tests interpret product data.
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -37,7 +38,6 @@ const summarySchema = "cartulary.network_flow_fixture_execution.v1";
 const fixturePattern = /^NF-FIX-[0-9]{3}-[a-z0-9][a-z0-9-]*$/u;
 const segmentPattern = /^[A-Za-z0-9._@+-]+$/u;
 
-type FileRecord = { logical_path: string; size_bytes: number; sha256: string };
 type Manifest = {
   fixture_id: string;
   freeze: { status: string; revision: number };
@@ -90,40 +90,6 @@ function validate(schema: string, value: unknown): void {
   if (!validator?.(value))
     throw new Error("Fixture schema validation failed: " + schema);
 }
-function digest(data: Uint8Array | string): string {
-  return createHash("sha256").update(data).digest("hex");
-}
-function safePath(value: string): boolean {
-  return (
-    value.length > 0 &&
-    value
-      .split("/")
-      .every(
-        (part) => part !== "." && part !== ".." && segmentPattern.test(part),
-      )
-  );
-}
-function secureDirectory(directory: string, create = false): void {
-  if (!path.isAbsolute(directory))
-    throw new Error("Fixture directory must be absolute");
-  let current = path.parse(directory).root;
-  for (const part of path
-    .relative(current, directory)
-    .split(path.sep)
-    .filter(Boolean)) {
-    current = path.join(current, part);
-    if (create) {
-      try {
-        mkdirSync(current, { mode: 0o700 });
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      }
-    }
-    const info = lstatSync(current);
-    if (!info.isDirectory() || info.isSymbolicLink())
-      throw new Error("Unsafe fixture directory");
-  }
-}
 export function selectedFixtureRunRoot(): string {
   const id = process.env.CARTULARY_TEST_RUN_ID ?? "";
   const results = process.env.CARTULARY_TEST_RESULTS_DIR;
@@ -133,35 +99,7 @@ export function selectedFixtureRunRoot(): string {
   secureDirectory(root, true);
   return root;
 }
-function openRegular(root: string, logicalPath: string): number {
-  if (!safePath(logicalPath)) throw new Error("Unsafe fixture path");
-  const filename = path.join(root, logicalPath);
-  secureDirectory(path.dirname(filename));
-  if (!lstatSync(filename).isFile())
-    throw new Error("Fixture input is not a regular file");
-  const fd = openSync(
-    filename,
-    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
-  );
-  try {
-    const info = fstatSync(fd);
-    // Verify the opened identity before reading, including raced parent replacement.
-    secureDirectory(path.dirname(filename));
-    const named = statSync(filename);
-    if (
-      !info.isFile() ||
-      realpathSync(filename) !== filename ||
-      info.dev !== named.dev ||
-      info.ino !== named.ino
-    ) {
-      throw new Error("Fixture input changed during admission");
-    }
-    return fd;
-  } catch (error) {
-    closeSync(fd);
-    throw error;
-  }
-}
+
 function inventory(root: string, prefix = ""): string[] {
   const result: string[] = [];
   for (const entry of readdirSync(path.join(root, prefix), {
@@ -191,59 +129,8 @@ function bundleDigest(files: FileRecord[]): string {
       .join(""),
   );
 }
-function copyVerified(root: string, file: FileRecord, inputs: string): void {
-  const source = openRegular(root, file.logical_path);
-  try {
-    if (
-      !Number.isSafeInteger(file.size_bytes) ||
-      fstatSync(source).size !== file.size_bytes
-    ) {
-      throw new Error("Fixture size mismatch");
-    }
-    const destination = path.join(inputs, file.logical_path);
-    secureDirectory(path.dirname(destination), true);
-    const target = openSync(destination, "wx", 0o600);
-    const hash = createHash("sha256");
-    let total = 0;
-    try {
-      const buffer = Buffer.alloc(64 * 1024);
-      for (;;) {
-        const count = readSync(
-          source,
-          buffer,
-          0,
-          Math.min(buffer.length, file.size_bytes - total + 1),
-          null,
-        );
-        if (!count) break;
-        total += count;
-        if (total > file.size_bytes)
-          throw new Error("Fixture grew during admission");
-        hash.update(buffer.subarray(0, count));
-        let written = 0;
-        while (written < count) {
-          const n = writeSync(target, buffer, written, count - written);
-          if (!n) throw new Error("Fixture materialization made no progress");
-          written += n;
-        }
-      }
-    } finally {
-      closeSync(target);
-    }
-    if (total !== file.size_bytes || hash.digest("hex") !== file.sha256)
-      throw new Error("Fixture hash mismatch");
-  } finally {
-    closeSync(source);
-  }
-}
-function seal(directory: string): void {
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const filename = path.join(directory, entry.name);
-    if (entry.isDirectory()) seal(filename);
-    else chmodSync(filename, 0o400);
-  }
-  chmodSync(directory, 0o500);
-}
+
+
 async function admit(
   corpus: string,
   fixtureID: string,

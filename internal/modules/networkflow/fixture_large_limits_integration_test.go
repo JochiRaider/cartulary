@@ -20,7 +20,7 @@ type largeLimitFixtureCase struct {
 }
 
 func TestNetworkFlowLargeLimitsFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-008-large-limits", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-008-large-limits", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		raw, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return nil, err

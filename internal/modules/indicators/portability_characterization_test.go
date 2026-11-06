@@ -16,6 +16,7 @@ import (
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -51,11 +52,11 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construct Indicator incident-bundle contribution: %v", err)
 	}
-	first, err := contribution.SourcePort.Export(ctx, sourceport.ExportContext{Query: harness.DB, IncidentID: incident.ID})
+	first, err := portabilitysupport.Export(contribution.SourcePort, ctx, sourceport.ExportContext{Query: harness.DB, IncidentID: incident.ID})
 	if err != nil {
 		t.Fatalf("first export: %v", err)
 	}
-	second, err := contribution.SourcePort.Export(ctx, sourceport.ExportContext{Query: harness.DB, IncidentID: incident.ID})
+	second, err := portabilitysupport.Export(contribution.SourcePort, ctx, sourceport.ExportContext{Query: harness.DB, IncidentID: incident.ID})
 	if err != nil {
 		t.Fatalf("second export: %v", err)
 	}
@@ -123,7 +124,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		t.Fatalf("source-port paths = %#v", descriptor.Paths)
 	}
 	for _, path := range descriptor.Paths {
-		if !slices.Equal(path.Versions, []int{5}) {
+		if !slices.Equal(path.Versions, []int{6}) {
 			t.Fatalf("%s versions = %v, want [3 4]", path.LogicalPath, path.Versions)
 		}
 	}

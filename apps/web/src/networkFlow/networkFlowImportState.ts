@@ -179,8 +179,6 @@ export function networkFlowImportTableMatches(
     table.network_flow_table_id === request.tableId &&
     table.incident_id === request.incidentId &&
     table.table_status === "active" &&
-    table.source_import_session_id === request.sessionId &&
-    table.source_import_unit_id === request.unitId &&
     table.source_content_sha256 === request.sourceHash &&
     table.mapping_fingerprint === request.fingerprint
   );

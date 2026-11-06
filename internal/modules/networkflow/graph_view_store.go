@@ -54,13 +54,13 @@ func (err *graphViewVersionConflictError) Error() string { return errGraphViewVe
 func (err *graphViewVersionConflictError) Unwrap() error { return errGraphViewVersionConflict }
 
 type graphViewSelectedResultBinding struct {
-	ProjectionResultID            string
-	SourceSnapshotID              string
-	ProjectionSchemaID            string
-	ProjectionVersion             string
-	NormalizedConfigurationSHA256 string
-	NormalizedSourceSHA256        string
-	CanonicalOutputSHA256         string
+	ProjectionResultID            string `json:"projection_result_id"`
+	SourceSnapshotID              string `json:"source_snapshot_id"`
+	ProjectionSchemaID            string `json:"projection_schema_id"`
+	ProjectionVersion             string `json:"projection_version"`
+	NormalizedConfigurationSHA256 string `json:"normalized_configuration_sha256"`
+	NormalizedSourceSHA256        string `json:"normalized_source_sha256"`
+	CanonicalOutputSHA256         string `json:"canonical_output_sha256"`
 }
 
 func (selected graphViewSelectedResultBinding) resultBinding(graphViewID string) graphprojection.ResultBindingV2 {
@@ -79,6 +79,8 @@ type graphViewDeclaration struct {
 	DisplayName               string
 	NormalizedDisplayName     string
 	DeclarationState          string
+	RefreshIntentJSON         json.RawMessage
+	SelectedSourceBindingJSON json.RawMessage
 	SemanticQueryJSON         json.RawMessage
 	SemanticQuerySHA256       string
 	DesiredSourceSnapshotID   string
@@ -95,9 +97,22 @@ type graphViewDeclaration struct {
 }
 
 func (s *store) InsertGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, declaration graphViewDeclaration) error {
-	if s == nil || tx == nil || !validGraphViewDeclaration(declaration) {
+	if s == nil {
 		return errGraphViewDeclarationInvalid
 	}
+	if err := insertGraphViewDeclarationTx(ctx, tx, declaration); err != nil {
+		return err
+	}
+	return s.appendGraphViewResourceIntentTx(ctx, tx, declaration, "created")
+}
+
+// Transfer retains an authored declaration without fabricating a new user
+// action or materialization job. Publication remains in the caller's transaction.
+func insertGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, declaration graphViewDeclaration) error {
+	if tx == nil || !validGraphViewDeclaration(declaration) {
+		return errGraphViewDeclarationInvalid
+	}
+
 	selected := declaration.SelectedResult
 	var selectedProjectionResultID, selectedSourceSnapshotID, selectedProjectionSchemaID any
 	var selectedProjectionVersion, selectedConfigurationSHA256, selectedSourceSHA256, selectedOutputSHA256 any
@@ -120,10 +135,10 @@ INSERT INTO network_flow_graph_views (
     selected_normalized_source_sha256, selected_canonical_output_sha256,
     graph_view_version, materialization_generation, created_by_user_id,
     created_at, updated_at, retired_at, latest_job_id,
-    last_failure_code, last_failed_at
+    last_failure_code, last_failed_at, refresh_intent_json, selected_source_binding_json
 ) VALUES (
     $1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12,
-    $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
+    $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
 )
 `, declaration.GraphViewID, declaration.IncidentID, declaration.DisplayName,
 		declaration.NormalizedDisplayName, declaration.DeclarationState, []byte(declaration.SemanticQueryJSON),
@@ -132,25 +147,33 @@ INSERT INTO network_flow_graph_views (
 		selectedProjectionVersion, selectedConfigurationSHA256, selectedSourceSHA256, selectedOutputSHA256,
 		declaration.GraphViewVersion, declaration.MaterializationGeneration, declaration.CreatedByUserID,
 		declaration.CreatedAt.UTC(), declaration.UpdatedAt.UTC(), declaration.RetiredAt, declaration.LatestJobID,
-		declaration.LastFailureCode, declaration.LastFailedAt)
+		declaration.LastFailureCode, declaration.LastFailedAt, declaration.RefreshIntentJSON, declaration.SelectedSourceBindingJSON)
 	if err != nil {
 		return fmt.Errorf("insert Network Flow graph view declaration: %w", err)
 	}
-	return s.appendGraphViewResourceIntentTx(ctx, tx, declaration, "created")
+	return nil
 }
 
 func (s *store) GetGraphViewDeclaration(ctx context.Context, incidentID uuid.UUID, graphViewID string) (graphViewDeclaration, error) {
 	if s == nil || s.pool == nil || incidentID == uuid.Nil || !graphViewIDPattern.MatchString(graphViewID) {
 		return graphViewDeclaration{}, errGraphViewDeclarationInvalid
 	}
-	return readGraphViewDeclaration(ctx, s.pool, incidentID, graphViewID, false)
+	value, err := readGraphViewDeclaration(ctx, s.pool, incidentID, graphViewID, false)
+	if err != nil {
+		return value, err
+	}
+	return s.resolveGraphAuthor(ctx, s.pool, value)
 }
 
 func (s *store) GetGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, lock bool) (graphViewDeclaration, error) {
 	if s == nil || tx == nil || incidentID == uuid.Nil || !graphViewIDPattern.MatchString(graphViewID) {
 		return graphViewDeclaration{}, errGraphViewDeclarationInvalid
 	}
-	return readGraphViewDeclaration(ctx, tx, incidentID, graphViewID, lock)
+	value, err := readGraphViewDeclaration(ctx, tx, incidentID, graphViewID, lock)
+	if err != nil {
+		return value, err
+	}
+	return s.resolveGraphAuthor(ctx, tx, value)
 }
 
 func (s *store) ListActiveGraphViewDeclarations(ctx context.Context, incidentID uuid.UUID) ([]graphViewDeclaration, error) {
@@ -177,7 +200,9 @@ func (s *store) ListActiveGraphViewDeclarations(ctx context.Context, incidentID 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list Network Flow graph view declarations: %w", err)
 	}
-	return declarations, nil
+	rows.Close()
+	err = resolveHistoricalAuthors(ctx, s, s.pool, incidentID, "network_flow_graph_views", declarations, graphAuthor)
+	return declarations, err
 }
 
 func (s *store) CountGraphViewDeclarationsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, maximum int64) (graphViewDeclarationCounts, error) {
@@ -215,7 +240,10 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, jobID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return graphViewDeclaration{}, errGraphViewDeclarationNotActive
 	}
-	return declaration, err
+	if err != nil {
+		return declaration, err
+	}
+	return s.resolveGraphAuthor(ctx, tx, declaration)
 }
 
 func (s *store) RenameGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, displayName, normalizedDisplayName string, now time.Time) (graphViewDeclaration, error) {
@@ -248,10 +276,13 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, displayName, n
 	if err == nil {
 		err = s.appendGraphViewResourceIntentTx(ctx, tx, changed, "renamed")
 	}
-	return changed, err
+	if err != nil {
+		return changed, err
+	}
+	return s.resolveGraphAuthor(ctx, tx, changed)
 }
 
-func (s *store) RefreshGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, desiredSourceSnapshotID string, now time.Time) (graphViewDeclaration, error) {
+func (s *store) RefreshGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, desiredSourceSnapshotID string, semanticJSON json.RawMessage, now time.Time) (graphViewDeclaration, error) {
 	declaration, err := s.GetGraphViewDeclarationTx(ctx, tx, incidentID, graphViewID, true)
 	if err != nil {
 		return graphViewDeclaration{}, err
@@ -265,6 +296,7 @@ func (s *store) RefreshGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, in
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_graph_views
    SET desired_source_snapshot_id = $3,
+       semantic_query_json = $5, semantic_query_sha256 = $6,
        graph_view_version = graph_view_version + 1,
        materialization_generation = materialization_generation + 1,
        latest_job_id = NULL,
@@ -273,12 +305,15 @@ UPDATE network_flow_graph_views
        updated_at = $4
  WHERE incident_id = $1
    AND graph_view_id = $2
-RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, desiredSourceSnapshotID, now.UTC())
+RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, desiredSourceSnapshotID, now.UTC(), semanticJSON, graphViewSemanticQuerySHA256(semanticJSON))
 	changed, err := scanGraphViewDeclaration(row)
 	if err == nil {
 		err = s.appendGraphViewResourceIntentTx(ctx, tx, changed, "refresh_requested")
 	}
-	return changed, err
+	if err != nil {
+		return changed, err
+	}
+	return s.resolveGraphAuthor(ctx, tx, changed)
 }
 
 func (s *store) RetireGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, now time.Time) (graphViewDeclaration, error) {
@@ -297,13 +332,6 @@ UPDATE network_flow_graph_views
    SET declaration_state = 'retired',
        graph_view_version = graph_view_version + 1,
        materialization_generation = materialization_generation + 1,
-       selected_projection_result_id = NULL,
-       selected_source_snapshot_id = NULL,
-       selected_projection_schema_id = NULL,
-       selected_projection_version = NULL,
-       selected_normalized_configuration_sha256 = NULL,
-       selected_normalized_source_sha256 = NULL,
-       selected_canonical_output_sha256 = NULL,
        latest_job_id = NULL,
        updated_at = $3,
        retired_at = $3
@@ -314,12 +342,18 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, now.UTC())
 	if err == nil {
 		err = s.appendGraphViewResourceIntentTx(ctx, tx, changed, "retired")
 	}
-	return changed, err
+	if err != nil {
+		return changed, err
+	}
+	return s.resolveGraphAuthor(ctx, tx, changed)
 }
 
-func (s *store) PublishGraphViewResultTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, generation int64, sourceSnapshotID string, jobID uuid.UUID, selected graphViewSelectedResultBinding, now time.Time) (graphViewDeclaration, error) {
+func (s *store) PublishGraphViewResultTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, generation int64, sourceSnapshotID string, jobID uuid.UUID, selected graphViewSelectedResultBinding, sourceBinding json.RawMessage, now time.Time) (graphViewDeclaration, error) {
 	if s == nil || tx == nil || incidentID == uuid.Nil || jobID == uuid.Nil || generation < 1 || !validSelectedGraphViewResult(selected) {
 		return graphViewDeclaration{}, errGraphViewDeclarationInvalid
+	}
+	if _, _, err := decodeSelectedSource(sourceBinding, &selected, s.limits); err != nil {
+		return graphViewDeclaration{}, err
 	}
 	reader, err := postgresresult.NewReader(tx)
 	if err != nil {
@@ -352,6 +386,7 @@ UPDATE network_flow_graph_views
        selected_normalized_configuration_sha256 = $10,
        selected_normalized_source_sha256 = $11,
        selected_canonical_output_sha256 = $12,
+       selected_source_binding_json = $14,
        last_failure_code = NULL,
        last_failed_at = NULL,
        updated_at = $13
@@ -363,7 +398,7 @@ UPDATE network_flow_graph_views
    AND latest_job_id = $5
 RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, generation, sourceSnapshotID, jobID,
 		selected.ProjectionResultID, selected.SourceSnapshotID, selected.ProjectionSchemaID, selected.ProjectionVersion,
-		selected.NormalizedConfigurationSHA256, selected.NormalizedSourceSHA256, selected.CanonicalOutputSHA256, now.UTC())
+		selected.NormalizedConfigurationSHA256, selected.NormalizedSourceSHA256, selected.CanonicalOutputSHA256, now.UTC(), sourceBinding)
 	declaration, err := scanGraphViewDeclaration(row)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return graphViewDeclaration{}, errGraphViewPublicationStale
@@ -371,7 +406,10 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, generation, so
 	if err == nil {
 		err = s.appendGraphViewResourceIntentTx(ctx, tx, declaration, "materialized")
 	}
-	return declaration, err
+	if err != nil {
+		return declaration, err
+	}
+	return s.resolveGraphAuthor(ctx, tx, declaration)
 }
 
 // LockGraphViewDeclarationsSelectingResultTx checks Network Flow's
@@ -439,13 +477,6 @@ func (s *store) InvalidateGraphViewsForTableTx(ctx context.Context, tx pgx.Tx, i
 UPDATE network_flow_graph_views
    SET graph_view_version = graph_view_version + 1,
        materialization_generation = materialization_generation + 1,
-       selected_projection_result_id = NULL,
-       selected_source_snapshot_id = NULL,
-       selected_projection_schema_id = NULL,
-       selected_projection_version = NULL,
-       selected_normalized_configuration_sha256 = NULL,
-       selected_normalized_source_sha256 = NULL,
-       selected_canonical_output_sha256 = NULL,
        latest_job_id = NULL,
        last_failure_code = 'network_flow_source_table_deleted',
        last_failed_at = $3,
@@ -506,7 +537,7 @@ const graphViewDeclarationColumns = `graph_view_id, incident_id, display_name, n
        selected_normalized_source_sha256, selected_canonical_output_sha256,
        graph_view_version, materialization_generation, created_by_user_id,
        created_at, updated_at, retired_at, latest_job_id,
-       last_failure_code, last_failed_at`
+       last_failure_code, last_failed_at, refresh_intent_json, selected_source_binding_json`
 
 const graphViewDeclarationSelect = `SELECT ` + graphViewDeclarationColumns + `
   FROM network_flow_graph_views`
@@ -544,7 +575,7 @@ func scanGraphViewDeclaration(row graphViewRow) (graphViewDeclaration, error) {
 		&selectedProjectionVersion, &selectedConfigurationSHA256, &selectedSourceSHA256, &selectedOutputSHA256,
 		&declaration.GraphViewVersion, &declaration.MaterializationGeneration, &declaration.CreatedByUserID,
 		&declaration.CreatedAt, &declaration.UpdatedAt, &retiredAt, &latestJobID,
-		&lastFailureCode, &lastFailedAt,
+		&lastFailureCode, &lastFailedAt, &declaration.RefreshIntentJSON, &declaration.SelectedSourceBindingJSON,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -563,8 +594,10 @@ func scanGraphViewDeclaration(row graphViewRow) (graphViewDeclaration, error) {
 			CanonicalOutputSHA256:         selectedOutputSHA256.String,
 		}
 	}
+	declaration.CreatedAt = declaration.CreatedAt.UTC()
+	declaration.UpdatedAt = declaration.UpdatedAt.UTC()
 	if retiredAt.Valid {
-		value := retiredAt.Time
+		value := retiredAt.Time.UTC()
 		declaration.RetiredAt = &value
 	}
 	if latestJobID.Valid {
@@ -576,13 +609,16 @@ func scanGraphViewDeclaration(row graphViewRow) (graphViewDeclaration, error) {
 		declaration.LastFailureCode = &value
 	}
 	if lastFailedAt.Valid {
-		value := lastFailedAt.Time
+		value := lastFailedAt.Time.UTC()
 		declaration.LastFailedAt = &value
 	}
 	return declaration, nil
 }
 
 func validGraphViewDeclaration(declaration graphViewDeclaration) bool {
+	if _, _, err := decodeRefreshIntent(declaration.RefreshIntentJSON, retainedSemanticLimits()); err != nil {
+		return false
+	}
 	normalized, nameErr := normalizeGraphViewDisplayName(declaration.DisplayName)
 	if nameErr != nil || normalized != declaration.DisplayName {
 		return false
@@ -595,7 +631,7 @@ func validGraphViewDeclaration(declaration graphViewDeclaration) bool {
 		declaration.CreatedAt.IsZero() || declaration.UpdatedAt.Before(declaration.CreatedAt) ||
 		len(declaration.NormalizedDisplayName) == 0 ||
 		strings.ContainsAny(declaration.DisplayName, "\x00\n\r") || strings.ContainsAny(declaration.NormalizedDisplayName, "\x00\n\r") ||
-		!validJSONObjectBytes(declaration.SemanticQueryJSON) || !graphViewSHA256Pattern.MatchString(declaration.SemanticQuerySHA256) ||
+		!validJSONObjectBytes(declaration.RefreshIntentJSON) || !validJSONObjectBytes(declaration.SemanticQueryJSON) || !graphViewSHA256Pattern.MatchString(declaration.SemanticQuerySHA256) ||
 		strings.TrimSpace(declaration.DesiredSourceSnapshotID) == "" {
 		return false
 	}
@@ -614,7 +650,13 @@ func validGraphViewDeclaration(declaration graphViewDeclaration) bool {
 	if declaration.LastFailureCode != nil && !validGraphViewFailureCode(*declaration.LastFailureCode) {
 		return false
 	}
+	if declaration.SelectedResult == nil && len(declaration.SelectedSourceBindingJSON) != 0 {
+		return false
+	}
 	if declaration.SelectedResult != nil {
+		if _, _, err := decodeSelectedSource(declaration.SelectedSourceBindingJSON, declaration.SelectedResult, retainedSemanticLimits()); err != nil {
+			return false
+		}
 		selected := declaration.SelectedResult
 		if !graphProjectionResultIDPattern.MatchString(selected.ProjectionResultID) || strings.TrimSpace(selected.SourceSnapshotID) == "" ||
 			selected.ProjectionSchemaID != "graph_projection.v2" || strings.TrimSpace(selected.ProjectionVersion) == "" ||

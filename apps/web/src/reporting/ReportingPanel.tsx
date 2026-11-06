@@ -15,6 +15,20 @@ const actions: CSSProperties = {
   flexWrap: "wrap",
   gap: "var(--ct-spacing-sm)",
 };
+const button: CSSProperties = {
+  justifySelf: "start",
+  borderRadius: "var(--ct-component-button-secondary-rounded)",
+  background: "var(--ct-component-button-secondary-backgroundColor)",
+  color: "var(--ct-component-button-secondary-textColor)",
+  border: "var(--ct-component-button-secondary-border)",
+  padding: "var(--ct-component-button-secondary-padding)",
+  font: "inherit",
+};
+const fileLink: CSSProperties = {
+  color: "var(--ct-colors-ink)",
+  overflowWrap: "anywhere",
+  textUnderlineOffset: "0.2em",
+};
 export function ReportingFeature({
   controller,
   attachSurface,
@@ -57,6 +71,7 @@ function ReportingPanel({ controller }: { controller: ReportingController }) {
       <div style={actions}>
         <button
           type="button"
+          style={button}
           disabled={!canStart}
           onClick={() => void controller.createSnapshot()}
         >
@@ -64,6 +79,7 @@ function ReportingPanel({ controller }: { controller: ReportingController }) {
         </button>
         <button
           type="button"
+          style={button}
           disabled={!canStart || !state.snapshotId}
           onClick={() => void controller.createReport()}
         >
@@ -86,6 +102,7 @@ function ReportingPanel({ controller }: { controller: ReportingController }) {
       {state.attempt && !state.busy && (
         <button
           type="button"
+          style={button}
           disabled={!admitted || !state.writable}
           onClick={() => void controller.replay()}
         >
@@ -111,6 +128,7 @@ function ReportingPanel({ controller }: { controller: ReportingController }) {
           <div style={actions}>
             <button
               type="button"
+              style={button}
               disabled={!admitted || state.busy || !!state.attempt}
               onClick={() => void controller.refresh()}
             >
@@ -118,6 +136,7 @@ function ReportingPanel({ controller }: { controller: ReportingController }) {
             </button>
             <button
               type="button"
+              style={button}
               disabled={
                 !admitted ||
                 !state.writable ||
@@ -147,6 +166,54 @@ function ReportingPanel({ controller }: { controller: ReportingController }) {
         <p>
           Internal draft ready: <code>{state.releaseId}</code>
         </p>
+      )}
+      {admitted && state.writable && (
+        <section aria-label="Transferred report files" style={stack}>
+          <h3>Transferred report files</h3>
+          <p>
+            These files preserve report inputs and outputs from the source
+            incident. Their approval status is historical.
+          </p>
+          <button
+            type="button"
+            style={button}
+            disabled={state.retainedBusy}
+            onClick={() => void controller.loadRetainedArtifacts()}
+          >
+            {state.retainedArtifacts === null
+              ? "Load transferred report files"
+              : "Refresh transferred report files"}
+          </button>
+          {state.retainedBusy && <p role="status">Loading report files…</p>}
+          {state.retainedProblem && <p role="alert">{state.retainedProblem}</p>}
+          {state.retainedArtifacts?.length === 0 && (
+            <p role="status">
+              No transferred report files are retained for this incident.
+            </p>
+          )}
+          {state.retainedArtifacts && state.retainedArtifacts.length > 0 && (
+            <ul>
+              {state.retainedArtifacts.map((file) => (
+                <li key={file.artifact_id}>
+                  <a
+                    href={file.downloadHref}
+                    download={file.filename}
+                    style={fileLink}
+                  >
+                    {file.filename}
+                  </a>
+                  {" — "}
+                  {file.byte_size.toLocaleString()} bytes
+                  {file.release_id
+                    ? ` · Release ${file.release_id}`
+                    : file.snapshot_id
+                      ? ` · Snapshot ${file.snapshot_id}`
+                      : " · Report catalog"}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
     </section>
   );

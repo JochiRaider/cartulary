@@ -15,10 +15,12 @@ import (
 func assertCanonicalRowConstruction(t *testing.T) {
 	t.Helper()
 	params := createTableParams{
-		IncidentID:          uuid.MustParse("11111111-1111-4111-8111-111111111111"),
-		ActorUserID:         uuid.MustParse("22222222-2222-4222-8222-222222222222"),
-		ImportSessionID:     uuid.MustParse("33333333-3333-4333-8333-333333333333"),
-		ImportUnitID:        uuid.MustParse("44444444-4444-4444-8444-444444444444"),
+		SourceRawCellScalarLimit: defaultLimits().MaxRawCellScalarLength,
+		IncidentID:               uuid.MustParse("11111111-1111-4111-8111-111111111111"),
+		ActorUserID:              uuid.MustParse("22222222-2222-4222-8222-222222222222"),
+		ImportSessionID:          uuid.MustParse("33333333-3333-4333-8333-333333333333"),
+		ImportUnitID:             uuid.MustParse("44444444-4444-4444-8444-444444444444"),
+		CommittedSourceID:        uuid.MustParse("55555555-5555-4555-8555-555555555555"), SourceInterpretationSHA256: strings.Repeat("6", 64),
 		SourceContentSHA256: strings.Repeat("2", 64), MappingFingerprint: strings.Repeat("3", 64),
 		SourceFilenameDigest: strings.Repeat("5", 64), SourceFilenameDigestKeyID: "constructor-test",
 		SourceProfileID: sourceProfileCiscoSNANetFlowCSV, ParserProfileID: parserProfileRFC4180HeaderedCSV,
@@ -27,19 +29,21 @@ func assertCanonicalRowConstruction(t *testing.T) {
 	}
 	t.Run("invalid context rejected before transaction access", func(t *testing.T) {
 		cases := map[string]func(*createTableParams){
-			"incident":        func(p *createTableParams) { p.IncidentID = uuid.Nil },
-			"actor":           func(p *createTableParams) { p.ActorUserID = uuid.Nil },
-			"session":         func(p *createTableParams) { p.ImportSessionID = uuid.Nil },
-			"unit":            func(p *createTableParams) { p.ImportUnitID = uuid.Nil },
-			"source digest":   func(p *createTableParams) { p.SourceContentSHA256 = "invalid" },
-			"mapping digest":  func(p *createTableParams) { p.MappingFingerprint = strings.Repeat("A", 64) },
-			"filename digest": func(p *createTableParams) { p.SourceFilenameDigest = "" },
-			"digest key":      func(p *createTableParams) { p.SourceFilenameDigestKeyID = "invalid key" },
-			"source profile":  func(p *createTableParams) { p.SourceProfileID = "unknown" },
-			"missing parser":  func(p *createTableParams) { p.ParserProfileID = "" },
-			"wrong parser":    func(p *createTableParams) { p.ParserProfileID = "unknown" },
-			"missing time":    func(p *createTableParams) { p.Now = time.Time{} },
-			"invalid time":    func(p *createTableParams) { p.Now = time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC) },
+			"incident":         func(p *createTableParams) { p.IncidentID = uuid.Nil },
+			"actor":            func(p *createTableParams) { p.ActorUserID = uuid.Nil },
+			"session":          func(p *createTableParams) { p.ImportSessionID = uuid.Nil },
+			"unit":             func(p *createTableParams) { p.ImportUnitID = uuid.Nil },
+			"committed source": func(p *createTableParams) { p.CommittedSourceID = uuid.Nil },
+			"interpretation":   func(p *createTableParams) { p.SourceInterpretationSHA256 = "bad" },
+			"source digest":    func(p *createTableParams) { p.SourceContentSHA256 = "invalid" },
+			"mapping digest":   func(p *createTableParams) { p.MappingFingerprint = strings.Repeat("A", 64) },
+			"filename digest":  func(p *createTableParams) { p.SourceFilenameDigest = "" },
+			"digest key":       func(p *createTableParams) { p.SourceFilenameDigestKeyID = "invalid key" },
+			"source profile":   func(p *createTableParams) { p.SourceProfileID = "unknown" },
+			"missing parser":   func(p *createTableParams) { p.ParserProfileID = "" },
+			"wrong parser":     func(p *createTableParams) { p.ParserProfileID = "unknown" },
+			"missing time":     func(p *createTableParams) { p.Now = time.Time{} },
+			"invalid time":     func(p *createTableParams) { p.Now = time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC) },
 		}
 		for name, mutate := range cases {
 			t.Run(name, func(t *testing.T) {
@@ -89,7 +93,7 @@ func assertCanonicalRowConstruction(t *testing.T) {
 			t.Fatal(err)
 		}
 		want := map[string]any{
-			"import_session_id": params.ImportSessionID.String(), "import_unit_id": params.ImportUnitID.String(),
+			"committed_source_id":   params.CommittedSourceID.String(),
 			"source_content_sha256": params.SourceContentSHA256, "source_profile_id": params.SourceProfileID, "parser_profile_id": params.ParserProfileID,
 			"mapping_fingerprint": params.MappingFingerprint, "source_row_number": float64(2), "source_row_digest_sha256": source.SourceRowDigestSHA256,
 		}

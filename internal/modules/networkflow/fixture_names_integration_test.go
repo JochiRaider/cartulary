@@ -13,7 +13,7 @@ import (
 )
 
 func TestNetworkFlowNamesFixtureComparison(t *testing.T) {
-	RunFixtureComparison(t, "NF-FIX-013-filename-display", 5, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
+	RunFixtureComparison(t, "NF-FIX-013-filename-display", 6, func(bundle *networkflowfixtures.Bundle) ([]map[string]any, error) {
 		raw, err := bundle.Read("source/cases.json")
 		if err != nil {
 			return nil, err

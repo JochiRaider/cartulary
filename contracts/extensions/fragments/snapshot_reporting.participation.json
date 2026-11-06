@@ -1,5 +1,6 @@
 {
   "facts": [
+    {"fact_kind": "contribution", "profile_id": "snapshot_reporting", "contribution": {"kind": "http_route_family", "contribution_id": "snapshot_reporting.retained_artifacts_route", "route_family": "/api/v1/incidents/{incident_id}/retained-report-artifacts"}},
     {
       "admission_validation": {
         "dependency_probes": [],

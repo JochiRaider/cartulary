@@ -370,6 +370,42 @@
       "postgres_isolation": "shared"
     },
     {
+      "row_id": "module.incidentbundles.integration.large_member_public_transfer",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.imports",
+        "module.networkflow",
+        "module.stagedobjects"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.extensions_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestLargeIncidentMemberTransfersThroughPublicOperations_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal"
+      ]
+    },
+    {
       "row_id": "module.incidentbundles.integration.layout_legacy_conversion_replay",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",
@@ -402,11 +438,12 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.incidentbundles.integration.network_flow_retained_state_blocks_bundle_export_7dcd6f85c2",
+      "row_id": "module.incidentbundles.integration.network_flow_export_snapshot",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",
       "collaborator_ids": [
-        "module.extensions",
+        "module.graphprojection",
+        "module.imports",
         "module.networkflow"
       ],
       "verification_ids": [
@@ -414,13 +451,13 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/incidentbundles",
+        "package": "./internal/modules/imports",
         "tests": [
-          "TestNetworkFlowRetainedStateBlocksBundleExport_Integration"
+          "TestNetworkFlowExportUsesOneSnapshotDuringConcurrentMutations_Integration"
         ]
       },
       "evidence_class": "integration",
-      "runtime_profile_id": "default",
+      "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
@@ -430,7 +467,99 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal"
+      ]
+    },
+    {
+      "row_id": "module.incidentbundles.integration.network_flow_historical_portability",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "module.imports",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.extensions_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestNetworkFlowHistoricalTransferPreservesDiagnosticsAndOtherIncidents_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal",
+        "fixtures/network-flow/NF-FIX-004-rejected-rows"
+      ]
+    },
+    {
+      "row_id": "module.incidentbundles.integration.network_flow_portability",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.graphprojection",
+        "module.imports",
+        "module.indicators",
+        "module.networkflow",
+        "module.parties",
+        "module.recovery",
+        "module.reportcomposition",
+        "module.reporting",
+        "module.revisions",
+        "module.savedviews",
+        "module.tasksdecisions",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.extensions_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestNetworkFlowIncidentTransferThroughPublicOperations_Integration"
+        ]
+      },
+      "runtime_binary_ids": [
+        "operator"
+      ],
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/ir-incident/v1",
+        "fixtures/network-flow-orientation/v1",
+        "fixtures/network-flow/NF-FIX-029-cisco-sna-flow-search"
+      ]
     },
     {
       "row_id": "module.incidentbundles.unit.catalog_requires_the_composed_revisions_source_p_f5281c6d1f",
@@ -693,7 +822,8 @@
         "package": "./internal/app/incidentportabilityassembly",
         "tests": [
           "TestIncidentBundleRootStorageEnforcesReferencesAndLifecycle_Unit",
-          "TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit"
+          "TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit",
+          "TestIncidentBundleRootStorageStreamsBoundedArchives_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -745,6 +875,66 @@
         "tests": [
           "TestWorkerRejectsRetiredVersionBeforePreparationAndTransaction_Unit",
           "TestWorkerResultTransitionsPreservePublicSummaries_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.incidentbundles.unit.member_stream_archives",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.unit",
+      "collaborator_ids": [
+        "module.stagedobjects"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestArchiveStream_Unit_AdmittedUploadDigest",
+          "TestArchiveStream_Unit_AllContainersAndRejections",
+          "TestArchiveStream_Unit_BulkExceedsControlCeiling"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.incidentbundles.unit.member_stream_records",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.unit",
+      "collaborator_ids": [
+        "module.stagedobjects"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentportability",
+        "tests": [
+          "TestMemberProducerIsIncrementalAndJoinedOnFailure_Unit",
+          "TestNDJSONRecordWriterEnforcesLimitsAndShortWrites_Unit",
+          "TestNDJSONStreamBoundsReadsAndPreservesValues_Unit",
+          "TestNDJSONStreamRejectsAmbiguousOrLossyRecords_Unit",
+          "TestPreparedMemberChecksMetadataAndActualBytes_Unit"
         ]
       },
       "evidence_class": "unit",

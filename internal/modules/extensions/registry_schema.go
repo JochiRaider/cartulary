@@ -108,7 +108,7 @@ func validateParticipantStateFamilies(p *admittedPackage) error {
 	for _, path := range p.paths {
 		object := p.objects[path]
 		transaction := object["schema_id"] == "cartulary.extension_transaction_participant_contract.v3"
-		if !transaction && object["schema_id"] != "cartulary.extension_reporting_source_contract.v1" && object["schema_id"] != "cartulary.extension_participant_specialization.v4" {
+		if !transaction && object["schema_id"] != "cartulary.extension_reporting_source_contract.v1" && object["schema_id"] != "cartulary.extension_participant_specialization.v5" {
 			continue
 		}
 		profile := stringValue(object["profile_id"])
@@ -173,7 +173,7 @@ func validateParticipantBindingReferences(profile string, binding map[string]any
 	for _, path := range source.paths {
 		contract := source.objects[path]
 		transaction := contract["schema_id"] == "cartulary.extension_transaction_participant_contract.v3"
-		if !transaction && contract["schema_id"] != "cartulary.extension_reporting_source_contract.v1" && contract["schema_id"] != "cartulary.extension_participant_specialization.v4" {
+		if !transaction && contract["schema_id"] != "cartulary.extension_reporting_source_contract.v1" && contract["schema_id"] != "cartulary.extension_participant_specialization.v5" {
 			continue
 		}
 		owner := stringValue(contract["profile_id"])
@@ -217,7 +217,7 @@ func validateParticipantBindingReferences(profile string, binding map[string]any
 
 func retiredParticipantSchema(id string) bool {
 	switch id {
-	case "cartulary.extension_participant_specialization.v3", "cartulary.extension_snapshot_reporting_participant_context.v1", "cartulary.extension_snapshot_reporting_participant_result.v1":
+	case "cartulary.extension_participant_specialization.v4", "cartulary.extension_participant_specialization.v3", "cartulary.extension_snapshot_reporting_participant_context.v1", "cartulary.extension_snapshot_reporting_participant_result.v1":
 		return true
 	case "cartulary.extension_transaction_participant_prepare_result.v1", "cartulary.extension_transaction_participant_validation_result.v1", "cartulary.extension_transaction_participant_write_result.v1", "cartulary.network_flow_activity.indicator_link_transaction_input.v1", "cartulary.network_flow_activity.import_apply_transaction_input.v1", "cartulary.incident_portability_import_transaction_input.v1", "cartulary.extension_shared_protocol_contract_set.v4":
 		return true

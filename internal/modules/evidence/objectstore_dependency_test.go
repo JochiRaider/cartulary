@@ -189,7 +189,7 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 		attachData := attachUploadedBlob(t, harness, login, incidentID, recordID, []byte("invalid key redeem"), "txn-object-key-redeem-blob", "txn-object-key-redeem-attach")
 		objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
 		handle := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
-		mismatchedKey, err := blobref.ObjectBlobStorageKey(incidentID, uuid.New())
+		mismatchedKey, err := blobref.ObjectBlobStorageKey(incidentID, uuid.New(), uuid.New())
 		if err != nil {
 			t.Fatalf("mismatched storage key: %v", err)
 		}
@@ -231,7 +231,7 @@ func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
 		"txn-evidence-redaction-attach",
 	)
 	objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
-	storageKey := "incidents/" + incidentID.String() + "/object-blobs/" + objectBlobID.String()
+	storageKey := "incidents/" + incidentID.String() + "/object-blobs/" + objectBlobID.String() + "/objects/" + uuid.NewString()
 	forbidden := []string{
 		storageKey,
 		"evidence.storage_ref",

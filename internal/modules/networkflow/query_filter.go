@@ -294,7 +294,7 @@ func compareFilterValues(field string, left, right any) int {
 
 // Closed query tokens are compiled contract inputs, never documentation reads.
 var diagnosticQueryTokens = func() map[string]map[string]bool {
-	artifact := contractnetworkflow.Index["contracts/network-flow/schemas.v4.json"]
+	artifact := contractnetworkflow.Index["contracts/network-flow/schemas.v5.json"]
 	var schema struct {
 		Definitions map[string]struct {
 			Enum []string `json:"enum"`

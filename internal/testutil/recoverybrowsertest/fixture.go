@@ -27,20 +27,15 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
-	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
-	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
-	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
@@ -50,17 +45,17 @@ const readySchemaID = "cartulary.restore.browser_restore_target.v1"
 const restoreBrowserRecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 
 type readyPayload struct {
-	SchemaID            string                            `json:"schema_id"`
-	Origin              string                            `json:"origin"`
-	BackupSetID         string                            `json:"backup_set_id"`
-	ConsistencyPointAt  time.Time                         `json:"consistency_point_at"`
-	RestoredIncidentIDs []string                          `json:"restored_incident_ids"`
-	IncidentID          string                            `json:"incident_id"`
-	UserEmail           string                            `json:"user_email"`
-	UserPassword        string                            `json:"user_password"`
-	TimelineSummary     string                            `json:"timeline_summary"`
-	ConsistencyReport   recovery.RestoreConsistencyReport `json:"consistency_report"`
-	TargetDatabase      string                            `json:"target_database"`
+	SchemaID            string    `json:"schema_id"`
+	Origin              string    `json:"origin"`
+	TransferredOrigin   string    `json:"transferred_origin"`
+	BackupSetID         string    `json:"backup_set_id"`
+	ConsistencyPointAt  time.Time `json:"consistency_point_at"`
+	RestoredIncidentIDs []string  `json:"restored_incident_ids"`
+	IncidentID          string    `json:"incident_id"`
+	UserEmail           string    `json:"user_email"`
+	UserPassword        string    `json:"user_password"`
+	TimelineSummary     string    `json:"timeline_summary"`
+	TargetDatabase      string    `json:"target_database"`
 }
 
 type seededSource struct {
@@ -72,7 +67,7 @@ type seededSource struct {
 
 // Run serves a freshly restored deployment until cancellation or input closure.
 // It closes borrowed handles and retires every database it creates before returning.
-func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Writer, lifecycle *Lifecycle) (retErr error) {
+func Run(ctx context.Context, runtimeRoot, incidentBundle string, input io.Reader, output io.Writer, lifecycle *Lifecycle) (retErr error) {
 	if lifecycle == nil || lifecycle.cleanupBudget <= 0 {
 		return errors.New("fixture cleanup allowance is required")
 	}
@@ -135,6 +130,9 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 	if err != nil {
 		return err
 	}
+	if os.Getenv("CARTULARY_BROWSER_RUNTIME_PROFILE_ID") == "network_flow_claimed" {
+		portableNetworkFlowEnvironment(sourceTokenEnv)
+	}
 	sourceName := "cartulary_restore_browser_source_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
 	sourceDSN, sourceCreated, err := createFromTemplateDB(ctx, baseDSN, sourceName, templateDatabase)
 	if sourceCreated {
@@ -150,7 +148,6 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 	}
 	lifecycle.event("source.recovery", "acquisition", "succeeded", 0, nil)
 	cleanup.source.recovery = closeWithoutError(sourceRecovery.Close)
-	sourcePool := sourceRecovery.Pool()
 
 	sourceObjectStore, err := objectstore.NewFilesystemStore(filepath.Join(sourceRoot, "object-storage"))
 	if err != nil {
@@ -202,66 +199,20 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 	}
 	lifecycle.event("source.http", "acquisition", "succeeded", 0, nil)
 	cleanup.source.http = sourceServer.Close
-	seed, err := seedSourceDeployment(ctx, sourceOrigin, clientTLS, sourceAdminEmail, sourceAdminPassword)
+	seed, err := seedSourceDeployment(ctx, sourceOrigin, clientTLS, sourceAdminEmail, sourceAdminPassword, runtimeRoot, incidentBundle)
 	if err != nil {
 		return err
 	}
 
-	backupRoot := filepath.Join(runtimeRoot, "restore-browser-restore-backup")
-	if err := os.RemoveAll(backupRoot); err != nil {
-		return fmt.Errorf("reset backup root: %w", err)
-	}
-	backupStorage, err := encryptedBackupStorage(backupRoot)
-	if err != nil {
-		return fmt.Errorf("open encrypted backup storage: %w", err)
-	}
-	lifecycle.event("backup.storage", "acquisition", "succeeded", 0, nil)
-	cleanup.backup = closeResult(func() error { return recovery.CloseBackupStorage(backupStorage) })
-	extensionBackups, err := extensionassembly.GeneratedRecoveryCatalog()
-	if err != nil {
-		return fmt.Errorf("construct extension recovery catalog: %w", err)
-	}
-
-	sourceStore := recovery.NewStore(sourcePool)
-	now := time.Now().UTC()
-	stateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
+	sourcePath, err := operatorConfiguration(sourceConfig, sourceDSN)
 	if err != nil {
 		return err
 	}
-	sourcePacks, err := referenceassembly.NewRecoveryStorage(filepath.Join(sourceRoot, "temporary-work"), filepath.Join(sourceRoot, "reference-pack-storage"), reference_data.DefaultLimits())
+	backup, err := runOperator(ctx, sourceTokenEnv, "backup", "create", "--source-config-file", sourcePath)
 	if err != nil {
 		return err
 	}
-	lifecycle.event("source.reference_packs", "acquisition", "succeeded", 0, nil)
-	cleanup.source.referencePacks = closeWithoutError(sourcePacks.Close)
-	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks, nil)
-	if err != nil {
-		return err
-	}
-	streaming, err := recovery.RequireStreamingBackupStorage(backupStorage)
-	if err != nil {
-		return err
-	}
-	proofScratch, err := os.OpenRoot(filepath.Join(sourceRoot, "temporary-work"))
-	if err != nil {
-		return err
-	}
-	defer proofScratch.Close()
-	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, stateCatalog, inventories, extensionBackups, proofScratch)
-	if err != nil {
-		return err
-	}
-	captured, err := capture.Capture(ctx, recovery.VNextCaptureParams{
-		BackupSetID: uuid.New(), ConsistencyPointAt: now, CreatedAt: now,
-		RetainedUntil: now.Add(31 * 24 * time.Hour),
-	})
-	if err != nil {
-		return fmt.Errorf("capture retained backup set: %w", err)
-	}
-	backupSet, err := sourceStore.PublishVNextCapturedBackup(ctx, captured)
-	if err != nil {
-		return err
-	}
+	lifecycle.event("operator.backup", "acquisition", "succeeded", 0, nil)
 
 	targetRoot := filepath.Join(runtimeRoot, "restore-browser-restore-target")
 	if err := os.RemoveAll(targetRoot); err != nil {
@@ -273,6 +224,9 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 	targetTokenEnv, err := prepareConflictTokenHarness(targetRoot, tlsDirectory)
 	if err != nil {
 		return err
+	}
+	if os.Getenv("CARTULARY_BROWSER_RUNTIME_PROFILE_ID") == "network_flow_claimed" {
+		portableNetworkFlowEnvironment(targetTokenEnv)
 	}
 	targetName := "cartulary_restore_browser_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
 	targetDSN, targetCreated, err := createFromTemplateDB(ctx, baseDSN, targetName, templateDatabase)
@@ -298,16 +252,6 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 	lifecycle.event("target.objects", "acquisition", "succeeded", 0, nil)
 	cleanup.target.objects = closeResult(targetObjectStore.Close)
 
-	projectionRebuilder, workbookProbe, err := projectionassembly.NewRecoveryServices(targetPool)
-	if err != nil {
-		return fmt.Errorf("compose restore projection services: %w", err)
-	}
-	targetPacks, err := referenceassembly.NewRecoveryStorage(filepath.Join(targetRoot, "temporary-work"), filepath.Join(targetRoot, "reference-pack-storage"), reference_data.DefaultLimits())
-	if err != nil {
-		return err
-	}
-	lifecycle.event("target.reference_packs", "acquisition", "succeeded", 0, nil)
-	cleanup.target.referencePacks = closeWithoutError(targetPacks.Close)
 	listener, err := tls.Listen("tcp", "127.0.0.1:0", serverTLS.Clone())
 	if err != nil {
 		return err
@@ -318,42 +262,44 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 	if err != nil {
 		return fmt.Errorf("load target configuration: %w", err)
 	}
-	// The restored server must consume the same runtime binding sealed into
-	// completion. Its borrowed Recovery pool does not establish that binding.
-	runtimeDSN, err := (&pgtest.TestDatabase{DSN: targetDSN}).DSNForPurpose(postgres.PurposeRuntime)
-	if err != nil {
-		return fmt.Errorf("select target runtime database credential: %w", err)
-	}
-	databaseRoot := cfg.Deployment().Roots.DatabaseStorage.Path
-	if err := os.MkdirAll(databaseRoot, 0o700); err != nil {
-		return fmt.Errorf("prepare target runtime database root: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(databaseRoot, postgres.FilesystemRuntimeDSNFile), []byte(runtimeDSN+"\n"), 0o600); err != nil {
-		return fmt.Errorf("bind target runtime database: %w", err)
-	}
-	bindings, err := configassembly.RecoveryTargetBindings(cfg.Deployment(), targetTokenEnv)
-	if err != nil {
-		return fmt.Errorf("resolve target storage identities: %w", err)
-	}
-	key, err := recovery.ParseRecoveryEncryptionKey(restoreBrowserRecoveryMasterKey)
+	targetPath, err := operatorConfiguration(cfg, targetDSN)
 	if err != nil {
 		return err
 	}
-	result, err := appsupport.RestoreCurrentBackup(ctx, appsupport.CurrentRestoreParams{
-		Source: sourceRecovery, Backup: backupSet, Key: key, Bindings: bindings,
-		Runner:  recovery.NewVersionedRestoreRunner(sourceStore, backupStorage, extensionBackups, stateCatalog),
-		Catalog: recovery.NewBackupCatalog(sourceStore, backupStorage, extensionBackups, stateCatalog),
-		Target: recovery.RestoreTarget{ProofScratch: proofScratch, Postgres: targetRecovery, ObjectStore: targetObjectStore, ReferencePacks: targetPacks,
-			EvidenceObjects: evidence.NewRecoveryProvider(targetPool), Projections: projectionRebuilder},
-	})
+	restored, err := runOperator(ctx, sourceTokenEnv, "restore", "latest", "--source-config-file", sourcePath, "--target-config-file", targetPath, "--confirm-backup-set-id", backup.BackupSetID.String(), "--operation-id", uuid.NewString())
 	if err != nil {
-		return fmt.Errorf("restore target: %w", err)
+		return err
 	}
-	if result.BackupSet.BackupSetID != backupSet.BackupSetID {
-		return fmt.Errorf("restored backup_set_id %s, want %s", result.BackupSet.BackupSetID, backupSet.BackupSetID)
+	if *restored.BackupSetID != *backup.BackupSetID {
+		return errors.New("operator restored a different backup")
 	}
-	result.SelectedIncidentID = &seed.IncidentID
-	if err := (recovery.RestoreVerificationWorkbookProbe{Executor: workbookProbe}).ProbeRestoredBackup(ctx, &result); err != nil {
+	lifecycle.event("operator.restore", "acquisition", "succeeded", 0, nil)
+	if err := bindRestoredRuntime(cfg, targetDSN); err != nil {
+		return err
+	}
+	if err := bindRestoredRuntime(sourceConfig, sourceDSN); err != nil {
+		return err
+	}
+	bindings, err := configassembly.RecoveryTargetBindings(cfg.Deployment(), targetTokenEnv)
+	if err != nil {
+		return err
+	}
+	control, err := recovery.ReadTargetControl(ctx, targetPool)
+	if err != nil {
+		return err
+	}
+	if err := control.RequireServing(bindings); err != nil {
+		return fmt.Errorf("operator completion cannot serve: %w", err)
+	}
+	_, workbookProbe, err := projectionassembly.NewRecoveryServices(targetPool)
+	if err != nil {
+		return err
+	}
+	incidentID, err := uuid.Parse(seed.IncidentID)
+	if err != nil {
+		return err
+	}
+	if _, err := workbookProbe.ExecuteDefault(ctx, workbookprobe.BaseProfile, incidentID); err != nil {
 		return fmt.Errorf("probe restored workbook query: %w", err)
 	}
 
@@ -393,14 +339,14 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 	if err := json.NewEncoder(output).Encode(readyPayload{
 		SchemaID:            readySchemaID,
 		Origin:              origin,
-		BackupSetID:         result.BackupSet.BackupSetID.String(),
-		ConsistencyPointAt:  result.BackupSet.ConsistencyPointAt,
+		TransferredOrigin:   sourceOrigin,
+		BackupSetID:         backup.BackupSetID.String(),
+		ConsistencyPointAt:  *backup.ConsistencyPointAt,
 		RestoredIncidentIDs: incidentIDs,
 		IncidentID:          seed.IncidentID,
 		UserEmail:           seed.UserEmail,
 		UserPassword:        seed.UserPassword,
 		TimelineSummary:     seed.TimelineSummary,
-		ConsistencyReport:   result.ConsistencyReport,
 		TargetDatabase:      targetName,
 	}); err != nil {
 		return fmt.Errorf("write ready payload: %w", err)
@@ -540,22 +486,6 @@ func startRuntimeServer(parent context.Context, listener net.Listener, handler h
 	return server, done, nil
 }
 
-func encryptedBackupStorage(root string) (recovery.BackupStorage, error) {
-	rawStorage, err := recoveryassembly.NewFilesystemStorage(root)
-	if err != nil {
-		return nil, err
-	}
-	key, err := recovery.ParseRecoveryEncryptionKey(restoreBrowserRecoveryMasterKey)
-	if err != nil {
-		return nil, errors.Join(err, rawStorage.Close())
-	}
-	storage, err := recovery.NewEncryptedBackupStorage(rawStorage, key)
-	if err != nil {
-		return nil, errors.Join(err, rawStorage.Close())
-	}
-	return storage, nil
-}
-
 func seedDeploymentAdmin(ctx context.Context, pool *pgxpool.Pool, email string, password string) error {
 	hash, err := authn.HashPassword(ctx, password)
 	if err != nil {
@@ -570,7 +500,7 @@ VALUES ($1, $2, $3, false, true, true)
 	return nil
 }
 
-func seedSourceDeployment(ctx context.Context, origin string, trust *tls.Config, adminEmail string, adminPassword string) (seededSource, error) {
+func seedSourceDeployment(ctx context.Context, origin string, trust *tls.Config, adminEmail string, adminPassword string, runtimeRoot string, incidentBundle string) (seededSource, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return seededSource{}, fmt.Errorf("create source cookie jar: %w", err)
@@ -585,15 +515,23 @@ func seedSourceDeployment(ctx context.Context, origin string, trust *tls.Config,
 
 	suffix := safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
 	summary := "Recovery restored timeline " + suffix
-	incident, err := doSourceJSON(ctx, client, http.MethodPost, origin+"/api/v1/incidents", csrf, map[string]any{
-		"client_txn_id": "txn-restore-browser-incident-" + suffix,
-		"incident_key":  "IR-RESTORE-BROWSER-" + suffix,
-		"title":         "Recovery restored workbook evidence",
-	})
-	if err != nil {
-		return seededSource{}, fmt.Errorf("create source incident: %w", err)
+	var incidentID string
+	if incidentBundle != "" {
+		incidentID, err = importBrowserIncident(ctx, client, origin, csrf, runtimeRoot, incidentBundle)
+	} else {
+		var incident map[string]any
+		incident, err = doSourceJSON(ctx, client, http.MethodPost, origin+"/api/v1/incidents", csrf, map[string]any{
+			"client_txn_id": "txn-restore-browser-incident-" + suffix,
+			"incident_key":  "IR-RESTORE-BROWSER-" + suffix,
+			"title":         "Recovery restored workbook evidence",
+		})
+		if err != nil {
+			return seededSource{}, fmt.Errorf("create source incident: %w", err)
+		}
+		if err == nil {
+			incidentID, err = stringAt(incident, "data", "incident_id")
+		}
 	}
-	incidentID, err := stringAt(incident, "data", "incident_id")
 	if err != nil {
 		return seededSource{}, err
 	}

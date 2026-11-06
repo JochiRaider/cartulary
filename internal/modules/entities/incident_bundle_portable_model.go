@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 const (
@@ -70,12 +71,27 @@ type entityPortableBinding struct {
 }
 
 type preparedEntityImport struct {
-	binding    entityPortableBinding
-	hosts      []portableHostRow
-	identities []portableIdentityRow
-	mentions   []portableMentionRow
-	preserved  []portablePreservedIdentifierRow
-	aliases    []portableAliasRow
+	binding entityPortableBinding
+	members *incidentportability.BoundMembers
+}
+
+type entityFailureAccumulator struct{ invariant string }
+
+func (a *entityFailureAccumulator) add(invariant string) {
+	if invariant != "" && (a.invariant == "" || entityInvariantRank(invariant) < entityInvariantRank(a.invariant)) {
+		a.invariant = invariant
+	}
+}
+func (a *entityFailureAccumulator) candidates(values []entityFailureCandidate) {
+	for _, value := range values {
+		a.add(value.invariant)
+	}
+}
+func (a entityFailureAccumulator) err() error {
+	if a.invariant == "" {
+		return nil
+	}
+	return entitySourceFailure(a.invariant)
 }
 
 type portableHostRow struct {
@@ -146,7 +162,7 @@ type entityFailureCandidate struct {
 func (binding entityPortableBinding) matches(importContext sourceport.ImportContext) bool {
 	return binding.operationID != "" && binding.operationID == importContext.OperationID &&
 		binding.incidentID != uuid.Nil && binding.incidentID == importContext.IncidentID &&
-		binding.bundleVersion == 5 && binding.bundleVersion == importContext.BundleVersion &&
+		binding.bundleVersion == 6 && binding.bundleVersion == importContext.BundleVersion &&
 		binding.contractMajor == sourceport.ContractMajor
 }
 

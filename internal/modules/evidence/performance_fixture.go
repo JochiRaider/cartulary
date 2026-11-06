@@ -85,7 +85,7 @@ func (contribution *PerformanceFixtureContribution) CreatePerformanceFixtureReco
 			return PerformanceFixtureResult{}, err
 		}
 		blobID := uuid.New()
-		key, err := blobref.ObjectBlobStorageKey(command.IncidentID, blobID)
+		key, err := blobref.ObjectBlobStorageKey(command.IncidentID, blobID, uuid.New())
 		if err != nil {
 			return PerformanceFixtureResult{}, err
 		}

@@ -13,7 +13,7 @@ import (
 func assertTableReceiptAdmission(t *testing.T) {
 	now := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
 	id := uuid.MustParse("11111111-1111-4111-8111-111111111111")
-	table := tableRecord{TableID: "nft_11111111111141118111111111111111", IncidentID: id, DisplayName: "Flows", TableVersion: 2, TableStatus: "active", SourceImportSessionID: id, SourceImportUnitID: id, SourceContentSHA256: strings.Repeat("a", 64), SourceFilenameDisplay: "flows.csv", SourceFilenameDigest: strings.Repeat("b", 64), SourceFilenameDigestKeyID: "fixture", MappingFingerprint: strings.Repeat("c", 64), SourceProfileID: sourceProfileCiscoSNANetFlowCSV, ParserProfileID: "rfc4180_headered_csv_v1", RowCountAccepted: 1, CreatedByUserID: id, CreatedAt: now, UpdatedAt: now}
+	table := tableRecord{TableID: "nft_11111111111141118111111111111111", IncidentID: id, DisplayName: "Flows", TableVersion: 2, TableStatus: "active", CommittedSourceID: id, SourceInterpretationSHA256: strings.Repeat("d", 64), SourceRawCellScalarLimit: 4096, SourceContentSHA256: strings.Repeat("a", 64), SourceFilenameDisplay: "flows.csv", SourceFilenameDigest: strings.Repeat("b", 64), SourceFilenameDigestKeyID: "fixture", MappingFingerprint: strings.Repeat("c", 64), SourceProfileID: sourceProfileCiscoSNANetFlowCSV, ParserProfileID: "rfc4180_headered_csv_v1", RowCountAccepted: 1, CreatedByUserID: id, CreatedAt: now, UpdatedAt: now}
 	key := authn.RouteIdempotencyKey{RouteKey: routeKeyTablesPatch, ScopeKey: id.String() + ":" + table.TableID, ActorUserID: id, ClientTxnID: "rename"}
 	payload := tableMutationPayload(table)
 	if err := validateTableReceipt(key, 200, payload); err != nil {

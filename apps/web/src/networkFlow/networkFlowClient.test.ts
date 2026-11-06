@@ -34,14 +34,14 @@ describe("Network Flow client transport boundary", () => {
     fetchMock
       .mockResolvedValueOnce(
         jsonResponse({
-          schema_id: "cartulary.network_flow_table_list.v2",
+          schema_id: "cartulary.network_flow_table_list.v3",
           tables: [tableResource()],
           meta: { count: 1 },
         }),
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          schema_id: "cartulary.network_flow_table_mutation_result.v2",
+          schema_id: "cartulary.network_flow_table_mutation_result.v3",
           table: {
             ...tableResource(),
             display_name: "renamed.csv",
@@ -92,7 +92,7 @@ describe("Network Flow client transport boundary", () => {
       {
         profile_id: "network_flow_activity",
         claimed: false,
-        contract_major: 9,
+        contract_major: 10,
         route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
         workspace_keys: ["network_analysis"],
         capabilities: [],
@@ -124,7 +124,7 @@ describe("Network Flow client transport boundary", () => {
   it("keeps malformed success responses behind the generated decoder", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
-        schema_id: "cartulary.network_flow_table_list.v2",
+        schema_id: "cartulary.network_flow_table_list.v3",
         tables: [{ network_flow_table_id: tableId }],
         meta: { count: 1 },
       }),
@@ -147,8 +147,9 @@ function tableResource(): NetworkFlowTable {
     display_name: "flows.csv",
     table_version: 1,
     table_status: "active",
-    source_import_session_id: "import-session-1",
-    source_import_unit_id: "import-unit-1",
+    committed_source_id: "33333333-3333-4333-8333-333333333333",
+    source_interpretation_sha256: "d".repeat(64),
+    source_raw_cell_scalar_limit: 4096,
     source_content_sha256: digest,
     source_filename_display: "flows.csv",
     source_filename_digest: digest,

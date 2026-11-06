@@ -13,4 +13,12 @@ export const ownersByVersion = new Map([
   [36, "graphprojection"],
   [37, "reporting"],
  [38, "networkflow"],
+ [39, "imports"],
+ [40, "networkflow"],
+ [41, "extensions"],
+ [42, "links"],
+ [43, "entities"],
+ [44, "indicators"],
+ [45, "reporting"],
+ [46, "incidentbundles"],
 ]);

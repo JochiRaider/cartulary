@@ -51,7 +51,7 @@ func (s *savedGraphApplication) commitGraphViewCreate(ctx context.Context, incid
 		return savedGraphOutcome{}, err
 	}
 	normalizedRequest, err := graphViewMutationBytes(routeKeyGraphViewsCreate, "graph-views", map[string]any{
-		"display_name": displayName, "semantic_query": request.Semantic.Raw,
+		"display_name": displayName, "semantic_query": request.Semantic.Raw, "refresh_scope": request.RefreshScope,
 	})
 	if err != nil {
 		return savedGraphOutcome{}, err
@@ -86,7 +86,19 @@ func (s *savedGraphApplication) commitGraphViewCreate(ctx context.Context, incid
 		if err := s.requireGraphViewJobCapacityTx(ctx, tx, incidentID); err != nil {
 			return err
 		}
-		tables, err := graphViewSourceTablesTx(ctx, tx, incidentID, request.Semantic.SelectedTableIDs)
+		intentSemantic, err := canonicalGraphSemanticJSON(request.Semantic.Raw)
+		if err != nil {
+			return err
+		}
+		intent, err := encodeRefreshIntent(request.RefreshScope, intentSemantic)
+		if err != nil {
+			return err
+		}
+		resolved, err := resolveRefreshIntentTx(ctx, tx, incidentID, intent, s.store.limits)
+		if err != nil {
+			return err
+		}
+		tables, err := graphViewSourceTablesTx(ctx, tx, incidentID, resolved.SelectedTableIDs)
 		if err != nil {
 			return err
 		}
@@ -113,7 +125,7 @@ func (s *savedGraphApplication) commitGraphViewCreate(ctx context.Context, incid
 		declaration := graphViewDeclaration{
 			GraphViewID: graphViewID, IncidentID: incidentID, DisplayName: displayName,
 			NormalizedDisplayName: strings.ToLower(displayName), DeclarationState: graphViewDeclarationStateActive,
-			SemanticQueryJSON: semanticJSON, SemanticQuerySHA256: graphViewSemanticQuerySHA256(semanticJSON),
+			RefreshIntentJSON: intent, SemanticQueryJSON: semanticJSON, SemanticQuerySHA256: graphViewSemanticQuerySHA256(semanticJSON),
 			DesiredSourceSnapshotID: snapshotID, GraphViewVersion: 1, MaterializationGeneration: 1,
 			CreatedByUserID: actorUserID, CreatedAt: now, UpdatedAt: now,
 		}
@@ -188,16 +200,20 @@ func (s *savedGraphApplication) commitGraphViewRefresh(ctx context.Context, inci
 		if err := s.requireGraphViewJobCapacityTx(ctx, tx, incidentID); err != nil {
 			return err
 		}
-		semantic, apiErr := decodeGraphSemanticRequest(declaration.SemanticQueryJSON, s.store.limits)
-		if apiErr != nil {
-			return errGraphViewDeclarationInvalid
+		semantic, err := resolveRefreshIntentTx(ctx, tx, incidentID, declaration.RefreshIntentJSON, s.store.limits)
+		if err != nil {
+			return err
+		}
+		semanticJSON, err := canonicalGraphSemanticJSON(semantic.Raw)
+		if err != nil {
+			return err
 		}
 		snapshotID, err := graphViewSourceSnapshotTx(ctx, tx, incidentID, semantic)
 		if err != nil {
 			return err
 		}
 		now := s.now().UTC()
-		declaration, err = s.store.RefreshGraphViewDeclarationTx(ctx, tx, incidentID, graphViewID, request.BaseGraphViewVersion, snapshotID, now)
+		declaration, err = s.store.RefreshGraphViewDeclarationTx(ctx, tx, incidentID, graphViewID, request.BaseGraphViewVersion, snapshotID, semanticJSON, now)
 		if err != nil {
 			return err
 		}
@@ -363,9 +379,10 @@ func (s *savedGraphApplication) appendGraphViewAuditTx(ctx context.Context, tx p
 }
 
 type graphViewCreateRequest struct {
-	ClientTxnID string
-	DisplayName string
-	Semantic    graphSemanticRequest
+	RefreshScope string
+	ClientTxnID  string
+	DisplayName  string
+	Semantic     graphSemanticRequest
 }
 
 type graphViewVersionRequest struct {

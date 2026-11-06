@@ -47,11 +47,11 @@ func checkBindingRestoreResultSchema(t *testing.T, artifacts []artifact) {
 			})
 		}
 		retired := map[string]any{
-			"schema_id": "cartulary.extension_participant_specialization.v4", "profile_id": "network_flow_activity",
+			"schema_id": "cartulary.extension_participant_specialization.v5", "profile_id": "network_flow_activity",
 			"participant_id": "network_flow_activity.backup_restore_v1", "participant_kind": "backup_restore",
 			"shared_context_schema_id": "cartulary.extension_backup_restore_participant_context.v1", "operations": operations,
 		}
-		specialization, err := compiler.Compile("https://extensions.invalid/schemas/cartulary.extension_participant_specialization.v4")
+		specialization, err := compiler.Compile("https://extensions.invalid/schemas/cartulary.extension_participant_specialization.v5")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -217,18 +217,18 @@ func checkReportingSourceSchema(t *testing.T, compiler *jsonschema.Compiler) {
 
 func portabilitySpecializationFixture() map[string]any {
 	operations := []any{}
-	for _, pair := range [][2]string{{"export", "cartulary.extension_portability_export_result.v1"}, {"import", "cartulary.extension_portability_import_preparation_result.v1"}} {
+	for _, pair := range [][2]string{{"export", "cartulary.extension_portability_export_result.v2"}, {"import", "cartulary.extension_portability_import_preparation_result.v2"}} {
 		operations = append(operations, map[string]any{
 			"operation_kind": pair[0], "result_schema_id": pair[1], "algorithm_id": "fixture." + pair[0] + "_v1",
 			"output_schema_id": "cartulary.fixture_output.v1", "ordering_algorithm_id": "fixture.order_v1", "state_family_ids": []any{},
 			"max_input_bytes": json.Number("67108864"), "max_output_bytes": json.Number("67108864"), "max_items": json.Number("1048576"),
 		})
 	}
-	return map[string]any{"schema_id": "cartulary.extension_participant_specialization.v4", "profile_id": "fixture", "participant_id": "fixture.portability_v1", "participant_kind": "incident_portability", "shared_context_schema_id": "cartulary.extension_portability_participant_context.v1", "operations": operations}
+	return map[string]any{"schema_id": "cartulary.extension_participant_specialization.v5", "profile_id": "fixture", "participant_id": "fixture.portability_v1", "participant_kind": "incident_portability", "shared_context_schema_id": "cartulary.extension_portability_participant_context.v2", "operations": operations}
 }
 
 func checkPortabilitySpecializationSchema(t *testing.T, compiler *jsonschema.Compiler) {
-	schema, err := compiler.Compile("https://extensions.invalid/schemas/cartulary.extension_participant_specialization.v4")
+	schema, err := compiler.Compile("https://extensions.invalid/schemas/cartulary.extension_participant_specialization.v5")
 	if err != nil {
 		t.Fatal(err)
 	}

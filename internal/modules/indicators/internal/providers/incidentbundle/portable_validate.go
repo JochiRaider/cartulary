@@ -2,6 +2,7 @@ package incidentbundle
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,127 +27,144 @@ type portableRecordEnvelope struct {
 	deletedByUserID *uuid.UUID
 }
 
-func validatePreparedIndicatorImportTx(
-	evaluate identity.Evaluator,
-	ctx context.Context,
-	tx pgx.Tx,
-	prepared preparedIndicatorImport,
-	importContext sourceport.ImportContext,
-) error {
-	if tx == nil || !prepared.binding.matches(importContext) || importContext.Attributions == nil {
+func validatePreparedIndicatorImportTx(evaluate identity.Evaluator, ctx context.Context, tx pgx.Tx, prepared preparedIndicatorImport, input sourceport.ImportContext) error {
+	if tx == nil || !prepared.binding.matches(input) || input.Attributions == nil {
 		return indicatorSourceFailure(representationInvariant)
 	}
-	envelopes, err := loadPortableRecordEnvelopes(ctx, tx, importContext.IncidentID)
-	if err != nil {
-		return indicatorSourceFailure(representationInvariant)
+	prepared.evaluate = evaluate
+	var failures indicatorFailureAccumulator
+	if err := prepared.indicators(ctx, input, func(row portableIndicatorRow) error {
+		envelope, present, err := loadPortableRecordEnvelope(ctx, tx, input.IncidentID, row.RecordID)
+		if err != nil {
+			return err
+		}
+		if !present || !indicatorEnvelopeEqual(row, envelope) || !indicatorEnvelopeAttributionsEqual(row, input) {
+			failures.add(representationInvariant)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
-	actualIndicators, err := loadPortableIndicators(ctx, evaluate, sourceport.ExportContext{
-		Query: tx, IncidentID: importContext.IncidentID,
-	})
-	if err != nil {
-		return indicatorSourceFailure(representationInvariant)
-	}
-	actualObservations, err := loadPortableObservations(ctx, evaluate, sourceport.ExportContext{
-		Query: tx, IncidentID: importContext.IncidentID,
-	})
-	if err != nil {
-		return indicatorSourceFailure(observationCoherentInvariant)
-	}
-	actualIntervals, err := loadPortableIntervals(ctx, sourceport.ExportContext{
-		Query: tx, IncidentID: importContext.IncidentID,
-	})
-	if err != nil {
-		return indicatorSourceFailure(intervalCoherentInvariant)
-	}
-
-	var failures []indicatorFailureCandidate
-	indicatorByID := make(map[uuid.UUID]portableIndicatorRow, len(prepared.indicators))
-	for _, row := range prepared.indicators {
-		indicatorByID[row.RecordID] = row
-		envelope, present := envelopes[row.RecordID]
-		if !present || !indicatorEnvelopeEqual(row, envelope) ||
-			!indicatorEnvelopeAttributionsEqual(row, importContext) {
-			failures = append(failures, indicatorFailure(
-				representationInvariant, indicatorsBundlePath, row.RecordID.String(), row.RecordID,
-			))
+	if sameIDs, sameValues, err := compareIndicatorSource(ctx, tx, input, func(visit func(portableIndicatorRow) error) error { return prepared.indicators(ctx, input, visit) }, func(ctx context.Context, input sourceport.ExportContext, after *uuid.UUID) ([]portableIndicatorRow, error) {
+		return loadPortableIndicatorsPage(ctx, evaluate, input, after)
+	}, func(row portableIndicatorRow) uuid.UUID { return row.RecordID }, portableIndicatorEqual); err != nil {
+		return err
+	} else {
+		if !sameIDs {
+			failures.add(representationInvariant)
+		}
+		if !sameValues {
+			failures.add(representationInvariant)
 		}
 	}
-	portableIndicatorSetsEqual(prepared.indicators, actualIndicators, &failures)
-
-	for _, row := range prepared.observations {
-		if _, present := envelopes[row.SourceRecordID]; !present {
-			failures = append(failures, indicatorFailure(
-				observationIncidentInvariant, observationsBundlePath,
-				row.ObservationID.String(), row.SourceRecordID,
-			))
+	if sameIDs, sameValues, err := compareIndicatorSource(ctx, tx, input, func(visit func(portableObservationRow) error) error { return prepared.observations(ctx, input, visit) }, func(ctx context.Context, input sourceport.ExportContext, after *uuid.UUID) ([]portableObservationRow, error) {
+		return loadPortableObservationsPage(ctx, evaluate, input, after)
+	}, func(row portableObservationRow) uuid.UUID { return row.ObservationID }, portableObservationEqual); err != nil {
+		return err
+	} else {
+		if !sameIDs {
+			failures.add(repeatedObservationInvariant)
 		}
-		if row.ResolvedIndicatorID != nil {
-			if _, present := indicatorByID[*row.ResolvedIndicatorID]; !present {
-				failures = append(failures, indicatorFailure(
-					observationIncidentInvariant, observationsBundlePath,
-					row.ObservationID.String(), row.ResolvedIndicatorID,
-				))
-			}
+		if !sameValues {
+			failures.add(observationCoherentInvariant)
 		}
 	}
-	portableObservationSetsEqual(prepared.observations, actualObservations, &failures)
-
-	for _, row := range prepared.intervals {
-		if _, present := indicatorByID[row.IndicatorRecordID]; !present {
-			failures = append(failures, indicatorFailure(
-				intervalIncidentInvariant, intervalsBundlePath,
-				row.IntervalID.String(), row.IndicatorRecordID,
-			))
+	if sameIDs, sameValues, err := compareIndicatorSource(ctx, tx, input, func(visit func(portableIntervalRow) error) error { return prepared.intervals(ctx, input, visit) }, loadPortableIntervalsPage, func(row portableIntervalRow) uuid.UUID { return row.IntervalID }, portableIntervalEqual); err != nil {
+		return err
+	} else {
+		if !sameIDs {
+			failures.add(intervalCoherentInvariant)
 		}
-		for _, supportID := range row.SupportRefs {
-			if _, present := envelopes[supportID]; !present {
-				failures = append(failures, indicatorFailure(
-					intervalIncidentInvariant, intervalsBundlePath,
-					row.IntervalID.String(), supportID,
-				))
-			}
+		if !sameValues {
+			failures.add(intervalCoherentInvariant)
 		}
 	}
-	portableIntervalSetsEqual(prepared.intervals, actualIntervals, &failures)
-	return selectedIndicatorFailure(failures)
+	for _, family := range []struct{ path, table, identity, invariant string }{
+		{indicatorsBundlePath, "indicators", "record_id", representationInvariant},
+		{observationsBundlePath, "indicator_observations", "indicator_observation_id", observationCoherentInvariant},
+		{intervalsBundlePath, "indicator_state_intervals", "indicator_state_interval_id", intervalCoherentInvariant},
+	} {
+		if err := incidentportability.ValidateTopLevelAttributions(ctx, prepared.members, family.path, family.table, family.identity, input.Attributions); err != nil {
+			failures.add(family.invariant)
+		}
+	}
+	return failures.err()
 }
 
-func loadPortableRecordEnvelopes(
-	ctx context.Context,
-	query incidentportability.Queryer,
-	incidentID uuid.UUID,
-) (map[uuid.UUID]portableRecordEnvelope, error) {
-	rows, err := query.Query(ctx, `
-SELECT record_id, incident_id, record_type, created_at, created_by_user_id,
-       updated_at, updated_by_user_id, row_version, deleted_at, deleted_by_user_id
-  FROM records
- WHERE incident_id = $1
- ORDER BY record_id
-`, incidentID)
+func loadPortableRecordEnvelope(ctx context.Context, tx pgx.Tx, incidentID, recordID uuid.UUID) (portableRecordEnvelope, bool, error) {
+	var envelope portableRecordEnvelope
+	var deletedAt pgtype.Timestamptz
+	var deletedBy pgtype.UUID
+	err := tx.QueryRow(ctx, `SELECT record_id,incident_id,record_type,created_at,created_by_user_id,updated_at,updated_by_user_id,row_version,deleted_at,deleted_by_user_id FROM records WHERE incident_id=$1 AND record_id=$2`, incidentID, recordID).Scan(&envelope.recordID, &envelope.incidentID, &envelope.recordType, &envelope.createdAt, &envelope.createdByUserID, &envelope.updatedAt, &envelope.updatedByUserID, &envelope.rowVersion, &deletedAt, &deletedBy)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return envelope, false, nil
+	}
 	if err != nil {
-		return nil, err
+		return envelope, false, err
 	}
-	defer rows.Close()
-	result := make(map[uuid.UUID]portableRecordEnvelope)
-	for rows.Next() {
-		var envelope portableRecordEnvelope
-		var deletedAt pgtype.Timestamptz
-		var deletedBy pgtype.UUID
-		if err := rows.Scan(
-			&envelope.recordID, &envelope.incidentID, &envelope.recordType,
-			&envelope.createdAt, &envelope.createdByUserID, &envelope.updatedAt,
-			&envelope.updatedByUserID, &envelope.rowVersion, &deletedAt, &deletedBy,
-		); err != nil {
-			return nil, err
+	envelope.deletedAt = timeFromPG(deletedAt)
+	envelope.deletedByUserID = uuidFromPG(deletedBy)
+	return envelope, true, nil
+}
+
+// Ordered merge distinguishes missing/repeated observations from a changed
+// value on a surviving observation, without collection-sized identity maps.
+func compareIndicatorSource[T any](ctx context.Context, tx pgx.Tx, input sourceport.ImportContext, walk func(func(T) error) error, load func(context.Context, sourceport.ExportContext, *uuid.UUID) ([]T, error), identity func(T) uuid.UUID, equal func(T, T) bool) (bool, bool, error) {
+	var page []T
+	var after *uuid.UUID
+	index := 0
+	exhausted := false
+	peek := func() (T, bool, error) {
+		if index == len(page) && !exhausted {
+			var err error
+			page, err = load(ctx, sourceport.ExportContext{Query: tx, IncidentID: input.IncidentID}, after)
+			if err != nil {
+				var zero T
+				return zero, false, err
+			}
+			index = 0
+			if len(page) == 0 {
+				exhausted = true
+			} else {
+				last := identity(page[len(page)-1])
+				after = &last
+			}
 		}
-		envelope.deletedAt = timeFromPG(deletedAt)
-		envelope.deletedByUserID = uuidFromPG(deletedBy)
-		result[envelope.recordID] = envelope
+		if exhausted {
+			var zero T
+			return zero, false, nil
+		}
+		return page[index], true, nil
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+	sameIDs, sameValues := true, true
+	err := walk(func(expected T) error {
+		actual, present, err := peek()
+		if err != nil {
+			return err
+		}
+		for present && identity(actual).String() < identity(expected).String() {
+			sameIDs = false
+			index++
+			actual, present, err = peek()
+			if err != nil {
+				return err
+			}
+		}
+		if !present || identity(actual) != identity(expected) {
+			sameIDs = false
+			return nil
+		}
+		if !equal(expected, actual) {
+			sameValues = false
+		}
+		index++
+		return nil
+	})
+	if err != nil {
+		return false, false, err
 	}
-	return result, nil
+	_, extra, err := peek()
+	return sameIDs && !extra, sameValues, err
 }
 
 func indicatorEnvelopeEqual(row portableIndicatorRow, envelope portableRecordEnvelope) bool {
@@ -168,11 +186,14 @@ func indicatorEnvelopeAttributionsEqual(row portableIndicatorRow, importContext 
 		want["deleted_by_user_id"] = row.PortableDeletedByID.String()
 	}
 	found := map[string]string{}
-	for _, attribution := range importContext.Attributions.ImportedAttributions() {
-		if attribution.SourceTable == "records" && attribution.SourceRowID == row.RecordID.String() {
-			found[attribution.SourceColumn] = attribution.SourceActorID
-		}
+
+	if err := importContext.Attributions.VisitImportedAttributions("records", row.RecordID.String(), func(attribution incidentportability.ImportedAttribution) error {
+		found[attribution.SourceColumn] = attribution.SourceActorID
+		return nil
+	}); err != nil {
+		return false
 	}
+
 	if len(found) != len(want) {
 		return false
 	}
@@ -182,99 +203,6 @@ func indicatorEnvelopeAttributionsEqual(row portableIndicatorRow, importContext 
 		}
 	}
 	return true
-}
-
-func portableIndicatorSetsEqual(
-	expected []portableIndicatorRow,
-	actual []portableIndicatorRow,
-	failures *[]indicatorFailureCandidate,
-) {
-	want := make(map[uuid.UUID]portableIndicatorRow, len(expected))
-	for _, row := range expected {
-		want[row.RecordID] = row
-	}
-	seen := make(map[uuid.UUID]struct{}, len(actual))
-	for _, row := range actual {
-		expectedRow, present := want[row.RecordID]
-		if !present || !portableIndicatorEqual(expectedRow, row) {
-			*failures = append(*failures, indicatorFailure(
-				representationInvariant, indicatorsBundlePath, row.RecordID.String(), row.RecordID,
-			))
-		}
-		seen[row.RecordID] = struct{}{}
-	}
-	for _, row := range expected {
-		if _, present := seen[row.RecordID]; !present {
-			*failures = append(*failures, indicatorFailure(
-				representationInvariant, indicatorsBundlePath, row.RecordID.String(), row.RecordID,
-			))
-		}
-	}
-}
-
-func portableObservationSetsEqual(
-	expected []portableObservationRow,
-	actual []portableObservationRow,
-	failures *[]indicatorFailureCandidate,
-) {
-	want := make(map[uuid.UUID]portableObservationRow, len(expected))
-	for _, row := range expected {
-		want[row.ObservationID] = row
-	}
-	seen := make(map[uuid.UUID]struct{}, len(actual))
-	for _, row := range actual {
-		expectedRow, present := want[row.ObservationID]
-		if !present {
-			*failures = append(*failures, indicatorFailure(
-				repeatedObservationInvariant, observationsBundlePath,
-				row.ObservationID.String(), row.ObservationID,
-			))
-		} else if !portableObservationEqual(expectedRow, row) {
-			*failures = append(*failures, indicatorFailure(
-				observationCoherentInvariant, observationsBundlePath,
-				row.ObservationID.String(), row.ObservationID,
-			))
-		}
-		seen[row.ObservationID] = struct{}{}
-	}
-	for _, row := range expected {
-		if _, present := seen[row.ObservationID]; !present {
-			*failures = append(*failures, indicatorFailure(
-				repeatedObservationInvariant, observationsBundlePath,
-				row.ObservationID.String(), row.ObservationID,
-			))
-		}
-	}
-}
-
-func portableIntervalSetsEqual(
-	expected []portableIntervalRow,
-	actual []portableIntervalRow,
-	failures *[]indicatorFailureCandidate,
-) {
-	want := make(map[uuid.UUID]portableIntervalRow, len(expected))
-	for _, row := range expected {
-		want[row.IntervalID] = row
-	}
-	seen := make(map[uuid.UUID]struct{}, len(actual))
-	for _, row := range actual {
-		expectedRow, present := want[row.IntervalID]
-		if !present || !portableIntervalEqual(expectedRow, row) {
-			*failures = append(*failures, indicatorFailure(
-				intervalCoherentInvariant, intervalsBundlePath,
-				row.IntervalID.String(), row.IntervalID,
-			))
-		}
-		seen[row.IntervalID] = struct{}{}
-	}
-	for _, row := range expected {
-		if _, present := seen[row.IntervalID]; !present {
-			*failures = append(*failures, indicatorFailure(
-				intervalCoherentInvariant, intervalsBundlePath,
-				row.IntervalID.String(), row.IntervalID,
-			))
-		}
-	}
 }
 
 func portableIndicatorEqual(left, right portableIndicatorRow) bool {

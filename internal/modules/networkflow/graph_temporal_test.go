@@ -239,9 +239,9 @@ func TestTimeBucketIdentityProjectionAndResponseMetadata_Unit(t *testing.T) {
 		t.Fatalf("project temporal graph: %#v", apiErr)
 	}
 	requireGraphBindingFixture(t, projection, map[string]string{
-		"graph_view_id":        "gv_7df57cb44e94c76ab30ed1463e14134833e634e09d420c514742274a53f4fa80",
+		"graph_view_id":        "gv_ff6c5570900217ec69d55d07ecd53acca48458b4c1923251d442bdb07ec0b6d2",
 		"source_owner_id":      "network_flow_activity",
-		"source_snapshot_id":   "nfsnap_f9729388b409ea9e2c1e3a01ba1deb4e095dd27d19ecc905211a1e9d8ef2bc32",
+		"source_snapshot_id":   "nfsnap_3c7303c7f1e5f71329baed9ea013c849c4b31827e2253a0a021d44b202201984",
 		"projection_schema_id": "graph_projection.v2",
 		"projection_version":   "network_flow_activity.time_bucket.v2",
 	})

@@ -11,7 +11,7 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "contract_major": 9,
+  "contract_major": 10,
   "errors": [
     {
       "code": "network_flow_invalid_request",
@@ -634,7 +634,8 @@ const value = {
       "error_code": "network_flow_graph_view_not_materialized",
       "reason_codes": [
         "initial_materialization_pending",
-        "initial_materialization_failed"
+        "initial_materialization_failed",
+        "unmaterialized"
       ]
     },
     {

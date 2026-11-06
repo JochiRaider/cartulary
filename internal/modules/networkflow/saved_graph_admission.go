@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const SavedGraphCutoverAlgorithmID = "network_flow_activity.orientation_cutover_v1"
+const SavedGraphCutoverAlgorithmID = "network_flow_activity.incident_portability_cutover_v1"
 
 var errSavedGraphCutoverIncompatible = errors.New("saved graph retained state is incompatible with the current contract")
 
@@ -103,7 +103,12 @@ func validateSavedGraphAdmissionReceipt(ctx context.Context, reader extensionsto
 	switch record.RouteKey {
 	case routeKeyGraphViewsCreate:
 		comparison["display_name"] = graph.DisplayName
-		comparison["semantic_query"] = payload["graph_view"].(map[string]any)["semantic_query"]
+		var intent graphRefreshIntent
+		if json.Unmarshal(graph.RefreshIntentJSON, &intent) != nil {
+			return errSavedGraphCutoverIncompatible
+		}
+		comparison["semantic_query"] = rawJSONValue(intent.SemanticQuery)
+		comparison["refresh_scope"] = intent.Scope
 	case routeKeyGraphViewsPatch:
 		comparison["display_name"] = graph.DisplayName
 		comparison["base_graph_view_version"] = graph.GraphViewVersion - 1

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	pathpkg "path"
 	"strings"
 	"unicode/utf8"
@@ -12,6 +13,7 @@ import (
 )
 
 var ErrInvalidStorageReference = errors.New("incident bundle: invalid storage reference")
+var ErrArchiveBytesExceeded = errors.New("incident bundle: archive byte limit exceeded")
 
 // BundleStorageRef is an opaque logical reference to a published incident
 // bundle. It never contains a host filesystem root.
@@ -51,11 +53,32 @@ func (reference BundleStagingRef) String() string {
 // Application assembly provides an implementation backed by an admitted
 // deployment capability.
 type BundleStorage interface {
-	Stage(context.Context, string, []byte) (BundleStagingRef, error)
-	Publish(context.Context, string, []byte) (BundleStorageRef, error)
-	ReadStaged(BundleStagingRef, int64) ([]byte, error)
+	Stage(context.Context, io.Reader, int64) (StagedBundle, error)
+	Publish(context.Context, string, int64, func(io.Writer) error) (PublishedBundle, error)
+	OpenStaged(BundleStagingRef, int64) (ArchiveSource, int64, error)
+	OpenPublished(context.Context, BundleStorageRef, ArchiveContent) (io.ReadCloser, error)
 	RemoveStaged(BundleStagingRef) error
 	RemovePublished(BundleStorageRef) error
+}
+
+type ArchiveSource interface {
+	io.ReaderAt
+	io.Closer
+}
+
+type ArchiveContent struct {
+	ByteSize int64
+	SHA256   string
+}
+
+type StagedBundle struct {
+	BundleStagingRef
+	ArchiveContent
+}
+
+type PublishedBundle struct {
+	BundleStorageRef
+	ArchiveContent
 }
 
 func validateStorageReference(raw string) error {

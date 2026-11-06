@@ -38,7 +38,7 @@ func (s *routeService) handleGraphViewsCollection(w http.ResponseWriter, r *http
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id": "cartulary.network_flow.graph_view_list.v5", "graph_views": resources,
+			"schema_id": "cartulary.network_flow.graph_view_list.v6", "graph_views": resources,
 		})
 	case http.MethodPost:
 		request, apiErr := decodeGraphViewCreateRequest(r, s.limits)
@@ -86,7 +86,7 @@ func (s *routeService) handleGraphViewResource(w http.ResponseWriter, r *http.Re
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id":  "cartulary.network_flow.graph_view_get.v5",
+			"schema_id":  "cartulary.network_flow.graph_view_get.v6",
 			"graph_view": graphViewResource(declaration),
 		})
 	case http.MethodPatch:
@@ -171,7 +171,7 @@ func (s *routeService) handleGraphViewResult(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"schema_id":  "cartulary.network_flow.graph_view_result.v5",
+		"schema_id":  "cartulary.network_flow.graph_view_result.v6",
 		"graph_view": graphViewResource(outcome.Declaration), "result": graphQueryResultResource(outcome.Composition),
 	})
 }
@@ -225,7 +225,9 @@ func decodeSavedGraphContributorRequest(r *http.Request, limits EffectiveLimits)
 
 func graphViewResource(declaration graphViewDeclaration) map[string]any {
 	var selected any
+	var selectedSource any
 	if declaration.SelectedResult != nil {
+		selectedSource = rawJSONValue(declaration.SelectedSourceBindingJSON)
 		selected = map[string]any{
 			"projection_result_id":            declaration.SelectedResult.ProjectionResultID,
 			"source_snapshot_id":              declaration.SelectedResult.SourceSnapshotID,
@@ -245,7 +247,7 @@ func graphViewResource(declaration graphViewDeclaration) map[string]any {
 		failure = *declaration.LastFailureCode
 	}
 	return map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view.v5", "graph_view_id": declaration.GraphViewID,
+		"schema_id": "cartulary.network_flow.graph_view.v6", "graph_view_id": declaration.GraphViewID,
 		"incident_id": declaration.IncidentID.String(), "display_name": declaration.DisplayName,
 		"semantic_query_sha256":      declaration.SemanticQuerySHA256,
 		"desired_source_snapshot_id": declaration.DesiredSourceSnapshotID,
@@ -253,6 +255,7 @@ func graphViewResource(declaration graphViewDeclaration) map[string]any {
 		"graph_view_version":         declaration.GraphViewVersion, "materialization_generation": declaration.MaterializationGeneration,
 		"state": declaration.DeclarationState, "semantic_query": rawJSONValue(declaration.SemanticQueryJSON),
 		"selected_result_binding": selected, "latest_job_id": latestJobID,
+		"refresh_intent": rawJSONValue(declaration.RefreshIntentJSON), "selected_source_binding": selectedSource,
 		"last_failure_code": failure, "last_failed_at": nullableGraphViewTimestamp(declaration.LastFailedAt),
 		"created_at": timestamp(declaration.CreatedAt), "updated_at": timestamp(declaration.UpdatedAt),
 	}
@@ -267,14 +270,14 @@ func nullableGraphViewTimestamp(value *time.Time) any {
 
 func graphViewAcceptedPayload(declaration graphViewDeclaration, jobID uuid.UUID) map[string]any {
 	return map[string]any{
-		"schema_id":  "cartulary.network_flow.graph_view_accepted.v5",
+		"schema_id":  "cartulary.network_flow.graph_view_accepted.v6",
 		"graph_view": graphViewResource(declaration),
 		"job":        map[string]any{"job_id": jobID.String(), "status_route": "/api/v1/jobs/" + jobID.String()},
 	}
 }
 
 func graphViewMutationPayload(declaration graphViewDeclaration) map[string]any {
-	return map[string]any{"schema_id": "cartulary.network_flow.graph_view_mutation_result.v5", "graph_view": graphViewResource(declaration)}
+	return map[string]any{"schema_id": "cartulary.network_flow.graph_view_mutation_result.v6", "graph_view": graphViewResource(declaration)}
 }
 
 func graphViewResultBinding(declaration graphViewDeclaration) graphprojection.ResultBindingV2 {

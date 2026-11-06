@@ -56,6 +56,15 @@
       "rationale": "Evidence-owned deterministic binary fixture payloads and construction support without service-starting entrypoints."
     },
     {
+      "path": "internal/modules/imports/testsupport",
+      "owner": "imports",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Imports-owned committed-source seeds for focused collaborator persistence checks without service-starting entrypoints."
+    },
+    {
       "path": "internal/modules/incidents/testsupport",
       "owner": "incidents",
       "posture": "owner_local",
@@ -191,6 +200,24 @@
       "rationale": "Shared transport, fixture, service lifecycle, process, Revisions composition, and owner-neutral assertion infrastructure."
     },
     {
+      "path": "internal/testutil/fixtureartifacts",
+      "owner": "shared_test_infrastructure",
+      "posture": "shared",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Owner-neutral confined file admission and retained-run resolution; no manifest semantics, workflows or service startup."
+    },
+    {
+      "path": "internal/testutil/irfixtures",
+      "owner": "imports",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "IR corpus admission, independent source expectations and comparison records; no product normalization or service orchestration."
+    },
+    {
       "path": "internal/testutil/networkflowfixtures",
       "owner": "networkflow",
       "posture": "owner_local",
@@ -198,6 +225,15 @@
       "support_scan": "included",
       "service_starting": false,
       "rationale": "Network Flow fixture file admission, immutable run-local materialization and comparison evidence; no product interpretation or service orchestration."
+    },
+    {
+      "path": "internal/testutil/portabilitysupport",
+      "owner": "incidentbundles",
+      "posture": "shared",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Bounded small-member capture for source-port owner assertions; bulk transport tests use streamed staged members."
     },
     {
       "path": "tools",

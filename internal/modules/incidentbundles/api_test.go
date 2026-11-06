@@ -36,6 +36,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -123,7 +124,7 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	files := minimalRequiredBundleFiles()
 	files["data/records.ndjson"] = []byte("{}\n")
 	files["data/artifacts.ndjson"] = []byte("{\"record_id\":\"33333333-3333-4333-8333-333333333333\"}\n")
-	first, err := buildBundleArchive(manifestInput{
+	first, err := buildFixtureBundleArchive(t, manifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
 		IncidentKey:          "INC-1",
@@ -138,7 +139,7 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	secondFiles := minimalRequiredBundleFiles()
 	secondFiles["data/records.ndjson"] = []byte("{}\n")
 	secondFiles["data/artifacts.ndjson"] = []byte("{\"record_id\":\"33333333-3333-4333-8333-333333333333\"}\n")
-	second, err := buildBundleArchive(manifestInput{
+	second, err := buildFixtureBundleArchive(t, manifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
 		IncidentKey:          "INC-1",
@@ -150,14 +151,14 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildBundleArchive second: %v", err)
 	}
-	if !bytes.Equal(first.Bytes, second.Bytes) {
+	if !bytes.Equal(archiveBytes(t, first), archiveBytes(t, second)) {
 		t.Fatal("deterministic bundle archive changed when input map order changed")
 	}
 	if first.ManifestSHA256 == "" || len(first.ChecksumLines) == 0 {
 		t.Fatalf("bundle result must expose manifest hash and checksums: %#v", first)
 	}
-	if first.Manifest.BundleVersion != 5 {
-		t.Fatalf("manifest bundle_version must be numeric 5, got %#v", first.Manifest.BundleVersion)
+	if first.Manifest.BundleVersion != 6 {
+		t.Fatalf("manifest bundle_version must be numeric 6, got %#v", first.Manifest.BundleVersion)
 	}
 	if first.Manifest.SourceChangeSetHighWatermark == "" {
 		t.Fatalf("manifest must expose source_change_set_high_watermark: %#v", first.Manifest)
@@ -178,6 +179,7 @@ func requireClosedRequiredSourceFileRegistry(t testing.TB) {
 	want := []string{
 		"data/incident.json",
 		"data/actors.ndjson",
+		"data/committed_sources.ndjson",
 		"data/records.ndjson",
 		"data/timeline_time_profiles.ndjson",
 		"data/timeline_records.ndjson",
@@ -217,7 +219,7 @@ func requireClosedRequiredSourceFileRegistry(t testing.TB) {
 
 	files := minimalRequiredBundleFiles()
 	delete(files, "data/parties.ndjson")
-	_, err := buildBundleArchive(manifestInput{
+	_, err := buildFixtureBundleArchive(t, manifestInput{
 		BundleID:          "55555555-5555-5555-5555-555555555555",
 		IncidentID:        "11111111-1111-1111-1111-111111111111",
 		IncidentKey:       "INC-1",
@@ -229,7 +231,7 @@ func requireClosedRequiredSourceFileRegistry(t testing.TB) {
 	}
 	files = minimalRequiredBundleFiles()
 	delete(files, "data/saved_views.ndjson")
-	_, err = buildBundleArchive(manifestInput{
+	_, err = buildFixtureBundleArchive(t, manifestInput{
 		BundleID:          "55555555-5555-5555-5555-555555555556",
 		IncidentID:        "11111111-1111-1111-1111-111111111111",
 		IncidentKey:       "INC-1",
@@ -243,7 +245,7 @@ func requireClosedRequiredSourceFileRegistry(t testing.TB) {
 
 func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	unsafe := newZip(t, map[string][]byte{"../manifest.json": []byte("{}")})
-	_, err := verifyBundle(verificationInput{
+	_, err := verifyBundleBytes(t, verificationBytesInput{
 		Bundle: unsafe,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024}},
 	})
@@ -252,7 +254,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	}
 
 	files := minimalRequiredBundleFiles()
-	bundle, err := buildBundleArchive(manifestInput{
+	bundle, err := buildFixtureBundleArchive(t, manifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
 		IncidentKey:          "INC-1",
@@ -263,15 +265,15 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildBundleArchive: %v", err)
 	}
-	_, err = verifyBundle(verificationInput{
-		Bundle: bundle.Bytes,
+	_, err = verifyBundleBytes(t, verificationBytesInput{
+		Bundle: archiveBytes(t, bundle),
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !errors.Is(err, errExtensionCapabilityNotSupported) {
 		t.Fatalf("required capability reason mismatch: %v", err)
 	}
 
-	validBundle, err := buildBundleArchive(manifestInput{
+	validBundle, err := buildFixtureBundleArchive(t, manifestInput{
 		BundleID:          "33333333-3333-3333-3333-333333333333",
 		IncidentID:        "11111111-1111-1111-1111-111111111111",
 		IncidentKey:       "INC-1",
@@ -281,8 +283,8 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildBundleArchive valid bundle: %v", err)
 	}
-	missingRequired := removeZipMember(t, validBundle.Bytes, "data/records.ndjson")
-	_, err = verifyBundle(verificationInput{
+	missingRequired := removeZipMember(t, archiveBytes(t, validBundle), "data/records.ndjson")
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: missingRequired,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -290,53 +292,53 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		t.Fatalf("missing required file reason mismatch: %v", err)
 	}
 
-	withZipDirectories := appendZipMember(t, appendZipMember(t, validBundle.Bytes, "data/", nil), "integrity/", nil)
-	if _, err = verifyBundle(verificationInput{
+	withZipDirectories := appendZipMember(t, appendZipMember(t, archiveBytes(t, validBundle), "data/", nil), "integrity/", nil)
+	if _, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: withZipDirectories,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); err != nil {
 		t.Fatalf("safe ZIP directory members must be ignored as structural entries: %v", err)
 	}
-	_, err = verifyBundle(verificationInput{
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: withZipDirectories,
-		Limits: Limits{Archives: ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, validBundle.Bytes)) + 1), MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, archiveBytes(t, validBundle))) + 1), MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "archive_member_count_exceeded") {
 		t.Fatalf("ZIP directory entries must count against member limits: %v", err)
 	}
-	unsafeDirectory := appendZipMember(t, validBundle.Bytes, "../data/", nil)
-	_, err = verifyBundle(verificationInput{
+	unsafeDirectory := appendZipMember(t, archiveBytes(t, validBundle), "../data/", nil)
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: unsafeDirectory,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "invalid_member_path") {
 		t.Fatalf("unsafe ZIP directory reason mismatch: %v", err)
 	}
-	unsupportedZipMember := appendZipSymlink(t, validBundle.Bytes, "data/member-link", "manifest.json")
-	_, err = verifyBundle(verificationInput{
+	unsupportedZipMember := appendZipSymlink(t, archiveBytes(t, validBundle), "data/member-link", "manifest.json")
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: unsupportedZipMember,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "unsupported_member_type") {
 		t.Fatalf("unsupported ZIP member reason mismatch: %v", err)
 	}
-	withTarDirectories := newTarGzip(t, []string{"data", "integrity/"}, zipFilesMap(t, validBundle.Bytes))
-	if _, err = verifyBundle(verificationInput{
+	withTarDirectories := newTarGzip(t, []string{"data", "integrity/"}, zipFilesMap(t, archiveBytes(t, validBundle)))
+	if _, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: withTarDirectories,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); err != nil {
 		t.Fatalf("safe TAR directory members must be ignored as structural entries: %v", err)
 	}
-	_, err = verifyBundle(verificationInput{
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: withTarDirectories,
-		Limits: Limits{Archives: ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, validBundle.Bytes)) + 1), MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+		Limits: Limits{Archives: ArchiveLimits{MaxMembers: int64(len(zipFilesMap(t, archiveBytes(t, validBundle))) + 1), MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !isVerificationReason(err, "archive_member_count_exceeded") {
 		t.Fatalf("TAR directory entries must count against member limits: %v", err)
 	}
 
-	withSignature := appendZipMember(t, validBundle.Bytes, "integrity/signature.ed25519", []byte("not-a-supported-signature"))
-	_, err = verifyBundle(verificationInput{
+	withSignature := appendZipMember(t, archiveBytes(t, validBundle), "integrity/signature.ed25519", []byte("not-a-supported-signature"))
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: withSignature,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -344,10 +346,10 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		t.Fatalf("signature reason mismatch: %v", err)
 	}
 
-	malformedMode := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
+	malformedMode := replaceManifestFields(t, archiveBytes(t, validBundle), func(manifest map[string]any) {
 		manifest["reference_pack_mode"] = "floating"
 	})
-	_, err = verifyBundle(verificationInput{
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: malformedMode,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -355,10 +357,10 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		t.Fatalf("invalid reference_pack_mode reason mismatch: %v", err)
 	}
 
-	malformedOptionalSection := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
+	malformedOptionalSection := replaceManifestFields(t, archiveBytes(t, validBundle), func(manifest map[string]any) {
 		manifest["optional_sections"] = []any{"unknown_section"}
 	})
-	_, err = verifyBundle(verificationInput{
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: malformedOptionalSection,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -366,20 +368,20 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		t.Fatalf("unknown optional_sections token reason mismatch: %v", err)
 	}
 
-	unsupportedRequired := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
+	unsupportedRequired := replaceManifestFields(t, archiveBytes(t, validBundle), func(manifest map[string]any) {
 		manifest["required_capabilities"] = []any{"snapshots"}
 	})
-	_, err = verifyBundle(verificationInput{
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: unsupportedRequired,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
 	if !errors.Is(err, errExtensionCapabilityNotSupported) {
 		t.Fatalf("unsupported required capability reason mismatch: %v", err)
 	}
-	malformedRequired := replaceManifestFields(t, validBundle.Bytes, func(manifest map[string]any) {
+	malformedRequired := replaceManifestFields(t, archiveBytes(t, validBundle), func(manifest map[string]any) {
 		manifest["required_capabilities"] = []any{1}
 	})
-	_, err = verifyBundle(verificationInput{
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: malformedRequired,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -389,7 +391,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	capabilityFiles := zipFilesMap(t, unsupportedRequired)
 	capabilityFiles["data/records.ndjson"] = append(capabilityFiles["data/records.ndjson"], []byte("{}\n")...)
 	capabilityWithBadChecksum := newZip(t, capabilityFiles)
-	_, err = verifyBundle(verificationInput{
+	_, err = verifyBundleBytes(t, verificationBytesInput{
 		Bundle: capabilityWithBadChecksum,
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	})
@@ -397,7 +399,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 		t.Fatalf("archive integrity must precede capability rejection: %v", err)
 	}
 
-	withKnownOptionalSection, err := buildBundleArchive(manifestInput{
+	withKnownOptionalSection, err := buildFixtureBundleArchive(t, manifestInput{
 		BundleID:             "44444444-4444-4444-4444-444444444444",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
 		IncidentKey:          "INC-1",
@@ -411,8 +413,8 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildBundleArchive optional section: %v", err)
 	}
-	if _, err = verifyBundle(verificationInput{
-		Bundle: withKnownOptionalSection.Bytes,
+	if _, err = verifyBundleBytes(t, verificationBytesInput{
+		Bundle: archiveBytes(t, withKnownOptionalSection),
 		Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 	}); err != nil {
 		t.Fatalf("known unsupported optional embedded section must not block core verification: %v", err)
@@ -421,7 +423,7 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 
 func TestVerifyBundleRejectsMalformedManifestVersion_Unit(t *testing.T) {
 	files := minimalRequiredBundleFiles()
-	bundle, err := buildBundleArchive(manifestInput{
+	bundle, err := buildFixtureBundleArchive(t, manifestInput{
 		BundleID:          "22222222-2222-4222-8222-222222222222",
 		IncidentID:        "11111111-1111-4111-8111-111111111111",
 		IncidentKey:       "INC-VERSION-MALFORMED",
@@ -439,8 +441,8 @@ func TestVerifyBundleRejectsMalformedManifestVersion_Unit(t *testing.T) {
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, verifyErr := verifyBundle(verificationInput{
-				Bundle: replaceManifestFields(t, bundle.Bytes, mutate),
+			_, verifyErr := verifyBundleBytes(t, verificationBytesInput{
+				Bundle: replaceManifestFields(t, archiveBytes(t, bundle), mutate),
 				Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 			})
 			if !isVerificationReason(verifyErr, "malformed_manifest") {
@@ -451,7 +453,7 @@ func TestVerifyBundleRejectsMalformedManifestVersion_Unit(t *testing.T) {
 }
 
 func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.T) {
-	bundle, err := buildBundleArchive(manifestInput{
+	bundle, err := buildFixtureBundleArchive(t, manifestInput{
 		BundleID:          "22222222-2222-4222-8222-222222222223",
 		IncidentID:        "11111111-1111-4111-8111-111111111111",
 		IncidentKey:       "INC-VERSION-CLOSED",
@@ -461,20 +463,20 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("buildBundleArchive: %v", err)
 	}
-	for _, version := range []int{5} {
-		original := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) { manifest["bundle_version"] = version })
-		verified, err := verifyBundle(verificationInput{Bundle: original, Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}}})
+	for _, version := range []int{6} {
+		original := replaceManifestFields(t, archiveBytes(t, bundle), func(manifest map[string]any) { manifest["bundle_version"] = version })
+		verified, err := verifyBundleBytes(t, verificationBytesInput{Bundle: original, Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}}})
 		if err != nil || verified.Manifest.BundleVersion != version {
 			t.Fatalf("original version %d integrity admission: %v", version, err)
 		}
 	}
 
-	for _, version := range []int{1, 2, 3, 4, 6} {
+	for _, version := range []int{1, 2, 3, 4, 5, 7} {
 		t.Run(fmt.Sprintf("unsupported_version_%d", version), func(t *testing.T) {
-			unsupported := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
+			unsupported := replaceManifestFields(t, archiveBytes(t, bundle), func(manifest map[string]any) {
 				manifest["bundle_version"] = version
 			})
-			if _, verifyErr := verifyBundle(verificationInput{
+			if _, verifyErr := verifyBundleBytes(t, verificationBytesInput{
 				Bundle: unsupported,
 				Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 			}); !isVerificationReason(verifyErr, "unsupported_bundle_version") {
@@ -490,11 +492,11 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 		"unknown core member":      {"data/unknown.ndjson"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			mixedFiles := zipFilesMap(t, bundle.Bytes)
+			mixedFiles := zipFilesMap(t, archiveBytes(t, bundle))
 			for _, path := range additionalPaths {
 				mixedFiles[path] = []byte{}
 			}
-			if _, verifyErr := verifyBundle(verificationInput{
+			if _, verifyErr := verifyBundleBytes(t, verificationBytesInput{
 				Bundle: zipFromFiles(t, mixedFiles),
 				Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
 			}); !isVerificationReason(verifyErr, "malformed_manifest") {
@@ -505,7 +507,7 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 }
 
 func TestWorkerRejectsRetiredVersionBeforePreparationAndTransaction_Unit(t *testing.T) {
-	bundle, err := buildBundleArchive(manifestInput{
+	bundle, err := buildFixtureBundleArchive(t, manifestInput{
 		BundleID:          "22222222-2222-4222-8222-222222222224",
 		IncidentID:        "11111111-1111-4111-8111-111111111111",
 		IncidentKey:       "INC-RETIRED-VERSION-BOUNDARY",
@@ -515,7 +517,7 @@ func TestWorkerRejectsRetiredVersionBeforePreparationAndTransaction_Unit(t *test
 	if err != nil {
 		t.Fatalf("buildBundleArchive: %v", err)
 	}
-	retired := replaceManifestFields(t, bundle.Bytes, func(manifest map[string]any) {
+	retired := replaceManifestFields(t, archiveBytes(t, bundle), func(manifest map[string]any) {
 		manifest["bundle_version"] = 2
 	})
 	stagingRef, err := ParseBundleStagingRef("incident-bundles/imports/retired-version.bundle")
@@ -529,6 +531,7 @@ func TestWorkerRejectsRetiredVersionBeforePreparationAndTransaction_Unit(t *test
 		jobManager: manager,
 		results:    incidentBundleJobResultSink{manager: manager},
 		storage:    storage,
+		staging:    newWorkerArchiveStaging(t),
 		limits: Limits{
 			Archives:        ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100},
 			IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024},
@@ -539,12 +542,15 @@ func TestWorkerRejectsRetiredVersionBeforePreparationAndTransaction_Unit(t *test
 		portability:   extensionPreparationTripwire{boundaries: boundaries},
 		transactions:  transactionExecutionTripwire{boundaries: boundaries},
 	}
-	worker.executeImportJob(context.Background(), jobs.Execution{}, jobPayload{
+	uploadedSHA := hashHex(retired)
+	payload := jobPayload{
+		UploadedSHA256:   &uploadedSHA,
 		JobKind:          "import",
 		JobID:            uuid.MustParse("44444444-4444-4444-8444-444444444445"),
 		ActorUserID:      uuid.MustParse("55555555-5555-4555-8555-555555555555"),
 		BundleStagingRef: &stagingRef,
-	})
+	}
+	worker.executeImportJob(context.Background(), jobs.Execution{}, payload)
 	if manager.failed == nil || manager.failed.ErrorSummary.Code != "incident_bundle_import_rejected" ||
 		manager.failed.ErrorSummary.Retryable ||
 		manager.failed.ErrorSummary.Details["reason_code"] != "unsupported_bundle_version" {
@@ -556,6 +562,17 @@ func TestWorkerRejectsRetiredVersionBeforePreparationAndTransaction_Unit(t *test
 	if boundaries.sourcePreparation || boundaries.extensionPreparation || boundaries.publicationValidation || boundaries.transactionExecution {
 		t.Fatalf("retired version reached downstream boundaries: %#v", boundaries)
 	}
+	// Another internally valid archive must still match the admitted upload.
+	storage.staged = archiveBytes(t, bundle)
+	manager.failed = nil
+	worker.executeImportJob(context.Background(), jobs.Execution{}, payload)
+	if manager.failed == nil || manager.failed.ErrorSummary.Code != "incident_bundle_import_rejected" || manager.failed.ErrorSummary.Details["reason_code"] != "checksum_mismatch" {
+		t.Fatalf("replacement archive completion = %#v", manager.failed)
+	}
+	if boundaries.sourcePreparation || boundaries.extensionPreparation || boundaries.publicationValidation || boundaries.transactionExecution {
+		t.Fatalf("replacement reached downstream boundaries: %#v", boundaries)
+	}
+
 }
 
 type importBoundaryTripwires struct {
@@ -578,11 +595,11 @@ type extensionPreparationTripwire struct {
 	boundaries *importBoundaryTripwires
 }
 
-func (t extensionPreparationTripwire) Export(context.Context, StatePresenceQuery, uuid.UUID) ([]ExtensionPayload, error) {
+func (t extensionPreparationTripwire) Export(context.Context, ExportSnapshotQuery, uuid.UUID, incidentportability.MemberWriter, incidentportability.ActorReferences) error {
 	panic("retired bundle reached the export-only extension boundary")
 }
 
-func (t extensionPreparationTripwire) PrepareImport(context.Context, string, uuid.UUID, map[string][]byte) (PreparedPortability, error) {
+func (t extensionPreparationTripwire) PrepareImport(context.Context, PortabilityImportContext, incidentportability.MemberReader) (PreparedPortability, error) {
 	t.boundaries.extensionPreparation = true
 	panic("retired bundle reached extension preparation")
 }
@@ -742,6 +759,17 @@ func TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit(t *testing.T
 }
 
 var incidentBundleExportAllowlist = map[string]struct{}{
+	"ArchiveContent":                 {},
+	"ArchiveSource":                  {},
+	"ErrArchiveBytesExceeded":        {},
+	"ImportDependencyAccess":         {},
+	"ImportDependencyFactory":        {},
+	"NewImportedAttributionRecorder": {},
+	"PortableSourceAttributions":     {},
+	"PreparationMembers":             {},
+	"PublishedBundle":                {},
+	"StagedBundle":                   {},
+
 	"ArtifactReferenceSource":                     {},
 	"ArchiveLimits":                               {},
 	"BlobPortability":                             {},
@@ -754,7 +782,6 @@ var incidentBundleExportAllowlist = map[string]struct{}{
 	"ClaimStateClaimed":                           {},
 	"ClaimStateRecognizedUnclaimable":             {},
 	"ClaimStateUnclaimed":                         {},
-	"EncodeExtensionPayload":                      {},
 	"ErrInvalidStorageReference":                  {},
 	"ErrJobFinalizationIndeterminate":             {},
 	"ErrPortabilityBlocked":                       {},
@@ -767,8 +794,13 @@ var incidentBundleExportAllowlist = map[string]struct{}{
 	"ExtensionExportResultSchema":                 {},
 	"ExtensionImportResultSchema":                 {},
 	"ExtensionParticipant":                        {},
-	"ExtensionPayload":                            {},
-	"ExtensionPayloadSchema":                      {},
+	"ExtensionMemberCatalogSchema":                {},
+	"ExportSnapshotQuery":                         {},
+	"ExportReadCapability":                        {},
+	"ExportReadFactory":                           {},
+	"PortabilityImportContext":                    {},
+	"PortabilityOptions":                          {},
+	"PortabilityStagedOutputScope.AllocateStream": {},
 	"ExtensionPolicy":                             {},
 	"ImportInvocation":                            {},
 	"ImportPreparation":                           {},
@@ -956,6 +988,7 @@ func TestErrorRegistryUsesExactClosedIncidentBundleSets_Unit(t *testing.T) {
 			"missing_required_file",
 		},
 		"incident_bundle_import_rejected": {
+			"archive_bytes_exceeded",
 			"archive_compression_ratio_exceeded",
 			"archive_extracted_bytes_exceeded",
 			"archive_member_count_exceeded",
@@ -1114,6 +1147,7 @@ func TestClaimedIncidentPortabilityRejectsMissingJobsBeforePublication_Unit(t *t
 
 func moduleTestDependencies() ModuleDependencies {
 	return ModuleDependencies{
+		Staging:                 moduleStagingStub{},
 		Postgres:                &pgxpool.Pool{},
 		JobTransactions:         jobAdmissionStub{},
 		JobOperations:           &recordingJobOperations{},
@@ -1202,16 +1236,20 @@ func (jobAdmissionStub) ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execut
 
 type bundleStorageStub struct{}
 
-func (bundleStorageStub) Stage(context.Context, string, []byte) (BundleStagingRef, error) {
-	return BundleStagingRef{}, nil
+func (bundleStorageStub) Stage(context.Context, io.Reader, int64) (StagedBundle, error) {
+	return StagedBundle{}, nil
 }
 
-func (bundleStorageStub) Publish(context.Context, string, []byte) (BundleStorageRef, error) {
-	return BundleStorageRef{}, nil
+func (bundleStorageStub) Publish(context.Context, string, int64, func(io.Writer) error) (PublishedBundle, error) {
+	return PublishedBundle{}, nil
 }
 
-func (bundleStorageStub) ReadStaged(BundleStagingRef, int64) ([]byte, error) {
-	return nil, nil
+func (bundleStorageStub) OpenPublished(context.Context, BundleStorageRef, ArchiveContent) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader(nil)), nil
+}
+
+func (bundleStorageStub) OpenStaged(BundleStagingRef, int64) (ArchiveSource, int64, error) {
+	return testArchiveSource{bytes.NewReader(nil)}, 0, nil
 }
 
 func (bundleStorageStub) RemoveStaged(BundleStagingRef) error {
@@ -1339,14 +1377,29 @@ func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 		}
 	})
 
-	t.Run("prepared import cleanup uses the private blob consumer port", func(t *testing.T) {
-		blob := &recordingBlobPortability{}
-		prepared := &preparedImport{blobPort: blob, stagedObjectKeys: []string{"staged/one", "staged/two"}}
-		prepared.cleanup(context.Background())
-		if !slices.Equal(blob.cleaned, []string{"staged/one", "staged/two"}) || len(prepared.stagedObjectKeys) != 0 {
-			t.Fatalf("private blob cleanup seam = cleaned %#v remaining %#v", blob.cleaned, prepared.stagedObjectKeys)
+	t.Run("prepared import cleanup abandons operation-owned objects", func(t *testing.T) {
+		allocator := &portabilityAllocatorFake{}
+		scope, err := stagedobjects.NewScope("cleanup", "evidence", allocator)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, err := scope.Allocate(context.Background(), "cleanup", []byte("source"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		objects, err := scope.PrepareResources([]stagedobjects.Publication{{StagingID: id, ResourceKind: "object_blob", ResourceID: "blob", ByteSize: 6, SHA256: digestBytes([]byte("source"))}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		prepared := &preparedImport{stagedObjects: objects}
+		if err := prepared.cleanup(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if len(allocator.abandoned) != 1 {
+			t.Fatalf("abandoned = %#v", allocator.abandoned)
 		}
 	})
+
 }
 
 type recordingBundleStorage struct {
@@ -1356,17 +1409,21 @@ type recordingBundleStorage struct {
 	stagedRemovals int
 }
 
-func (*recordingBundleStorage) Stage(context.Context, string, []byte) (BundleStagingRef, error) {
-	return BundleStagingRef{}, nil
+func (*recordingBundleStorage) Stage(context.Context, io.Reader, int64) (StagedBundle, error) {
+	return StagedBundle{}, nil
 }
 
-func (*recordingBundleStorage) Publish(context.Context, string, []byte) (BundleStorageRef, error) {
-	return BundleStorageRef{}, nil
+func (*recordingBundleStorage) Publish(context.Context, string, int64, func(io.Writer) error) (PublishedBundle, error) {
+	return PublishedBundle{}, nil
 }
 
-func (s *recordingBundleStorage) ReadStaged(BundleStagingRef, int64) ([]byte, error) {
+func (s *recordingBundleStorage) OpenPublished(context.Context, BundleStorageRef, ArchiveContent) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader(nil)), nil
+}
+
+func (s *recordingBundleStorage) OpenStaged(BundleStagingRef, int64) (ArchiveSource, int64, error) {
 	s.stagedReads++
-	return append([]byte(nil), s.staged...), nil
+	return testArchiveSource{bytes.NewReader(s.staged)}, int64(len(s.staged)), nil
 }
 
 func (s *recordingBundleStorage) RemoveStaged(BundleStagingRef) error {
@@ -1386,22 +1443,24 @@ type recordingJobOperations struct {
 	getResource jobs.Resource
 }
 
-type recordingBlobPortability struct {
-	cleaned []string
-}
+type recordingBlobPortability struct{}
 
 var _ BlobPortability = (*recordingBlobPortability)(nil)
 
-func (*recordingBlobPortability) ExportBlobFiles(context.Context, incidentportability.Queryer, uuid.UUID, map[string][]byte) error {
+func (*recordingBlobPortability) ExportBlobFiles(context.Context, incidentportability.Queryer, uuid.UUID, incidentportability.MemberWriter) error {
 	return nil
 }
 
-func (*recordingBlobPortability) RewriteAndStageObjectBlobs(context.Context, map[string][]byte, uuid.UUID, uuid.UUID, incidentportability.AttributionRecorder) ([]byte, []string, error) {
-	return []byte("[]\n"), []string{"staged/object"}, nil
-}
-
-func (p *recordingBlobPortability) CleanupStagedObjects(_ context.Context, keys []string) {
-	p.cleaned = append(p.cleaned, keys...)
+func (*recordingBlobPortability) RewriteAndStageObjectBlobs(ctx context.Context, _ incidentportability.MemberReader, destination incidentportability.MemberWriter, _ uuid.UUID, _ string) (*stagedobjects.PreparedResources, error) {
+	_, err := destination.WriteMember(ctx, "data/object_blobs.ndjson", strings.NewReader(""))
+	if err != nil {
+		return nil, err
+	}
+	scope, err := stagedobjects.NewScope("test-operation", "evidence", &portabilityAllocatorFake{})
+	if err != nil {
+		return nil, err
+	}
+	return scope.PrepareResources(nil)
 }
 
 func (o *recordingJobOperations) Get(ctx context.Context, _ uuid.UUID) (jobs.Resource, error) {
@@ -1909,3 +1968,18 @@ func (referenceRetentionStub) PrepareArtifactImport(context.Context, artifactpor
 type emptyArtifactPreparation struct{}
 
 func (emptyArtifactPreparation) ApplyTx(context.Context, pgx.Tx) error { return nil }
+
+type moduleStagingStub struct{}
+
+func (moduleStagingStub) Allocate(context.Context, string, string, []byte) (stagedobjects.Reference, error) {
+	panic("unexpected module staging")
+}
+func (moduleStagingStub) Abandon(context.Context, stagedobjects.Reference) error {
+	panic("unexpected module staging")
+}
+func (moduleStagingStub) AllocateStream(context.Context, string, string, io.Reader, int64) (stagedobjects.SealedReference, error) {
+	panic("unexpected module stream")
+}
+func (moduleStagingStub) OpenSealed(context.Context, string, string, stagedobjects.SealedReference) (io.ReadCloser, error) {
+	panic("unexpected module stream")
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
@@ -16,6 +17,7 @@ var ErrJobFinalizationIndeterminate = errors.New("incident bundle job finalizati
 type JobSuccessMutation func(context.Context, pgx.Tx) error
 
 type JobSuccessFinalization struct {
+	Publications  []stagedobjects.PublicationPlan
 	Execution     jobs.Execution
 	Completion    jobs.SuccessCompletion
 	FinalCommitID string
@@ -46,6 +48,7 @@ type JobSuccessFinalizer interface {
 }
 
 type importJobTransactionFinalizer struct {
+	publications   []stagedobjects.PublicationPlan
 	finalizer      JobSuccessFinalizer
 	execution      jobs.Execution
 	manifestSHA256 string
@@ -68,8 +71,9 @@ func (f importJobTransactionFinalizer) Publish(
 		ctx,
 		capability,
 		JobSuccessFinalization{
-			Execution:  f.execution,
-			Completion: importSuccessCompletion(result.IncidentID),
+			Execution:    f.execution,
+			Publications: f.publications,
+			Completion:   importSuccessCompletion(result.IncidentID),
 			FinalCommitID: "incident_portability.import:" +
 				result.IncidentID.String() + ":" + f.manifestSHA256,
 		},

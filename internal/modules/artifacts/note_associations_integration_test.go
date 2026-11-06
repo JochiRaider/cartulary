@@ -89,7 +89,7 @@ func TestNoteAssociationResource(t *testing.T) {
 			t.Errorf("%d pool reads escaped an open mutation transaction", escaped)
 		}
 	})
-	f, err := workbookassembly.NewArtifactMutationContribution(observedDB, conflicttest.NewCodec("associations"), revisionsupport.MustAppender(t), revisionsupport.MustConflictFieldResolver(t), appsupport.ArtifactProjectionRows(h.DB), collaborationsupport.NewRecordChangedAppender())
+	f, err := workbookassembly.NewArtifactMutationContribution(observedDB, conflicttest.NewCodec("associations"), revisionsupport.MustAppender(t), revisionsupport.MustConflictFieldResolver(t), appsupport.ArtifactProjectionRows(h.DB), appsupport.LinkProjectionRows(h.DB), collaborationsupport.NewRecordChangedAppender())
 	if err != nil {
 		t.Fatal(err)
 	}

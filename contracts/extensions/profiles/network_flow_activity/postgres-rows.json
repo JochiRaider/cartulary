@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.network_flow_activity.postgres_rows.v2",
+  "schema_id": "cartulary.network_flow_activity.postgres_rows.v3",
   "profile_id": "network_flow_activity",
   "families": [
     {
@@ -74,6 +74,11 @@
           "nullable": false
         },
         {
+          "field_id": "refresh_intent_json",
+          "value_kind": "json",
+          "nullable": false
+        },
+        {
           "field_id": "retired_at",
           "value_kind": "timestamp",
           "nullable": true
@@ -106,6 +111,11 @@
         {
           "field_id": "selected_projection_version",
           "value_kind": "text",
+          "nullable": true
+        },
+        {
+          "field_id": "selected_source_binding_json",
+          "value_kind": "json",
           "nullable": true
         },
         {
@@ -467,6 +477,11 @@
       ],
       "fields": [
         {
+          "field_id": "committed_source_id",
+          "value_kind": "uuid",
+          "nullable": false
+        },
+        {
           "field_id": "created_at",
           "value_kind": "timestamp",
           "nullable": false
@@ -542,18 +557,18 @@
           "nullable": false
         },
         {
-          "field_id": "source_import_session_id",
-          "value_kind": "uuid",
-          "nullable": false
-        },
-        {
-          "field_id": "source_import_unit_id",
-          "value_kind": "uuid",
+          "field_id": "source_interpretation_sha256",
+          "value_kind": "text",
           "nullable": false
         },
         {
           "field_id": "source_profile_id",
           "value_kind": "text",
+          "nullable": false
+        },
+        {
+          "field_id": "source_raw_cell_scalar_limit",
+          "value_kind": "int64",
           "nullable": false
         },
         {

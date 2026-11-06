@@ -65,6 +65,13 @@ function checkedSourceText(root, entry) {
 }
 
 function commonDependencyPaths(catalog, rows, entries) {
+  const fixtureRoots = fixtureInputRoots(rows);
+  for (const fixtureRoot of fixtureRoots) {
+    const members = entries.filter((entry) => under(entry.path, fixtureRoot));
+    if (members.length === 0 || members.some((entry) => entry.kind !== "file")) {
+      throw new Error("fixture dependency is absent or unsafe");
+    }
+  }
   const selectedOwners = new Set(
     rows.flatMap((row) => [row.owner_id, ...(row.collaborator_ids ?? [])]),
   );
@@ -107,9 +114,14 @@ function commonDependencyPaths(catalog, rows, entries) {
   ];
   return entries.filter((entry) =>
     exact.has(entry.path) ||
+    fixtureRoots.some((fixtureRoot) => under(entry.path, fixtureRoot)) ||
     prefixes.some((prefix) => entry.path.startsWith(prefix)) ||
     /^tools\/(?:generate|render)/u.test(entry.path),
   );
+}
+
+function fixtureInputRoots(rows) {
+  return [...new Set(rows.flatMap((row) => row.fixture_input_roots ?? []))].sort(compareASCII);
 }
 
 function selectedOwnerIDs(rows) {
@@ -142,6 +154,7 @@ function goPackageClosure(root, entries, rows, catalog, resolverCache) {
   const cacheKey = closureCacheKey("go", {
     owners: selectedOwnerIDs(rows),
     packages: initialPackages,
+    fixture_roots: fixtureInputRoots(rows),
   });
   if (resolverCache?.has(cacheKey)) return resolverCache.get(cacheKey);
   if (initialPackages.some((packagePath) => packagePath === "" || packagePath.startsWith("../"))) {
@@ -297,6 +310,7 @@ function typescriptWorkspaceClosure(root, entries, rows, catalog, resolverCache)
   const cacheKey = closureCacheKey("typescript", {
     owners: selectedOwnerIDs(rows),
     workspaces: [...selected.values()].map((workspace) => workspace.root).sort(compareASCII),
+    fixture_roots: fixtureInputRoots(rows),
   });
   if (resolverCache?.has(cacheKey)) return resolverCache.get(cacheKey);
   const selectedDependencies = cached(

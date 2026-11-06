@@ -62,7 +62,9 @@ func TestRecoveryTargetControlInitializationAndPrivileges_Integration(t *testing
 			assertRecoveryControlSQLState(t, err, "23514")
 		}
 	})
-	t.Run("retained initialized data becomes unproven", func(t *testing.T) {
+	t.Run("retained predecessor rejects before control initialization", func(t *testing.T) {
+		// Historical generation 34 must remain untouched, including its absence
+		// of the current Recovery control record. No conversion is attempted.
 		target := h.MigrationDatabaseThroughT(t, 34)
 		work := target.SQL()
 		if _, err := work.ExecContext(t.Context(), `INSERT INTO public.application_crypto_format (singleton,format_id) VALUES (true,$1)`, migrations.ApplicationCryptoFormat); err != nil {
@@ -83,13 +85,15 @@ func TestRecoveryTargetControlInitializationAndPrivileges_Integration(t *testing
 			t.Fatal(err)
 		}
 		guard := recoveryControlPurposeDB(t, identity.DSN, postgres.PurposeMigration)
-		if err := migrations.ApplyWithCryptoAdmission(t.Context(), work, guard, source, func(context.Context) error {
+		err = migrations.ApplyWithCryptoAdmission(t.Context(), work, guard, source, func(context.Context) error {
 			t.Error("retained state was incorrectly treated as fresh initialization")
 			return errors.New("unexpected freshness admission")
-		}); err != nil {
-			t.Fatal(err)
+		})
+		requireExternalMigrationFailureReason(t, err, "schema_fresh_state_required")
+		var controlAbsent bool
+		if err := work.QueryRowContext(t.Context(), `SELECT to_regclass('public.recovery_target_state') IS NULL`).Scan(&controlAbsent); err != nil || !controlAbsent {
+			t.Fatalf("predecessor rejection initialized current Recovery control: absent=%t err=%v", controlAbsent, err)
 		}
-		assertInitialRecoveryControl(t, work, "unproven")
 		if err := work.QueryRowContext(t.Context(), retained).Scan(&after); err != nil || after != before {
 			t.Fatalf("increment changed retained profile metadata: equal=%t error=%v", before == after, err)
 		}

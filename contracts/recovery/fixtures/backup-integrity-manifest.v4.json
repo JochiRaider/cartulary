@@ -11,7 +11,7 @@
   "artifacts": [
     {
       "kind": "graph_projection_restore_implementation_binding",
-      "schema_id": "cartulary.graph_projection_restore_implementation_binding.v8",
+      "schema_id": "cartulary.graph_projection_restore_implementation_binding.v9",
       "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/implementation-binding",
       "content_type": "application/json",
       "plaintext_bytes": 632,

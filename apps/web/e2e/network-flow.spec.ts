@@ -1712,10 +1712,22 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
   page,
   networkFlowMinimalCSV,
 }) => {
+  const socketMonitorRef: {
+    current: ReturnType<typeof installIncidentSocketMonitor> | null;
+  } = { current: null };
   const incidentId = await openClaimedNetworkAnalysis(
     page,
     "NFTABLECONTINUITY",
+    {
+      onIncidentCreated: (id) => {
+        socketMonitorRef.current = installIncidentSocketMonitor(page, id);
+      },
+    },
   );
+  const tableSocket = socketMonitorRef.current;
+  if (tableSocket === null)
+    throw new Error("network_flow_table_socket_monitor_not_installed");
+  await tableSocket.waitForMessage("hello_ack");
   await importNetworkFlowCSV(page, {
     displayName: "table-source",
     file: networkFlowMinimalCSV,
@@ -1773,8 +1785,19 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
   await dialog
     .getByRole("button", { name: "Review current table" })
     .press("Enter");
+  const renameEventStartAt = tableSocket.messageCount();
   await page.getByTestId(networkAnalysisTestId("rename-input")).press("Enter");
   await expect(dialog).toHaveCount(0);
+  // Receipt and collaboration delivery settle independently. Observe this
+  // rename's invalidation before opening the next draft for fault injection.
+  await tableSocket.waitForMessage("extension_resource_changed", {
+    startAt: renameEventStartAt,
+    matches: (message) =>
+      message.payload.extension_profile_id === "network_flow_activity" &&
+      message.payload.resource_kind === "network_flow_table" &&
+      message.payload.resource_id === tableId &&
+      message.payload.reason_code === "renamed",
+  });
   await expect(trigger).toBeFocused();
   await expect(page.getByRole("tab", { name: /Café/u })).toBeVisible();
   await expect(contributors).not.toBeVisible();

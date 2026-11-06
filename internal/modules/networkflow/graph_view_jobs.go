@@ -200,6 +200,10 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 	}
 	completed.PublishedAt = m.now().UTC()
 	selected := graphViewSelectedResultFromBinding(completed.Binding)
+	selectedSource, err := bindSelectedSource(composition, selected)
+	if err != nil {
+		return err
+	}
 	total := 1
 	publicationStarted := time.Now()
 	_, err = m.jobFinalizer.FinalizeGraphViewJobSuccess(context.WithoutCancel(ctx), GraphViewJobSuccessFinalization{
@@ -235,7 +239,7 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 			_, publisherErr = m.store.PublishGraphViewResultTx(
 				finalizeCtx, tx, payload.IncidentID, payload.GraphViewID,
 				payload.MaterializationGeneration, payload.SourceSnapshotID,
-				execution.JobID(), selected, completed.PublishedAt,
+				execution.JobID(), selected, selectedSource, completed.PublishedAt,
 			)
 			return publisherErr
 		},

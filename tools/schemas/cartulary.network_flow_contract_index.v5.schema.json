@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_contract_index.v5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_id",
+    "profile_id",
+    "contract_major",
+    "family_id",
+    "owner_id",
+    "contract_files",
+    "public_schema_ids",
+    "closure_policy"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "schema_id": {
+      "const": "cartulary.network_flow_contract_index.v5"
+    },
+    "profile_id": {
+      "const": "network_flow_activity"
+    },
+    "contract_major": {
+      "const": 10
+    },
+    "family_id": {
+      "const": "network-flow"
+    },
+    "contract_files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "routes",
+        "schemas",
+        "errors",
+        "import_facade_binding",
+        "import_owner_error",
+        "timezone_provenance",
+        "key_rings",
+        "mapping_registry",
+        "presentation",
+        "reporting_graph_source",
+        "resource_limits",
+        "resource_limits_configuration_schema",
+        "graph_semantics",
+        "operation_policy"
+      ],
+      "properties": {
+        "routes": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "schemas": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "errors": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "import_facade_binding": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "import_owner_error": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "timezone_provenance": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "key_rings": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "mapping_registry": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "presentation": {
+          "$ref": "#/$defs/repo_json_path"
+        },
+        "reporting_graph_source": {
+          "const": "contracts/network-flow/reporting-graph-source.v3.schema.json"
+        },
+        "resource_limits": {
+          "const": "contracts/network-flow/resource-limits.v2.json"
+        },
+        "resource_limits_configuration_schema": {
+          "const": "contracts/network-flow/resource-limits-config.v2.schema.json"
+        },
+        "graph_semantics": {
+          "const": "contracts/network-flow/graph-semantics.v3.json"
+        },
+        "operation_policy": {
+          "const": "contracts/network-flow/operation-policy.v3.json"
+        }
+      }
+    },
+    "public_schema_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^cartulary\\.network_flow[.a-z0-9_]+\\.v[1-9][0-9]*$"
+      }
+    },
+    "closure_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "objects_closed_by_default",
+        "dynamic_maps_must_name_key_pattern",
+        "raw_source_values_forbidden_outside_diagnostics"
+      ],
+      "properties": {
+        "objects_closed_by_default": {
+          "const": true
+        },
+        "dynamic_maps_must_name_key_pattern": {
+          "const": true
+        },
+        "raw_source_values_forbidden_outside_diagnostics": {
+          "const": true
+        }
+      }
+    },
+    "owner_id": {
+      "const": "module.networkflow"
+    }
+  },
+  "$defs": {
+    "repo_json_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^contracts/network-flow/[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*\\.json$"
+    }
+  }
+}

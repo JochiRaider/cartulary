@@ -168,7 +168,7 @@ test("catalog entry rejects legacy and hybrid topology before selector work", ()
 });
 
 
-test("runtime binary declarations are row-owned, registered, sorted and Go-only", () => {
+test("runtime binary declarations are row-owned, registered and sorted for process consumers", () => {
   const read = fs.readFileSync;
   const manifestPath = path.join(root, "tools/test_families/module.reporting.json");
   let ids = ["operator"], runner = "go";
@@ -188,7 +188,9 @@ test("runtime binary declarations are row-owned, registered, sorted and Go-only"
       ids = invalid;
       assert.throws(() => createContractTestContext(root).catalogMetadata, /runtime_binary|runtime binary|ASCII|validation/u);
     }
-    ids = ["operator"]; runner = "vitest";
+    ids = ["operator"]; runner = "playwright";
+    assert.ok(createContractTestContext(root).catalogMetadata.rows.some((row) => row.runner === "playwright" && row.runtime_binary_ids?.includes("operator")));
+    runner = "vitest";
     assert.throws(() => createContractTestContext(root).catalogMetadata, /runtime_binary|validation/u);
   } finally {
     fs.readFileSync = read;

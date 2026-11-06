@@ -69,11 +69,12 @@ func TestIndicatorSourceStateProjectionsHaveExactParity(t *testing.T) {
 		recoverystate.AuthoritativeTables("indicator_observations", "indicator_state_intervals", "indicators"),
 		recoverystate.RebuildableTables("indicators.restore_active_identities.v1", "indicator_active_identities")...,
 	)
+	wantTables = append(wantTables, recoverystate.TransientStateTables("indicators.invalidate_bundle_validation.v1", "indicators_bundle_validation_sources")...)
 	if recoveryContribution.OwnerID != "module.indicators" ||
 		recoveryContribution.SchemaID != recoverystate.ContributionSchemaID ||
 		!reflect.DeepEqual(recoveryContribution.Tables, wantTables) ||
 		len(recoveryContribution.ObjectFamilies) != 0 {
-		t.Fatalf("runtime Recovery contribution = %#v, want exact 3 authoritative / 1 rebuildable inventory", recoveryContribution)
+		t.Fatalf("runtime Recovery contribution = %#v, want exact 3 authoritative / 1 rebuildable / 1 transient inventory", recoveryContribution)
 	}
 }
 

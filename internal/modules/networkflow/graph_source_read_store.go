@@ -30,6 +30,10 @@ func (s *graphSourceReadStore) ListActiveTables(ctx context.Context, incidentID 
 	return scanTables(rows)
 }
 
+func (s *graphSourceReadStore) GetRetainedTable(ctx context.Context, incidentID uuid.UUID, tableID string) (tableRecord, error) {
+	return getTable(ctx, s.reader, incidentID, tableID, false)
+}
+
 func (s *graphSourceReadStore) GetActiveTable(ctx context.Context, incidentID uuid.UUID, tableID string) (tableRecord, error) {
 	table, err := getTable(ctx, s.reader, incidentID, tableID, false)
 	if err != nil {

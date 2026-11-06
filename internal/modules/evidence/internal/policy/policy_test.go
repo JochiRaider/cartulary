@@ -159,7 +159,7 @@ func TestReferencePolicy(t *testing.T) {
 	t.Parallel()
 	incidentID := uuid.New()
 	objectBlobID := uuid.New()
-	key, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID)
+	key, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID, uuid.New())
 	if err != nil {
 		t.Fatal(err)
 	}

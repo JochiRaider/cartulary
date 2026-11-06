@@ -1,8 +1,14 @@
+import type {
+  QueryWorkbookViewRequest,
+  ViewRow,
+} from "@cartulary/protocol-ts/http";
+import { networkFlowDecoders } from "@cartulary/protocol-ts/network-flow";
 import {
   incidentControlsMenuItemTestId,
   incidentControlsMenuTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
+  networkAnalysisTestId,
   surfaceTabTestId,
   workbookImportAssistantTestId,
   workbookShellReadyTestId,
@@ -12,16 +18,230 @@ import {
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
+import { admitIRCorpus } from "../../../tools/harness/fixtures/ir-incident.mjs";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
+import { authHeadersForStorageState } from "./support/auth/storageState";
 import { createIncident } from "./support/incidents/fixtures";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
+import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import { installOwnedRoute } from "./support/transport/requestInterception";
 import { queryViewRows } from "./support/workbook/query";
+
+test("IR corpus imports original Core and Cisco files and reopens exact source text", async ({
+  page,
+}, info) => {
+  const corpus = await admitIRCorpus(info.outputPath("ir-inputs"));
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("IR-CORPUS"),
+    "Supplied incident documentation",
+  );
+  const sources = [
+    { name: "hosts.csv", view: "cartulary.view.hosts.v1", title: "Hosts" },
+    {
+      name: "identities.csv",
+      view: "cartulary.view.identities.v1",
+      title: "Identities",
+    },
+    { name: "timeline.csv", view: timelineViewSchemaId, title: "Timeline" },
+  ];
+  const queryAll = async (view: string): Promise<ViewRow[]> => {
+    const rows: ViewRow[] = [];
+    let body: QueryWorkbookViewRequest = { limit: 200 };
+    for (let pageNumber = 0; pageNumber < 20; pageNumber++) {
+      const response = await publicHttpOperation({
+        operationID: "queryWorkbookView",
+        body,
+        headers: authHeadersForStorageState(
+          await page.context().storageState(),
+        ),
+        pathParameters: { incident_id: incidentId, view_schema_id: view },
+        request: atJsonOrigin(page.request, apiBase),
+      });
+      if (!response.ok)
+        throw new Error(`IR corpus query failed: ${response.status}`);
+      rows.push(...response.payload.data.rows);
+      const paging = response.payload.meta.paging;
+      if (!paging) throw new Error("Missing corpus query paging");
+      if (!paging.has_more) {
+        expect(new Set(rows.map((row) => row.record_id)).size).toBe(
+          rows.length,
+        );
+        return rows;
+      }
+      if (!paging.next_cursor) throw new Error("Missing corpus continuation");
+      body = { cursor_token: paging.next_cursor };
+    }
+    throw new Error("Unbounded corpus query");
+  };
+  for (const selected of sources) {
+    const source = corpus.manifest.source_files.find(
+      (source) => source.logical_path === selected.name,
+    );
+    if (!source) throw new Error("Missing admitted import source");
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    const assistant = await openAssistant(page);
+    await assistant.getByLabel("Source workbook").setInputFiles({
+      name: selected.name,
+      mimeType: "text/csv",
+      buffer: corpus.read("ir-incident/v1/" + selected.name),
+    });
+    await assistant
+      .getByRole("button", { name: "Upload and discover" })
+      .click();
+    await expect(assistant.getByRole("status")).toContainText(
+      "Discovered 1 import unit",
+    );
+    await assistant.getByLabel("Target view").selectOption(selected.view);
+    for (const [i, header] of source.columns.entries()) {
+      const field = source.field_keys[i];
+      if (!field) throw new Error("Missing admitted source mapping");
+      await assistant
+        .getByRole("combobox", { name: header, exact: true })
+        .selectOption(field);
+    }
+    await assistant
+      .getByRole("button", { name: "Approve mapping and select" })
+      .click();
+    await expect(assistant.getByRole("status")).toContainText("ready to apply");
+    await assistant
+      .getByRole("button", { name: "Apply 1 selected unit" })
+      .click();
+    await expect(assistant.getByRole("status")).toContainText(
+      "Import completed",
+      { timeout: info.timeout },
+    );
+    await assistant
+      .getByRole("button", { name: "Open " + selected.title, exact: true })
+      .click();
+    expect(await queryAll(selected.view)).toHaveLength(source.records);
+  }
+  await page.reload();
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  const timeline = await queryAll(timelineViewSchemaId);
+  expect(timeline).toHaveLength(1500);
+  const expected = JSON.parse(
+    corpus.read("ir-incident/v1/expected.json").toString(),
+  ) as {
+    timeline_cases: {
+      source_record: number;
+      source_identity: string;
+      cells: string[];
+    }[];
+  };
+  const columns = corpus.manifest.source_files.find(
+    (source) => source.logical_path === "timeline.csv",
+  )?.field_keys;
+  if (!columns) throw new Error("Missing Timeline mapping");
+  for (const selected of expected.timeline_cases) {
+    const matches = timeline.filter((row) =>
+      String(row.cells["timeline.raw_activity_text"]?.value ?? "").includes(
+        `evidence_ref="${selected.source_identity}"`,
+      ),
+    );
+    expect(matches, `source record ${selected.source_record}`).toHaveLength(1);
+    const row = matches[0];
+    if (!row) throw new Error("Missing source record");
+    for (const [i, field] of columns.entries())
+      expect(row.cells[field]?.value ?? "").toBe(selected.cells[i]);
+  }
+
+  await page.getByRole("button", { name: "More views", exact: true }).click();
+  await page.getByTestId(networkAnalysisTestId("tab")).click();
+  const mappings = [
+    ["firstActiveTime", "flow_start_utc"],
+    ["lastActiveTime", "flow_end_utc"],
+    ["searchSubject.ipAddress", "input_first_ip"],
+    ["peer.ipAddress", "input_second_ip"],
+    ["searchSubject.portProtocol.port", "input_first_port"],
+    ["peer.portProtocol.port", "input_second_port"],
+    ["searchSubject.portProtocol.protocol", "ip_protocol"],
+    ["connection.transferBytes", "bytes_count"],
+    ["connection.transferPackets", "packets_count"],
+    ["searchSubject.orientation", "input_first_orientation"],
+    ["peer.orientation", "input_second_orientation"],
+  ] as const;
+  for (const name of ["day1", "day2", "overlap"]) {
+    await page
+      .getByTestId(networkAnalysisTestId("import-input"))
+      .setInputFiles({
+        name: `${name}.csv`,
+        mimeType: "text/csv",
+        buffer: corpus.read(`network-flow-orientation/v1/${name}.csv`),
+      });
+    const dialog = page.getByTestId(networkAnalysisTestId("mapping-dialog"));
+    await expect(dialog).toBeVisible();
+    await dialog
+      .getByTestId(networkAnalysisTestId("mapping-display-name"))
+      .fill(`IR ${name}`);
+    await dialog
+      .getByTestId(networkAnalysisTestId("mapping-profile"))
+      .selectOption("cisco_sna_flow_search_csv_v2");
+    for (const [header, field] of mappings) {
+      const escaped = header.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const mapping = dialog.getByRole("combobox", {
+        name: new RegExp(`^Target for ${escaped} · column [0-9]+$`),
+      });
+      await mapping.selectOption(`network_flow.${field}`);
+      await expect(mapping).toHaveValue(`network_flow.${field}`);
+    }
+    await dialog.getByTestId(networkAnalysisTestId("mapping-preview")).click();
+    await expect(
+      dialog.getByTestId(networkAnalysisTestId("mapping-preview-summary")),
+    ).toBeVisible();
+    await dialog.getByTestId(networkAnalysisTestId("mapping-apply")).click();
+    // Approval, selection, apply, and the workspace handoff are one async
+    // workflow. Observe its published table within the existing journey budget
+    // before asserting the mapping panel's terminal presentation.
+    await expect(
+      page.getByRole("tab", { name: new RegExp(`IR ${name}`) }),
+    ).toBeVisible({ timeout: info.timeout });
+    await expect(dialog).toHaveCount(0);
+  }
+  await page.reload();
+  await expect(
+    page.getByTestId(networkAnalysisTestId("workspace")),
+  ).toBeVisible();
+  const tableResponse = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/network-flow/tables`,
+  );
+  expect(tableResponse.ok()).toBe(true);
+  const tableList = networkFlowDecoders.tableList.decode(
+    (await tableResponse.json()).data,
+  );
+  if (!tableList.ok) throw new Error("Invalid retained flow table resource");
+  expect(
+    tableList.value.tables.map((table) => [
+      table.display_name,
+      table.row_count_accepted,
+    ]),
+  ).toEqual([
+    ["IR day1", 2000],
+    ["IR day2", 2000],
+    ["IR overlap", 500],
+  ]);
+  expect(
+    tableList.value.tables.reduce(
+      (sum, table) => sum + table.row_count_accepted,
+      0,
+    ),
+  ).toBe(4500);
+  await info.attach("ir-fixture-admission", {
+    body: JSON.stringify({
+      fixture_id: corpus.manifest.fixture_id,
+      revision: corpus.manifest.revision,
+      manifest_sha256: corpus.manifestSHA256,
+    }),
+    contentType: "application/json",
+  });
+});
 
 test("Workbook Import Assistant discovers, maps, selects, applies, and navigates from the claimed production surface", async ({
   page,

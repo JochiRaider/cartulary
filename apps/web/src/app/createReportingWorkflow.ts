@@ -2,6 +2,7 @@ import { extensionRouteReadiness } from "../extensions/extensionAvailability";
 import {
   reportingProfileId,
   reportingReleasesRoute,
+  reportingRetainedArtifactsRoute,
   reportingSnapshotsRoute,
 } from "../extensions/extensionWorkspaceIdentities";
 import { ReportingController } from "../reporting/ReportingController";
@@ -16,7 +17,11 @@ import { createWorkflowPresentation } from "./createWorkflowPresentation";
 function eligible(state: AppSessionSnapshot) {
   return (
     state.extensions.kind === "ready" &&
-    [reportingSnapshotsRoute, reportingReleasesRoute].every(
+    [
+      reportingSnapshotsRoute,
+      reportingReleasesRoute,
+      reportingRetainedArtifactsRoute,
+    ].every(
       (route) =>
         extensionRouteReadiness(
           state.extensions.kind === "ready" ? state.extensions.value : [],

@@ -15,6 +15,7 @@ import (
 	evidenceports "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	projectionruntime "github.com/JochiRaider/cartulary/internal/modules/projections/internal/runtime"
 	projectionstorage "github.com/JochiRaider/cartulary/internal/modules/projections/internal/storage"
@@ -362,4 +363,11 @@ func newWorkbookQueryProviders(
 		}
 	}
 	return providers, nil
+}
+
+func (ports Ports) LinkRows() links.ProjectionRows {
+	if ports.store == nil {
+		return nil
+	}
+	return ports.store
 }

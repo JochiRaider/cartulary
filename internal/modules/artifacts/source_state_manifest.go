@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
@@ -35,44 +34,39 @@ type sourceStateManifest struct {
 	relations []sourceStateRelation
 }
 
-type sourceStateExportSpecification struct {
-	logicalBundlePath string
-	query             string
-}
-
 var authoredSourceStateRelations = []sourceStateRelation{
 	{
 		tableName:             "artifacts",
 		logicalBundlePath:     "data/artifacts.ndjson",
-		supportedVersions:     []int{5},
+		supportedVersions:     []int{6},
 		stableIdentity:        []string{"record_id"},
 		requiredImportColumns: []string{"record_id", "incident_id"},
 	},
 	{
 		tableName:             "artifact_findings",
 		logicalBundlePath:     "data/artifact_findings.ndjson",
-		supportedVersions:     []int{5},
+		supportedVersions:     []int{6},
 		stableIdentity:        []string{"record_id"},
 		requiredImportColumns: []string{"record_id", "incident_id"},
 	},
 	{
 		tableName:             "artifact_investigative_queries",
 		logicalBundlePath:     "data/artifact_investigative_queries.ndjson",
-		supportedVersions:     []int{5},
+		supportedVersions:     []int{6},
 		stableIdentity:        []string{"record_id"},
 		requiredImportColumns: []string{"record_id", "incident_id"},
 	},
 	{
 		tableName:             "artifact_forensic_keywords",
 		logicalBundlePath:     "data/artifact_forensic_keywords.ndjson",
-		supportedVersions:     []int{5},
+		supportedVersions:     []int{6},
 		stableIdentity:        []string{"record_id"},
 		requiredImportColumns: []string{"record_id", "incident_id"},
 	},
 	{
 		tableName:             "handoff_risk_refs",
 		logicalBundlePath:     "data/handoff_risk_refs.ndjson",
-		supportedVersions:     []int{5},
+		supportedVersions:     []int{6},
 		stableIdentity:        []string{"risk_ref_id"},
 		requiredImportColumns: []string{"risk_ref_id", "handoff_record_id"},
 	},
@@ -175,26 +169,6 @@ func (manifest *sourceStateManifest) sourcePortPaths() []sourceport.Path {
 		})
 	}
 	return paths
-}
-
-func (manifest *sourceStateManifest) exportSpecifications() []sourceStateExportSpecification {
-	specifications := make([]sourceStateExportSpecification, 0, len(manifest.relations))
-	for _, relation := range manifest.relations {
-		orderBy := make([]string, 0, len(relation.stableIdentity))
-		for _, identifier := range relation.stableIdentity {
-			orderBy = append(orderBy, quoteSourceStateIdentifier(identifier))
-		}
-		specifications = append(specifications, sourceStateExportSpecification{
-			logicalBundlePath: relation.logicalBundlePath,
-			query: fmt.Sprintf(
-				"SELECT to_jsonb(t) FROM %s AS t WHERE %s = $1 ORDER BY %s",
-				quoteSourceStateIdentifier(relation.tableName),
-				quoteSourceStateIdentifier("incident_id"),
-				strings.Join(orderBy, ", "),
-			),
-		})
-	}
-	return specifications
 }
 
 func (manifest *sourceStateManifest) importSpecifications() []incidentportability.FixedImportSpec {

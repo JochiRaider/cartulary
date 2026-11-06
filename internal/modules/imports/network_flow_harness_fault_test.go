@@ -110,7 +110,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 				if job["status"] != status {
 					t.Fatalf("job outcome: %#v", job)
 				}
-				if got := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM network_flow_tables WHERE source_import_unit_id::text=$1`, unit); got != want {
+				if got := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM network_flow_tables t JOIN import_committed_sources s USING(committed_source_id) WHERE s.origin_import_unit_id::text=$1`, unit); got != want {
 					t.Fatalf("partial/absent table: %d", got)
 				}
 				if got := dbassert.CountSQL(t, h.DB, `SELECT count(*) FROM import_unit_apply_outcomes WHERE import_unit_id::text=$1 AND outcome_status='applied'`, unit); got != want {
@@ -128,7 +128,7 @@ func assertNetworkFlowImportFaultConsumers(t *testing.T) {
 				}
 				resourceID := ""
 				if want == 1 {
-					if err := h.Pool.QueryRow(context.Background(), `SELECT network_flow_table_id FROM network_flow_tables WHERE source_import_unit_id::text=$1`, unit).Scan(&resourceID); err != nil {
+					if err := h.Pool.QueryRow(context.Background(), `SELECT network_flow_table_id FROM network_flow_tables t JOIN import_committed_sources s USING(committed_source_id) WHERE s.origin_import_unit_id::text=$1`, unit).Scan(&resourceID); err != nil {
 						t.Fatal(err)
 					}
 				}

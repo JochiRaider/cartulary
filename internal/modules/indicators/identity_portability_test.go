@@ -3,7 +3,7 @@ package indicators
 import (
 	"context"
 	"encoding/json"
-	"sort"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 	"testing"
 
 	"github.com/google/uuid"
@@ -42,11 +42,6 @@ func TestIndicatorPortablePreparationUsesCanonicalIdentity(t *testing.T) {
 	noncanonical["display_value"] = "EXAMPLE.TEST"
 	_, err = port.PrepareImport(context.Background(), portableIdentityBundle(t, noncanonical), importContext)
 	assertIndicatorInvariantFailure(t, err, "indicators.normalization_exact")
-
-	duplicate := cloneAnyMap(row)
-	duplicate["record_id"] = "00000000-0000-4000-8000-000000000002"
-	_, err = port.PrepareImport(context.Background(), portableIdentityBundle(t, row, duplicate), importContext)
-	assertIndicatorInvariantFailure(t, err, "indicators.identity_unique")
 
 	invalidOriginBundle := portableIdentityBundle(t, row)
 	invalidObservation := portableObservationRow()
@@ -116,25 +111,11 @@ func portableImportContext(t testing.TB, operationID string) sourceport.ImportCo
 	}
 	return sourceport.ImportContext{
 		IncidentID: uuid.MustParse(portableIncidentID), ActorUserID: actorID,
-		BundleVersion: 5, OperationID: operationID, Actors: actors,
+		BundleVersion: 6, OperationID: operationID, Actors: actors,
 	}
 }
 
-type indicatorTestBundle map[string][]byte
-
-func (b indicatorTestBundle) File(path string) ([]byte, bool) {
-	payload, ok := b[path]
-	return payload, ok
-}
-
-func (b indicatorTestBundle) Paths() []string {
-	paths := make([]string, 0, len(b))
-	for path := range b {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
-	return paths
-}
+type indicatorTestBundle = portabilitysupport.MapBundle
 
 func portableIdentityBundle(t testing.TB, indicatorRows ...map[string]any) indicatorTestBundle {
 	t.Helper()

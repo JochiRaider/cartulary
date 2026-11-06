@@ -8,16 +8,14 @@ import (
 	"errors"
 	"io"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 type WriteFile func(context.Context, string, int64, io.Reader) error
 
-type Bundle interface {
-	File(string) ([]byte, bool)
-	Paths() []string
-}
+type Bundle = incidentportability.MemberReader
 
 type ImportRequest struct {
 	IncidentID  uuid.UUID

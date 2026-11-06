@@ -547,6 +547,16 @@
       "code": "request_body_too_large",
       "http_status": 413,
       "summary": "The encoded incident mutation request body exceeds 262144 bytes."
+    },
+    {
+      "code": "committed_source_not_found",
+      "http_status": 404,
+      "summary": "The committed import source does not exist in the authorized incident."
+    },
+    {
+      "code": "report_artifact_not_found",
+      "http_status": 404,
+      "summary": "No retained reporting artifact is visible in the authorized incident for the supplied artifact_id."
     }
   ],
   "reason_registries": [
@@ -1540,6 +1550,10 @@
         {
           "code": "archive_member_count_exceeded",
           "summary": "The bundle exceeds the configured archive-member count limit."
+        },
+        {
+          "code": "archive_bytes_exceeded",
+          "summary": "The uploaded or emitted archive exceeds the admitted transport byte ceiling."
         }
       ]
     },
@@ -1790,11 +1804,11 @@
       "reason_codes": [
         {
           "code": "object_blob_storage_key_malformed",
-          "summary": "The persisted physical object key does not parse as object_blob_storage_key_v1."
+          "summary": "The persisted physical object key does not parse as object_blob_storage_key_v2."
         },
         {
           "code": "object_blob_storage_key_identity_mismatch",
-          "summary": "The persisted physical object key parses as object_blob_storage_key_v1 but does not match the authoritative evidence/blob identity."
+          "summary": "The persisted physical object key parses as object_blob_storage_key_v2 but does not match the authoritative evidence/blob identity."
         }
       ]
     },

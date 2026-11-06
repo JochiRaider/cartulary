@@ -37,7 +37,106 @@
         "postgres"
       ],
       "browser_state_scope": "isolated",
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "operator"
+      ]
+    },
+    {
+      "row_id": "module.recovery.browser.ir_restored_investigation",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.graphprojection",
+        "module.imports",
+        "module.incidentbundles",
+        "module.networkflow",
+        "module.reporting",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/restore.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "ir_restored_history_reports_v1"
+        ],
+        "titles": [
+          "IR restored investigation reopens selected history and retained report files"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "operator"
+      ],
+      "fixture_input_roots": [
+        "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal"
+      ]
+    },
+    {
+      "row_id": "module.recovery.browser.ir_transferred_investigation",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.graphprojection",
+        "module.imports",
+        "module.incidentbundles",
+        "module.networkflow",
+        "module.reporting",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/restore.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "ir_transferred_history_reports_v1"
+        ],
+        "titles": [
+          "IR transferred investigation reopens selected history and retained report files"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "operator"
+      ],
+      "fixture_input_roots": [
+        "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal"
+      ]
     },
     {
       "row_id": "module.recovery.integration.capture_target_admission_shares_the_inventory_sn_b9c5f3460d",
@@ -613,6 +712,9 @@
       "postgres_isolation": "exclusive",
       "runtime_binary_ids": [
         "server-harness"
+      ],
+      "fixture_input_roots": [
+        "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal"
       ]
     },
     {

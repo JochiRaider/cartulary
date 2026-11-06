@@ -56,7 +56,7 @@ func (s *Store) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command Upse
 		if err != nil {
 			return RecordLinkCommandResult{}, err
 		}
-		return newRecordLinkCommandResult(updated, &mutation), nil
+		return newRecordLinkCommandResult(updated, &mutation), s.publishProjectionEffectsTx(ctx, tx, command.IncidentID, []Mutation{mutation})
 	}
 	if !errors.Is(err, errRecordLinkNotFound) {
 		return RecordLinkCommandResult{}, err
@@ -81,7 +81,7 @@ func (s *Store) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command Upse
 	if err != nil {
 		return RecordLinkCommandResult{}, err
 	}
-	return newRecordLinkCommandResult(created, &mutation), nil
+	return newRecordLinkCommandResult(created, &mutation), s.publishProjectionEffectsTx(ctx, tx, command.IncidentID, []Mutation{mutation})
 }
 
 func (s *Store) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, command InsertSupersedesCommand) (RecordLinkCommandResult, error) {
@@ -113,7 +113,7 @@ func (s *Store) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, comman
 	if err != nil {
 		return RecordLinkCommandResult{}, err
 	}
-	return newRecordLinkCommandResult(created, &mutation), nil
+	return newRecordLinkCommandResult(created, &mutation), s.publishProjectionEffectsTx(ctx, tx, command.IncidentID, []Mutation{mutation})
 }
 
 func (s *Store) TombstoneActiveLinkCommandTx(ctx context.Context, tx pgx.Tx, command TombstoneActiveLinkCommand) (RecordLinkCommandResult, bool, error) {
@@ -138,7 +138,7 @@ func (s *Store) TombstoneActiveLinkCommandTx(ctx context.Context, tx pgx.Tx, com
 	if err != nil {
 		return RecordLinkCommandResult{}, false, err
 	}
-	return newRecordLinkCommandResult(updated, &mutation), true, nil
+	return newRecordLinkCommandResult(updated, &mutation), true, s.publishProjectionEffectsTx(ctx, tx, command.IncidentID, []Mutation{mutation})
 }
 
 type recordLinkInsert struct {

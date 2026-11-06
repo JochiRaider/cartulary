@@ -565,7 +565,7 @@
                       "pattern": "^[a-f0-9]{64}$"
                     },
                     "contract": {
-                      "$ref": "cartulary.network_flow_activity.postgres_rows.v2"
+                      "$ref": "cartulary.network_flow_activity.postgres_rows.v3"
                     }
                   }
                 }
@@ -3400,7 +3400,7 @@
                     "pattern": "^[a-z][a-z0-9_]{0,63}\\.[a-z][a-z0-9_]{0,63}$"
                   },
                   "contract_schema_id": {
-                    "const": "cartulary.extension_participant_specialization.v4"
+                    "const": "cartulary.extension_participant_specialization.v5"
                   },
                   "participant_contract_sha256": {
                     "type": "string",
@@ -3409,7 +3409,7 @@
                     "pattern": "^[a-f0-9]{64}$"
                   },
                   "contract": {
-                    "$ref": "cartulary.extension_participant_specialization.v4"
+                    "$ref": "cartulary.extension_participant_specialization.v5"
                   }
                 }
               },
@@ -3457,7 +3457,7 @@
     },
     {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "cartulary.extension_participant_specialization.v4",
+      "$id": "cartulary.extension_participant_specialization.v5",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -3470,7 +3470,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.extension_participant_specialization.v4"
+          "const": "cartulary.extension_participant_specialization.v5"
         },
         "profile_id": {
           "type": "string",
@@ -3488,7 +3488,7 @@
           "const": "incident_portability"
         },
         "shared_context_schema_id": {
-          "const": "cartulary.extension_portability_participant_context.v1"
+          "const": "cartulary.extension_portability_participant_context.v2"
         },
         "operations": {
           "type": "array",
@@ -3514,7 +3514,7 @@
                   "const": "export"
                 },
                 "result_schema_id": {
-                  "const": "cartulary.extension_portability_export_result.v1"
+                  "const": "cartulary.extension_portability_export_result.v2"
                 },
                 "algorithm_id": {
                   "type": "string",
@@ -3581,7 +3581,7 @@
                   "const": "import"
                 },
                 "result_schema_id": {
-                  "const": "cartulary.extension_portability_import_preparation_result.v1"
+                  "const": "cartulary.extension_portability_import_preparation_result.v2"
                 },
                 "algorithm_id": {
                   "type": "string",
@@ -3801,7 +3801,195 @@
     },
     {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "cartulary.extension_portability_result_contract_set.v1",
+      "$id": "cartulary.extension_portability_export_result.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_schema_id",
+        "contract_major",
+        "kind",
+        "schema_id",
+        "state_version"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.extension_portability_export_result.v2"
+        },
+        "kind": {
+          "const": "members"
+        },
+        "content_schema_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+        },
+        "contract_major": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "state_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      }
+    },
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "cartulary.extension_portability_import_preparation_result.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "status",
+        "participant_input",
+        "participant_input_sha256",
+        "staged_output_refs"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.extension_portability_import_preparation_result.v2"
+        },
+        "status": {
+          "const": "prepared"
+        },
+        "participant_input": {
+          "type": "object",
+          "maxProperties": 4096
+        },
+        "participant_input_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "staged_output_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^cartulary:staged_output:[0-9a-f]{32}$"
+          },
+          "maxItems": 10000,
+          "uniqueItems": true
+        }
+      }
+    },
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "cartulary.extension_portability_participant_context.v2",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_id",
+            "operation_kind",
+            "profile_id",
+            "contract_major",
+            "claim_state",
+            "incident_id",
+            "content_schema_id"
+          ],
+          "properties": {
+            "schema_id": {
+              "const": "cartulary.extension_portability_participant_context.v2"
+            },
+            "operation_kind": {
+              "const": "export"
+            },
+            "profile_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
+            "contract_major": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "claim_state": {
+              "const": "claimed"
+            },
+            "incident_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "content_schema_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_id",
+            "operation_kind",
+            "profile_id",
+            "contract_major",
+            "claim_state",
+            "incident_id",
+            "content_schema_id",
+            "operation_id",
+            "actor_user_id",
+            "state_version",
+            "catalog_sha256"
+          ],
+          "properties": {
+            "schema_id": {
+              "const": "cartulary.extension_portability_participant_context.v2"
+            },
+            "operation_kind": {
+              "const": "import"
+            },
+            "profile_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,63}$"
+            },
+            "contract_major": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "claim_state": {
+              "const": "claimed"
+            },
+            "incident_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "content_schema_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            },
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "actor_user_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "state_version": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "catalog_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "cartulary.extension_portability_result_contract_set.v2",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -3809,11 +3997,12 @@
         "export_result",
         "import_result",
         "limits",
-        "compatibility_adapter"
+        "compatibility_adapter",
+        "bulk_member_limits_owner"
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.extension_portability_result_contract_set.v1"
+          "const": "cartulary.extension_portability_result_contract_set.v2"
         },
         "export_result": {
           "type": "object",
@@ -3934,6 +4123,9 @@
         },
         "compatibility_adapter": {
           "const": false
+        },
+        "bulk_member_limits_owner": {
+          "const": "core.incident_bundles"
         }
       }
     },
@@ -4599,7 +4791,7 @@
                     "pattern": "^[a-z][a-z0-9_]{0,63}\\.[a-z][a-z0-9_]{0,63}$"
                   },
                   "participant_contract_ref": {
-                    "const": "cartulary.extension_participant_specialization.v4"
+                    "const": "cartulary.extension_participant_specialization.v5"
                   },
                   "participant_contract_sha256": {
                     "type": "string",
@@ -8699,7 +8891,354 @@
     },
     {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "cartulary.network_flow_activity.postgres_rows.v2",
+      "$id": "cartulary.incident_bundle_extension_members.v2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_schema_id",
+        "contract_major",
+        "members",
+        "profile_id",
+        "schema_id",
+        "state_version"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.incident_bundle_extension_members.v2"
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "contract_major": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "state_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "content_schema_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "byte_size",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "byte_size": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "cartulary.network_flow.incident_import_input.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "operation_id",
+        "incident_id",
+        "actor_user_id",
+        "catalog_sha256",
+        "members",
+        "prepared_graphs",
+        "counts"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.network_flow.incident_import_input.v1"
+        },
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "incident_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "actor_user_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "catalog_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "byte_size",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "byte_size": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "prepared_graphs": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "byte_size",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "byte_size": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tables",
+            "observations",
+            "diagnostics",
+            "indicator_bindings",
+            "graph_views"
+          ],
+          "properties": {
+            "tables": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "observations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "diagnostics": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "indicator_bindings": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "graph_views": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "cartulary.network_flow.incident_members.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "profile_id",
+        "contract_major",
+        "state_version",
+        "content_schema_id",
+        "members"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.incident_bundle_extension_members.v2"
+        },
+        "profile_id": {
+          "const": "network_flow_activity"
+        },
+        "contract_major": {
+          "const": 10
+        },
+        "state_version": {
+          "const": 7
+        },
+        "content_schema_id": {
+          "const": "cartulary.network_flow.incident_members.v1"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": false,
+          "prefixItems": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "byte_size",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "const": "ext/extensions/network_flow_activity/members/diagnostics.ndjson"
+                },
+                "byte_size": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "byte_size",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "const": "ext/extensions/network_flow_activity/members/graph_views.ndjson"
+                },
+                "byte_size": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "byte_size",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "const": "ext/extensions/network_flow_activity/members/indicator_bindings.ndjson"
+                },
+                "byte_size": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "byte_size",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "const": "ext/extensions/network_flow_activity/members/observations.ndjson"
+                },
+                "byte_size": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "byte_size",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "const": "ext/extensions/network_flow_activity/members/tables.ndjson"
+                },
+                "byte_size": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "cartulary.network_flow_activity.postgres_rows.v3",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -8710,7 +9249,7 @@
       "properties": {
         "schema_id": {
           "type": "string",
-          "const": "cartulary.network_flow_activity.postgres_rows.v2"
+          "const": "cartulary.network_flow_activity.postgres_rows.v3"
         },
         "profile_id": {
           "type": "string"

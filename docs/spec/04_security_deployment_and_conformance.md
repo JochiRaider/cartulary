@@ -4,10 +4,12 @@ The cancellation-grace termination and prepared-component-loss clarifications
 are adopted under the 2026-10-31 decision in Core 00 §1.7. Implementation and
 operational evidence remain separate.
 
-The coordinated Network Flow major-9/state-6 orientation amendment (Core 00 §1.5.1), carrying forward the bounded-import
-clarifications from Core 00 §1.3, is adopted by the explicit 2026-11-04 instruction
-in Core 00 §1.5.1. Older Network Flow state is rejected unchanged. Owner adoption,
-implementation validation and operational deployment are separate dispositions.
+Complete incident portability adopts Network Flow major 10/state 7 and Incident
+Bundle version 6 under the 2026-11-05 decision in Core 00. It carries forward the
+orientation semantics adopted on 2026-11-04 under Core 00 §1.5.1 and supersedes
+that predecessor storage/portability contract. Older retained state is rejected
+unchanged. Owner adoption, implementation validation and operational deployment
+remain separate dispositions.
 
 ## 1. Authentication model
 
@@ -2293,7 +2295,7 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-01-070, REQ-01-245, REQ-01-328, REQ-02-190, REQ-04-053
 - **AC-524**: New-record Evidence and Timeline file flows retain the provisional draft and selected file only in client-local state until generic row-create success, use slot then upload then one atomic row-create with `evidence.initial_object_blob_id`, retain the same row-create `client_txn_id` for uncertain transport retry, use the ordinary new-ID workflow after a definitive conflict, keep focus and workbook state continuous, and expose accessible pending, retry, blocked, and error feedback. Before row-create success, no draft row appears in query, collaboration, history, projection, export, backup, or portability state.
   - Verifies: REQ-01-328, REQ-03-116..REQ-03-126, REQ-04-021..REQ-04-030
-- **AC-525**: Revisions bundle files for admitted version `4` accept only their exact contract-major-`2` row shapes and deterministic export order. Independent fixtures exercise every Revisions invariant, and multi-defect permutations always select the owner-defined first invariant and stable row identity. Failures expose only the closed source family and invariant IDs, leave no visible state, and never derive attribution from PostgreSQL error text or a descriptor-default invariant.
+- **AC-525**: Revisions bundle files for admitted version `6` accept only their exact contract-major-`3` row shapes and deterministic export order. Independent fixtures exercise every Revisions invariant, and multi-defect permutations always select the owner-defined first invariant and stable row identity. Failures expose only the closed source family and invariant IDs, leave no visible state, and never derive attribution from PostgreSQL error text or a descriptor-default invariant.
   - Verifies: REQ-01-639..REQ-01-642, REQ-02-204, REQ-02-217..REQ-02-218
 - **AC-526**: Deployment configuration v3 requires one secure Revisions conflict-token key-ring v2 manifest before listeners or workers. Exact manifest, path, key, secret, purpose, active/decrypt-only rotation, fresh message salt, module-generated nonce, TTL, skew, opacity, tamper, expiry, retirement, and uniform-error fixtures pass for conflict tokens v4 (`cft4`). Configuration v1/v2, key-ring v1 and conflict tokens v2/v3 reject without an authentication-master or hard-coded fallback; and a client retains its local draft while refreshing an invalidated conflict.
   - Verifies: REQ-03-066, REQ-03-075..REQ-03-078, REQ-04-069, REQ-04-077..REQ-04-078, REQ-04-111, REQ-04-147..REQ-04-149
@@ -2301,16 +2303,16 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-01-640..REQ-01-642
 - **AC-528**: Delete, restore, rollback, and explicit conflict resolution enforce authentication, cookie CSRF, path syntax, hidden visibility, role, token where applicable, and content/body validation in owner-defined order. Unauthorized malformed requests reveal no body- or selector-specific detail and commit no idempotency, source, history, projection, or Collaboration effect; authorized valid requests preserve their public methods, paths, operation IDs, envelopes, and consequences.
   - Verifies: REQ-01-074, REQ-01-100, REQ-03-075
-- **AC-529**: Revisions owns generic change-set/revision history, revision-window, conflict token/text-merge/`keep_saved`, opaque selector lifecycle, indexed association lookup, transaction/lock/idempotency/publication order, and rollback coordination behind consumer-owned ports and immutable application-composed provider catalogs. All ten current record types produce a closed `{snapshot_schema_id, record, source}` authoritative snapshot that passes its exact source-owner validator; no stored non-null row snapshot is schema-less or projection-derived. Ordinary live revisions persist transactionally atomic, revision-bound, field-keyed conflict facts derived only from explicit live-change input; those facts preserve scalar and collection conflict consequences without becoming row-history, rollback, projection, or portability authority. All fourteen current target kinds resolve exactly once to pure history semantics and generic `row` or `non_row` rollback dispatch; persisted association arrays are sorted, unique, complete, indexed, and equal owner-derived facts. Source owners retain current-state, field, collection, association, companion, revalidation, and inverse semantics. Incident Bundle version 4 retains its exact portable outer rows, recomputes association facts, omits conflict facts, and rejects schema-less snapshots. HTTP/auth/platform concerns terminate at adapters; Records construction, view-schema resolution, and process-environment capture terminate at application/server assembly; deployment-local administrative audit remains under Authentication and Administration. Static and negative-runtime boundaries reject concrete Records construction, reverse imports, ambient environment reads, global registries, projection snapshot truth/fallback, source JSON-key history predicates, target/source-type rollback switches, dynamic relation metadata, incomplete catalogs, unauthorized provider invocation, and non-atomic provider failure.
+- **AC-529**: Revisions owns generic change-set/revision history, revision-window, conflict token/text-merge/`keep_saved`, opaque selector lifecycle, indexed association lookup, transaction/lock/idempotency/publication order, and rollback coordination behind consumer-owned ports and immutable application-composed provider catalogs. All ten current record types produce a closed `{snapshot_schema_id, record, source}` authoritative snapshot that passes its exact source-owner validator; no stored non-null row snapshot is schema-less or projection-derived. Ordinary live revisions persist transactionally atomic, revision-bound, field-keyed conflict facts derived only from explicit live-change input; those facts preserve scalar and collection conflict consequences without becoming row-history, rollback, projection, or portability authority. All fourteen current target kinds resolve exactly once to pure history semantics and generic `row` or `non_row` rollback dispatch; persisted association arrays are sorted, unique, complete, indexed, and equal owner-derived facts. Source owners retain current-state, field, collection, association, companion, revalidation, and inverse semantics. The current Incident Bundle format retains its exact portable outer rows, recomputes association facts, omits conflict facts, and rejects schema-less snapshots. HTTP/auth/platform concerns terminate at adapters; Records construction, view-schema resolution, and process-environment capture terminate at application/server assembly; deployment-local administrative audit remains under Authentication and Administration. Static and negative-runtime boundaries reject concrete Records construction, reverse imports, ambient environment reads, global registries, projection snapshot truth/fallback, source JSON-key history predicates, target/source-type rollback switches, dynamic relation metadata, incomplete catalogs, unauthorized provider invocation, and non-atomic provider failure.
   - Verifies: REQ-00-071, REQ-01-650, REQ-01-659, REQ-02-204, REQ-02-216..REQ-02-218, REQ-02-265, REQ-03-066
 - **AC-530**: Indicator observations accept and persist exactly `manual_entry`, `clipboard_paste`, `csv_import`, `xlsx_import`, `api_import`, `extraction`, and trusted-internal `system`. `interactive_cell`, empty, missing, case-folded, whitespace-padded, aliased, unknown, extension-prefixed, and ordinary caller-selected `system` values fail before the first database write. Every live producer emits its assigned token; ordinary HTTP analyst entry emits `manual_entry`. Exact tokens survive history, rollback, and Incident Bundle round trips, and repeated equal-content observations with distinct stable identities remain separate. Every invalid-origin fixture proves no observation, source or Indicator version, change set, revision, projection, Collaboration intent, idempotency success, or publication effect.
   - Verifies: REQ-01-639..REQ-01-642, REQ-02-075..REQ-02-080, REQ-02-260
-- **AC-531**: Indicator source-major-`2` files for admitted bundle version `4` accept only the three exact REQ-01-640 row schemas, explicit nullable members, canonical scalar forms, and stable-identity export ordering. Interval rows accept only lifecycle state `active`, `benign`, `false_positive`, or `retired` and require unique canonical support-reference UUIDs. Independent negative fixtures exercise each of the ten Indicator invariants plus unknown, case-variant, whitespace-padded, aliased lifecycle tokens and duplicate support references; three multi-defect fixtures under different archive and row permutations always select the owner-defined lowest-precedence invariant and stable row identity. Valid v4 export/import/export preserve deterministic source rows, active and tombstoned repeated observations remain distinct, and injected failure during apply, validation, or before final commit leaves no visible state. Unsupported, hostile, and malformed values expose only `source_family_id='indicators'` and the selected closed `invariant_id`; they disclose no row value, raw digest, SQL, relation, constraint, storage, path, or internal topology through responses, jobs, logs, telemetry, readiness, administrative summaries, or operator output.
+- **AC-531**: Indicator source-major-`3` files for admitted bundle version `6` accept only the three exact REQ-01-640 row schemas, explicit nullable members, canonical scalar forms, and stable-identity export ordering. Interval rows accept only lifecycle state `active`, `benign`, `false_positive`, or `retired` and require unique canonical support-reference UUIDs. Independent negative fixtures exercise each of the ten Indicator invariants plus unknown, case-variant, whitespace-padded, aliased lifecycle tokens and duplicate support references; three multi-defect fixtures under different archive and row permutations always select the owner-defined lowest-precedence invariant and stable row identity. Valid v6 export/import/export preserve deterministic source rows, active and tombstoned repeated observations remain distinct, and injected failure during apply, validation, or before final commit leaves no visible state. Unsupported, hostile, and malformed values expose only `source_family_id='indicators'` and the selected closed `invariant_id`; they disclose no row value, raw digest, SQL, relation, constraint, storage, path, or internal topology through responses, jobs, logs, telemetry, readiness, administrative summaries, or operator output.
 
 - **AC-532**: The six Indicator observation and lifecycle route families, comprising eight HTTP operations, implement their exact read, create, resolve, dismiss, restore, and append contracts. Independent fixtures cover authenticated hidden-resource ordering, viewer denial, editor success, cookie CSRF, exact and divergent replay, stale base versions, every legal and illegal observation transition, source/view/field validation, ASCII and multibyte UTF-8 spans, mid-code-point and out-of-range spans, server-derived text/locator/manual origin, canonical candidate derivation, same-incident targets/support UUIDs, the four exact lifecycle tokens, canonical times, affected-record lock/version order, row-centric history, projection refresh, ordinary Collaboration publication, and failure atomicity. Source-record failures use `indicator_source_record_not_found`; requested resolution-target failures use `resolved_indicator_not_found`; addressed Indicator failures use `indicator_not_found`; unavailable prior observation dependencies remain concealed as `indicator_observation_not_found`; invalid support references remain invalid mutation input; and storage failures use the safe internal path without being rewritten as semantic 404 or 400 responses. Every such failure commits no source, envelope, history, projection, idempotency-success, or Collaboration effect and discloses no SQL, relation, constraint, driver value, or hidden identifier. Observation and interval pages are stable, actor/record-bound, tombstone-free, newest-first, OFFSET-free, and reject cursor replay under another actor, record, route, or limit. Discovery emits the four exact Core 01 Indicator feature rows, and the client resolves their complete semantic tuples before wildcard families. Indicator and Timeline Inspector handlers call the real routes, never generic record patch, preserve selection, expose accessible pending/empty/error/retry/paging states, and omit unsupported actions instead of rendering inert controls.
   - Verifies: REQ-01-615..REQ-01-617, REQ-01-652, REQ-01-654, REQ-02-263..REQ-02-264, REQ-03-306, REQ-04-150
 
-- **AC-533**: A clean install and an upgrade with valid existing Indicator rows create and deterministically backfill exactly one `indicator_active_identities` claim per Records-authoritative active canonical identity. Concurrent create converges on one claim; delete releases it; restore fails atomically on conflict; rollback rekeys it; Incident Bundle import maintains it; recovery rebuild produces the same claims; and claims never appear in portable or backup-domain content. During expand compatibility, every writer maintains claims and mirrors atomically. After the old-writer drain gate, constraint validation and contract migration remove all Indicator envelope mirrors, legacy indexes, and mirror foreign keys; every source read obtains envelope state from Records. The schema enforces exact lifecycle tokens and unique canonical support-reference UUIDs for every writer. Empty install, valid upgrade, malformed legacy upgrade, Down/Up reconstruction, direct insert and update, delete/restore, rollback, recovery, and valid bundle v4 imports and round trips all pass. Unknown lifecycle state, duplicate support reference, envelope drift, malformed child tuple, incompatible idempotency payload, or duplicate Records-active identity blocks the applicable migration or write atomically without guessing, silent data repair, or partial schema change.
+- **AC-533**: A clean install and an upgrade with valid existing Indicator rows create and deterministically backfill exactly one `indicator_active_identities` claim per Records-authoritative active canonical identity. Concurrent create converges on one claim; delete releases it; restore fails atomically on conflict; rollback rekeys it; Incident Bundle import maintains it; recovery rebuild produces the same claims; and claims never appear in portable or backup-domain content. During expand compatibility, every writer maintains claims and mirrors atomically. After the old-writer drain gate, constraint validation and contract migration remove all Indicator envelope mirrors, legacy indexes, and mirror foreign keys; every source read obtains envelope state from Records. The schema enforces exact lifecycle tokens and unique canonical support-reference UUIDs for every writer. Empty install, valid upgrade, malformed legacy upgrade, Down/Up reconstruction, direct insert and update, delete/restore, rollback, recovery, and valid current-format Incident Bundle imports and round trips all pass. Unknown lifecycle state, duplicate support reference, envelope drift, malformed child tuple, incompatible idempotency payload, or duplicate Records-active identity blocks the applicable migration or write atomically without guessing, silent data repair, or partial schema change.
   - Verifies: REQ-01-639..REQ-01-642, REQ-02-072..REQ-02-080, REQ-02-260
 - **AC-016**: Evidence processing and any implemented background job start without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
   - Verifies: REQ-01-243..REQ-01-247, REQ-01-355..REQ-01-366, REQ-02-186..REQ-02-201, REQ-03-121..REQ-03-126
@@ -2681,7 +2683,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   clipboard, Incident Bundle import, and recovery produce the same claim set.
   Go and SQL normalization agree for the versioned corpus and reject unknown
   classes. Every declared Entities bundle invariant has an independent
-  deterministic negative fixture, valid version-4 bytes round-trip exactly,
+  deterministic negative fixture, valid version-6 bytes round-trip exactly,
   and claim rows appear in neither portable nor authoritative backup content.
   Invalid source rows or duplicate active claims block migration, import, or
   recovery before partial publication and without guessing or exposing SQL,
@@ -2784,13 +2786,13 @@ These criteria provide direct runtime-family verification for substantive base-p
   dual comparison.
   - Verifies: REQ-01-498, REQ-01-501, REQ-01-668..REQ-01-669
 
-- **AC-563**: Version `4` is the sole admitted Incident Bundle version;
-  source catalog schema `cartulary.incident_bundle_source_catalog.v4`, every
+- **AC-563**: Version `6` is the sole admitted Incident Bundle version;
+  source catalog schema `cartulary.incident_bundle_source_catalog.v6`, every
   source and special-consumer descriptor, and source ports use contract major
-  `2` and admit path version `4` with exactly one current schema binding per path.
-  Integers other than `4` fail before
+  `3` and admit path version `6` with exactly one current schema binding per path.
+  Integers other than `6` fail before
   source preparation. No reader, translator, converter, flag, alias, fallback
-  or dual decoder admits retired bundle v1/v2/v3. Party export emits exactly the ten-member
+  or dual decoder admits retired bundle v1/v2/v3/v4/v5. Party export emits exactly the ten-member
   `cartulary.incident_bundle.parties.row.v1` shape by explicit mapping and
   stable ordering. Direct corpus cases cover an empty Party set, every Party
   kind, null and populated optional fields, and semantic import/re-export byte
@@ -2877,7 +2879,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   data, and effect ordering across the catalog cutover.
   - Verifies: REQ-01-336..REQ-01-341, REQ-01-671
 
-- **AC-566**: Incident source-family evidence proves that the version-4 singleton
+- **AC-566**: Incident source-family evidence proves that the version-6 singleton
   file has exactly the 16 REQ-01-673 members and canonical scalar forms. Negative
   fixtures independently cover malformed or multivalue documents, duplicate,
   missing, unknown, aliased, wrongly typed, noncanonical, and incoherent members,
@@ -2918,15 +2920,16 @@ These criteria provide direct runtime-family verification for substantive base-p
   permutation, signed-int64 boundary and overflow, finite-number failure,
   UTF-8 byte ceiling, cancellation point, and failure-atomicity branch. Exact
   current Network Flow default and temporal identities remain unchanged.
-  Network Flow major 9/state 6 admits the orientation-aware owner contracts; fresh state 6, unchanged
-  state-1/2/3/4/5 rejection, invalid current-diagnostic rejection and atomic
-  v1-declaration rejection are direct evidence. Historical ledger facts expose
-  no executable migration into state 6. Final claim validation checks current
+  Network Flow major 10/state 7 retains the orientation-aware source contracts
+  and adds committed provenance and immutable selected-source bindings. Fresh
+  state 7, state-1/2/3/4/5/6 rejection before mutation, invalid current-diagnostic
+  rejection and atomic predecessor-declaration rejection are direct evidence.
+  Historical ledger facts expose no executable migration into state 7. Final claim validation checks current
   diagnostics before publication; structural restore preserves inactive bytes
   and binding proofs without invoking the live profile semantic validator; contributed endpoint/direction SQL constraints remain mandatory.
 
   Current generation admission selects Graph algorithm v5/result v6, source
-  registry v6 and implementation binding v8; retired bindings reject before
+  registry v6 and implementation binding v9; retired bindings reject before
   mutation. Structural Recovery leaves the three derived Graph tables empty.
   After successful source claim, failure injection proves clear, rebuild,
   immutable publication, Network Flow nonterminal-job reconciliation and exact
@@ -3881,7 +3884,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-336, REQ-01-517..REQ-01-520, REQ-02-233, REQ-03-273
 
 
-- **AC-370**: `GET /api/v1/extensions` succeeds for an authenticated current session, including one with `is_deployment_admin=false` and zero current incident memberships. The route returns the common success envelope with `data.extensions[]` ordered by `profile_id asc`; the exact current-profile set is `enterprise_authentication`, `import`, `incident_portability`, `network_flow_activity`, `reference_pack`, and `snapshot_reporting`; each item contains exactly `profile_id`, `claimable`, `claimed`, `contract_major`, `route_families[]`, `workspace_keys[]`, and `capabilities[]`; `network_flow_activity` uses major `9`, workspace `network_analysis`, its validated published claim state, and an empty capability array; every other capability array is empty; each route family matches Core 01 and is ordered ascending; compatible decoders ignore unknown additive members but never execute them; pagination members fail with `400 error.code='invalid_pagination_request'` and `error.details.reason_code='pagination_not_supported'`; and the route discloses no provider secrets, provider claim maps, implementation/document versions, registry digests, or live extension-family payload.
+- **AC-370**: `GET /api/v1/extensions` succeeds for an authenticated current session, including one with `is_deployment_admin=false` and zero current incident memberships. The route returns the common success envelope with `data.extensions[]` ordered by `profile_id asc`; the exact current-profile set is `enterprise_authentication`, `import`, `incident_portability`, `network_flow_activity`, `reference_pack`, and `snapshot_reporting`; each item contains exactly `profile_id`, `claimable`, `claimed`, `contract_major`, `route_families[]`, `workspace_keys[]`, and `capabilities[]`; `network_flow_activity` uses major `10`, workspace `network_analysis`, its validated published claim state, and an empty capability array; every other capability array is empty; each route family matches Core 01 and is ordered ascending; compatible decoders ignore unknown additive members but never execute them; pagination members fail with `400 error.code='invalid_pagination_request'` and `error.details.reason_code='pagination_not_supported'`; and the route discloses no provider secrets, provider claim maps, implementation/document versions, registry digests, or live extension-family payload.
   - Verifies: REQ-00-022, REQ-01-032..REQ-01-033, REQ-01-542..REQ-01-546, REQ-04-105
 - **AC-371**: When `GET /api/v1/extensions` reports one or more items with `claimed=false`, probing each such profile's declared `route_families[]` root and one descendant route under that same family returns `404 error.code='extension_profile_not_claimed'`, `error.retryable=false`, and `error.details` containing the matching `profile_id` and canonical matched `route_family`. That result is returned before family-specific authorization or policy evaluation for the unclaimed family; a path outside all reserved base and extension families does not use `extension_profile_not_claimed`; and a valid path inside a claimed extension family does not use `extension_profile_not_claimed` solely because the family currently has zero resources or because ordinary family authorization later denies access.
   - Verifies: REQ-00-022, REQ-01-033, REQ-01-234, REQ-01-544, REQ-01-546..REQ-01-548, REQ-04-105
@@ -3945,8 +3948,8 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   `archive_compression_ratio_exceeded`, `archive_member_count_exceeded`, or
   `initial_admin_unavailable`.
   - Verifies: REQ-01-471, REQ-01-486, REQ-01-553
-- **AC-544**: Incident Bundle export re-evaluates every recognized `blocked_when_present` profile after acquiring the incident serialization boundary in the final publication transaction. No state proceeds; active or retained soft-deleted Network Flow state fails with `incident_bundle_export_rejected` and `reason_code='extension_state_not_portable'`; concurrent state committed before the final guard is observed; multiple blockers disclose only the UTF-8-smallest safe profile ID; and failure leaves no descriptor, public object reference, or residual published object.
-  - Verifies: REQ-01-486, EXT-REQ-141, EXT-REQ-198, EXT-REQ-222, NF-REQ-182
+- **AC-544**: Incident Bundle export re-evaluates every recognized `blocked_when_present` profile after acquiring the incident serialization boundary in the final publication transaction. Absence of blocking state proceeds; presence of a genuinely non-portable profile fails with `incident_bundle_export_rejected` and `reason_code='extension_state_not_portable'`; concurrent state committed before the final guard is observed; multiple blockers disclose only the UTF-8-smallest safe profile ID; and failure leaves no descriptor, public object reference, or residual published object. Network Flow is a participant, including its soft-deleted tables and retired declarations; its presence must not trigger this generic guard.
+  - Verifies: REQ-01-486, EXT-REQ-141, EXT-REQ-198, EXT-REQ-222, NF-REQ-182, NF-REQ-224
 - **AC-550**: Exporting, importing into an empty deployment, and re-exporting
   current Timeline history preserves each non-null version identifier as the
   byte-exact opaque value
@@ -3972,11 +3975,11 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-00-058, REQ-01-448..REQ-01-450, REQ-01-485..REQ-01-486, REQ-01-609, REQ-03-290
 
 - **AC-487**: Two exports from identical authoritative incident state and
-  identical normalized export inputs produce byte-identical version `4`
+  identical normalized export inputs produce byte-identical version `6`
   structured members, canonical manifest bytes, checksum inventory, and
-  archive bytes; no new export path emits version `2` or `3`.
+  archive bytes; no new export path emits an earlier version.
   - Verifies: REQ-01-428..REQ-01-442, REQ-01-635..REQ-01-636
-- **AC-488**: Importing a valid version `4` export into an empty deployment and
+- **AC-488**: Importing a valid version `6` export into an empty deployment and
   re-exporting it preserves authoritative incident and record identifiers,
   source rows, history, attribution, Timeline state and provenance, blob
   digests, and source-owner invariant results; the imported incident becomes
@@ -3984,7 +3987,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-425..REQ-01-426, REQ-01-448..REQ-01-450,
     REQ-01-609, REQ-01-636, REQ-01-640..REQ-01-641
 - **AC-489**: A structurally valid archive declaring each retired numeric version
-  `1`, `2` or `3` is admitted through the ordinary asynchronous job boundary and then
+  `1` through `5` is admitted through the ordinary asynchronous job boundary and then
   fails with `incident_bundle_import_rejected`,
   `reason_code='unsupported_bundle_version'`, and `retryable=false` before
   source preparation, extension preparation, cross-owner transaction
@@ -3995,9 +3998,9 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-635..REQ-01-636, REQ-01-640
 - **AC-490**: Before source preparation, import rejects omitted, JSON `null`,
   and non-integer `bundle_version` with `malformed_manifest`; rejects an
-  integer other than `4`, including retired numeric versions `1`, `2` and `3`, with
+  integer other than `6`, including retired numeric versions `1` through `5`, with
   `unsupported_bundle_version`; and rejects a retired or mixed Timeline path
-  set under version `4`, an unknown
+  set under version `6`, an unknown
   or duplicate core path, a missing required path, checksum failure, traversal,
   unsupported member, extracted-byte excess, compression-ratio excess, or
   member-count excess with the exact closed import reason and no codec
@@ -4005,7 +4008,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-428..REQ-01-430, REQ-01-433..REQ-01-438,
     REQ-01-449, REQ-01-486, REQ-01-635, REQ-01-642
 - **AC-491**: Every imported Timeline row binds to one same-incident
-  `timeline_event` record envelope; version `4` files accept only their closed
+  `timeline_event` record envelope; version `6` files accept only their closed
   row shapes; provenance composite identities are unique and non-orphaned; and
   import loses or duplicates no provenance row.
   - Verifies: REQ-01-636, REQ-01-640
@@ -4037,7 +4040,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-450, REQ-01-638, REQ-01-641
 - **AC-496**: Catalog construction rejects each closed invalid class in
   REQ-01-639, two valid builds produce the same FK-safe order, and every
-  required version `4` core path has exactly one declared
+  required version `6` core path has exactly one declared
   consumer or validator and one declared stable-identity invariant.
   - Verifies: REQ-01-635, REQ-01-639..REQ-01-640
 - **AC-497**: For each current source-owner family, at least one fixture that is
@@ -4098,13 +4101,13 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   provenance, and satisfies generated-artifact policy with no manually edited
   generated root or dependency lockfile.
   - Verifies: REQ-01-643
-- **AC-506**: Incident Bundle version 4 is the sole admitted import/export format.
+- **AC-506**: Incident Bundle version 6 is the sole admitted import/export format.
   Version dispatch selects only the integer manifest version before source
-  preparation. Retired versions 1/2/3 and all other integers fail with the safe
+  preparation. Retired versions 1/2/3/4/5 and all other integers fail with the safe
   unsupported-version error and no fallback, target mutation or publication.
   Malformed/omitted/null versions use the malformed-manifest error. An already
   admitted asynchronous legacy job terminates safely with no source preparation.
-  All source and special-consumer path/schema bindings admit only version 4.
+  All source and special-consumer path/schema bindings admit only version 6.
   Matched client/server cutover retires incompatible attempts and jobs; immutable
   historical schemas, baselines, artifacts and receipts remain unchanged. The
   narrow REQ-01-021 exception does not weaken general API versioning.
@@ -4114,7 +4117,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   closed malformed, duplicate, mismatched, unknown, or unclaimed cases, invoke
   exactly their admitted consumer, and publish no unauthorized state.
   - Verifies: REQ-01-635, REQ-01-640, REQ-01-642
-- **AC-508**: For admitted version `4`,
+- **AC-508**: For admitted version `6`,
   `data/saved_views.ndjson` is always present and contains only the exact
   eleven-member REQ-01-644 row. Deterministic export covers private, shared,
   system, and zero-row incidents without relation-derived fields. Preparation
@@ -4162,7 +4165,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   contended record, and returns no partial protected-set result.
   - Verifies: REQ-00-067, REQ-01-649
 - **AC-513**: Legal Records rows import and deterministically re-export for
-  admitted version `4`; exact-shape, identity, type, version,
+  admitted version `6`; exact-shape, identity, type, version,
   timestamp, actor, delete-tuple, duplicate, incident-scope, missing-subtype,
   incompatible-subtype, duplicate-subtype, and reverse-orphan cases each fail
   with the exact closed Records invariant and safe public error, and every
@@ -4637,7 +4640,7 @@ Profiles: network_flow_activity
 Verified by: AC-477
 
 **REQ-04-141**
-Opaque import source streams, upload capabilities, preview caches, mapping approvals, validated staging rows, temporary files, object-store keys, worker-local paths, and retry artifacts used by Network Flow import are Core import-job/source artifacts, not Network Flow incident resources. Network Flow MUST NOT expose those artifacts through Network Flow routes, workspace state, domain audit payloads, route errors, diagnostics, logs, telemetry attributes, safe digests, Graph Projection adapter inputs, or generated fixture transcripts except through harness-owned redacted evidence fields explicitly declared by an adopted owner. After final commit, the durable Network Flow incident data is limited to committed table metadata, immutable accepted rows, retained diagnostics, source snapshot identity, indicator bindings, idempotency state needed for exact replay, and Core-governed domain audit occurrences. Raw source bytes and staging artifacts MUST follow the Core import owner retention and cleanup contract and MUST NOT be retained longer because the Network Flow extension claimed a profile. Failed, cancelled, preview-only, and rolled-back imports MUST NOT leave a queryable table, a retained Network Flow diagnostic set, or a public Network Flow table reference.
+Opaque import source streams, upload capabilities, preview caches, mapping approvals, validated staging rows, temporary files, object-store keys, worker-local paths, and retry artifacts used by Network Flow import are Core import-job/source artifacts, not Network Flow incident resources. Network Flow MUST NOT expose those artifacts through Network Flow routes, workspace state, domain audit payloads, route errors, diagnostics, logs, telemetry attributes, safe digests, Graph Projection adapter inputs, or generated fixture transcripts except through harness-owned redacted evidence fields explicitly declared by an adopted owner. After final commit, the durable Network Flow incident data is limited to committed table metadata, immutable accepted rows, retained diagnostics, source snapshot identity, indicator bindings, idempotency state needed for exact replay, and Core-governed domain audit occurrences. Every successfully applied unit MUST retain exact source bytes and approved mapping in the Imports-owned committed-source record, under the same incident-retention contract for Core and Network Flow targets. Network Flow references that immutable record through the Imports owner boundary. Operational upload capabilities, previews, approvals, and staging artifacts follow the separate Import workflow cleanup contract; their cleanup MUST NOT remove committed provenance or its referenced bytes. Failed, cancelled, preview-only, and rolled-back imports MUST NOT leave a queryable table, a retained Network Flow diagnostic set, or a public Network Flow table reference.
 Profiles: network_flow_activity
 Verified by: AC-477
 
@@ -4842,6 +4845,8 @@ class in the adopted object-ownership manifest. Runtime classes are:
 - `schema_usage`: schema `USAGE`;
 - `table_read_write`: table `SELECT`, `INSERT`, `UPDATE`, `DELETE`;
 - `table_append_only`: table `SELECT`, `INSERT`;
+- `table_immutable`: table `SELECT`, `INSERT`, `DELETE`; immutable committed
+  source records and blobs permit owner-controlled reclamation, never updates;
 - `table_read_only`: table `SELECT`;
 - `table_no_access`: no table privilege;
 - `migration_ledger_read`: migration metadata `SELECT` only;
@@ -5319,3 +5324,34 @@ Discard the grid draft and request cancellation of still-active measured work
 through the ordinary UI after observation. Retain terminal outcomes and harness
 cleanup. This does not measure completion of rendering, publish a benchmark, or
 change the backend cancellation/commit rules.
+
+
+## Complete incident portability security amendment (2026-11-05)
+
+Current complete-incident transfer requires bundle version 6 and compatible,
+enabled Network Flow major 10/state 7 whenever that state is present. Transfer
+never grants source permissions, creates login accounts from historical actors,
+automatically enables profiles or silently omits extension data. Committed
+source access uses the corresponding Imports source-inspection/mapping-approval
+role and verifies incident scope; raw source files can contain unmapped data.
+
+All admitted archive containers (ZIP, TAR, TAR.GZ) enforce traversal, link,
+duplicate/undeclared member, checksum, extracted-size and compression rejection
+before publication. Preparation and streamed staging grant no public access.
+Source and destination authorization are rechecked at their final publication
+boundaries. Uncertain commit acknowledgement is resolved from durable receipts
+before object cleanup; retry cannot duplicate effects.
+
+The successor deployment uses fresh-state initialization and current-state
+reopening only. Incompatible retained state and Recovery generations fail before
+mutation. No automatic reset, conversion, backfill, legacy reader or in-place
+downgrade is supplied. Recovery retains its separate authentication inventory,
+session invalidation and operator serving-admission policy. Qualification uses
+isolated harness-owned deployments and must not reset live environments.
+
+The incident-portability cutover requires fresh schema initialization. For the
+canonical catalog containing migration 39 or later, an initialized predecessor
+schema below 39 fails read-only admission with `schema_fresh_state_required`
+before any successor DDL or migration-ledger mutation. Provision an explicitly
+new target; keep the prior executable and its data together for historical
+access. Neither application startup nor test setup resets a live target.

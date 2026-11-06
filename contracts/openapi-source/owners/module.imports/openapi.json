@@ -873,6 +873,288 @@
         "x-cartulary-availability": "import",
         "x-cartulary-state-changing": false
       }
+    },
+    "/api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "getCommittedImportSource",
+        "summary": "Read retained import source provenance.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "committed_source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable committed source provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommittedImportSourceEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
+      }
+    },
+    "/api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}/content": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "getCommittedImportSourceContent",
+        "summary": "Read retained import source bytes.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "committed_source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized retained source content",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
+      }
+    },
+    "/api/v1/incidents/{incident_id}/committed-sources": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "listCommittedImportSources",
+        "summary": "List authorized committed sources in stable identifier order.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable committed source provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommittedImportSourcesEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source unavailable or access rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
+      }
     }
   },
   "components": {
@@ -1866,6 +2148,204 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/ExtensionSourceInspectionResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "CommittedImportSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "committed_source_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "origin_import_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "origin_import_unit_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content_sha256": {
+            "type": "string"
+          },
+          "source_file_kind": {
+            "type": "string"
+          },
+          "source_media_type": {
+            "type": "string"
+          },
+          "original_filename": {
+            "type": "string"
+          },
+          "parser_profile_id": {
+            "type": "string"
+          },
+          "parser_version": {
+            "type": "string"
+          },
+          "locator_kind": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "source_rect_a1": {
+            "type": "string"
+          },
+          "mapping_fingerprint": {
+            "type": "string"
+          },
+          "target_kind": {
+            "type": "string"
+          },
+          "target_view_schema_id": {
+            "type": "string"
+          },
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "schema_id": {
+            "type": "string",
+            "const": "cartulary.imports.committed_source.v1"
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "approved_mapping": {
+            "$ref": "#/components/schemas/ApprovedImportMapping"
+          },
+          "header_row_ref": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "data_start_row_ref": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "required": [
+          "committed_source_id",
+          "incident_id",
+          "origin_import_session_id",
+          "origin_import_unit_id",
+          "created_by_user_id",
+          "content_sha256",
+          "source_file_kind",
+          "source_media_type",
+          "original_filename",
+          "parser_profile_id",
+          "parser_version",
+          "locator_kind",
+          "locator",
+          "source_rect_a1",
+          "mapping_fingerprint",
+          "target_kind",
+          "target_view_schema_id",
+          "extension_profile_id",
+          "schema_id",
+          "byte_size",
+          "committed_at",
+          "approved_mapping",
+          "header_row_ref",
+          "data_start_row_ref"
+        ]
+      },
+      "CommittedImportSourceEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CommittedImportSource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "CommittedImportSourceSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "committed_source_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content_sha256": {
+            "type": "string"
+          },
+          "original_filename": {
+            "type": "string"
+          },
+          "target_kind": {
+            "type": "string"
+          },
+          "target_view_schema_id": {
+            "type": "string"
+          },
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "committed_source_id",
+          "content_sha256",
+          "original_filename",
+          "target_kind",
+          "target_view_schema_id",
+          "extension_profile_id",
+          "committed_at"
+        ]
+      },
+      "CommittedImportSourcesEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "committed_sources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CommittedImportSourceSummary"
+                }
+              }
+            },
+            "required": [
+              "committed_sources"
+            ]
           },
           "meta": {
             "$ref": "#/components/schemas/EnvelopeMeta"

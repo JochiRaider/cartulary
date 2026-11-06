@@ -2,24 +2,24 @@
   "schema_id": "cartulary.recovery_generation_registry.v1",
   "generations": [
     {
-      "generation_id": "recovery.orientation.v1",
+      "generation_id": "recovery.incident_portability.v1",
       "capture_current": true,
       "catalog": {
         "artifact_path": "fixtures/recovery-state-catalog.v2.json",
         "schema_id": "cartulary.recovery_state_catalog.v2",
-        "canonical_sha256": "9b8e4e4d1c0f7e05be8facb6b644452d13d31c0d4739a19a3b3b4d65f25842e9",
-        "catalog_digest_sha256": "4cbd6f39c3e44950273bda2770969b4e9bb55b3ee51cece0691eec5a34d3d934",
+        "canonical_sha256": "03e74770873c30c8adc4e64f06908bd1bfae6fa352d134654622da85dbf18d91",
+        "catalog_digest_sha256": "8c30679292984edd5c4cc412b14b4fc3ddb6b7ab2ff75651fca5dbbf1994c3df",
         "contribution_count": 30,
-        "authored_table_count": 148,
-        "required_table_count": 116,
-        "object_family_count": 6
+        "authored_table_count": 161,
+        "required_table_count": 120,
+        "object_family_count": 7
       },
       "codec_registry": {
         "schema_ids": [
           "cartulary.backup_artifact_envelope.v3",
           "cartulary.backup_integrity_manifest.v4",
           "cartulary.extension_postgres_binding_proof.v1",
-          "cartulary.graph_projection_restore_implementation_binding.v8",
+          "cartulary.graph_projection_restore_implementation_binding.v9",
           "cartulary.graph_projection_restore_source_registry.v6",
           "cartulary.object_store_backup_manifest.v2",
           "cartulary.object_store_backup_summary.v2",
@@ -27,19 +27,19 @@
           "cartulary.postgres_snapshot_artifact.v3",
           "cartulary.postgres_snapshot_unit.v1"
         ],
-        "digest_sha256": "8aed87e856d99e1c93e00c5aad727ca14625563d7d4bac6b21f22e407069ad3a"
+        "digest_sha256": "18f7bcd2642ac2be3ef1f1729a190e55a94e7d7d7e1a6ae877dfc28413afbd93"
       },
       "graph": {
         "algorithm_id": "graphprojection.restore_rebuild.v5",
         "source_registry": {
           "artifact_path": "fixtures/graph-projection-restore-source-registry.v6.json",
           "schema_id": "cartulary.graph_projection_restore_source_registry.v6",
-          "canonical_sha256": "7d142ac2ff5698dbdb15fe1879c18bd913c9ea127779146d99a78e363d13f7c9"
+          "canonical_sha256": "320b231b6ac35d24692b53ee83e5782ca2c8fbbd74e083f2ad25857b09670c18"
         },
         "implementation_binding": {
-          "artifact_path": "fixtures/graph-projection-restore-implementation-binding.v8.json",
-          "schema_id": "cartulary.graph_projection_restore_implementation_binding.v8",
-          "canonical_sha256": "f7c29ab311570f74b70e4f71026b217620b03a88cafc5028cf53bfbac55bf015"
+          "artifact_path": "fixtures/graph-projection-restore-implementation-binding.v9.json",
+          "schema_id": "cartulary.graph_projection_restore_implementation_binding.v9",
+          "canonical_sha256": "73efc7c89ceb0bfd676a861dde88c7d2e00276cdf43d30e880a1244995b9c77b"
         }
       }
     }

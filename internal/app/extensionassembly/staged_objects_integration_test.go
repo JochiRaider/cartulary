@@ -3,6 +3,10 @@ package extensionassembly
 import (
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
+	"github.com/google/uuid"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,7 +53,7 @@ func TestStagedObjects_Integration_AllocationPublicationAndCleanup(t *testing.T)
 	if err != nil ||
 		stored.State != extensionstore.StagedReady ||
 		stored.StorageIdentity == "" ||
-		stored.ExpectedByteSize != int64(len("published payload")) {
+		stored.ExpectedByteSize == nil || *stored.ExpectedByteSize != int64(len("published payload")) {
 		t.Fatalf("ready staged object = %#v/%v", stored, err)
 	}
 	if _, err := objectStore.StatObject(ctx, stored.StorageIdentity); err != nil {
@@ -72,8 +76,8 @@ func TestStagedObjects_Integration_AllocationPublicationAndCleanup(t *testing.T)
 		StagingID:    stagingID,
 		ResourceKind: "incident_bundle",
 		ResourceID:   "bundle-1",
-		ByteSize:     stored.ExpectedByteSize,
-		SHA256:       stored.ExpectedSHA256,
+		ByteSize:     *stored.ExpectedByteSize,
+		SHA256:       *stored.ExpectedSHA256,
 	}}, capability); err != nil {
 		t.Fatal(err)
 	}
@@ -169,8 +173,8 @@ func TestStagedObjects_Integration_PublicationRollbackLeavesReadyAndInaccessible
 		StagingID:    stagingID,
 		ResourceKind: "incident_bundle",
 		ResourceID:   "bundle-rollback",
-		ByteSize:     record.ExpectedByteSize,
-		SHA256:       record.ExpectedSHA256,
+		ByteSize:     *record.ExpectedByteSize,
+		SHA256:       *record.ExpectedSHA256,
 	}}, capability); err != nil {
 		t.Fatal(err)
 	}
@@ -203,10 +207,9 @@ func TestStagedObjects_Integration_ReferenceContradictionIsFatalBeforeDelete(t *
 	}
 	record := extensionstore.NewStagedObject(
 		"staging-contradiction",
+		"operation-contradiction",
 		"network_flow_activity",
 		".cartulary/staged/network_flow_activity/staging-contradiction",
-		7,
-		"239f59ed55e737c77147cf55ad0c1b030b6d7ee748a7426952f9b852d5a935e5",
 		now.Add(-25*time.Hour),
 	)
 	if err := physical.AllocateStagedObject(ctx, record); err != nil {
@@ -217,7 +220,7 @@ INSERT INTO extension_staged_object_references (
     staging_id, owner_resource_kind, owner_resource_id,
     expected_byte_size, expected_sha256, committed_at
 ) VALUES ($1, 'incident_bundle', 'bundle-contradiction', $2, $3, $4)
-`, record.StagingID, record.ExpectedByteSize, record.ExpectedSHA256, now); err != nil {
+`, record.StagingID, 7, "239f59ed55e737c77147cf55ad0c1b030b6d7ee748a7426952f9b852d5a935e5", now); err != nil {
 		t.Fatal(err)
 	}
 	var fatalCalls int
@@ -265,4 +268,104 @@ func newStagedObjectsIntegrationFixture(t testing.TB) (*pgxpool.Pool, *extension
 		t.Fatal(err)
 	}
 	return pool, physical, objectBytes, objectStore
+}
+
+func TestStagedObjects_Integration_ReservedOwnerAndCompetingAttempts(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
+	pool, physical, bytes, objects := newStagedObjectsIntegrationFixture(t)
+	repository, err := NewStagedObjectRepository(physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := stagedobjects.NewService(stagedobjects.ServiceOptions{Repository: repository, Bytes: bytes, Now: func() time.Time { return now }, ResourceIdentity: evidence.IncidentBundleResourceIdentity, FatalSink: func(err error) { t.Errorf("fatal: %v", err) }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	incident, blob := uuid.New(), uuid.New()
+	resource := stagedobjects.ResourceBinding{Kind: "object_blob", ID: incident.String() + ":" + blob.String()}
+	type attempt struct {
+		resources *stagedobjects.PreparedResources
+		key       string
+		id        string
+	}
+	allocate := func(operation, content string) attempt {
+		t.Helper()
+		scope, err := stagedobjects.NewScope(operation, "evidence", service)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sealed, key, err := scope.AllocateResourceStream(ctx, operation, resource, strings.NewReader(content), int64(len(content)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		parts, err := blobref.ParseObjectBlobStorageKey(key)
+		if err != nil || parts.IncidentID != incident || parts.ObjectBlobID != blob {
+			t.Fatalf("owner key: %s %v", key, err)
+		}
+		stored, err := physical.StagedObject(ctx, sealed.StagingID)
+		if err != nil || stored.ReservedResourceID == nil || *stored.ReservedResourceID != resource.ID {
+			t.Fatalf("missing reservation: %#v %v", stored, err)
+		}
+		prepared, err := scope.PrepareResources([]stagedobjects.Publication{{StagingID: sealed.StagingID, ResourceKind: resource.Kind, ResourceID: resource.ID, ByteSize: sealed.ByteSize, SHA256: sealed.SHA256}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return attempt{prepared, key, sealed.StagingID}
+	}
+	winner, loser := allocate("winner", "retained evidence"), allocate("loser", "competing bytes")
+	if winner.key == loser.key {
+		t.Fatal("competing attempts shared a physical key")
+	}
+	plan := winner.resources.Plan()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capability, err := NewStagedPublicationCapability("winner", tx, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	altered := append([]stagedobjects.Publication(nil), plan.Publications...)
+	altered[0].ResourceID = incident.String() + ":" + uuid.NewString()
+	if err := stagedobjects.PublishTransferred(ctx, plan.Transfer, altered, capability); err == nil {
+		t.Fatal("changed reserved owner published")
+	}
+	if err := tx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	tx, err = pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capability, err = NewStagedPublicationCapability("winner", tx, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stagedobjects.PublishTransferred(ctx, plan.Transfer, plan.Publications, capability); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := loser.resources.Abandon(ctx); err != nil {
+		t.Fatal(err)
+	}
+	janitor, err := stagedobjects.NewJanitor(stagedobjects.JanitorOptions{Repository: repository, Bytes: bytes, Health: stagedobjects.NewHealth(), Now: func() time.Time { return now.Add(time.Minute) }, BatchLimit: 10, OperationTimeout: time.Minute, FatalSink: func(err error) { t.Errorf("janitor fatal: %v", err) }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := janitor.Sweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := objects.StatObject(ctx, winner.key); err != nil {
+		t.Fatalf("committed winner deleted: %v", err)
+	}
+	if _, err := objects.StatObject(ctx, loser.key); err == nil {
+		t.Fatal("abandoned loser remains")
+	}
+	published, err := physical.RedeemableStagedObject(ctx, winner.id, now.Add(48*time.Hour))
+	if err != nil || published.State != extensionstore.StagedPublished {
+		t.Fatalf("published owner lost: %#v %v", published, err)
+	}
 }

@@ -23,6 +23,7 @@
       "implementation_id": "cartulary.import.builtin.v1",
       "state_ownership_kind": "core_managed",
       "implemented_contribution_ids": [
+        "import.committed_sources_route",
         "import.sessions_route"
       ],
       "implemented_job_kinds": [
@@ -56,12 +57,14 @@
     },
     {
       "profile_id": "network_flow_activity",
-      "contract_major": 9,
-      "implementation_id": "cartulary.network_flow_activity.builtin.v9",
+      "contract_major": 10,
+      "implementation_id": "cartulary.network_flow_activity.builtin.v10",
       "state_ownership_kind": "extension_versioned",
       "implemented_contribution_ids": [
         "network_flow_activity.import_apply",
         "network_flow_activity.import_target",
+        "network_flow_activity.incident_import",
+        "network_flow_activity.incident_portability",
         "network_flow_activity.indicator_link",
         "network_flow_activity.network_analysis_workspace",
         "network_flow_activity.reporting_graph_source",
@@ -80,17 +83,23 @@
         "network_flow_activity.import_apply_prepare_v2",
         "network_flow_activity.import_apply_validate_v2",
         "network_flow_activity.import_apply_write_v2",
+        "network_flow_activity.incident_export_v1",
+        "network_flow_activity.incident_import_prepare_v1",
+        "network_flow_activity.incident_import_v1",
+        "network_flow_activity.incident_import_validate_v1",
+        "network_flow_activity.incident_import_write_v1",
+        "network_flow_activity.incident_member_order_v1",
+        "network_flow_activity.incident_portability_cutover_v1",
         "network_flow_activity.indicator_bindings_identity_v1",
         "network_flow_activity.indicator_link_prepare_v2",
         "network_flow_activity.indicator_link_validate_v2",
         "network_flow_activity.indicator_link_write_v2",
-        "network_flow_activity.orientation_cutover_v1",
         "network_flow_activity.rejected_row_diagnostics_identity_v1",
         "network_flow_activity.reporting_graph_order_v1",
         "network_flow_activity.reporting_graph_source_v2",
         "network_flow_activity.rows_identity_v1",
         "network_flow_activity.tables_identity_v1",
-        "network_flow_activity.validate_state_v6"
+        "network_flow_activity.validate_state_v7"
       ],
       "participant_implementations": [
         {
@@ -99,6 +108,22 @@
             "network_flow_activity.import_apply_prepare_v2",
             "network_flow_activity.import_apply_validate_v2",
             "network_flow_activity.import_apply_write_v2"
+          ]
+        },
+        {
+          "participant_id": "network_flow_activity.incident_import_v1",
+          "algorithm_ids": [
+            "network_flow_activity.incident_import_prepare_v1",
+            "network_flow_activity.incident_import_validate_v1",
+            "network_flow_activity.incident_import_write_v1"
+          ]
+        },
+        {
+          "participant_id": "network_flow_activity.incident_portability_v1",
+          "algorithm_ids": [
+            "network_flow_activity.incident_export_v1",
+            "network_flow_activity.incident_import_v1",
+            "network_flow_activity.incident_member_order_v1"
           ]
         },
         {
@@ -145,6 +170,7 @@
       "implemented_contribution_ids": [
         "snapshot_reporting.releases_route",
         "snapshot_reporting.report_compositions_route",
+        "snapshot_reporting.retained_artifacts_route",
         "snapshot_reporting.snapshots_route"
       ],
       "implemented_job_kinds": [

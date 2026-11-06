@@ -449,6 +449,45 @@ type EnterpriseAuthTransaction struct {
 	PkceVerifierEnvelope []byte             `json:"pkce_verifier_envelope"`
 }
 
+type EntitiesBundleValidationAssociation struct {
+	Kind            string      `json:"kind"`
+	EntityType      string      `json:"entity_type"`
+	RecordID        pgtype.UUID `json:"record_id"`
+	Key1            string      `json:"key1"`
+	Key2            string      `json:"key2"`
+	Key3            string      `json:"key3"`
+	ValidationRowID pgtype.UUID `json:"validation_row_id"`
+	TransactionID   interface{} `json:"transaction_id"`
+}
+
+type EntitiesBundleValidationBinding struct {
+	OperationID   string      `json:"operation_id"`
+	IncidentID    pgtype.UUID `json:"incident_id"`
+	ActorID       pgtype.UUID `json:"actor_id"`
+	SourceDigest  string      `json:"source_digest"`
+	TransactionID interface{} `json:"transaction_id"`
+}
+
+type EntitiesBundleValidationClaim struct {
+	RecordID        pgtype.UUID `json:"record_id"`
+	EntityType      string      `json:"entity_type"`
+	IdentifierType  string      `json:"identifier_type"`
+	NormalizedValue string      `json:"normalized_value"`
+	TransactionID   interface{} `json:"transaction_id"`
+}
+
+type EntitiesBundleValidationMention struct {
+	ID            pgtype.UUID `json:"id"`
+	TransactionID interface{} `json:"transaction_id"`
+}
+
+type EntitiesBundleValidationNode struct {
+	Kind          string      `json:"kind"`
+	ID            pgtype.UUID `json:"id"`
+	State         string      `json:"state"`
+	TransactionID interface{} `json:"transaction_id"`
+}
+
 type EntityActiveIdentifierClaim struct {
 	IncidentID      pgtype.UUID `json:"incident_id"`
 	EntityType      string      `json:"entity_type"`
@@ -654,21 +693,24 @@ type ExtensionMigrationLedger struct {
 }
 
 type ExtensionStagedObject struct {
-	StagingID           string             `json:"staging_id"`
-	OwnerProfileID      string             `json:"owner_profile_id"`
-	StorageIdentity     string             `json:"storage_identity"`
-	ExpectedByteSize    int64              `json:"expected_byte_size"`
-	ExpectedSha256      string             `json:"expected_sha256"`
-	StagedAt            pgtype.Timestamptz `json:"staged_at"`
-	StagingExpiresAt    pgtype.Timestamptz `json:"staging_expires_at"`
-	ReadyAt             pgtype.Timestamptz `json:"ready_at"`
-	PublishedAt         pgtype.Timestamptz `json:"published_at"`
-	AbandonedAt         pgtype.Timestamptz `json:"abandoned_at"`
-	State               string             `json:"state"`
-	DeleteState         string             `json:"delete_state"`
-	DeleteAttemptCount  int32              `json:"delete_attempt_count"`
-	NextDeleteAttemptAt pgtype.Timestamptz `json:"next_delete_attempt_at"`
-	LastDeleteErrorCode pgtype.Text        `json:"last_delete_error_code"`
+	StagingID            string             `json:"staging_id"`
+	OwnerProfileID       string             `json:"owner_profile_id"`
+	StorageIdentity      string             `json:"storage_identity"`
+	ExpectedByteSize     pgtype.Int8        `json:"expected_byte_size"`
+	ExpectedSha256       pgtype.Text        `json:"expected_sha256"`
+	StagedAt             pgtype.Timestamptz `json:"staged_at"`
+	StagingExpiresAt     pgtype.Timestamptz `json:"staging_expires_at"`
+	ReadyAt              pgtype.Timestamptz `json:"ready_at"`
+	PublishedAt          pgtype.Timestamptz `json:"published_at"`
+	AbandonedAt          pgtype.Timestamptz `json:"abandoned_at"`
+	State                string             `json:"state"`
+	DeleteState          string             `json:"delete_state"`
+	DeleteAttemptCount   int32              `json:"delete_attempt_count"`
+	NextDeleteAttemptAt  pgtype.Timestamptz `json:"next_delete_attempt_at"`
+	LastDeleteErrorCode  pgtype.Text        `json:"last_delete_error_code"`
+	OperationID          string             `json:"operation_id"`
+	ReservedResourceKind pgtype.Text        `json:"reserved_resource_kind"`
+	ReservedResourceID   pgtype.Text        `json:"reserved_resource_id"`
 }
 
 type ExtensionStagedObjectReference struct {
@@ -863,6 +905,42 @@ type ImportApplyUnitPlan struct {
 	AdmittedAt            pgtype.Timestamptz `json:"admitted_at"`
 }
 
+type ImportCommittedSource struct {
+	CommittedSourceID     pgtype.UUID        `json:"committed_source_id"`
+	IncidentID            pgtype.UUID        `json:"incident_id"`
+	ContentSha256         string             `json:"content_sha256"`
+	SourceFileKind        string             `json:"source_file_kind"`
+	SourceMediaType       string             `json:"source_media_type"`
+	OriginalFilename      string             `json:"original_filename"`
+	ParserProfileID       string             `json:"parser_profile_id"`
+	ParserVersion         string             `json:"parser_version"`
+	LocatorKind           string             `json:"locator_kind"`
+	Locator               string             `json:"locator"`
+	SourceRectA1          string             `json:"source_rect_a1"`
+	HeaderRowRef          int32              `json:"header_row_ref"`
+	DataStartRowRef       int32              `json:"data_start_row_ref"`
+	ApprovedMappingJson   []byte             `json:"approved_mapping_json"`
+	MappingFingerprint    string             `json:"mapping_fingerprint"`
+	TargetKind            string             `json:"target_kind"`
+	TargetViewSchemaID    string             `json:"target_view_schema_id"`
+	ExtensionProfileID    string             `json:"extension_profile_id"`
+	OriginImportSessionID pgtype.UUID        `json:"origin_import_session_id"`
+	OriginImportUnitID    pgtype.UUID        `json:"origin_import_unit_id"`
+	CreatedByUserID       pgtype.UUID        `json:"created_by_user_id"`
+	CommittedAt           pgtype.Timestamptz `json:"committed_at"`
+}
+
+type ImportCommittedSourceBlob struct {
+	ContentSha256 string `json:"content_sha256"`
+	ByteSize      int64  `json:"byte_size"`
+}
+
+type ImportCommittedSourceChunk struct {
+	ContentSha256 string `json:"content_sha256"`
+	ChunkOrdinal  int64  `json:"chunk_ordinal"`
+	SourceBytes   []byte `json:"source_bytes"`
+}
+
 type ImportSession struct {
 	ImportSessionID         pgtype.UUID        `json:"import_session_id"`
 	IncidentID              pgtype.UUID        `json:"incident_id"`
@@ -924,6 +1002,8 @@ type ImportUnit struct {
 	BaseImportUnitID             pgtype.UUID        `json:"base_import_unit_id"`
 	OperatorRegionSequence       pgtype.Int4        `json:"operator_region_sequence"`
 	BlockingSourceColumnOrdinals []int32            `json:"blocking_source_column_ordinals"`
+	ApprovedHeaderRowRef         pgtype.Int4        `json:"approved_header_row_ref"`
+	ApprovedDataStartRowRef      pgtype.Int4        `json:"approved_data_start_row_ref"`
 }
 
 type ImportUnitApplyOutcome struct {
@@ -1142,6 +1222,14 @@ type IndicatorStateInterval struct {
 	DeletedByUserID          pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
+type IndicatorsBundleValidationSource struct {
+	ID            pgtype.UUID `json:"id"`
+	Kind          string      `json:"kind"`
+	DedupeKey     string      `json:"dedupe_key"`
+	Active        bool        `json:"active"`
+	TransactionID interface{} `json:"transaction_id"`
+}
+
 type Job struct {
 	JobID                            pgtype.UUID        `json:"job_id"`
 	ScopeKind                        string             `json:"scope_kind"`
@@ -1179,6 +1267,44 @@ type Job struct {
 	SubmittingOperatorOperationID    pgtype.UUID        `json:"submitting_operator_operation_id"`
 }
 
+type LinksBundleValidationCatalog struct {
+	TagName           string      `json:"tag_name"`
+	NormalizedTagName string      `json:"normalized_tag_name"`
+	TransactionID     interface{} `json:"transaction_id"`
+}
+
+type LinksBundleValidationLink struct {
+	RecordLinkID    pgtype.UUID        `json:"record_link_id"`
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	SrcRecordID     pgtype.UUID        `json:"src_record_id"`
+	DstRecordID     pgtype.UUID        `json:"dst_record_id"`
+	LinkType        string             `json:"link_type"`
+	Provenance      string             `json:"provenance"`
+	Confidence      pgtype.Int4        `json:"confidence"`
+	OwnerUserID     pgtype.UUID        `json:"owner_user_id"`
+	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	FieldKey        pgtype.Text        `json:"field_key"`
+	TransactionID   interface{}        `json:"transaction_id"`
+}
+
+type LinksBundleValidationTag struct {
+	RecordTagID       pgtype.UUID        `json:"record_tag_id"`
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	RecordID          pgtype.UUID        `json:"record_id"`
+	TagName           string             `json:"tag_name"`
+	NormalizedTagName string             `json:"normalized_tag_name"`
+	CreatedByUserID   pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID   pgtype.UUID        `json:"deleted_by_user_id"`
+	TransactionID     interface{}        `json:"transaction_id"`
+}
+
 type NetworkFlowGraphView struct {
 	GraphViewID                           string             `json:"graph_view_id"`
 	IncidentID                            pgtype.UUID        `json:"incident_id"`
@@ -1204,6 +1330,8 @@ type NetworkFlowGraphView struct {
 	LatestJobID                           pgtype.UUID        `json:"latest_job_id"`
 	LastFailureCode                       pgtype.Text        `json:"last_failure_code"`
 	LastFailedAt                          pgtype.Timestamptz `json:"last_failed_at"`
+	RefreshIntentJson                     []byte             `json:"refresh_intent_json"`
+	SelectedSourceBindingJson             []byte             `json:"selected_source_binding_json"`
 }
 
 type NetworkFlowIndicatorBinding struct {
@@ -1277,27 +1405,28 @@ type NetworkFlowRow struct {
 }
 
 type NetworkFlowTable struct {
-	NetworkFlowTableID        string             `json:"network_flow_table_id"`
-	IncidentID                pgtype.UUID        `json:"incident_id"`
-	DisplayName               string             `json:"display_name"`
-	TableVersion              int64              `json:"table_version"`
-	TableStatus               string             `json:"table_status"`
-	SourceImportSessionID     pgtype.UUID        `json:"source_import_session_id"`
-	SourceImportUnitID        pgtype.UUID        `json:"source_import_unit_id"`
-	SourceContentSha256       string             `json:"source_content_sha256"`
-	SourceFilenameDisplay     string             `json:"source_filename_display"`
-	SourceFilenameDigest      string             `json:"source_filename_digest"`
-	SourceFilenameDigestKeyID string             `json:"source_filename_digest_key_id"`
-	MappingFingerprint        string             `json:"mapping_fingerprint"`
-	SourceProfileID           string             `json:"source_profile_id"`
-	ParserProfileID           string             `json:"parser_profile_id"`
-	RowCountAccepted          int64              `json:"row_count_accepted"`
-	RowCountRejected          int64              `json:"row_count_rejected"`
-	DiagnosticsTruncated      bool               `json:"diagnostics_truncated"`
-	CreatedByUserID           pgtype.UUID        `json:"created_by_user_id"`
-	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt                 pgtype.Timestamptz `json:"deleted_at"`
+	NetworkFlowTableID         string             `json:"network_flow_table_id"`
+	IncidentID                 pgtype.UUID        `json:"incident_id"`
+	DisplayName                string             `json:"display_name"`
+	TableVersion               int64              `json:"table_version"`
+	TableStatus                string             `json:"table_status"`
+	SourceContentSha256        string             `json:"source_content_sha256"`
+	SourceFilenameDisplay      string             `json:"source_filename_display"`
+	SourceFilenameDigest       string             `json:"source_filename_digest"`
+	SourceFilenameDigestKeyID  string             `json:"source_filename_digest_key_id"`
+	MappingFingerprint         string             `json:"mapping_fingerprint"`
+	SourceProfileID            string             `json:"source_profile_id"`
+	ParserProfileID            string             `json:"parser_profile_id"`
+	RowCountAccepted           int64              `json:"row_count_accepted"`
+	RowCountRejected           int64              `json:"row_count_rejected"`
+	DiagnosticsTruncated       bool               `json:"diagnostics_truncated"`
+	CreatedByUserID            pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt                  pgtype.Timestamptz `json:"deleted_at"`
+	CommittedSourceID          pgtype.UUID        `json:"committed_source_id"`
+	SourceInterpretationSha256 string             `json:"source_interpretation_sha256"`
+	SourceRawCellScalarLimit   int64              `json:"source_raw_cell_scalar_limit"`
 }
 
 type ObjectBlob struct {
@@ -1846,13 +1975,19 @@ type ReportingCompositionPreviewOutputFile struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type ReportingImportedArtifactChunk struct {
+	IncidentID   pgtype.UUID `json:"incident_id"`
+	BundlePath   string      `json:"bundle_path"`
+	ChunkOrdinal int64       `json:"chunk_ordinal"`
+	Content      []byte      `json:"content"`
+}
+
 type ReportingImportedArtifactFile struct {
 	IncidentID  pgtype.UUID `json:"incident_id"`
 	BundlePath  string      `json:"bundle_path"`
 	OperationID pgtype.UUID `json:"operation_id"`
 	SizeBytes   int64       `json:"size_bytes"`
 	Sha256      string      `json:"sha256"`
-	Content     []byte      `json:"content"`
 }
 
 type ReportingJobPayload struct {

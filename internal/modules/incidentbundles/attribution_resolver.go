@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
@@ -17,6 +18,12 @@ func ImportedAttributionResolver() revisions.ImportedAttributionResolver {
 type importedAttributionResolver struct{}
 
 type portableAttributionResolver struct{}
+
+// PortableSourceAttributions exposes the owner resolver to application snapshot
+// composition; each consumer remains confined by its logical read capability.
+func PortableSourceAttributions() sourceport.PortableAttributionResolver {
+	return portableAttributionResolver{}
+}
 
 func (portableAttributionResolver) ResolvePortableSourceActors(
 	ctx context.Context,

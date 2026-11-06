@@ -57,13 +57,15 @@ func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
 			return err
 		}
 		return httpapi.BindOwnerRoutes(mux, deps, "module.reporting", map[string]http.HandlerFunc{
-			"approveRelease":    service.handleReleasesMember,
-			"createRelease":     service.handleReleasesCollection,
-			"createSnapshot":    service.handleSnapshotsCollection,
-			"getRelease":        service.handleReleasesMember,
-			"getSnapshot":       service.handleSnapshotsMember,
-			"invalidateRelease": service.handleReleasesMember,
-			"publishRelease":    service.handleReleasesMember,
+			"approveRelease":                   service.handleReleasesMember,
+			"createRelease":                    service.handleReleasesCollection,
+			"createSnapshot":                   service.handleSnapshotsCollection,
+			"getRelease":                       service.handleReleasesMember,
+			"getSnapshot":                      service.handleSnapshotsMember,
+			"getRetainedReportArtifacts":       service.handleRetainedReportArtifacts,
+			"getRetainedReportArtifactContent": service.handleRetainedReportArtifacts,
+			"invalidateRelease":                service.handleReleasesMember,
+			"publishRelease":                   service.handleReleasesMember,
 		})
 	}
 }

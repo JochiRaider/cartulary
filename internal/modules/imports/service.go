@@ -21,6 +21,7 @@ import (
 )
 
 type service struct {
+	importedAttributions     revisions.ImportedAttributionResolver
 	store                    *store
 	applyTransactions        ApplyTransactions
 	analyticalTransactions   *crossownertransaction.Coordinator
@@ -64,6 +65,7 @@ type ApplyTransactions interface {
 }
 
 type ModuleDependencies struct {
+	ImportedAttributions      revisions.ImportedAttributionResolver
 	Postgres                  postgres.DB
 	ApplyTransactions         ApplyTransactions
 	AnalyticalTransactions    *crossownertransaction.Coordinator
@@ -105,6 +107,9 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	if dependencies.OwnerCreateRegistry == nil {
 		return nil, fmt.Errorf("imports module requires an owner-create registry")
 	}
+	if nilInterface(dependencies.ImportedAttributions) {
+		return nil, fmt.Errorf("imports module requires historical attribution reads")
+	}
 	if dependencies.RevisionAppender == nil {
 		return nil, fmt.Errorf("imports module requires a Revisions appender")
 	}
@@ -144,6 +149,7 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		return nil, fmt.Errorf("imports module requires analytical transactions")
 	}
 	service := &service{
+		importedAttributions:   dependencies.ImportedAttributions,
 		applyTransactions:      dependencies.ApplyTransactions,
 		analyticalTransactions: dependencies.AnalyticalTransactions,
 		store: newStore(

@@ -20,6 +20,14 @@ const (
 func TransactionContract(id string) (crossownertransaction.Descriptor, bool) {
 	d := crossownertransaction.Descriptor{ParticipantID: id, OwnerProfileID: ProfileID}
 	switch id {
+	case PortabilityTransactionParticipantID:
+		d.InputSchemaID = portabilityInputSchema
+		d.PrepareAlgorithmID = "network_flow_activity.incident_import_prepare_v1"
+		d.ValidationAlgorithmID = "network_flow_activity.incident_import_validate_v1"
+		d.WriteAlgorithmID = "network_flow_activity.incident_import_write_v1"
+		d.SerializationKeyKinds = []string{"network_flow_activity.incident"}
+		d.OwnedStateFamilyIDs = append([]string(nil), networkFlowExtensionFamilies...)
+
 	case IndicatorLinkParticipantID:
 		d.InputSchemaID = indicatorLinkTransactionInputSchema
 		d.PrepareAlgorithmID = "network_flow_activity.indicator_link_prepare_v2"
@@ -61,6 +69,8 @@ func (m *Module) ValidateTransactionInput(schemaID string, value any) bool {
 		return false
 	}
 	switch schemaID {
+	case portabilityInputSchema:
+		return validatePortabilityTransactionInput(value)
 	case indicatorLinkTransactionInputSchema:
 		if linkMembers(raw, map[string]string{"schema_id": "string", "incident_id": "string", "actor_user_id": "string", "request": "object", "target": "object", "candidate_value": "string", "client_txn_id": "string"}) != nil {
 			return false

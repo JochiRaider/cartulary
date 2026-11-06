@@ -8,7 +8,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
+	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 )
 
@@ -66,4 +69,30 @@ func (p *IncidentPortabilityStatePresence) AuthoritativeStatePresent(ctx context
 	default:
 		return false, errors.New("incident portability state presence profile scope invalid")
 	}
+}
+
+// IncidentPortabilityReads refines the same export snapshot and the admitted
+// source members into owner-specific capabilities. No profile sees the bundle
+// coordinator's transaction or another owner's members.
+type IncidentPortabilityReads struct{}
+
+func (IncidentPortabilityReads) ForSnapshot(query incidentbundles.ExportSnapshotQuery, incidentID uuid.UUID, profileID string) (incidentbundles.ExportReadCapability, error) {
+	if profileID != networkflow.ProfileID {
+		return nil, incidentbundles.ErrPortabilityUnavailable
+	}
+	return networkflow.NewPortabilityExportAccess(query, incidentID, incidentbundles.PortableSourceAttributions())
+}
+func (IncidentPortabilityReads) ForImport(ctx context.Context, input incidentbundles.PortabilityImportContext, members incidentportability.MemberReader, profileID string) (incidentbundles.ImportDependencyAccess, error) {
+	if profileID != networkflow.ProfileID {
+		return nil, incidentbundles.ErrPortabilityUnavailable
+	}
+	sources, err := imports.PrepareCommittedSources(ctx, members, input.IncidentID, input.Actors)
+	if err != nil {
+		return nil, err
+	}
+	indicatorReferences, err := indicators.NewPortableReferences(members, input.IncidentID)
+	if err != nil {
+		return nil, err
+	}
+	return networkflow.NewPortabilityDependencies(input.IncidentID, sources, indicatorReferences)
 }

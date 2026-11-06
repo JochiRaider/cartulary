@@ -92,6 +92,7 @@ var movedExtensionBoundaryExpectations = []movedExtensionBoundaryExpectation{
 			"TestStagedObjects_Integration_AllocationPublicationAndCleanup",
 			"TestStagedObjects_Integration_PublicationRollbackLeavesReadyAndInaccessible",
 			"TestStagedObjects_Integration_ReferenceContradictionIsFatalBeforeDelete",
+			"TestStagedObjects_Integration_ReservedOwnerAndCompetingAttempts",
 		},
 	},
 	{
@@ -366,8 +367,8 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 			break
 		}
 	}
-	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(9) {
-		t.Fatalf("Network Flow browser descriptor is not claimable major 9: %#v", networkFlow)
+	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(10) {
+		t.Fatalf("Network Flow browser descriptor is not claimable major 10: %#v", networkFlow)
 	}
 	requireJSONStrings(t, networkFlow["workspace_keys"], []string{"network_analysis"}, "Network Flow workspace keys")
 	requireJSONStrings(t, networkFlow["capability_ids"], []string{}, "Network Flow capabilities")
@@ -395,9 +396,9 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 	requireJSONStrings(t, importRow["public_schema_ids"], []string{}, "Import client support public schemas")
 
 	row := rowsByProfile["network_flow_activity"]
-	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(9) ||
-		row["client_asset_set_id"] != "network_flow_activity.standard.v9" {
-		t.Fatalf("client support row does not select Network Flow major 9: %#v", row)
+	if row == nil || row["profile_id"] != "network_flow_activity" || row["contract_major"] != float64(10) ||
+		row["client_asset_set_id"] != "network_flow_activity.standard.v10" {
+		t.Fatalf("client support row does not select Network Flow major 10: %#v", row)
 	}
 	requireJSONStrings(t, row["workspace_keys"], []string{"network_analysis"}, "client support workspaces")
 	requireJSONStrings(t, row["capability_ids"], []string{}, "client support capabilities")
@@ -492,8 +493,8 @@ func TestNetworkFlowV8StateJobsAndReportingProjection_Unit(t *testing.T) {
 			contributionKinds[contribution["contribution_id"].(string)] = true
 		}
 	}
-	if stateOwnership == nil || stateOwnership["current_state_version"] != float64(6) ||
-		stateOwnership["minimum_migratable_state_version"] != float64(6) {
+	if stateOwnership == nil || stateOwnership["current_state_version"] != float64(7) ||
+		stateOwnership["minimum_migratable_state_version"] != float64(7) {
 		t.Fatalf("Network Flow state ownership is not current state 6 with minimum state 6: %#v", stateOwnership)
 	}
 	if migration != nil {

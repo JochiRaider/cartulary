@@ -2,6 +2,7 @@ package networkflow_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -32,6 +33,7 @@ func TestNetworkFlowGraphViewDeclarationPersistence_Integration(t *testing.T) {
 		NormalizedConfigurationSHA256: binding.NormalizedConfigurationSHA256, NormalizedSourceSHA256: binding.NormalizedSourceSHA256, CanonicalOutputSHA256: binding.CanonicalOutputSHA256,
 	}
 
+	second.SelectedSourceBindingJSON = graphSelectedSourceFixture(second, *second.SelectedResult)
 	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatalf("begin graph declaration transaction: %v", err)
@@ -128,7 +130,7 @@ INSERT INTO jobs (
 	if err := publisher.PublishResult(ctx, result); err != nil {
 		t.Fatalf("stage stale immutable result: %v", err)
 	}
-	if _, err := store.PublishGraphViewResultTx(ctx, tx, incidentID, graphViewID, 2, declaration.DesiredSourceSnapshotID, jobID, selected, now); !errors.Is(err, ErrGraphViewPublicationStale) {
+	if _, err := store.PublishGraphViewResultTx(ctx, tx, incidentID, graphViewID, 2, declaration.DesiredSourceSnapshotID, jobID, selected, graphSelectedSourceFixture(declaration, selected), now); !errors.Is(err, ErrGraphViewPublicationStale) {
 		t.Fatalf("stale generation publication error = %v", err)
 	}
 	if err := tx.Rollback(ctx); err != nil {
@@ -165,7 +167,7 @@ INSERT INTO jobs (
 	if err := publisher.PublishResult(ctx, result); err != nil {
 		t.Fatalf("publish immutable result after rename: %v", err)
 	}
-	published, err := store.PublishGraphViewResultTx(ctx, tx, incidentID, graphViewID, 1, declaration.DesiredSourceSnapshotID, jobID, selected, now.Add(2*time.Second))
+	published, err := store.PublishGraphViewResultTx(ctx, tx, incidentID, graphViewID, 1, declaration.DesiredSourceSnapshotID, jobID, selected, graphSelectedSourceFixture(declaration, selected), now.Add(2*time.Second))
 	if err != nil {
 		t.Fatalf("generation-stable rename blocked publication: %v", err)
 	}
@@ -204,6 +206,7 @@ func graphViewDeclarationFixture(graphViewID string, incidentID, actorID uuid.UU
 		DisplayName:               "Shared graph",
 		NormalizedDisplayName:     "shared graph",
 		DeclarationState:          GraphViewDeclarationStateActive,
+		RefreshIntentJSON:         json.RawMessage(`{"schema_id":"cartulary.network_flow.refresh_intent.v1","scope":"selected_tables","semantic_query":` + string(semanticQuery) + `}`),
 		SemanticQueryJSON:         semanticQuery,
 		SemanticQuerySHA256:       GraphViewSemanticQuerySHA256(semanticQuery),
 		DesiredSourceSnapshotID:   "network-flow-source-1",
@@ -221,4 +224,28 @@ func unsupportedGraphSemanticQuerySchemaID() string {
 
 func unsupportedDefaultGraphSemanticQuery(tableID string) []byte {
 	return []byte(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"result_limits":{"max_aggregate_counter_digits":39,"max_edges":10000,"max_example_row_refs_per_edge":10,"max_vertices":5000},"schema_id":"` + unsupportedGraphSemanticQuerySchemaID() + `","selected_table_ids":["` + tableID + `"],"time_range":{"end_utc":null,"start_utc":null}}`)
+}
+
+// Storage lifecycle tests isolate declaration publication from source computation.
+// Their synthetic inputs are never used as transfer/reconstruction evidence.
+func graphSelectedSourceFixture(declaration GraphViewDeclaration, selected GraphViewSelectedResultBinding) json.RawMessage {
+	var semantic map[string]any
+	if err := json.Unmarshal(declaration.SemanticQueryJSON, &semantic); err != nil {
+		panic(err)
+	}
+	tables := []any{}
+	for _, id := range semantic["selected_table_ids"].([]any) {
+		tables = append(tables, map[string]any{
+			"network_flow_table_id": id, "table_version": 1, "committed_source_id": "11111111-1111-4111-8111-111111111111",
+			"source_content_sha256": testSHA1, "source_interpretation_sha256": testSHA4, "mapping_fingerprint": testSHA3,
+			"source_profile_id": SourceProfileCiscoSNANetFlowCSV, "parser_profile_id": ParserProfileRFC4180HeaderedCSV,
+			"row_count_accepted": 1, "row_count_rejected": 0, "content_fingerprint": "e581d1bcf84cdeed51109596b409617a39dd35e149ff5959d076dce590d54b63",
+		})
+	}
+	raw, err := json.Marshal(map[string]any{"schema_id": "cartulary.network_flow.selected_source_binding.v1",
+		"algorithm_id": "network_flow_activity.selected_source.v1", "semantic_query": semantic, "computation_limits": map[string]any{"max_vertices": 5000, "max_edges": 10000, "max_example_row_refs_per_edge": 10, "max_aggregate_counter_digits": 39, "max_contributing_rows": 250000, "max_time_buckets": 256}, "tables": tables, "expected_result_binding": selected})
+	if err != nil {
+		panic(err)
+	}
+	return raw
 }

@@ -16,6 +16,7 @@ import (
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
@@ -150,6 +151,7 @@ func NewTaskDecisionOwnerWithPublications(
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
 		mustBuildProjectionRuntime(pool).TaskDecisionMutationRows(),
+		mustBuildProjectionRuntime(pool).LinkRows(),
 		intents,
 	)
 	if err != nil {
@@ -217,6 +219,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 		appender,
 		conflictFields,
 		projectionRuntime.TaskDecisionMutationRows(),
+		projectionRuntime.LinkRows(),
 		intents,
 	)
 	if err != nil {
@@ -228,6 +231,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 		appender,
 		conflictFields,
 		projectionRuntime.ArtifactPorts().Rows,
+		projectionRuntime.LinkRows(),
 		intents,
 	)
 	if err != nil {
@@ -241,6 +245,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 			EntityMutationRows:    projectionRuntime.EntityMutationRows(),
 			EntityQueryReader:     projectionRuntime.EntityQueryReader(),
 			AssessmentProjections: projectionRuntime.AssessmentPorts().Rows,
+			LinkProjections:       projectionRuntime.LinkRows(),
 			PartyProjections:      projectionRuntime.PartyPorts().Rows,
 			IndicatorOwner:        indicatorOwner,
 			TimelineOwner:         timelineBundle.Facade,
@@ -275,6 +280,7 @@ func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
 	owner, err := workbookassembly.NewAssessmentMutationContribution(
 		pool,
 		projectionRuntime.AssessmentPorts().Rows,
+		projectionRuntime.LinkRows(),
 		hostidentity.NewSourceFacts(),
 		revisionRuntime.Appender(),
 		intents,
@@ -321,4 +327,8 @@ func mustBuildProjectionRuntime(pool postgres.DB) *projectionassembly.Runtime {
 		panic(err)
 	}
 	return runtime
+}
+
+func LinkProjectionRows(pool postgres.DB) links.ProjectionRows {
+	return mustBuildProjectionRuntime(pool).LinkRows()
 }

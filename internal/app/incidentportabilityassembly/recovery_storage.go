@@ -7,12 +7,15 @@ import (
 	"errors"
 	"io"
 	"math"
+	"regexp"
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 	"github.com/google/uuid"
 )
+
+var incidentBundleSHA256Pattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 // RecoveryStorage preserves published bundle references in the configured
 // export root. It never interprets an object-store key as a filesystem path.

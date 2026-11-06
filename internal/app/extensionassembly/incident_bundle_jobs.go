@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
+	"github.com/jackc/pgx/v5"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
@@ -38,7 +40,7 @@ func (adapter incidentBundleJobSuccessFinalizer) FinalizeIncidentBundleJobSucces
 		Execution:     request.Execution,
 		Completion:    request.Completion,
 		FinalCommitID: request.FinalCommitID,
-		Mutate:        extensionstore.OwnerMutation(request.Mutate),
+		Mutate:        adapter.successMutation(request),
 	})
 	return resource, mapIncidentBundleFinalizationError(err)
 }
@@ -57,7 +59,7 @@ func (adapter incidentBundleJobSuccessFinalizer) FinalizeIncidentBundleJobSucces
 	}
 	finalRequest := extensionstore.JobFinalizationRequest{
 		Execution: request.Execution, Completion: request.Completion,
-		FinalCommitID: request.FinalCommitID, Mutate: extensionstore.OwnerMutation(request.Mutate),
+		FinalCommitID: request.FinalCommitID, Mutate: adapter.successMutation(request),
 	}
 	resource, err := adapter.finalizer.FinalizeSuccessTx(
 		ctx,
@@ -99,4 +101,24 @@ func mapIncidentBundleFinalizationError(err error) error {
 		return fmt.Errorf("%w: %v", incidentbundles.ErrJobFinalizationIndeterminate, err)
 	}
 	return err
+}
+
+func (adapter incidentBundleJobSuccessFinalizer) successMutation(request incidentbundles.JobSuccessFinalization) extensionstore.OwnerMutation {
+	return func(ctx context.Context, tx pgx.Tx) error {
+		if len(request.Publications) != 0 {
+			capability, err := NewStagedPublicationCapability(request.Execution.JobID().String(), tx, adapter.now)
+			if err != nil {
+				return err
+			}
+			for _, plan := range request.Publications {
+				if err := stagedobjects.PublishTransferred(ctx, plan.Transfer, plan.Publications, capability); err != nil {
+					return err
+				}
+			}
+		}
+		if request.Mutate != nil {
+			return request.Mutate(ctx, tx)
+		}
+		return nil
+	}
 }

@@ -3,9 +3,14 @@ import type {
   CreateReleaseRequest,
   CreateSnapshotRequest,
   GetJobResponse,
+  GetRetainedReportArtifactsResponse,
   GetSnapshotResponse,
 } from "@cartulary/protocol-ts/http";
-import { fetchHTTPOperation, type HTTPOperationResult } from "./browserApi";
+import {
+  apiPath,
+  fetchHTTPOperation,
+  type HTTPOperationResult,
+} from "./browserApi";
 
 /** Exact built-in template projection; internal redaction is resolved by admission. */
 export const defaultReportTemplate = {
@@ -15,6 +20,8 @@ export const defaultReportTemplate = {
 export type ReportingJob = GetJobResponse["data"];
 export type ReportingCancellation = Readonly<CancelJobRequest>;
 export type ReportingReceipt = HTTPOperationResult<GetJobResponse>;
+export type RetainedReportArtifact =
+  GetRetainedReportArtifactsResponse["data"]["artifacts"][number];
 export type ReportingAttempt =
   | {
       readonly kind: "snapshot";
@@ -25,6 +32,11 @@ export type ReportingAttempt =
       readonly request: Readonly<CreateReleaseRequest>;
     };
 export interface ReportingClient {
+  retainedArtifacts(
+    incidentId: string,
+    signal: AbortSignal,
+  ): Promise<HTTPOperationResult<GetRetainedReportArtifactsResponse>>;
+  retainedArtifactHref(incidentId: string, artifactId: string): string;
   submit(
     attempt: ReportingAttempt,
     signal: AbortSignal,
@@ -42,6 +54,18 @@ export interface ReportingClient {
 }
 export function createReportingClient(apiBase?: string): ReportingClient {
   return {
+    retainedArtifacts: (incidentId, signal) =>
+      fetchHTTPOperation<GetRetainedReportArtifactsResponse>({
+        apiBase,
+        operationID: "getRetainedReportArtifacts",
+        pathParameters: { incident_id: incidentId },
+        init: { signal, cache: "no-store" },
+      }),
+    retainedArtifactHref: (incidentId, artifactId) =>
+      apiPath(
+        apiBase,
+        `/api/v1/incidents/${encodeURIComponent(incidentId)}/retained-report-artifacts/${encodeURIComponent(artifactId)}/content`,
+      ),
     submit: (attempt, signal) =>
       fetchHTTPOperation<GetJobResponse>({
         apiBase,

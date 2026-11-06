@@ -241,9 +241,11 @@ export function NetworkFlowSavedGraphPanel({
                             graph.latest_job_id
                           ]?.job?.status.replaceAll("_", " ") ??
                           "Status unobserved")
-                        : graph.last_failure_code
-                          ? "Source unavailable"
-                          : "No result"}
+                        : graph.selected_result_binding !== null
+                          ? "Selected result"
+                          : graph.last_failure_code
+                            ? "Source unavailable"
+                            : "No result"}
                     </small>
                   </NetworkFlowButton>
                 </li>

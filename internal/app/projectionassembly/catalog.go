@@ -7,6 +7,7 @@ import (
 	evidenceports "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	partycontract "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
@@ -170,4 +171,11 @@ func (runtime *Runtime) TaskDecisionReportingReader() taskdecisionports.Reportin
 		return nil
 	}
 	return runtime.ports.TaskDecisionReportingReader()
+}
+
+func (runtime *Runtime) LinkRows() links.ProjectionRows {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.ports.LinkRows()
 }

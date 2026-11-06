@@ -41,6 +41,7 @@ func TestNetworkFlowGraphResultCleanupIsOwnerScopedSelectedSafeAndBounded_Integr
 		NormalizedSourceSHA256:        selectedResult.Binding.NormalizedSourceSHA256,
 		CanonicalOutputSHA256:         selectedResult.Binding.CanonicalOutputSHA256,
 	}
+	declaration.SelectedSourceBindingJSON = graphSelectedSourceFixture(declaration, *declaration.SelectedResult)
 	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatal(err)

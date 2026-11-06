@@ -254,6 +254,30 @@
       "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "table_name": "import_committed_source_blobs",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "logical_ref": "postgres/import_committed_source_blobs",
+      "row_count": 0,
+      "plaintext_bytes": 0,
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table_name": "import_committed_source_chunks",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "logical_ref": "postgres/import_committed_source_chunks",
+      "row_count": 0,
+      "plaintext_bytes": 0,
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table_name": "import_committed_sources",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "logical_ref": "postgres/import_committed_sources",
+      "row_count": 0,
+      "plaintext_bytes": 0,
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
       "table_name": "import_sessions",
       "codec_id": "cartulary.postgres_snapshot_unit.v1",
       "logical_ref": "postgres/import_sessions",
@@ -790,6 +814,14 @@
       "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "table_name": "reporting_imported_artifact_chunks",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "logical_ref": "postgres/reporting_imported_artifact_chunks",
+      "row_count": 0,
+      "plaintext_bytes": 0,
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
       "table_name": "reporting_imported_artifact_files",
       "codec_id": "cartulary.postgres_snapshot_unit.v1",
       "logical_ref": "postgres/reporting_imported_artifact_files",
@@ -934,7 +966,7 @@
       "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
-  "snapshot_sha256": "04d35049944041886501412198f570e1be6416e2d19dc696c9076d6853604835",
+  "snapshot_sha256": "9ba6a2111dcda6cf63d3114c2f7594b69118134f54a8632b0cef1792916937bc",
   "extension_binding_proofs": [
     {
       "schema_id": "cartulary.extension_postgres_binding_proof.v1",

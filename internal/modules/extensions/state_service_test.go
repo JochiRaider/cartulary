@@ -849,13 +849,13 @@ func newNetworkFlowStateRuntime(t testing.TB, store StateStore, validationCalls 
 	return newStateRuntimeForTest(t, store, StateRuntimeOptions{
 		Coordinator: coordinator,
 		FinalValidators: map[string]FinalStateValidator{
-			"network_flow_activity.validate_state_v6": func(ctx context.Context, input FinalStateValidationContext, reader StateReadCapability) (StateValidationResult, error) {
+			"network_flow_activity.validate_state_v7": func(ctx context.Context, input FinalStateValidationContext, reader StateReadCapability) (StateValidationResult, error) {
 				(*validationCalls)++
 				if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 					return StateValidationResult{
 						SchemaID: "cartulary.extension_final_state_validation_result.v1",
 						Status:   "invalid",
-						Findings: []StartupFinding{coordinator.StateValidationFailure(input.ProfileID, "state_validation", "network_flow_activity.validate_state_v6")},
+						Findings: []StartupFinding{coordinator.StateValidationFailure(input.ProfileID, "state_validation", "network_flow_activity.validate_state_v7")},
 					}, nil
 				}
 				return ValidFinalStateValidationResult(), nil

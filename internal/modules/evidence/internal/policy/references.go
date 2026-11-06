@@ -19,7 +19,7 @@ type PersistedObjectBlobStorageKeyError struct {
 }
 
 func (e *PersistedObjectBlobStorageKeyError) Error() string {
-	return "persisted object blob storage_key violates object_blob_storage_key_v1"
+	return "persisted object blob storage_key violates object_blob_storage_key_v2"
 }
 
 func PersistedObjectBlobStorageKeyErrorReason(err error) (string, bool) {

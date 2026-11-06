@@ -1,9 +1,11 @@
 package incidentbundles
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"slices"
 	"strings"
@@ -13,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
@@ -22,7 +25,7 @@ func TestIncidentBundlePortabilityStateAndClaimMatrix_Integration(t *testing.T) 
 	base := ExtensionPolicy{
 		ProfileID: "profile", ClaimState: ClaimStateClaimed, ContractMajor: 1,
 		Mode: PortabilityModeParticipant, ParticipantID: "profile.portability_v1",
-		ParticipantSHA256: strings.Repeat("a", 64), ParticipantSchemaID: "test.specialization.v1",
+		ParticipantSHA256: strings.Repeat("a", 64), ParticipantSchemaID: "test.specialization.v2",
 		MaximumInputBytes: PortabilityParticipantByteLimit, MaximumOutputBytes: PortabilityParticipantByteLimit,
 		AuthoritativeFamilyIDs: []string{"profile.state"},
 	}
@@ -47,139 +50,178 @@ func TestIncidentBundlePortabilityStateAndClaimMatrix_Integration(t *testing.T) 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			participant := &portabilityParticipantFake{id: base.ParticipantID}
-			participants := []ExtensionParticipant(nil)
+			var participants []ExtensionParticipant
 			if test.policy.Mode == PortabilityModeParticipant && test.policy.ClaimState == ClaimStateClaimed {
-				participants = append(participants, participant)
+				participants = []ExtensionParticipant{participant}
 			}
-			orchestrator, err := NewPortabilityOrchestrator(
-				[]ExtensionPolicy{test.policy},
-				portabilityPresenceFake{present: test.present},
-				participants,
-				&portabilityAllocatorFake{},
-			)
+			orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{test.policy}, Presence: portabilityPresenceFake{present: test.present}, Participants: participants, Allocator: &portabilityAllocatorFake{}, SnapshotReads: portabilityReadFactoryFake{}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			payloads, err := orchestrator.Export(context.Background(), portabilityQueryFake{}, incidentID)
+			members := newArchiveTestMembers(t, Limits{})
+			err = orchestrator.Export(t.Context(), portabilityQueryFake{}, incidentID, members, newActorReferenceSet())
 			if !errors.Is(err, test.wantError) {
-				t.Fatalf("error = %v; want %v", err, test.wantError)
+				t.Fatalf("error=%v want=%v", err, test.wantError)
 			}
-			if got := len(payloads) == 1; got != test.wantPayload {
-				t.Fatalf("payload present = %t; want %t (%#v)", got, test.wantPayload, payloads)
+			if got := len(members.Members()) == 2; got != test.wantPayload {
+				t.Fatalf("members=%v", members.Members())
 			}
 			if participant.exportCalls != test.wantCalls {
-				t.Fatalf("participant calls = %d; want %d", participant.exportCalls, test.wantCalls)
+				t.Fatalf("participant calls=%d want=%d", participant.exportCalls, test.wantCalls)
 			}
 		})
 	}
-
 	t.Run("blocking profiles use canonical profile order", func(t *testing.T) {
 		later := withPortabilityMode(base, PortabilityModeBlockedWhenPresent)
-		later.ProfileID = "z-profile"
+		later.ProfileID = "z_profile"
 		earlier := withPortabilityMode(base, PortabilityModeBlockedWhenPresent)
-		earlier.ProfileID = "a-profile"
-		orchestrator, err := NewPortabilityOrchestrator(
-			[]ExtensionPolicy{later, earlier},
-			portabilityPresenceFake{present: true},
-			nil,
-			&portabilityAllocatorFake{},
-		)
+		earlier.ProfileID = "a_profile"
+		orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{later, earlier}, Presence: portabilityPresenceFake{present: true}, Allocator: &portabilityAllocatorFake{}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = orchestrator.Export(context.Background(), portabilityQueryFake{}, incidentID)
+		err = orchestrator.Export(t.Context(), portabilityQueryFake{}, incidentID, newArchiveTestMembers(t, Limits{}), newActorReferenceSet())
 		var failure *PortabilityFailure
-		if !errors.As(err, &failure) || !errors.Is(err, ErrPortabilityBlocked) {
-			t.Fatalf("blocking export error = %v; want PortabilityFailure wrapping ErrPortabilityBlocked", err)
+		if !errors.As(err, &failure) || !errors.Is(err, ErrPortabilityBlocked) || failure.ProfileID != "a_profile" {
+			t.Fatalf("blocking order: %v", err)
 		}
-		if failure.ProfileID != "a-profile" {
-			t.Fatalf("selected blocking profile = %q; want a-profile", failure.ProfileID)
-		}
-		if err := orchestrator.ValidatePublication(context.Background(), portabilityQueryFake{}, incidentID); !errors.As(err, &failure) || failure.ProfileID != "a-profile" {
-			t.Fatalf("publication guard selected %v; want a-profile", err)
+		if err := orchestrator.ValidatePublication(t.Context(), portabilityQueryFake{}, incidentID); !errors.As(err, &failure) || failure.ProfileID != "a_profile" {
+			t.Fatalf("publication guard: %v", err)
 		}
 	})
 }
 
 func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testing.T) {
+	ctx := t.Context()
 	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-	payload := ExtensionPayload{
-		ProfileID: "profile", ContractMajor: 1, StateVersion: 1,
-		PayloadSchemaID: "profile.payload.v1", Payload: []byte(`{"value":"portable"}`),
-	}
-	payload.PayloadSHA256 = digestBytes(payload.Payload)
-	filePath, encoded, err := EncodeExtensionPayload(payload)
-	if err != nil {
-		t.Fatal(err)
-	}
-	files := map[string][]byte{filePath: encoded}
-	policy := ExtensionPolicy{
-		ProfileID: "profile", ClaimState: ClaimStateClaimed, ContractMajor: 1,
-		Mode: PortabilityModeParticipant, ParticipantID: "profile.portability_v1",
-		ParticipantSHA256: strings.Repeat("a", 64), ParticipantSchemaID: "test.specialization.v1",
+	input := PortabilityImportContext{OperationID: "operation", IncidentID: incidentID, ActorUserID: uuid.MustParse("33333333-3333-4333-8333-333333333333")}
+	policy := ExtensionPolicy{ProfileID: "profile", ClaimState: ClaimStateClaimed, ContractMajor: 1,
+		Mode: PortabilityModeParticipant, ParticipantID: "profile.portability_v2",
+		ParticipantSHA256: strings.Repeat("a", 64), ParticipantSchemaID: "test.specialization.v2",
 		MaximumInputBytes: PortabilityParticipantByteLimit, MaximumOutputBytes: PortabilityParticipantByteLimit,
-	}
+		AuthoritativeFamilyIDs: []string{"profile.state"}}
 	allocator := &portabilityAllocatorFake{}
 	participant := &portabilityParticipantFake{id: policy.ParticipantID, allocate: true}
-	orchestrator, err := NewPortabilityOrchestrator([]ExtensionPolicy{policy}, portabilityPresenceFake{}, []ExtensionParticipant{participant}, allocator)
+	orchestrator, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{policy}, Presence: portabilityPresenceFake{present: true}, Participants: []ExtensionParticipant{participant}, Allocator: allocator, SnapshotReads: portabilityReadFactoryFake{}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepared, err := orchestrator.PrepareImport(context.Background(), "operation", incidentID, files)
+	members := newArchiveTestMembers(t, Limits{})
+	actors := newActorReferenceSet()
+	if err := orchestrator.Export(ctx, portabilityQueryFake{}, incidentID, members, actors); err != nil {
+		t.Fatal(err)
+	}
+	if len(actors.ids) != 1 {
+		t.Fatal("extension-only actor was not collected before roster closure")
+	}
+	members.Seal()
+	prepared, err := orchestrator.PrepareImport(ctx, input, members)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if participant.importCalls != 1 || len(prepared.Participants) != 1 || len(prepared.Transfers) != 1 {
-		t.Fatalf("preparation = calls %d participants %d transfers %d", participant.importCalls, len(prepared.Participants), len(prepared.Transfers))
+	if participant.importCalls != 1 || len(prepared.Participants) != 1 || len(prepared.Publications) != 1 {
+		t.Fatal("participant or transfer missing")
 	}
-	if refs := prepared.Transfers[0].References(); len(refs) != 1 ||
-		!strings.HasPrefix(participant.stagedRefs[0], "cartulary:staged_output:") {
-		t.Fatalf("staged references were not kept behind logical refs: transfer=%v participant=%v", refs, participant.stagedRefs)
+	if refs := prepared.Publications[0].Transfer.References(); len(refs) != 1 || !strings.HasPrefix(participant.stagedRefs[0], "cartulary:staged_output:") {
+		t.Fatal("staging identity escaped logical reference")
 	}
-	input, err := prepared.Participants[0].BuildInput(context.Background(), crossownertransaction.OperationContext{})
-	if err != nil || string(input.CanonicalBytes) != "{\"prepared\":true}\n" {
-		t.Fatalf("prepared transaction input was not bound: %#v/%v", input, err)
+	bound, err := prepared.Participants[0].BuildInput(ctx, crossownertransaction.OperationContext{OperationID: input.OperationID})
+	if err != nil || string(bound.CanonicalBytes) != "{\"prepared\":true}\n" {
+		t.Fatalf("bound input: %v", err)
 	}
-	if err := prepared.Abandon(context.Background()); err != nil || len(allocator.abandoned) != 1 {
-		t.Fatalf("abandon = %v refs=%v", err, allocator.abandoned)
+	if _, err := prepared.Participants[0].BuildInput(ctx, crossownertransaction.OperationContext{OperationID: "another"}); err == nil {
+		t.Fatal("prepared descriptor crossed operations")
 	}
-
-	for _, test := range []struct {
+	if err := prepared.Abandon(ctx); err != nil || len(allocator.abandoned) != 1 {
+		t.Fatalf("abandon: %v", err)
+	}
+	catalogPath := extensionCatalogPath("profile")
+	raw, err := incidentportability.ReadControl(ctx, members, catalogPath, PortabilityParticipantByteLimit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataPath := extensionMemberPrefix("profile") + "state.ndjson"
+	for _, tc := range []struct {
 		name   string
 		policy ExtensionPolicy
-		files  map[string][]byte
+		mutate func(map[string][]byte)
 	}{
-		{name: "unknown profile", policy: policy, files: map[string][]byte{"ext/extensions/unknown/payload.json": replaceProfile(encoded, "profile", "unknown")}},
-		{name: "recognized unclaimable", policy: withClaim(policy, ClaimStateRecognizedUnclaimable), files: files},
-		{name: "unclaimed", policy: withClaim(policy, ClaimStateUnclaimed), files: files},
-		{name: "nonparticipant", policy: withPortabilityMode(policy, PortabilityModeNoAuthoritativeState), files: files},
-		{name: "incompatible major", policy: policy, files: map[string][]byte{filePath: replaceMajor(encoded, 2)}},
-		{name: "digest mismatch", policy: policy, files: map[string][]byte{filePath: replaceDigest(encoded, strings.Repeat("f", 64))}},
+		{"unknown profile", policy, func(files map[string][]byte) {
+			delete(files, catalogPath)
+			files[extensionCatalogPath("unknown")] = bytes.ReplaceAll(raw, []byte("profile"), []byte("unknown"))
+		}},
+		{"recognized unclaimable", withClaim(policy, ClaimStateRecognizedUnclaimable), nil},
+		{"unclaimed", withClaim(policy, ClaimStateUnclaimed), nil},
+		{"nonparticipant", withPortabilityMode(policy, PortabilityModeNoAuthoritativeState), nil},
+		{"incompatible major", policy, func(files map[string][]byte) {
+			files[catalogPath] = bytes.Replace(raw, []byte("\"contract_major\":1"), []byte("\"contract_major\":2"), 1)
+		}},
+		{"digest mismatch", policy, func(files map[string][]byte) { files[dataPath] = []byte("changed") }},
+		{"undeclared member", policy, func(files map[string][]byte) { files[extensionMemberPrefix("profile")+"extra"] = []byte("undeclared") }},
+		{"missing member", policy, func(files map[string][]byte) { delete(files, dataPath) }},
+		{"inline predecessor", policy, func(files map[string][]byte) {
+			delete(files, catalogPath)
+			files["ext/extensions/profile/payload.json"] = []byte(`{"payload":{}}`)
+		}},
+		{"noncanonical catalog", policy, func(files map[string][]byte) { files[catalogPath] = append([]byte(" "), raw...) }},
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			participants := []ExtensionParticipant(nil)
-			if test.policy.Mode == PortabilityModeParticipant && test.policy.ClaimState == ClaimStateClaimed {
-				participants = append(participants, &portabilityParticipantFake{id: policy.ParticipantID})
+		t.Run(tc.name, func(t *testing.T) {
+			files := map[string][]byte{catalogPath: raw, dataPath: []byte("{\"value\":\"portable\"}\n")}
+			if tc.mutate != nil {
+				tc.mutate(files)
 			}
-			current, err := NewPortabilityOrchestrator([]ExtensionPolicy{test.policy}, portabilityPresenceFake{}, participants, &portabilityAllocatorFake{})
+			var participants []ExtensionParticipant
+			fake := &portabilityParticipantFake{id: policy.ParticipantID}
+			if tc.policy.Mode == PortabilityModeParticipant && tc.policy.ClaimState == ClaimStateClaimed {
+				participants = []ExtensionParticipant{fake}
+			}
+			current, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{tc.policy}, Presence: portabilityPresenceFake{}, Participants: participants, Allocator: &portabilityAllocatorFake{}, SnapshotReads: portabilityReadFactoryFake{}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := current.PrepareImport(context.Background(), "operation", incidentID, test.files); err == nil {
-				t.Fatal("incompatible payload was accepted")
+			if _, err := current.PrepareImport(ctx, input, fixtureMembers(t, files)); err == nil {
+				t.Fatal("invalid member catalog admitted")
+			}
+			if fake.importCalls != 0 {
+				t.Fatal("participant ran before admission")
 			}
 		})
 	}
-
-	payload.Payload = []byte(`"` + strings.Repeat("a", PortabilityParticipantByteLimit) + `"`)
-	payload.PayloadSHA256 = digestBytes(payload.Payload)
-	filePath, encoded, err = EncodeExtensionPayload(payload)
+	// A bounded bulk member exceeding the old inline ceiling remains streamed.
+	participant.bulkBytes = 65 << 20
+	bulk := newArchiveTestMembers(t, Limits{})
+	if err := orchestrator.Export(ctx, portabilityQueryFake{}, incidentID, bulk, newActorReferenceSet()); err != nil {
+		t.Fatal(err)
+	}
+	bulk.Seal()
+	prepared, err = orchestrator.PrepareImport(ctx, input, bulk)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := orchestrator.PrepareImport(context.Background(), "operation", incidentID, map[string][]byte{filePath: encoded}); !errors.Is(err, ErrPortabilityLimit) {
-		t.Fatalf("64 MiB plus one = %v", err)
+	if participant.readBytes != participant.bulkBytes {
+		t.Fatalf("bulk bytes=%d", participant.readBytes)
 	}
+	if err := prepared.Abandon(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// The control ceiling still applies independently of admitted bulk bytes.
+	tooLarge := newArchiveTestMembers(t, Limits{})
+	if _, err := tooLarge.WriteMember(ctx, catalogPath, io.LimitReader(zeroStream{}, PortabilityParticipantByteLimit+1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := orchestrator.PrepareImport(ctx, input, tooLarge); !errors.Is(err, ErrPortabilityLimit) {
+		t.Fatalf("control overflow: %v", err)
+	}
+}
+
+type zeroStream struct{}
+
+func (zeroStream) Read(p []byte) (int, error) {
+	if len(p) > 64<<10 {
+		return 0, fmt.Errorf("bulk read exceeds bounded chunk")
+	}
+	clear(p)
+	return len(p), nil
 }
 
 type importCapabilityShapeTx struct{ pgx.Tx }
@@ -283,7 +325,26 @@ func (p portabilityPresenceFake) AuthoritativeStatePresent(context.Context, Stat
 
 type portabilityQueryFake struct{}
 
+func (portabilityQueryFake) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errors.New("unrestricted query must not reach participant")
+}
+
 func (portabilityQueryFake) QueryRow(context.Context, string, ...any) pgx.Row { return nil }
+
+type portabilityReadFactoryFake struct{}
+type portabilityReadFake struct {
+	profile  string
+	incident uuid.UUID
+}
+
+func (r portabilityReadFake) ProfileScope() string     { return r.profile }
+func (r portabilityReadFake) IncidentScope() uuid.UUID { return r.incident }
+func (portabilityReadFactoryFake) ForSnapshot(query ExportSnapshotQuery, incident uuid.UUID, profile string) (ExportReadCapability, error) {
+	if _, ok := query.(pgx.Tx); ok {
+		return nil, errors.New("snapshot exposes transaction")
+	}
+	return portabilityReadFake{profile, incident}, nil
+}
 
 type portabilityAllocatorFake struct {
 	allocated []string
@@ -307,6 +368,8 @@ type portabilityParticipantFake struct {
 	importCalls int
 	allocate    bool
 	stagedRefs  []string
+	bulkBytes   int64
+	readBytes   int64
 }
 
 func (p *portabilityParticipantFake) ID() string { return p.id }
@@ -316,22 +379,53 @@ func (p *portabilityParticipantFake) ContractSHA256() string {
 }
 
 func (p *portabilityParticipantFake) SpecializationSchemaID() string {
-	return "test.specialization.v1"
+	return "test.specialization.v2"
 }
 
-func (p *portabilityParticipantFake) Export(context.Context, ExportInvocation) (ExportResult, error) {
+func (p *portabilityParticipantFake) Export(ctx context.Context, input ExportInvocation) (ExportResult, error) {
 	p.exportCalls++
-	return ExportResult{
-		SchemaID: ExtensionExportResultSchema, Kind: "payload",
-		PayloadSchemaID: "profile.payload.v1", PayloadContractMajor: 1,
-		StateVersion: 1, Payload: []byte(`{"value":"portable"}`),
-	}, nil
+	if input.ReadAccess.ProfileScope() != input.ProfileID || input.ReadAccess.IncidentScope() != input.IncidentID {
+		return ExportResult{}, ErrPortabilityResult
+	}
+	if _, ok := input.ReadAccess.(ExportSnapshotQuery); ok {
+		return ExportResult{}, errors.New("participant received SQL")
+	}
+	if err := input.Actors.RecordActorReference(uuid.MustParse("44444444-4444-4444-8444-444444444444")); err != nil {
+		return ExportResult{}, err
+	}
+	var source io.Reader = strings.NewReader("{\"value\":\"portable\"}\n")
+	if p.bulkBytes > 0 {
+		source = io.LimitReader(zeroStream{}, p.bulkBytes)
+	}
+	if _, err := input.Members.WriteMember(ctx, extensionMemberPrefix(input.ProfileID)+"state.ndjson", source); err != nil {
+		return ExportResult{}, err
+	}
+	return ExportResult{SchemaID: ExtensionExportResultSchema, Kind: "members", ContentSchemaID: "profile.state.v1", ContractMajor: 1, StateVersion: 1}, nil
 }
 
 func (p *portabilityParticipantFake) PrepareImport(ctx context.Context, invocation ImportInvocation, scope *PortabilityStagedOutputScope) (ImportPreparation, error) {
 	p.importCalls++
+	if invocation.ContentSchemaID != "profile.state.v1" || !validMemberSHA(invocation.CatalogSHA256) {
+		return ImportPreparation{}, ErrPortabilityPayload
+	}
+	p.readBytes = 0
+	for _, member := range invocation.Members.Members() {
+		reader, err := incidentportability.OpenVerifiedMember(ctx, invocation.Members, member)
+		if err != nil {
+			return ImportPreparation{}, err
+		}
+		n, err := io.CopyBuffer(io.Discard, reader, make([]byte, 32<<10))
+		closeErr := reader.Close()
+		if err != nil {
+			return ImportPreparation{}, err
+		}
+		if closeErr != nil {
+			return ImportPreparation{}, closeErr
+		}
+		p.readBytes += n
+	}
 	if p.allocate {
-		if _, err := scope.Allocate(ctx, invocation.OperationID, []byte("staged")); err != nil {
+		if _, err := scope.Allocate(ctx, invocation.OperationID, stagedobjects.ResourceBinding{Kind: "test_resource", ID: invocation.IncidentID.String()}, []byte("staged")); err != nil {
 			return ImportPreparation{}, err
 		}
 	}
@@ -379,19 +473,4 @@ func withClaim(policy ExtensionPolicy, claim string) ExtensionPolicy {
 		policy.ContractMajor = 0
 	}
 	return policy
-}
-
-func replaceProfile(encoded []byte, old, replacement string) []byte {
-	return []byte(strings.ReplaceAll(string(encoded), `"`+old+`"`, `"`+replacement+`"`))
-}
-
-func replaceMajor(encoded []byte, major int) []byte {
-	return []byte(strings.Replace(string(encoded), `"contract_major":1`, `"contract_major":`+fmt.Sprint(major), 1))
-}
-
-func replaceDigest(encoded []byte, digest string) []byte {
-	start := strings.Index(string(encoded), `"payload_sha256":"`) + len(`"payload_sha256":"`)
-	result := append([]byte(nil), encoded...)
-	copy(result[start:start+64], digest)
-	return result
 }

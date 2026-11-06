@@ -99,7 +99,7 @@ func (s *routeService) handleTablesCollection(w http.ResponseWriter, r *http.Req
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"schema_id": "cartulary.network_flow_table_list.v2",
+		"schema_id": "cartulary.network_flow_table_list.v3",
 		"tables":    resources,
 		"meta":      map[string]any{"count": len(resources)},
 	})
@@ -126,7 +126,7 @@ func (s *routeService) handleTableResource(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id": "cartulary.network_flow_table_get.v2",
+			"schema_id": "cartulary.network_flow_table_get.v3",
 			"table":     tableResource(table),
 		})
 	case http.MethodPatch:
@@ -201,7 +201,7 @@ func (s *routeService) handleTableRowsQuery(w http.ResponseWriter, r *http.Reque
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
-	result["schema_id"] = "cartulary.network_flow.table_query_result.v2"
+	result["schema_id"] = "cartulary.network_flow.table_query_result.v3"
 	result["network_flow_table_id"] = tableID
 	delete(result, "table_scope")
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
@@ -231,7 +231,7 @@ func (s *routeService) handleRowsQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
-	result["schema_id"] = "cartulary.network_flow.rows_query_result.v2"
+	result["schema_id"] = "cartulary.network_flow.rows_query_result.v3"
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result)
 }
 
@@ -275,7 +275,7 @@ func decodeSoftDeleteRequest(r *http.Request) (tableSoftDeleteRequest, *httpapi.
 
 func tableMutationPayload(table tableRecord) map[string]any {
 	return map[string]any{
-		"schema_id": "cartulary.network_flow_table_mutation_result.v2",
+		"schema_id": "cartulary.network_flow_table_mutation_result.v3",
 		"table":     tableResource(table),
 	}
 }

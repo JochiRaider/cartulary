@@ -141,6 +141,10 @@ func (s *service) validateApprovedMapping(mapping approvedMapping) *httpapi.APIE
 		}
 		return nil
 	}
+	return validateViewMapping(mapping, target)
+}
+
+func validateViewMapping(mapping approvedMapping, target importTarget) *httpapi.APIError {
 	schema, ok := viewschema.Lookup(mapping.TargetViewSchemaID)
 	if !ok {
 		return invalidImportRequest("target_view_schema_id", "target_view_schema_not_importable")

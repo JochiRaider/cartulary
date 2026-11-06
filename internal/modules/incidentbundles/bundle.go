@@ -4,7 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bytes"
-	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,14 +14,15 @@ import (
 	"path"
 	"sort"
 	"strings"
-	"time"
+	"unicode"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 )
 
 const (
 	bundleFormat              = "cartulary.incident_bundle"
-	bundleVersion             = 5
+	bundleVersion             = 6
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 	tarTypeRegA               = byte(0)
 )
@@ -37,6 +38,7 @@ var incidentBundleOptionalSectionTokens = map[string]struct{}{
 var requiredStructuredFiles = []string{
 	"data/incident.json",
 	"data/actors.ndjson",
+	"data/committed_sources.ndjson",
 	"data/records.ndjson",
 	"data/timeline_time_profiles.ndjson",
 	"data/timeline_records.ndjson",
@@ -83,7 +85,8 @@ type manifestInput struct {
 }
 
 type bundleArchive struct {
-	Bytes          []byte
+	members        incidentportability.MemberReader
+	context        context.Context
 	ManifestSHA256 string
 	ChecksumLines  []string
 	Manifest       bundleManifest
@@ -113,17 +116,12 @@ type manifestFile struct {
 	Required  bool   `json:"required"`
 }
 
-type verificationInput struct {
-	Bundle []byte
-	Limits Limits
-}
-
 var errExtensionCapabilityNotSupported = errors.New("extension_capability_not_supported")
 
 type verifiedBundle struct {
 	Manifest       bundleManifest
 	ManifestSHA256 string
-	Files          map[string][]byte
+	Members        incidentportability.MemberReader
 	Checksums      map[string]string
 }
 
@@ -137,89 +135,94 @@ func (e *verificationError) Error() string {
 	return "incident bundle verification failed: " + e.ReasonCode
 }
 
-func buildBundleArchive(input manifestInput, files map[string][]byte) (bundleArchive, error) {
-	normalizedFiles := map[string][]byte{}
-	for pathName, content := range files {
-		if !safeBundlePath(pathName) {
-			return bundleArchive{}, fmt.Errorf("unsafe bundle path %q", pathName)
-		}
-		normalizedFiles[pathName] = append([]byte(nil), content...)
-	}
-	for _, pathName := range requiredStructuredFiles {
-		if _, ok := normalizedFiles[pathName]; !ok {
-			return bundleArchive{}, fmt.Errorf("%s is required", pathName)
+func buildBundleArchive(ctx context.Context, input manifestInput, members *memberStore) (bundleArchive, error) {
+	for _, required := range requiredStructuredFiles {
+		if _, ok := members.members[required]; !ok {
+			return bundleArchive{}, fmt.Errorf("%s is required", required)
 		}
 	}
-
-	manifestFiles := manifestFilesFor(normalizedFiles, false)
-	sourceBoundaryBytes, err := json.Marshal(manifestFiles)
-	if err != nil {
-		return bundleArchive{}, err
+	manifestFiles := make([]manifestFile, 0, len(members.members))
+	checksumLines := make([]string, 0, len(members.members))
+	for _, member := range members.Members() {
+		if member.Path == "manifest.json" || strings.HasPrefix(member.Path, "integrity/") {
+			return bundleArchive{}, &verificationError{ReasonCode: "malformed_manifest"}
+		}
+		manifestFiles = append(manifestFiles, manifestFile{Path: member.Path, SHA256: "sha256:" + member.SHA256, SizeBytes: member.ByteSize, Required: !strings.HasPrefix(member.Path, "ext/")})
+		checksumLines = append(checksumLines, member.SHA256+"  "+member.Path)
 	}
+	boundary := sha256.New()
+	_, _ = io.WriteString(boundary, "[")
+	boundaryBytes := int64(2)
+	checksumBytes := int64(0)
+	for index, file := range manifestFiles {
+		encodedFile, err := json.Marshal(file)
+		if err != nil {
+			return bundleArchive{}, err
+		}
+		if index > 0 {
+			_, _ = io.WriteString(boundary, ",")
+			boundaryBytes++
+		}
+		boundaryBytes += int64(len(encodedFile))
+		checksumBytes += int64(64 + 2 + len(file.Path) + 1)
+		if boundaryBytes > PortabilityParticipantByteLimit || checksumBytes > PortabilityParticipantByteLimit {
+			return bundleArchive{}, &verificationError{ReasonCode: "malformed_manifest"}
+		}
+		_, _ = boundary.Write(encodedFile)
+	}
+	_, _ = io.WriteString(boundary, "]")
 	manifest := bundleManifest{
-		BundleFormat:                 bundleFormat,
-		BundleVersion:                bundleVersion,
-		BundleID:                     input.BundleID,
-		IncidentID:                   input.IncidentID,
-		IncidentKey:                  input.IncidentKey,
-		ExportedAt:                   input.ExportedAt,
-		SourceChangeSetHighWatermark: sourceBoundaryTokenPrefix + hashHex(sourceBoundaryBytes),
-		HistoryMode:                  historyModeFull,
-		BlobMode:                     blobModeFull,
-		ReferencePackMode:            input.ReferencePackMode,
-		OptionalSections:             canonicalStringSet(input.OptionalSections),
-		RequiredCapabilities:         canonicalStringSet(input.RequiredCapabilities),
-		Files:                        manifestFiles,
+		BundleFormat: bundleFormat, BundleVersion: bundleVersion,
+		BundleID: input.BundleID, IncidentID: input.IncidentID, IncidentKey: input.IncidentKey, ExportedAt: input.ExportedAt,
+		SourceChangeSetHighWatermark: sourceBoundaryTokenPrefix + hex.EncodeToString(boundary.Sum(nil)),
+		HistoryMode:                  historyModeFull, BlobMode: blobModeFull, ReferencePackMode: input.ReferencePackMode,
+		OptionalSections: canonicalStringSet(input.OptionalSections), RequiredCapabilities: canonicalStringSet(input.RequiredCapabilities), Files: manifestFiles,
 	}
 	if manifest.ReferencePackMode == "" {
 		manifest.ReferencePackMode = referencePackModeRefsOnly
 	}
-	manifestBytes, err := canonicalJSONString(manifest)
+	header := manifest
+	header.Files = nil
+	encodedHeader, err := json.Marshal(header)
 	if err != nil {
 		return bundleArchive{}, err
 	}
-	manifestSHA := hashHex(manifestBytes)
-	normalizedFiles["manifest.json"] = manifestBytes
-
-	checksumLines := checksumLinesFor(normalizedFiles)
-	normalizedFiles["integrity/checksums.sha256"] = []byte(strings.Join(checksumLines, "\n") + "\n")
-
-	if input.Limits != nil {
-		if err := checkMemberCount(len(normalizedFiles), *input.Limits); err != nil {
-			return bundleArchive{}, err
-		}
-		limit := input.Limits.IncidentBundles.MaxExtractedBytes
-		if limit <= 0 {
-			limit = defaultIncidentBundleMaxExtractedBytes
-		}
-		total := int64(0)
-		for _, data := range normalizedFiles {
-			if int64(len(data)) > limit-total {
-				return bundleArchive{}, &verificationError{ReasonCode: "archive_extracted_bytes_exceeded"}
-			}
-			total += int64(len(data))
-		}
+	// Replace the four-byte null Files value with its bounded array and LF.
+	if int64(len(encodedHeader))-4+boundaryBytes+1 > PortabilityParticipantByteLimit {
+		return bundleArchive{}, &verificationError{ReasonCode: "malformed_manifest"}
 	}
-	archiveBytes, err := zipFiles(normalizedFiles)
+	encoded, err := canonicalJSONString(manifest)
 	if err != nil {
 		return bundleArchive{}, err
 	}
-	return bundleArchive{
-		Bytes:          archiveBytes,
-		ManifestSHA256: manifestSHA,
-		ChecksumLines:  checksumLines,
-		Manifest:       manifest,
-	}, nil
+	if int64(len(encoded)) > PortabilityParticipantByteLimit {
+		return bundleArchive{}, &verificationError{ReasonCode: "malformed_manifest"}
+	}
+	if _, err := members.WriteMember(ctx, "manifest.json", bytes.NewReader(encoded)); err != nil {
+		return bundleArchive{}, err
+	}
+	checksums := strings.Join(checksumLines, "\n") + "\n"
+	if int64(len(checksums)) > PortabilityParticipantByteLimit {
+		return bundleArchive{}, &verificationError{ReasonCode: "malformed_manifest"}
+	}
+	if _, err := members.WriteMember(ctx, "integrity/checksums.sha256", strings.NewReader(checksums)); err != nil {
+		return bundleArchive{}, err
+	}
+	members.Seal()
+	return bundleArchive{members: members, context: ctx, ManifestSHA256: hashHex(encoded), ChecksumLines: checksumLines, Manifest: manifest}, nil
 }
 
-func verifyBundle(input verificationInput) (verifiedBundle, error) {
-	files, err := readBundleArchive(input.Bundle, input.Limits)
+func verifyBundle(ctx context.Context, members incidentportability.MemberReader) (verifiedBundle, error) {
+	files := make(map[string]incidentportability.Member)
+	for _, member := range members.Members() {
+		if _, duplicate := files[member.Path]; duplicate {
+			return verifiedBundle{}, &verificationError{ReasonCode: "malformed_manifest"}
+		}
+		files[member.Path] = member
+	}
+	manifestBytes, err := readControlMember(ctx, members, "manifest.json", PortabilityParticipantByteLimit)
 	if err != nil {
 		return verifiedBundle{}, err
-	}
-	manifestBytes, ok := files["manifest.json"]
-	if !ok {
-		return verifiedBundle{}, &verificationError{ReasonCode: "missing_required_file"}
 	}
 	sanitizedManifestBytes, capabilityActivationRequested, err := sanitizeRequiredCapabilities(manifestBytes)
 	if err != nil {
@@ -246,7 +249,7 @@ func verifyBundle(input verificationInput) (verifiedBundle, error) {
 		return verifiedBundle{}, err
 	}
 	if signatureBytes, ok := files["integrity/signature.ed25519"]; ok {
-		if len(signatureBytes) == 0 || manifest.SigningKeyID == nil || strings.TrimSpace(*manifest.SigningKeyID) == "" {
+		if signatureBytes.ByteSize == 0 || manifest.SigningKeyID == nil || strings.TrimSpace(*manifest.SigningKeyID) == "" {
 			return verifiedBundle{}, &verificationError{ReasonCode: "signature_mismatch"}
 		}
 		return verifiedBundle{}, &verificationError{ReasonCode: "signature_mismatch"}
@@ -263,9 +266,13 @@ func verifyBundle(input verificationInput) (verifiedBundle, error) {
 			return verifiedBundle{}, &verificationError{ReasonCode: "missing_required_file"}
 		}
 	}
-	checksumBytes, ok := files["integrity/checksums.sha256"]
+	_, ok := files["integrity/checksums.sha256"]
 	if !ok {
 		return verifiedBundle{}, &verificationError{ReasonCode: "checksum_mismatch"}
+	}
+	checksumBytes, err := readControlMember(ctx, members, "integrity/checksums.sha256", PortabilityParticipantByteLimit)
+	if err != nil {
+		return verifiedBundle{}, err
 	}
 	checksums, err := parseChecksumInventory(string(checksumBytes))
 	if err != nil {
@@ -279,7 +286,7 @@ func verifyBundle(input verificationInput) (verifiedBundle, error) {
 		if !ok {
 			return verifiedBundle{}, &verificationError{ReasonCode: "checksum_mismatch"}
 		}
-		if got := hashHex(content); got != want {
+		if content.SHA256 != want {
 			return verifiedBundle{}, &verificationError{ReasonCode: "checksum_mismatch"}
 		}
 		if strings.HasPrefix(pathName, "blobs/sha256/") {
@@ -311,7 +318,7 @@ func verifyBundle(input verificationInput) (verifiedBundle, error) {
 	return verifiedBundle{
 		Manifest:       manifest,
 		ManifestSHA256: hashHex(manifestBytes),
-		Files:          files,
+		Members:        members,
 		Checksums:      checksums,
 	}, nil
 }
@@ -378,7 +385,7 @@ func requiredStructuredFilesForVersion(version int) ([]string, error) {
 	}
 }
 
-func validateClosedBundlePaths(files map[string][]byte, requiredPaths []string) error {
+func validateClosedBundlePaths(files map[string]incidentportability.Member, requiredPaths []string) error {
 	required := make(map[string]struct{}, len(requiredPaths))
 	for _, filePath := range requiredPaths {
 		required[filePath] = struct{}{}
@@ -394,8 +401,15 @@ func validateClosedBundlePaths(files map[string][]byte, requiredPaths []string) 
 	return nil
 }
 
-func canonicalManifestFilesMatch(files map[string][]byte, manifestFiles []manifestFile) bool {
-	expected := manifestFilesFor(files, false)
+func canonicalManifestFilesMatch(files map[string]incidentportability.Member, manifestFiles []manifestFile) bool {
+	expected := make([]manifestFile, 0, len(files))
+	for path, member := range files {
+		if path == "manifest.json" || strings.HasPrefix(path, "integrity/") {
+			continue
+		}
+		expected = append(expected, manifestFile{Path: path, SHA256: "sha256:" + member.SHA256, SizeBytes: member.ByteSize, Required: !strings.HasPrefix(path, "ext/")})
+	}
+	sort.Slice(expected, func(i, j int) bool { return expected[i].Path < expected[j].Path })
 	if len(expected) != len(manifestFiles) {
 		return false
 	}
@@ -436,7 +450,7 @@ func canonicalKnownTokenSet(values []string, allowed map[string]struct{}) bool {
 	return true
 }
 
-func bundleOptionalSectionsAllowed(files map[string][]byte, manifest bundleManifest) bool {
+func bundleOptionalSectionsAllowed(files map[string]incidentportability.Member, manifest bundleManifest) bool {
 	declared := map[string]struct{}{}
 	for _, section := range manifest.OptionalSections {
 		declared[section] = struct{}{}
@@ -469,128 +483,6 @@ func bundleOptionalSectionsAllowed(files map[string][]byte, manifest bundleManif
 		}
 	}
 	return true
-}
-
-func readBundleArchive(bundle []byte, limits Limits) (map[string][]byte, error) {
-	if len(bundle) == 0 {
-		return nil, &verificationError{ReasonCode: "missing_required_file"}
-	}
-	if files, err := readZipArchive(bundle, limits); err == nil {
-		return files, nil
-	} else if isVerificationFailure(err) {
-		return nil, err
-	}
-	if files, err := readTarArchive(bytes.NewReader(bundle), int64(len(bundle)), limits); err == nil {
-		return files, nil
-	} else if isVerificationFailure(err) {
-		return nil, err
-	}
-	gz, err := gzip.NewReader(bytes.NewReader(bundle))
-	if err == nil {
-		defer gz.Close()
-		if files, tarErr := readTarArchive(gz, int64(len(bundle)), limits); tarErr == nil {
-			return files, nil
-		} else if isVerificationFailure(tarErr) {
-			return nil, tarErr
-		}
-	}
-	return nil, &verificationError{ReasonCode: "unsupported_member_type"}
-}
-
-func readZipArchive(bundle []byte, limits Limits) (map[string][]byte, error) {
-	zr, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
-	if err != nil {
-		return nil, err
-	}
-	files := map[string][]byte{}
-	var memberCount int
-	var extracted int64
-	for _, member := range zr.File {
-		memberCount++
-		if err := checkMemberCount(memberCount, limits); err != nil {
-			return nil, err
-		}
-		kind, err := classifyZipMember(member)
-		if err != nil {
-			return nil, err
-		}
-		if kind == archiveMemberDirectory {
-			if member.UncompressedSize64 != 0 {
-				return nil, &verificationError{ReasonCode: "unsupported_member_type"}
-			}
-			continue
-		}
-		if _, duplicate := files[member.Name]; duplicate {
-			return nil, &verificationError{ReasonCode: "malformed_manifest"}
-		}
-		extracted += int64(member.UncompressedSize64)
-		if err := checkExtractedSize(extracted, limits); err != nil {
-			return nil, err
-		}
-		rc, err := member.Open()
-		if err != nil {
-			return nil, &verificationError{ReasonCode: "missing_required_file"}
-		}
-		data, err := io.ReadAll(rc)
-		_ = rc.Close()
-		if err != nil {
-			return nil, &verificationError{ReasonCode: "missing_required_file"}
-		}
-		files[member.Name] = data
-	}
-	if err := checkCompressionRatio(extracted, int64(len(bundle)), limits); err != nil {
-		return nil, err
-	}
-	return files, nil
-}
-
-func readTarArchive(reader io.Reader, compressedSize int64, limits Limits) (map[string][]byte, error) {
-	tr := tar.NewReader(reader)
-	files := map[string][]byte{}
-	var memberCount int
-	var extracted int64
-	for {
-		header, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-		memberCount++
-		if err := checkMemberCount(memberCount, limits); err != nil {
-			return nil, err
-		}
-		kind, err := classifyTarMember(header)
-		if err != nil {
-			return nil, err
-		}
-		if kind == archiveMemberDirectory {
-			if header.Size != 0 {
-				return nil, &verificationError{ReasonCode: "unsupported_member_type"}
-			}
-			continue
-		}
-		if _, duplicate := files[header.Name]; duplicate {
-			return nil, &verificationError{ReasonCode: "malformed_manifest"}
-		}
-		extracted += header.Size
-		if err := checkExtractedSize(extracted, limits); err != nil {
-			return nil, err
-		}
-		data, err := io.ReadAll(tr)
-		if err != nil {
-			return nil, &verificationError{ReasonCode: "missing_required_file"}
-		}
-		files[header.Name] = data
-	}
-	if len(files) == 0 {
-		return nil, &verificationError{ReasonCode: "missing_required_file"}
-	}
-	if err := checkCompressionRatio(extracted, compressedSize, limits); err != nil {
-		return nil, err
-	}
-	return files, nil
 }
 
 type archiveMemberKind int
@@ -633,17 +525,6 @@ func classifyTarMember(header *tar.Header) (archiveMemberKind, error) {
 	}
 }
 
-func checkExtractedSize(extracted int64, limits Limits) error {
-	max := limits.IncidentBundles.MaxExtractedBytes
-	if max <= 0 {
-		max = defaultIncidentBundleMaxExtractedBytes
-	}
-	if extracted > max {
-		return &verificationError{ReasonCode: "archive_extracted_bytes_exceeded"}
-	}
-	return nil
-}
-
 func checkMemberCount(count int, limits Limits) error {
 	max := limits.Archives.MaxMembers
 	if max <= 0 {
@@ -670,43 +551,6 @@ func checkCompressionRatio(extracted int64, compressed int64, limits Limits) err
 	return nil
 }
 
-func manifestFilesFor(files map[string][]byte, includeIntegrity bool) []manifestFile {
-	paths := make([]string, 0, len(files))
-	for pathName := range files {
-		if pathName == "manifest.json" || (!includeIntegrity && strings.HasPrefix(pathName, "integrity/")) {
-			continue
-		}
-		paths = append(paths, pathName)
-	}
-	sort.Strings(paths)
-	result := make([]manifestFile, 0, len(paths))
-	for _, pathName := range paths {
-		result = append(result, manifestFile{
-			Path:      pathName,
-			SHA256:    "sha256:" + hashHex(files[pathName]),
-			SizeBytes: int64(len(files[pathName])),
-			Required:  !strings.HasPrefix(pathName, "ext/"),
-		})
-	}
-	return result
-}
-
-func checksumLinesFor(files map[string][]byte) []string {
-	paths := make([]string, 0, len(files))
-	for pathName := range files {
-		if pathName == "manifest.json" || strings.HasPrefix(pathName, "integrity/") {
-			continue
-		}
-		paths = append(paths, pathName)
-	}
-	sort.Strings(paths)
-	lines := make([]string, 0, len(paths))
-	for _, pathName := range paths {
-		lines = append(lines, hashHex(files[pathName])+"  "+pathName)
-	}
-	return lines
-}
-
 func parseChecksumInventory(content string) (map[string]string, error) {
 	lines := strings.Split(strings.TrimSpace(content), "\n")
 	if len(lines) == 1 && lines[0] == "" {
@@ -731,38 +575,12 @@ func parseChecksumInventory(content string) (map[string]string, error) {
 	return checksums, nil
 }
 
-func zipFiles(files map[string][]byte) ([]byte, error) {
-	paths := make([]string, 0, len(files))
-	for pathName := range files {
-		paths = append(paths, pathName)
-	}
-	sort.Strings(paths)
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	modified := time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC)
-	for _, pathName := range paths {
-		header := &zip.FileHeader{
-			Name:     pathName,
-			Method:   zip.Store,
-			Modified: modified,
-		}
-		header.SetMode(0o600)
-		w, err := zw.CreateHeader(header)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := w.Write(files[pathName]); err != nil {
-			return nil, err
-		}
-	}
-	if err := zw.Close(); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+func (archive bundleArchive) Write(destination io.Writer) error {
+	return writeZIPMembers(archive.context, destination, archive.members)
 }
 
 func safeBundlePath(pathName string) bool {
-	if pathName == "" || strings.HasPrefix(pathName, "/") || strings.Contains(pathName, "\\") {
+	if validateStorageReference(pathName) != nil || strings.IndexFunc(pathName, unicode.IsControl) >= 0 || strings.HasPrefix(pathName, "/") || strings.Contains(pathName, "\\") {
 		return false
 	}
 	clean := path.Clean(pathName)
@@ -797,9 +615,4 @@ func canonicalStringSet(values []string) []string {
 	}
 	sort.Strings(result)
 	return result
-}
-
-func isVerificationFailure(err error) bool {
-	_, ok := err.(*verificationError)
-	return ok
 }

@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.recovery_state_catalog.v2",
-  "catalog_digest_sha256": "4cbd6f39c3e44950273bda2770969b4e9bb55b3ee51cece0691eec5a34d3d934",
+  "catalog_digest_sha256": "8c30679292984edd5c4cc412b14b4fc3ddb6b7ab2ff75651fca5dbbf1994c3df",
   "contribution_digests": [
     {
       "owner_id": "module.artifacts",
@@ -32,7 +32,7 @@
     },
     {
       "owner_id": "module.entities",
-      "sha256": "26dd66a33c34418b14da12b68858851eb91fe165375df9b58607f399cbc2bd23"
+      "sha256": "c75963038c8b1cc5d5cdb97e2ba7a4f74c054f871145c5d3b9c01fd3a89e26ba"
     },
     {
       "owner_id": "module.evidence",
@@ -40,7 +40,7 @@
     },
     {
       "owner_id": "module.extensions",
-      "sha256": "9d772e1e4a42ad96c1e4a494a019c6f9b1bffde5b8b89b9022cef7189231c4ba"
+      "sha256": "016b5ef10df98cb7047f6ef267f0ec55643284f36119d032d9294044bd408e4c"
     },
     {
       "owner_id": "module.graphprojection",
@@ -48,7 +48,7 @@
     },
     {
       "owner_id": "module.imports",
-      "sha256": "37f4fd325352dc92eb4387f2dfdb087449db807d6e39ab0b5565176e97522c73"
+      "sha256": "729357143f6c656d9efb062dabf08bf7d2979c3fb345e3e45fec4407c8658021"
     },
     {
       "owner_id": "module.incidentbundles",
@@ -60,11 +60,11 @@
     },
     {
       "owner_id": "module.indicators",
-      "sha256": "a1a318a207590e5b3b7d13ba40609369896e306aab1b36425bc3ff0d22aa1c18"
+      "sha256": "ca5a7a6087ab6968314a46d1ab7842aa90bcc6f6ef2225c47bcc45f9ca27cc15"
     },
     {
       "owner_id": "module.links",
-      "sha256": "38422869a5da6da07f652f18ea95c44a21794b04e2a01e807c2e50aa281ea84b"
+      "sha256": "f04692d1466ed45c0bf5a63c5a9f6dfd990dbc946e2c056f1a8f5391610dcc2b"
     },
     {
       "owner_id": "module.networkflow",
@@ -100,7 +100,7 @@
     },
     {
       "owner_id": "module.reporting",
-      "sha256": "0816da75c271a23dd9c054e48b2de54fa843ab9f5bee6574bd356d0af2e6e7cd"
+      "sha256": "ff1bac232f82d32b40de986194b63282ec3e8c68caa73f90a9d67d63d433cd9a"
     },
     {
       "owner_id": "module.revisions",
@@ -351,6 +351,51 @@
     },
     {
       "owner_id": "module.entities",
+      "table_name": "entities_bundle_validation_associations",
+      "state_class": "transient",
+      "backup_inclusion": "excluded_transient",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "entities.invalidate_bundle_validation.v1"
+    },
+    {
+      "owner_id": "module.entities",
+      "table_name": "entities_bundle_validation_binding",
+      "state_class": "transient",
+      "backup_inclusion": "excluded_transient",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "entities.invalidate_bundle_validation.v1"
+    },
+    {
+      "owner_id": "module.entities",
+      "table_name": "entities_bundle_validation_claims",
+      "state_class": "transient",
+      "backup_inclusion": "excluded_transient",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "entities.invalidate_bundle_validation.v1"
+    },
+    {
+      "owner_id": "module.entities",
+      "table_name": "entities_bundle_validation_mentions",
+      "state_class": "transient",
+      "backup_inclusion": "excluded_transient",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "entities.invalidate_bundle_validation.v1"
+    },
+    {
+      "owner_id": "module.entities",
+      "table_name": "entities_bundle_validation_nodes",
+      "state_class": "transient",
+      "backup_inclusion": "excluded_transient",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "entities.invalidate_bundle_validation.v1"
+    },
+    {
+      "owner_id": "module.entities",
       "table_name": "entity_active_identifier_claims",
       "state_class": "derived",
       "backup_inclusion": "excluded_rebuildable",
@@ -594,6 +639,33 @@
     },
     {
       "owner_id": "module.imports",
+      "table_name": "import_committed_source_blobs",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.imports",
+      "table_name": "import_committed_source_chunks",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.imports",
+      "table_name": "import_committed_sources",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.imports",
       "table_name": "import_sessions",
       "state_class": "authoritative",
       "backup_inclusion": "authoritative_required",
@@ -755,6 +827,15 @@
       "algorithm_id": null
     },
     {
+      "owner_id": "module.indicators",
+      "table_name": "indicators_bundle_validation_sources",
+      "state_class": "transient",
+      "backup_inclusion": "excluded_transient",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "indicators.invalidate_bundle_validation.v1"
+    },
+    {
       "owner_id": "module.platform_jobs",
       "table_name": "jobs",
       "state_class": "authoritative",
@@ -762,6 +843,33 @@
       "restore_action": "restore",
       "codec_id": "cartulary.postgres_snapshot_unit.v1",
       "algorithm_id": null
+    },
+    {
+      "owner_id": "module.links",
+      "table_name": "links_bundle_validation_catalog",
+      "state_class": "transient",
+      "backup_inclusion": "excluded_transient",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "links.invalidate_bundle_validation.v1"
+    },
+    {
+      "owner_id": "module.links",
+      "table_name": "links_bundle_validation_links",
+      "state_class": "transient",
+      "backup_inclusion": "excluded_transient",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "links.invalidate_bundle_validation.v1"
+    },
+    {
+      "owner_id": "module.links",
+      "table_name": "links_bundle_validation_tags",
+      "state_class": "transient",
+      "backup_inclusion": "excluded_transient",
+      "restore_action": "invalidate",
+      "codec_id": null,
+      "algorithm_id": "links.invalidate_bundle_validation.v1"
     },
     {
       "owner_id": "module.networkflow",
@@ -1251,6 +1359,15 @@
     },
     {
       "owner_id": "module.reporting",
+      "table_name": "reporting_imported_artifact_chunks",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
+      "owner_id": "module.reporting",
       "table_name": "reporting_imported_artifact_files",
       "state_class": "authoritative",
       "backup_inclusion": "authoritative_required",
@@ -1474,9 +1591,19 @@
       "state_class": "authoritative",
       "backup_inclusion": "authoritative_required",
       "restore_action": "restore",
-      "inventory_algorithm_id": "extensions.snapshot_staged_object_inventory.v1",
+      "inventory_algorithm_id": "extensions.snapshot_staged_object_inventory.v2",
       "validation_algorithm_id": "extensions.validate_staged_object_inventory.v1",
       "restore_algorithm_id": "extensions.restore_staged_object_inventory.v1"
+    },
+    {
+      "owner_id": "module.imports",
+      "object_family_id": "imports.committed_sources",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "inventory_algorithm_id": "imports.snapshot_committed_source_inventory.v1",
+      "validation_algorithm_id": "imports.validate_committed_source_inventory.v1",
+      "restore_algorithm_id": "imports.restore_committed_source_inventory.v1"
     },
     {
       "owner_id": "module.imports",

@@ -3602,6 +3602,156 @@
       "classification": "security_sensitive",
       "owner_id": "platform.viewschema",
       "rationale": "Project adopted owner mutation semantics explicitly under Core 01. Classification is independent of HTTP method and does not alter the separately declared authentication or CSRF contract; missing declarations fail assembly and generation."
+    },
+    {
+      "fingerprint": "1230e20d518c88b95019ba830fa51d7892668ae6516a7bac99d5f43873416d72",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: publish incident-scoped immutable committed-source metadata and streamed original bytes, restricted to the existing mapping-approval role; no workflow capability or mutation is exposed."
+    },
+    {
+      "fingerprint": "513853722a5b4076442b875d51415b8c139ef28923029980a902f61a15fa82ce",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: publish incident-scoped immutable committed-source metadata and streamed original bytes, restricted to the existing mapping-approval role; no workflow capability or mutation is exposed."
+    },
+    {
+      "fingerprint": "c78f348a5055a7e5f2074c2cec0ec7b7062ce05294671f2b316fddd4353a2e28",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: publish incident-scoped immutable committed-source metadata and streamed original bytes, restricted to the existing mapping-approval role; no workflow capability or mutation is exposed."
+    },
+    {
+      "fingerprint": "3016e60124b186085c40457bfce9ace7a07eaaa80cf42e601bdef74dc27b2356",
+      "classification": "security_sensitive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: publish incident-scoped immutable committed-source metadata and streamed original bytes, restricted to the existing mapping-approval role; no workflow capability or mutation is exposed."
+    },
+    {
+      "fingerprint": "9603c538fc516e71c3df05ab2ba6f48bd4bea425aff4cfc9dfe928b69f1f6595",
+      "classification": "security_sensitive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: publish incident-scoped immutable committed-source metadata and streamed original bytes, restricted to the existing mapping-approval role; no workflow capability or mutation is exposed."
+    },
+    {
+      "fingerprint": "59e72d96b884d3f61cafae8c2dc06826064182df6714bf08b2bee7c6b0402385",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: publish incident-scoped immutable committed-source metadata and streamed original bytes, restricted to the existing mapping-approval role; no workflow capability or mutation is exposed."
+    },
+    {
+      "fingerprint": "7a7dc1f542ffa5a2722a09c2e1506bdb528b447e03a81b6dca87d1e07fc7f84d",
+      "classification": "security_sensitive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: publish incident-scoped immutable committed-source metadata and streamed original bytes, restricted to the existing mapping-approval role; no workflow capability or mutation is exposed."
+    },
+    {
+      "fingerprint": "41f4bb9d759b5794002b579767dde87be658c250054fb0cf4eadf4382f9c67e7",
+      "classification": "security_sensitive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: publish incident-scoped immutable committed-source metadata and streamed original bytes, restricted to the existing mapping-approval role; no workflow capability or mutation is exposed."
+    },
+    {
+      "fingerprint": "c4a7bd4bf37ebee7cb50903595c19eebe1fafa8d68793ba0bbac7295a0a65652",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: enumerate durable sources through an authenticated incident-scoped keyset collection restricted to mapping approvers, without exposing source bytes in the list."
+    },
+    {
+      "fingerprint": "6799799478c547de9c4e3bf725c3b20e27523ac8198832d8976e9ae0f26058bf",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: enumerate durable sources through an authenticated incident-scoped keyset collection restricted to mapping approvers, without exposing source bytes in the list."
+    },
+    {
+      "fingerprint": "d9a5b341925afd1de90203adcb8b99113ee2ebfa5a8750fca4834acc5ad23503",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: enumerate durable sources through an authenticated incident-scoped keyset collection restricted to mapping approvers, without exposing source bytes in the list."
+    },
+    {
+      "fingerprint": "7c9fcc46b0620e26e1dfa5e9cdd536ed8436356f3c5372969b51d288b85d0319",
+      "classification": "security_sensitive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: enumerate durable sources through an authenticated incident-scoped keyset collection restricted to mapping approvers, without exposing source bytes in the list."
+    },
+    {
+      "fingerprint": "c889230c7021ebfb3b43256cd564b45429f2a56466f7e2264194cd07a82fe0e9",
+      "classification": "security_sensitive",
+      "owner_id": "module.imports",
+      "rationale": "REQ-01-685: enumerate durable sources through an authenticated incident-scoped keyset collection restricted to mapping approvers, without exposing source bytes in the list."
+    },
+    {
+      "fingerprint": "81da2a688e7caeb8fac39e1059dd55cf7de17285f0376b4a20583c969170f096",
+      "classification": "additive",
+      "owner_id": "module.incidentbundles",
+      "rationale": "REQ-01-686: expose completed ZIP bytes through an authenticated, incident-authorized attachment stream with retained integrity verification and no physical storage disclosure."
+    },
+    {
+      "fingerprint": "fbc33792ae7a3de29100b1c18b05a5dc0fb295db3fae78e8cb9e6dca1f01984d",
+      "classification": "security_sensitive",
+      "owner_id": "module.incidentbundles",
+      "rationale": "REQ-01-686: expose completed ZIP bytes through an authenticated, incident-authorized attachment stream with retained integrity verification and no physical storage disclosure."
+    },
+    {
+      "fingerprint": "77a2f80306684bbfde3161f8d25796934343cf0be42e9c4cf0cc1daf8f40f272",
+      "classification": "security_sensitive",
+      "owner_id": "module.incidentbundles",
+      "rationale": "REQ-01-686: expose completed ZIP bytes through an authenticated, incident-authorized attachment stream with retained integrity verification and no physical storage disclosure."
+    },
+    {
+      "fingerprint": "b53f62ec9bbe68878c20c101f256f77313e15788a0c68c1cc7298ef0bc5d9963",
+      "classification": "additive",
+      "owner_id": "module.reporting",
+      "rationale": "REQ-RPT-046pb adds read-only historical reporting evidence inspection and streamed attachment downloads after incident transfer. Current editor/reviewer/admin admission applies before artifact lookup; source approvals never become native destination approvals."
+    },
+    {
+      "fingerprint": "5402336859106b8d08763ff56a34d42b2e78f1e5a5ac22f2be68177257c6e9ac",
+      "classification": "additive",
+      "owner_id": "module.reporting",
+      "rationale": "REQ-RPT-046pb adds read-only historical reporting evidence inspection and streamed attachment downloads after incident transfer. Current editor/reviewer/admin admission applies before artifact lookup; source approvals never become native destination approvals."
+    },
+    {
+      "fingerprint": "bdcbc9d6b9620ff6112dfd798335791aa2947f164eb7955886b1d4e34aa0a4ba",
+      "classification": "additive",
+      "owner_id": "module.reporting",
+      "rationale": "REQ-RPT-046pb adds read-only historical reporting evidence inspection and streamed attachment downloads after incident transfer. Current editor/reviewer/admin admission applies before artifact lookup; source approvals never become native destination approvals."
+    },
+    {
+      "fingerprint": "9bdf3c6f3c316b858309f2a10581e570ed481a9008f4114827ddc3a016c1c13e",
+      "classification": "additive",
+      "owner_id": "module.reporting",
+      "rationale": "REQ-RPT-046pb adds read-only historical reporting evidence inspection and streamed attachment downloads after incident transfer. Current editor/reviewer/admin admission applies before artifact lookup; source approvals never become native destination approvals."
+    },
+    {
+      "fingerprint": "a43b79919663e16ae054fd3b089d1a9d85bdb7aa2ebe75b80725ab40768126e1",
+      "classification": "additive",
+      "owner_id": "module.reporting",
+      "rationale": "REQ-RPT-046pb adds read-only historical reporting evidence inspection and streamed attachment downloads after incident transfer. Current editor/reviewer/admin admission applies before artifact lookup; source approvals never become native destination approvals."
+    },
+    {
+      "fingerprint": "0eb948a7d0cd4f87653705c45d22114d813918b0e54a59202531e7ed68ccce8e",
+      "classification": "security_sensitive",
+      "owner_id": "module.reporting",
+      "rationale": "REQ-RPT-046pb adds read-only historical reporting evidence inspection and streamed attachment downloads after incident transfer. Current editor/reviewer/admin admission applies before artifact lookup; source approvals never become native destination approvals."
+    },
+    {
+      "fingerprint": "ab71a961b7b12c5f9efddbebab796cfb6c0a44f9a1b4f840e9b6010286f6845b",
+      "classification": "security_sensitive",
+      "owner_id": "module.reporting",
+      "rationale": "REQ-RPT-046pb adds read-only historical reporting evidence inspection and streamed attachment downloads after incident transfer. Current editor/reviewer/admin admission applies before artifact lookup; source approvals never become native destination approvals."
+    },
+    {
+      "fingerprint": "04061f3f9933f7e3c6dac06d3a7f65f383af049ea8d9fe60734de281a5e2a329",
+      "classification": "security_sensitive",
+      "owner_id": "module.reporting",
+      "rationale": "REQ-RPT-046pb adds read-only historical reporting evidence inspection and streamed attachment downloads after incident transfer. Current editor/reviewer/admin admission applies before artifact lookup; source approvals never become native destination approvals."
+    },
+    {
+      "fingerprint": "8467b40539a39984c21f95b82e91742361532829734f82bc47c5b57fa464f1b2",
+      "classification": "security_sensitive",
+      "owner_id": "module.reporting",
+      "rationale": "REQ-RPT-046pb adds read-only historical reporting evidence inspection and streamed attachment downloads after incident transfer. Current editor/reviewer/admin admission applies before artifact lookup; source approvals never become native destination approvals."
     }
   ]
 }

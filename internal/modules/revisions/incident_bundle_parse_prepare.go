@@ -1,9 +1,8 @@
 package revisions
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,118 +13,96 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-func prepareRevisionsImport(
-	bundle sourceport.Bundle,
-	importContext sourceport.ImportContext,
-) (preparedRevisionsImport, error) {
-	prepared := preparedRevisionsImport{
-		incidentID:   importContext.IncidentID,
-		runtimeActor: importContext.ActorUserID,
-		actors:       importContext.Actors,
-	}
-	if bundle == nil || importContext.IncidentID == uuid.Nil ||
-		importContext.ActorUserID == uuid.Nil {
+func prepareRevisionsImport(ctx context.Context, bundle incidentportability.MemberReader, importContext sourceport.ImportContext) (preparedRevisionsImport, error) {
+	if bundle == nil || importContext.IncidentID == uuid.Nil || importContext.ActorUserID == uuid.Nil {
 		return preparedRevisionsImport{}, revisionsFailure(revisionsReferencesInvariant)
 	}
-	var failures []revisionsParseFailure
-	changeSetRows, err := decodeRevisionsRows(bundle, changeSetsBundlePath)
+	members, err := incidentportability.BindMembers(bundle, []string{changeSetsBundlePath, changeSetMutationsPath, recordRevisionsBundlePath})
 	if err != nil {
-		failures = append(failures, parseFailure(revisionsReferencesInvariant, changeSetsBundlePath, ""))
+		return preparedRevisionsImport{}, revisionsFailure(revisionsReferencesInvariant)
 	}
-	mutationRows, mutationErr := decodeRevisionsRows(bundle, changeSetMutationsPath)
-	if mutationErr != nil {
-		failures = append(failures, parseFailure(revisionsReferencesInvariant, changeSetMutationsPath, ""))
-	}
-	revisionRows, revisionErr := decodeRevisionsRows(bundle, recordRevisionsBundlePath)
-	if revisionErr != nil {
-		failures = append(failures, parseFailure(revisionsReferencesInvariant, recordRevisionsBundlePath, ""))
-	}
-	if len(failures) > 0 {
-		return preparedRevisionsImport{}, selectedRevisionsFailure(failures)
-	}
-
-	for _, raw := range changeSetRows {
-		row, failure := parsePortableChangeSet(raw, importContext)
-		if failure != nil {
-			failures = append(failures, *failure)
-			continue
+	prepared := preparedRevisionsImport{incidentID: importContext.IncidentID, runtimeActor: importContext.ActorUserID, actors: importContext.Actors, members: members}
+	previous := ""
+	if err := prepared.walkChangeSets(ctx, func(row portableChangeSet) error {
+		id := row.ChangeSetID.String()
+		if id <= previous || row.IncidentID != prepared.incidentID {
+			return revisionsFailure(revisionsReferencesInvariant)
 		}
-		prepared.changeSets = append(prepared.changeSets, row)
+		if _, admitted := prepared.actors.Lookup(row.PortableActorID.String()); !admitted {
+			return revisionsFailure(revisionsActorsInvariant)
+		}
+		previous = id
+		return nil
+	}); err != nil {
+		return preparedRevisionsImport{}, err
 	}
-	for _, raw := range mutationRows {
-		row, failure := parsePortableMutation(raw)
-		if failure != nil {
-			failures = append(failures, *failure)
-			continue
+	previous = ""
+	sequence := 0
+	if err := prepared.walkMutations(ctx, func(row portableChangeSetMutation) error {
+		id := row.ChangeSetID.String()
+		if id != previous {
+			if id < previous {
+				prepared.sequenceInvalid = true
+			}
+			previous = id
+			sequence = 0
 		}
-		prepared.mutations = append(prepared.mutations, row)
-	}
-	for _, raw := range revisionRows {
-		row, failure := parsePortableRecordRevision(raw)
-		if failure != nil {
-			failures = append(failures, *failure)
-			continue
+		if row.SequenceNo != sequence+1 {
+			prepared.sequenceInvalid = true
 		}
-		prepared.revisions = append(prepared.revisions, row)
-	}
-	if len(failures) > 0 {
-		return preparedRevisionsImport{}, selectedRevisionsFailure(failures)
-	}
-
-	sort.Slice(prepared.changeSets, func(i, j int) bool {
-		return prepared.changeSets[i].ChangeSetID.String() < prepared.changeSets[j].ChangeSetID.String()
-	})
-	sort.Slice(prepared.mutations, func(i, j int) bool {
-		left, right := prepared.mutations[i], prepared.mutations[j]
-		if left.ChangeSetID != right.ChangeSetID {
-			return left.ChangeSetID.String() < right.ChangeSetID.String()
-		}
-		return left.SequenceNo < right.SequenceNo
-	})
-	sort.Slice(prepared.revisions, func(i, j int) bool {
-		return prepared.revisions[i].RevisionID < prepared.revisions[j].RevisionID
-	})
-
-	changeSets := make(map[uuid.UUID]struct{}, len(prepared.changeSets))
-	for _, row := range prepared.changeSets {
-		if row.IncidentID != importContext.IncidentID {
-			failures = append(failures, parseFailure(revisionsReferencesInvariant, changeSetsBundlePath, row.ChangeSetID.String()))
-		}
-		if _, duplicate := changeSets[row.ChangeSetID]; duplicate {
-			failures = append(failures, parseFailure(revisionsReferencesInvariant, changeSetsBundlePath, row.ChangeSetID.String()))
-		}
-		changeSets[row.ChangeSetID] = struct{}{}
-		if _, admitted := importContext.Actors.Lookup(row.PortableActorID.String()); !admitted {
-			failures = append(failures, parseFailure(revisionsActorsInvariant, changeSetsBundlePath, row.ChangeSetID.String()))
-		}
-	}
-	for _, row := range prepared.mutations {
-		if _, exists := changeSets[row.ChangeSetID]; !exists {
-			failures = append(failures, parseFailure(revisionsReferencesInvariant, changeSetMutationsPath, mutationIdentity(row)))
-		}
-	}
-	for _, row := range prepared.revisions {
-		if _, exists := changeSets[row.ChangeSetID]; !exists {
-			failures = append(failures, parseFailure(revisionsReferencesInvariant, recordRevisionsBundlePath, strconv.FormatInt(row.RevisionID, 10)))
-		}
-		for _, snapshot := range []map[string]any{row.BeforeJSON, row.AfterJSON} {
-			if !snapshotActorsAdmitted(snapshot, importContext.Actors) {
-				failures = append(failures, parseFailure(revisionsActorsInvariant, recordRevisionsBundlePath, strconv.FormatInt(row.RevisionID, 10)))
+		sequence = row.SequenceNo
+		for _, snapshot := range []any{row.BeforeValue, row.AfterValue} {
+			if !walkSnapshotActors(snapshot, func(actorID string) bool { _, admitted := prepared.actors.Lookup(actorID); return admitted }) {
+				return revisionsFailure(revisionsActorsInvariant)
 			}
 		}
+		return nil
+	}); err != nil {
+		return preparedRevisionsImport{}, err
 	}
-	if len(failures) > 0 {
-		return preparedRevisionsImport{}, selectedRevisionsFailure(failures)
+	var revisionID int64
+	if err := prepared.walkRevisions(ctx, func(row portableRecordRevision) error {
+		if row.RevisionID <= revisionID {
+			prepared.revisionIdentityInvalid = true
+		}
+		revisionID = row.RevisionID
+		for _, snapshot := range []map[string]any{row.BeforeJSON, row.AfterJSON} {
+			if !snapshotActorsAdmitted(snapshot, prepared.actors) {
+				return revisionsFailure(revisionsActorsInvariant)
+			}
+		}
+		return nil
+	}); err != nil {
+		return preparedRevisionsImport{}, err
 	}
 	return prepared, nil
 }
-
-func decodeRevisionsRows(bundle sourceport.Bundle, path string) ([]map[string]any, error) {
-	payload, ok := bundle.File(path)
-	if !ok {
-		return nil, errors.New("required revisions bundle member is absent")
-	}
-	return incidentportability.DecodeStrictNDJSONObjects(payload, path)
+func (p preparedRevisionsImport) walkChangeSets(ctx context.Context, visit func(portableChangeSet) error) error {
+	return incidentportability.WalkPath(ctx, p.members, changeSetsBundlePath, func(raw map[string]any) error {
+		row, failure := parsePortableChangeSet(raw, sourceport.ImportContext{ActorUserID: p.runtimeActor, IncidentID: p.incidentID, Actors: p.actors})
+		if failure != nil {
+			return revisionsFailure(failure.invariant)
+		}
+		return visit(row)
+	})
+}
+func (p preparedRevisionsImport) walkMutations(ctx context.Context, visit func(portableChangeSetMutation) error) error {
+	return incidentportability.WalkPath(ctx, p.members, changeSetMutationsPath, func(raw map[string]any) error {
+		row, failure := parsePortableMutation(raw)
+		if failure != nil {
+			return revisionsFailure(failure.invariant)
+		}
+		return visit(row)
+	})
+}
+func (p preparedRevisionsImport) walkRevisions(ctx context.Context, visit func(portableRecordRevision) error) error {
+	return incidentportability.WalkPath(ctx, p.members, recordRevisionsBundlePath, func(raw map[string]any) error {
+		row, failure := parsePortableRecordRevision(raw)
+		if failure != nil {
+			return revisionsFailure(failure.invariant)
+		}
+		return visit(row)
+	})
 }
 
 func parsePortableChangeSet(
@@ -407,8 +384,4 @@ func portableIdentity(value any) string {
 	default:
 		return ""
 	}
-}
-
-func mutationIdentity(row portableChangeSetMutation) string {
-	return row.ChangeSetID.String() + ":" + strconv.Itoa(row.SequenceNo)
 }

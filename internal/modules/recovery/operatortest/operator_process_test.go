@@ -1337,7 +1337,7 @@ func seedOperatorObjectBlob(t testing.TB, dsn string, actorID uuid.UUID, body []
 	incidentID := uuid.New()
 	recordID := uuid.New()
 	blobID := uuid.New()
-	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, blobID)
+	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, blobID, uuid.New())
 	if err != nil {
 		t.Fatalf("build Evidence blob storage key: %v", err)
 	}

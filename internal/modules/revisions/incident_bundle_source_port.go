@@ -6,7 +6,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func NewIncidentBundleSourcePort(
@@ -24,11 +23,9 @@ func NewIncidentBundleSourcePort(
 		ValidateContract: func() error {
 			return validation.validateContract()
 		},
-		Export: func(ctx context.Context, exportContext sourceport.ExportContext) ([]incidentportability.File, error) {
-			return exportIncidentBundleFiles(ctx, exportContext)
-		},
-		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return prepareRevisionsImport(bundle, importContext)
+		Export: exportIncidentBundleFiles,
+		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
+			return prepareRevisionsImport(ctx, bundle, importContext)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
 			prepared, ok := value.(preparedRevisionsImport)
@@ -57,9 +54,9 @@ func revisionsIncidentBundleDescriptor() sourceport.Descriptor {
 		OwnerID: "module.revisions", OwnerRelationIDs: []string{"record-revisions"},
 		Dependencies: []string{"links_tags"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/change_sets.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_sets.row.v1", Versions: []int{5}, StableIdentity: []string{"change_set_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
-			{LogicalPath: "data/change_set_mutations.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_set_mutations.row.v1", Versions: []int{5}, StableIdentity: []string{"change_set_id", "sequence_no"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
-			{LogicalPath: "data/record_revisions.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.record_revisions.row.v1", Versions: []int{5}, StableIdentity: []string{"revision_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
+			{LogicalPath: "data/change_sets.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_sets.row.v1", Versions: []int{6}, StableIdentity: []string{"change_set_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
+			{LogicalPath: "data/change_set_mutations.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_set_mutations.row.v1", Versions: []int{6}, StableIdentity: []string{"change_set_id", "sequence_no"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
+			{LogicalPath: "data/record_revisions.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.record_revisions.row.v1", Versions: []int{6}, StableIdentity: []string{"revision_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"revisions.references_complete", "revisions.actor_references_complete",

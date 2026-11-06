@@ -174,22 +174,8 @@ func testSourceStateManifestDerivesExactRecoveryAndPortabilityState(t *testing.T
 	for index, want := range wantPaths {
 		got := paths[index]
 		if got.LogicalPath != want.logicalPath || got.ContentRole != "source_rows" ||
-			!slices.Equal(got.Versions, []int{5}) || !slices.Equal(got.StableIdentity, []string{want.stableIdentity}) {
+			!slices.Equal(got.Versions, []int{6}) || !slices.Equal(got.StableIdentity, []string{want.stableIdentity}) {
 			t.Fatalf("source-port path %d = %#v, want %#v", index, got, want)
-		}
-	}
-
-	wantExportQueries := []string{
-		`SELECT to_jsonb(t) FROM "artifacts" AS t WHERE "incident_id" = $1 ORDER BY "record_id"`,
-		`SELECT to_jsonb(t) FROM "artifact_findings" AS t WHERE "incident_id" = $1 ORDER BY "record_id"`,
-		`SELECT to_jsonb(t) FROM "artifact_investigative_queries" AS t WHERE "incident_id" = $1 ORDER BY "record_id"`,
-		`SELECT to_jsonb(t) FROM "artifact_forensic_keywords" AS t WHERE "incident_id" = $1 ORDER BY "record_id"`,
-		`SELECT to_jsonb(t) FROM "handoff_risk_refs" AS t WHERE "incident_id" = $1 ORDER BY "risk_ref_id"`,
-	}
-	exportSpecifications := manifest.exportSpecifications()
-	for index, specification := range exportSpecifications {
-		if specification.logicalBundlePath != wantPaths[index].logicalPath || specification.query != wantExportQueries[index] {
-			t.Fatalf("export specification %d = %#v, want path %q query %q", index, specification, wantPaths[index].logicalPath, wantExportQueries[index])
 		}
 	}
 
@@ -223,7 +209,7 @@ func testSourceStateManifestOwnsDefensiveRelationCopies(t *testing.T) {
 	input[0].supportedVersions[0] = 99
 	input[0].stableIdentity[0] = "mutated_identity"
 	input[0].requiredImportColumns[0] = "mutated_column"
-	if manifest.relations[0].supportedVersions[0] != 5 ||
+	if manifest.relations[0].supportedVersions[0] != 6 ||
 		manifest.relations[0].stableIdentity[0] != "record_id" ||
 		manifest.relations[0].requiredImportColumns[0] != "record_id" {
 		t.Fatalf("manifest retained caller-owned slices: %#v", manifest.relations[0])
@@ -235,7 +221,7 @@ func testSourceStateManifestOwnsDefensiveRelationCopies(t *testing.T) {
 	imports := manifest.importSpecifications()
 	imports[0].StableIdentity[0] = "mutated_identity"
 	imports[0].RequiredColumns[0] = "mutated_column"
-	if got := manifest.sourcePortPaths()[0]; got.Versions[0] != 5 || got.StableIdentity[0] != "record_id" {
+	if got := manifest.sourcePortPaths()[0]; got.Versions[0] != 6 || got.StableIdentity[0] != "record_id" {
 		t.Fatalf("source-port projection exposed manifest slices: %#v", got)
 	}
 	if got := manifest.importSpecifications()[0]; got.StableIdentity[0] != "record_id" || got.RequiredColumns[0] != "record_id" {

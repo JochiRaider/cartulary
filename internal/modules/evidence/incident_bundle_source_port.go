@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func NewIncidentBundleSourcePort() sourceport.Port {
@@ -14,9 +15,9 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		OwnerID: "module.evidence", OwnerRelationIDs: []string{"evidence-source-and-handles"},
 		Dependencies: []string{"tasks_decisions"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/evidence_records.ndjson", ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
-			{LogicalPath: "data/evidence_custody_events.ndjson", ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"custody_event_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
-			{LogicalPath: "data/object_blobs.ndjson", ContentRole: "source_rows", Versions: []int{5}, StableIdentity: []string{"object_blob_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
+			{LogicalPath: "data/evidence_records.ndjson", ContentRole: "source_rows", Versions: []int{6}, StableIdentity: []string{"record_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
+			{LogicalPath: "data/evidence_custody_events.ndjson", ContentRole: "source_rows", Versions: []int{6}, StableIdentity: []string{"custody_event_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
+			{LogicalPath: "data/object_blobs.ndjson", ContentRole: "source_rows", Versions: []int{6}, StableIdentity: []string{"object_blob_id"}, StableIdentityInvariantID: "evidence.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
 			"evidence.envelope_type_scope", "evidence.object_metadata_agree",
@@ -27,14 +28,13 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
-		Descriptor: descriptor, Export: sourceport.QueryExport(exportIncidentBundleFiles),
-		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
+		Descriptor: descriptor, Export: exportIncidentBundleFiles,
+		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
+			return sourceport.PrepareMembers(ctx, descriptor, bundle, importContext.BundleVersion)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			files := map[string][]byte(value.(sourceport.PreparedFiles))
-			files["data/object_blobs.ndjson"] = importContext.RewrittenObjectBlobs
-			return importIncidentBundleFilesTx(ctx, tx, files, importContext.ActorUserID, importContext.Attributions)
+			files := value.(*incidentportability.BoundMembers)
+			return importIncidentBundleFilesTx(ctx, tx, files, importContext.RewrittenObjectBlobs, importContext.ActorUserID, importContext.Attributions)
 		},
 		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
 			var invalid bool

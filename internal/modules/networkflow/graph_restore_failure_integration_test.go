@@ -34,7 +34,7 @@ func TestNetworkFlowGraphReconstructionBindingFailureRollsBack_Integration(t *te
 	table := createTestTable(t, harness.Pool, store, actorID, incidentID, "restore-failure.csv", nil, 1)
 	collection := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
 	response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, collection, map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view_create_request.v4", "client_txn_id": "restore-failure-create", "display_name": "Rollback binding",
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v5", "refresh_scope": "selected_tables", "client_txn_id": "restore-failure-create", "display_name": "Rollback binding",
 		"semantic_query": map[string]any{
 			"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table.TableID}, "filters": []any{},
 			"time_range": map[string]any{"start_utc": nil, "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1", "include_example_row_refs": true},
@@ -55,7 +55,7 @@ func TestNetworkFlowGraphReconstructionBindingFailureRollsBack_Integration(t *te
 	if declaration.SelectedResult.CanonicalOutputSHA256 == wrongDigest {
 		wrongDigest = strings.Repeat("e", 64)
 	}
-	if _, err := harness.Pool.Exec(t.Context(), `UPDATE network_flow_graph_views SET selected_canonical_output_sha256=$2 WHERE graph_view_id=$1`, graphViewID, wrongDigest); err != nil {
+	if _, err := harness.Pool.Exec(t.Context(), `UPDATE network_flow_graph_views SET selected_canonical_output_sha256=$2, selected_source_binding_json=jsonb_set(selected_source_binding_json,'{expected_result_binding,canonical_output_sha256}',to_jsonb($2::text)) WHERE graph_view_id=$1`, graphViewID, wrongDigest); err != nil {
 		t.Fatal(err)
 	}
 	var results, vertices, edges int

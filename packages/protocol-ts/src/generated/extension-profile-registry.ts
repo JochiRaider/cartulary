@@ -78,6 +78,11 @@ const value = {
       "contract_major": 1,
       "contributions": [
         {
+          "contribution_id": "import.committed_sources_route",
+          "kind": "http_route_family",
+          "route_family": "/api/v1/incidents/{incident_id}/committed-sources"
+        },
+        {
           "contribution_id": "import.sessions_route",
           "kind": "http_route_family",
           "route_family": "/api/v1/import-sessions"
@@ -90,7 +95,8 @@ const value = {
       "profile_id": "import",
       "public_schema_ids": [],
       "route_families": [
-        "/api/v1/import-sessions"
+        "/api/v1/import-sessions",
+        "/api/v1/incidents/{incident_id}/committed-sources"
       ],
       "runtime_dependencies": [],
       "schema_id": "cartulary.extension_profile_descriptor.v3",
@@ -138,14 +144,14 @@ const value = {
     {
       "admission_validation": {
         "dependency_probes": [],
-        "post_migration_algorithmid": "network_flow_activity.validate_state_v6",
-        "preflight_algorithmid": "network_flow_activity.orientation_cutover_v1",
+        "post_migration_algorithmid": "network_flow_activity.validate_state_v7",
+        "preflight_algorithmid": "network_flow_activity.incident_portability_cutover_v1",
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "capability_ids": [],
       "claim_config_key": "network_flow_activity.claimed",
       "claimable": true,
-      "contract_major": 9,
+      "contract_major": 10,
       "contributions": [
         {
           "contribution_id": "network_flow_activity.graph_view_resource",
@@ -164,6 +170,20 @@ const value = {
           "facade_binding_id": "network_flow_activity.import_facade.v1",
           "kind": "import_target",
           "target_kind": "network_flow_table"
+        },
+        {
+          "contribution_id": "network_flow_activity.incident_import",
+          "kind": "cross_owner_transaction_participant",
+          "participant_contract_ref": "cartulary.extension_transaction_participant_contract.v3",
+          "participant_contract_sha256": "2190a04d5349549266c0f835924e6ec334b40f2915de69e1c55e1cffb50aeef7",
+          "participant_id": "network_flow_activity.incident_import_v1"
+        },
+        {
+          "contribution_id": "network_flow_activity.incident_portability",
+          "kind": "incident_portability_participant",
+          "participant_contract_ref": "cartulary.extension_participant_specialization.v5",
+          "participant_contract_sha256": "6f78f64d787c08fd00f90a304e4f26e67a9a94fc4aea441d30fa9a214a65515c",
+          "participant_id": "network_flow_activity.incident_portability_v1"
         },
         {
           "contribution_id": "network_flow_activity.indicator_binding_resource",
@@ -210,7 +230,7 @@ const value = {
         }
       ],
       "egress_mode": "none",
-      "incident_portability_mode": "blocked_when_present",
+      "incident_portability_mode": "participant",
       "owner_id": "network_flow_activity",
       "prestage_config_keys": [],
       "profile_id": "network_flow_activity",
@@ -227,14 +247,14 @@ const value = {
       "schema_id": "cartulary.extension_profile_descriptor.v3",
       "snapshot_reporting_mode": "participant",
       "state_ownership": {
-        "current_state_version": 6,
+        "current_state_version": 7,
         "empty_state_policy": "allowed",
-        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v6",
-        "initialization_definition_sha256": "750b27c3731ed09bd6f28ca4c51ca7d3e889dcf463d19e7046d59b39c5c6273b",
+        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v7",
+        "initialization_definition_sha256": "1064de8de2602d9e31c33f55bc252cde1005f645c985c8d3637c2a89cdec3527",
         "initialization_schema_id": "cartulary.extension_state_initialization_definition.v1",
         "kind": "extension_versioned",
         "migration_lineage_id": "network_flow_activity.state_v1",
-        "minimum_migratable_state_version": 6,
+        "minimum_migratable_state_version": 7,
         "state_presence_schema_id": "cartulary.extension_state_presence_manifest.v1"
       },
       "workspace_keys": [
@@ -299,6 +319,11 @@ const value = {
           "route_family": "/api/v1/incidents/{incident_id}/report-compositions"
         },
         {
+          "contribution_id": "snapshot_reporting.retained_artifacts_route",
+          "kind": "http_route_family",
+          "route_family": "/api/v1/incidents/{incident_id}/retained-report-artifacts"
+        },
+        {
           "contribution_id": "snapshot_reporting.snapshots_route",
           "kind": "http_route_family",
           "route_family": "/api/v1/snapshots"
@@ -312,6 +337,7 @@ const value = {
       "public_schema_ids": [],
       "route_families": [
         "/api/v1/incidents/{incident_id}/report-compositions",
+        "/api/v1/incidents/{incident_id}/retained-report-artifacts",
         "/api/v1/releases",
         "/api/v1/snapshots"
       ],

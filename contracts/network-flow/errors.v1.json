@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.network_flow_error_contracts.v1",
   "profile_id": "network_flow_activity",
-  "contract_major": 9,
+  "contract_major": 10,
   "errors": [
     {
       "code": "network_flow_invalid_request",
@@ -623,7 +623,8 @@
       "error_code": "network_flow_graph_view_not_materialized",
       "reason_codes": [
         "initial_materialization_pending",
-        "initial_materialization_failed"
+        "initial_materialization_failed",
+        "unmaterialized"
       ]
     },
     {

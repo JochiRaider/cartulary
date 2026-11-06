@@ -26,7 +26,7 @@ func TestStagedObjectRecoveryInventory_Unit(t *testing.T) {
 	snapshot := &inventorySnapshot{rows: rows}
 	source := &inventoryBytes{bodies: map[string][]byte{"storage/first": body, "storage/second": {}}}
 	provider := VNextRecoveryObjectInventory(source)
-	if provider.OwnerID() != "module.extensions" || provider.ObjectFamilyID() != "extensions.staged_objects" || provider.InventoryAlgorithmID() != "extensions.snapshot_staged_object_inventory.v1" {
+	if provider.OwnerID() != "module.extensions" || provider.ObjectFamilyID() != "extensions.staged_objects" || provider.InventoryAlgorithmID() != "extensions.snapshot_staged_object_inventory.v2" {
 		t.Fatal("source-owner inventory identity changed")
 	}
 	members, err := provider.Inventory(ctx, snapshot)

@@ -399,7 +399,7 @@ export class WorkGraphCompiler {
     ]
       .filter((unitID, index, values) => values.indexOf(unitID) === index)
       .sort(compareASCII);
-    const runtimeEnvironmentForRow = (row) => row.runner !== "go" ? {} : Object.fromEntries(
+    const runtimeEnvironmentForRow = (row) => !["go", "playwright"].includes(row.runner) ? {} : Object.fromEntries(
       this.topology.runtime_binaries.map((binary) => [
         binary.consumer_env,
         (row.runtime_binary_ids ?? []).includes(binary.id)
@@ -511,6 +511,7 @@ export class WorkGraphCompiler {
     }
     const browserUnits = compileBrowserStagesUnits(this.root, this.owner, selectedBrowserStages, {
       mode: browserMode, catalog: this.catalog, maxLanes: this.browserLaneLimit,
+      runtimeEnvironmentForRow,
       needsForRow: (row) => [...new Set([...needsForRow(row),
         ...(row.selector.stage === "visual" && rows.some((candidate) => candidate.row_id === "web.design.static.visual_fixture_registry")
           ? ["row:web.design.static.visual_fixture_registry"] : []),

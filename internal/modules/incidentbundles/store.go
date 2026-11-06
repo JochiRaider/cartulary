@@ -27,6 +27,8 @@ type store struct {
 	jobTransactions JobTransactions
 }
 
+var errJobAdmissionIndeterminate = errors.New("incident bundle job admission is indeterminate")
+
 type jobAcceptedResult struct {
 	Job      jobs.Resource
 	Replayed bool
@@ -202,7 +204,10 @@ func (s *store) acceptJob(ctx context.Context, params jobAdmissionParams) (jobAc
 	if err != nil {
 		return jobAcceptedResult{}, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if err := authn.LockRouteIdempotencyTx(ctx, tx, params.Key); err != nil {
+		return jobAcceptedResult{}, err
+	}
 	if existing, err := authn.GetRouteIdempotencyTx(ctx, tx, params.Key); err == nil {
 		if !bytes.Equal(existing.RequestHash, params.RequestHash) {
 			return jobAcceptedResult{}, authn.ErrClientTxnConflict
@@ -211,7 +216,7 @@ func (s *store) acceptJob(ctx context.Context, params jobAdmissionParams) (jobAc
 		if err := json.Unmarshal(existing.ResponseJSON, &job); err != nil {
 			return jobAcceptedResult{}, err
 		}
-		return jobAcceptedResult{Job: job, Replayed: true}, tx.Commit(ctx)
+		return jobAcceptedResult{Job: job, Replayed: true}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return jobAcceptedResult{}, err
 	}
@@ -223,9 +228,43 @@ func (s *store) acceptJob(ctx context.Context, params jobAdmissionParams) (jobAc
 		return jobAcceptedResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return jobAcceptedResult{}, err
+		if errors.Is(err, pgx.ErrTxCommitRollback) {
+			return jobAcceptedResult{}, err
+		}
+		return s.resolveJobAdmission(ctx, params, job, err)
 	}
 	return jobAcceptedResult{Job: job}, nil
+}
+
+// Acquire the same admission lock before resolving a lost COMMIT response. A
+// receipt read without this barrier could race an original commit still running
+// on the server and wrongly authorize deleting the committed upload.
+func (s *store) resolveJobAdmission(parent context.Context, params jobAdmissionParams, attempted jobs.Resource, commitErr error) (jobAcceptedResult, error) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 10*time.Second)
+	defer cancel()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return jobAcceptedResult{}, errJobAdmissionIndeterminate
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if err := authn.LockRouteIdempotencyTx(ctx, tx, params.Key); err != nil {
+		return jobAcceptedResult{}, errJobAdmissionIndeterminate
+	}
+	receipt, err := authn.GetRouteIdempotencyTx(ctx, tx, params.Key)
+	if errors.Is(err, authn.ErrNotFound) {
+		return jobAcceptedResult{}, commitErr
+	}
+	if err != nil {
+		return jobAcceptedResult{}, errJobAdmissionIndeterminate
+	}
+	if !bytes.Equal(receipt.RequestHash, params.RequestHash) {
+		return jobAcceptedResult{}, authn.ErrClientTxnConflict
+	}
+	var job jobs.Resource
+	if json.Unmarshal(receipt.ResponseJSON, &job) != nil || job.JobID == "" {
+		return jobAcceptedResult{}, errJobAdmissionIndeterminate
+	}
+	return jobAcceptedResult{Job: job, Replayed: job.JobID != attempted.JobID}, nil
 }
 
 func (s *store) completeExportDescriptorTx(ctx context.Context, tx pgx.Tx, params exportCompleteParams) (descriptorRecord, error) {

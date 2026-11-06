@@ -40,7 +40,7 @@ var (
 		"backup-artifact-envelope.v3.schema.json":                        "cartulary.backup_artifact_envelope.v3",
 		"backup-integrity-manifest.v4.schema.json":                       "cartulary.backup_integrity_manifest.v4",
 		"common.v1.schema.json":                                          "cartulary.recovery_common.v1",
-		"graph-projection-restore-implementation-binding.v8.schema.json": "cartulary.graph_projection_restore_implementation_binding.v8",
+		"graph-projection-restore-implementation-binding.v9.schema.json": "cartulary.graph_projection_restore_implementation_binding.v9",
 		"graph-projection-restore-rebuild-result.v6.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v6",
 		"graph-projection-restore-source-registry.v6.schema.json":        "cartulary.graph_projection_restore_source_registry.v6",
 		"object-store-backup-manifest.v2.schema.json":                    "cartulary.object_store_backup_manifest.v2",
@@ -64,7 +64,7 @@ var (
 		"fixtures/recovery-transfer-manifest.v1.json":                      "cartulary.recovery_transfer_manifest.v1",
 		"fixtures/backup-artifact-envelope.v3.json":                        "cartulary.backup_artifact_envelope.v3",
 		"fixtures/backup-integrity-manifest.v4.json":                       "cartulary.backup_integrity_manifest.v4",
-		"fixtures/graph-projection-restore-implementation-binding.v8.json": "cartulary.graph_projection_restore_implementation_binding.v8",
+		"fixtures/graph-projection-restore-implementation-binding.v9.json": "cartulary.graph_projection_restore_implementation_binding.v9",
 		"fixtures/graph-projection-restore-rebuild-result.v6.json":         "cartulary.graph_projection_restore_rebuild_result.v6",
 		"fixtures/graph-projection-restore-source-registry.v6.json":        "cartulary.graph_projection_restore_source_registry.v6",
 		"fixtures/object-store-backup-manifest.v2.json":                    "cartulary.object_store_backup_manifest.v2",
@@ -288,7 +288,7 @@ func validateRecoveryGenerationRegistry(base string) error {
 	if err := validateRecoveryGenerationGraphBinding(
 		base,
 		graph,
-		"fixtures/graph-projection-restore-implementation-binding.v8.json",
+		"fixtures/graph-projection-restore-implementation-binding.v9.json",
 		catalogDigest,
 		label+".graph",
 	); err != nil {
@@ -504,7 +504,7 @@ func validateGraphProjectionRestoreV5Contracts(base string) error {
 	registrySum := sha256.Sum256([]byte(registryJSON))
 	registrySHA256 := hex.EncodeToString(registrySum[:])
 
-	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v8.json")
+	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v9.json")
 	if err != nil {
 		return err
 	}
@@ -517,9 +517,9 @@ func validateGraphProjectionRestoreV5Contracts(base string) error {
 		return err
 	}
 	if len(binding) != len(bindingKeys) ||
-		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v8" ||
+		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v9" ||
 		binding["algorithm_id"] != "graphprojection.restore_rebuild.v5" ||
-		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v6" ||
+		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v7" ||
 		binding["projection_schema_id"] != "graph_projection.v2" ||
 		binding["source_registry_sha256"] != registrySHA256 {
 		return fmt.Errorf("current Graph Projection v5 restore implementation binding has drifted from its authored source set")
@@ -682,6 +682,7 @@ func validateRecoveryCatalog(root string, catalog map[string]any) ([]string, err
 	wantObjectFamilies := []string{
 		"evidence.blobs",
 		"extensions.staged_objects",
+		"imports.committed_sources",
 		"imports.source_streams",
 		"incident_bundles.files",
 		"reference_packs.members",

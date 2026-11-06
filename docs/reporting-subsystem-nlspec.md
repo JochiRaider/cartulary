@@ -415,7 +415,7 @@ validation where implemented.
 | `truncate_label_v1` | serialization algorithm | §16 |
 | `diagram_layout_svg_serialize_v2` | serialization algorithm | §16 |
 | `serialize_block_markdown_v1` | serialization algorithm | §18 |
-| `slidev_markdown_escape_v2` | serialization algorithm | §18 |
+| `slidev_markdown_escape_v3` | serialization algorithm | §18 |
 | `render_slidev_bundle_v1` | render algorithm | §24 |
 | `render_mermaid_bundle_v1` | render algorithm | §24 |
 | `render_sandbox_policy_v1` | security policy | §24 |
@@ -1001,12 +1001,12 @@ Unless a narrower scalar contract is defined, Reporting schemas MUST use the sca
 | `media_type` | JSON string matching an allowed media type row in §22. Template-declared media types are valid only for `local_asset` rows and only when declared in the template manifest. |
 | `export_model_path_v1` | JSON string path using `$` root; `.name` member access where `name` is `member_name`; `[n]` zero-based array index for diagnostic paths only; and `['id']` keyed access into ID-keyed arrays, where `id` is the stable ID with `'` and `\` escaped as `\'` and `\\`. Paths are diagnostic and template-binding identifiers, not JSONPath. |
 | `bundle_path` | POSIX-relative UTF-8 path in Unicode NFC with no leading `/`, no empty segment, no `.`, no `..`, no backslash, no NUL, and no duplicate exact byte sequence after NFC validation. |
-| `safe_string` | JSON string that has passed redaction for the target scope and contains no C0/C1 controls. LF is valid only in the fields explicitly allowed by REQ-RPT-036a. |
+| `safe_string` | JSON string that has passed redaction for the target scope and contains no C0/C1 controls except the documentary whitespace explicitly allowed by REQ-RPT-036a. |
 | `finite_integer` | JSON number token matching `0` or `-?[1-9][0-9]*` with mathematical value in `[-9007199254740991, 9007199254740991]`. Decimal-point notation, exponent notation, leading plus sign, leading zeroes, and `-0` are invalid. |
 | `positive_integer` | `finite_integer` with mathematical value in `[1, 9007199254740991]`. |
 
 **REQ-RPT-036a**
-`safe_string` members MUST be single-line unless this NLSpec explicitly allows LF for that member. LF is allowed only in `speaker_notes` on slide objects and in `fields[].value` strings inside blocks whose `block_kind='paragraph'`. A LF in any other `safe_string` member MUST fail with `failure_code='export_model_invalid'` and `reason_code='invalid_multiline_value'`.
+`safe_string` members MUST be single-line unless this NLSpec explicitly allows multiline text for that member. Documentary `fields[].value` strings inside blocks whose `block_kind='paragraph'`, and their frozen record and Timeline field copies, MUST retain HT (U+0009), LF (U+000A), and CR (U+000D) exactly. Immutable source capture MUST preserve those code points, including CRLF pairs, without whitespace normalization. All other C0/C1 controls remain invalid. `speaker_notes` and composition-authored presentation text permit LF only under their respective role contracts; this documentary allowance MUST NOT broaden authored-text, identifier, label, or path admission. A LF in any other `safe_string` member MUST fail with `failure_code='export_model_invalid'` and `reason_code='invalid_multiline_value'`. Generated source escaping owns safe presentation; it MUST NOT rewrite retained source values.
 
 **REQ-RPT-037**
 Every schema object defined by this NLSpec is closed. Unknown members are invalid unless the object contains an explicitly named extension container defined by this revision. Omitted optional members MUST materialize to their declared default before canonical serialization when the member participates in hash input. Explicit JSON `null` is valid only for members whose `Nullable` column says `Yes`.
@@ -1652,7 +1652,79 @@ The transported source capture must bind the same incident and snapshot and use 
 
 Every rendered member is carried under `ext/snapshots/releases/{release_id}/files/{original_path}` and checked against its original manifest's byte count, digest, role and media type. Original paths are at most 512 UTF-8 bytes, relative, and contain no empty, dot or parent segment, reverse solidus, colon, ASCII control or DEL. The original manifest is retained unchanged. Every declared member, including the primary output, must be present; undeclared members and duplicate paths are invalid. Members sort by original path. Sensitive reveal maps are private adjuncts outside the bundle inventory under REQ-RPT-069. Their role, internal namespace, media type and bytes are invalid in this section; import must not admit a sensitive member by marking it omitted. The retired v1/v2 catalogs, full-model snapshot members, and `omitted_files` member are rejected. Retained incompatible history requires the coordinated clean cutover; readers do not convert it.
 
+Reporting portability MUST consume sealed member streams and retain only bounded
+catalogs, descriptors, and one release's validation inputs. Capture and manifest
+control objects are at most 64 MiB each; a release's retained validation-control
+inputs together are at most 64 MiB. Source text uses the same control ceiling.
+Bulk binary members are streamed and use their existing owner limits, including
+the 500 MiB renderer supervisor bound for SVG and the existing PDF hard maximum.
+Local assets retain the existing count, per-file, and cumulative ceilings.
+Transport MUST NOT buffer all release outputs or the complete incident.
+
+The compact source capture and render-admission recipe are the retained input
+control objects. The expanded, pre-selection source lookup is a transient
+derivation with repeated field projections, not another wire control object.
+Its source bytes MUST originate in an admitted capture of at most 64 MiB and
+its total collection/block expansion MUST NOT exceed 1,048,576 items. It MUST
+NOT be retained, transferred, or sent to the renderer in that expanded form.
+The template/composition reachability and redaction rules select the report
+content; the resulting canonical export model remains subject to the unchanged
+`export_model.canonical_bytes` operative limit before rendering. Selecting a
+bounded summary MUST NOT fail solely because unselected incident fields have
+multiple transient lookup projections. A template selecting excessive output
+still fails its resource limit; implementations MUST NOT truncate it or raise
+the limit automatically.
+
+Imported bytes MUST use the current chunked retained representation: immutable
+file metadata plus ordered chunks of at most 64 KiB. No inline predecessor reader
+or backfill is supported. Exact byte counts, contiguous chunk order, final chunk
+size, and whole-member digests MUST verify during publication, re-export and
+Recovery admission. The metadata and chunks publish in the parent's transaction;
+Recovery includes both as authoritative state. A preparation binds immutable
+member descriptors and MUST verify the same bytes again during publication.
+
 Imported artifacts are immutable historical source evidence owned by Reporting. They publish with the incident, exact reference catalog and pins in the parent's transaction, with attribution to the import operation. They do not create native snapshot/render Jobs, local release approvals or active pack selections. Exact operation replay preserves byte identity; conflicting identity or bytes fail. Re-export includes this retained source evidence and any subsequent native artifacts, preserving each source binding. Native reads and rerenders retain their existing exact-set requirements; importing source evidence does not create a native rerender route for an unexecuted source release. Recovery includes all imported files and validates catalog, inventory, digests and source bindings before readiness, without demanding source freshness at restore time or treating source attestations as destination trust.
+
+**REQ-RPT-046pb — Historical artifact inspection**
+Transferred reporting files remain inspectable through
+`GET /api/v1/incidents/{incident_id}/retained-report-artifacts` and
+`GET /api/v1/incidents/{incident_id}/retained-report-artifacts/{artifact_id}/content`.
+The profile declares route family
+`/api/v1/incidents/{incident_id}/retained-report-artifacts` through contribution
+`snapshot_reporting.retained_artifacts_route`.
+These are read-only historical evidence routes under `snapshot_reporting`;
+they create no native snapshot, release, job, approval or destination trust.
+Both require current incident role editor, reviewer or admin, the same role set
+that can create captures from complete incident source. Membership alone does
+not authorize downloading retained source captures. Unknown or hidden incidents
+return `incident_not_found`; a visible member with insufficient role receives
+`authorization_denied`. Unknown artifact IDs return `report_artifact_not_found`
+with HTTP 404, nonretryable, empty details, only after incident authorization.
+Both reject pagination and unexpected query members as singleton reads.
+
+The catalog resource contains exactly `schema_id` (equal to
+`cartulary.retained_report_artifacts.v1`), `incident_id`, and `artifacts`.
+Each artifact contains exactly `artifact_id`, `kind`, `filename`, `byte_size`,
+`sha256`, nullable `snapshot_id`, nullable `release_id`, and `content_href`.
+Kinds are `catalog`, `source_capture`, `release_manifest`, and `release_file`.
+Only admitted portable members occur, ordered by the canonical logical member
+path, bounded by the existing 10,000-member ceiling. An empty inventory is `[]`.
+`artifact_id` is lowercase SHA-256 of UTF-8
+`cartulary.retained_report_artifact.v1`, NUL, canonical incident UUID, NUL, and
+the logical member path. It is an incident-scoped locator, not a content hash
+or authorization token. `sha256` hashes exact member bytes. `filename` is the
+final admitted path segment. Snapshot/release identities come from the closed
+portable member layout, never arbitrary metadata. `content_href` names the
+authenticated content route for that artifact.
+
+Content is streamed from immutable retained chunks with incremental integrity
+verification, exact Content-Length, attachment disposition,
+`application/octet-stream`, `Cache-Control: no-store`, and nosniff. It is never
+served as executable HTML. Interrupted or corrupt reads abort the response;
+they cannot publish a successful substituted artifact. Authorization and file
+selection share one read transaction; closing the reader releases it. The
+browser labels these files as transferred reporting evidence and offers
+downloads without presenting source approval as a destination approval.
 
 # 10. Canonical JSON, identifiers, hashes, and deterministic timestamps
 
@@ -2130,7 +2202,7 @@ partial model or render artifacts.
 **REQ-RPT-063a**
 When `apply_token_backed_redaction_v1` substitutes a token, the emitted `display_token` MUST be produced by the Reporting-owned, fully deterministic `derive_display_token_v1`:
 
-- **Grammar.** A `display_token` matches `^(HOST|IDENTITY|PARTY|SUBJECT)-[0-9]{4,}$`. Its character set is limited to `A`–`Z`, `0`–`9`, and `-`, which is a no-op under both `mermaid_source_serialize_v4` escaping (Table 16-C) and `slidev_markdown_escape_v2` (Table 18-B); a token therefore appears byte-identically in `.mmd` and `slides.md`.
+- **Grammar.** A `display_token` matches `^(HOST|IDENTITY|PARTY|SUBJECT)-[0-9]{4,}$`. Its character set is limited to `A`–`Z`, `0`–`9`, and `-`, which is a no-op under both `mermaid_source_serialize_v4` escaping (Table 16-C) and `slidev_markdown_escape_v3` (Table 18-B); a token therefore appears byte-identically in `.mmd` and `slides.md`.
 - **Family tag.** The tag is `HOST`, `IDENTITY`, or `PARTY` from the subject's `subject_family`, unless the redaction profile sets `neutral_token_family=true` (default `false`), in which case every tag is `SUBJECT`.
 - **Ordinal assignment.** Within one release, ordinals are assigned per emitted family over the set of subjects that receive at least one token substitution in the release. Within each emitted family, subjects sort by ascending `stable_subject_ref`; ordinals start at `1`, increment by `1`, and assign one token per distinct emitted `stable_subject_ref`. The ordinal is left-zero-padded to four digits; the §25 `subjects.count` hard limit guarantees four digits suffice.
 - **Stability and non-reversibility.** The mapping from `stable_subject_ref` to `display_token` is one-to-one within a release and is recorded in the token manifest (Table 13-D) and reveal map (Table 13-E). The visible token MUST NOT encode any part of the subject's display value or its `canonical_display_value_sha256`.
@@ -3172,7 +3244,7 @@ Reporting v1 MUST generate only the Slidev subset defined by this section. Arbit
 | Slide boundary | The headmatter is the first slide's frontmatter and includes its resolved `layout` as the last key. First-slide content follows immediately after its closing delimiter and one blank line. Every later slide starts with a blank line, `---`, LF, exactly one `layout` key as a double-quoted scalar, `---`, and one blank line. There is no synthetic cover or empty slide between headmatter and the first model slide. |
 | Slide title | First content line of every slide is `# ` followed by the escaped slide title. |
 | Block serialization | Blocks serialize in `block_ordinal` order under `serialize_block_markdown_v1` (Table 18-D), separated by exactly one blank line. |
-| Markdown escaping | Escape generated text runs per `slidev_markdown_escape_v2` (Table 18-B, REQ-RPT-091a). |
+| Markdown escaping | Escape generated text runs per `slidev_markdown_escape_v3` (Table 18-B, REQ-RPT-091a). |
 | Raw HTML | Forbidden except allowed reveal-only components and speaker-note comments. |
 | Diagram refs | Auto-layout refs emit exact opening ```` ```mermaid```` and canonical `.mmd` source bytes inside; manual-layout refs emit one local SVG image reference. |
 | Speaker notes | Final slide block serialized as `<!--\n{escaped note lines}\n-->`. |
@@ -3181,19 +3253,19 @@ Reporting v1 MUST generate only the Slidev subset defined by this section. Arbit
 | Click components | `v-click` and `v-clicks` wrap the target block Markdown as an HTML block: opening line `<v-click at="{at}">` or `<v-clicks at="{at}">`, blank line, block content, blank line, and closing line `</v-click>` or `</v-clicks>`. |
 
 **REQ-RPT-091a**
-`slidev_markdown_escape_v2` MUST escape generated text runs so that `slides.md` is byte-deterministic and no generated content can alter Markdown or Slidev structure. It applies only to generated text placed in a Markdown text position (paragraph text, heading text, list-item text, table-cell text); it MUST NOT alter serializer-emitted structure such as headmatter, slide separators, fence markers, or the speaker-note comment wrapper. The escape set is closed in Table 18-B and is defined against the pinned Slidev markdown-it dialect (CommonMark plus GFM) recorded in the toolchain snapshot. After escaping, a generated run MUST parse to exactly one text run yielding the intended code points.
+`slidev_markdown_escape_v3` MUST escape generated text runs so that `slides.md` is byte-deterministic and no generated content can alter Markdown or Slidev structure. It applies only to generated text placed in a Markdown text position (paragraph text, heading text, list-item text, table-cell text); it MUST NOT alter serializer-emitted structure such as headmatter, slide separators, fence markers, or the speaker-note comment wrapper. The escape set is closed in Table 18-B and is defined against the pinned Slidev markdown-it dialect (CommonMark plus GFM) recorded in the toolchain snapshot. After escaping, a generated run MUST parse to exactly one text run yielding the intended code points.
 
-**Table 18-B. `slidev_markdown_escape_v2` escape set**
+**Table 18-B. `slidev_markdown_escape_v3` escape set**
 
 | Position | Characters backslash-escaped |
 | --- | --- |
 | Any position in a generated text run | REVERSE SOLIDUS (U+005C), GRAVE ACCENT (U+0060), VERTICAL LINE (U+007C), and each of `` `* _ [ ] < ~ $ &` `` |
 | Start of a generated line (first non-space character) | additionally `#`, `>`, `-`, `+`, `=`; a leading run of GRAVE ACCENT or `~`; and a leading `[0-9]+` immediately followed by `.` or `)` |
 
-Escaping inserts a single REVERSE SOLIDUS (U+005C) before the character. Characters outside this set are emitted literally.
+Escaping inserts a single REVERSE SOLIDUS (U+005C) before the character. Characters outside this set are emitted literally, except documentary HT and CR: emit the literal numeric character references `&#9;` and `&#13;`, respectively. These serializer-generated references MUST NOT be backslash-escaped. They preserve the intended code points after Markdown parsing while preventing indentation syntax and retaining LF-only generated source. Source text resembling those references still receives the ordinary ampersand escape.
 For an ordered-list prefix, escape the separating `.` or `)`, not a digit.
 AMPERSAND is escaped so source text resembling an HTML character reference
-retains its original code points. Version 2 retires v1 source-escaping evidence;
+retains its original code points. Version 3 adds documentary-whitespace escaping and retires earlier source-escaping evidence;
 there is no dual serializer or fallback reader.
 
 After Markdown tokenization and before Vue compilation, every text token MUST
@@ -4712,7 +4784,7 @@ result exercises production code and proves the complete observable outcome.
 | `RPT-FIX-022` | Bundle file with role/path/media mismatch. | Fails bundle validation. |
 | `RPT-FIX-023` | Same tuple tokenized twice. | Identical `display_token` values assigned per family in `stable_subject_ref` order under `derive_display_token_v1`. |
 | `RPT-FIX-024` | Section set mixing singleton and expanded template declarations. | `ordering_key` values and final section order match the `derive_section_ordering_key_v1` golden. |
-| `RPT-FIX-025` | Generated text containing Markdown metacharacters inline and at line start. | `slides.md` bytes match the `slidev_markdown_escape_v2` golden exactly. |
+| `RPT-FIX-025` | Generated text containing Markdown metacharacters inline and at line start. | `slides.md` bytes match the `slidev_markdown_escape_v3` golden exactly. |
 | `RPT-FIX-026` | Mermaid label containing `<` or `>`. | Fails with `mermaid_invalid`, `invalid_mermaid_construct`. |
 | `RPT-FIX-027` | Label of 121–240 scalars with and without template truncation, and a label over 240. | With truncation, exactly 120 scalars ending in U+2026; without, fails with `label_length_exceeded`; over 240 fails. |
 | `RPT-FIX-028` | Export model with empty and populated nested validation objects. | `validation_summary`, `content_class_summary`, `section_validation`, and `display_times` serialize full fixed key sets; canonical bytes stable. |
@@ -4840,7 +4912,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-TOKEN-003` | `derive_display_token_v1` produces grammar-valid, family-scoped tokens assigned in `stable_subject_ref` order, byte-identical across reruns, with no reversible material in the visible token. |
 | `RPT-AC-TIMEORDER-002` | Timeline overflow emits the overflow block for internal scopes and fails external release with `timeline_overflow_unresolved` when no summarizing `selection_rule_id` is declared. |
 | `RPT-AC-MMD-003` | Labels over the default truncate deterministically to 120 scalars ending in U+2026 only when declared, else fail with `label_length_exceeded`; labels containing `<` or `>` fail with `invalid_mermaid_construct`. |
-| `RPT-AC-SLIDEV-002` | `slidev_markdown_escape_v2` escapes generated text to the closed Table 18-B set, code fences are limited to `text` and `mermaid`, asset refs serialize declared `bundle_path`, and headmatter emits the full Table 18-C key set with fixed values; `slides.md` bytes match golden. |
+| `RPT-AC-SLIDEV-002` | `slidev_markdown_escape_v3` escapes generated text to the closed Table 18-B set, code fences are limited to `text` and `mermaid`, asset refs serialize declared `bundle_path`, and headmatter emits the full Table 18-C key set with fixed values; `slides.md` bytes match golden. |
 | `RPT-AC-TOOLCHAIN-002` | `content_manifest_digest_v1` produces identical `font_manifest_sha256` and `package_store_digest` regardless of file enumeration order and excludes mtime, ownership, and permission bits. |
 | `RPT-AC-TIME-003` | Invalid calendar timestamps fail with `invalid_timestamp_value`; source timestamps are not rebucketed by Reporting to broaden disclosure. |
 | `RPT-AC-PART-005` | Disclosure filtering uses the subset predicate, profile-rule-only resolution, post-filter ordinal recomputation, required-empty-section failure, and redaction-manifest removal entries. |
@@ -4851,6 +4923,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-FIELD-001` | Every retained field satisfies Table 9-D1 and every selected source value maps through Table 9-D2; external bundles contain no raw-value digests, deleted sources retain no fields, and retained `dropped` or `blocked` field states are invalid. |
 | `RPT-AC-ID-002` | Generated IDs follow Table 10-B and structural IDs follow REQ-RPT-040b across nested, pruned, and chunked models. |
 | `RPT-AC-DECK-002` | `derive_deck_v1` and `serialize_block_markdown_v1` produce golden deck models and `slides.md` bytes for every Table 18-D block kind, including list-depth failure. |
+| `RPT-AC-DOCUMENTARY-001` | Source capture and paragraph field projections preserve Unicode, HT, CR, and CRLF exactly; generated Markdown encodes HT/CR as inert character references, while authored roles and one-line fields retain stricter admission and other control characters fail. |
 | `RPT-AC-DECK-003` | Deck title defaulting and validation follow REQ-RPT-087c, and `field_value_to_text_v1` stringifies every valid scalar and scalar array while rejecting objects and nested arrays. |
 | `RPT-AC-MMD-004` | Mermaid node and participant IDs are ordinal, independent of source vertex-ref characters, and dangling edge endpoints fail. |
 | `RPT-AC-GRAPH-003` | Graph-derived diagrams consume only exact retained contributions identified by `source_projection_ref.v2`; Reporting does not construct ad hoc projection input during materialization or render execution. |
@@ -4991,3 +5064,20 @@ This section is non-normative. It records supporting inputs used to shape this r
 | Slidev export and CLI documentation, `https://sli.dev/guide/exporting` and `https://sli.dev/builtin/cli` | Supported explicit export formats, Playwright/Chromium binding, and click-page export checks. | The normative rule is the Slidev subset, command snapshot, and page-count validation in §§18-20. |
 | W3C SVG Integration / SVG processing-mode material, `https://www.w3.org/TR/svg-integration/` | Supported requiring rendered SVG self-containment and script/external-reference rejection. | The normative rule is REQ-RPT-122b; no broader SVG viewer conformance claim is made. |
 | OWASP File Upload Cheat Sheet and Web Security Testing Guide archive guidance, `https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html` and `https://github.com/OWASP/www-project-web-security-testing-guide/blob/master/latest/4-Web_Application_Security_Testing/10-Business_Logic_Testing/09-Test_Upload_of_Malicious_Files.md` | Supported rejecting archive traversal, symlinks, special files, and unsafe archive metadata as release-byte authorities. | The normative rule is REQ-RPT-106 and the bundle path constraints in §22. |
+
+
+## Incident portability and retained graph history amendment (2026-11-05)
+
+New Reporting admissions select an exact eligible saved-graph result under the
+existing source-selection rules. Retained composition, snapshot, graph inputs
+and approved release bytes remain immutable after source import, rename,
+refresh, retirement or soft deletion. Historical graph retention does not make
+retired declarations eligible for new admissions.
+
+Bundle version 6 transfers permitted retained Reporting inputs and explicitly
+selected artifacts under the existing disclosure policy. Sensitive reveal maps
+remain excluded. Imported incident publication includes admitted Reporting
+state and exact selected Graph reconstruction in the shared final transaction.
+Execution from retained Reporting inputs remains independent of current graph
+refresh intent, source jobs, live credentials and deployment-local correlation
+keys. Recovery continues to use its own authoritative inventory and lifecycle.

@@ -124,7 +124,7 @@ func validateGraphViewReceipt(key authn.RouteIdempotencyKey, status int, payload
 		return errGraphViewReceiptInvalid
 	}
 	if key.RouteKey == routeKeyGraphViewsPatch {
-		if status != http.StatusOK || len(payload) != 2 || payload["schema_id"] != "cartulary.network_flow.graph_view_mutation_result.v5" || job != nil {
+		if status != http.StatusOK || len(payload) != 2 || payload["schema_id"] != "cartulary.network_flow.graph_view_mutation_result.v6" || job != nil {
 			return errGraphViewReceiptInvalid
 		}
 		return nil
@@ -133,7 +133,7 @@ func validateGraphViewReceipt(key authn.RouteIdempotencyKey, status int, payload
 		return errGraphViewReceiptInvalid
 	}
 	reference, ok := payload["job"].(map[string]any)
-	if !ok || len(reference) != 2 || len(payload) != 3 || status != http.StatusAccepted || payload["schema_id"] != "cartulary.network_flow.graph_view_accepted.v5" || declaration.LatestJobID == nil {
+	if !ok || len(reference) != 2 || len(payload) != 3 || status != http.StatusAccepted || payload["schema_id"] != "cartulary.network_flow.graph_view_accepted.v6" || declaration.LatestJobID == nil {
 		return errGraphViewReceiptInvalid
 	}
 	jobID := declaration.LatestJobID.String()
@@ -160,7 +160,7 @@ func validateGraphViewReceipt(key authn.RouteIdempotencyKey, status int, payload
 // This decoder validates the public projection, never reconstructs a current
 // declaration. Retained acknowledgements are historical admission evidence.
 func graphViewDeclarationFromPublicResource(value map[string]any) (graphViewDeclaration, error) {
-	keys := []string{"schema_id", "graph_view_id", "incident_id", "display_name", "state", "semantic_query", "semantic_query_sha256", "desired_source_snapshot_id", "selected_result_binding", "graph_view_version", "materialization_generation", "created_by", "created_at", "updated_at", "latest_job_id", "last_failure_code", "last_failed_at"}
+	keys := []string{"schema_id", "graph_view_id", "incident_id", "display_name", "state", "semantic_query", "semantic_query_sha256", "desired_source_snapshot_id", "selected_result_binding", "graph_view_version", "materialization_generation", "created_by", "created_at", "updated_at", "latest_job_id", "last_failure_code", "last_failed_at", "refresh_intent", "selected_source_binding"}
 	if len(value) != len(keys) {
 		return graphViewDeclaration{}, errGraphViewReceiptInvalid
 	}
@@ -170,6 +170,8 @@ func graphViewDeclarationFromPublicResource(value map[string]any) (graphViewDecl
 		}
 	}
 	var resource struct {
+		RefreshIntent             json.RawMessage   `json:"refresh_intent"`
+		SelectedSource            json.RawMessage   `json:"selected_source_binding"`
 		SchemaID                  string            `json:"schema_id"`
 		GraphViewID               string            `json:"graph_view_id"`
 		IncidentID                uuid.UUID         `json:"incident_id"`
@@ -192,7 +194,7 @@ func graphViewDeclarationFromPublicResource(value map[string]any) (graphViewDecl
 	if err != nil {
 		return graphViewDeclaration{}, err
 	}
-	if err := json.Unmarshal(encoded, &resource); err != nil || resource.SchemaID != "cartulary.network_flow.graph_view.v5" {
+	if err := json.Unmarshal(encoded, &resource); err != nil || resource.SchemaID != "cartulary.network_flow.graph_view.v6" {
 		return graphViewDeclaration{}, errGraphViewReceiptInvalid
 	}
 	// Transport JSON may escape non-control Unicode and reorder object members.
@@ -204,11 +206,14 @@ func graphViewDeclarationFromPublicResource(value map[string]any) (graphViewDecl
 	declaration := graphViewDeclaration{
 		GraphViewID: resource.GraphViewID, IncidentID: resource.IncidentID,
 		DisplayName: resource.DisplayName, NormalizedDisplayName: strings.ToLower(resource.DisplayName), DeclarationState: resource.State,
-		SemanticQueryJSON: resource.SemanticQuery, SemanticQuerySHA256: resource.SemanticQuerySHA256,
+		RefreshIntentJSON: resource.RefreshIntent, SelectedSourceBindingJSON: resource.SelectedSource, SemanticQueryJSON: resource.SemanticQuery, SemanticQuerySHA256: resource.SemanticQuerySHA256,
 		DesiredSourceSnapshotID: resource.DesiredSourceSnapshotID, GraphViewVersion: resource.GraphViewVersion,
 		MaterializationGeneration: resource.MaterializationGeneration, CreatedByUserID: resource.CreatedBy,
 		CreatedAt: resource.CreatedAt, UpdatedAt: resource.UpdatedAt, LatestJobID: resource.LatestJobID,
 		LastFailureCode: resource.LastFailureCode, LastFailedAt: resource.LastFailedAt,
+	}
+	if string(declaration.SelectedSourceBindingJSON) == "null" {
+		declaration.SelectedSourceBindingJSON = nil
 	}
 	if selected := resource.SelectedResultBinding; selected != nil {
 		if len(selected) != 7 {

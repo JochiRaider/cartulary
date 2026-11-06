@@ -67,11 +67,11 @@ func TestExtensionCoordinationStateAndStagedObjects_Integration(t *testing.T) {
 	}
 
 	now := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
-	staged := NewStagedObject("staging-1", "coordination_fixture", "staged/object-1", 3, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", now)
+	staged := NewStagedObject("staging-1", "operation-1", "coordination_fixture", "staged/object-1", now)
 	if err := store.AllocateStagedObject(context.Background(), staged); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.MarkStagedReady(context.Background(), staged.StagingID, now.Add(time.Minute)); err != nil {
+	if err := store.SealStagedObject(context.Background(), staged.OperationID, staged.OwnerProfileID, staged.StagingID, 3, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.AbandonStagedObject(context.Background(), staged.StagingID, now.Add(2*time.Minute)); err != nil {

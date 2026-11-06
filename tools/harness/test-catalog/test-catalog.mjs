@@ -388,7 +388,7 @@ function validateRowSemantics({
     throw new Error(`${label}.process_isolation is supported only for Go and Vitest rows`);
   }
   if (row.runtime_binary_ids !== undefined) {
-    if (row.runner !== "go") throw new Error(`${label}.runtime_binary_ids is supported only for Go rows`);
+    if (!["go", "playwright"].includes(row.runner)) throw new Error(`${label}.runtime_binary_ids requires a Go or Playwright row`);
     assertSortedUnique(row.runtime_binary_ids, `${label}.runtime_binary_ids`);
     for (const id of row.runtime_binary_ids) {
       if (!profiles.runtimeBinaryIDs.has(id)) throw new Error(`${label} references unknown runtime binary ${id}`);

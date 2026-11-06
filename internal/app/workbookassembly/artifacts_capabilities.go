@@ -307,10 +307,15 @@ func NewArtifactMutationContribution(
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	projectionRows artifactprojection.Rows,
+	linkRows links.ProjectionRows,
 	publications collaboration.RecordChangedAppender,
 ) (*artifacts.MutationFacade, error) {
 	if appender == nil {
 		return nil, fmt.Errorf("compose Artifacts mutation contribution: Revisions appender is required")
+	}
+	linkStore, err := links.NewMutationStore(linkRows)
+	if err != nil {
+		return nil, err
 	}
 	authStore := authn.NewStore(pool)
 	recordStore := records.NewStore(pool)
@@ -319,7 +324,7 @@ func NewArtifactMutationContribution(
 		MemberReferences:     artifacts.NewMemberReferenceCapability(),
 		Idempotency:          artifactIdempotency{store: authStore, records: recordStore},
 		RecordEnvelopes:      recordStore,
-		Links:                links.NewStore(),
+		Links:                linkStore,
 		Projections:          projectionRows,
 		Revisions:            artifactRevisions{appender: appender, history: conflicttokens.NewRevisionWindowReader()},
 		ConflictFields:       conflictFields,

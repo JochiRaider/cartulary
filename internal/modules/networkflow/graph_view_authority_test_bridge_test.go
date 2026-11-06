@@ -29,7 +29,7 @@ func NewSavedGraphCreateCommandForTest(store *store, transactions GraphViewJobTr
 		if failure != nil {
 			return failure
 		}
-		_, err := application.commitGraphViewCreate(ctx, incidentID, actorID, graphViewCreateRequest{ClientTxnID: txn, DisplayName: name, Semantic: semantic}, "notification-test")
+		_, err := application.commitGraphViewCreate(ctx, incidentID, actorID, graphViewCreateRequest{RefreshScope: "selected_tables", ClientTxnID: txn, DisplayName: name, Semantic: semantic}, "notification-test")
 		return err
 	}
 }

@@ -91,6 +91,13 @@ test("ordinary browser selection owns cohorts lanes preparation and accounting",
     }
     const one = compiler.compile({ kind: "rows", row_ids: [functionalRows[0].row_id] });
     assert.equal(one.units.filter((unit) => unit.row_bindings?.length).length, 1);
+    const restoreRow = "module.recovery.browser.a_harness_owned_browser_fixture_captures_a_retai_d8973973b0";
+    const restore = compiler.compile({ kind: "rows", row_ids: [restoreRow] });
+    const restoreConsumer = restore.units.find((unit) => unit.row_bindings?.some(({ row_id }) => row_id === restoreRow));
+    assert.ok(restoreConsumer.needs.includes("operation:harness.build_operator"));
+    const operator = compiler.topology.runtime_binaries.find((binary) => binary.id === "operator");
+    assert.equal(restoreConsumer.command.environment.CARTULARY_OPERATOR_BIN, path.resolve(root, process.env[operator.output_make_variable] || operator.default_output_path));
+    assert.equal(restoreConsumer.command.environment.CARTULARY_SERVER_HARNESS_BIN, "");
     const isolatedID = "module.networkflow.browser_stateful.pagination_expiry_bridge";
     const claimedIDs = [isolatedID, "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
         "module.networkflow.browser_stateful.pagination_recovery", "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",

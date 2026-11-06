@@ -75,7 +75,7 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 		}
 		if _, publisherErr = store.PublishGraphViewResultTx(
 			ctx, publicationTx, incident.ID, graphViewID, declaration.MaterializationGeneration,
-			declaration.DesiredSourceSnapshotID, jobID, selectedGraphCleanupBinding(first.Binding), now.Add(time.Minute),
+			declaration.DesiredSourceSnapshotID, jobID, selectedGraphCleanupBinding(first.Binding), graphSelectedSourceFixture(declaration, selectedGraphCleanupBinding(first.Binding)), now.Add(time.Minute),
 		); publisherErr != nil {
 			publicationDone <- publisherErr
 			return
@@ -135,7 +135,7 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 	}
 	if _, err := store.PublishGraphViewResultTx(
 		ctx, publicationTx, incident.ID, graphViewID, declaration.MaterializationGeneration,
-		declaration.DesiredSourceSnapshotID, jobID, selectedGraphCleanupBinding(second.Binding), now.Add(2*time.Minute),
+		declaration.DesiredSourceSnapshotID, jobID, selectedGraphCleanupBinding(second.Binding), graphSelectedSourceFixture(declaration, selectedGraphCleanupBinding(second.Binding)), now.Add(2*time.Minute),
 	); err != nil {
 		t.Fatalf("select publication-held result: %v", err)
 	}
@@ -182,6 +182,7 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 	publishGraphCleanupResult(t, ctx, pool, third)
 	thirdDeclaration := graphViewDeclarationFixture(thirdGraphViewID, incident.ID, actor.ID, now)
 	thirdDeclaration.SelectedResult = pointerSelectedGraphCleanupBinding(third.Binding)
+	thirdDeclaration.SelectedSourceBindingJSON = graphSelectedSourceFixture(thirdDeclaration, *thirdDeclaration.SelectedResult)
 	insertGraphCleanupDeclaration(t, ctx, pool, store, thirdDeclaration)
 
 	cleanupFirstTx, err := pool.BeginTx(ctx, pgx.TxOptions{})

@@ -14,6 +14,7 @@ import (
 
 func main() {
 	root := flag.String("runtime-root", "", "private browser fixture runtime root")
+	bundle := flag.String("incident-bundle", "", "optional incident archive relative to the private runtime root")
 	attempt := flag.String("attempt-id", "", "owning browser fixture attempt")
 	cleanupMS := flag.Int64("cleanup-budget-ms", 0, "owning browser process cleanup allowance")
 	flag.Parse()
@@ -22,7 +23,7 @@ func main() {
 		os.Exit(1)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	err := recoverybrowsertest.Run(ctx, *root, os.Stdin, os.Stdout, recoverybrowsertest.NewLifecycle(*attempt, os.Stderr, time.Duration(*cleanupMS)*time.Millisecond))
+	err := recoverybrowsertest.Run(ctx, *root, *bundle, os.Stdin, os.Stdout, recoverybrowsertest.NewLifecycle(*attempt, os.Stderr, time.Duration(*cleanupMS)*time.Millisecond))
 	stop()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "restore browser restore target: %v\n", err)

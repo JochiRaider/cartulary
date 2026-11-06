@@ -2,6 +2,7 @@ package reporting
 
 import (
 	"encoding/json"
+	"strings"
 	"unicode/utf8"
 
 	strictjson "github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
@@ -35,18 +36,31 @@ func validReportingFieldScalar(value any, multiline bool) bool {
 	case nil, bool, json.Number:
 		return true
 	case string:
-		return validReportingText(value, multiline)
+		if multiline {
+			return validReportingTextWhitespace(value, "\t\r\n")
+		}
+		return validReportingText(value, false)
 	default:
 		return false
 	}
 }
 
 func validReportingText(value string, multiline bool) bool {
+	whitespace := ""
+	if multiline {
+		whitespace = "\n"
+	}
+	return validReportingTextWhitespace(value, whitespace)
+}
+
+// Documentary field values preserve tabs and original line endings. Authored
+// presentation text and identifiers retain their separate, narrower contracts.
+func validReportingTextWhitespace(value, whitespace string) bool {
 	if !utf8.ValidString(value) {
 		return false
 	}
 	for _, r := range value {
-		if r == '\n' && multiline {
+		if strings.ContainsRune(whitespace, r) {
 			continue
 		}
 		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {

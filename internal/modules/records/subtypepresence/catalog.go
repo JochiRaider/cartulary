@@ -31,12 +31,6 @@ const (
 	RecordTypeAssessment    RecordType = "assessment"
 )
 
-type Envelope struct {
-	RecordID   uuid.UUID
-	IncidentID uuid.UUID
-	RecordType RecordType
-}
-
 type Binding struct {
 	RecordID   uuid.UUID
 	IncidentID uuid.UUID
@@ -45,7 +39,7 @@ type Binding struct {
 
 type Source interface {
 	SupportedRecordTypes() []RecordType
-	ListSubtypeBindingsTx(context.Context, pgx.Tx, uuid.UUID) ([]Binding, error)
+	VisitSubtypeBindingsTx(context.Context, pgx.Tx, uuid.UUID, func(Binding) error) error
 }
 
 type Contribution struct {
@@ -124,57 +118,24 @@ func NewCatalog(contributions []Contribution) (*Catalog, error) {
 	return &Catalog{sources: sources}, nil
 }
 
-func (c *Catalog) ValidateTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	envelopes []Envelope,
-) error {
-	if c == nil || tx == nil || incidentID == uuid.Nil {
+func (c *Catalog) ValidateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, expected Summary) error {
+	if c == nil || tx == nil || incidentID == uuid.Nil || expected.incidentID != incidentID {
 		return ErrInvalidCatalog
 	}
-	bindings := make([]Binding, 0, len(envelopes))
+	actual := NewInventory(incidentID)
 	for _, entry := range c.sources {
-		rows, err := entry.source.ListSubtypeBindingsTx(ctx, tx, incidentID)
+		err := entry.source.VisitSubtypeBindingsTx(ctx, tx, incidentID, func(binding Binding) error {
+			if expectedFamilyByType[binding.RecordType] != entry.familyID {
+				return ErrIncompleteBindings
+			}
+			return actual.Add(binding)
+		})
 		if err != nil {
 			return err
 		}
-		bindings = append(bindings, rows...)
 	}
-	return validateBindings(incidentID, envelopes, bindings)
-}
-
-func validateBindings(incidentID uuid.UUID, envelopes []Envelope, bindings []Binding) error {
-	envelopeByID := make(map[uuid.UUID]Envelope, len(envelopes))
-	for _, envelope := range envelopes {
-		if envelope.RecordID == uuid.Nil ||
-			envelope.IncidentID != incidentID ||
-			expectedFamilyByType[envelope.RecordType] == "" {
-			return ErrIncompleteBindings
-		}
-		if _, duplicate := envelopeByID[envelope.RecordID]; duplicate {
-			return ErrIncompleteBindings
-		}
-		envelopeByID[envelope.RecordID] = envelope
-	}
-	bindingCount := make(map[uuid.UUID]int, len(bindings))
-	for _, binding := range bindings {
-		envelope, present := envelopeByID[binding.RecordID]
-		if !present ||
-			binding.RecordID == uuid.Nil ||
-			binding.IncidentID != incidentID ||
-			binding.RecordType != envelope.RecordType {
-			return ErrIncompleteBindings
-		}
-		bindingCount[binding.RecordID]++
-		if bindingCount[binding.RecordID] != 1 {
-			return ErrIncompleteBindings
-		}
-	}
-	for recordID := range envelopeByID {
-		if bindingCount[recordID] != 1 {
-			return ErrIncompleteBindings
-		}
+	if !expected.Equal(actual.Summary()) {
+		return ErrIncompleteBindings
 	}
 	return nil
 }

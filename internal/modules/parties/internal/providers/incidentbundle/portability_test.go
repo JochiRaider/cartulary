@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 func TestPartyIncidentBundlePreparationAndInvariantPrecedence_Unit(t *testing.T) {
@@ -27,7 +28,7 @@ func TestPartyIncidentBundlePreparationAndInvariantPrecedence_Unit(t *testing.T)
 		{},
 		encodePartyPortableRows(t, partyPortableTestRow(recordID, incidentID, "person")),
 	} {
-		if _, err := port.PrepareImport(context.Background(), sourceport.MapBundle{partyIncidentBundlePath: payload}, importContext); err != nil {
+		if _, err := port.PrepareImport(context.Background(), portabilitysupport.MapBundle{partyIncidentBundlePath: payload}, importContext); err != nil {
 			t.Fatalf("valid Party preparation: %v", err)
 		}
 	}
@@ -129,7 +130,7 @@ func TestPartyIncidentBundlePreparationAndInvariantPrecedence_Unit(t *testing.T)
 		t.Run(test.name, func(t *testing.T) {
 			_, err := port.PrepareImport(
 				context.Background(),
-				sourceport.MapBundle{partyIncidentBundlePath: test.payload},
+				portabilitysupport.MapBundle{partyIncidentBundlePath: test.payload},
 				importContext,
 			)
 			requirePartyPortableFailure(t, err, test.invariant)
@@ -149,15 +150,20 @@ func TestPartyIncidentBundlePreparationAndInvariantPrecedence_Unit(t *testing.T)
 	} {
 		_, err := port.PrepareImport(
 			context.Background(),
-			sourceport.MapBundle{partyIncidentBundlePath: encodePartyPortableRows(t, rows...)},
+			portabilitysupport.MapBundle{partyIncidentBundlePath: encodePartyPortableRows(t, rows...)},
 			importContext,
 		)
-		requirePartyPortableFailure(t, err, "parties.version_shape_exact")
+
+		expectedInvariant := "parties.version_shape_exact"
+		if rows[0]["record_id"].(string) > rows[1]["record_id"].(string) {
+			expectedInvariant = "parties.source_identity_admitted"
+		}
+		requirePartyPortableFailure(t, err, expectedInvariant)
 	}
 
 	if _, err := port.PrepareImport(
 		context.Background(),
-		sourceport.MapBundle{partyIncidentBundlePath: encodePartyPortableRows(t, base)},
+		portabilitysupport.MapBundle{partyIncidentBundlePath: encodePartyPortableRows(t, base)},
 		sourceport.ImportContext{
 			IncidentID: incidentID, ActorUserID: importContext.ActorUserID,
 			BundleVersion: 3, OperationID: "retired-version",
@@ -201,7 +207,7 @@ func TestPartyIncidentBundleExactStateClaimsAndFailureAtomicity_Integration(t *t
 	port := NewContribution()
 	importContext := partyPortableImportContext(incidentID, "party-apply")
 	importContext.ActorUserID = actorID
-	prepared, err := port.PrepareImport(ctx, sourceport.MapBundle{partyIncidentBundlePath: payload}, importContext)
+	prepared, err := port.PrepareImport(ctx, portabilitysupport.MapBundle{partyIncidentBundlePath: payload}, importContext)
 	if err != nil {
 		t.Fatalf("prepare Party rows: %v", err)
 	}
@@ -230,7 +236,7 @@ INSERT INTO records (
 	if err := port.ValidateImportTx(ctx, tx, prepared, importContext); err != nil {
 		t.Fatalf("validate Party rows: %v", err)
 	}
-	exported, err := port.Export(ctx, sourceport.ExportContext{Query: tx, IncidentID: incidentID})
+	exported, err := portabilitysupport.Export(port, ctx, sourceport.ExportContext{Query: tx, IncidentID: incidentID})
 	if err != nil {
 		t.Fatalf("export Party rows: %v", err)
 	}
@@ -294,7 +300,7 @@ func TestPartyIncidentBundleClaimCollisionRollsBack_Integration(t *testing.T) {
 	port := NewContribution()
 	importContext := partyPortableImportContext(incidentID, "party-collision")
 	importContext.ActorUserID = actorID
-	prepared, err := port.PrepareImport(ctx, sourceport.MapBundle{
+	prepared, err := port.PrepareImport(ctx, portabilitysupport.MapBundle{
 		partyIncidentBundlePath: encodePartyPortableRows(t, rows...),
 	}, importContext)
 	if err != nil {
@@ -336,7 +342,7 @@ func partyPortableImportContext(incidentID uuid.UUID, operationID string) source
 	return sourceport.ImportContext{
 		IncidentID:    incidentID,
 		ActorUserID:   uuid.MustParse("ffffffff-ffff-4fff-8fff-ffffffffffff"),
-		BundleVersion: 5,
+		BundleVersion: 6,
 		OperationID:   operationID,
 	}
 }

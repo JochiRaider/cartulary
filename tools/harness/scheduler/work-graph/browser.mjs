@@ -241,6 +241,7 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
         group.name,
       ],
       {
+        ...group.runtimeEnvironment,
         BROWSER_E2E_BATCH_MANIFEST: manifestRelativePath,
         CARTULARY_BROWSER_STAGE: stage.name,
         CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
@@ -420,6 +421,7 @@ export function compileBrowserStageGraph(root, owner, stage, options = {}) {
 export function compileBrowserStagesUnits(root, owner, stages, {
   mode = "validation", catalog = loadTestCatalog(root), maxLanes = topology(root).browser_lane_policy.default,
   needsForRow = () => [],
+  runtimeEnvironmentForRow = () => ({}),
 } = {}) {
   const units = [], partitions = new Map(), seenRows = new Set();
   for (const stage of stages) for (const group of stage.groups) {
@@ -427,8 +429,9 @@ export function compileBrowserStagesUnits(root, owner, stages, {
       if (seenRows.has(rowID)) throw new Error(`duplicate selected browser row ${rowID}`);
       seenRows.add(rowID);
       const prerequisites = needsForRow(catalog.rowByID.get(rowID));
-      const key = JSON.stringify([group.name, prerequisites]);
-      const selected = partitions.get(key) ?? { ...group, selectedRowIDs: [], prerequisites, executionKey: createHash("sha256").update(key).digest("hex") };
+      const runtimeEnvironment = runtimeEnvironmentForRow(catalog.rowByID.get(rowID));
+      const key = JSON.stringify([group.name, prerequisites, runtimeEnvironment]);
+      const selected = partitions.get(key) ?? { ...group, selectedRowIDs: [], prerequisites, runtimeEnvironment, executionKey: createHash("sha256").update(key).digest("hex") };
       selected.selectedRowIDs.push(rowID);
       partitions.set(key, selected);
     }

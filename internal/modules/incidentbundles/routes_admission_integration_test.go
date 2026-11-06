@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -255,7 +256,7 @@ VALUES ($1, 'export', $2, $3, $4, $5, $5)
 		t.Fatal(readErr)
 	}
 	var manifest incidentBundleManifestMirror
-	if err := json.Unmarshal(zipMemberBytes(t, artifact, "manifest.json"), &manifest); err != nil || manifest.BundleVersion != 5 {
+	if err := json.Unmarshal(zipMemberBytes(t, artifact, "manifest.json"), &manifest); err != nil || manifest.BundleVersion != 6 {
 		t.Fatalf("previously queued export did not generate v4: version=%d err=%v", manifest.BundleVersion, err)
 	}
 }
@@ -465,14 +466,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID) != 0 {
 		t.Fatalf("failed import must not make incident visible")
 	}
-	var failedStagingRef string
-	if err := targetHarness.DB.QueryRow(`SELECT bundle_staging_ref FROM incident_bundle_job_payloads WHERE job_id = $1`, failedJob["job_id"].(string)).Scan(&failedStagingRef); err != nil {
-		t.Fatalf("query failed import staging reference: %v", err)
-	}
-	failedStagingPath := stagedBundleTestPath(t, targetHarness.Server, failedStagingRef)
-	if _, err := os.Stat(failedStagingPath); !os.IsNotExist(err) {
-		t.Fatalf("failed import staging reference must be cleaned up, stat err=%v ref=%s", err, failedStagingRef)
-	}
+	awaitImportInputCleanup(t, targetHarness, failedJob["job_id"].(string))
 
 	first := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-bundle"}`, bundleBytes, "bundle.zip")
 	importJob := httptestx.RequireSuccessEnvelope(t, first, http.StatusAccepted)["data"].(map[string]any)
@@ -613,9 +607,12 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if importedSHA != seededState.BlobSHA {
 		t.Fatalf("imported blob hash mismatch: got %s want %s", importedSHA, seededState.BlobSHA)
 	}
-	wantStorageKey := "incidents/" + incidentID + "/object-blobs/" + seededState.ObjectBlobID
-	if importedStorageKey != wantStorageKey {
-		t.Fatalf("imported blob must use target-owned storage key, got %s want %s", importedStorageKey, wantStorageKey)
+	keyParts, err := blobref.ParseObjectBlobStorageKey(importedStorageKey)
+	if err != nil || keyParts.IncidentID.String() != incidentID || keyParts.ObjectBlobID.String() != seededState.ObjectBlobID {
+		t.Fatalf("imported blob has invalid target-owned identity: %s %v", importedStorageKey, err)
+	}
+	if countRows(t, targetHarness.DB, `SELECT count(*) FROM extension_staged_objects s JOIN extension_staged_object_references r USING(staging_id) WHERE s.storage_identity=$1 AND s.state='published' AND s.owner_profile_id='evidence' AND r.owner_resource_kind='object_blob' AND r.owner_resource_id=$2`, importedStorageKey, incidentID+":"+seededState.ObjectBlobID) != 1 {
+		t.Fatal("blob ownership was not published atomically")
 	}
 	rc, _, err := targetHarness.ObjectStore.ReadObject(context.Background(), importedStorageKey, objectstore.ReadOptions{})
 	if err != nil {
@@ -689,6 +686,18 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	}
 	if afterReplay := snapshotImportFinalizationSideEffects(t, targetHarness.DB, incidentID, targetAdminID.String()); !afterReplay.equal(finalization) {
 		t.Fatalf("terminal import replay duplicated finalization side effects: before=%#v after=%#v", finalization, afterReplay)
+	}
+	duplicateResponse := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"duplicate-incident-fresh-attempt"}`, bundleBytes, "duplicate.zip")
+	duplicate := httptestx.RequireSuccessEnvelope(t, duplicateResponse, http.StatusAccepted)["data"].(map[string]any)
+	duplicateTerminal := waitFailedJob(t, targetHarness.Server, targetAdmin, duplicate["job_id"].(string))
+	requireFailedJobReason(t, duplicateTerminal, "incident_bundle_import_rejected", "duplicate_incident_id")
+	// A separately admitted failed import must never overwrite the winner's
+	// generation or transfer its ownership to the failed operation.
+	if countRows(t, targetHarness.DB, `SELECT count(*) FROM extension_staged_objects WHERE operation_id=$1 AND owner_profile_id='evidence' AND state='published'`, duplicate["job_id"]) != 0 {
+		t.Fatal("duplicate import published evidence")
+	}
+	if got := stringScalar(t, targetHarness.DB, `SELECT storage_key FROM object_blobs WHERE object_blob_id=$1`, seededState.ObjectBlobID); got != importedStorageKey {
+		t.Fatal("duplicate import changed committed storage identity")
 	}
 	// Job retention is independent of the committed incident and its durable outputs.
 	if _, err := targetHarness.DB.Exec(`

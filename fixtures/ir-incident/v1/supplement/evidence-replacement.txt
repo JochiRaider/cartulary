@@ -1,0 +1,2 @@
+SYNTHETIC IR FIXTURE: harmless attachment, revision 2.
+Replacement preserves access to the first revision.

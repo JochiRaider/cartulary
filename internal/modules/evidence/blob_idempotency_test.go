@@ -103,7 +103,7 @@ func testBlobSlotParams(request blobCreateRequest, actorID uuid.UUID, incidentID
 		ObjectBlobID:      objectBlobID,
 		IncidentID:        incidentID,
 		ActorUserID:       actorID,
-		StorageKey:        "incidents/" + incidentID.String() + "/object-blobs/" + objectBlobID.String(),
+		StorageKey:        "incidents/" + incidentID.String() + "/object-blobs/" + objectBlobID.String() + "/objects/" + uuid.NewString(),
 		ByteSize:          request.ByteSize,
 		FilenameHint:      request.FilenameHint,
 		ContentTypeHint:   request.ContentTypeHint,

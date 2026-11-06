@@ -505,6 +505,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		[]string{
 			reporting.ReleasesRouteContributionID,
 			reporting.ReportCompositionsRouteContributionID,
+			reporting.RetainedArtifactsRouteContributionID,
 			reporting.SnapshotsRouteContributionID,
 		},
 	)
@@ -564,12 +565,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			Store:       logicalStateStore,
 			Coordinator: extensionCoordinator,
 			FinalValidators: map[string]extensions.FinalStateValidator{
-				"network_flow_activity.validate_state_v6": func(ctx context.Context, input extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+				"network_flow_activity.validate_state_v7": func(ctx context.Context, input extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
 					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 						return extensions.StateValidationResult{
 							SchemaID: "cartulary.extension_final_state_validation_result.v1",
 							Status:   "invalid",
-							Findings: []extensions.StartupFinding{extensionCoordinator.StateValidationFailure(input.ProfileID, "state_validation", "network_flow_activity.validate_state_v6")},
+							Findings: []extensions.StartupFinding{extensionCoordinator.StateValidationFailure(input.ProfileID, "state_validation", "network_flow_activity.validate_state_v7")},
 						}, nil
 					}
 					return extensions.ValidFinalStateValidationResult(), nil
@@ -659,9 +660,10 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			return nil, fmt.Errorf("compose staged-object byte store: %w", stagedBytesErr)
 		}
 		stagedService, stagedServiceErr := stagedobjects.NewService(stagedobjects.ServiceOptions{
-			Repository: stagedRepository,
-			Bytes:      stagedBytes,
-			Now:        now,
+			Repository:       stagedRepository,
+			ResourceIdentity: evidence.IncidentBundleResourceIdentity,
+			Bytes:            stagedBytes,
+			Now:              now,
 			FatalSink: func(error) {
 				runtime.lifecycle.Fatal("staged_object_publication_mismatch")
 			},
@@ -728,7 +730,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, fmt.Errorf("compose Evidence owner: typed object store is required")
 	}
-	evidenceBlobPort, err := evidence.NewIncidentBundleBlobPortability(typedObjectStore)
+	evidenceBlobPort, err := evidence.NewIncidentBundleBlobPortability(typedObjectStore, stagedObjectService)
 	if err != nil {
 		runtime.Close()
 		return nil, err
@@ -1129,21 +1131,22 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 	var networkFlowModule *networkflow.Module
 	if networkFlowRouteAdmitted {
 		networkFlowDependencies := networkflow.ModuleDependencies{
-			Postgres:        postgresHandle,
-			ImportSources:   importSourcePort,
-			KeyRings:        networkFlowKeyRings,
-			EffectiveLimits: networkFlowConfiguration.EffectiveResourceLimits(),
-			Now:             now,
-			IncidentLocks:   incidentTransactionParticipant,
-			AuditAppender:   authn.NewAdministrativeAuditAppender(),
-			Indicators:      indicatorOwner,
-			ResourceIntents: extensionResourceChangeIntents,
-			GraphViewJobs:   jobTransactions,
-			JobManager:      jobManager,
-			JobRunner:       runtime.jobRunner,
-			JobFinalizer:    extensionassembly.NewNetworkFlowGraphViewJobFinalizer(networkFlowJobFinalizer),
-			GraphTelemetry:  networkFlowTelemetry,
-			GraphStateReady: graphActivation.Ready,
+			Postgres:             postgresHandle,
+			ImportSources:        importSourcePort,
+			ImportedAttributions: incidentbundles.PortableSourceAttributions(),
+			KeyRings:             networkFlowKeyRings,
+			EffectiveLimits:      networkFlowConfiguration.EffectiveResourceLimits(),
+			Now:                  now,
+			IncidentLocks:        incidentTransactionParticipant,
+			AuditAppender:        authn.NewAdministrativeAuditAppender(),
+			Indicators:           indicatorOwner,
+			ResourceIntents:      extensionResourceChangeIntents,
+			GraphViewJobs:        jobTransactions,
+			JobManager:           jobManager,
+			JobRunner:            runtime.jobRunner,
+			JobFinalizer:         extensionassembly.NewNetworkFlowGraphViewJobFinalizer(networkFlowJobFinalizer),
+			GraphTelemetry:       networkFlowTelemetry,
+			GraphStateReady:      graphActivation.Ready,
 		}
 		if options.NetworkFlowComposition != nil {
 			networkFlowDependencies = options.NetworkFlowComposition.ConfigureNetworkFlow(networkFlowDependencies)
@@ -1161,12 +1164,15 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability state presence: %w", err)
 	}
-	portability, err := incidentbundles.NewPortabilityOrchestrator(
-		extensionassembly.IncidentPortabilityPolicies(extensionCoordinator.PortabilityPolicies(), resolvedClaims),
-		portabilityPresence,
-		nil,
-		stagedObjectService,
-	)
+	var portabilityParticipants []incidentbundles.ExtensionParticipant
+	if networkFlowModule != nil {
+		portabilityParticipants = append(portabilityParticipants, networkFlowModule.IncidentPortability())
+	}
+	portability, err := incidentbundles.NewPortabilityOrchestrator(incidentbundles.PortabilityOptions{
+		Policies:     extensionassembly.IncidentPortabilityPolicies(extensionCoordinator.PortabilityPolicies(), resolvedClaims),
+		Participants: portabilityParticipants, SnapshotReads: extensionassembly.IncidentPortabilityReads{}, ImportDependencies: extensionassembly.IncidentPortabilityReads{},
+		Presence: portabilityPresence, Allocator: stagedObjectService, Limits: settingsProjection.IncidentBundles(),
+	})
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability: %w", err)
@@ -1214,6 +1220,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, fmt.Errorf("validate retained reporting artifacts: %w", err)
 	}
 	incidentBundleModule, err := incidentbundles.NewModule(incidentbundles.ModuleDependencies{
+		Staging:                 stagedObjectService,
 		Postgres:                postgresPool,
 		JobTransactions:         jobTransactions,
 		JobOperations:           jobManager,
@@ -1338,6 +1345,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		analyticalImportFacades = append(analyticalImportFacades, facade)
 	}
 	importModule, err := imports.NewModule(imports.ModuleDependencies{
+		ImportedAttributions:   incidentbundles.ImportedAttributionResolver(),
 		ApplyTransactions:      registryTransactions,
 		AnalyticalTransactions: crossOwnerCoordinator,
 		Postgres:               postgresHandle,
@@ -1461,6 +1469,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
 		projectionRuntime.TaskDecisionMutationRows(),
+		projectionRuntime.LinkRows(),
 		recordChanges,
 	)
 	if err != nil {
@@ -1473,6 +1482,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
 		projectionRuntime.ArtifactPorts().Rows,
+		projectionRuntime.LinkRows(),
 		recordChanges,
 	)
 	if err != nil {
@@ -1492,6 +1502,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			EntityMutationRows:    projectionRuntime.EntityMutationRows(),
 			EntityQueryReader:     projectionRuntime.EntityQueryReader(),
 			AssessmentProjections: projectionRuntime.AssessmentPorts().Rows,
+			LinkProjections:       projectionRuntime.LinkRows(),
 			PartyProjections:      projectionRuntime.PartyPorts().Rows,
 			IndicatorOwner:        indicatorOwner,
 			TimelineOwner:         timelineFacade,
@@ -1552,13 +1563,13 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			contributionIDs: []string{auth.EnterpriseUserAuthBindingsRouteContributionID},
 			baseRegistrarID: "auth",
 		},
-		{id: "import", contributionIDs: []string{"import.sessions_route"}, registrar: importRoutes},
+		{id: "import", contributionIDs: []string{"import.sessions_route", "import.committed_sources_route"}, registrar: importRoutes},
 		{id: "incident_portability", contributionIDs: []string{incidentbundles.BundlesRouteContributionID}, registrar: incidentBundleRoutes},
 		{id: "network_flow_activity", contributionIDs: []string{networkflow.RouteContributionID}, registrar: networkFlowRoutes},
 		{id: "reference_pack", contributionIDs: []string{reference_data.PacksRouteContributionID}, registrar: referencePackRoutes},
 		{
 			id:              "snapshot_reporting_resources",
-			contributionIDs: []string{reporting.ReleasesRouteContributionID, reporting.SnapshotsRouteContributionID},
+			contributionIDs: []string{reporting.ReleasesRouteContributionID, reporting.SnapshotsRouteContributionID, reporting.RetainedArtifactsRouteContributionID},
 			registrar:       reportingRoutes,
 		},
 		{

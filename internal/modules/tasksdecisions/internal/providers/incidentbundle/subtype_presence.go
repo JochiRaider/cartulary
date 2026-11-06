@@ -25,11 +25,12 @@ func (incidentBundleSubtypeSource) SupportedRecordTypes() []subtypepresence.Reco
 	}
 }
 
-func (incidentBundleSubtypeSource) ListSubtypeBindingsTx(
+func (incidentBundleSubtypeSource) VisitSubtypeBindingsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
-) ([]subtypepresence.Binding, error) {
+	visit func(subtypepresence.Binding) error,
+) error {
 	rows, err := tx.Query(ctx, `
 SELECT record_id, incident_id, record_type
   FROM (
@@ -41,16 +42,17 @@ SELECT record_id, incident_id, record_type
  ORDER BY record_id, record_type
 `, incidentID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
-	var bindings []subtypepresence.Binding
 	for rows.Next() {
 		var binding subtypepresence.Binding
 		if err := rows.Scan(&binding.RecordID, &binding.IncidentID, &binding.RecordType); err != nil {
-			return nil, err
+			return err
 		}
-		bindings = append(bindings, binding)
+		if err := visit(binding); err != nil {
+			return err
+		}
 	}
-	return bindings, rows.Err()
+	return rows.Err()
 }

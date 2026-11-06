@@ -232,7 +232,7 @@ export function prepareSavedGraphAttempt(
     );
   const transactionId = identify(`nf-graph-view-${intent.kind}`);
   const schemas = {
-    create: "cartulary.network_flow.graph_view_create_request.v4",
+    create: "cartulary.network_flow.graph_view_create_request.v5",
     rename: "cartulary.network_flow.graph_view_rename_request.v2",
     refresh: "cartulary.network_flow.graph_view_refresh_request.v1",
     retire: "cartulary.network_flow.graph_view_retire_request.v1",
@@ -241,7 +241,7 @@ export function prepareSavedGraphAttempt(
     schema_id: schemas[intent.kind],
     client_txn_id: transactionId,
     ...(intent.kind === "create"
-      ? { semantic_query: intent.query }
+      ? { semantic_query: intent.query, refresh_scope: "selected_tables" }
       : { base_graph_view_version: intent.target?.graph_view_version }),
     ...(name === null ? {} : { display_name: name }),
   });

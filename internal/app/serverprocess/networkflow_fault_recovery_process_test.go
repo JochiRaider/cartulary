@@ -39,10 +39,10 @@ func assertNetworkFlowOwnedProcessCrashRecovery(t *testing.T) {
 		return s
 	}
 	s := start()
-	login, actor := flowtest.ProvisionBootstrapAdmin(t, s.Client, s.BaseURL)
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, s.Client, s.BaseURL)
 	options := []func(*http.Request){httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value)}
 	incident := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, s.Client, http.MethodPost, s.BaseURL+"/api/v1/incidents", map[string]any{"client_txn_id": "crash-incident", "incident_key": "IR-NF-CRASH", "title": "Crash recovery"}, options...), http.StatusCreated)["data"].(map[string]any)["incident_id"].(string)
-	table := networkflowsupport.SeedGraphSource(t, db, incident, actor.String())
+	table := networkflowsupport.SeedGraphSource(t, s.Client, s.BaseURL, login, incident)
 	for i, boundary := range []string{hc.NetworkFlowFaultBoundaryWorkerBeforeHandlerStart, hc.NetworkFlowFaultBoundaryWorkerBeforeFinalCommit, hc.NetworkFlowFaultBoundaryWorkerAfterCompletedPublication} {
 		var resultsBefore int
 		if err := db.QueryRow(`SELECT count(*) FROM graph_projection_results`).Scan(&resultsBefore); err != nil {
@@ -50,7 +50,7 @@ func assertNetworkFlowOwnedProcessCrashRecovery(t *testing.T) {
 		}
 		arm := map[string]any{"boundary": boundary, "fault_kind": hc.NetworkFlowFaultKindWorkerCrash, "consume_once": true}
 		httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, s.Client, http.MethodPost, s.BaseURL+"/api/v1/test/runtime/network-flow-faults", arm, httptestx.WithHeader("X-Cartulary-Test-Route-Token", httptestx.TestRouteToken)), http.StatusCreated)
-		body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v4", "client_txn_id": fmt.Sprintf("crash-create-%d", i), "display_name": "Crash graph", "semantic_query": map[string]any{"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table}, "filters": []any{}, "time_range": map[string]any{"start_utc": fmt.Sprintf("2026-01-0%dT00:00:00Z", i+1), "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}}
+		body := map[string]any{"schema_id": "cartulary.network_flow.graph_view_create_request.v5", "refresh_scope": "selected_tables", "client_txn_id": fmt.Sprintf("crash-create-%d", i), "display_name": "Crash graph", "semantic_query": map[string]any{"schema_id": "cartulary.network_flow.graph_semantic_query.v3", "selected_table_ids": []string{table}, "filters": []any{}, "time_range": map[string]any{"start_utc": fmt.Sprintf("2026-01-0%dT00:00:00Z", i+1), "end_utc": nil}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}}
 		path := "/api/v1/incidents/" + incident + "/network-flow/graph-views"
 		// The owned child may exit before its accepted response reaches the client.
 		request := httptestx.NewJSONRequest(t, http.MethodPost, s.BaseURL+path, body)

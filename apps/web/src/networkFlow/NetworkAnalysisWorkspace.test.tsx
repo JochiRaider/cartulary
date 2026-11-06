@@ -1831,14 +1831,15 @@ function installImportFlowFetchMock(returnedTableId: string) {
                   network_flow_table_id: returnedTableId,
                   display_name: "new-flows.csv",
                   source_filename_display: "new-flows.csv",
-                  source_import_session_id: importSessionId,
-                  source_import_unit_id: importUnitId,
+                  committed_source_id: "33333333-3333-4333-8333-333333333333",
+                  source_interpretation_sha256: "d".repeat(64),
+                  source_raw_cell_scalar_limit: 4096,
                   source_content_sha256: sourceDigest,
                   mapping_fingerprint: mappingFingerprint,
                 },
               ];
         return jsonResponse({
-          schema_id: "cartulary.network_flow_table_list.v2",
+          schema_id: "cartulary.network_flow_table_list.v3",
           tables,
           meta: { count: tables.length },
         });
@@ -1856,7 +1857,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
           ? returnedTableId
           : tableId;
         return jsonResponse({
-          schema_id: "cartulary.network_flow.table_query_result.v2",
+          schema_id: "cartulary.network_flow.table_query_result.v3",
           network_flow_table_id: responseTableId,
           rows: [],
           meta: {
@@ -2168,7 +2169,7 @@ function installNetworkFlowFetchMock(
   let tables = options.tables ?? [tableResource()];
   let savedGraphs = options.savedGraphs ?? [];
   const savedFixture = networkFlowDecoders.graphViewList.decode({
-    schema_id: "cartulary.network_flow.graph_view_list.v5",
+    schema_id: "cartulary.network_flow.graph_view_list.v6",
     graph_views: savedGraphs,
   });
   if (!savedFixture.ok) throw new Error(JSON.stringify(savedFixture.error));
@@ -2231,7 +2232,7 @@ function installNetworkFlowFetchMock(
           (g) => g.graph_view_id === url.split("/").at(-1),
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_get.v5",
+          schema_id: "cartulary.network_flow.graph_view_get.v6",
           graph_view: graph,
         });
       }
@@ -2243,7 +2244,7 @@ function installNetworkFlowFetchMock(
         )
       ) {
         return jsonResponse({
-          schema_id: "cartulary.network_flow_table_list.v2",
+          schema_id: "cartulary.network_flow_table_list.v3",
           tables,
           meta: { count: tables.length },
         });
@@ -2259,7 +2260,7 @@ function installNetworkFlowFetchMock(
           throw new TypeError("Declarations unavailable");
         }
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_list.v5",
+          schema_id: "cartulary.network_flow.graph_view_list.v6",
           graph_views: savedGraphs,
         });
       }
@@ -2289,7 +2290,7 @@ function installNetworkFlowFetchMock(
           uncertainCreateReceipt = {
             body: String(init?.body),
             value: {
-              schema_id: "cartulary.network_flow.graph_view_accepted.v5",
+              schema_id: "cartulary.network_flow.graph_view_accepted.v6",
               graph_view: created,
               job: {
                 job_id: "88888888-8888-4888-8888-888888888888",
@@ -2302,7 +2303,7 @@ function installNetworkFlowFetchMock(
         }
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow.graph_view_accepted.v5",
+            schema_id: "cartulary.network_flow.graph_view_accepted.v6",
             graph_view: created,
             job: {
               job_id: "88888888-8888-4888-8888-888888888888",
@@ -2334,7 +2335,7 @@ function installNetworkFlowFetchMock(
           graph_view_id: graphViewId,
         };
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_result.v5",
+          schema_id: "cartulary.network_flow.graph_view_result.v6",
           graph_view: graphView,
           result: graphResultForProjection(projection),
         });
@@ -2416,7 +2417,7 @@ function installNetworkFlowFetchMock(
           candidate.graph_view_id === graphViewId ? renamed : candidate,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_mutation_result.v5",
+          schema_id: "cartulary.network_flow.graph_view_mutation_result.v6",
           graph_view: renamed,
         });
       }
@@ -2441,7 +2442,7 @@ function installNetworkFlowFetchMock(
         );
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow.graph_view_accepted.v5",
+            schema_id: "cartulary.network_flow.graph_view_accepted.v6",
             graph_view: refreshing,
             job: {
               job_id: "99999999-9999-4999-8999-999999999999",
@@ -2528,7 +2529,7 @@ function installNetworkFlowFetchMock(
           table.network_flow_table_id === tableId ? renamed : table,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow_table_mutation_result.v2",
+          schema_id: "cartulary.network_flow_table_mutation_result.v3",
           table: renamed,
         });
       }
@@ -2555,7 +2556,7 @@ function installNetworkFlowFetchMock(
           (table) => table.network_flow_table_id !== tableId,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow_table_mutation_result.v2",
+          schema_id: "cartulary.network_flow_table_mutation_result.v3",
           table: deleted,
         });
       }
@@ -2639,7 +2640,7 @@ function installNetworkFlowFetchMock(
           );
         }
         return jsonResponse({
-          schema_id: "cartulary.network_flow.table_query_result.v2",
+          schema_id: "cartulary.network_flow.table_query_result.v3",
           network_flow_table_id: tableId,
           rows: [rowResource()],
           meta: {
@@ -2815,8 +2816,9 @@ function tableResource() {
     display_name: "flows.csv",
     table_version: 1,
     table_status: "active",
-    source_import_session_id: "import-session-1",
-    source_import_unit_id: "import-unit-1",
+    committed_source_id: "33333333-3333-4333-8333-333333333333",
+    source_interpretation_sha256: "d".repeat(64),
+    source_raw_cell_scalar_limit: 4096,
     source_content_sha256: sourceDigest,
     source_filename_display: "flows.csv",
     source_filename_digest: sourceDigest,
@@ -2893,8 +2895,7 @@ function rowResource() {
     "network_flow.application_label": null,
     unmapped_raw: {},
     "network_flow.observation_source_ref": {
-      import_session_id: "import-session-1",
-      import_unit_id: "import-unit-1",
+      committed_source_id: "33333333-3333-4333-8333-333333333333",
       source_content_sha256: sourceDigest,
       source_profile_id: "cisco_sna_netflow_csv_v2",
       parser_profile_id: "rfc4180_headered_csv_v1",
@@ -3137,27 +3138,63 @@ function savedGraphResource(
   } = {},
 ) {
   const selected = options.selected ?? true;
+  const semanticQuery = options.semanticQuery ?? graphSemanticQueryResource();
+  const selectedResult = selected
+    ? {
+        projection_result_id: projectionResultId,
+        source_snapshot_id: "snapshot-1",
+        projection_schema_id: "graph_projection.v2",
+        projection_version: "network_flow_activity.v2",
+        normalized_configuration_sha256: graphDigest,
+        normalized_source_sha256: sourceDigest,
+        canonical_output_sha256: "e".repeat(64),
+      }
+    : null;
   return {
-    schema_id: "cartulary.network_flow.graph_view.v5",
+    schema_id: "cartulary.network_flow.graph_view.v6",
     graph_view_id: options.graphViewID ?? graphViewId,
     incident_id: incidentResourceId,
     display_name: options.displayName ?? "Investigation graph",
     graph_view_version: 1,
     materialization_generation: 1,
     state: "active",
-    semantic_query: options.semanticQuery ?? graphSemanticQueryResource(),
-    selected_result_binding: selected
+    semantic_query: semanticQuery,
+    refresh_intent: {
+      schema_id: "cartulary.network_flow.refresh_intent.v1",
+      scope: "selected_tables",
+      semantic_query: semanticQuery,
+    },
+    selected_source_binding: selectedResult
       ? {
-          projection_result_id: projectionResultId,
-          source_snapshot_id: "snapshot-1",
-          projection_schema_id: "graph_projection.v2",
-          projection_version: "network_flow_activity.v2",
-          normalized_configuration_sha256: graphDigest,
-          normalized_source_sha256: sourceDigest,
-          canonical_output_sha256:
-            "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          schema_id: "cartulary.network_flow.selected_source_binding.v1",
+          algorithm_id: "network_flow_activity.selected_source.v1",
+          semantic_query: semanticQuery,
+          expected_result_binding: selectedResult,
+          computation_limits: {
+            max_vertices: 1000,
+            max_edges: 1000,
+            max_example_row_refs_per_edge: 10,
+            max_aggregate_counter_digits: 20,
+            max_contributing_rows: 250000,
+            max_time_buckets: 256,
+          },
+          tables: semanticQuery.selected_table_ids.map((selectedTableId) => ({
+            network_flow_table_id: selectedTableId,
+            table_version: 1,
+            committed_source_id: "33333333-3333-4333-8333-333333333333",
+            source_content_sha256: sourceDigest,
+            source_interpretation_sha256: "d".repeat(64),
+            mapping_fingerprint: mappingFingerprint,
+            source_profile_id: "cisco_sna_netflow_csv_v2",
+            parser_profile_id: "rfc4180_headered_csv_v1",
+            row_count_accepted: 1,
+            row_count_rejected: 0,
+            content_fingerprint:
+              "bc6a1688f756bb5e1db06c00ae96251ce96d99d972469e8b1128843094b66176",
+          })),
         }
       : null,
+    selected_result_binding: selectedResult,
     latest_job_id: selected
       ? "77777777-7777-4777-8777-777777777777"
       : "88888888-8888-4888-8888-888888888888",

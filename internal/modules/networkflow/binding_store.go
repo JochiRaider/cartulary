@@ -115,7 +115,9 @@ func (s *store) CreateOrReuseIndicatorBindingTx(ctx context.Context, tx pgx.Tx, 
 			if err := s.insertIndicatorBindingAuditTx(ctx, tx, params, existing, "network_flow_indicator_binding_reused"); err != nil {
 				return indicatorBindingRecord{}, false, err
 			}
-			return existing, true, nil
+			values := []indicatorBindingRecord{existing}
+			err := resolveHistoricalAuthors(ctx, s, tx, params.IncidentID, "network_flow_indicator_bindings", values, func(v *indicatorBindingRecord) (string, *uuid.UUID) { return v.BindingID, &v.CreatedByUserID })
+			return values[0], true, err
 		}
 	}
 	return indicatorBindingRecord{}, false, errIDGenerationFailed

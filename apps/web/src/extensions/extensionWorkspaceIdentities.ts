@@ -7,6 +7,8 @@ export const networkAnalysisWorkspaceKey = "network_analysis";
 export const reportingProfileId = "snapshot_reporting";
 export const reportingSnapshotsRoute = "/api/v1/snapshots";
 export const reportingReleasesRoute = "/api/v1/releases";
+export const reportingRetainedArtifactsRoute =
+  "/api/v1/incidents/{incident_id}/retained-report-artifacts";
 export const importProfileId = "import";
 export const importRouteFamily = "/api/v1/import-sessions";
 

@@ -255,18 +255,14 @@ func (service *RestoreService) preflight(ctx context.Context, request RestoreReb
 			if !usage.addNormalizedInputBytes(int64(len(semanticInput))) {
 				return nil, nil, NewRestoreError(RestoreErrorResourceOverflow)
 			}
-			projection, err := graphprojection.ProjectV2(ctx, graphprojection.InvocationContextV2{
-				GraphViewID: candidate.GraphViewID, SourceOwnerID: registration.Entry.SourceOwnerID,
-				CancellationCheck: func(context.Context) error { return restoreContextsErr(ctx, request.Context) },
-			}, semanticInput)
-			if err != nil || projection.ResultBindingV2() != candidate.ExpectedBinding {
+			completed, err := graphprojection.ReconstructExactV2(ctx, candidate.ExpectedBinding, semanticInput, request.PublishedAt, func(context.Context) error { return restoreContextsErr(ctx, request.Context) })
+			if err != nil {
 				return nil, nil, NewRestoreError(RestoreErrorInvalidCandidate)
 			}
-			completed, err := projection.CompletedResult()
-			if err != nil || !usage.addGraphSize(len(completed.Vertices), len(completed.Edges)) {
+			if !usage.addGraphSize(len(completed.Vertices), len(completed.Edges)) {
 				return nil, nil, NewRestoreError(RestoreErrorResourceOverflow)
 			}
-			completed.PublishedAt = request.PublishedAt.UTC()
+
 			staged = append(staged, RestoreStagedProjection{SourceRegistrationID: registration.Entry.SourceRegistrationID, CandidateID: candidate.CandidateID, Result: completed})
 			binding := completed.Binding
 			rebuilt = append(rebuilt, RestoreRebuiltView{

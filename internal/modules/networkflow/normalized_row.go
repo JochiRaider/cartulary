@@ -40,7 +40,7 @@ var errInvalidImportContext = errors.New("invalid network flow import context")
 var errInvalidNormalizedRow = errors.New("invalid normalized network flow row")
 
 type rowImportContext struct {
-	incidentID, actorUserID, sessionID, unitID           uuid.UUID
+	incidentID, actorUserID, committedSourceID           uuid.UUID
 	sourceSHA, fingerprint, sourceProfile, parserProfile string
 	createdAt                                            time.Time
 }
@@ -50,7 +50,8 @@ type rowImportContext struct {
 func validatedRowImportContext(params createTableParams) (rowImportContext, error) {
 	profile, knownProfile := mappingSourceProfile(params.SourceProfileID)
 	now := params.Now.UTC()
-	if params.IncidentID == uuid.Nil || params.ActorUserID == uuid.Nil || params.ImportSessionID == uuid.Nil || params.ImportUnitID == uuid.Nil ||
+	if params.IncidentID == uuid.Nil || params.ActorUserID == uuid.Nil || params.ImportSessionID == uuid.Nil || params.ImportUnitID == uuid.Nil || params.CommittedSourceID == uuid.Nil ||
+		!validLowerSHA256(params.SourceInterpretationSHA256) || params.SourceRawCellScalarLimit < 1 || params.SourceRawCellScalarLimit > 16384 ||
 		!validLowerSHA256(params.SourceContentSHA256) || !validLowerSHA256(params.MappingFingerprint) ||
 		!validLowerSHA256(params.SourceFilenameDigest) || !safeKeyIDPattern.MatchString(params.SourceFilenameDigestKeyID) ||
 		!knownProfile || profile.ConformanceStatus != "required_v1" || params.ParserProfileID == "" || params.ParserProfileID != profile.ParserProfileID ||
@@ -59,8 +60,8 @@ func validatedRowImportContext(params createTableParams) (rowImportContext, erro
 	}
 	return rowImportContext{
 		incidentID: params.IncidentID, actorUserID: params.ActorUserID,
-		sessionID: params.ImportSessionID, unitID: params.ImportUnitID,
-		sourceSHA: params.SourceContentSHA256, fingerprint: params.MappingFingerprint,
+		committedSourceID: params.CommittedSourceID,
+		sourceSHA:         params.SourceContentSHA256, fingerprint: params.MappingFingerprint,
 		sourceProfile: params.SourceProfileID, parserProfile: params.ParserProfileID,
 		createdAt: now,
 	}, nil
@@ -84,8 +85,7 @@ func (context rowImportContext) persistedRow(tableID string, source normalizedRo
 		return flowRow{}, fmt.Errorf("%w: unmapped values: %w", errInvalidNormalizedRow, err)
 	}
 	provenance, err := json.Marshal(map[string]any{
-		"import_session_id":        context.sessionID.String(),
-		"import_unit_id":           context.unitID.String(),
+		"committed_source_id":      context.committedSourceID.String(),
 		"source_content_sha256":    context.sourceSHA,
 		"source_profile_id":        context.sourceProfile,
 		"parser_profile_id":        context.parserProfile,

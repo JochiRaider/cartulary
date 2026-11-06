@@ -114,6 +114,49 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.imports.browser.ir_corpus_import",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.entities",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/import-assistant.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "ir_corpus_import"
+        ],
+        "titles": [
+          "IR corpus imports original Core and Cisco files and reopens exact source text"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_ordinary",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/ir-incident/v1",
+        "fixtures/network-flow-orientation/v1"
+      ]
+    },
+    {
       "row_id": "module.imports.browser.keyboard_recovery",
       "owner_id": "module.imports",
       "family_id": "module.imports.browser",
@@ -559,6 +602,36 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.imports.integration.committed_source_transfer",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestCommittedSourcesTransferThroughPublicBundleOperations_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.imports.integration.csv_import_discovery_exhaustive_mapping_approval_fc99e8ea88",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
@@ -735,6 +808,41 @@
         "postgres"
       ],
       "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.imports.integration.ir_corpus_core",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestIRCorpusCoreImportLifecycle_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/ir-incident/v1",
+        "fixtures/network-flow-orientation/v1"
+      ]
     },
     {
       "row_id": "module.imports.integration.mapping_source_protection",
@@ -1367,6 +1475,33 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.imports.unit.committed_source_portability",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestCommittedSourcePortableAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.imports.unit.indicator_owner_catalog_identity",
       "owner_id": "module.imports",
       "family_id": "module.imports.unit",
@@ -1392,6 +1527,41 @@
       "aggregate_placement": "fast",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.imports.unit.ir_corpus_admission",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [
+        "harness.test_catalog",
+        "module.entities",
+        "module.networkflow",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/irfixtures",
+        "tests": [
+          "TestIRCorpusAdmission",
+          "TestIRCorpusExpectations"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none",
+      "fixture_input_roots": [
+        "fixtures/ir-incident/v1",
+        "fixtures/network-flow-orientation/v1"
+      ]
     },
     {
       "row_id": "module.imports.unit.module_composition_contract",

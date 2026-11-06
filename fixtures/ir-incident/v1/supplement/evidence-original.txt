@@ -1,0 +1,2 @@
+SYNTHETIC IR FIXTURE: harmless attachment, revision 1.
+No executable content or operational credentials.

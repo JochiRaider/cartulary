@@ -1,0 +1,38 @@
+{
+  "schema_id": "cartulary.ir_fixture_supplement.v1",
+  "synthetic": true,
+  "label": "SYNTHETIC IR FIXTURE",
+  "mentions": [
+    "research-files",
+    "nsr-admin"
+  ],
+  "evidence": [
+    "evidence-original.txt",
+    "evidence-replacement.txt"
+  ],
+  "pending_request": "Collect a synthetic application log",
+  "note": "SYNTHETIC IR FIXTURE: document the attachment replacement without treating source narrative as evidence.",
+  "tasks": [
+    {
+      "id": "collect",
+      "title": "Collect the synthetic attachment",
+      "depends_on": []
+    },
+    {
+      "id": "review",
+      "title": "Review the synthetic attachment",
+      "depends_on": [
+        "collect"
+      ]
+    }
+  ],
+  "decision": "SYNTHETIC IR FIXTURE: complete review after collection.",
+  "assessment": "SYNTHETIC IR FIXTURE: source observations require corroboration.",
+  "indicator": {
+    "kind": "ip",
+    "value": "10.20.20.10"
+  },
+  "party": "Synthetic response coordination",
+  "saved_view": "Synthetic investigation review",
+  "report_composition": "Synthetic incident handoff"
+}

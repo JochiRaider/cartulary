@@ -185,7 +185,7 @@ func TestClaimAdmissionPreflightBeforeState_ServiceBacked(t *testing.T) {
 		t.Fatal(err)
 	}
 	views := map[string]ProfileConfigurationView{"network_flow_activity": view}
-	algorithmID := "network_flow_activity.orientation_cutover_v1"
+	algorithmID := "network_flow_activity.incident_portability_cutover_v1"
 	invocations := 0
 	algorithm := func(_ context.Context, input AdmissionValidationContext) (AdmissionValidationResult, error) {
 		invocations++

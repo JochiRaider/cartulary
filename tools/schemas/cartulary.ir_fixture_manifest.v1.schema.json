@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.ir_fixture_manifest.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.ir_fixture_manifest.v1"
+    },
+    "fixture_id": {
+      "const": "ir-incident"
+    },
+    "revision": {
+      "const": 1
+    },
+    "source_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "logical_path",
+          "size_bytes",
+          "sha256",
+          "records",
+          "columns",
+          "use",
+          "field_keys"
+        ],
+        "properties": {
+          "logical_path": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*(/[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*)*$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 33554432
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "records": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500000
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "maxItems": 256,
+            "uniqueItems": true
+          },
+          "use": {
+            "enum": [
+              "file_upload",
+              "clipboard",
+              "entity_alias_operations"
+            ]
+          },
+          "field_keys": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 256,
+            "uniqueItems": true
+          }
+        }
+      },
+      "minItems": 5,
+      "maxItems": 5
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dependency_id": {
+            "const": "network-flow-orientation"
+          },
+          "revision": {
+            "const": 1
+          },
+          "manifest_path": {
+            "const": "network-flow-orientation/v1/manifest.json"
+          },
+          "manifest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "datasets": {
+            "const": [
+              "day1",
+              "day2",
+              "overlap"
+            ]
+          }
+        },
+        "required": [
+          "dependency_id",
+          "revision",
+          "manifest_path",
+          "manifest_sha256",
+          "datasets"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "expected_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logical_path",
+        "size_bytes",
+        "sha256"
+      ],
+      "properties": {
+        "logical_path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*(/[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*)*$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 33554432
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "supplement_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "logical_path",
+          "size_bytes",
+          "sha256"
+        ],
+        "properties": {
+          "logical_path": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*(/[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*)*$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 33554432
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      },
+      "maxItems": 16
+    }
+  },
+  "required": [
+    "schema_id",
+    "fixture_id",
+    "revision",
+    "source_files",
+    "dependencies",
+    "expected_file",
+    "supplement_files"
+  ]
+}

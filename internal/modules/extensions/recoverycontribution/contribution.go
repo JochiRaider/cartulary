@@ -15,7 +15,7 @@ func RecoveryStateContribution() recoverystate.Contribution {
 		),
 		recoverystate.AuthoritativeObjectFamily(
 			"extensions.staged_objects",
-			"extensions.snapshot_staged_object_inventory.v1",
+			"extensions.snapshot_staged_object_inventory.v2",
 			"extensions.validate_staged_object_inventory.v1",
 			"extensions.restore_staged_object_inventory.v1",
 		),

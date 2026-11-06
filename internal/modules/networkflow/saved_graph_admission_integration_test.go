@@ -57,7 +57,7 @@ func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 
 	collectionPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
 	createBody := map[string]any{
-		"schema_id":     "cartulary.network_flow.graph_view_create_request.v4",
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v5", "refresh_scope": "selected_tables",
 		"client_txn_id": "txn-network-flow-graph-create",
 		"display_name":  "Shared flow graph",
 		"semantic_query": map[string]any{

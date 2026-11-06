@@ -765,6 +765,41 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 		"user_id":       reviewerID,
 		"role":          "reviewer",
 	})
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "shape-viewer@example.test", "Shape Viewer", "ShapeViewer1!", false, false, true)
+	viewerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "shape-viewer@example.test", "ShapeViewer1!", nil)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-reporting-shape-viewer-membership", "user_id": viewerID, "role": "viewer"})
+	retainedPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/retained-report-artifacts"
+	for _, check := range []struct {
+		name    string
+		session *http.Cookie
+		status  int
+		code    string
+	}{
+		{"admin", adminLogin.Session, http.StatusOK, ""},
+		{"reviewer", reviewerLogin.Session, http.StatusOK, ""},
+		{"viewer", viewerLogin.Session, http.StatusForbidden, "authorization_denied"},
+		{"outsider", outsiderLogin.Session, http.StatusNotFound, "incident_not_found"},
+		{"deployment admin alone", deploymentAdminLogin.Session, http.StatusNotFound, "incident_not_found"},
+	} {
+		t.Run("retained reports "+check.name, func(t *testing.T) {
+			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, retainedPath, nil, httptestx.WithCookies(check.session))
+			if check.status == http.StatusOK {
+				catalog := httptestx.RequireSuccessEnvelope(t, response, check.status)["data"].(map[string]any)
+				if catalog["schema_id"] != "cartulary.retained_report_artifacts.v1" || catalog["incident_id"] != incidentID || len(catalog["artifacts"].([]any)) != 0 {
+					t.Fatal("invalid empty retained report catalog")
+				}
+			} else {
+				httptestx.RequireErrorEnvelope(t, response, check.status, check.code)
+			}
+			response = httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, retainedPath+"/"+strings.Repeat("a", 64)+"/content", nil, httptestx.WithCookies(check.session))
+			if check.status == http.StatusOK {
+				httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "report_artifact_not_found")
+			} else {
+				httptestx.RequireErrorEnvelope(t, response, check.status, check.code)
+			}
+		})
+	}
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, retainedPath+"?limit=1", nil, httptestx.WithCookies(adminLogin.Session)), http.StatusBadRequest, "invalid_pagination_request")
 	_ = scenariotest.CreateIncident(t, harness.Server, outsiderLogin, map[string]any{
 		"client_txn_id": "txn-reporting-shape-other-incident",
 		"incident_key":  "IR-REPORTING-04-OTHER",

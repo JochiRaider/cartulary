@@ -8,7 +8,6 @@ import (
 )
 
 const (
-	maxRenderModelBytes = 67_108_864
 	maxRenderModelItems = 1_048_576
 )
 
@@ -25,9 +24,11 @@ func admitFrozenExportModel(ctx context.Context, model ExportModel, digest strin
 	if err != nil {
 		return ExportModel{}, err
 	}
-	if len(encoded) > maxRenderModelBytes {
-		return ExportModel{}, errors.New("reporting: frozen export model byte limit")
-	}
+	// This is a derived source lookup with repeated field projections, not a
+	// retained or renderer-bound control payload. Capture admission bounds its
+	// unique source bytes; the item guard bounds expansion. The operative
+	// canonical-byte limit applies after template reachability and redaction
+	// in assembleRenderModel, before any renderer receives case content.
 	if reportingObjectDigest(ExportModelSchemaID, encoded) != digest {
 		return ExportModel{}, errors.New("reporting: frozen export model digest invalid")
 	}

@@ -210,7 +210,7 @@ func TestIncidentSourcePrepareBindsPortOperationIncidentVersionAndContract_Unit(
 		})
 	}
 
-	for _, version := range []int{0, 1, 2, 3, 4, 6} {
+	for _, version := range []int{0, 1, 2, 3, 4, 5, 7} {
 		wrongVersion := importContext
 		wrongVersion.bundleVersion = version
 		if _, err := prepareIncidentBundleIncident(contract, validIncidentSourcePayload(t), wrongVersion); !errors.Is(err, errIncidentSourceCatalog) {
@@ -356,7 +356,7 @@ func newIncidentSourceImportContextForTest(t testing.TB, operationID string) inc
 	}
 	return incidentSourceImportContext{
 		incidentID: incidentSourceTestID, actorUserID: incidentSourceImportActor,
-		bundleVersion: 5, operationID: operationID,
+		bundleVersion: 6, operationID: operationID,
 		actorAdmitted: func(actorID string) bool {
 			_, admitted := actors[actorID]
 			return admitted
@@ -583,4 +583,15 @@ func (query *incidentSourceExportQueryFake) QueryRow(_ context.Context, statemen
 		*destinations[1].(*string) = query.incidentKey
 		return nil
 	})
+}
+
+func (r *incidentSourceAttributionRecorder) VisitImportedAttributions(table, rowID string, visit func(incidentportability.ImportedAttribution) error) error {
+	for _, row := range r.ImportedAttributions() {
+		if row.SourceTable == table && (rowID == "" || row.SourceRowID == rowID) {
+			if err := visit(row); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

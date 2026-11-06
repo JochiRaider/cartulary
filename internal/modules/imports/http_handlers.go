@@ -30,6 +30,9 @@ type importRouteBinding struct {
 }
 
 var importRouteBindings = [...]importRouteBinding{
+	{Kind: "committed_sources", OperationID: "listCommittedImportSources"},
+	{Kind: "committed_source", OperationID: "getCommittedImportSource"},
+	{Kind: "committed_source_content", OperationID: "getCommittedImportSourceContent"},
 	{Kind: "create_session", OperationID: "createImportSession", Collection: true},
 	{Kind: "session", OperationID: "getImportSession"},
 	{Kind: "units", OperationID: "listImportUnits"},
@@ -84,6 +87,12 @@ func (s *service) importOperationHandlers() map[string]http.HandlerFunc {
 		handler := s.handleImportSessionsMember
 		if route.Collection {
 			handler = s.handleImportSessionsCollection
+		}
+		if route.Kind == "committed_source" || route.Kind == "committed_source_content" {
+			handler = s.handleCommittedSource
+		}
+		if route.Kind == "committed_sources" {
+			handler = s.handleCommittedSources
 		}
 		handlers[route.OperationID] = handler
 	}

@@ -238,6 +238,7 @@
         "tests": [
           "TestCatalogAcceptsClosedTenTypeCoverage",
           "TestCatalogRejectsInvalidContributions",
+          "TestInventoryStreamsExactOrderedBindings",
           "TestValidateBindingsRequiresExactForwardAndReverseCoverage"
         ]
       },

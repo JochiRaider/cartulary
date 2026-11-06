@@ -14,7 +14,7 @@ import (
 // and scope before replay; a matching schema token does not establish validity.
 func validateTableReceipt(key authn.RouteIdempotencyKey, status int, payload map[string]any) error {
 	invalid := errSavedGraphCutoverIncompatible
-	if status != 200 || len(payload) != 2 || payload["schema_id"] != "cartulary.network_flow_table_mutation_result.v2" {
+	if status != 200 || len(payload) != 2 || payload["schema_id"] != "cartulary.network_flow_table_mutation_result.v3" {
 		return invalid
 	}
 	if key.RouteKey != routeKeyTablesPatch && key.RouteKey != routeKeyTablesDelete {
@@ -30,8 +30,9 @@ func validateTableReceipt(key authn.RouteIdempotencyKey, status int, payload map
 		Name           string    `json:"display_name"`
 		Version        int64     `json:"table_version"`
 		Status         string    `json:"table_status"`
-		Session        uuid.UUID `json:"source_import_session_id"`
-		Unit           uuid.UUID `json:"source_import_unit_id"`
+		Source         uuid.UUID `json:"committed_source_id"`
+		Interpretation string    `json:"source_interpretation_sha256"`
+		RawCellLimit   int64     `json:"source_raw_cell_scalar_limit"`
 		SourceSHA      string    `json:"source_content_sha256"`
 		Filename       string    `json:"source_filename_display"`
 		FilenameDigest string    `json:"source_filename_digest"`
@@ -48,13 +49,13 @@ func validateTableReceipt(key authn.RouteIdempotencyKey, status int, payload map
 		Updated        string    `json:"updated_at"`
 		Deleted        *string   `json:"deleted_at"`
 	}
-	const members = "network_flow_table_id incident_id display_name table_version table_status source_import_session_id source_import_unit_id source_content_sha256 source_filename_display source_filename_digest source_filename_digest_key_id mapping_fingerprint source_profile_id counter_semantics parser_profile_id row_count_accepted row_count_rejected diagnostics_truncated created_by_user_id created_at updated_at deleted_at"
+	const members = "network_flow_table_id incident_id display_name table_version table_status committed_source_id source_interpretation_sha256 source_raw_cell_scalar_limit source_content_sha256 source_filename_display source_filename_digest source_filename_digest_key_id mapping_fingerprint source_profile_id counter_semantics parser_profile_id row_count_accepted row_count_rejected diagnostics_truncated created_by_user_id created_at updated_at deleted_at"
 	if _, err := decodeClosedImportObject(raw, members, "", "deleted_at", &table); err != nil {
 		return invalid
 	}
 	name, err := normalizeExplicitDisplayName(table.Name)
 	profile, ok := mappingSourceProfile(table.Profile)
-	if err != nil || name != table.Name || !ok || table.Parser != profile.ParserProfileID || table.Counters != counterSemanticsForProfile(table.Profile) || !linkTableIDPattern.MatchString(table.ID) || table.Incident == uuid.Nil || table.Session == uuid.Nil || table.Unit == uuid.Nil || table.Actor == uuid.Nil || table.Version < 1 || table.Accepted < 0 || table.Rejected < 0 || !validLowerSHA256(table.SourceSHA) || !validLowerSHA256(table.FilenameDigest) || !validLowerSHA256(table.Fingerprint) || !safeKeyIDPattern.MatchString(table.FilenameKey) || utf8.RuneCountInString(table.Filename) > 256 {
+	if err != nil || name != table.Name || !ok || table.Parser != profile.ParserProfileID || table.Counters != counterSemanticsForProfile(table.Profile) || !linkTableIDPattern.MatchString(table.ID) || table.Incident == uuid.Nil || table.Source == uuid.Nil || !validLowerSHA256(table.Interpretation) || table.RawCellLimit < 1 || table.RawCellLimit > 16384 || table.Actor == uuid.Nil || table.Version < 1 || table.Accepted < 0 || table.Rejected < 0 || !validLowerSHA256(table.SourceSHA) || !validLowerSHA256(table.FilenameDigest) || !validLowerSHA256(table.Fingerprint) || !safeKeyIDPattern.MatchString(table.FilenameKey) || utf8.RuneCountInString(table.Filename) > 256 {
 		return invalid
 	}
 	if key.ScopeKey != table.Incident.String()+":"+table.ID {

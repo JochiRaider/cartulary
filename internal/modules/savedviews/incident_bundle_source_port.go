@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func NewIncidentBundleSourcePort() sourceport.Port {
@@ -18,7 +17,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		Paths: []sourceport.Path{{
 			LogicalPath: "data/saved_views.ndjson", ContentRole: "source_rows",
 			SchemaID: "cartulary.incident_bundle.saved_views.row.v2",
-			Versions: []int{5}, StableIdentity: []string{"saved_view_id"}, StableIdentityInvariantID: "saved_views.source_identity_admitted",
+			Versions: []int{6}, StableIdentity: []string{"saved_view_id"}, StableIdentityInvariantID: "saved_views.source_identity_admitted",
 		}},
 		InvariantIDs: []string{
 			"saved_views.row_shape_exact", "saved_views.identity_scope_legal", "saved_views.owner_tuple_legal",
@@ -29,15 +28,11 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor,
-		Export: func(ctx context.Context, exportContext sourceport.ExportContext) ([]incidentportability.File, error) {
-			return exportIncidentBundleFiles(ctx, savedViewExportContext{
-				Query:                exportContext.Query,
-				IncidentID:           exportContext.IncidentID,
-				PortableAttributions: exportContext.PortableAttributions,
-			})
+		Export: func(ctx context.Context, input sourceport.ExportContext) error {
+			return exportIncidentBundleFiles(ctx, savedViewExportContext{Actors: input.Actors, Query: input.Query, IncidentID: input.IncidentID, PortableAttributions: input.PortableAttributions}, input.Members)
 		},
-		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			prepared, err := prepareSavedViewImport(bundle, savedViewPrivateImportContext(importContext))
+		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
+			prepared, err := prepareSavedViewImport(ctx, bundle, savedViewPrivateImportContext(importContext))
 			return prepared, savedViewSourcePortError(descriptor, err)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {

@@ -1,0 +1,153 @@
+{
+  "schema_id": "cartulary.ir_fixture_expectations.v1",
+  "revision": 1,
+  "records": {
+    "aliases.csv": 222,
+    "hosts.csv": 30,
+    "identities.csv": 20,
+    "timeline.csv": 1500,
+    "timeline.tsv": 1500,
+    "day1.csv": 2000,
+    "day2.csv": 2000,
+    "overlap.csv": 500
+  },
+  "time_pairs": 1450,
+  "empty_times": 50,
+  "utc_offset_minutes": -240,
+  "multiline_raw": 162,
+  "multiline_synopsis": 44,
+  "tabbed_raw": 22,
+  "tabbed_synopsis": 1,
+  "alias_associations": 222,
+  "distinct_aliases": 220,
+  "ambiguous_aliases": {
+    "research-files": [
+      "NSR-FS-01",
+      "NSR-FS-02"
+    ],
+    "nsr-admin": [
+      "d.alvarez@northstar-research.example",
+      "i.bergstrom@northstar-research.example"
+    ]
+  },
+  "timeline_cases": [
+    {
+      "source_record": 1,
+      "source_identity": "NSR-EV-N084",
+      "cells": [
+        "2026-10-27",
+        "Keiko Tanaka",
+        "",
+        "NSR-WS-020",
+        "10.20.10.120",
+        "2026-10-27T13:35:00Z",
+        "2026-10-27T09:35:00",
+        "source=\"SOC case journal\"; activity=\"Endpoint scope defined\"; hostname=\"NSR-WS-020\"; username=\"k.tanaka@northstar-research.example\"; identity_role=\"Source-associated identity; interpretation in synopsis\"; source_ip=\"10.20.10.120\"; destination_ip=\"\"; evidence_ref=\"NSR-EV-N084\"; analyst_note=\"investigation\"; refs=\"NSR-EV-N081, NSR-EV-N051, NSR-EV-N048\"; native={\n  \"timestamp\": \"2026-10-27T13:35:00Z\",\n  \"username\": \"k.tanaka@northstar-research.example\",\n  \"hostname\": \"NSR-WS-020\",\n  \"source_ip\": \"10.20.10.120\",\n  \"destination_ip\": \"\",\n  \"Case\": \"NSR-IR-2026-014\",\n  \"SuspectedExecutionHosts\": [\n    \"NSR-WS-001\",\n    \"NSR-JUMP-01\",\n    \"NSR-APP-01\"\n  ],\n  \"AccessedResource\": \"NSR-FS-01\",\n  \"Analyst\": \"Keiko Tanaka\"\n}",
+        "Keiko Tanaka scopes the victim, jump host, and application server. The file server is treated as an accessed resource; arbitrary execution there is not established.",
+        "SOC case journal | NSR-EV-N084"
+      ]
+    },
+    {
+      "source_record": 5,
+      "source_identity": "NSR-EV-B1187",
+      "cells": [
+        "2026-10-29",
+        "Ana Martins",
+        "",
+        "NSR-WS-006",
+        "10.20.10.106",
+        "2026-10-28T16:44:57Z",
+        "2026-10-28T12:44:57",
+        "source=\"Proxy\"; activity=\"GET approved web resource\"; hostname=\"NSR-WS-006\"; username=\"a.patel@northstar-research.example\"; identity_role=\"Source-associated identity; interpretation in synopsis\"; source_ip=\"10.20.10.106\"; destination_ip=\"192.0.2.25\"; evidence_ref=\"NSR-EV-B1187\"; analyst_note=\"routine comparison observation\"; refs=\"\"; native={\"timestamp\":\"2026-10-28T16:44:57Z\",\"proxy\":\"NSR-PROXY-01\",\"authenticated_user\":\"a.patel@northstar-research.example\",\"client_ip\":\"10.20.10.106\",\"upstream_ip\":\"192.0.2.25\",\"method\":\"GET\",\"url\":\"https://mail.northstar-research.example/mail/inbox\",\"status\":200,\"category\":\"Business\",\"policy\":\"Allow\",\"request_bytes\":1481,\"response_bytes\":144106,\"user_agent\":\"Northstar Managed Browser/126\",\"document_title\":\"café reference standards\"}",
+        "Aisha Patel viewed mail.northstar-research.example; the destination and policy match approved business use.",
+        "Proxy | NSR-EV-B1187"
+      ]
+    },
+    {
+      "source_record": 11,
+      "source_identity": "NSR-EV-B0238",
+      "cells": [
+        "2026-10-29",
+        "Keiko Tanaka",
+        "",
+        "Mailbox: n.williams@northstar-research.example",
+        "198.51.100.10",
+        "2026-10-27T13:31:29Z",
+        "2026-10-27T09:31:29",
+        "source=\"Exchange Online\"; activity=\"MailItemsAccessed\"; hostname=\"NSR-WS-007\"; username=\"n.williams@northstar-research.example\"; identity_role=\"Source-associated identity; interpretation in synopsis\"; source_ip=\"198.51.100.10\"; destination_ip=\"192.0.2.25\"; evidence_ref=\"NSR-EV-B0238\"; analyst_note=\"routine comparison observation\"; refs=\"\"; native={\"CreationTime\":\"2026-10-27T13:31:29Z\",\"Workload\":\"Exchange\",\"Operation\":\"MailItemsAccessed\",\"UserId\":\"n.williams@northstar-research.example\",\"ClientIPAddress\":\"198.51.100.10\",\"ResultStatus\":\"Succeeded\",\"MailboxOwnerUPN\":\"n.williams@northstar-research.example\",\"MailAccessType\":\"Bind\",\"Subject\":\"Assay results, batch \\\"ORION-24\\\"\",\"Recipient\":\"l.sondergaard@northstar-research.example\",\"InternetMessageId\":\"<NSR-business-0047@message-id.northstar.example>\",\"Folder\":\"Inbox\"}\nRetained excerpt:\tuser=Noah Williams\taction=\"MailItemsAccessed, reviewed\"",
+        "Routine mailbox item access for Noah Williams; the access address and client context match ordinary activity.",
+        "Exchange Online | NSR-EV-B0238"
+      ]
+    },
+    {
+      "source_record": 49,
+      "source_identity": "NSR-EV-M049",
+      "cells": [
+        "2026-10-29",
+        "Marcus Reed",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "source=\"Forensic Collection / partial note\"; activity=\"Copied path with unresolved device\"; hostname=\"unresolved\"; username=\"j.novak@northstar-research.example\"; identity_role=\"Source-associated identity; interpretation in synopsis\"; source_ip=\"\"; destination_ip=\"\"; evidence_ref=\"NSR-EV-M049\"; analyst_note=\"source fragment retained with unresolved fields\"; refs=\"\"; native=User label=\"Jiří Novák\"; path=\"Documents\\café reference standards part 5.csv\"; device label and timestamp omitted; file content not available. FragmentId=FRAG-049; collection_date=2026-10-29; activity_time=unavailable.",
+        "The copied path retains a decomposed accent exactly as supplied. User labeling is provisional; device attribution and activity time are unresolved.",
+        "Forensic Collection / partial note | NSR-EV-M049"
+      ]
+    },
+    {
+      "source_record": 153,
+      "source_identity": "NSR-EV-B0342",
+      "cells": [
+        "2026-10-29",
+        "Marcus Reed",
+        "",
+        "Mailbox: t.rahman@northstar-research.example",
+        "198.51.100.116",
+        "2026-10-28T16:03:25Z",
+        "2026-10-28T12:03:25",
+        "source=\"Exchange Online\"; activity=\"MailItemsAccessed\"; hostname=\"NSR-WS-016\"; username=\"t.rahman@northstar-research.example\"; identity_role=\"Source-associated identity; interpretation in synopsis\"; source_ip=\"198.51.100.116\"; destination_ip=\"192.0.2.25\"; evidence_ref=\"NSR-EV-B0342\"; analyst_note=\"routine comparison observation\"; refs=\"\"; native={\"CreationTime\":\"2026-10-28T16:03:25Z\",\"Workload\":\"Exchange\",\"Operation\":\"MailItemsAccessed\",\"UserId\":\"t.rahman@northstar-research.example\",\"ClientIPAddress\":\"198.51.100.116\",\"ResultStatus\":\"Succeeded\",\"MailboxOwnerUPN\":\"t.rahman@northstar-research.example\",\"MailAccessType\":\"Bind\",\"Subject\":\"café reference standards\",\"Recipient\":\"l.silva@northstar-research.example\",\"InternetMessageId\":\"<NSR-business-0151@message-id.northstar.example>\",\"Folder\":\"Inbox\"}",
+        "Routine mailbox item access for Tariq Rahman; the access address and client context match ordinary activity.\nAnalyst note: Context is retained for comparison with the compromised identities; this observation alone is not suspicious.",
+        "Exchange Online | NSR-EV-B0342"
+      ]
+    },
+    {
+      "source_record": 183,
+      "source_identity": "NSR-EV-B0258",
+      "cells": [
+        "2026-10-29",
+        "Marcus Reed",
+        "",
+        "Mailbox: a.martins@northstar-research.example",
+        "198.51.100.10",
+        "2026-10-28T13:24:31Z",
+        "2026-10-28T09:24:31",
+        "source=\"Exchange Online\"; activity=\"MailItemsAccessed\"; hostname=\"NSR-WS-018\"; username=\"a.martins@northstar-research.example\"; identity_role=\"Source-associated identity; interpretation in synopsis\"; source_ip=\"198.51.100.10\"; destination_ip=\"192.0.2.25\"; evidence_ref=\"NSR-EV-B0258\"; analyst_note=\"routine comparison observation\"; refs=\"\"; native={\"CreationTime\":\"2026-10-28T13:24:31Z\",\"Workload\":\"Exchange\",\"Operation\":\"MailItemsAccessed\",\"UserId\":\"a.martins@northstar-research.example\",\"ClientIPAddress\":\"198.51.100.10\",\"ResultStatus\":\"Succeeded\",\"MailboxOwnerUPN\":\"a.martins@northstar-research.example\",\"MailAccessType\":\"Bind\",\"Subject\":\"café reference standards\",\"Recipient\":\"k.tanaka@northstar-research.example\",\"InternetMessageId\":\"<NSR-business-0067@message-id.northstar.example>\",\"Folder\":\"Inbox\"}\r\nCollection note: original CRLF separator retained.\tConfidence=corroborated",
+        "Routine mailbox item access for Ana Martins; the access address and client context match ordinary activity.",
+        "Exchange Online | NSR-EV-B0258"
+      ]
+    },
+    {
+      "source_record": 655,
+      "source_identity": "NSR-EV-M009",
+      "cells": [
+        "2026-10-29",
+        "Ana Martins",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "source=\"Forensic Collection / partial note\"; activity=\"Copied path with unresolved device\"; hostname=\"unresolved\"; username=\"j.novak@northstar-research.example\"; identity_role=\"Source-associated identity; interpretation in synopsis\"; source_ip=\"\"; destination_ip=\"\"; evidence_ref=\"NSR-EV-M009\"; analyst_note=\"source fragment retained with unresolved fields\"; refs=\"\"; native=User label=\"Jiří Novák\"; path=\"Documents\\café reference standards part 1.csv\"; device label and timestamp omitted; file content not available. FragmentId=FRAG-009; collection_date=2026-10-29; activity_time=unavailable.",
+        "  The copied path retains a decomposed accent exactly as supplied. User labeling is provisional; device attribution and activity time are unresolved.\nUnresolved:\tdevice, source time, and original filename normalization.  ",
+        "Forensic Collection / partial note | NSR-EV-M009"
+      ]
+    }
+  ],
+  "flow_observations": 4500,
+  "distinct_flow_records": 4000,
+  "flow_bytes": "3903637992",
+  "flow_packets": "4412353",
+  "server_first": 667,
+  "missing_orientation": 284
+}

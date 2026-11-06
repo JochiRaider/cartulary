@@ -178,8 +178,12 @@ type supportLinkApplier struct {
 	links *links.Store
 }
 
-func NewSupportLinkApplier() assessments.InitialSupportLinkApplier {
-	return supportLinkApplier{links: links.NewStore()}
+func NewSupportLinkApplier(rows links.ProjectionRows) (assessments.InitialSupportLinkApplier, error) {
+	store, err := links.NewMutationStore(rows)
+	if err != nil {
+		return nil, err
+	}
+	return supportLinkApplier{links: store}, nil
 }
 
 func (a supportLinkApplier) ApplyInitialAssessmentSupportLinksTx(

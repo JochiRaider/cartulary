@@ -231,7 +231,7 @@ func (p *admittedPackage) validateCompanionIdentities() error {
 			return registryInvalid("participant_projection_mismatch")
 		}
 		reference := participantReferences[id]
-		expectedSchema := "cartulary.extension_participant_specialization.v4"
+		expectedSchema := "cartulary.extension_participant_specialization.v5"
 		kind := stringValue(reference["kind"])
 		switch kind {
 		case "cross_owner_transaction_participant":

@@ -86,6 +86,7 @@ func TestGraphProjectionRootExportedFunctionAllowlist_Unit(t *testing.T) {
 	want := map[string]bool{
 		"method ResultBindingV2.ValidateIdentity":   false,
 		"method CompletedResultV2.Validate":         false,
+		"func ReconstructExactV2":                   false,
 		"func ProjectV2":                            false,
 		"method ProjectionErrorV2.Error":            false,
 		"method ProjectionErrorV2.Unwrap":           false,

@@ -15,6 +15,7 @@ const (
 	reasonHistoricalMigrationLineage     = "historical_migration_lineage"
 	reasonSchemaMigrationRequired        = "schema_migration_required"
 	reasonSchemaVersionAhead             = "schema_version_ahead"
+	reasonSchemaFreshStateRequired       = "schema_fresh_state_required"
 	reasonSchemaMigrationExecutionFailed = "schema_migration_execution_failed"
 	reasonSchemaMigrationCleanupFailed   = "schema_migration_cleanup_failed"
 	reasonSchemaMigrationPostcondition   = "schema_migration_postcondition_failed"

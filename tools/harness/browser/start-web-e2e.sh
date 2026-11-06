@@ -1328,13 +1328,18 @@ browser_wait_frontend_ready() {
     else
       return "$?"
     fi
-    if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
+    # The acquisition owner keeps the process-group anchor alive until cleanup,
+    # even after Vite exits. A definite bind failure must not become a timeout.
+    failure_reason=""
+    failure_message=""
+    if [[ -f "${WEB_LOG}" ]] && grep -Eq 'Port [0-9]+ is already in use' "${WEB_LOG}"; then
+      failure_reason="resource_conflict"
+      failure_message="frontend port ${FRONTEND_PORT} became unavailable before readiness"
+    elif [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
       failure_reason="service_start_error"
       failure_message="frontend exited before readiness"
-      if [[ -f "${WEB_LOG}" ]] && grep -Eq 'Port [0-9]+ is already in use' "${WEB_LOG}"; then
-        failure_reason="resource_conflict"
-        failure_message="frontend port ${FRONTEND_PORT} became unavailable before readiness"
-      fi
+    fi
+    if [[ -n "${failure_reason}" ]]; then
       echo "${failure_message}" >&2
       write_startup_diagnostics "fail" "frontend_readiness" "infra" "${failure_reason}" "${failure_message}" || true
       cat "${WEB_LOG}" >&2 || true

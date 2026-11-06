@@ -52,10 +52,12 @@ const profileByVersion = new Map([
   [31, "import"],
   [32, "import"],
   [33, "import"],
+  [39, "import"],
   [20, "network_flow_activity"],
   [30, "network_flow_activity"],
   [34, "network_flow_activity"],
   [38, "network_flow_activity"],
+  [40, "network_flow_activity"],
   [23, "snapshot_reporting"],
   [37, "snapshot_reporting"],
   [24, "snapshot_reporting"],
@@ -347,6 +349,11 @@ function toManifestEntry(object) {
     "operator_recovery_journal",
     "restore_verification_runs",
   ]);
+  const runtimeImmutableTables = new Set([
+    "import_committed_source_blobs",
+    "import_committed_source_chunks",
+    "import_committed_sources",
+  ]);
   const runtimeAppendOnlyTables = new Set([
     "administrative_audit_projections",
     "deployment_admin_audit_events",
@@ -366,6 +373,7 @@ function toManifestEntry(object) {
     "reference_pack_sets",
     "reference_pack_versions",
     "reporting_imported_artifact_files",
+    "reporting_imported_artifact_chunks",
     "reporting_preview_reveal_maps",
     "reporting_release_reveal_maps",
   ]);
@@ -416,7 +424,9 @@ function toManifestEntry(object) {
       ? "migration_ledger_read"
       : runtimeNoAccessTables.has(bareName)
         ? "table_no_access"
-        : runtimeAppendOnlyTables.has(bareName)
+        : runtimeImmutableTables.has(bareName)
+          ? "table_immutable"
+          : runtimeAppendOnlyTables.has(bareName)
           ? "table_append_only"
           : derivedReadOnlyTables.has(bareName) || bareName === "recovery_target_state"
             ? "table_read_only"

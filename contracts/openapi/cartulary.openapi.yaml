@@ -2295,6 +2295,87 @@
         "x-cartulary-state-changing": false
       }
     },
+    "/api/v1/incident-bundles/{bundle_id}/content": {
+      "get": {
+        "operationId": "getIncidentBundleContent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Exact completed ZIP export; no-store attachment.",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid singleton read query",
+            "x-cartulary-error-codes": [
+              "invalid_pagination_request"
+            ]
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Incident bundle descriptor not found",
+            "x-cartulary-error-codes": [
+              "incident_bundle_not_found"
+            ]
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Stream a completed incident bundle as a ZIP attachment after export authorization and integrity verification.",
+        "tags": [
+          "incident-bundles"
+        ],
+        "x-cartulary-availability": "incident_portability",
+        "x-cartulary-state-changing": false
+      }
+    },
     "/api/v1/incidents": {
       "get": {
         "operationId": "listVisibleIncidents",
@@ -2711,6 +2792,288 @@
             "string_contract_id": "reason_note_v1"
           }
         }
+      }
+    },
+    "/api/v1/incidents/{incident_id}/committed-sources": {
+      "get": {
+        "operationId": "listCommittedImportSources",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor_token",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommittedImportSourcesEnvelope"
+                }
+              }
+            },
+            "description": "Immutable committed source provenance"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "List authorized committed sources in stable identifier order.",
+        "tags": [
+          "imports"
+        ],
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
+      }
+    },
+    "/api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}": {
+      "get": {
+        "operationId": "getCommittedImportSource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "committed_source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommittedImportSourceEnvelope"
+                }
+              }
+            },
+            "description": "Immutable committed source provenance"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Read retained import source provenance.",
+        "tags": [
+          "imports"
+        ],
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
+      }
+    },
+    "/api/v1/incidents/{incident_id}/committed-sources/{committed_source_id}/content": {
+      "get": {
+        "operationId": "getCommittedImportSourceContent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "committed_source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Authorized retained source content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Source unavailable or access rejected"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Read retained import source bytes.",
+        "tags": [
+          "imports"
+        ],
+        "x-cartulary-availability": "import",
+        "x-cartulary-state-changing": false
       }
     },
     "/api/v1/incidents/{incident_id}/entity-candidates": {
@@ -4093,6 +4456,160 @@
         "summary": "Read one immutable report-composition version.",
         "tags": [
           "report-composition"
+        ],
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
+      }
+    },
+    "/api/v1/incidents/{incident_id}/retained-report-artifacts": {
+      "get": {
+        "operationId": "getRetainedReportArtifacts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetainedReportArtifactsEnvelope"
+                }
+              }
+            },
+            "description": "Retained reporting evidence catalog"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid pagination request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Current incident role does not permit source capture inspection"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Incident or retained artifact is not visible"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Inspect transferred reporting evidence without creating native reporting workflow state.",
+        "tags": [
+          "snapshot-reporting"
+        ],
+        "x-cartulary-availability": "snapshot_reporting",
+        "x-cartulary-state-changing": false
+      }
+    },
+    "/api/v1/incidents/{incident_id}/retained-report-artifacts/{artifact_id}/content": {
+      "get": {
+        "operationId": "getRetainedReportArtifactContent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Exact retained bytes"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Invalid pagination request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Current incident role does not permit source capture inspection"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Incident or retained artifact is not visible"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "summary": "Download one immutable transferred reporting file.",
+        "tags": [
+          "snapshot-reporting"
         ],
         "x-cartulary-availability": "snapshot_reporting",
         "x-cartulary-state-changing": false
@@ -11291,6 +11808,204 @@
         },
         "required": [
           "client_txn_id"
+        ],
+        "type": "object"
+      },
+      "CommittedImportSource": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_mapping": {
+            "$ref": "#/components/schemas/ApprovedImportMapping"
+          },
+          "byte_size": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "committed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "committed_source_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "content_sha256": {
+            "type": "string"
+          },
+          "created_by_user_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "data_start_row_ref": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "header_row_ref": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "incident_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "locator_kind": {
+            "type": "string"
+          },
+          "mapping_fingerprint": {
+            "type": "string"
+          },
+          "origin_import_session_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "origin_import_unit_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "original_filename": {
+            "type": "string"
+          },
+          "parser_profile_id": {
+            "type": "string"
+          },
+          "parser_version": {
+            "type": "string"
+          },
+          "schema_id": {
+            "const": "cartulary.imports.committed_source.v1",
+            "type": "string"
+          },
+          "source_file_kind": {
+            "type": "string"
+          },
+          "source_media_type": {
+            "type": "string"
+          },
+          "source_rect_a1": {
+            "type": "string"
+          },
+          "target_kind": {
+            "type": "string"
+          },
+          "target_view_schema_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "committed_source_id",
+          "incident_id",
+          "origin_import_session_id",
+          "origin_import_unit_id",
+          "created_by_user_id",
+          "content_sha256",
+          "source_file_kind",
+          "source_media_type",
+          "original_filename",
+          "parser_profile_id",
+          "parser_version",
+          "locator_kind",
+          "locator",
+          "source_rect_a1",
+          "mapping_fingerprint",
+          "target_kind",
+          "target_view_schema_id",
+          "extension_profile_id",
+          "schema_id",
+          "byte_size",
+          "committed_at",
+          "approved_mapping",
+          "header_row_ref",
+          "data_start_row_ref"
+        ],
+        "type": "object"
+      },
+      "CommittedImportSourceEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CommittedImportSource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "CommittedImportSourceSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "committed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "committed_source_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "content_sha256": {
+            "type": "string"
+          },
+          "extension_profile_id": {
+            "type": "string"
+          },
+          "original_filename": {
+            "type": "string"
+          },
+          "target_kind": {
+            "type": "string"
+          },
+          "target_view_schema_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "committed_source_id",
+          "content_sha256",
+          "original_filename",
+          "target_kind",
+          "target_view_schema_id",
+          "extension_profile_id",
+          "committed_at"
+        ],
+        "type": "object"
+      },
+      "CommittedImportSourcesEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "committed_sources": {
+                "items": {
+                  "$ref": "#/components/schemas/CommittedImportSourceSummary"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "committed_sources"
+            ],
+            "type": "object"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ],
         "type": "object"
       },
@@ -19707,6 +20422,106 @@
         "required": [
           "data",
           "meta"
+        ],
+        "type": "object"
+      },
+      "RetainedReportArtifact": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "byte_size": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "content_href": {
+            "type": "string"
+          },
+          "filename": {
+            "maxLength": 512,
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "catalog",
+              "source_capture",
+              "release_manifest",
+              "release_file"
+            ],
+            "type": "string"
+          },
+          "release_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "artifact_id",
+          "kind",
+          "filename",
+          "byte_size",
+          "sha256",
+          "snapshot_id",
+          "release_id",
+          "content_href"
+        ],
+        "type": "object"
+      },
+      "RetainedReportArtifactsEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RetainedReportArtifactsResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "RetainedReportArtifactsResource": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/RetainedReportArtifact"
+            },
+            "maxItems": 10000,
+            "type": "array"
+          },
+          "incident_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "schema_id": {
+            "const": "cartulary.retained_report_artifacts.v1",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_id",
+          "incident_id",
+          "artifacts"
         ],
         "type": "object"
       },

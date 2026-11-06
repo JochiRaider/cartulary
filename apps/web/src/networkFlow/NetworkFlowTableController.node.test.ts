@@ -481,8 +481,8 @@ describe("Table catalog continuity", () => {
     const request = s.controller.handoffImportedTable({
       incidentId: table.incident_id,
       tableId: id,
-      sessionId: table.source_import_session_id,
-      unitId: table.source_import_unit_id,
+      sessionId: "33333333-3333-4333-8333-333333333333",
+      unitId: "44444444-4444-4444-8444-444444444444",
       sourceHash: table.source_content_sha256,
       fingerprint: table.mapping_fingerprint,
       current: () => true,

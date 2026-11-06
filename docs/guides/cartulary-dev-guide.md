@@ -1171,14 +1171,21 @@ The default local loop is:
 4. use the Vite-served browser app against the Go server and local Postgres plus the S3-compatible object store
 
 `make services-up` starts services and initializes the object-store bucket; it does
-not migrate a retained database. Use `make db-migrate` for a non-destructive
-current-v3-line migration. `make db-migrate` preserves only an inherited
+not migrate a retained database. The incident-portability cutover requires
+separately provisioned empty storage and fresh initialization through
+`make db-migrate`. Prior retained state, including predecessor v3 state, is not an
+upgrade source. Keep its matching executable, configuration, keys and storage
+together for historical access. The successor supplies no retained-data migration,
+backfill, dual reader or in-place downgrade. See the
+[IR portability handoff](../handoffs/ir-fixture-adoption-implementation.md#operational-handoff)
+for the current generation and transfer boundary.
+
+`make db-migrate` preserves only an inherited
 `CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN`; `make dev` preserves only
 `CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN`. Both variables must be explicitly provisioned certificate-authenticated DSNs;
 there is no password, passfile, service-file or inherited `PG*` fallback. A v1, v2, foreign-lineage,
-unmarked-nonzero, or contaminated database is not an upgrade source. Reset it
-with `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`; v3 defines no data
-bridge, export/import transition, legacy dual read, or compatibility alias.
+unmarked-nonzero, or contaminated database is not an upgrade source. Initialization
+must not reset or partially mutate such a database.
 
 The ordinary development service is exact PostgreSQL 18.6 from
 `docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2`.
@@ -1689,9 +1696,11 @@ For the current baseline, source and target database access crosses the
 platform PostgreSQL admission boundary. Restore accepts only a pristine exact
 PostgreSQL 18.6 target with data checksums enabled and the expected
 purpose-specific login/role, and admission must complete before the first
-restore mutation. Valid v2 logical artifacts remain readable; PostgreSQL 16
-physical state, WAL, cluster directories, and compatibility modes are not
-Recovery inputs.
+restore mutation. Only backups bound to the current
+`recovery.incident_portability.v1` generation and successor inventory are admitted.
+Shared logical-artifact version names do not admit predecessor Recovery
+generations. PostgreSQL 16 physical state, WAL, cluster directories, and
+compatibility modes are not Recovery inputs.
 
 Operational backup baseline:
 

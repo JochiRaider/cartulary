@@ -579,7 +579,7 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 	}
 	participantContracts := map[string]map[string]any{}
 	for _, object := range indexed {
-		if object["schema_id"] == "cartulary.extension_reporting_source_contract.v1" || object["schema_id"] == "cartulary.extension_participant_specialization.v4" ||
+		if object["schema_id"] == "cartulary.extension_reporting_source_contract.v1" || object["schema_id"] == "cartulary.extension_participant_specialization.v5" ||
 			object["schema_id"] == "cartulary.extension_transaction_participant_contract.v3" {
 			participantContracts[stringValue(object["participant_id"])] = object
 		}
@@ -622,7 +622,7 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 					return nil, fmt.Errorf("profile %s participant %s digest is stale", profileID, participantID)
 				}
 				algorithmIDs := []string{}
-				if contract["schema_id"] == "cartulary.extension_participant_specialization.v4" {
+				if contract["schema_id"] == "cartulary.extension_participant_specialization.v5" {
 					algorithmIDs = extensionSpecializationAlgorithmIDs(contract)
 				}
 				if contract["schema_id"] == "cartulary.extension_reporting_source_contract.v1" {
@@ -1057,7 +1057,7 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 	participantRows := []map[string]any{}
 	for _, contract := range indexed {
 		schemaID := stringValue(contract["schema_id"])
-		if schemaID != "cartulary.extension_reporting_source_contract.v1" && schemaID != "cartulary.extension_participant_specialization.v4" &&
+		if schemaID != "cartulary.extension_reporting_source_contract.v1" && schemaID != "cartulary.extension_participant_specialization.v5" &&
 			schemaID != "cartulary.extension_transaction_participant_contract.v3" {
 			continue
 		}

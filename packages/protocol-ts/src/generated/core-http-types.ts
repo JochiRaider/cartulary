@@ -2889,6 +2889,40 @@ export interface RecordConflictClearData {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RetainedReportArtifactsEnvelope".
+ */
+export interface RetainedReportArtifactsEnvelope {
+  data: RetainedReportArtifactsResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RetainedReportArtifactsResource".
+ */
+export interface RetainedReportArtifactsResource {
+  /**
+   * @maxItems 10000
+   */
+  artifacts: RetainedReportArtifact[];
+  incident_id: string;
+  schema_id: "cartulary.retained_report_artifacts.v1";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RetainedReportArtifact".
+ */
+export interface RetainedReportArtifact {
+  artifact_id: string;
+  byte_size: number;
+  content_href: string;
+  filename: string;
+  kind: "catalog" | "source_capture" | "release_manifest" | "release_file";
+  release_id: string | null;
+  sha256: string;
+  snapshot_id: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "SafeUserEnvelope".
  */
 export interface SafeUserEnvelope {

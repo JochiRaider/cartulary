@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.graph_projection_restore_implementation_binding.v9",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "algorithm_id",
+    "binding_id",
+    "projection_schema_id",
+    "semantic_query_schema_ids",
+    "recovery_state_catalog_sha256",
+    "source_registry_sha256",
+    "graph_table_ids"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.graph_projection_restore_implementation_binding.v9"
+    },
+    "algorithm_id": {
+      "const": "graphprojection.restore_rebuild.v5"
+    },
+    "binding_id": {
+      "const": "graphprojection.restore_rebuild.network_flow_graph_views.v7"
+    },
+    "semantic_query_schema_ids": {
+      "const": [
+        "cartulary.network_flow.graph_semantic_query.v3"
+      ]
+    },
+    "recovery_state_catalog_sha256": {
+      "$ref": "common.v1.schema.json#/$defs/sha256"
+    },
+    "source_registry_sha256": {
+      "$ref": "common.v1.schema.json#/$defs/sha256"
+    },
+    "graph_table_ids": {
+      "const": [
+        "graph_projection_result_edges",
+        "graph_projection_result_vertices",
+        "graph_projection_results"
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "projection_schema_id": {
+      "const": "graph_projection.v2"
+    }
+  }
+}

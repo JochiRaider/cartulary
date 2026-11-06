@@ -13,13 +13,14 @@ func VNextRecoveryObjectInventory(
 	return recovery.NewVNextObjectInventoryProvider(
 		"module.extensions",
 		"extensions.staged_objects",
-		"extensions.snapshot_staged_object_inventory.v1",
+		"extensions.snapshot_staged_object_inventory.v2",
 		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
 			rows, err := snapshot.QueryRows(ctx, `
 SELECT staging_id, storage_identity, expected_byte_size, expected_sha256
   FROM extension_staged_objects
  WHERE state IN ('ready', 'published')
    AND delete_state <> 'deleted'
+   AND (state <> 'published' OR reserved_resource_kind IS NULL)
  ORDER BY staging_id ASC
 `)
 			if err != nil {

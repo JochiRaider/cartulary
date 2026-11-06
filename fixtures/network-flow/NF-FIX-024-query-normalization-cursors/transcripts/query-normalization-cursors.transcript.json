@@ -1,6 +1,6 @@
 {
   "fixture_id": "NF-FIX-024-query-normalization-cursors",
-  "freeze_revision": 6,
+  "freeze_revision": 7,
   "outcomes": [
     {
       "case": "query-boundaries",
@@ -1870,8 +1870,6 @@
             "display_name": "query-normalization-cursors",
             "table_version": 1,
             "table_status": "active",
-            "source_import_session_id": "00000000-0000-4000-8000-000000000003",
-            "source_import_unit_id": "00000000-0000-4000-8000-000000000004",
             "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
             "source_filename_display": "query-normalization-cursors.csv",
             "source_filename_digest": "9e2728a73f5b4b9f975ea19f40fe7b2d056ff443747c19983c8ed89542fe61a7",
@@ -1885,7 +1883,10 @@
             "created_by_user_id": "00000000-0000-4000-8000-000000000001",
             "created_at": "2026-07-10T12:00:00+00:00",
             "updated_at": "2026-07-10T12:00:00+00:00",
-            "deleted_at": null
+            "deleted_at": null,
+            "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9",
+            "source_interpretation_sha256": "0a1aeab700ccb8058c7e3a10feae7a4e2b9c666e5e403ab96756f7dfbe5bb93f",
+            "source_raw_cell_scalar_limit": 4096
           }
         ],
         "rows": [
@@ -1909,14 +1910,13 @@
             "application_label": null,
             "unmapped_raw": {},
             "observation_source_ref": {
-              "import_session_id": "00000000-0000-4000-8000-000000000003",
-              "import_unit_id": "00000000-0000-4000-8000-000000000004",
               "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
               "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
               "source_row_number": 2,
-              "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+              "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+              "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
             },
             "created_at": "2026-07-10T12:00:00+00:00",
             "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -1980,14 +1980,13 @@
             "application_label": null,
             "unmapped_raw": {},
             "observation_source_ref": {
-              "import_session_id": "00000000-0000-4000-8000-000000000003",
-              "import_unit_id": "00000000-0000-4000-8000-000000000004",
               "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
               "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
               "source_row_number": 3,
-              "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+              "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+              "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
             },
             "created_at": "2026-07-10T12:00:00+00:00",
             "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -2051,14 +2050,13 @@
             "application_label": null,
             "unmapped_raw": {},
             "observation_source_ref": {
-              "import_session_id": "00000000-0000-4000-8000-000000000003",
-              "import_unit_id": "00000000-0000-4000-8000-000000000004",
               "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
               "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
               "source_row_number": 4,
-              "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7"
+              "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7",
+              "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
             },
             "created_at": "2026-07-10T12:00:00+00:00",
             "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -2264,7 +2262,7 @@
         }
       },
       "table_list": {
-        "schema_id": "cartulary.network_flow_table_list.v2",
+        "schema_id": "cartulary.network_flow_table_list.v3",
         "tables": [
           {
             "network_flow_table_id": "nft_00000000000040008000000000000005",
@@ -2272,8 +2270,6 @@
             "display_name": "query-normalization-cursors",
             "table_version": 1,
             "table_status": "active",
-            "source_import_session_id": "00000000-0000-4000-8000-000000000003",
-            "source_import_unit_id": "00000000-0000-4000-8000-000000000004",
             "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
             "source_filename_display": "query-normalization-cursors.csv",
             "source_filename_digest": "9e2728a73f5b4b9f975ea19f40fe7b2d056ff443747c19983c8ed89542fe61a7",
@@ -2288,7 +2284,10 @@
             "created_at": "2026-07-10T12:00:00Z",
             "updated_at": "2026-07-10T12:00:00Z",
             "deleted_at": null,
-            "counter_semantics": "source_reported_flow_total"
+            "counter_semantics": "source_reported_flow_total",
+            "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9",
+            "source_interpretation_sha256": "0a1aeab700ccb8058c7e3a10feae7a4e2b9c666e5e403ab96756f7dfbe5bb93f",
+            "source_raw_cell_scalar_limit": 4096
           }
         ],
         "meta": {
@@ -2296,7 +2295,7 @@
         }
       },
       "rows": {
-        "schema_id": "cartulary.network_flow.table_query_result.v2",
+        "schema_id": "cartulary.network_flow.table_query_result.v3",
         "network_flow_table_id": "nft_00000000000040008000000000000005",
         "rows": [
           {
@@ -2319,14 +2318,13 @@
             "network_flow.application_label": null,
             "unmapped_raw": {},
             "network_flow.observation_source_ref": {
-              "import_session_id": "00000000-0000-4000-8000-000000000003",
-              "import_unit_id": "00000000-0000-4000-8000-000000000004",
               "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
               "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
               "source_row_number": 2,
-              "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+              "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+              "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
             },
             "created_at": "2026-07-10T12:00:00Z",
             "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -2395,14 +2393,13 @@
             "network_flow.application_label": null,
             "unmapped_raw": {},
             "network_flow.observation_source_ref": {
-              "import_session_id": "00000000-0000-4000-8000-000000000003",
-              "import_unit_id": "00000000-0000-4000-8000-000000000004",
               "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
               "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
               "source_row_number": 3,
-              "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+              "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+              "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
             },
             "created_at": "2026-07-10T12:00:00Z",
             "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -2471,14 +2468,13 @@
             "network_flow.application_label": null,
             "unmapped_raw": {},
             "network_flow.observation_source_ref": {
-              "import_session_id": "00000000-0000-4000-8000-000000000003",
-              "import_unit_id": "00000000-0000-4000-8000-000000000004",
               "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
               "source_profile_id": "cisco_sna_netflow_csv_v2",
               "parser_profile_id": "rfc4180_headered_csv_v1",
               "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
               "source_row_number": 4,
-              "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7"
+              "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7",
+              "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
             },
             "created_at": "2026-07-10T12:00:00Z",
             "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -2679,7 +2675,7 @@
           {
             "name": "scope-active_table",
             "response": {
-              "schema_id": "cartulary.network_flow.rows_query_result.v2",
+              "schema_id": "cartulary.network_flow.rows_query_result.v3",
               "rows": [
                 {
                   "network_flow_row_id": "nfr_c39ee677127925480529b6381cd27453cceaed4dd39dae5a712cced2cb1946ed",
@@ -2701,14 +2697,13 @@
                   "network_flow.application_label": null,
                   "unmapped_raw": {},
                   "network_flow.observation_source_ref": {
-                    "import_session_id": "00000000-0000-4000-8000-000000000003",
-                    "import_unit_id": "00000000-0000-4000-8000-000000000004",
                     "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                     "source_profile_id": "cisco_sna_netflow_csv_v2",
                     "parser_profile_id": "rfc4180_headered_csv_v1",
                     "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                     "source_row_number": 2,
-                    "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+                    "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+                    "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
                   },
                   "created_at": "2026-07-10T12:00:00Z",
                   "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -2777,14 +2772,13 @@
                   "network_flow.application_label": null,
                   "unmapped_raw": {},
                   "network_flow.observation_source_ref": {
-                    "import_session_id": "00000000-0000-4000-8000-000000000003",
-                    "import_unit_id": "00000000-0000-4000-8000-000000000004",
                     "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                     "source_profile_id": "cisco_sna_netflow_csv_v2",
                     "parser_profile_id": "rfc4180_headered_csv_v1",
                     "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                     "source_row_number": 3,
-                    "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+                    "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+                    "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
                   },
                   "created_at": "2026-07-10T12:00:00Z",
                   "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -2853,14 +2847,13 @@
                   "network_flow.application_label": null,
                   "unmapped_raw": {},
                   "network_flow.observation_source_ref": {
-                    "import_session_id": "00000000-0000-4000-8000-000000000003",
-                    "import_unit_id": "00000000-0000-4000-8000-000000000004",
                     "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                     "source_profile_id": "cisco_sna_netflow_csv_v2",
                     "parser_profile_id": "rfc4180_headered_csv_v1",
                     "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                     "source_row_number": 4,
-                    "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7"
+                    "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7",
+                    "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
                   },
                   "created_at": "2026-07-10T12:00:00Z",
                   "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -2972,7 +2965,7 @@
           {
             "name": "scope-selected_tables",
             "response": {
-              "schema_id": "cartulary.network_flow.rows_query_result.v2",
+              "schema_id": "cartulary.network_flow.rows_query_result.v3",
               "rows": [
                 {
                   "network_flow_row_id": "nfr_c39ee677127925480529b6381cd27453cceaed4dd39dae5a712cced2cb1946ed",
@@ -2994,14 +2987,13 @@
                   "network_flow.application_label": null,
                   "unmapped_raw": {},
                   "network_flow.observation_source_ref": {
-                    "import_session_id": "00000000-0000-4000-8000-000000000003",
-                    "import_unit_id": "00000000-0000-4000-8000-000000000004",
                     "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                     "source_profile_id": "cisco_sna_netflow_csv_v2",
                     "parser_profile_id": "rfc4180_headered_csv_v1",
                     "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                     "source_row_number": 2,
-                    "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+                    "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+                    "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
                   },
                   "created_at": "2026-07-10T12:00:00Z",
                   "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -3070,14 +3062,13 @@
                   "network_flow.application_label": null,
                   "unmapped_raw": {},
                   "network_flow.observation_source_ref": {
-                    "import_session_id": "00000000-0000-4000-8000-000000000003",
-                    "import_unit_id": "00000000-0000-4000-8000-000000000004",
                     "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                     "source_profile_id": "cisco_sna_netflow_csv_v2",
                     "parser_profile_id": "rfc4180_headered_csv_v1",
                     "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                     "source_row_number": 3,
-                    "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+                    "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+                    "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
                   },
                   "created_at": "2026-07-10T12:00:00Z",
                   "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -3146,14 +3137,13 @@
                   "network_flow.application_label": null,
                   "unmapped_raw": {},
                   "network_flow.observation_source_ref": {
-                    "import_session_id": "00000000-0000-4000-8000-000000000003",
-                    "import_unit_id": "00000000-0000-4000-8000-000000000004",
                     "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                     "source_profile_id": "cisco_sna_netflow_csv_v2",
                     "parser_profile_id": "rfc4180_headered_csv_v1",
                     "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                     "source_row_number": 4,
-                    "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7"
+                    "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7",
+                    "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
                   },
                   "created_at": "2026-07-10T12:00:00Z",
                   "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -3265,7 +3255,7 @@
           {
             "name": "scope-all_active_tables",
             "response": {
-              "schema_id": "cartulary.network_flow.rows_query_result.v2",
+              "schema_id": "cartulary.network_flow.rows_query_result.v3",
               "rows": [
                 {
                   "network_flow_row_id": "nfr_c39ee677127925480529b6381cd27453cceaed4dd39dae5a712cced2cb1946ed",
@@ -3287,14 +3277,13 @@
                   "network_flow.application_label": null,
                   "unmapped_raw": {},
                   "network_flow.observation_source_ref": {
-                    "import_session_id": "00000000-0000-4000-8000-000000000003",
-                    "import_unit_id": "00000000-0000-4000-8000-000000000004",
                     "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                     "source_profile_id": "cisco_sna_netflow_csv_v2",
                     "parser_profile_id": "rfc4180_headered_csv_v1",
                     "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                     "source_row_number": 2,
-                    "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+                    "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+                    "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
                   },
                   "created_at": "2026-07-10T12:00:00Z",
                   "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -3363,14 +3352,13 @@
                   "network_flow.application_label": null,
                   "unmapped_raw": {},
                   "network_flow.observation_source_ref": {
-                    "import_session_id": "00000000-0000-4000-8000-000000000003",
-                    "import_unit_id": "00000000-0000-4000-8000-000000000004",
                     "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                     "source_profile_id": "cisco_sna_netflow_csv_v2",
                     "parser_profile_id": "rfc4180_headered_csv_v1",
                     "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                     "source_row_number": 3,
-                    "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+                    "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+                    "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
                   },
                   "created_at": "2026-07-10T12:00:00Z",
                   "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -3439,14 +3427,13 @@
                   "network_flow.application_label": null,
                   "unmapped_raw": {},
                   "network_flow.observation_source_ref": {
-                    "import_session_id": "00000000-0000-4000-8000-000000000003",
-                    "import_unit_id": "00000000-0000-4000-8000-000000000004",
                     "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                     "source_profile_id": "cisco_sna_netflow_csv_v2",
                     "parser_profile_id": "rfc4180_headered_csv_v1",
                     "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                     "source_row_number": 4,
-                    "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7"
+                    "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7",
+                    "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
                   },
                   "created_at": "2026-07-10T12:00:00Z",
                   "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -3976,7 +3963,7 @@
           }
         ],
         "row_page": {
-          "schema_id": "cartulary.network_flow.table_query_result.v2",
+          "schema_id": "cartulary.network_flow.table_query_result.v3",
           "network_flow_table_id": "nft_00000000000040008000000000000005",
           "rows": [
             {
@@ -3999,14 +3986,13 @@
               "network_flow.application_label": null,
               "unmapped_raw": {},
               "network_flow.observation_source_ref": {
-                "import_session_id": "00000000-0000-4000-8000-000000000003",
-                "import_unit_id": "00000000-0000-4000-8000-000000000004",
                 "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                 "source_profile_id": "cisco_sna_netflow_csv_v2",
                 "parser_profile_id": "rfc4180_headered_csv_v1",
                 "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                 "source_row_number": 2,
-                "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+                "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+                "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
               },
               "created_at": "2026-07-10T12:00:00Z",
               "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -4597,7 +4583,7 @@
           }
         },
         "before_expiry": {
-          "schema_id": "cartulary.network_flow.table_query_result.v2",
+          "schema_id": "cartulary.network_flow.table_query_result.v3",
           "network_flow_table_id": "nft_00000000000040008000000000000005",
           "rows": [
             {
@@ -4620,14 +4606,13 @@
               "network_flow.application_label": null,
               "unmapped_raw": {},
               "network_flow.observation_source_ref": {
-                "import_session_id": "00000000-0000-4000-8000-000000000003",
-                "import_unit_id": "00000000-0000-4000-8000-000000000004",
                 "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                 "source_profile_id": "cisco_sna_netflow_csv_v2",
                 "parser_profile_id": "rfc4180_headered_csv_v1",
                 "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                 "source_row_number": 3,
-                "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+                "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+                "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
               },
               "created_at": "2026-07-10T12:00:00Z",
               "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -4799,8 +4784,6 @@
               "display_name": "query-normalization-cursors",
               "table_version": 1,
               "table_status": "active",
-              "source_import_session_id": "00000000-0000-4000-8000-000000000003",
-              "source_import_unit_id": "00000000-0000-4000-8000-000000000004",
               "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
               "source_filename_display": "query-normalization-cursors.csv",
               "source_filename_digest": "9e2728a73f5b4b9f975ea19f40fe7b2d056ff443747c19983c8ed89542fe61a7",
@@ -4814,7 +4797,10 @@
               "created_by_user_id": "00000000-0000-4000-8000-000000000001",
               "created_at": "2026-07-10T12:00:00+00:00",
               "updated_at": "2026-07-10T12:00:00+00:00",
-              "deleted_at": null
+              "deleted_at": null,
+              "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9",
+              "source_interpretation_sha256": "0a1aeab700ccb8058c7e3a10feae7a4e2b9c666e5e403ab96756f7dfbe5bb93f",
+              "source_raw_cell_scalar_limit": 4096
             }
           ],
           "rows": [
@@ -4838,14 +4824,13 @@
               "application_label": null,
               "unmapped_raw": {},
               "observation_source_ref": {
-                "import_session_id": "00000000-0000-4000-8000-000000000003",
-                "import_unit_id": "00000000-0000-4000-8000-000000000004",
                 "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                 "source_profile_id": "cisco_sna_netflow_csv_v2",
                 "parser_profile_id": "rfc4180_headered_csv_v1",
                 "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                 "source_row_number": 2,
-                "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069"
+                "source_row_digest_sha256": "324d8bb2bf468a6e3b42166022936c4c5cbb8af83f31d560bb08d754fe259069",
+                "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
               },
               "created_at": "2026-07-10T12:00:00+00:00",
               "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -4909,14 +4894,13 @@
               "application_label": null,
               "unmapped_raw": {},
               "observation_source_ref": {
-                "import_session_id": "00000000-0000-4000-8000-000000000003",
-                "import_unit_id": "00000000-0000-4000-8000-000000000004",
                 "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                 "source_profile_id": "cisco_sna_netflow_csv_v2",
                 "parser_profile_id": "rfc4180_headered_csv_v1",
                 "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                 "source_row_number": 3,
-                "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df"
+                "source_row_digest_sha256": "50f38e021502dd061584f327d174d7624aae3f8569e03e0230111172a95955df",
+                "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
               },
               "created_at": "2026-07-10T12:00:00+00:00",
               "created_by_user_id": "00000000-0000-4000-8000-000000000001",
@@ -4980,14 +4964,13 @@
               "application_label": null,
               "unmapped_raw": {},
               "observation_source_ref": {
-                "import_session_id": "00000000-0000-4000-8000-000000000003",
-                "import_unit_id": "00000000-0000-4000-8000-000000000004",
                 "source_content_sha256": "7c877c4b84936555f1bb182a7d0e762e56830eaa1db28fd7b2b233d7ef4bfbe1",
                 "source_profile_id": "cisco_sna_netflow_csv_v2",
                 "parser_profile_id": "rfc4180_headered_csv_v1",
                 "mapping_fingerprint": "9f6a75f418a29096da202cd3080ad3c61cf3e8e04870d84fc575ae1289873c8c",
                 "source_row_number": 4,
-                "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7"
+                "source_row_digest_sha256": "510491bfa236d351862eb9bfe3da6dad66d07a4d41e5e269449d593112071fc7",
+                "committed_source_id": "ed5268bb-7988-5aa3-a73d-690d661045e9"
               },
               "created_at": "2026-07-10T12:00:00+00:00",
               "created_by_user_id": "00000000-0000-4000-8000-000000000001",
