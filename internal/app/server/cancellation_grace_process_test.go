@@ -13,8 +13,10 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
+	"github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 )
 
 const graceProcessPhaseEnv = "CARTULARY_TEST_GRACE_PROCESS_PHASE"
@@ -30,7 +32,7 @@ func TestServerRunnerCancellationGrace_Process(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, phase := range []string{"construction", "serving", "cleanup", "draining"} {
+	for _, phase := range []string{"construction", "serving", "cleanup", "draining", "reference_cleanup"} {
 		t.Run(phase, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
@@ -68,6 +70,20 @@ func runBlockedGraceProcess(t *testing.T, phase string) int {
 			entered := make(chan struct{})
 			go func() { <-entered; cancel() }()
 			_, _ = extensiondeadline.Invoke(ctx, extensiondeadline.InvocationPolicy{Grace: 5 * time.Millisecond, Exhausted: owner.fatalIntegrity}, func(context.Context) (struct{}, error) { close(entered); select {} })
+		}
+		if phase == "portable_source" || phase == "portable_workspace" {
+			lifetime, err := reference_data.NewVerificationLifetime(5*time.Millisecond, owner.fatalIntegrity)
+			if err != nil {
+				t.Fatal(err)
+			}
+			referencetest.BlockedPortableCleanup(t, lifetime, phase == "portable_source")
+		}
+		if phase == "reference_cleanup" {
+			lifetime, err := reference_data.NewVerificationLifetime(5*time.Millisecond, owner.fatalIntegrity)
+			if err != nil {
+				t.Fatal(err)
+			}
+			referencetest.BlockedImportCleanup(t, lifetime)
 		}
 		if phase == "construction" {
 			block()
@@ -112,4 +128,33 @@ func (p graceProcessProfile) serve(ctx context.Context, _ http.Handler, options 
 		p.block()
 	}
 	return nil
+}
+
+func TestPortableReferenceCleanupGrace_Process(t *testing.T) {
+	if phase := os.Getenv(graceProcessPhaseEnv); phase == "portable_source" || phase == "portable_workspace" {
+		os.Exit(runBlockedGraceProcess(t, phase))
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, phase := range []string{"portable_source", "portable_workspace"} {
+		t.Run(phase, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
+			defer cancel()
+			command := exec.CommandContext(ctx, executable, "-test.run=^TestPortableReferenceCleanupGrace_Process$")
+			command.Env = append(os.Environ(), graceProcessPhaseEnv+"="+phase, "TMPDIR="+t.TempDir())
+			var stderr bytes.Buffer
+			command.Stdout = io.Discard
+			command.Stderr = &stderr
+			err := command.Run()
+			var exit *exec.ExitError
+			if ctx.Err() != nil || !errors.As(err, &exit) || exit.ExitCode() != 70 {
+				t.Fatalf("portable child exit=%v deadline=%v diagnostic=%q", err, ctx.Err(), stderr.String())
+			}
+			if stderr.String() != "{\"code\":\"extension_integrity_failure\",\"reason_code\":\"operation_cancellation_grace_exhausted\"}\n" {
+				t.Fatalf("unsafe portable diagnostic=%q", stderr.String())
+			}
+		})
+	}
 }

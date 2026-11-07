@@ -17,7 +17,7 @@ import (
 // NewOperatorAdmission composes only import admission and observation. Durable
 // Jobs execution remains with the deployment's admitted lifecycle worker; this
 // command creates neither a listener nor a second verification executor.
-func NewOperatorAdmission(ctx context.Context, pool *pgxpool.Pool, storage reference_data.ArtifactStorage, configuration reference_data.Configuration, limits reference_data.Limits, requestedClaims []string, now func() time.Time) (reference_data.ImportAdmission, *jobs.Manager, error) {
+func NewOperatorAdmission(ctx context.Context, pool *pgxpool.Pool, storage reference_data.ArtifactStorage, configuration reference_data.Configuration, limits reference_data.Limits, requestedClaims []string, now func() time.Time, lifetime *reference_data.VerificationLifetime) (reference_data.ImportAdmission, *jobs.Manager, error) {
 	coordinator, err := extensions.NewGeneratedCoordinator()
 	if err != nil {
 		return nil, nil, err
@@ -69,7 +69,7 @@ func NewOperatorAdmission(ctx context.Context, pool *pgxpool.Pool, storage refer
 	if err := manager.ValidateStorageCatalog(ctx); err != nil {
 		return nil, nil, err
 	}
-	admission, err := reference_data.NewImportAdmission(reference_data.ImportAdmissionOptions{Postgres: pool, Storage: storage, Configuration: configuration, Limits: limits, JobAdmission: transactions, Now: now})
+	admission, err := reference_data.NewImportAdmission(reference_data.ImportAdmissionOptions{Lifetime: lifetime, Postgres: pool, Storage: storage, Configuration: configuration, Limits: limits, JobAdmission: transactions, Now: now})
 	if err != nil {
 		return nil, nil, err
 	}

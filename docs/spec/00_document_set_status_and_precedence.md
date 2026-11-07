@@ -448,6 +448,47 @@ identities must cut over coherently. Executable requirements, generation, tests,
 runtime admission and release evidence MUST NOT read, stat or hash this adoption
 record or any other Markdown.
 
+### Reference Pack temporary-resource completion clarification — 2026-11-07
+
+The maintainer-authorized cleanup remediation clarifies Reference Pack
+RP-REQ-094/098/238/239: cancellation does not waive temporary cleanup;
+completion shares the original Extensions cancellation grace, and genuine
+cleanup failures leave private scratch for automatic serving reconciliation
+under RP-REQ-200's existing maintenance budget. EXT-REQ-215 and Core 04
+REQ-04-144/146 continue to govern fatal exhaustion, including the operator
+process consequence. Pack bytes, public APIs, ordinary operator exit mappings,
+stored state and configuration settings are unchanged. This is an adopted
+clarification; implementation and targeted validation evidence remain separate.
+
+### 1.8 Reference Pack transport remediation — 2026-11-07
+
+The coordinated Reference Pack transport amendment is adopted/current. Core 01
+§17.4 owns the complete nine-operation inventory, family authorization before
+routing, operation-declared CSRF, exact opaque version addressing, declared-only
+HTTP methods and closed non-list query admission. The ambiguous
+`pack_version_required` reason is retired. Extensions imports this policy after
+reserved-family dispatch; the Reference Pack NLSpec continues to own pack
+semantics. Domain vocabulary navigation is aligned with that allocation.
+Reference Pack profile major 3 and pack contract v2 are unchanged. This amendment
+requires no data migration, compatibility reader or environment reset. Adoption
+does not claim implementation validation or deployment.
+
+The post-review clarification on the same date adopts Core 01 REQ-01-547's
+escaped-segment family classification before redirects and §17.4's rejection of
+structurally noncanonical Reference Pack paths after family authorization.
+Neither normalization redirects nor path-rewriting aliases are supported for
+that family. Encoded parameter data remains decoded once. This clarification
+does not change pack formats, stored identities or profile majors.
+
+The subsequent precedence clarification adopts Core 01 REQ-01-548 and Extensions
+EXT-REQ-096/098 together: after original Base-route matching, an inactive-family
+match in either path form wins over a claimed-family match in the other form,
+in both traversal directions. Claim-specific authentication, redirects and
+operations run only after that inactive-family admission check. Structural
+cleaning cannot manufacture Base-route precedence. This resolves the earlier
+claimed-before-inactive list without introducing a compatibility alias or data
+migration.
+
 ## 2. Precedence
 
 The order of authority is:

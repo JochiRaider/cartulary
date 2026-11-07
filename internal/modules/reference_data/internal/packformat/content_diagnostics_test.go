@@ -139,7 +139,7 @@ func testContentSchemaFindings(t *testing.T) {
 		rows = append(rows, string(data))
 	}
 	fixture.Members = map[string]string{"payload/entries.ndjson": strings.Join(rows, "\n") + "\n"}
-	summary, err := ContentSchemaSummary(context.Background(), fixtureManifest(fixture), contentMemory(fixture.Members), newDiagnosticTestScratch())
+	summary, err := contentSchemaSummary(context.Background(), fixtureManifest(fixture), contentMemory(fixture.Members), newDiagnosticTestScratch())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -31,10 +31,6 @@ func Extract(ctx context.Context, source io.ReaderAt, size int64, limits Archive
 	return extract(ctx, source, size, limits, destination, nil, false)
 }
 
-func ExtractWithDiagnostics(ctx context.Context, source io.ReaderAt, size int64, limits ArchiveLimits, destination Destination, scratch DiagnosticScratch) (Inventory, error) {
-	return extract(ctx, source, size, limits, destination, scratch, true)
-}
-
 // Framing and decompression are checked without writing any archive path. The
 // registry then validates all original names and collisions before extraction.
 // Extraction rechecks each header and content digest against that frozen scan.

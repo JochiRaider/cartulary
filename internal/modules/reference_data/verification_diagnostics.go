@@ -67,9 +67,9 @@ func (s *verificationDiagnosticScratch) Remove(ctx context.Context, name string)
 	}
 	return s.workspace.Remove(ctx, name)
 }
-func (s *verificationDiagnosticScratch) close() error {
+func (s *verificationDiagnosticScratch) close(ctx context.Context) error {
 	if s.workspace == nil {
 		return nil
 	}
-	return s.workspace.Close()
+	return closeVerificationWorkspace(ctx, s.workspace)
 }

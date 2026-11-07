@@ -44,11 +44,12 @@ func (emptyIdentityHistory) checkLogicalVersion(context.Context, packformat.Mani
 }
 
 type engineStorage struct {
-	container    []byte
-	closed       bool
-	workspaces   int
-	closeFaultAt int
-	closeFault   error
+	container     []byte
+	closed        bool
+	workspaces    int
+	closeFaultAt  int
+	closeFault    error
+	closeContexts []context.Context
 }
 
 func (s *engineStorage) OpenStaged(context.Context, StagingRef) (ContainerReader, int64, error) {
@@ -67,9 +68,11 @@ func (s *engineStorage) NewWorkspace(context.Context) (VerificationWorkspace, er
 }
 
 type engineWorkspace struct {
-	storage *engineStorage
-	members map[string][]byte
-	ordinal int
+	storage  *engineStorage
+	members  map[string][]byte
+	ordinal  int
+	closed   bool
+	closeErr error
 }
 
 func (w *engineWorkspace) Write(_ context.Context, name string, write func(io.Writer) error) error {
@@ -87,12 +90,18 @@ func (w *engineWorkspace) Open(_ context.Context, name string) (io.ReadCloser, e
 	}
 	return io.NopCloser(bytes.NewReader(b)), nil
 }
-func (w *engineWorkspace) Close() error {
-	w.storage.closed = true
-	if w.ordinal == w.storage.closeFaultAt {
-		return w.storage.closeFault
+func (w *engineWorkspace) Close(ctx context.Context) error {
+	if w.closed {
+		return w.closeErr
 	}
-	return nil
+	w.closed = true
+	w.storage.closed = true
+	w.storage.closeContexts = append(w.storage.closeContexts, ctx)
+	w.closeErr = ctx.Err()
+	if w.ordinal == w.storage.closeFaultAt {
+		w.closeErr = w.storage.closeFault
+	}
+	return w.closeErr
 }
 
 func (w *engineWorkspace) Remove(_ context.Context, name string) error {
@@ -139,7 +148,7 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 	factory := func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
 		return &rows, nil
 	}
-	content, err := verifyCanonicalContainer(context.Background(), storage, attempt, factory)
+	content, err := verifyTestCanonicalContainer(context.Background(), storage, attempt, factory)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +200,7 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 		})
 	}
 	attempt.Start = v.Expiry
-	if _, err := verifyCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
+	if _, err := verifyTestCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
 		t.Fatal("queue-expired envelope admitted")
 	} else {
 		var rejected *ContentRejection
@@ -200,7 +209,7 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 		}
 	}
 	attempt.ClockTrusted = false
-	if _, err := verifyCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
+	if _, err := verifyTestCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
 		t.Fatal("untrusted clock admitted")
 	} else {
 		var rejected *OperationRejection
@@ -211,7 +220,7 @@ func TestCanonicalVerificationEngineIndependentSignedContainer_Unit(t *testing.T
 	attempt.ClockTrusted = true
 	attempt.Start = v.At
 	storage.container = nil
-	if _, err := verifyCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
+	if _, err := verifyTestCanonicalContainer(context.Background(), storage, attempt, factory); err == nil {
 		t.Fatal("missing bytes admitted")
 	}
 }
@@ -243,7 +252,7 @@ func canonicalEngineFixture(t *testing.T) (*engineStorage, verificationAttempt) 
 	return &engineStorage{container: container}, verificationAttempt{Staged: &ref, Start: v.At, ClockTrusted: true, Identity: emptyIdentityHistory{}, Limits: packformat.DefaultArchiveLimits(), Repositories: map[string]packformat.TrustSnapshot{v.Repository: trust}}
 }
 func verifyEngineFixture(storage VerificationStorage, attempt verificationAttempt) (*verifiedContent, error) {
-	return verifyCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
+	return verifyTestCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
 		return new(builtinRows), nil
 	})
 }
@@ -273,6 +282,25 @@ func (h *retainedEngineHistory) checkRetainedIntegrity(context.Context) error {
 }
 
 func TestRetainedContentChecksFollowVerificationPrecedence_Unit(t *testing.T) {
+	t.Run("cleanup inherits cancellation and operation values", func(t *testing.T) {
+		storage, attempt := canonicalEngineFixture(t)
+		type operationKey struct{}
+		ctx, cancel := context.WithCancel(context.WithValue(t.Context(), operationKey{}, "operation"))
+		defer cancel()
+		result, err := verifyTestCanonicalContainer(ctx, storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
+			cancel()
+			return new(builtinRows), nil
+		})
+		var rejected *ContentRejection
+		if result != nil || !errors.Is(err, context.Canceled) || errors.As(err, &rejected) || len(storage.closeContexts) == 0 {
+			t.Fatal("canceled cleanup became a result or content verdict", result, err)
+		}
+		for _, closedWith := range storage.closeContexts {
+			if closedWith.Err() != nil || closedWith.Value(operationKey{}) != "operation" {
+				t.Fatal("cleanup lost its supervised completion context")
+			}
+		}
+	})
 	t.Run("cleanup failure supersedes content rejection", func(t *testing.T) {
 		var manyPaths bytes.Buffer
 		writer := zip.NewWriter(&manyPaths)
@@ -299,7 +327,7 @@ func TestRetainedContentChecksFollowVerificationPrecedence_Unit(t *testing.T) {
 				fault := errors.New("cleanup failed")
 				storage.container, storage.closeFaultAt, storage.closeFault = test.data, test.workspace, fault
 				indexed := false
-				result, err := verifyCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
+				result, err := verifyTestCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
 					indexed = true
 					return new(builtinRows), nil
 				})
@@ -341,7 +369,7 @@ func TestRetainedContentChecksFollowVerificationPrecedence_Unit(t *testing.T) {
 				attempt.Start = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 			}
 			indexed := false
-			_, err := verifyCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
+			_, err := verifyTestCanonicalContainer(context.Background(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
 				indexed = true
 				return new(builtinRows), nil
 			})
@@ -391,7 +419,7 @@ func TestVerifierNeverTurnsOperationalReadsIntoContentVerdicts_Unit(t *testing.T
 		if content != nil || !errors.Is(err, io.ErrClosedPipe) || errors.As(err, &verdict) || !storage.closed {
 			t.Fatalf("read %d was misclassified: %v", at, err)
 		}
-		identity, err := probeContainerIdentity(context.Background(), faulted, *attempt.Staged, attempt.Limits)
+		identity, err := probeContainerIdentity(testVerificationLifetime(t).track(context.Background()), faulted, *attempt.Staged, attempt.Limits)
 		if !errors.Is(err, io.ErrClosedPipe) || !reflect.DeepEqual(identity, importIdentity{}) || !storage.closed {
 			t.Fatalf("probe read %d was misclassified: %v", at, err)
 		}
@@ -675,7 +703,7 @@ func testCompleteLiveProgram(t *testing.T) {
 		defer p.source.Close()
 	}
 	if p.workspace != nil {
-		defer p.workspace.Close()
+		defer p.workspace.Close(t.Context())
 	}
 	if err != nil || summary.Result != "succeeded" {
 		t.Fatalf("live program: %v %#v", err, summary)

@@ -1,7 +1,6 @@
 package packformat
 
 import (
-	"context"
 	"errors"
 	"slices"
 	"strconv"
@@ -32,17 +31,6 @@ func ManifestCompatibilityFindings(m Manifest, runtime bool, emit FindingSink) e
 	c := &semanticChecks{path: "$", emit: emit}
 	manifestCompatibility(m, runtime, c)
 	return c.err
-}
-
-// DecodeManifestWithDiagnostics uses the same admission rules as every
-// retained/built-in reader. Only the execution boundary needs the complete
-// winning-check diagnostic stream and its confined external merge workspace.
-func DecodeManifestWithDiagnostics(ctx context.Context, data []byte, operator bool, scratch DiagnosticScratch) (Manifest, error) {
-	program, result := ManifestChecks(data, int64(len(data)), operator)
-	if err := runCheckRange(ctx, "manifest_encoding", "manifest_canonical", scratch, program, true); err != nil {
-		return Manifest{}, err
-	}
-	return result(), nil
 }
 
 func manifestFieldFindings(m Manifest, operator bool, emit FindingSink) error {
@@ -179,13 +167,4 @@ func manifestFieldFindings(m Manifest, operator bool, emit FindingSink) error {
 		}
 	}
 	return nil
-}
-
-// Hint shape admission is separate from canonical bytes, matching the registry.
-func DecodeHintWithDiagnostics(ctx context.Context, data []byte, scratch DiagnosticScratch) (string, error) {
-	program, result := HintChecks(data, int64(len(data)))
-	if err := runCheckRange(ctx, "bundle_shape", "bundle_canonical", scratch, program, true); err != nil {
-		return "", err
-	}
-	return result(), nil
 }

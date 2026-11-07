@@ -68,7 +68,7 @@ func testRemovedObjectCollection(t *testing.T, c *Coordinator, storage *coordina
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := RestoreHistoricalState(ctx, c.pool, storage, DefaultLimits()); err != nil {
+	if err := RestoreHistoricalState(ctx, c.pool, storage, DefaultLimits(), testVerificationLifetime(t)); err != nil {
 		t.Fatal("removed history failed full authentication", err)
 	}
 	var index *string

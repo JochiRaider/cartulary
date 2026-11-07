@@ -128,6 +128,33 @@
       ]
     },
     {
+      "row_id": "app.operator.process.reference_cleanup_grace",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.process",
+      "collaborator_ids": [
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator",
+        "tests": [
+          "TestReferenceCleanupGrace_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "managed_process",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "app.operator.unit.collaboration_requeue_v2_transport_contract_11562cd85f",
       "owner_id": "app.operator",
       "family_id": "app.operator.unit",

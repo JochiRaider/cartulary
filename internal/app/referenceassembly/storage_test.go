@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"io"
 	"os"
 	"path/filepath"
@@ -30,7 +31,7 @@ func testWorkspaceRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer live.Close()
+	defer live.Close(ctx)
 	if err := live.Write(ctx, "payload/entries.ndjson", func(w io.Writer) error { _, err := io.WriteString(w, "live"); return err }); err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +117,7 @@ func testWorkspaceRecovery(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := live.Close(); err != nil {
+	if err := live.Close(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if err := second.ReconcileWorkspaces(ctx); err != nil {
@@ -147,6 +148,8 @@ func testWorkspaceRecovery(t *testing.T) {
 
 func TestReferencePackStreamingWorkspaceIsolationAndCleanup_Unit(t *testing.T) {
 	t.Run("restart sweep preserves live work across capabilities", testWorkspaceRecovery)
+	t.Run("contended close obeys cancellation and deadline", testWorkspaceCloseCancellation)
+	t.Run("partial close relinquishes ownership for recovery", testWorkspaceClosePartialFailure)
 	t.Run("operator incoming boundary", func(t *testing.T) {
 		root := t.TempDir()
 		storage, err := referenceassembly.NewRootStorage(t.TempDir(), root)
@@ -199,12 +202,12 @@ func TestReferencePackStreamingWorkspaceIsolationAndCleanup_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Close()
+	defer a.Close(ctx)
 	b, err := storage.NewWorkspace(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Close()
+	defer b.Close(ctx)
 	write := func(value string) func(io.Writer) error {
 		return func(w io.Writer) error { _, err := io.WriteString(w, value); return err }
 	}
@@ -229,10 +232,10 @@ func TestReferencePackStreamingWorkspaceIsolationAndCleanup_Unit(t *testing.T) {
 	if err != nil || string(data) != "a\n" {
 		t.Fatal("workspace content changed")
 	}
-	if err := a.Close(); err != nil {
+	if err := a.Close(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Close(); err != nil {
+	if err := a.Close(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Open(ctx, "payload/entries.ndjson"); err == nil {
@@ -260,7 +263,7 @@ func TestReferencePackStreamingWorkspaceIsolationAndCleanup_Unit(t *testing.T) {
 		t.Fatal("random-access container read failed")
 	}
 	container.Close()
-	if err := b.Close(); err != nil {
+	if err := b.Close(ctx); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := os.ReadDir(filepath.Join(temporary, "reference-packs", "verification"))
@@ -351,13 +354,13 @@ func TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing.
 	}
 	t.Run("recovery preserves confined object identity", func(t *testing.T) {
 		ctx := context.Background()
-		source, err := referenceassembly.NewRecoveryStorage(temporaryRoot, publishedRoot, reference_data.DefaultLimits())
+		source, err := referenceassembly.NewRecoveryStorage(temporaryRoot, publishedRoot, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer source.Close()
 		targetRoot := filepath.Join(t.TempDir(), "restored")
-		target, err := referenceassembly.NewRecoveryStorage(filepath.Join(t.TempDir(), "scratch"), targetRoot, reference_data.DefaultLimits())
+		target, err := referenceassembly.NewRecoveryStorage(filepath.Join(t.TempDir(), "scratch"), targetRoot, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -502,5 +505,163 @@ func assertPrivateRegularFile(t testing.TB, path string, want []byte) {
 	}
 	if string(data) != string(want) {
 		t.Fatalf("%s bytes = %q want %q", path, data, want)
+	}
+}
+
+func testWorkspaceCloseCancellation(t *testing.T) {
+	for _, deadline := range []bool{false, true} {
+		t.Run(fmt.Sprintf("deadline=%t", deadline), func(t *testing.T) {
+			ctx := t.Context()
+			temporary := t.TempDir()
+			storage, err := referenceassembly.NewRootStorage(temporary, t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer storage.Close()
+			workspace, err := storage.NewWorkspace(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer workspace.Close(ctx)
+			if err := workspace.Write(ctx, "member", func(w io.Writer) error { _, err := io.WriteString(w, "private"); return err }); err != nil {
+				t.Fatal(err)
+			}
+			root, err := rootedfs.Open(temporary)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer root.Close()
+			lease, err := root.LockDirectory(ctx, rootedfs.MustParseReference("reference-packs/verification"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer lease.Close()
+			closeCtx, cancel := context.WithCancel(ctx)
+			want := error(context.Canceled)
+			if deadline {
+				cancel()
+				closeCtx, cancel = context.WithTimeout(ctx, 50*time.Millisecond)
+				want = context.DeadlineExceeded
+			}
+			defer cancel()
+			done := make(chan error, 1)
+			go func() { done <- workspace.Close(closeCtx) }()
+			if !deadline {
+				select {
+				case err := <-done:
+					t.Fatal("close escaped held parent lease", err)
+				case <-time.After(25 * time.Millisecond):
+				}
+				cancel()
+			}
+			var closeErr error
+			select {
+			case closeErr = <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("close ignored cancellation while parent lease was held")
+			}
+			if !errors.Is(closeErr, want) {
+				t.Fatal("wrong cleanup outcome", closeErr)
+			}
+			if err := workspace.Close(ctx); err != closeErr {
+				t.Fatal("close retried after relinquishing ownership", err)
+			}
+			if _, err := workspace.Open(ctx, "member"); !errors.Is(err, os.ErrClosed) {
+				t.Fatal("failed close left workspace usable", err)
+			}
+			if err := lease.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if err := storage.ReconcileWorkspaces(ctx); err != nil {
+				t.Fatal(err)
+			}
+			entries, err := os.ReadDir(filepath.Join(temporary, "reference-packs", "verification"))
+			if err != nil || len(entries) != 0 {
+				t.Fatal("canceled cleanup retained its lease or unrecoverable scratch", entries, err)
+			}
+		})
+	}
+}
+
+func testWorkspaceClosePartialFailure(t *testing.T) {
+	ctx := t.Context()
+	temporary := t.TempDir()
+	storage, err := referenceassembly.NewRootStorage(temporary, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer storage.Close()
+	workspace, err := storage.NewWorkspace(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer workspace.Close(ctx)
+	for _, name := range []string{"a", "b"} {
+		if err := workspace.Write(ctx, name, func(w io.Writer) error { _, err := io.WriteString(w, "private"); return err }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	parent := filepath.Join(temporary, "reference-packs", "verification")
+	entries, err := os.ReadDir(parent)
+	if err != nil || len(entries) != 1 {
+		t.Fatal("workspace inventory", entries, err)
+	}
+	directory := filepath.Join(parent, entries[0].Name())
+	member := func(name string) string {
+		return filepath.Join(directory, fmt.Sprintf("%x", sha256.Sum256([]byte(name))))
+	}
+	outside := filepath.Join(t.TempDir(), "retained")
+	if err := os.WriteFile(outside, []byte("keep"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(member("b")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, member("b")); err != nil {
+		t.Fatal(err)
+	}
+	closeErr := workspace.Close(ctx)
+	if closeErr == nil {
+		t.Fatal("unsafe member cleanup succeeded")
+	}
+	if _, err := os.Stat(member("a")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("safe prefix was not cleaned", err)
+	}
+	if data, err := os.ReadFile(outside); err != nil || string(data) != "keep" {
+		t.Fatal("cleanup escaped workspace", err)
+	}
+	if err := os.Remove(member("b")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(member("b"), []byte("recoverable"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := workspace.Close(ctx); err != closeErr {
+		t.Fatal("lost terminal cleanup failure", err)
+	}
+	if _, err := os.Stat(member("b")); err != nil {
+		t.Fatal("unowned handle retried deletion", err)
+	}
+	live, err := storage.NewWorkspace(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer live.Close(ctx)
+	if err := live.Write(ctx, "live", func(w io.Writer) error { _, err := io.WriteString(w, "keep"); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.ReconcileWorkspaces(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(directory); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("partial cleanup was not recovered", err)
+	}
+	reader, err := live.Open(ctx, "live")
+	if err != nil {
+		t.Fatal("recovery collected live workspace", err)
+	}
+	defer reader.Close()
+	if data, err := io.ReadAll(reader); err != nil || string(data) != "keep" {
+		t.Fatal("live scratch changed", err)
 	}
 }

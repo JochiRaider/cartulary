@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"io"
 	"net/http"
 	"os"
@@ -201,7 +202,7 @@ INSERT INTO object_blobs (
 	if err != nil {
 		t.Fatal(err)
 	}
-	sourcePacks, err := referenceassembly.NewRecoveryStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits())
+	sourcePacks, err := referenceassembly.NewRecoveryStorage(harness.Server.Config.Roots.TemporaryWork.Path, harness.Server.Config.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +323,7 @@ INSERT INTO object_blobs (
 	}
 
 	targetPublishedRoot := t.TempDir()
-	targetPacks, err := referenceassembly.NewRecoveryStorage(t.TempDir(), targetPublishedRoot, reference_data.DefaultLimits())
+	targetPacks, err := referenceassembly.NewRecoveryStorage(t.TempDir(), targetPublishedRoot, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 	if err != nil {
 		t.Fatal(err)
 	}

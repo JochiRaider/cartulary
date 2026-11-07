@@ -89,7 +89,7 @@ type verificationWorkspace struct {
 	root      *rootedfs.Root
 	directory rootedfs.Reference
 	members   map[string]rootedfs.Reference
-	closed    bool
+	closeErr  error
 	sealed    bool
 	lease     io.Closer
 }
@@ -152,11 +152,11 @@ func (w *verificationWorkspace) Remove(ctx context.Context, name string) error {
 	delete(w.members, name)
 	return nil
 }
-func (w *verificationWorkspace) Close() (result error) {
+func (w *verificationWorkspace) Close(ctx context.Context) (result error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.closed {
-		return nil
+	if w.sealed {
+		return w.closeErr
 	}
 	w.sealed = true
 	defer func() {
@@ -164,8 +164,12 @@ func (w *verificationWorkspace) Close() (result error) {
 			result = errors.Join(result, w.lease.Close())
 			w.lease = nil
 		}
+		w.closeErr = result
 	}()
-	parentLease, err := lockWorkspaceParent(context.Background(), w.root)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	parentLease, err := lockWorkspaceParent(ctx, w.root)
 	if err != nil {
 		return err
 	}
@@ -176,6 +180,9 @@ func (w *verificationWorkspace) Close() (result error) {
 	}
 	slices.Sort(names)
 	for _, name := range names {
+		if err := ctx.Err(); err != nil {
+			return errors.Join(result, err)
+		}
 		if err := w.root.RemoveRegular(w.members[name]); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			result = errors.Join(result, err)
 		} else {
@@ -183,10 +190,12 @@ func (w *verificationWorkspace) Close() (result error) {
 		}
 	}
 	if result == nil {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err := w.root.RemoveEmptyDir(w.directory); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			result = err
 		}
 	}
-	w.closed = result == nil
 	return result
 }

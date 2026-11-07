@@ -21,7 +21,7 @@ import (
 // IncidentReferences retains source references as historical evidence. It does
 // not make source trust, activation or provenance authoritative locally.
 type IncidentReferences interface {
-	BeginImportExecution(context.Context, jobs.Execution, time.Time) (*IncidentReferenceExecution, error)
+	RunImportExecution(context.Context, jobs.Execution, time.Time, func(context.Context, *IncidentReferenceExecution) error) error
 	PrepareImport(context.Context, IncidentReferenceImportRequest) (*PreparedReferenceImport, error)
 	ApplyImportTx(context.Context, pgx.Tx, *PreparedReferenceImport) error
 	ExportTx(context.Context, pgx.Tx, uuid.UUID, []SetBinding) ([]byte, error)
@@ -47,6 +47,7 @@ type portableExecutionGuard interface {
 }
 
 type IncidentReferenceOptions struct {
+	Lifetime      *VerificationLifetime
 	Postgres      postgres.DB
 	Storage       ArtifactStorage
 	Configuration Configuration
@@ -65,13 +66,13 @@ type incidentReferences struct {
 }
 
 func NewIncidentReferences(options IncidentReferenceOptions) (IncidentReferences, error) {
-	if options.Postgres == nil || options.Storage == nil || options.JobExecutions == nil || options.JobOperations == nil || options.Now == nil {
+	if options.Lifetime == nil || options.Postgres == nil || options.Storage == nil || options.JobExecutions == nil || options.JobOperations == nil || options.Now == nil {
 		return nil, errors.New("reference pack: incident retention dependencies required")
 	}
 	if err := validateCoordinatorLimits(options.Limits); err != nil {
 		return nil, err
 	}
-	c := &verificationService{referenceDependencies: &referenceDependencies{pool: options.Postgres, storage: options.Storage, configuration: options.Configuration, limits: options.Limits, observer: options.Observer, now: options.Now}, operations: options.JobOperations}
+	c := &verificationService{referenceDependencies: &referenceDependencies{lifetime: options.Lifetime, pool: options.Postgres, storage: options.Storage, configuration: options.Configuration, limits: options.Limits, observer: options.Observer, now: options.Now}, operations: options.JobOperations}
 	return &incidentReferences{pool: options.Postgres, storage: options.Storage, verifier: c, executions: options.JobExecutions}, nil
 }
 
@@ -110,6 +111,21 @@ type referenceImportVersionResolution struct {
 }
 
 func (r *incidentReferences) PrepareImport(ctx context.Context, request IncidentReferenceImportRequest) (result *PreparedReferenceImport, resultErr error) {
+	if scope := request.ExecutionScope; scope != nil && (!scope.active.Load() || scope.owner != r || scope.execution != request.Execution || scope.started != request.ExecutionStarted || ctx.Value(incidentExecutionKey{}) != scope) {
+		return nil, errors.New("reference pack: foreign or inactive parent execution scope")
+	}
+	resultErr = r.verifier.lifetime.Run(ctx, func(ctx context.Context) error {
+		var err error
+		result, err = r.prepareImport(ctx, request)
+		return err
+	})
+	if resultErr != nil {
+		result = nil
+	}
+	return
+}
+
+func (r *incidentReferences) prepareImport(ctx context.Context, request IncidentReferenceImportRequest) (result *PreparedReferenceImport, resultErr error) {
 	payload, incident, operation, actor, at := request.References, request.IncidentID, request.OperationID, request.ActorID, request.At
 	if incident == uuid.Nil || operation == uuid.Nil || actor == uuid.Nil || at.IsZero() {
 		return nil, errors.New("reference pack: invalid incident retention attribution")
@@ -160,9 +176,6 @@ func (r *incidentReferences) PrepareImport(ctx context.Context, request Incident
 	if scope != nil && (scope.owner != r || scope.execution != request.Execution || scope.started != request.ExecutionStarted) {
 		return nil, errors.New("reference pack: foreign parent execution scope")
 	}
-	if scope != nil {
-		ctx = scope.Context()
-	}
 	cohort, found, err := r.loadPortablePreparation(ctx, request, p)
 	if err != nil {
 		return nil, err
@@ -186,7 +199,7 @@ func (r *incidentReferences) PrepareImport(ctx context.Context, request Incident
 				}
 				if cleanup != nil {
 					result = nil
-					resultErr = cleanup
+					resultErr = verificationCleanupError(resultErr, cleanup)
 				}
 			}
 		}()

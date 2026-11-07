@@ -63,7 +63,7 @@ func runTrustManifest(t *testing.T, input []byte, expected map[string]any) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	proposal, verdict := VerifyTrustWithDiagnostics(context.Background(), files, fixture.Inventory, "test.repo", fixture.VerificationTime, trust, newDiagnosticTestScratch())
+	proposal, verdict := verifyTrustWithDiagnostics(context.Background(), files, fixture.Inventory, "test.repo", fixture.VerificationTime, trust, newDiagnosticTestScratch())
 	after, err := json.Marshal(trust)
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatal("verification mutated retained trust", err)

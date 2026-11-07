@@ -98,10 +98,6 @@ func compileReference(ref, documentName string, document map[string]any, ancesto
 	return compileShapeIn(value, documentName, document, ancestors)
 }
 
-func compileShape(value map[string]any, ancestors map[string]bool) *shape {
-	return compileShapeIn(value, "inline", value, ancestors)
-}
-
 func compileShapeIn(value map[string]any, documentName string, document map[string]any, ancestors map[string]bool) *shape {
 	if ref, exists := value["$ref"]; exists {
 		name, ok := ref.(string)

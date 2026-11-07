@@ -75,15 +75,6 @@ func metadataSchemaFindings(data []byte, kind string, maxSignatures int, path st
 	return m, nil
 }
 
-// Schema diagnostics enumerate files in canonical path order. Dynamic member
-// names are always represented by the declared unknown-member segment; the
-// metadata ordinal names the bounded sorted input without echoing hostile paths.
-func TrustSchemaSummary(ctx context.Context, files map[string][]byte, scratch DiagnosticScratch) (*ValidationSummary, error) {
-	return CheckSummary(ctx, "tuf_schema", scratch, func(ctx context.Context, emit FindingSink) error {
-		return trustSchemaFindings(ctx, files, emit, nil)
-	})
-}
-
 func trustSchemaFindings(ctx context.Context, files map[string][]byte, emit FindingSink, admitted map[string]metadata) error {
 	paths := make([]string, 0, len(files))
 	for path := range files {

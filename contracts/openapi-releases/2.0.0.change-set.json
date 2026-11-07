@@ -3268,12 +3268,6 @@
       "rationale": "Project adopted owner mutation semantics explicitly under Core 01. Classification is independent of HTTP method and does not alter the separately declared authentication or CSRF contract; missing declarations fail assembly and generation."
     },
     {
-      "fingerprint": "4bf04df0abd1dedbfa9ca0b59d587efe00a3521a2414d1fe269ea1485567cdb8",
-      "classification": "additive",
-      "owner_id": "module.reference_data",
-      "rationale": "Expose immutable committed validation summaries through an authenticated Reference Pack read operation, with closed issue schemas and content-derived identities. Declare the operation mutation semantics explicitly under Core 01, independently of HTTP method and CSRF policy."
-    },
-    {
       "fingerprint": "0bb6859595bde9323690266e43231be2cb86dbb59c77b60fec8dcd73d106b465",
       "classification": "security_sensitive",
       "owner_id": "module.reference_data",
@@ -3332,12 +3326,6 @@
       "classification": "security_sensitive",
       "owner_id": "module.reference_data",
       "rationale": "Project adopted owner mutation semantics explicitly under Core 01. Classification is independent of HTTP method and does not alter the separately declared authentication or CSRF contract; missing declarations fail assembly and generation."
-    },
-    {
-      "fingerprint": "1af820fb5a84dd3fb5e46d48300d8e03d9dabd19857756313afe630aeed3ee5a",
-      "classification": "additive",
-      "owner_id": "module.reference_data",
-      "rationale": "Reference Pack profile 2 clean cutover: separate health and disablement; expose nullable successful verification metadata and complete signer sets; retire verification-result aliases; add explicit removal and bounded normalized reasons. Declare the operation mutation semantics explicitly under Core 01, independently of HTTP method and CSRF policy."
     },
     {
       "fingerprint": "1874db4b3f50d5ac745ed7878811cf8250ab40bc340aaa3ffc0028b080ba3758",
@@ -3752,6 +3740,162 @@
       "classification": "security_sensitive",
       "owner_id": "module.reporting",
       "rationale": "REQ-RPT-046pb adds read-only historical reporting evidence inspection and streamed attachment downloads after incident transfer. Current editor/reviewer/admin admission applies before artifact lookup; source approvals never become native destination approvals."
+    },
+    {
+      "fingerprint": "1d90d42918b4b440e2fa2e6b92c8c948d6f88eee682655164f15bf77093e2f29",
+      "classification": "non_behavioral",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged."
+    },
+    {
+      "fingerprint": "2f6093c2a47f17404d0f6a35b641c8d5e75df08998cf38c22282a714b9e90585",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "81368aec0aa052d98ef0183ecfdfe8440edf8acaae284c097f95c13f47cd2fa8",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "6ec91bad0f81091e1efa43d518a73248d94ec693083c48cc81862d26bceb0b88",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "b41f96f57b663cc6f17bbf547a299ad7db78941af064efab230383dece395d64",
+      "classification": "non_behavioral",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged."
+    },
+    {
+      "fingerprint": "d3ea1876769b86ca04472b8c10165b22c7a2cbaaaec6334690f0f00058b3014b",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "fa99f7544c45ce054864632d076df2ee77ba45d1ea6817a8e489876094652cdb",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "b7e244f889950fe0b2f849e8763f21f8012ce581c341bbdefa546475b0d8a711",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "c5f9f1391e934f23bf429dbb5842ff9ed9fa7357218133b1efa22380458ceb1d",
+      "classification": "non_behavioral",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged."
+    },
+    {
+      "fingerprint": "28be44092b4a4e8d9f8d5f185020cdf1c822a9e26bd3186abbca8d4a72158668",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "de9924f4264cec941f06c0f033adf43c964ff119238e731e8f223265adf7b362",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "58d482e29e45f4c84292f184014b4d695d1fdd284848bfea86d42c684e7ed025",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "8910381458ecb976730cf82fd4f49c01f5fba75afc49b90a0d670e8ccc0bcf3d",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged."
+    },
+    {
+      "fingerprint": "ef6b4b3c53f843be4c7a75e3888b29f80b0ca39ed46d8e211e08b45056ffc923",
+      "classification": "non_behavioral",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged."
+    },
+    {
+      "fingerprint": "1d115a5b92b6f544fdcd3f45242080785b11d5c7069d92cc913e5021e65a7b91",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "e77e6ae85c234e60325637bbee35f09f6db6844d2a3debe4769dfaa5ce66e5d7",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "9a01f74257c8fe1f4fa58b3e2d1ae6d62d65d5f994ace40247207ee3de8deb2c",
+      "classification": "non_behavioral",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged."
+    },
+    {
+      "fingerprint": "ecf00f035f0407666011b2fa860cfa408d259983020f7b979bbfe6504e20de80",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "2e4504f950c3b55f09fd45d8127cf2c1a8542b51bca14f10e62d581461b82827",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "ad0224cf4afeca86fece911ebb3cc5c6b8afa7dda88dfd57d0c9a2d032bd4fab",
+      "classification": "non_behavioral",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged."
+    },
+    {
+      "fingerprint": "3dda0361188d9104bfa9f84ea2fb455a244fd734ad92d2f01171e5ec2099d3e4",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "a4045d9decda8c5623b674342e2749afbca23c51d7d1e72abed46123aac21c49",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "71eefad25be28733ccdc85c5b99877078e7a0687a54c2643aa2e02f10efb683f",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged."
+    },
+    {
+      "fingerprint": "41e151e2d2cb0454141e4d12cea276b08710433a43d4b54c53fb51bf9cf10a65",
+      "classification": "non_behavioral",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family admission, exact methods and versions, and closed queries. Classify original and structurally cleaned escaped paths before admission; reject noncanonical family paths after authorization without redirects. Successful operation envelopes and stored pack identities are unchanged."
+    },
+    {
+      "fingerprint": "2c6825fe166c9c62c1fbaf9f583b9a3739bca5c246cd2e085fa4a6fa9d1bb90d",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "b9db484e749afd72f7b3effb0ac9526c40798beeaaeb8af8e6a9d36f3d5dd9a5",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
     }
   ]
 }

@@ -24,6 +24,17 @@ type canonicalRepository struct {
 	invalidate func(context.Context, string, string) error
 }
 
+// NewConsumer constructs a standalone consumer with independent owner integrity
+// publication enabled, including when operator administration is disabled.
+// Definitive retained-content loss may change health/selection and append audit
+// attestations before returning pack_unavailable. Operational read failures do
+// not publish invalidation. The integrity service rechecks content and guards
+// publication against concurrent replacement; a failed read does not guarantee
+// that an integrity transaction committed.
+//
+// Callers must not hold source/publication guards while using this consumer.
+// Use NewRegistryAssignments for source transactions so definitive loss releases
+// the entire transaction before independent integrity publication acquires guards.
 func NewConsumer(pool postgres.DB, storage ArtifactStorage, codec *pagination.Codec, now func() time.Time, integrity IntegrityOptions) (Consumer, error) {
 	if pool == nil || storage == nil || codec == nil || now == nil {
 		return nil, errors.New("reference pack: incomplete consumer dependencies")

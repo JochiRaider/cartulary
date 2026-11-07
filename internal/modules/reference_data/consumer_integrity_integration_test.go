@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"io"
 	"io/fs"
 	"net/http"
@@ -252,7 +253,7 @@ func TestRequiredBaseLossClearsSelectionAndBlocksReadiness_Integration(t *testin
 	if queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_sets WHERE pack_set_id=$1`, base.Value.ID) != 1 {
 		t.Fatal("immutable historical set erased")
 	}
-	if err := reference_data.ValidateRequiredState(ctx, harness.Pool, storage, reference_data.DefaultLimits()); err == nil {
+	if err := reference_data.ValidateRequiredState(ctx, harness.Pool, storage, reference_data.DefaultLimits(), verificationtest.Lifetime(t)); err == nil {
 		t.Fatal("startup validation accepted missing current selection")
 	}
 	requireReasonError(t, postAction(t, harness, admin, "/api/v1/reference-packs/refresh", "blocked-base-loss", ""), http.StatusConflict, "reference_pack_operation_rejected", "required_registry_gap")

@@ -40,7 +40,7 @@ func runAdmissionManifest(t *testing.T, input []byte, expected map[string]any) {
 			t.Fatal("independent container digest differs")
 		}
 		destination := memoryDestination{}
-		inventory, err := ExtractWithDiagnostics(context.Background(), bytes.NewReader(data), int64(len(data)), DefaultArchiveLimits(), destination, newDiagnosticTestScratch())
+		inventory, err := extractWithDiagnostics(context.Background(), bytes.NewReader(data), int64(len(data)), DefaultArchiveLimits(), destination, newDiagnosticTestScratch())
 		verdict = err
 		if len(destination) != len(fixture.Members) || err == nil && len(inventory) != len(fixture.Members) {
 			t.Fatal("unexpected extracted bytes or directory in logical inventory", len(destination), len(inventory))
@@ -69,7 +69,7 @@ func runAdmissionManifest(t *testing.T, input []byte, expected map[string]any) {
 		}
 	case "manifest", "license":
 		var admitted Manifest
-		admitted, verdict = DecodeManifestWithDiagnostics(context.Background(), data, fixture.Operator, newDiagnosticTestScratch())
+		admitted, verdict = decodeManifestWithDiagnostics(context.Background(), data, fixture.Operator, newDiagnosticTestScratch())
 		if verdict == nil && fixture.Kind == "license" {
 			verdict = runCheckRange(context.Background(), "content_semantics", "content_semantics", newDiagnosticTestScratch(), map[string]CheckFunc{
 				"content_semantics": func(_ context.Context, emit FindingSink) error { return ManifestLicenseFindings(admitted, emit) },

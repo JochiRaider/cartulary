@@ -176,10 +176,14 @@ func (executor recoveryExecutor) loadDeployment(path string) (application.Deploy
 		},
 		OpenProofScratch: func() (*os.Root, error) { return os.OpenRoot(cfg.Roots.TemporaryWork.Path) },
 		OpenReferencePacks: func() (recovery.ReferencePackStorage, error) {
+			lifetime, err := referenceVerificationLifetime(time.Duration(cfg.Timeouts.Extensions.CancellationGraceSeconds)*time.Second, executor.transport.stderr)
+			if err != nil {
+				return nil, err
+			}
 			return referenceassembly.NewRecoveryStorage(cfg.Roots.TemporaryWork.Path, cfg.Roots.ReferencePackStorage.Path, reference_data.Limits{
 				Archives:       reference_data.ArchiveLimits{DefaultMaxExtractedBytes: cfg.Limits.Archives.DefaultMaxExtractedBytes, MaxCompressionRatio: cfg.Limits.Archives.MaxCompressionRatio, MaxMembers: cfg.Limits.Archives.MaxMembers},
 				ReferencePacks: reference_data.ReferenceLimits{MaxExtractedBytes: cfg.Limits.ReferencePacks.MaxExtractedBytes, MaxContainerBytes: cfg.Limits.ReferencePacks.MaxContainerBytes, MaxVerificationSeconds: cfg.Limits.ReferencePacks.MaxVerificationSeconds},
-			})
+			}, lifetime)
 		},
 		OpenExportOutputs: func() (recovery.RootObjectStorage, error) {
 			return incidentportabilityassembly.NewRecoveryStorage(cfg.Roots.ExportOutputs.Path)

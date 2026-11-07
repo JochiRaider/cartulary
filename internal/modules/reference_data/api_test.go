@@ -11,6 +11,25 @@ import (
 )
 
 func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
+	t.Run("family denial has no operation effects", testFamilyDenialEffects)
+	t.Run("non-list empty query contract", func(t *testing.T) {
+		for _, raw := range []string{"", "&", "&&"} {
+			if err := validateEmptyAdministrativeQuery(raw); err != nil {
+				t.Fatalf("empty parsed query %q: %v", raw, err)
+			}
+		}
+		for _, tc := range []struct{ raw, code, reason string }{
+			{"=value", "invalid_reference_pack_request", "unknown_query_member"},
+			{"%6cimit=1", "invalid_pagination_request", "pagination_not_supported"},
+			{"limit=1&x=%ff", "invalid_reference_pack_request", "malformed_query"},
+			{"limit=1&x=%", "invalid_reference_pack_request", "malformed_query"},
+		} {
+			err := validateEmptyAdministrativeQuery(tc.raw)
+			if err == nil || err.Code != tc.code || err.Details["reason_code"] != tc.reason {
+				t.Fatalf("query %q: %v", tc.raw, err)
+			}
+		}
+	})
 	t.Run("semantic rejection projection", func(t *testing.T) {
 		for _, tc := range []struct {
 			err    error
@@ -62,15 +81,15 @@ func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
 		t.Fatalf("auto activation rejection = %#v", apiErr)
 	}
 
-	action, apiErr := DecodeActionRequest(bytes.NewBufferString(`{"client_txn_id":"txn-action","reason":" \r\n "}`))
+	action, apiErr := decodeActionRequest(bytes.NewBufferString(`{"client_txn_id":"txn-action","reason":" \r\n "}`), false)
 	if apiErr != nil {
 		t.Fatalf("DecodeActionRequest: %v", apiErr)
 	}
-	nullAction, apiErr := DecodeActionRequest(bytes.NewBufferString(`{"client_txn_id":"txn-action","reason":null}`))
+	nullAction, apiErr := decodeActionRequest(bytes.NewBufferString(`{"client_txn_id":"txn-action","reason":null}`), false)
 	if apiErr != nil {
 		t.Fatalf("DecodeActionRequest null: %v", apiErr)
 	}
-	omittedAction, apiErr := DecodeActionRequest(bytes.NewBufferString(`{"client_txn_id":"txn-action"}`))
+	omittedAction, apiErr := decodeActionRequest(bytes.NewBufferString(`{"client_txn_id":"txn-action"}`), false)
 	if apiErr != nil {
 		t.Fatalf("DecodeActionRequest omitted: %v", apiErr)
 	}
@@ -79,7 +98,7 @@ func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
 	}
 	t.Run("closed administrative JSON and reason boundaries", func(t *testing.T) {
 		for _, body := range []string{`{"client_txn_id":"a","client_txn_id":"b"}`, `{"client_txn_id":"a","reason":"\ud800"}`, `[]`, `null`, `{} {}`} {
-			if _, err := DecodeActionRequest(strings.NewReader(body)); err == nil {
+			if _, err := decodeActionRequest(strings.NewReader(body), false); err == nil {
 				t.Fatalf("invalid JSON admitted: %s", body)
 			}
 		}
@@ -91,7 +110,7 @@ func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
 			{strings.Repeat("😀", 4096), ""}, {strings.Repeat("😀", 4097), "reason_too_long"}, {"a\x00b", "invalid_reason"},
 		} {
 			body, _ := json.Marshal(map[string]any{"client_txn_id": "a", "reason": tc.reason})
-			_, err := DecodeActionRequest(bytes.NewReader(body))
+			_, err := decodeActionRequest(bytes.NewReader(body), false)
 			if (err == nil) != (tc.code == "") || err != nil && err.Details["reason_code"] != tc.code {
 				t.Fatalf("reason boundary: %v", err)
 			}
@@ -99,19 +118,19 @@ func TestRequestValidationNormalizationAndClosedRegistries_Unit(t *testing.T) {
 		for _, tc := range []struct{ body, code string }{
 			{`{"client_txn_id":"a"}`, "missing_required_field"}, {`{"client_txn_id":"a","reason":null}`, "field_not_nullable"}, {`{"client_txn_id":"a","reason":" "}`, "invalid_reason"}, {`{"client_txn_id":"a","reason":false}`, "invalid_reason"},
 		} {
-			if _, err := DecodeRemovalRequest(strings.NewReader(tc.body)); err == nil || err.Details["reason_code"] != tc.code {
+			if _, err := decodeActionRequest(strings.NewReader(tc.body), true); err == nil || err.Details["reason_code"] != tc.code {
 				t.Fatalf("removal reason: %v", err)
 			}
 		}
-		_, err := DecodeActionRequest(strings.NewReader(`{"client_txn_id":"a","hostile-secret":1}`))
+		_, err := decodeActionRequest(strings.NewReader(`{"client_txn_id":"a","hostile-secret":1}`), false)
 		if err == nil || err.Details["field"] != "request" {
 			t.Fatalf("unknown field leaked: %v", err)
 		}
 		body := `{"client_txn_id":"a"}`
-		if _, err := DecodeActionRequest(strings.NewReader(body + strings.Repeat(" ", MaxAdministrativeRequestBytes-len(body)))); err != nil {
+		if _, err := decodeActionRequest(strings.NewReader(body+strings.Repeat(" ", MaxAdministrativeRequestBytes-len(body))), false); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := DecodeActionRequest(strings.NewReader(body + strings.Repeat(" ", MaxAdministrativeRequestBytes-len(body)+1))); err == nil || err.Details["reason_code"] != "request_too_large" {
+		if _, err := decodeActionRequest(strings.NewReader(body+strings.Repeat(" ", MaxAdministrativeRequestBytes-len(body)+1)), false); err == nil || err.Details["reason_code"] != "request_too_large" {
 			t.Fatalf("request byte bound: %v", err)
 		}
 	})

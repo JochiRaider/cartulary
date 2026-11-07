@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
@@ -100,6 +101,10 @@ func openReferencePackLocalRuntime(ctx context.Context, loaded configassembly.Lo
 		return nil, nil, err
 	}
 	cfg := loaded.Deployment()
+	lifetime, err := referenceVerificationLifetime(time.Duration(cfg.Timeouts.Extensions.CancellationGraceSeconds)*time.Second, os.Stderr)
+	if err != nil {
+		return nil, nil, err
+	}
 	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), postgres.PurposeRuntime, nil)
 	if err != nil {
 		return nil, nil, err
@@ -166,7 +171,7 @@ func openReferencePackLocalRuntime(ctx context.Context, loaded configassembly.Lo
 		return nil, nil, err
 	}
 	limits := reference_data.Limits{Archives: reference_data.ArchiveLimits{DefaultMaxExtractedBytes: cfg.Limits.Archives.DefaultMaxExtractedBytes, MaxCompressionRatio: cfg.Limits.Archives.MaxCompressionRatio, MaxMembers: cfg.Limits.Archives.MaxMembers}, ReferencePacks: reference_data.ReferenceLimits{MaxExtractedBytes: cfg.Limits.ReferencePacks.MaxExtractedBytes, MaxContainerBytes: cfg.Limits.ReferencePacks.MaxContainerBytes, MaxVerificationSeconds: cfg.Limits.ReferencePacks.MaxVerificationSeconds}}
-	admission, manager, err := referenceassembly.NewOperatorAdmission(operationCtx, pool.Pool(), storage, cfg.ReferencePacks, limits, loaded.RequestedClaims().ProfileIDs(), func() time.Time { return time.Now().UTC() })
+	admission, manager, err := referenceassembly.NewOperatorAdmission(operationCtx, pool.Pool(), storage, cfg.ReferencePacks, limits, loaded.RequestedClaims().ProfileIDs(), func() time.Time { return time.Now().UTC() }, lifetime)
 	if err != nil {
 		return nil, nil, err
 	}

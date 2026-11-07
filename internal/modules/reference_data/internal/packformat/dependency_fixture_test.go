@@ -32,6 +32,6 @@ func runDependencyManifest(t *testing.T, input []byte, expected map[string]any) 
 		}
 		return Manifest{}, false, nil
 	}
-	err = VerifyDependencies(context.Background(), fixture.Candidate, resolve, newDiagnosticTestScratch())
+	err = verifyDependencies(context.Background(), fixture.Candidate, resolve, newDiagnosticTestScratch())
 	assertManifestVerdict(t, expected, err)
 }

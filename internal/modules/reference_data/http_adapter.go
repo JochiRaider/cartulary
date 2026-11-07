@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -21,7 +20,7 @@ import (
 
 type httpAdapter struct {
 	coordinator AdministrativeApplication
-	authStore   *authn.Store
+	authStore   administrativeSessionStore
 	jobRunner   jobNotifier
 	keys        authn.MasterKeys
 	cursorCodec *pagination.Codec
@@ -30,23 +29,32 @@ type httpAdapter struct {
 
 type jobNotifier interface{ Notify(uuid.UUID) }
 
+type administrativeSessionStore interface {
+	httpauth.SessionStore
+	httpauth.SessionSlider
+}
+
 func RegisterRoutes(application AdministrativeApplication, notifier jobNotifier) httpapi.RouteRegistrar {
-	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
+	return func(_ *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newHTTPAdapter(deps, application, notifier)
 		if err != nil {
 			return err
 		}
-		return httpapi.BindOwnerRoutes(mux, deps, "module.reference_data", map[string]http.HandlerFunc{
-			"activateReferencePackVersion":      service.handleMember,
-			"disableReferencePackVersion":       service.handleMember,
-			"getReferencePackVersion":           service.handleMember,
+		handlers := map[string]http.HandlerFunc{
+			"activateReferencePackVersion":      service.handleActivate,
+			"disableReferencePackVersion":       service.handleDisable,
+			"getReferencePackVersion":           service.handleRead,
 			"getReferencePackValidationSummary": service.handleValidationSummary,
-			"importReferencePack":               service.handleMember,
+			"importReferencePack":               service.handleImport,
 			"listReferencePacks":                service.handleCollection,
-			"refreshReferencePacks":             service.handleMember,
-			"reverifyReferencePackVersion":      service.handleMember,
-			"removeReferencePackVersion":        service.handleMember,
-		})
+			"refreshReferencePacks":             service.handleRefresh,
+			"reverifyReferencePackVersion":      service.handleReverify,
+			"removeReferencePackVersion":        service.handleRemove,
+		}
+		for id, handler := range handlers {
+			handlers[id] = service.authorizeOperation(handler)
+		}
+		return httpapi.BindOwnerFamilyRoutes(deps, "module.reference_data", ProfileID, "/api/v1/reference-packs", service.authorizeFamily, handlers)
 	}
 }
 
@@ -74,69 +82,58 @@ func newHTTPAdapter(deps httpapi.DependencySet, application AdministrativeApplic
 }
 
 func (s *httpAdapter) handleCollection(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		listScope, apiErr := parseReferencePackListScope(r.URL.RawQuery)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		binding, cursor, reason := s.cursorCodec.ResolveListRequest(listScope.Values, "reference_packs.list", principal.User.ID.String(), listScope.Scope)
-		if reason != "" {
-			writeAPIError(w, r, invalidPaginationRequest(reason))
-			return
-		}
-		records, err := s.coordinator.ListVersions(r.Context())
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		records = filterAdministrativeVersions(records, binding.Scope)
-		resources := make([]map[string]any, 0, len(records))
-		for _, record := range records {
-			resources = append(resources, record.Resource())
-		}
-		rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
-		if errors.Is(err, pagination.ErrInvalidCursorToken) {
-			writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
-			return
-		}
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		var nextCursorToken *string
-		if nextCursor != nil {
-			token, err := s.cursorCodec.Encode(*nextCursor)
-			if err != nil {
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
-			nextCursorToken = &token
-		}
-		_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"pack_versions": rows}, httpapi.PagingMeta{
-			Limit:      binding.Limit,
-			HasMore:    nextCursorToken != nil,
-			NextCursor: nextCursorToken,
-		})
-	case http.MethodPost:
-		http.NotFound(w, r)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	principal, apiErr := s.authorizedPrincipal(r)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
 	}
+	listScope, apiErr := parseReferencePackListScope(r.URL.RawQuery)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	binding, cursor, reason := s.cursorCodec.ResolveListRequest(listScope.Values, "reference_packs.list", principal.User.ID.String(), listScope.Scope)
+	if reason != "" {
+		writeAPIError(w, r, invalidPaginationRequest(reason))
+		return
+	}
+	records, err := s.coordinator.ListVersions(r.Context())
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	records = filterAdministrativeVersions(records, binding.Scope)
+	resources := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		resources = append(resources, record.Resource())
+	}
+	rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
+	if errors.Is(err, pagination.ErrInvalidCursorToken) {
+		writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	var nextCursorToken *string
+	if nextCursor != nil {
+		token, err := s.cursorCodec.Encode(*nextCursor)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		nextCursorToken = &token
+	}
+	_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"pack_versions": rows}, httpapi.PagingMeta{
+		Limit:      binding.Limit,
+		HasMore:    nextCursorToken != nil,
+		NextCursor: nextCursorToken,
+	})
 }
 
 func parseReferencePackListScope(rawQuery string) (listquery.Result, *httpapi.APIError) {
@@ -163,60 +160,10 @@ func searchableOptionalString(value *string) string {
 	return *value
 }
 
-func (s *httpAdapter) handleMember(w http.ResponseWriter, r *http.Request) {
-	route, ok := parseReferencePackPath(r.URL.Path)
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	if route.Kind == "import" {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		s.handleImport(w, r)
-		return
-	}
-	if route.Kind == "refresh" {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		s.handleRefresh(w, r)
-		return
-	}
-	if route.Kind == "missing_version" {
-		writeAPIError(w, r, invalidReferencePackRequest("pack_version", "pack_version_required"))
-		return
-	}
-
-	switch {
-	case route.Kind == "read" && r.Method == http.MethodGet:
-		s.handleRead(w, r, route.PackKey, route.PackVersion)
-	case route.Kind == "activate" && r.Method == http.MethodPost:
-		s.handleActivate(w, r, route.PackKey, route.PackVersion)
-	case route.Kind == "disable" && r.Method == http.MethodPost:
-		s.handleDisable(w, r, route.PackKey, route.PackVersion)
-	case route.Kind == "remove" && r.Method == http.MethodPost:
-		s.handleRemove(w, r, route.PackKey, route.PackVersion)
-	case route.Kind == "reverify" && r.Method == http.MethodPost:
-		s.handleReverify(w, r, route.PackKey, route.PackVersion)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
-func (s *httpAdapter) handleRead(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
+func (s *httpAdapter) handleRead(w http.ResponseWriter, r *http.Request) {
+	packKey, packVersion := r.PathValue("pack_key"), r.PathValue("pack_version")
+	principal, apiErr := s.authorizedPrincipal(r)
 	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -237,12 +184,8 @@ func (s *httpAdapter) handleRead(w http.ResponseWriter, r *http.Request, packKey
 }
 
 func (s *httpAdapter) handleValidationSummary(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := s.requireDeploymentAdmin(r, false)
+	principal, apiErr := s.authorizedPrincipal(r)
 	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -263,7 +206,7 @@ func (s *httpAdapter) handleValidationSummary(w http.ResponseWriter, r *http.Req
 }
 
 func (s *httpAdapter) handleImport(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := s.requireDeploymentAdmin(r, true)
+	principal, apiErr := s.authorizedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -318,8 +261,9 @@ func (s *httpAdapter) handleImport(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func (s *httpAdapter) handleActivate(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
-	principal, request, ok := s.decodeAdminAction(w, r)
+func (s *httpAdapter) handleActivate(w http.ResponseWriter, r *http.Request) {
+	packKey, packVersion := r.PathValue("pack_key"), r.PathValue("pack_version")
+	principal, request, ok := s.decodeAdminAction(w, r, false)
 	if !ok {
 		return
 	}
@@ -333,8 +277,9 @@ func (s *httpAdapter) handleActivate(w http.ResponseWriter, r *http.Request, pac
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func (s *httpAdapter) handleDisable(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
-	principal, request, ok := s.decodeAdminAction(w, r)
+func (s *httpAdapter) handleDisable(w http.ResponseWriter, r *http.Request) {
+	packKey, packVersion := r.PathValue("pack_key"), r.PathValue("pack_version")
+	principal, request, ok := s.decodeAdminAction(w, r, false)
 	if !ok {
 		return
 	}
@@ -348,8 +293,9 @@ func (s *httpAdapter) handleDisable(w http.ResponseWriter, r *http.Request, pack
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func (s *httpAdapter) handleRemove(w http.ResponseWriter, r *http.Request, key, version string) {
-	principal, request, ok := s.decodeAdminAction(w, r)
+func (s *httpAdapter) handleRemove(w http.ResponseWriter, r *http.Request) {
+	key, version := r.PathValue("pack_key"), r.PathValue("pack_version")
+	principal, request, ok := s.decodeAdminAction(w, r, true)
 	if !ok {
 		return
 	}
@@ -357,8 +303,9 @@ func (s *httpAdapter) handleRemove(w http.ResponseWriter, r *http.Request, key, 
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func (s *httpAdapter) handleReverify(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
-	principal, request, ok := s.decodeAdminAction(w, r)
+func (s *httpAdapter) handleReverify(w http.ResponseWriter, r *http.Request) {
+	packKey, packVersion := r.PathValue("pack_key"), r.PathValue("pack_version")
+	principal, request, ok := s.decodeAdminAction(w, r, false)
 	if !ok {
 		return
 	}
@@ -386,7 +333,7 @@ func (s *httpAdapter) handleReverify(w http.ResponseWriter, r *http.Request, pac
 }
 
 func (s *httpAdapter) handleRefresh(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := s.requireDeploymentAdmin(r, true)
+	principal, apiErr := s.authorizedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -415,13 +362,13 @@ func (s *httpAdapter) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func (s *httpAdapter) decodeAdminAction(w http.ResponseWriter, r *http.Request) (httpauth.Principal, ActionRequest, bool) {
-	principal, apiErr := s.requireDeploymentAdmin(r, true)
+func (s *httpAdapter) decodeAdminAction(w http.ResponseWriter, r *http.Request, removal bool) (httpauth.Principal, ActionRequest, bool) {
+	principal, apiErr := s.authorizedPrincipal(r)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return httpauth.Principal{}, ActionRequest{}, false
 	}
-	request, apiErr := decodeActionRequest(r.Body, strings.HasSuffix(r.URL.Path, "/remove"))
+	request, apiErr := decodeActionRequest(r.Body, removal)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return httpauth.Principal{}, ActionRequest{}, false
@@ -460,76 +407,62 @@ func (s *httpAdapter) dispatchReferencePackJob(jobID string) {
 	s.jobRunner.Notify(parsed)
 }
 
-func (s *httpAdapter) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
-	if apiErr != nil {
-		return httpauth.Principal{}, apiErr
-	}
-	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
-		return httpauth.Principal{}, apiErr
+type administrativePrincipalContextKey struct{}
+
+func (s *httpAdapter) authorizeFamily(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now})
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		ctx := context.WithValue(r.Context(), administrativePrincipalContextKey{}, principal)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (s *httpAdapter) authorizedPrincipal(r *http.Request) (httpauth.Principal, *httpapi.APIError) {
+	principal, ok := r.Context().Value(administrativePrincipalContextKey{}).(httpauth.Principal)
+	if !ok || !principal.User.IsDeploymentAdmin {
+		return httpauth.Principal{}, internalAPIError(errors.New("reference pack: missing family admission"))
 	}
 	return principal, nil
 }
 
+func (s *httpAdapter) authorizeOperation(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		principal, apiErr := s.authorizedPrincipal(r)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		operation, ok := httpapi.OperationMetadataFromContext(r.Context())
+		if !ok || operation.OwnerID != "module.reference_data" || operation.Availability != ProfileID {
+			writeAPIError(w, r, internalAPIError(errors.New("reference pack: missing operation admission")))
+			return
+		}
+		if operation.CookieCSRFRequired {
+			if apiErr := httpauth.ValidatePrincipalCSRF(r, principal, s.keys); apiErr != nil {
+				writeAPIError(w, r, apiErr)
+				return
+			}
+		}
+		if operation.OperationID != "listReferencePacks" {
+			if apiErr := validateEmptyAdministrativeQuery(r.URL.RawQuery); apiErr != nil {
+				writeAPIError(w, r, apiErr)
+				return
+			}
+		}
+		next(w, r)
+	}
+}
+
 func (s *httpAdapter) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
 	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
-}
-
-type parsedReferencePackRoute struct {
-	Kind        string
-	PackKey     string
-	PackVersion string
-}
-
-func parseReferencePackPath(requestPath string) (parsedReferencePackRoute, bool) {
-	rest := strings.TrimPrefix(requestPath, "/api/v1/reference-packs/")
-	if rest == requestPath || rest == "" {
-		return parsedReferencePackRoute{}, false
-	}
-	parts := strings.Split(rest, "/")
-	if len(parts) == 1 {
-		switch parts[0] {
-		case "import":
-			return parsedReferencePackRoute{Kind: "import"}, true
-		case "refresh":
-			return parsedReferencePackRoute{Kind: "refresh"}, true
-		default:
-			return parsedReferencePackRoute{}, false
-		}
-	}
-	if len(parts) == 2 {
-		if parts[1] == "activate" || parts[1] == "disable" || parts[1] == "reverify" || parts[1] == "remove" {
-			return parsedReferencePackRoute{Kind: "missing_version"}, true
-		}
-		packKey, ok1 := unescapePathSegment(parts[0])
-		packVersion, ok2 := unescapePathSegment(parts[1])
-		if !ok1 || !ok2 {
-			return parsedReferencePackRoute{}, false
-		}
-		return parsedReferencePackRoute{Kind: "read", PackKey: packKey, PackVersion: packVersion}, true
-	}
-	if len(parts) == 3 {
-		switch parts[2] {
-		case "activate", "disable", "reverify", "remove":
-			packKey, ok1 := unescapePathSegment(parts[0])
-			packVersion, ok2 := unescapePathSegment(parts[1])
-			if !ok1 || !ok2 {
-				return parsedReferencePackRoute{}, false
-			}
-			return parsedReferencePackRoute{Kind: parts[2], PackKey: packKey, PackVersion: packVersion}, true
-		default:
-			return parsedReferencePackRoute{}, false
-		}
-	}
-	return parsedReferencePackRoute{}, false
-}
-
-func unescapePathSegment(raw string) (string, bool) {
-	value, err := url.PathUnescape(raw)
-	if err != nil || strings.TrimSpace(value) == "" || strings.Contains(value, "/") {
-		return "", false
-	}
-	return value, true
 }
 
 func (v AdministrativeVersion) Resource() map[string]any {

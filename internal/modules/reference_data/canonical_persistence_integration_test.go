@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"reflect"
 	"strings"
 	"testing"
@@ -65,10 +66,10 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 	if err := reference_data.ReconcileBaseRelease(ctx, pool, storage, reference_data.BaseReleaseOptions{Finalizer: consumerIntegrityOptions(t).Finalizer, Limits: reference_data.DefaultLimits()}, at); err != nil {
 		t.Fatal(err)
 	}
-	if err := reference_data.ValidateRequiredState(ctx, pool, storage, reference_data.DefaultLimits()); err != nil {
+	if err := reference_data.ValidateRequiredState(ctx, pool, storage, reference_data.DefaultLimits(), verificationtest.Lifetime(t)); err != nil {
 		t.Fatal("Base readiness validation", err)
 	}
-	if err := reference_data.RestoreHistoricalState(ctx, pool, storage, reference_data.DefaultLimits()); err != nil {
+	if err := reference_data.RestoreHistoricalState(ctx, pool, storage, reference_data.DefaultLimits(), verificationtest.Lifetime(t)); err != nil {
 		t.Fatal("historical Base index rebuild", err)
 	}
 	t.Run("publication and backup retention guards", func(t *testing.T) { testPublicationCollectionAndBackupGuards(t, pool, storage) })
@@ -273,7 +274,7 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 		}
 	})
 	t.Run("current backup restores exact historical pins and rebuilds indexes", func(t *testing.T) {
-		sourcePacks, err := referenceassembly.NewRecoveryStorage(temporaryRoot, publishedRoot, reference_data.DefaultLimits())
+		sourcePacks, err := referenceassembly.NewRecoveryStorage(temporaryRoot, publishedRoot, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -335,7 +336,7 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 		}
 		defer targetPool.Close()
 		targetTemporary, targetPublished := t.TempDir(), t.TempDir()
-		targetPacks, err := referenceassembly.NewRecoveryStorage(targetTemporary, targetPublished, reference_data.DefaultLimits())
+		targetPacks, err := referenceassembly.NewRecoveryStorage(targetTemporary, targetPublished, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -379,7 +380,7 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 		if err := restoredRead.Commit(ctx); err != nil {
 			t.Fatal(err)
 		}
-		if err := reference_data.ValidateRequiredState(ctx, targetPool, restoredStorage, reference_data.DefaultLimits()); err != nil {
+		if err := reference_data.ValidateRequiredState(ctx, targetPool, restoredStorage, reference_data.DefaultLimits(), verificationtest.Lifetime(t)); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -414,7 +415,7 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 	if err := pool.QueryRow(ctx, `SELECT pack_set_sha256 FROM reference_pack_sets WHERE pack_set_id=$1`, "rpset_"+*expected.Set).Scan(&historicalDigest); err != nil || historicalDigest != *expected.Set {
 		t.Fatal("required loss rewrote historical identity", historicalDigest, err)
 	}
-	if reference_data.ValidateRequiredState(ctx, pool, storage, reference_data.DefaultLimits()) == nil {
+	if reference_data.ValidateRequiredState(ctx, pool, storage, reference_data.DefaultLimits(), verificationtest.Lifetime(t)) == nil {
 		t.Fatal("required missing notice passed readiness")
 	}
 	if _, err := pool.Exec(ctx, `UPDATE reference_pack_versions SET payload_sha256=repeat('0',64)`); err == nil {

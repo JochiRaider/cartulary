@@ -209,6 +209,19 @@ func TestCanonicalAdmissionFreezesCohortAndRejectsRelevantStaleState_Integration
 	if !errors.As(err, &rejected) || rejected.Reason != "stale_admission_state" {
 		t.Fatalf("replacement ignored changed record usage: %v", err)
 	}
+	tx, err = pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM reference_pack_registry_usage WHERE pack_key='type_registry.evidence'`); err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal(err)
+	}
+	err = lockPublicationTx(ctx, tx, activation.ID, activationInput)
+	_ = tx.Rollback(ctx)
+	if !errors.As(err, &rejected) || rejected.Reason != "stale_admission_state" {
+		t.Fatal("replacement admitted a missing usage guard", err)
+	}
 	// A dependency is a read guard, not selected pending work. The host key
 	// already has nonterminal refresh work, but an unrelated optional import
 	// may capture it and must reject publication if its revision changes.
@@ -324,9 +337,9 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{Finalizer: newBaseTestFinalizer(t), ProfileClaimed: true, ClockTrusted: true, Limits: DefaultLimits()}, vector.At); err != nil {
 		t.Fatal(err)
 	}
-	c := &verificationService{referenceDependencies: &referenceDependencies{pool: pool, storage: storage, limits: DefaultLimits(), configuration: Configuration{ClockTrusted: true}, now: func() time.Time { return vector.At }}}
+	c := &verificationService{referenceDependencies: &referenceDependencies{lifetime: testVerificationLifetime(t), pool: pool, storage: storage, limits: DefaultLimits(), configuration: Configuration{ClockTrusted: true}, now: func() time.Time { return vector.At }}}
 	staged, _ := ParseStagingRef("staged/fixture.zip")
-	identity, err := probeContainerIdentity(ctx, storage, staged, packformat.DefaultArchiveLimits())
+	identity, err := probeContainerIdentity(testVerificationLifetime(t).track(ctx), storage, staged, packformat.DefaultArchiveLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,11 +408,32 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 			t.Fatal(err)
 		}
 	}
+	for _, missing := range []bool{false, true} {
+		at := vector.Expiry
+		if missing {
+			at = vector.At
+		}
+		initial := admit("import", at)
+		if missing {
+			delete(storage.objects, *initial.Frozen.ContainerReference)
+		}
+		prepare(initial)
+		publish(initial)
+		var health string
+		var envelope, reason *string
+		if err := pool.QueryRow(ctx, `SELECT health,current_envelope_id,missing_reason FROM reference_pack_candidates WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version).Scan(&health, &envelope, &reason); err != nil {
+			t.Fatal(err)
+		}
+		if envelope != nil || !missing && (health != "failed" || reason != nil) || missing && (health != "missing" || reason == nil || *reason != "staging_loss") {
+			t.Fatal("initial content failure fabricated success or lost staging-loss classification", health, envelope, reason)
+		}
+	}
 	first := admit("import", vector.At)
 	prepare(first)
 	var health string
 	var envelope *string
-	if err := pool.QueryRow(ctx, `SELECT health,current_envelope_id FROM reference_pack_candidates WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version).Scan(&health, &envelope); err != nil || health != "staged" || envelope != nil {
+	// Retrying the missing candidate retains its last verdict until publication.
+	if err := pool.QueryRow(ctx, `SELECT health,current_envelope_id FROM reference_pack_candidates WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version).Scan(&health, &envelope); err != nil || health != "missing" || envelope != nil {
 		t.Fatal("preparation published content", health, envelope, err)
 	}
 	var preparedBytes []byte
@@ -453,11 +487,25 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 	if _, err := pool.Exec(ctx, `UPDATE reference_pack_candidates SET administratively_disabled=true WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version); err != nil {
 		t.Fatal(err)
 	}
+	var manifestRef string
+	if err := pool.QueryRow(ctx, `SELECT o.storage_ref FROM reference_pack_object_refs r JOIN reference_pack_objects o USING(object_id) WHERE r.owner_kind='version' AND r.owner_id=$1 AND r.logical_path='manifest.json'`, versionObjectID(identity.Key, identity.Version)).Scan(&manifestRef); err != nil {
+		t.Fatal(err)
+	}
+	manifestBytes := storage.objects[manifestRef]
+	delete(storage.objects, manifestRef)
+	missing := admit("reverify", vector.At)
+	prepare(missing)
+	publish(missing)
+	var missingReason *string
+	var disabled bool
+	if err := pool.QueryRow(ctx, `SELECT health,administratively_disabled,current_envelope_id,missing_reason FROM reference_pack_candidates WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version).Scan(&health, &disabled, &envelope, &missingReason); err != nil || health != "missing" || !disabled || envelope == nil || *envelope != firstEnvelope || missingReason == nil || *missingReason != "storage_loss" {
+		t.Fatal("missing reverify lost disablement or successful history", err)
+	}
+	storage.objects[manifestRef] = manifestBytes
 	a := admit("reverify", vector.At.Add(time.Minute))
 	prepare(a)
 	publish(a)
-	var disabled bool
-	if err := pool.QueryRow(ctx, `SELECT administratively_disabled,current_envelope_id FROM reference_pack_candidates WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version).Scan(&disabled, &envelope); err != nil || !disabled || *envelope == firstEnvelope {
+	if err := pool.QueryRow(ctx, `SELECT administratively_disabled,current_envelope_id,missing_reason FROM reference_pack_candidates WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version).Scan(&disabled, &envelope, &missingReason); err != nil || !disabled || envelope == nil || *envelope == firstEnvelope || missingReason != nil {
 		t.Fatal("verification changed disablement or failed to renew envelope", err)
 	}
 	// Activate the verified tuple to exercise invalidation and mandatory fallback.
@@ -493,9 +541,16 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 	}
 	testPortableContainerExport(t, ctx, pool, storage, active.ID, container)
 	// Expiry on renewal preserves the old success and the active set.
+	var beforeRenewal, afterRenewal []byte
+	if err := pool.QueryRow(ctx, `SELECT to_jsonb(c)::text FROM reference_pack_candidates c WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version).Scan(&beforeRenewal); err != nil {
+		t.Fatal(err)
+	}
 	renewal := admit("import", vector.Expiry)
 	prepare(renewal)
 	publish(renewal)
+	if err := pool.QueryRow(ctx, `SELECT to_jsonb(c)::text FROM reference_pack_candidates c WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version).Scan(&afterRenewal); err != nil || !bytes.Equal(beforeRenewal, afterRenewal) {
+		t.Fatal("failed renewal changed retained candidate or successful envelope", err)
+	}
 	var current string
 	if err := pool.QueryRow(ctx, `SELECT health,(SELECT pack_set_id FROM reference_pack_current_set) FROM reference_pack_candidates WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version).Scan(&health, &current); err != nil || health != "verified_available" || current != active.ID {
 		t.Fatal("failed renewal condemned established content", health, current, err)

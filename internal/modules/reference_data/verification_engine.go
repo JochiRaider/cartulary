@@ -44,24 +44,25 @@ type verificationIdentityHistory interface {
 // its immutable members and index into unpublished durable storage. Close must
 // be called on both a committed result and a proven uncommitted result.
 type verifiedContent struct {
-	Manifest        packformat.Manifest
-	ManifestBytes   []byte
-	ManifestSHA256  string
-	PayloadSHA256   string
-	ContainerSHA256 string
-	ContainerBytes  int64
-	Inventory       packformat.Inventory
-	Trust           packformat.TrustProposal
-	TrustSnapshot   packformat.TrustSnapshot
-	VerifiedAt      time.Time
-	workspace       VerificationWorkspace
+	completionContext context.Context
+	Manifest          packformat.Manifest
+	ManifestBytes     []byte
+	ManifestSHA256    string
+	PayloadSHA256     string
+	ContainerSHA256   string
+	ContainerBytes    int64
+	Inventory         packformat.Inventory
+	Trust             packformat.TrustProposal
+	TrustSnapshot     packformat.TrustSnapshot
+	VerifiedAt        time.Time
+	workspace         VerificationWorkspace
 }
 
 func (v *verifiedContent) Close() error {
 	if v == nil || v.workspace == nil {
 		return nil
 	}
-	return v.workspace.Close()
+	return closeVerificationWorkspace(v.completionContext, v.workspace)
 }
 
 type OperationRejection struct{ Reason string }
@@ -86,10 +87,15 @@ func verifyCanonicalContainer(ctx context.Context, storage VerificationStorage, 
 	defer func() { end(referenceOutcome(resultErr)) }()
 	defer func() {
 		if resultErr != nil && result != nil {
-			_ = result.Close()
+			if err := result.Close(); err != nil {
+				resultErr = verificationCleanupError(resultErr, err)
+			}
 			result = nil
 		}
 	}()
+	if lifetime, _ := ctx.Value(verificationLifetimeKey{}).(*VerificationLifetime); lifetime == nil {
+		return nil, errors.New("reference pack: verification lifetime required")
+	}
 	if storage == nil || index == nil || attempt.Identity == nil || attempt.Start.IsZero() || (attempt.Staged == nil) == (attempt.Retained == nil) {
 		return nil, errors.New("reference pack: incomplete verification attempt")
 	}
@@ -100,22 +106,22 @@ func verifyCanonicalContainer(ctx context.Context, storage VerificationStorage, 
 	defer func() {
 		if p.source != nil {
 			if err := errors.Join(p.source.fault, p.source.Close()); err != nil {
-				resultErr = err
+				resultErr = verificationCleanupError(resultErr, err)
 			}
 		}
 	}()
 	keep := false
 	defer func() {
 		if !keep && p.workspace != nil {
-			if err := p.workspace.Close(); err != nil {
-				resultErr = err
+			if err := closeVerificationWorkspace(ctx, p.workspace); err != nil {
+				resultErr = verificationCleanupError(resultErr, err)
 			}
 		}
 	}()
 	scratch := &verificationDiagnosticScratch{storage: storage}
 	defer func() {
-		if err := scratch.close(); err != nil {
-			resultErr = err
+		if err := scratch.close(ctx); err != nil {
+			resultErr = verificationCleanupError(resultErr, err)
 		}
 	}()
 	program, err := p.checks()
@@ -142,6 +148,10 @@ func verifyCanonicalContainer(ctx context.Context, storage VerificationStorage, 
 		return nil, errors.New("reference pack: missing private index writer")
 	}
 	if err := packformat.ValidateContentSemantics(ctx, p.manifest, p.workspace, sink); err != nil {
+		// Preserve the operation interruption independently of cooperative cleanup.
+		if interruption := ctx.Err(); interruption != nil {
+			return nil, interruption
+		}
 		// Changed private bytes or an index write failure are operational.
 		return nil, errors.New("reference pack: validated index construction failed")
 	}
@@ -149,7 +159,7 @@ func verifyCanonicalContainer(ctx context.Context, storage VerificationStorage, 
 		return nil, err
 	}
 	keep = true
-	return &verifiedContent{Manifest: p.manifest, ManifestBytes: p.manifestBytes, ManifestSHA256: p.manifestSHA, PayloadSHA256: p.payloadSHA, ContainerSHA256: p.containerSHA, ContainerBytes: p.size, Inventory: p.inventory, Trust: p.proposal(), TrustSnapshot: p.trust, VerifiedAt: attempt.Start.UTC(), workspace: p.workspace}, nil
+	return &verifiedContent{completionContext: ctx, Manifest: p.manifest, ManifestBytes: p.manifestBytes, ManifestSHA256: p.manifestSHA, PayloadSHA256: p.payloadSHA, ContainerSHA256: p.containerSHA, ContainerBytes: p.size, Inventory: p.inventory, Trust: p.proposal(), TrustSnapshot: p.trust, VerifiedAt: attempt.Start.UTC(), workspace: p.workspace}, nil
 }
 
 type attemptReader struct {

@@ -92,6 +92,7 @@ func TestRouteRegistryBindsGeneratedPatternAndMetadata(t *testing.T) {
 }
 
 func TestRouteRegistryRejectsUnknownOwnerDuplicateAndProfileMismatch(t *testing.T) {
+	t.Run("owner family registration and dispatch", testOwnerFamilyRegistration)
 	operations := []ContractOperation{
 		{
 			OwnerID:         "module.fixture",

@@ -47,12 +47,29 @@ func WithCancellationTracking(ctx context.Context) context.Context {
 	return context.WithValue(ctx, cancellationKey{}, &cancellationObservation{})
 }
 
+// ReuseCancellationTracking preserves an enclosing operation's first
+// interruption. A new operation starts tracking only when none was inherited.
+func ReuseCancellationTracking(ctx context.Context) context.Context {
+	if _, ok := ctx.Value(cancellationKey{}).(*cancellationObservation); ok {
+		return ctx
+	}
+	return WithCancellationTracking(ctx)
+}
+
+// GraceExhausted reads the inherited operation's terminal lifetime selection.
+// It neither starts observation nor grants a new cancellation grace.
+func GraceExhausted(ctx context.Context) bool {
+	observed, ok := ctx.Value(cancellationKey{}).(*cancellationObservation)
+	return ok && observed.exhausted()
+}
+
 type cancellationKey struct{}
 type cancellationObservation struct {
-	mu    sync.Mutex
-	cause error
-	at    time.Time
-	fatal bool
+	mu           sync.Mutex
+	cause        error
+	at           time.Time
+	fatal        bool
+	publications map[*context.CancelCauseFunc]struct{}
 }
 
 func observation(ctx context.Context) *cancellationObservation {
@@ -79,6 +96,11 @@ func (o *cancellationObservation) exhaust(policy InvocationPolicy) {
 	o.mu.Lock()
 	first := !o.fatal
 	o.fatal = true
+	// Revoke publication before exposing the fatal selection or calling the
+	// asynchronous process sink. Physical cleanup still remains joined.
+	for cancel := range o.publications {
+		(*cancel)(ErrGraceExhausted)
+	}
 	o.mu.Unlock()
 	if first {
 		policy.Exhausted(ErrGraceExhausted)
@@ -117,6 +139,46 @@ type Completion[T any] struct {
 // A non-nil lifetime error is fatal and must precede any late transaction proof.
 func Complete[T any](ctx context.Context, policy InvocationPolicy, finish func(context.Context) (T, error)) (Completion[T], error) {
 	return invoke(ctx, policy, finish, true)
+}
+
+// CompleteWithinGrace permits ordinary terminal publication after semantic
+// cancellation, but revokes its context at the original grace's exhaustion.
+// It preserves values and joins the callback; it grants neither a fresh grace
+// nor authority to replace a commit already proved by the transaction owner.
+// Use Complete for physical teardown that must remain joined after exhaustion.
+func CompleteWithinGrace[T any](ctx context.Context, policy InvocationPolicy, finish func(context.Context) (T, error)) (Completion[T], error) {
+	if finish == nil {
+		return Completion[T]{}, errors.New("extension invocation requires a completion callback")
+	}
+	ctx = ReuseCancellationTracking(ctx)
+	observed := observation(ctx)
+	return Complete(ctx, policy, func(context.Context) (T, error) {
+		if cause, at := observed.sample(ctx, policy); cause != nil && !time.Now().Before(at.Add(policy.Grace)) {
+			observed.exhaust(policy)
+		}
+		publication, cancel := context.WithCancelCause(context.WithoutCancel(ctx))
+		observed.mu.Lock()
+		if observed.fatal {
+			cancel(ErrGraceExhausted)
+		} else {
+			if observed.publications == nil {
+				observed.publications = make(map[*context.CancelCauseFunc]struct{})
+			}
+			observed.publications[&cancel] = struct{}{}
+		}
+		observed.mu.Unlock()
+		defer func() {
+			observed.mu.Lock()
+			delete(observed.publications, &cancel)
+			observed.mu.Unlock()
+			cancel(nil)
+		}()
+		if err := context.Cause(publication); err != nil {
+			var zero T
+			return zero, err
+		}
+		return finish(publication)
+	})
 }
 
 // Invoke retains the caller's capabilities until the callback has returned or

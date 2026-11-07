@@ -16,18 +16,22 @@ import (
 )
 
 type RecoveryStorage struct {
-	storage *RootStorage
-	limits  reference_data.Limits
+	storage  *RootStorage
+	limits   reference_data.Limits
+	lifetime *reference_data.VerificationLifetime
 }
 
 var _ recovery.ReferencePackStorage = (*RecoveryStorage)(nil)
 
-func NewRecoveryStorage(temporaryRoot, publishedRoot string, limits reference_data.Limits) (*RecoveryStorage, error) {
+func NewRecoveryStorage(temporaryRoot, publishedRoot string, limits reference_data.Limits, lifetime *reference_data.VerificationLifetime) (*RecoveryStorage, error) {
+	if lifetime == nil {
+		return nil, errors.New("reference pack: recovery verification lifetime required")
+	}
 	storage, err := NewRootStorage(temporaryRoot, publishedRoot)
 	if err != nil {
 		return nil, err
 	}
-	return &RecoveryStorage{storage: storage, limits: limits}, nil
+	return &RecoveryStorage{storage: storage, limits: limits, lifetime: lifetime}, nil
 }
 
 func (s *RecoveryStorage) Close() { s.storage.Close() }
@@ -131,5 +135,5 @@ func (s *RecoveryStorage) ResetVerificationTarget(ctx context.Context) error {
 }
 
 func (s *RecoveryStorage) ValidateHistoricalState(ctx context.Context, db postgres.DB) error {
-	return reference_data.RestoreHistoricalState(ctx, db, s.storage, s.limits)
+	return reference_data.RestoreHistoricalState(ctx, db, s.storage, s.limits, s.lifetime)
 }

@@ -9,29 +9,38 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-// ObjectCollector retries durable tombstones and unreferenced objects once a
+// ObjectCollector retries abandoned scratch, tombstones and unreferenced objects once a
 // minute. Collection is maintenance, not part of an administrative mutation's
 // outcome. Failure retains bytes and cannot reverse an acknowledged removal.
 type ObjectCollector struct {
-	db       postgres.DB
-	storage  CollectionStorage
-	observer OperationObserver
-	mu       sync.Mutex
-	cancel   context.CancelFunc
-	done     chan struct{}
-	closed   bool
+	db         postgres.DB
+	storage    CollectionStorage
+	workspaces WorkspaceReconciler
+	ticker     func(time.Duration) (<-chan time.Time, func())
+	observer   OperationObserver
+	mu         sync.Mutex
+	cancel     context.CancelFunc
+	done       chan struct{}
+	closed     bool
 }
 
-func NewObjectCollector(db postgres.DB, storage CollectionStorage, observer OperationObserver) (*ObjectCollector, error) {
-	if db == nil || storage == nil {
+func NewObjectCollector(db postgres.DB, storage CollectionStorage, workspaces WorkspaceReconciler, observer OperationObserver) (*ObjectCollector, error) {
+	if db == nil || storage == nil || workspaces == nil {
 		return nil, errors.New("reference pack: incomplete collector dependencies")
 	}
-	return &ObjectCollector{db: db, storage: storage, observer: observer}, nil
+	return &ObjectCollector{db: db, storage: storage, workspaces: workspaces, observer: observer, ticker: func(interval time.Duration) (<-chan time.Time, func()) {
+		ticker := time.NewTicker(interval)
+		return ticker.C, ticker.Stop
+	}}, nil
 }
 func (c *ObjectCollector) Sweep(ctx context.Context) (resultErr error) {
 	ctx, end := observeReferenceOperation(ctx, c.observer, "reference_pack.collection")
 	defer func() { end(referenceOutcome(resultErr)) }()
-	return CollectUnreferencedObjects(ctx, c.db, c.storage)
+	scratchErr := c.workspaces.ReconcileWorkspaces(ctx)
+	if err := ctx.Err(); err != nil {
+		return errors.Join(scratchErr, err)
+	}
+	return errors.Join(scratchErr, CollectUnreferencedObjects(ctx, c.db, c.storage))
 }
 
 // Prepare installs retries without starting the cadence before serving.
@@ -60,13 +69,16 @@ func (c *ObjectCollector) Prepare(ctx context.Context, serving <-chan struct{}) 
 		if run.Err() != nil {
 			return
 		}
-		ticker := time.NewTicker(time.Minute)
-		defer ticker.Stop()
+		ticks, stop := c.ticker(time.Minute)
+		defer stop()
 		for {
 			select {
 			case <-run.Done():
 				return
-			case <-ticker.C:
+			case <-ticks:
+				if run.Err() != nil {
+					return
+				}
 				attempt, cancel := context.WithTimeout(run, 30*time.Second)
 				_ = c.Sweep(attempt)
 				cancel()

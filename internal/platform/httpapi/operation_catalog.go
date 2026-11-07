@@ -27,9 +27,10 @@ type ContractOperation struct {
 }
 
 type OperationMetadata struct {
-	OwnerID      string
-	OperationID  string
-	Availability string
+	OwnerID            string
+	OperationID        string
+	Availability       string
+	CookieCSRFRequired bool
 }
 
 type RouteDiagnostics struct {
@@ -48,6 +49,7 @@ type RouteRegistry struct {
 	operationsByKey map[string]ContractOperation
 	claimedProfiles map[string]struct{}
 	active          map[string]ContractOperation
+	families        []boundRouteFamily
 }
 
 func NewRouteRegistry(claims []ExtensionClaim) (*RouteRegistry, error) {
@@ -121,17 +123,25 @@ func (registry *RouteRegistry) Bind(
 	if previous, duplicate := registry.active[operationID]; duplicate {
 		return fmt.Errorf("public operation %q is already bound at %s", operationID, previous.Pattern)
 	}
-	metadata := OperationMetadata{
-		OwnerID:      operation.OwnerID,
-		OperationID:  operation.OperationID,
-		Availability: operation.Availability,
-	}
-	mux.HandleFunc(operation.Pattern, func(writer http.ResponseWriter, request *http.Request) {
-		contextWithOperation := context.WithValue(request.Context(), operationMetadataContextKey{}, metadata)
-		handler(writer, request.WithContext(contextWithOperation))
-	})
+	mux.HandleFunc(operation.Pattern, withOperationMetadata(operation, handler))
 	registry.active[operationID] = cloneContractOperation(operation)
 	return nil
+}
+
+func withOperationMetadata(operation ContractOperation, handler http.HandlerFunc) http.HandlerFunc {
+	metadata := OperationMetadata{OwnerID: operation.OwnerID, OperationID: operation.OperationID, Availability: operation.Availability}
+	for _, alternative := range operation.Security {
+		cookie, csrf := false, false
+		for _, scheme := range alternative {
+			cookie = cookie || scheme == "sessionCookie"
+			csrf = csrf || scheme == "csrfHeader" || scheme == "csrfCookie"
+		}
+		metadata.CookieCSRFRequired = metadata.CookieCSRFRequired || cookie && csrf
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), operationMetadataContextKey{}, metadata)
+		handler(w, r.WithContext(ctx))
+	}
 }
 
 func (registry *RouteRegistry) BindOwner(

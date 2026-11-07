@@ -74,7 +74,7 @@ func TestNativeATTACKSignedEndpointSemantics_Unit(t *testing.T) {
 				ref, _ := ParseStagingRef("staged/endpoint.pack")
 				attempt := verificationAttempt{Staged: &ref, ContainerSHA256: packformat.Digest(container), Start: time.Now().UTC(), ClockTrusted: true, Identity: emptyIdentityHistory{}, Limits: packformat.DefaultArchiveLimits(), Repositories: trust}
 				published := false
-				result, err := verifyCanonicalContainer(t.Context(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
+				result, err := verifyTestCanonicalContainer(t.Context(), storage, attempt, func(context.Context, packformat.Manifest, string, string) (packformat.ContentSink, error) {
 					published = true
 					return &builtinRows{}, nil
 				})

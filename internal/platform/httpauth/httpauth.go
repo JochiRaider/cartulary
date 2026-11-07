@@ -106,6 +106,23 @@ func ValidateCSRF(method string, authSource AuthSource, cookieValue string, head
 	return nil
 }
 
+// ValidatePrincipalCSRF checks an operation's declared cookie-CSRF requirement
+// against an already authenticated principal. It performs no session lookup and
+// does not infer operation security from the HTTP method.
+func ValidatePrincipalCSRF(r *http.Request, principal Principal, keys authn.MasterKeys) *httpapi.APIError {
+	if principal.AuthSource == AuthSourceBearer {
+		return nil
+	}
+	if principal.AuthSource != AuthSourceCookie || principal.SessionToken == "" {
+		return httpapi.CSRFVerificationFailedError()
+	}
+	cookie, err := r.Cookie(authn.CSRFCookieName)
+	if err != nil || cookie.Value != authn.CSRFTokenForSessionToken(keys, principal.SessionToken) || r.Header.Get(authn.CSRFHeaderName) != cookie.Value {
+		return httpapi.CSRFVerificationFailedError()
+	}
+	return nil
+}
+
 func ShouldSlideIdleExpiry(method string, path string) bool {
 	return !(method == http.MethodGet && path == "/api/v1/auth/session")
 }

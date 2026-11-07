@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"strings"
 	"testing"
 	"time"
@@ -110,7 +111,7 @@ func testPublicationCollectionAndBackupGuards(t *testing.T, db postgres.DB, stor
 	if _, _, err := storage.OpenPublished(ctx, ref); !errors.Is(err, reference_data.ErrArtifactUnavailable) {
 		t.Fatal("orphan not collected", err)
 	}
-	if err := reference_data.ValidateRequiredState(ctx, db, storage, reference_data.DefaultLimits()); err != nil {
+	if err := reference_data.ValidateRequiredState(ctx, db, storage, reference_data.DefaultLimits(), verificationtest.Lifetime(t)); err != nil {
 		t.Fatal("collection damaged retained Base", err)
 	}
 }

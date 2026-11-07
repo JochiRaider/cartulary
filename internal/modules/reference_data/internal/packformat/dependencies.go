@@ -18,17 +18,6 @@ type dependencyNode struct {
 	edges        []Dependency
 }
 
-// VerifyDependencies executes all three dependency ranks before registry
-// compatibility or indexing. Reachable state is already retained trusted
-// content; hostile candidate declarations never supply recursive manifests.
-func VerifyDependencies(ctx context.Context, candidate Manifest, resolve DependencyResolver, scratch DiagnosticScratch) error {
-	program, err := DependencyChecks(candidate, resolve)
-	if err != nil {
-		return err
-	}
-	return runCheckRange(ctx, "dependencies", "conflicts", scratch, program, true)
-}
-
 func DependencyChecks(candidate Manifest, resolve DependencyResolver) (map[string]CheckFunc, error) {
 	if resolve == nil {
 		return nil, errors.New("reference pack: dependency resolver required")

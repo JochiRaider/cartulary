@@ -958,6 +958,36 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.reference_data.integration.portable_completion_lifecycle",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.rootedfs"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestPortableRootedCompletion_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.integration",
@@ -975,9 +1005,38 @@
           "TestLiveVerificationIdentityPrecedesContentAndRuntimeChecks_Integration",
           "TestLiveVerificationResolvesExactDependenciesBeforeIndexing_Integration",
           "TestMixedRefreshCommitsCohortFallbackAndReplay_Integration",
+          "TestRefreshAdmissionEligibilityMatrix_Integration",
           "TestRequiredBaseLossClearsSelectionAndBlocksReadiness_Integration",
           "TestUnavailableBasePreservesHealthyReplacement_Integration",
           "TestWorkerDatabaseBarriersAreInstanceScoped_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.reference_pack_family_authorization_precedes_dis_d77fa37efb",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestReferencePackFamilyAuthorization_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1063,6 +1122,62 @@
         "tests": [
           "TestImportListReadReplayAndJobSummary_Integration",
           "TestLocalOperatorImportUsesDeploymentWorker_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.reference_pack_non_list_queries_fail_before_body_fd74d4ef0e",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestReferencePackClosedQueries_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.reference_pack_operations_use_exact_versions_and_677e505495",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestReferencePackExactRoutes_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1232,6 +1347,35 @@
         "package": "./internal/modules/reference_data",
         "tests": [
           "TestWindowsOnlineProductionLifecycle_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.workspace_cleanup_lifecycle",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestReferenceWorkspaceAutomaticRecovery_Integration",
+          "TestReferenceWorkspaceOperationCleanup_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1638,10 +1782,7 @@
       "selector": {
         "package": "./internal/modules/reference_data/internal/packstate",
         "tests": [
-          "TestDependencyFallbackPrunesToFixedPointAndRejectsCycles_Unit",
-          "TestPublicationRevisionComparisonIgnoresUnrelatedState_Unit",
-          "TestRefreshAdmissionFreezesExactSuccessfulCohort_Unit",
-          "TestVerificationTransitionsPreserveDisablementAndSuccessfulHistory_Unit"
+          "TestDependencyFallbackPrunesToFixedPointAndRejectsCycles_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -2191,6 +2332,7 @@
       "selector": {
         "package": "./internal/app/referenceassembly",
         "tests": [
+          "TestImportProbeSupervisedRootedCleanup_Unit",
           "TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit",
           "TestReferencePackRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit",
           "TestReferencePackStreamingWorkspaceIsolationAndCleanup_Unit"
@@ -2219,8 +2361,10 @@
         "package": "./internal/modules/reference_data",
         "tests": [
           "TestNativeATTACKSignedEndpointSemantics_Unit",
+          "TestObjectCollectorLifecycle_Unit",
           "TestRetainedProvenanceClosedAndBoundToExactSet_Unit",
           "TestSuccessfulEnvelopeClosedPersistence_Unit",
+          "TestVerificationLifetimeCleanup_Unit",
           "TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit",
           "TestVerifierCombinedFaultPrecedence_Unit",
           "TestVerifierNeverTurnsOperationalReadsIntoContentVerdicts_Unit"

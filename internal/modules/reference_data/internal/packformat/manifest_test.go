@@ -223,7 +223,7 @@ func TestManifestDiagnosticEnumerationAndPrecedence_Unit(t *testing.T) {
 	})
 	t.Run("complete duplicate findings and syntax precedence", func(t *testing.T) {
 		input := []byte(`{"pack_key":"secret","pack_key":"other","builder":{"builder_id":"secret","builder_id":"secret"},"source_artifacts":[{"sha256":"secret","sha256":"secret"}],"secret":{"a":{"deep_secret":1,"deep_secret":2},"a":false}}`)
-		_, err := DecodeManifestWithDiagnostics(context.Background(), input, true, newDiagnosticTestScratch())
+		_, err := decodeManifestWithDiagnostics(context.Background(), input, true, newDiagnosticTestScratch())
 		var failure *Failure
 		if !errors.As(err, &failure) || failure.Code != "duplicate_object_member" || failure.Summary == nil || failure.Summary.Total != 4 {
 			t.Fatalf("duplicate findings: %#v %v", failure, err)
@@ -235,7 +235,7 @@ func TestManifestDiagnosticEnumerationAndPrecedence_Unit(t *testing.T) {
 			}
 		}
 		for _, malformed := range [][]byte{append(input, []byte(` {}`)...), append(input[:len(input)-1], []byte(`,"bad":}`)...)} {
-			_, err := DecodeManifestWithDiagnostics(context.Background(), malformed, true, nil)
+			_, err := decodeManifestWithDiagnostics(context.Background(), malformed, true, nil)
 			if !errors.As(err, &failure) || failure.Code != "manifest_json_invalid" {
 				t.Fatal("syntax did not precede duplicate", err)
 			}
@@ -255,7 +255,7 @@ func TestManifestDiagnosticEnumerationAndPrecedence_Unit(t *testing.T) {
 		}
 		// A later noncanonical fault must not suppress enumerable schema faults.
 		data = append(data, '\n')
-		_, err = DecodeManifestWithDiagnostics(context.Background(), data, true, newDiagnosticTestScratch())
+		_, err = decodeManifestWithDiagnostics(context.Background(), data, true, newDiagnosticTestScratch())
 		var failure *Failure
 		if !errors.As(err, &failure) || failure.Code != "manifest_schema_invalid" || failure.Summary == nil {
 			t.Fatalf("missing complete schema verdict: %v", err)
@@ -300,10 +300,10 @@ func TestManifestDiagnosticEnumerationAndPrecedence_Unit(t *testing.T) {
 	}), []string{"$.builder.builder_id", "$.source_artifacts[0].source_ref", "$.source_identifier", "$.source_version"})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := DecodeManifestWithDiagnostics(ctx, []byte(v.Canonical), true, nil); !errors.Is(err, context.Canceled) {
+	if _, err := decodeManifestWithDiagnostics(ctx, []byte(v.Canonical), true, nil); !errors.Is(err, context.Canceled) {
 		t.Fatal("cancellation became content rejection", err)
 	}
-	_, err := DecodeHintWithDiagnostics(context.Background(), []byte(`{"schema_id":null,"trust_repository_id":null,"private_secret":false}`), nil)
+	_, err := decodeHintWithDiagnostics(context.Background(), []byte(`{"schema_id":null,"trust_repository_id":null,"private_secret":false}`), nil)
 	var failure *Failure
 	if !errors.As(err, &failure) || failure.Summary == nil || failure.Summary.Total != 3 {
 		t.Fatal("hint schema lost enumerable findings", err)

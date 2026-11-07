@@ -133,10 +133,3 @@ func BuildSet(members []SetMember) (Set, error) {
 	digest := Digest(preimage)
 	return Set{SchemaID: "cartulary.reference_pack_set.v2", ID: "rpset_" + digest, SHA256: digest, Members: members}, nil
 }
-
-// SameContent never compares mutable verification or administrative fields.
-func SameContent(a, b Set) bool {
-	left, e1 := canonicaljson.Marshal(a.Members)
-	right, e2 := canonicaljson.Marshal(b.Members)
-	return e1 == nil && e2 == nil && bytes.Equal(left, right)
-}

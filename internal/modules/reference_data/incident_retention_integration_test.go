@@ -58,7 +58,7 @@ func TestIncidentReferencesRetainLocalVersionsAndUnavailableHistory_Integration(
 		t.Fatal(err)
 	}
 	_ = tx.Rollback(ctx)
-	port, err := newTestIncidentReferences(pool, storage)
+	port, err := newTestIncidentReferences(t, pool, storage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,10 +137,10 @@ func TestIncidentReferencesRetainLocalVersionsAndUnavailableHistory_Integration(
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM reference_pack_version_pins WHERE owner_id=$1`, incident.String()).Scan(&pins); err != nil || pins != 3 {
 		t.Fatal("complete catalog pins", pins, err)
 	}
-	if err := ValidateRequiredState(ctx, pool, storage, DefaultLimits()); err != nil {
+	if err := ValidateRequiredState(ctx, pool, storage, DefaultLimits(), testVerificationLifetime(t)); err != nil {
 		t.Fatal("retained catalog readiness", err)
 	}
-	if err := RestoreHistoricalState(ctx, pool, storage, DefaultLimits()); err != nil {
+	if err := RestoreHistoricalState(ctx, pool, storage, DefaultLimits(), testVerificationLifetime(t)); err != nil {
 		t.Fatal("retained catalog restore", err)
 	}
 	// A proven committed identity replays before later revisions are consulted.
@@ -249,7 +249,7 @@ func TestIncidentReferencesRetainLocalVersionsAndUnavailableHistory_Integration(
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateRequiredState(ctx, pool, storage, DefaultLimits()); err != nil {
+	if err := ValidateRequiredState(ctx, pool, storage, DefaultLimits(), testVerificationLifetime(t)); err != nil {
 		t.Fatal("optional absence blocked readiness", err)
 	}
 	// Same tuple with a different digest is a collision, not optional absence.
@@ -311,12 +311,12 @@ func TestIncidentReferencesRetainLocalVersionsAndUnavailableHistory_Integration(
 	}
 }
 
-func newTestIncidentReferences(pool *pgxpool.Pool, storage ArtifactStorage) (IncidentReferences, error) {
+func newTestIncidentReferences(t testing.TB, pool *pgxpool.Pool, storage ArtifactStorage) (IncidentReferences, error) {
 	catalog := collaborationsupport.NewJobCatalog()
 	transactions := collaborationsupport.NewJobTransactionsWithTerminalEffects(catalog, JobTerminalEffects{})
 	manager, err := jobs.NewManager(jobs.ManagerOptions{Postgres: pool, Transactions: transactions, Catalog: catalog, Policy: jobs.ProductionRuntimePolicy(), Now: time.Now})
 	if err != nil {
 		return nil, err
 	}
-	return NewIncidentReferences(IncidentReferenceOptions{Postgres: pool, Storage: storage, Limits: DefaultLimits(), JobExecutions: transactions, JobOperations: manager, Now: time.Now})
+	return NewIncidentReferences(IncidentReferenceOptions{Lifetime: testVerificationLifetime(t), Postgres: pool, Storage: storage, Limits: DefaultLimits(), JobExecutions: transactions, JobOperations: manager, Now: time.Now})
 }

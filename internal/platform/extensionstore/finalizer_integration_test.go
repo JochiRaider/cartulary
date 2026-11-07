@@ -394,6 +394,7 @@ SELECT response_json->>'status'
 			}
 		})
 	}
+	t.Run("revoked publication before commit", func(t *testing.T) { checkRevokedTerminalPublication(t, pool, manager, finalizer, now) })
 	for _, code := range []string{"40001", "40P01", "23505", "23503", "23514"} {
 		tx, err := pool.Begin(context.Background())
 		if err != nil {
@@ -591,4 +592,53 @@ func checkSelectedTerminalFinalization(t *testing.T, pool *pgxpool.Pool, store *
 	if resource, err := finalizer.FinalizeSuccess(t.Context(), JobFinalizationRequest{Execution: execution, Completion: jobs.SuccessCompletion{Progress: jobs.Progress{Completed: 1, Total: intPointer(1)}, ResultSummary: summary}, FinalCommitID: "commit:selected-policy"}); err != nil || resource.Status != jobs.StatusSucceeded {
 		t.Fatal("valid selected terminal completion", err)
 	}
+}
+
+// A receipt callback may return a late success after publication is revoked.
+// It must not dispatch COMMIT; post-dispatch proof cases above remain distinct.
+func checkRevokedTerminalPublication(t *testing.T, pool *pgxpool.Pool, manager *jobs.Manager, original *OwnerFinalizer, now time.Time) {
+	id := enqueueExtensionFinalizerTestJob(t, pool, now, "revoked-before-commit")
+	execution, claimed, err := manager.Claim(t.Context(), id)
+	if err != nil || !claimed {
+		t.Fatal("claim revoked fixture", claimed, err)
+	}
+	ctx, cancel := context.WithCancelCause(t.Context())
+	defer cancel(nil)
+	revoked := errors.New("terminal publication revoked")
+	finalizer := *original
+	finalizer.idempotency = cancelAfterReceipt{original.idempotency, func() { cancel(revoked) }}
+	commits := 0
+	finalizer.commit = func(ctx context.Context, tx pgx.Tx) error { commits++; return tx.Commit(ctx) }
+	_, err = finalizer.FinalizeFailure(ctx, JobFailureFinalizationRequest{Execution: execution, Completion: jobs.FailureCompletion{Progress: jobs.Progress{Completed: 0, Total: intPointer(1)}, ErrorSummary: jobs.ErrorSummary{Code: "internal_error", Message: "Failed."}}, Mutate: func(ctx context.Context, tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO extension_job_finalizer_test_effects(effect_id,created_at) VALUES ('revoked-before-commit',$1)`, now)
+		return err
+	}})
+	if !errors.Is(err, revoked) || commits != 0 {
+		t.Fatal("revoked receipt dispatched commit or lost cause", commits, err)
+	}
+	retained, err := manager.Get(t.Context(), id)
+	if err != nil || retained.Status != jobs.StatusRunning {
+		t.Fatal("revoked terminal write persisted", retained.Status, err)
+	}
+	var effects int
+	var receipt string
+	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM extension_job_finalizer_test_effects WHERE effect_id='revoked-before-commit'`).Scan(&effects); err != nil || effects != 0 {
+		t.Fatal("owner mutation persisted", effects, err)
+	}
+	if err := pool.QueryRow(t.Context(), `SELECT response_json->>'status' FROM route_idempotency WHERE client_txn_id='revoked-before-commit'`).Scan(&receipt); err != nil || receipt != jobs.StatusQueued {
+		t.Fatal("receipt mutation persisted", receipt, err)
+	}
+}
+
+type cancelAfterReceipt struct {
+	FinalReceiptReconciliationPort
+	cancel func()
+}
+
+func (p cancelAfterReceipt) ReconcileFinalIdempotencyOutcomeTx(ctx context.Context, tx pgx.Tx, key jobs.RouteIdempotencyKey, request []byte, resource jobs.Resource) (bool, error) {
+	present, err := p.FinalReceiptReconciliationPort.ReconcileFinalIdempotencyOutcomeTx(ctx, tx, key, request, resource)
+	if err == nil {
+		p.cancel()
+	}
+	return present, err
 }

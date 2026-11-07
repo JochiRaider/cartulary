@@ -34,7 +34,7 @@ func TestBaseReconciliationRechecksSelectedBytesBeforePublication_Integration(t 
 			if err != nil || job.Status != jobs.StatusSucceeded {
 				t.Fatal("import", job.Status, err)
 			}
-			request, apiErr := DecodeActionRequest(strings.NewReader(`{"client_txn_id":"startup-activate"}`))
+			request, apiErr := decodeActionRequest(strings.NewReader(`{"client_txn_id":"startup-activate"}`), false)
 			if apiErr != nil {
 				t.Fatal(apiErr)
 			}
@@ -108,7 +108,7 @@ func TestBaseReconciliationRechecksSelectedBytesBeforePublication_Integration(t 
 				if err := f.pool.QueryRow(ctx, `SELECT count(*) FILTER(WHERE event_kind='safety_fallback'),count(*) FILTER(WHERE event_kind='payload_invalidation') FROM reference_pack_events e JOIN reference_pack_operations o USING(operation_id) WHERE o.kind='reconcile'`).Scan(&fallback, &invalidation); err != nil || fallback != 1 || invalidation != 1 {
 					t.Fatal("incomplete atomic startup evidence", fallback, invalidation, err)
 				}
-				if err := ValidateRequiredState(ctx, f.pool, f.storage, DefaultLimits()); err != nil {
+				if err := ValidateRequiredState(ctx, f.pool, f.storage, DefaultLimits(), testVerificationLifetime(t)); err != nil {
 					t.Fatal("unretained invalid former selection blocked recovered Base", err)
 				}
 			} else if !after.Active || after.Health != before.Health || after.AdministrativelyDisabled {

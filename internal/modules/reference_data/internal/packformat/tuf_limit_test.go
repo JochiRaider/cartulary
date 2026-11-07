@@ -210,7 +210,7 @@ func testCompleteTUFByteBoundaries(t *testing.T) {
 	if total != 8388609 {
 		t.Fatal("aggregate one-over recipe", total)
 	}
-	summary, err := TrustSchemaSummary(context.Background(), files, nil)
+	summary, err := trustSchemaSummary(context.Background(), files, nil)
 	if err != nil || summary.Result != "failed" || summary.Issues[0].Details.LimitID == nil || *summary.Issues[0].Details.LimitID != "max_metadata_total_bytes" {
 		t.Fatal("aggregate metadata bound", summary, err)
 	}

@@ -30,15 +30,6 @@ func RegistryCompatibilityFindings(ctx context.Context, m Manifest, source Conte
 	return validateContentPhase(ctx, m, source, nil, contentRegistry, emit)
 }
 
-// ContentSchemaSummary enumerates the schema check across every bounded row.
-// Schema evaluation and ordinary admission share shape.walk. No semantic,
-// licensing, dependency or compatibility check executes in this pass.
-func ContentSchemaSummary(ctx context.Context, m Manifest, source ContentSource, scratch DiagnosticScratch) (*ValidationSummary, error) {
-	return CheckSummary(ctx, "content_schema", scratch, func(ctx context.Context, emit FindingSink) error {
-		return ContentSchemaFindings(ctx, m, source, emit)
-	})
-}
-
 func ContentSchemaFindings(ctx context.Context, m Manifest, source ContentSource, emit FindingSink) error {
 	if source == nil || emit == nil {
 		return errors.New("reference pack: incomplete content schema check")

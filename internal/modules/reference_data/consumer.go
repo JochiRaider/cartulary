@@ -105,6 +105,15 @@ type IndicatorEvaluation struct {
 	Provenance PackProvenance `json:"provenance"`
 }
 
+// Consumer resolves exact retained sets and content. Content reads can detect
+// definitive loss and invoke owner integrity publication: candidate health,
+// effective selection/fallback and audit attestations may change independently
+// of the read's failure. Requested historical content is never substituted.
+// Operational storage failures fail closed without declaring content invalid.
+//
+// Use RegistryAssignments when reading as part of a guarded source mutation;
+// its consumer has transaction lifetime and rollback obligations. A Consumer
+// is not a promise of side-effect-free reads or a transaction snapshot.
 type Consumer interface {
 	ResolveCurrentPackSet(context.Context) ConsumerResult[PackSet]
 	GetPackEntry(context.Context, GetPackEntryRequest) ConsumerResult[PackEntry]

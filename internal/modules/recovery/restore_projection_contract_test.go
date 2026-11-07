@@ -3,6 +3,7 @@ package recovery_test
 import (
 	"context"
 	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"strings"
 	"testing"
 
@@ -138,7 +139,7 @@ func newRestoreTargetContractFixture(t *testing.T, ctx context.Context, postgres
 		_ = targetObjectStore.Close()
 	})
 
-	targetPacks, err := referenceassembly.NewRecoveryStorage(t.TempDir(), t.TempDir(), reference_data.DefaultLimits())
+	targetPacks, err := referenceassembly.NewRecoveryStorage(t.TempDir(), t.TempDir(), reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 	if err != nil {
 		t.Fatal(err)
 	}

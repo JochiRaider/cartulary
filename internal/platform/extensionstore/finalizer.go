@@ -375,6 +375,12 @@ func (f *OwnerFinalizer) FinalizeCancellation(ctx context.Context, request JobCa
 }
 
 func (f *OwnerFinalizer) commitTerminalResource(ctx context.Context, tx pgx.Tx, resource jobs.Resource) (jobs.Resource, error) {
+	// A late mutation/receipt result cannot authorize a new commit after its
+	// completion context was revoked. Once dispatched, commit proof below stays
+	// authoritative even if cancellation races the acknowledgement.
+	if err := context.Cause(ctx); err != nil {
+		return jobs.Resource{}, err
+	}
 	outcome, err := f.commitWithProof(ctx, tx, func(proofCtx context.Context) (bool, error) {
 		return f.provesTerminalResource(proofCtx, resource), nil
 	})

@@ -21,6 +21,7 @@ import (
 // supply admitted requests and actors; they do not choose trust inputs, perform
 // verification, write owner rows or decide publication outcomes.
 type referenceDependencies struct {
+	lifetime      *VerificationLifetime
 	observer      OperationObserver
 	pool          postgres.DB
 	storage       ArtifactStorage
@@ -53,6 +54,7 @@ type referenceJobExecutionGuard interface {
 }
 
 type CoordinatorOptions struct {
+	Lifetime          *VerificationLifetime
 	Observer          OperationObserver
 	Postgres          postgres.DB
 	Storage           ArtifactStorage
@@ -70,6 +72,7 @@ type ImportAdmission interface {
 	PrepareImport(context.Context, io.Reader) (*PendingImport, error)
 }
 type ImportAdmissionOptions struct {
+	Lifetime      *VerificationLifetime
 	Observer      OperationObserver
 	Postgres      postgres.DB
 	Storage       ArtifactStorage
@@ -80,13 +83,13 @@ type ImportAdmissionOptions struct {
 }
 
 func NewImportAdmission(options ImportAdmissionOptions) (ImportAdmission, error) {
-	if options.Postgres == nil || options.Storage == nil || options.JobAdmission == nil || options.Now == nil {
+	if options.Lifetime == nil || options.Postgres == nil || options.Storage == nil || options.JobAdmission == nil || options.Now == nil {
 		return nil, errors.New("reference pack: incomplete import admission dependencies")
 	}
 	if err := validateCoordinatorLimits(options.Limits); err != nil {
 		return nil, err
 	}
-	return &importAdmission{referenceDependencies: &referenceDependencies{observer: options.Observer, pool: options.Postgres, storage: options.Storage, configuration: options.Configuration, limits: options.Limits, now: options.Now}, admission: options.JobAdmission}, nil
+	return &importAdmission{referenceDependencies: &referenceDependencies{lifetime: options.Lifetime, observer: options.Observer, pool: options.Postgres, storage: options.Storage, configuration: options.Configuration, limits: options.Limits, now: options.Now}, admission: options.JobAdmission}, nil
 }
 func validateCoordinatorLimits(limits Limits) error {
 	l := limits.verificationArchiveLimits()
@@ -97,13 +100,13 @@ func validateCoordinatorLimits(limits Limits) error {
 }
 
 func NewCoordinator(options CoordinatorOptions) (*Coordinator, error) {
-	if options.Postgres == nil || options.Storage == nil || options.JobAdmission == nil || options.JobOperations == nil || options.JobFinalizer == nil || options.JobExecutionGuard == nil || options.RegistryUsage == nil || options.Now == nil {
+	if options.Lifetime == nil || options.Postgres == nil || options.Storage == nil || options.JobAdmission == nil || options.JobOperations == nil || options.JobFinalizer == nil || options.JobExecutionGuard == nil || options.RegistryUsage == nil || options.Now == nil {
 		return nil, errors.New("reference pack: incomplete coordinator dependencies")
 	}
 	if err := validateCoordinatorLimits(options.Limits); err != nil {
 		return nil, err
 	}
-	dependencies := &referenceDependencies{observer: options.Observer, pool: options.Postgres, storage: options.Storage, configuration: options.Configuration, limits: options.Limits, now: options.Now}
+	dependencies := &referenceDependencies{lifetime: options.Lifetime, observer: options.Observer, pool: options.Postgres, storage: options.Storage, configuration: options.Configuration, limits: options.Limits, now: options.Now}
 	return &Coordinator{verificationService: &verificationService{referenceDependencies: dependencies, operations: options.JobOperations}, imports: &importAdmission{referenceDependencies: dependencies, admission: options.JobAdmission}, finalizer: options.JobFinalizer, actionFinalizer: options.JobFinalizer, executionGuard: options.JobExecutionGuard, registryUsage: options.RegistryUsage}, nil
 }
 
@@ -198,6 +201,15 @@ func (p *PendingImport) accept(ctx context.Context, actor, operatorOperation uui
 }
 
 func (c *referenceDependencies) prepareImportInput(ctx context.Context, source io.Reader) (identity importIdentity, input preparedObject, resultErr error) {
+	resultErr = c.lifetime.Run(ctx, func(ctx context.Context) error {
+		var err error
+		identity, input, err = c.prepareImportInputScoped(ctx, source)
+		return err
+	})
+	return
+}
+
+func (c *referenceDependencies) prepareImportInputScoped(ctx context.Context, source io.Reader) (identity importIdentity, input preparedObject, resultErr error) {
 	ref, digest, size, err := c.storage.StageStream(ctx, source, c.limits.ReferencePacks.MaxContainerBytes)
 	if err != nil {
 		return identity, input, importStagingError(ctx, err)
@@ -210,7 +222,7 @@ func (c *referenceDependencies) prepareImportInput(ctx context.Context, source i
 		// An operational cleanup failure cannot carry a publishable transport
 		// rejection through errors.Is/As from a joined lower-level failure.
 		if cleanupErr != nil {
-			resultErr = cleanupErr
+			resultErr = verificationCleanupError(resultErr, cleanupErr)
 		}
 	}()
 	identity, err = probeContainerIdentity(ctx, c.storage, ref, c.limits.verificationArchiveLimits())

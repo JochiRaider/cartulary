@@ -1172,8 +1172,8 @@ func (referenceRetentionStub) ReferenceBindingsTx(context.Context, pgx.Tx, uuid.
 	return nil, nil
 }
 
-func (referenceRetentionStub) BeginImportExecution(context.Context, jobs.Execution, time.Time) (*reference_data.IncidentReferenceExecution, error) {
-	return nil, errors.New("unexpected worker execution in registration stub")
+func (referenceRetentionStub) RunImportExecution(context.Context, jobs.Execution, time.Time, func(context.Context, *reference_data.IncidentReferenceExecution) error) error {
+	return errors.New("unexpected worker execution in registration stub")
 }
 func (referenceRetentionStub) PrepareImport(context.Context, reference_data.IncidentReferenceImportRequest) (*reference_data.PreparedReferenceImport, error) {
 	return nil, nil
@@ -1268,6 +1268,16 @@ func (projectionRebuilderStub) RebuildImportedIncidentTx(context.Context, pgx.Tx
 }
 
 func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
+	t.Run("fatal import bypasses ordinary finalization", func(t *testing.T) {
+		worker := &incidentBundleWorker{jobFinalizer: forbiddenImportFinalizer{t: t}}
+		fatal := &crossownertransaction.FatalIntegrityError{}
+		for _, cause := range []error{fatal, fmt.Errorf("late owner completion: %w", fatal)} {
+			worker.finalizeImportFailure(t.Context(), &reference_data.IncidentReferenceExecution{}, jobs.Execution{}, cause)
+			if err := importCleanupError(cause, errors.New("late cleanup failure")); !fatalImportFailure(err) {
+				t.Fatal("fatal cleanup precedence", err)
+			}
+		}
+	})
 	testImportInputRetention(t)
 	testBoundedContainerExport(t)
 	bundleID := uuid.MustParse("22222222-2222-2222-2222-222222222222")

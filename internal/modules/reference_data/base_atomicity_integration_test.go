@@ -77,13 +77,13 @@ func TestBaseReconciliationAtomicPublication_Integration(t *testing.T) {
 			if err := ReconcileBaseRelease(t.Context(), pool, storage, options, at.Add(time.Minute)); err != nil {
 				t.Fatal("fresh startup after interruption", err)
 			}
-			if err := ValidateRequiredState(t.Context(), pool, storage, DefaultLimits()); err != nil {
+			if err := ValidateRequiredState(t.Context(), pool, storage, DefaultLimits(), testVerificationLifetime(t)); err != nil {
 				t.Fatal("restart readiness", err)
 			}
 			if err := CollectUnreferencedObjects(t.Context(), pool, storage); err != nil {
 				t.Fatal("post-recovery collection", err)
 			}
-			if err := ValidateRequiredState(t.Context(), pool, storage, DefaultLimits()); err != nil {
+			if err := ValidateRequiredState(t.Context(), pool, storage, DefaultLimits(), testVerificationLifetime(t)); err != nil {
 				t.Fatal("collection removed retained bytes", err)
 			}
 		})
@@ -135,7 +135,7 @@ func testBaseInterruptionWithPinnedState(t *testing.T) {
 					if err != nil || job.Status != jobs.StatusSucceeded {
 						t.Fatal("import", job.Status, err)
 					}
-					request, apiErr := DecodeActionRequest(strings.NewReader(`{"client_txn_id":"pinned-activate"}`))
+					request, apiErr := decodeActionRequest(strings.NewReader(`{"client_txn_id":"pinned-activate"}`), false)
 					if apiErr != nil {
 						t.Fatal(apiErr)
 					}
@@ -211,7 +211,7 @@ func testBaseInterruptionWithPinnedState(t *testing.T) {
 					if err := CollectUnreferencedObjects(ctx, f.pool, f.storage); err != nil {
 						t.Fatal(err)
 					}
-					if err := ValidateRequiredState(ctx, f.pool, f.storage, DefaultLimits()); err != nil {
+					if err := ValidateRequiredState(ctx, f.pool, f.storage, DefaultLimits(), testVerificationLifetime(t)); err != nil {
 						t.Fatal("restart readiness", err)
 					}
 					final := baseAtomicState(t, f.pool)
@@ -407,8 +407,8 @@ func TestCurrentRetainedStructureAcrossConsumersAndRecovery_Integration(t *testi
 			if err := contractadmission.ValidateBinding(t.Context(), tx, binding); !contractadmission.IsIncompatible(err) {
 				t.Fatal("Reporting binding admitted malformed or misbound local set", err)
 			}
-			for _, check := range []func(context.Context, postgres.DB, ArtifactStorage, Limits) error{ValidateRequiredState, RestoreHistoricalState} {
-				if err := check(t.Context(), baseTestTxDB{tx}, storage, DefaultLimits()); !contractadmission.IsIncompatible(err) {
+			for _, check := range []func(context.Context, postgres.DB, ArtifactStorage, Limits, *VerificationLifetime) error{ValidateRequiredState, RestoreHistoricalState} {
+				if err := check(t.Context(), baseTestTxDB{tx}, storage, DefaultLimits(), testVerificationLifetime(t)); !contractadmission.IsIncompatible(err) {
 					t.Fatal("recovery failed to reject malformed set before rebuild", err)
 				}
 			}

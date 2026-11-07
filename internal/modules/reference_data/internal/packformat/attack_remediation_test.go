@@ -136,7 +136,7 @@ func TestNativeATTACKLimitSummary_Unit(t *testing.T) {
 					t.Fatal(err)
 				}
 				fixture := contentFixture{Key: "framework.attack", Members: map[string]string{"payload/objects.ndjson": string(b) + "\n", "payload/relationships.ndjson": ""}}
-				summary, err := ContentSchemaSummary(context.Background(), fixtureManifest(fixture), contentMemory(fixture.Members), nil)
+				summary, err := contentSchemaSummary(context.Background(), fixtureManifest(fixture), contentMemory(fixture.Members), nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -147,7 +147,7 @@ func TestNativeATTACKLimitSummary_Unit(t *testing.T) {
 					continue
 				}
 				assertNativeLimitIssue(t, summary, "$.objects[0].source."+tc.field, tc.limitID, fmt.Sprint(tc.maximum), fmt.Sprint(count))
-				repeated, err := ContentSchemaSummary(context.Background(), fixtureManifest(fixture), contentMemory(fixture.Members), nil)
+				repeated, err := contentSchemaSummary(context.Background(), fixtureManifest(fixture), contentMemory(fixture.Members), nil)
 				if err != nil || !reflect.DeepEqual(summary, repeated) {
 					t.Fatal("unstable diagnostic", err)
 				}
@@ -158,7 +158,7 @@ func TestNativeATTACKLimitSummary_Unit(t *testing.T) {
 				}
 				b, _ = canonicaljson.Marshal(row)
 				fixture.Members["payload/objects.ndjson"] = string(b) + "\n"
-				stopped, err := ContentSchemaSummary(context.Background(), fixtureManifest(fixture), contentMemory(fixture.Members), nil)
+				stopped, err := contentSchemaSummary(context.Background(), fixtureManifest(fixture), contentMemory(fixture.Members), nil)
 				if err != nil || stopped.Total != 1 {
 					t.Fatal("resource traversal continued", err, stopped)
 				}

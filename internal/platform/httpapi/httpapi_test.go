@@ -314,37 +314,47 @@ func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T
 		for _, routeFamily := range profile.RouteFamilies {
 			path := strings.ReplaceAll(routeFamily, "{user_id}", "11111111-1111-1111-1111-111111111111")
 			path = strings.ReplaceAll(path, "{incident_id}", "22222222-2222-2222-2222-222222222222")
-			request := httptest.NewRequest(http.MethodGet, path, nil)
-			recorder := httptest.NewRecorder()
-			handler.ServeHTTP(recorder, request)
+			for _, path := range []string{
+				path,
+				strings.Replace(path, "/api/v1/", "/api//v1/", 1),
+				strings.Replace(path, "/api/v1/", "/api/v1/other/../", 1),
+				path + "/../outside",
+			} {
+				request := httptest.NewRequest(http.MethodGet, path, nil)
+				recorder := httptest.NewRecorder()
+				handler.ServeHTTP(recorder, request)
 
-			response := recorder.Result()
-			body, err := io.ReadAll(response.Body)
-			_ = response.Body.Close()
-			if err != nil {
-				t.Fatalf("read reserved-route response for %s: %v", path, err)
-			}
-			if response.StatusCode != http.StatusNotFound {
-				t.Fatalf("reserved root %s returned status %d body %q", path, response.StatusCode, string(body))
-			}
+				response := recorder.Result()
+				body, err := io.ReadAll(response.Body)
+				_ = response.Body.Close()
+				if err != nil {
+					t.Fatalf("read reserved-route response for %s: %v", path, err)
+				}
+				if response.StatusCode != http.StatusNotFound {
+					t.Fatalf("reserved root %s returned status %d body %q", path, response.StatusCode, string(body))
+				}
 
-			var payload map[string]any
-			if err := json.Unmarshal(body, &payload); err != nil {
-				t.Fatalf("decode reserved-route payload for %s: %v body=%q", path, err, string(body))
-			}
-			errorPayload, ok := payload["error"].(map[string]any)
-			if !ok {
-				t.Fatalf("missing error payload for %s: %#v", path, payload)
-			}
-			if errorPayload["code"] != "extension_profile_not_claimed" {
-				t.Fatalf("reserved root %s returned unexpected error: %#v", path, errorPayload)
-			}
-			details, ok := errorPayload["details"].(map[string]any)
-			if !ok {
-				t.Fatalf("missing reserved-route details for %s: %#v", path, errorPayload)
-			}
-			if details["profile_id"] != profile.ProfileID || details["route_family"] != routeFamily {
-				t.Fatalf("unexpected reserved-route details for %s: %#v", path, details)
+				var payload map[string]any
+				if err := json.Unmarshal(body, &payload); err != nil {
+					t.Fatalf("decode reserved-route payload for %s: %v body=%q", path, err, string(body))
+				}
+				errorPayload, ok := payload["error"].(map[string]any)
+				if !ok {
+					t.Fatalf("missing error payload for %s: %#v", path, payload)
+				}
+				if errorPayload["code"] != "extension_profile_not_claimed" {
+					t.Fatalf("reserved root %s returned unexpected error: %#v", path, errorPayload)
+				}
+				details, ok := errorPayload["details"].(map[string]any)
+				if !ok {
+					t.Fatalf("missing reserved-route details for %s: %#v", path, errorPayload)
+				}
+				if details["profile_id"] != profile.ProfileID || details["route_family"] != routeFamily {
+					t.Fatalf("unexpected reserved-route details for %s: %#v", path, details)
+				}
+				if response.Header.Get("Location") != "" {
+					t.Fatalf("unclaimed reserved path %s redirected", path)
+				}
 			}
 		}
 	}

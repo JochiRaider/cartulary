@@ -3,6 +3,7 @@ package reference_data_test
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepacks"
@@ -34,6 +35,23 @@ func TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit(t *test
 	}
 	requireRequired(t, resource, []string{"pack_key", "pack_kind", "pack_version", "pack_version_state", "health", "administratively_disabled", "distribution_kind", "active", "removed", "missing_reason", "last_failure_code", "source_identifier", "manifest_sha256", "payload_sha256", "pack_contract_version", "content_profile_id", "content_profile_version", "verification_method", "last_verified_at", "trust_valid_until", "verified_signer_key_ids", "imported_by_user_id", "imported_at", "previous_active_version", "activated_by_user_id", "activated_at", "pack_release_sequence", "source_profile_id", "source_profile_sha256", "source_version", "source_as_of", "license_expression", "redistribution", "trust_repository_id", "pending_work", "reproducibility_pinned", "fallback_from_version", "dependencies"})
 	paths := openAPIObjectAt(t, document, "paths")
+	for path, item := range paths {
+		if !strings.HasPrefix(path, "/api/v1/reference-packs") {
+			continue
+		}
+		for _, value := range item.(map[string]any) {
+			operation, ok := value.(map[string]any)
+			if !ok || operation["operationId"] == nil {
+				continue
+			}
+			responses := openAPIObjectAt(t, operation, "responses")
+			for _, status := range []string{"401", "403", "404"} {
+				if responses[status] == nil {
+					t.Fatalf("%s missing security/availability response %s", path, status)
+				}
+			}
+		}
+	}
 	listOperation := openAPIObjectAt(t, paths, "/api/v1/reference-packs", "get")
 	requireResponseRef(t, listOperation, "200", "ReferencePackListEnvelope")
 	requireParameterNames(t, listOperation, []string{"limit", "cursor_token", "search", "pack_version_state", "active"})
@@ -58,7 +76,7 @@ func TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit(t *test
 	requireReasonRegistry(t, errorsDoc, "invalid_reference_pack_request", []string{
 		"unsupported_upload_envelope", "missing_required_part", "duplicate_part", "unexpected_part", "invalid_part_content_type",
 		"invalid_metadata_encoding", "malformed_metadata_json", "request_not_object", "missing_required_field", "field_not_nullable",
-		"unknown_field", "invalid_activation_policy", "pack_version_required", "auto_activation_not_supported", "invalid_pack_keys", "empty_pack_keys", "invalid_reason", "reason_too_long", "request_too_large",
+		"unknown_field", "invalid_activation_policy", "malformed_query", "unknown_query_member", "auto_activation_not_supported", "invalid_pack_keys", "empty_pack_keys", "invalid_reason", "reason_too_long", "request_too_large",
 	})
 	requireReasonRegistry(t, errorsDoc, "reference_pack_verification_failed", []string{
 		"archive_compression_ratio_exceeded",

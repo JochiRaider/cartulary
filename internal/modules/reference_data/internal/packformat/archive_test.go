@@ -339,7 +339,7 @@ func TestArchiveRegistryPrecedenceAndNoRejectedWrites_Unit(t *testing.T) {
 					}
 					data := container(t, kind, names, []byte("payload"))
 					destination := memoryDestination{}
-					_, err := ExtractWithDiagnostics(context.Background(), bytes.NewReader(data), int64(len(data)), DefaultArchiveLimits(), destination, nil)
+					_, err := extractWithDiagnostics(context.Background(), bytes.NewReader(data), int64(len(data)), DefaultArchiveLimits(), destination, nil)
 					var f *Failure
 					if !errors.As(err, &f) || f.CheckID != tc.check || f.Summary == nil || f.Summary.Total != tc.count {
 						t.Fatalf("%s: %#v / %v", tc.check, f, err)

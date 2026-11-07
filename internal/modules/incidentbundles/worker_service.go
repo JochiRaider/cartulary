@@ -288,7 +288,12 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		w.results.completeFailed(ctx, execution, failedCompletion("incident_bundle_import_rejected", map[string]any{"reason_code": "missing_required_file"}))
 		return
 	}
-	defer archive.Close()
+	archiveTransferred := false
+	defer func() {
+		if !archiveTransferred {
+			_ = archive.Close()
+		}
+	}()
 	if payload.UploadedSHA256 == nil {
 		w.results.completeInternalFailure(ctx, execution)
 		return
@@ -302,8 +307,9 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		w.results.completeInternalFailure(ctx, execution)
 		return
 	}
+	membersTransferred := false
 	defer func() {
-		if !finalityUnknown {
+		if !finalityUnknown && !membersTransferred {
 			_ = memberScope.Abandon(context.WithoutCancel(ctx))
 		}
 	}()
@@ -326,91 +332,116 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_import_rejected", err)
 		return
 	}
-	scope, err := w.referencePacks.BeginImportExecution(ctx, execution, executionStarted)
-	if err != nil {
-		w.results.completeInternalFailure(ctx, execution)
-		return
-	}
-	defer scope.Close()
 	baseCtx := ctx
-	ctx = scope.Context()
-	requestID := importBundleRequestID(payload.JobID)
-	importer := importer{
-		artifactReferences: w.artifactReferences,
-		pool:               w.pool,
-		blobPort:           w.blobPort,
-		finalizer:          w.importFinalizer,
-		projectionRebuild:  w.projectionRebuild,
-		sourceCatalog:      w.sourceCatalog,
-		referencePacks:     w.referencePacks,
-	}
-	importParams := importParams{
-		Execution:          execution,
-		ExecutionStarted:   executionStarted,
-		ReferenceExecution: scope,
-		ActorUserID:        payload.ActorUserID,
-		PublishedAt:        w.now().UTC(),
-		RequestID:          &requestID,
-		OperationID:        payload.JobID.String(),
-	}
-	rewritten, err := newMemberStore(payload.JobID.String(), memberScope, w.limits)
-	if err != nil {
-		w.finishImportFailure(baseCtx, scope, execution, err)
-		return
-	}
-	importParams.RewrittenMembers = rewritten
-	prepared, err := importer.prepareImport(ctx, verified, importParams)
-	if err != nil {
-		w.finishImportFailure(baseCtx, scope, execution, err)
-		return
-	}
 	committed := false
-	defer func() {
-		if !committed && !finalityUnknown {
-			prepared.cleanup(context.WithoutCancel(ctx))
-		}
-	}()
-	portability, err := w.portability.PrepareImport(ctx, PortabilityImportContext{OperationID: payload.JobID.String(), IncidentID: prepared.IncidentID, ActorUserID: payload.ActorUserID, Actors: prepared.importContext.Actors}, verified.Members)
-	if err != nil {
-		w.finishImportFailure(baseCtx, scope, execution, err)
-		return
-	}
-	defer func() {
-		if !committed && !finalityUnknown {
-			_ = portability.Abandon(context.WithoutCancel(ctx))
-		}
-	}()
-	coreParticipant, err := newImportTransactionParticipant(prepared, importParams, execution, verified.ManifestSHA256)
-	if err != nil {
-		w.finishImportFailure(baseCtx, scope, execution, errors.New("incident import execution failed"))
-		return
-	}
-	participants := append([]crossownertransaction.Participant{coreParticipant}, portability.Participants...)
-	result, err := w.transactions.Execute(ctx, crossownertransaction.Operation{
-		OperationID: payload.JobID.String(), NormalizedRequestSHA256: verified.ManifestSHA256,
-		Participants: participants,
-		Finalizer: importJobTransactionFinalizer{
-			finalizer: w.jobFinalizer, execution: execution,
-			manifestSHA256: verified.ManifestSHA256,
-			publications:   append([]stagedobjects.PublicationPlan{prepared.stagedObjects.Plan()}, portability.Publications...),
-		},
-	})
-	if err != nil {
-		if crossownertransaction.IsFatalIntegrity(err) {
+	err = w.referencePacks.RunImportExecution(ctx, execution, executionStarted, func(ctx context.Context, scope *reference_data.IncidentReferenceExecution) error {
+		archiveTransferred, membersTransferred = true, true
+		workErr := func() (resultErr error) {
+			defer func() {
+				if err := scope.CompleteCleanup(func(context.Context) error { return archive.Close() }); err != nil {
+					resultErr = importCleanupError(resultErr, err)
+				}
+			}()
+			defer func() {
+				if !finalityUnknown {
+					if err := scope.CompleteCleanup(memberScope.Abandon); err != nil {
+						resultErr = importCleanupError(resultErr, err)
+					}
+				}
+			}()
+			requestID := importBundleRequestID(payload.JobID)
+			importer := importer{
+				artifactReferences: w.artifactReferences,
+				pool:               w.pool,
+				blobPort:           w.blobPort,
+				finalizer:          w.importFinalizer,
+				projectionRebuild:  w.projectionRebuild,
+				sourceCatalog:      w.sourceCatalog,
+				referencePacks:     w.referencePacks,
+			}
+			importParams := importParams{
+				Execution:          execution,
+				ExecutionStarted:   executionStarted,
+				ReferenceExecution: scope,
+				ActorUserID:        payload.ActorUserID,
+				PublishedAt:        w.now().UTC(),
+				RequestID:          &requestID,
+				OperationID:        payload.JobID.String(),
+			}
+			rewritten, err := newMemberStore(payload.JobID.String(), memberScope, w.limits)
+			if err != nil {
+				return err
+			}
+			importParams.RewrittenMembers = rewritten
+			prepared, err := importer.prepareImport(ctx, verified, importParams)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if !committed && !finalityUnknown {
+					if err := scope.CompleteCleanup(prepared.cleanup); err != nil {
+						resultErr = importCleanupError(resultErr, err)
+					}
+				}
+			}()
+			portability, err := w.portability.PrepareImport(ctx, PortabilityImportContext{OperationID: payload.JobID.String(), IncidentID: prepared.IncidentID, ActorUserID: payload.ActorUserID, Actors: prepared.importContext.Actors}, verified.Members)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if !committed && !finalityUnknown {
+					if err := scope.CompleteCleanup(portability.Abandon); err != nil {
+						resultErr = importCleanupError(resultErr, err)
+					}
+				}
+			}()
+			coreParticipant, err := newImportTransactionParticipant(prepared, importParams, execution, verified.ManifestSHA256)
+			if err != nil {
+				return errors.New("incident import execution failed")
+			}
+			participants := append([]crossownertransaction.Participant{coreParticipant}, portability.Participants...)
+			result, err := w.transactions.Execute(ctx, crossownertransaction.Operation{
+				OperationID: payload.JobID.String(), NormalizedRequestSHA256: verified.ManifestSHA256,
+				Participants: participants,
+				Finalizer: importJobTransactionFinalizer{
+					finalizer: w.jobFinalizer, execution: execution,
+					manifestSHA256: verified.ManifestSHA256,
+					publications:   append([]stagedobjects.PublicationPlan{prepared.stagedObjects.Plan()}, portability.Publications...),
+				},
+			})
+			if err != nil {
+				if fatalImportFailure(err) {
+					finalityUnknown = true
+					return err
+				}
+				return err
+			}
+			// Execute has proved commit. Output-shape checks cannot authorize deleting
+			// objects that are now referenced by the committed incident.
+			committed = true
+			prepared.stagedObjects = nil
+			_ = portability.Committed(ctx)
+			value, ok := result.ParticipantValues[ImportTransactionParticipantID].(importTransactionResult)
+			if !ok || value.IncidentID != prepared.IncidentID {
+				return errors.New("incident import committed result mismatch")
+			}
+			return nil
+		}()
+		if fatalImportFailure(workErr) {
 			finalityUnknown = true
-			return
 		}
-		w.finishImportFailure(baseCtx, scope, execution, err)
-		return
-	}
-	// Execute has proved commit. Output-shape checks cannot authorize deleting
-	// objects that are now referenced by the committed incident.
-	committed = true
-	prepared.stagedObjects = nil
-	_ = portability.Committed(ctx)
-	value, ok := result.ParticipantValues[ImportTransactionParticipantID].(importTransactionResult)
-	if !ok || value.IncidentID != prepared.IncidentID {
-		return
+		if workErr != nil && !committed && !finalityUnknown {
+			if finishErr := w.finishImportFailure(baseCtx, scope, execution, workErr); finishErr != nil {
+				if fatalImportFailure(finishErr) || errors.Is(finishErr, ErrJobFinalizationIndeterminate) {
+					finalityUnknown = true
+				}
+				return importCleanupError(workErr, finishErr)
+			}
+		}
+		return workErr
+	})
+	if fatalImportFailure(err) {
+		finalityUnknown = true
 	}
 }
 

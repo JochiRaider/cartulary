@@ -2101,26 +2101,26 @@ Profiles: base
 Verified by: EXT-AC-022, EXT-AC-023, EXT-AC-031
 
 **EXT-REQ-096**
-Core 01 reserved-extension dispatch MUST use this order:
+Core 01 REQ-01-547/548 owns path classification and dispatch precedence. After common process admission, Extensions MUST use this order:
 
-1. Base route match;
-2. claimed extension-family route match;
-3. reserved inactive extension-family match;
+1. original Base-route match without structural path rewriting;
+2. reserved inactive extension-family match in either the original or structurally cleaned escaped path;
+3. claimed extension-family handling only when neither path form matches an inactive family;
 4. ordinary unknown route.
 
-A reserved inactive match covers both `unclaimed` and `recognized_unclaimable`. It MUST return HTTP `404` with `error.code='extension_profile_not_claimed'` under the Core common error envelope. Public route dispatch MUST NOT expose a separate invented read-only or retired route mode. Claimability remains visible through discovery and startup configuration diagnostics.
+A reserved inactive match covers both `unclaimed` and `recognized_unclaimable`. It MUST return HTTP `404` with `error.code='extension_profile_not_claimed'` under the Core common error envelope. An inactive match wins over a different claimed-family match in the other path form, in either traversal direction and for every HTTP method and caller. The response identifies a matching inactive profile and family. No claimed-family authentication, authorization, redirect or operation dispatch may occur first. A cleaned path targeting Base does not gain original Base-route precedence. Public route dispatch MUST NOT expose a separate invented read-only or retired route mode. Claimability remains visible through discovery and startup configuration diagnostics.
 
 Profiles: base
 Verified by: EXT-AC-031, EXT-AC-032, EXT-AC-033, EXT-AC-087
 
 **EXT-REQ-097**
-A reserved inactive match MUST occur before family-specific authentication beyond the common route envelope, authorization, incident lookup, path-parameter validation, request-body validation, idempotency lookup, cursor validation, resource lookup, job admission, secret resolution, or external dependency access.
+A reserved inactive match MUST occur before family-specific authentication beyond the common route envelope, authorization, incident lookup, path-parameter validation, request-body validation, idempotency lookup, cursor validation, resource lookup, job admission, secret resolution, or external dependency access. Matching imports Core 01 REQ-01-547's original and structurally cleaned escaped-path classification before redirects; this does not authorize URL rewriting or a claimed-family compatibility alias.
 
 Profiles: base
 Verified by: EXT-AC-031
 
 **EXT-REQ-098**
-A claimed-family request MUST proceed to the named profile's ordinary authentication, authorization, validation, resource visibility, capability, and error-precedence contract. It MUST NOT return `extension_profile_not_claimed` because the family has no resources, the caller lacks authorization, one capability is unavailable, or an external dependency failed.
+After EXT-REQ-096 excludes inactive-family matches in both path forms, a claimed-family request MUST proceed to the named profile's ordinary authentication, authorization, validation, resource visibility, capability, and error-precedence contract. Reference Pack imports Core 01 §17.4 for its family gate and subsequent method, CSRF and query admission; Extensions does not duplicate that policy. It MUST NOT return `extension_profile_not_claimed` because the family has no resources, the caller lacks authorization, one capability is unavailable, or an external dependency failed.
 
 Profiles: base
 Verified by: EXT-AC-032, EXT-AC-033

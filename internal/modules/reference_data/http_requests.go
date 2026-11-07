@@ -62,14 +62,6 @@ func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataReques
 	}, nil
 }
 
-func DecodeActionRequest(reader io.Reader) (ActionRequest, *httpapi.APIError) {
-	return decodeActionRequest(reader, false)
-}
-
-func DecodeRemovalRequest(reader io.Reader) (ActionRequest, *httpapi.APIError) {
-	return decodeActionRequest(reader, true)
-}
-
 func decodeActionRequest(reader io.Reader, requireReason bool) (ActionRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
@@ -214,7 +206,7 @@ func requiredStringField(raw map[string]json.RawMessage, field string) (string, 
 func invalidReferencePackRequest(field string, reasonCode string) *httpapi.APIError {
 	// Never reflect hostile object member names into diagnostics.
 	switch field {
-	case "client_txn_id", "reason", "pack_keys", "activation_policy", "metadata", "request":
+	case "client_txn_id", "reason", "pack_keys", "activation_policy", "metadata", "request", "query":
 	default:
 		field = "request"
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -131,7 +132,7 @@ CREATE TRIGGER fail_portable_audit BEFORE INSERT ON deployment_admin_audit_event
 				t.Fatal(err)
 			}
 			defer packs.Close()
-			if err := reference_data.ValidateRequiredState(ctx, targetPool, packs, reference_data.DefaultLimits()); err != nil {
+			if err := reference_data.ValidateRequiredState(ctx, targetPool, packs, reference_data.DefaultLimits(), verificationtest.Lifetime(t)); err != nil {
 				t.Fatal(err)
 			}
 			_, query, err := projectionassembly.NewRecoveryServices(targetPool)

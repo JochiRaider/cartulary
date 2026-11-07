@@ -142,7 +142,7 @@ func TestCanonicalLifecycleFixtureManifests_Integration(t *testing.T) {
 				accepted, err = f.coordinator.VerifyRetained(ctx, VerificationRequest{Kind: kind, ActorUserID: f.actor, ClientTxnID: step.Transaction, PackKeys: []string{key}, KeysProvided: true, PackVersion: version})
 			case "activate", "disable", "remove":
 				raw, _ := json.Marshal(map[string]any{"client_txn_id": step.Transaction, "reason": "private lifecycle fixture reason"})
-				request, apiErr := DecodeActionRequest(bytes.NewReader(raw))
+				request, apiErr := decodeActionRequest(bytes.NewReader(raw), false)
 				if apiErr != nil {
 					t.Fatal(apiErr)
 				}

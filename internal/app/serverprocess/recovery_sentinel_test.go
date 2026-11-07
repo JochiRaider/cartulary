@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"net/http"
 	"strings"
 	"testing"
@@ -390,7 +391,7 @@ func prepareRestoreTarget(t testing.TB, prefix string) processRestoreTarget {
 func openRecoveryPackStorage(t testing.TB, env map[string]string) *referenceassembly.RecoveryStorage {
 	t.Helper()
 	cfg := configtest.LoadFixture(t, []string{"config", "valid.toml"}, env).Deployment()
-	packs, err := referenceassembly.NewRecoveryStorage(cfg.Roots.TemporaryWork.Path, cfg.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits())
+	packs, err := referenceassembly.NewRecoveryStorage(cfg.Roots.TemporaryWork.Path, cfg.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 	if err != nil {
 		t.Fatal(err)
 	}

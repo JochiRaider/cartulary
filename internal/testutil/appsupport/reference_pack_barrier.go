@@ -2,6 +2,8 @@ package appsupport
 
 import (
 	"context"
+	"github.com/jackc/pgx/v5/pgconn"
+	"strings"
 	"sync"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -16,6 +18,8 @@ type ReferencePackVerificationBarrier struct {
 	next *referencePackBlockedRead
 }
 type referencePackBlockedRead struct {
+	query   string
+	failure error
 	entered chan<- struct{}
 	release <-chan struct{}
 }
@@ -26,7 +30,7 @@ func (b *ReferencePackVerificationBarrier) BlockNext(entered chan<- struct{}, re
 	if b.next != nil {
 		panic("reference pack barrier already armed")
 	}
-	b.next = &referencePackBlockedRead{entered: entered, release: release}
+	b.next = &referencePackBlockedRead{query: "SELECT configuration_sha256 FROM reference_pack_current_set WHERE singleton", entered: entered, release: release}
 }
 func (b *ReferencePackVerificationBarrier) WrapDatabase(db postgres.DB) postgres.DB {
 	return referencePackBarrierDB{DB: db, barrier: b}
@@ -44,7 +48,11 @@ func (db referencePackBarrierDB) QueryRow(ctx context.Context, query string, arg
 	if query == "SELECT configuration_sha256 FROM reference_pack_current_set WHERE singleton" {
 		db.barrier.mu.Lock()
 		next := db.barrier.next
-		db.barrier.next = nil
+		if next != nil && next.query == query {
+			db.barrier.next = nil
+		} else {
+			next = nil
+		}
 		db.barrier.mu.Unlock()
 		if next != nil {
 			close(next.entered)
@@ -56,4 +64,36 @@ func (db referencePackBarrierDB) QueryRow(ctx context.Context, query string, arg
 		}
 	}
 	return db.DB.QueryRow(ctx, query, args...)
+}
+
+// BlockNextIndex interrupts private indexing after extraction has allocated real scratch.
+func (b *ReferencePackVerificationBarrier) BlockNextIndex(entered chan<- struct{}, release <-chan struct{}, failure error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.next != nil {
+		panic("reference pack barrier already armed")
+	}
+	b.next = &referencePackBlockedRead{query: "INSERT INTO reference_pack_index_generations", entered: entered, release: release, failure: failure}
+}
+func (db referencePackBarrierDB) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	db.barrier.mu.Lock()
+	next := db.barrier.next
+	if next != nil && strings.HasPrefix(query, next.query) {
+		db.barrier.next = nil
+	} else {
+		next = nil
+	}
+	db.barrier.mu.Unlock()
+	if next != nil {
+		close(next.entered)
+		select {
+		case <-next.release:
+		case <-ctx.Done():
+			return pgconn.CommandTag{}, ctx.Err()
+		}
+		if next.failure != nil {
+			return pgconn.CommandTag{}, next.failure
+		}
+	}
+	return db.DB.Exec(ctx, query, args...)
 }

@@ -119,7 +119,7 @@ func testLimitDiagnostics(t *testing.T) {
 	archive := bytes.NewReader(make([]byte, 2048)) // A complete empty ustar stream.
 	limits := DefaultArchiveLimits()
 	limits.ContainerBytes = 1024
-	_, err = ExtractWithDiagnostics(ctx, archive, archive.Size(), limits, memoryDestination{}, nil)
+	_, err = extractWithDiagnostics(ctx, archive, archive.Size(), limits, memoryDestination{}, nil)
 	var failure *Failure
 	if !errors.As(err, &failure) || failure.Summary == nil {
 		t.Fatal(err)

@@ -1,4 +1,4 @@
-// Package packstate defines immutable Reference Data transition proposals.
+// Package packstate projects Reference Data conditions and resolves effective sets.
 // It has no storage, transaction, transport, or Jobs dependencies.
 package packstate
 
@@ -14,7 +14,6 @@ import (
 type Health string
 
 const (
-	Staged    Health = "staged"
 	Available Health = "verified_available"
 	Failed    Health = "failed"
 	Missing   Health = "missing"
@@ -36,69 +35,11 @@ type Envelope struct {
 	VerifiedAt      time.Time
 	ValidUntil      *time.Time
 }
-type Operation string
-
-const (
-	Import   Operation = "import"
-	Renewal  Operation = "renewal"
-	Reverify Operation = "reverify"
-	Refresh  Operation = "refresh"
-)
-
-type Verdict string
-
-const (
-	Success        Verdict = "succeeded"
-	ContentFailure Verdict = "content_rejected"
-	MissingPayload Verdict = "payload_missing"
-	Aborted        Verdict = "aborted"
-)
-
 type Rejection struct{ Reason string }
 
 func (e *Rejection) Error() string { return "reference pack operation rejected: " + e.Reason }
 func reject(reason string) error   { return &Rejection{Reason: reason} }
-func key(v Version) string         { return v.Member.Key + "\x00" + v.Member.Version }
 
-// AdmitReverify freezes the successful envelope that supplied this version's
-// current verification inputs. Never-successful candidates are not retries.
-func AdmitReverify(v Version, pending bool) (Version, error) {
-	if pending {
-		return Version{}, reject("verification_pending")
-	}
-	if v.Builtin {
-		return Version{}, reject("packaged_builtin")
-	}
-	if v.Removed {
-		return Version{}, reject("removed")
-	}
-	if v.Envelope == nil {
-		return Version{}, reject("no_successful_verification")
-	}
-	return cloneVersion(v), nil
-}
-
-// FreezeRefresh receives every retained version under the selected keys and
-// pending work keyed by pack key, including work against a different version.
-func FreezeRefresh(versions []Version, pending map[string]bool) ([]Version, error) {
-	cohort := []Version{}
-	for _, v := range versions {
-		if pending[v.Member.Key] {
-			return nil, reject("verification_pending")
-		}
-		if v.Builtin || v.Removed || v.Envelope == nil {
-			continue
-		}
-		cohort = append(cohort, cloneVersion(v))
-	}
-	slices.SortFunc(cohort, func(a, b Version) int { return strings.Compare(key(a), key(b)) })
-	for i := 1; i < len(cohort); i++ {
-		if key(cohort[i]) == key(cohort[i-1]) {
-			return nil, errors.New("reference pack: duplicate retained logical tuple")
-		}
-	}
-	return cohort, nil
-}
 func cloneVersion(v Version) Version {
 	if v.Envelope != nil {
 		e := *v.Envelope
@@ -170,57 +111,6 @@ func cloneJSON(value any) any {
 	}
 }
 
-// ApplyVerification produces a version proposal only. Attempt evidence is
-// recorded independently even when the proposal equals the previous version.
-func ApplyVerification(previous Version, operation Operation, verdict Verdict, envelope *Envelope) (Version, error) {
-	if operation != Import && operation != Renewal && operation != Reverify && operation != Refresh {
-		return Version{}, errors.New("reference pack: invalid verification operation")
-	}
-	if previous.Removed {
-		return Version{}, reject("removed")
-	}
-	if operation != Import && previous.Envelope == nil {
-		return Version{}, reject("no_successful_verification")
-	}
-	if operation == Import && previous.Envelope != nil {
-		return Version{}, errors.New("reference pack: established import must be a renewal")
-	}
-	result := cloneVersion(previous)
-	switch verdict {
-	case Success:
-		if envelope == nil || envelope.ID == "" || envelope.VerifiedAt.IsZero() || envelope.ValidUntil != nil && !envelope.ValidUntil.After(envelope.VerifiedAt) {
-			return Version{}, errors.New("reference pack: invalid successful envelope")
-		}
-		result.Envelope = envelope
-		result = cloneVersion(result)
-		result.Health = Available
-		result.MissingReason = nil
-	case ContentFailure, MissingPayload:
-		if operation == Renewal {
-			return result, nil
-		}
-		result.Health = Failed
-		result.MissingReason = nil
-		if verdict == MissingPayload {
-			result.Health = Missing
-			reason := "storage_loss"
-			if operation == Import {
-				reason = "staging_loss"
-			}
-			result.MissingReason = &reason
-		}
-	case Aborted:
-		if previous.Envelope == nil {
-			result.Health = Failed
-			result.MissingReason = nil
-		}
-	default:
-		return Version{}, errors.New("reference pack: invalid verification verdict")
-	}
-	// Administrative disablement is deliberately independent of every verdict.
-	return result, nil
-}
-
 // Condition projects health without losing the independent administrative
 // disable bit. Invalid or missing content remains visible even while disabled.
 func Condition(v Version) string {
@@ -228,14 +118,6 @@ func Condition(v Version) string {
 		return "disabled"
 	}
 	return string(v.Health)
-}
-func Activate(v Version) (Version, error) {
-	if v.Removed || v.Health != Available || v.Envelope == nil {
-		return Version{}, reject("version_not_available")
-	}
-	v = cloneVersion(v)
-	v.Disabled = false
-	return v, nil
 }
 
 var ErrRequiredRegistryUnavailable = errors.New("reference pack: required registry unavailable")
@@ -383,21 +265,4 @@ func sortedKeys(m map[string]Version) []string {
 	}
 	slices.Sort(keys)
 	return keys
-}
-
-// CheckCapturedRevisions compares only admission dependencies. Unrelated
-// revisions do not invalidate a frozen operation; missing dependencies do.
-func CheckCapturedRevisions(captured, current map[string]int64) error {
-	keys := make([]string, 0, len(captured))
-	for key := range captured {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-	for _, key := range keys {
-		revision, exists := current[key]
-		if !exists || captured[key] != revision {
-			return reject("stale_admission_state")
-		}
-	}
-	return nil
 }

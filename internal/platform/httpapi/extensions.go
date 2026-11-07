@@ -82,7 +82,10 @@ func MatchReservedExtensionRouteIn(routes []ExtensionRoute, path string) (Reserv
 }
 
 func routeFamilyMatchesPath(routeFamily string, path string) bool {
-	pathSegments := splitRouteSegments(path)
+	return routeFamilyMatchesSegments(routeFamily, splitRouteSegments(path))
+}
+
+func routeFamilyMatchesSegments(routeFamily string, pathSegments []string) bool {
 	familySegments := splitRouteSegments(routeFamily)
 	if len(pathSegments) < len(familySegments) {
 		return false

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 	"io"
 	"os"
 	"strings"
@@ -68,7 +69,7 @@ func testPortableInputAdmission(t *testing.T) {
 	}
 	body := decode(fixture.Allowed)
 	memory := &coordinatorMemoryStorage{objects: map[string][]byte{}}
-	c := &verificationService{referenceDependencies: &referenceDependencies{storage: memory, limits: DefaultLimits()}}
+	c := &verificationService{referenceDependencies: &referenceDependencies{lifetime: testVerificationLifetime(t), storage: memory, limits: DefaultLimits()}}
 	r := &incidentReferences{storage: memory, verifier: c}
 	request := func(data []byte) IncidentReferenceImportRequest {
 		return IncidentReferenceImportRequest{OpenContainer: func(_ context.Context, path string) (io.ReadCloser, error) {
@@ -152,6 +153,15 @@ func testPortableInputAdmission(t *testing.T) {
 		if input, err := r.preparePortableContainer(context.Background(), req, descriptor, fixture.Allowed.Reference); input != nil || err != nil {
 			t.Fatal(input, err)
 		}
+	})
+	t.Run("fatal preparation survives source close failure", func(t *testing.T) {
+		reader := &portableCloseFault{Reader: portableReadFault{extensiondeadline.ErrGraceExhausted}, err: errors.New("close failed")}
+		req := IncidentReferenceImportRequest{OpenContainer: func(context.Context, string) (io.ReadCloser, error) { return reader, nil }}
+		input, err := r.preparePortableContainer(context.Background(), req, fixture.Allowed.Descriptor, fixture.Allowed.Reference)
+		if input != nil || !errors.Is(err, extensiondeadline.ErrGraceExhausted) || !reader.closed {
+			t.Fatal("fatal source outcome replaced", input, err)
+		}
+		checkEmpty()
 	})
 	sentinel := errors.New("source unavailable")
 	for _, name := range []string{"close", "read", "staged cleanup", "published cleanup"} {

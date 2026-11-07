@@ -108,7 +108,7 @@ func testNativeATTACKLimits(t *testing.T) {
 	if err := ValidateContentSchema(context.Background(), fixtureManifest(f), contentMemory(f.Members)); err != nil {
 		t.Fatal("native line equality", err)
 	}
-	summary, err := ContentSchemaSummary(context.Background(), fixtureManifest(f), contentMemory(f.Members), nil)
+	summary, err := contentSchemaSummary(context.Background(), fixtureManifest(f), contentMemory(f.Members), nil)
 	if err != nil || summary.Result != "succeeded" {
 		t.Fatal("native line equality summary", err, summary)
 	}
@@ -120,7 +120,7 @@ func testNativeATTACKLimits(t *testing.T) {
 	if err := ValidateContentSchema(context.Background(), fixtureManifest(f), contentMemory(f.Members)); err == nil {
 		t.Fatal("native line excess admitted")
 	}
-	summary, err = ContentSchemaSummary(context.Background(), fixtureManifest(f), contentMemory(f.Members), nil)
+	summary, err = contentSchemaSummary(context.Background(), fixtureManifest(f), contentMemory(f.Members), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

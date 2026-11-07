@@ -36,7 +36,7 @@ func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage 
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := &incidentReferences{pool: pool, storage: storage, executions: transactions, verifier: &verificationService{referenceDependencies: &referenceDependencies{pool: pool, storage: storage, configuration: Configuration{ClockTrusted: true}, limits: DefaultLimits(), now: time.Now}, operations: manager}}
+	r := &incidentReferences{pool: pool, storage: storage, executions: transactions, verifier: &verificationService{referenceDependencies: &referenceDependencies{lifetime: testVerificationLifetime(t), pool: pool, storage: storage, configuration: Configuration{ClockTrusted: true}, limits: DefaultLimits(), now: time.Now}, operations: manager}}
 	raw, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-input.v1.json")
 	if err != nil {
 		t.Fatal(err)
@@ -326,61 +326,61 @@ func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage 
 			t.Fatal(err)
 		}
 		request.EmbeddedPaths = []string{path}
-		scope, err := r.BeginImportExecution(ctx, request.Execution, request.ExecutionStarted)
-		if err != nil {
+		if err := r.RunImportExecution(ctx, request.Execution, request.ExecutionStarted, func(ctx context.Context, scope *IncidentReferenceExecution) error {
+			request.ExecutionScope = scope
+			_, err = r.PrepareImport(ctx, request)
+			var rejected *IncidentBundleReferenceValidationError
+			if !errors.As(err, &rejected) || rejected.InvariantID != IncidentBundleReferenceDegradationInvariant {
+				t.Fatal("required content rejection", err)
+			}
+			if outcome, _, _, classifyErr := scope.ClassifyAbsent(ctx, err); classifyErr != nil || outcome != "content_rejected" {
+				t.Fatal("content classified as abort", outcome)
+			}
+			tx, err := pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tx.Rollback(ctx)
+			if err := transactions.ValidateExecutionTx(ctx, tx, request.Execution); err != nil {
+				t.Fatal(err)
+			}
+			if err := scope.AbortTx(ctx, tx); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := transactions.CompleteFailedTx(ctx, tx, request.Execution, jobs.FailureCompletion{Progress: jobs.Progress{Completed: 0, Total: intPtr(1)}, ErrorSummary: jobs.ErrorSummary{Code: "incident_bundle_import_rejected", Message: "Rejected"}}, time.Now()); err != nil {
+				t.Fatal(err)
+			}
+			if err := tx.Commit(ctx); err != nil {
+				t.Fatal(err)
+			}
+			var outcome string
+			var versions, catalogs int
+			if err := pool.QueryRow(ctx, `SELECT a.outcome,(SELECT count(*) FROM reference_pack_versions WHERE pack_key=$2 AND pack_version=$3),(SELECT count(*) FROM reference_pack_portable_catalogs WHERE operation_id=a.operation_id) FROM reference_pack_attempts a WHERE a.attempt_id=$1`, scope.requiredRejection.attempt.ID, vector.Reference.Key, vector.Reference.Version).Scan(&outcome, &versions, &catalogs); err != nil || outcome != "content_rejected" || versions != 0 || catalogs != 0 {
+				t.Fatal("required rejection leaked success", outcome, versions, catalogs, err)
+			}
+			if err := validateHistoricalAttempts(ctx, pool); err != nil {
+				t.Fatal("rejected attempt history", err)
+			}
+			if err := validatePortablePreparations(ctx, pool); err != nil {
+				t.Fatal("rejected preparation history", err)
+			}
+			tx, err = pool.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tx.Rollback(ctx)
+			if _, err := tx.Exec(ctx, `ALTER TABLE reference_pack_operations DISABLE TRIGGER USER`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tx.Exec(ctx, `UPDATE reference_pack_operations SET final_outcome=convert_to('{"failed_count":0,"member_count":1,"outcome":"succeeded","schema_id":"cartulary.reference_pack_attempt_result.v1"}','UTF8') WHERE operation_id=$1`, scope.operation); err != nil {
+				t.Fatal(err)
+			}
+			if err := validatePortablePreparations(ctx, tx); !errors.Is(err, errHistoricalIntegrity) {
+				t.Fatal("success without catalog restored", err)
+			}
+			return nil
+		}); err != nil {
 			t.Fatal(err)
-		}
-		defer scope.Close()
-		request.ExecutionScope = scope
-		_, err = r.PrepareImport(scope.Context(), request)
-		var rejected *IncidentBundleReferenceValidationError
-		if !errors.As(err, &rejected) || rejected.InvariantID != IncidentBundleReferenceDegradationInvariant {
-			t.Fatal("required content rejection", err)
-		}
-		if outcome, _, _ := scope.ClassifyAbsent(ctx, err); outcome != "content_rejected" {
-			t.Fatal("content classified as abort", outcome)
-		}
-		tx, err := pool.Begin(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer tx.Rollback(ctx)
-		if err := transactions.ValidateExecutionTx(ctx, tx, request.Execution); err != nil {
-			t.Fatal(err)
-		}
-		if err := scope.AbortTx(ctx, tx); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := transactions.CompleteFailedTx(ctx, tx, request.Execution, jobs.FailureCompletion{Progress: jobs.Progress{Completed: 0, Total: intPtr(1)}, ErrorSummary: jobs.ErrorSummary{Code: "incident_bundle_import_rejected", Message: "Rejected"}}, time.Now()); err != nil {
-			t.Fatal(err)
-		}
-		if err := tx.Commit(ctx); err != nil {
-			t.Fatal(err)
-		}
-		var outcome string
-		var versions, catalogs int
-		if err := pool.QueryRow(ctx, `SELECT a.outcome,(SELECT count(*) FROM reference_pack_versions WHERE pack_key=$2 AND pack_version=$3),(SELECT count(*) FROM reference_pack_portable_catalogs WHERE operation_id=a.operation_id) FROM reference_pack_attempts a WHERE a.attempt_id=$1`, scope.requiredRejection.attempt.ID, vector.Reference.Key, vector.Reference.Version).Scan(&outcome, &versions, &catalogs); err != nil || outcome != "content_rejected" || versions != 0 || catalogs != 0 {
-			t.Fatal("required rejection leaked success", outcome, versions, catalogs, err)
-		}
-		if err := validateHistoricalAttempts(ctx, pool); err != nil {
-			t.Fatal("rejected attempt history", err)
-		}
-		if err := validatePortablePreparations(ctx, pool); err != nil {
-			t.Fatal("rejected preparation history", err)
-		}
-		tx, err = pool.Begin(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer tx.Rollback(ctx)
-		if _, err := tx.Exec(ctx, `ALTER TABLE reference_pack_operations DISABLE TRIGGER USER`); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tx.Exec(ctx, `UPDATE reference_pack_operations SET final_outcome=convert_to('{"failed_count":0,"member_count":1,"outcome":"succeeded","schema_id":"cartulary.reference_pack_attempt_result.v1"}','UTF8') WHERE operation_id=$1`, scope.operation); err != nil {
-			t.Fatal(err)
-		}
-		if err := validatePortablePreparations(ctx, tx); !errors.Is(err, errHistoricalIntegrity) {
-			t.Fatal("success without catalog restored", err)
 		}
 	})
 	request, _, _ = newRequest()
@@ -394,84 +394,85 @@ func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage 
 		t.Fatal(err)
 	}
 	request.EmbeddedPaths = []string{path}
-	scope, err := r.BeginImportExecution(ctx, request.Execution, request.ExecutionStarted)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer scope.Close()
-	request.ExecutionScope = scope
-	p, err = r.PrepareImport(scope.Context(), request)
-	if err != nil || p.cohort == nil || p.attempt == nil {
-		t.Fatal("live destination admission and verification", err)
-	}
-	tx, err = pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tx.Rollback(ctx)
-	if err := transactions.ValidateExecutionTx(ctx, tx, request.Execution); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO incidents(id,incident_key,incident_key_canonical,title,status,created_by_user_id,updated_by_user_id) VALUES($1,$2,$2,'Portable destination fixture','active',$3,$3)`, p.incident, p.incident.String(), actor); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.ApplyImportTx(ctx, tx, p); err != nil {
-		t.Fatal("parent publication", err)
-	}
-	if _, err := transactions.CompleteSucceededTx(ctx, tx, request.Execution, jobs.SuccessCompletion{Progress: jobs.Progress{Completed: 1, Total: intPtr(1)}, ResultSummary: jobs.ResultSummary{Code: "incident_bundle_imported", Message: "Imported"}}, time.Now()); err != nil {
-		t.Fatal("parent terminal result", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if err := validateHistoricalAttempts(ctx, pool); err != nil {
-		t.Fatal("published attempt history", err)
-	}
-	if err := validatePortableCatalogs(ctx, pool); err != nil {
-		t.Fatal("published destination catalog", err)
-	}
-	after, err := repository.CurrentSet(ctx)
-	if err != nil || after.ID != current.ID {
-		t.Fatal("destination publication changed activation", err)
-	}
-	tx, err = pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tx.Rollback(ctx)
-	if err := r.ApplyImportTx(ctx, tx, p); err != nil {
-		t.Fatal("exact parent replay", err)
-	}
-	_ = tx.Rollback(ctx)
+	if err := r.RunImportExecution(ctx, request.Execution, request.ExecutionStarted, func(ctx context.Context, scope *IncidentReferenceExecution) error {
+		request.ExecutionScope = scope
+		p, err = r.PrepareImport(ctx, request)
+		if err != nil || p.cohort == nil || p.attempt == nil {
+			t.Fatal("live destination admission and verification", err)
+		}
+		tx, err = pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(ctx)
+		if err := transactions.ValidateExecutionTx(ctx, tx, request.Execution); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO incidents(id,incident_key,incident_key_canonical,title,status,created_by_user_id,updated_by_user_id) VALUES($1,$2,$2,'Portable destination fixture','active',$3,$3)`, p.incident, p.incident.String(), actor); err != nil {
+			t.Fatal(err)
+		}
+		if err := r.ApplyImportTx(ctx, tx, p); err != nil {
+			t.Fatal("parent publication", err)
+		}
+		if _, err := transactions.CompleteSucceededTx(ctx, tx, request.Execution, jobs.SuccessCompletion{Progress: jobs.Progress{Completed: 1, Total: intPtr(1)}, ResultSummary: jobs.ResultSummary{Code: "incident_bundle_imported", Message: "Imported"}}, time.Now()); err != nil {
+			t.Fatal("parent terminal result", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := validateHistoricalAttempts(ctx, pool); err != nil {
+			t.Fatal("published attempt history", err)
+		}
+		if err := validatePortableCatalogs(ctx, pool); err != nil {
+			t.Fatal("published destination catalog", err)
+		}
+		after, err := repository.CurrentSet(ctx)
+		if err != nil || after.ID != current.ID {
+			t.Fatal("destination publication changed activation", err)
+		}
+		tx, err = pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(ctx)
+		if err := r.ApplyImportTx(ctx, tx, p); err != nil {
+			t.Fatal("exact parent replay", err)
+		}
+		_ = tx.Rollback(ctx)
 
-	if err := validatePortablePreparations(ctx, pool); err != nil {
-		t.Fatal("retained preparation integrity", err)
-	}
-	for _, corruption := range []struct{ name, disable, mutation string }{
-		{"closed context", "reference_pack_portable_preparations", `UPDATE reference_pack_portable_preparations SET canonical_context='{"schema_id":"retired"}'::bytea WHERE operation_id=$1`},
-		{"canonical source catalog", "reference_pack_portable_preparations", `UPDATE reference_pack_portable_preparations SET canonical_references=canonical_references||decode('0a','hex') WHERE operation_id=$1`},
-		{"complete selection inventory", "reference_pack_portable_selections", `DELETE FROM reference_pack_portable_selections WHERE operation_id=$1 AND ordinal=1`},
-		{"exact transport descriptor", "reference_pack_portable_selections", `UPDATE reference_pack_portable_selections SET expected_container_bytes=expected_container_bytes+1 WHERE operation_id=$1 AND verification_ordinal IS NOT NULL`},
-		{"retained input ownership", "", `DELETE FROM reference_pack_object_refs WHERE object_id IN (SELECT input_object_id FROM reference_pack_portable_selections WHERE operation_id=$1 AND input_object_id IS NOT NULL)`},
-	} {
-		t.Run(corruption.name, func(t *testing.T) {
-			tx, err := pool.Begin(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer tx.Rollback(ctx)
-			if corruption.disable != "" {
-				if _, err := tx.Exec(ctx, "ALTER TABLE "+corruption.disable+" DISABLE TRIGGER USER"); err != nil {
+		if err := validatePortablePreparations(ctx, pool); err != nil {
+			t.Fatal("retained preparation integrity", err)
+		}
+		for _, corruption := range []struct{ name, disable, mutation string }{
+			{"closed context", "reference_pack_portable_preparations", `UPDATE reference_pack_portable_preparations SET canonical_context='{"schema_id":"retired"}'::bytea WHERE operation_id=$1`},
+			{"canonical source catalog", "reference_pack_portable_preparations", `UPDATE reference_pack_portable_preparations SET canonical_references=canonical_references||decode('0a','hex') WHERE operation_id=$1`},
+			{"complete selection inventory", "reference_pack_portable_selections", `DELETE FROM reference_pack_portable_selections WHERE operation_id=$1 AND ordinal=1`},
+			{"exact transport descriptor", "reference_pack_portable_selections", `UPDATE reference_pack_portable_selections SET expected_container_bytes=expected_container_bytes+1 WHERE operation_id=$1 AND verification_ordinal IS NOT NULL`},
+			{"retained input ownership", "", `DELETE FROM reference_pack_object_refs WHERE object_id IN (SELECT input_object_id FROM reference_pack_portable_selections WHERE operation_id=$1 AND input_object_id IS NOT NULL)`},
+		} {
+			t.Run(corruption.name, func(t *testing.T) {
+				tx, err := pool.Begin(ctx)
+				if err != nil {
 					t.Fatal(err)
 				}
-			}
-			if _, err := tx.Exec(ctx, corruption.mutation, p.cohort.operation); err != nil {
-				t.Fatal(err)
-			}
-			if err := validatePortablePreparations(ctx, tx); !errors.Is(err, errHistoricalIntegrity) {
-				t.Fatal("corrupt preparation restored", err)
-			}
-		})
+				defer tx.Rollback(ctx)
+				if corruption.disable != "" {
+					if _, err := tx.Exec(ctx, "ALTER TABLE "+corruption.disable+" DISABLE TRIGGER USER"); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if _, err := tx.Exec(ctx, corruption.mutation, p.cohort.operation); err != nil {
+					t.Fatal(err)
+				}
+				if err := validatePortablePreparations(ctx, tx); !errors.Is(err, errHistoricalIntegrity) {
+					t.Fatal("corrupt preparation restored", err)
+				}
+			})
+		}
+
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 
 }

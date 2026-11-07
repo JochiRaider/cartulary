@@ -763,6 +763,37 @@
       ]
     },
     {
+      "row_id": "app.server.process.portable_reference_cleanup_grace",
+      "owner_id": "app.server",
+      "family_id": "app.server.process",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.reference_data",
+        "platform.rootedfs"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestPortableReferenceCleanupGrace_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "managed_process",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "app.server.process.process_smoke_exercises_incident_creation_valida_541e2263d1",
       "owner_id": "app.server",
       "family_id": "app.server.process",

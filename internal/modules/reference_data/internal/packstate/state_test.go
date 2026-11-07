@@ -2,7 +2,6 @@ package packstate
 
 import (
 	"errors"
-	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -13,107 +12,43 @@ import (
 func fixtureVersion(key string) Version {
 	return Version{Member: packformat.SetMember{Key: key, Version: "1", PayloadSHA256: "digest"}, Manifest: packformat.Manifest{Key: key}, Health: Available, Envelope: &Envelope{ID: "envelope-1", VerifiedAt: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)}}
 }
-func TestVerificationTransitionsPreserveDisablementAndSuccessfulHistory_Unit(t *testing.T) {
-	previous := fixtureVersion("enrichment.tor")
-	previous.Disabled = true
-	for _, verdict := range []Verdict{ContentFailure, MissingPayload, Aborted} {
-		got, err := ApplyVerification(previous, Renewal, verdict, nil)
-		if err != nil || !reflect.DeepEqual(got, previous) {
-			t.Fatalf("failed renewal changed retained state: %#v %v", got, err)
-		}
-	}
-	next := &Envelope{ID: "envelope-2", VerifiedAt: previous.Envelope.VerifiedAt.Add(time.Hour)}
-	got, err := ApplyVerification(previous, Reverify, Success, next)
-	if err != nil || !got.Disabled || got.Health != Available || got.Envelope.ID != "envelope-2" || previous.Envelope.ID != "envelope-1" {
-		t.Fatal("successful reverify changed administrative intent or old envelope")
-	}
-	activated, err := Activate(got)
-	if err != nil || activated.Disabled || !got.Disabled {
-		t.Fatal("explicit activation did not clear disablement independently")
-	}
-	missing, err := ApplyVerification(previous, Reverify, MissingPayload, nil)
-	if err != nil || missing.Health != Missing || missing.MissingReason == nil || missing.Envelope.ID != "envelope-1" || !missing.Disabled {
-		t.Fatal("missing reverify lost successful history")
-	}
-	restored, err := ApplyVerification(missing, Reverify, Success, next)
-	if err != nil || restored.MissingReason != nil || restored.Health != Available {
-		t.Fatal("successful verification did not clear missing reason")
-	}
-	candidate := fixtureVersion("enrichment.tor")
-	candidate.Envelope = nil
-	candidate.Health = Staged
-	for _, verdict := range []Verdict{Aborted, ContentFailure, MissingPayload} {
-		failed, err := ApplyVerification(candidate, Import, verdict, nil)
-		want := Failed
-		if verdict == MissingPayload {
-			want = Missing
-		}
-		if err != nil || failed.Health != want || failed.Envelope != nil {
-			t.Fatal("initial rejection fabricated success or remained staged")
-		}
-		if verdict == MissingPayload && (failed.MissingReason == nil || *failed.MissingReason != "staging_loss") {
-			t.Fatal("staging loss not distinguished from retained storage loss")
-		}
-	}
-	if _, err := AdmitReverify(candidate, false); err == nil {
-		t.Fatal("never-successful candidate admitted for reverify")
-	}
-	_, err = AdmitReverify(candidate, true)
-	var rejection *Rejection
-	if !errors.As(err, &rejection) || rejection.Reason != "verification_pending" {
-		t.Fatal("pending work must precede successful-envelope eligibility")
-	}
-	if Condition(got) != "disabled" || Condition(missing) != "missing" || Condition(restored) != "disabled" {
-		t.Fatal("condition projection lost health or administrative disablement")
-	}
-	next.ID = "mutated"
-	if got.Envelope.ID != "envelope-2" {
-		t.Fatal("envelope input was not frozen")
-	}
-}
-func TestRefreshAdmissionFreezesExactSuccessfulCohort_Unit(t *testing.T) {
-	a := fixtureVersion("enrichment.tor")
-	a.Manifest.Extensions = map[string]any{"example.org.fixture": []any{"original"}}
-	b := fixtureVersion("enrichment.cisa_kev")
-	b.Health = Failed
-	b.Disabled = true
-	never := fixtureVersion("enrichment.lolbas")
-	never.Envelope = nil
-	never.Health = Failed
-	removed := fixtureVersion("enrichment.lolesxi")
-	removed.Removed = true
-	builtin := fixtureVersion("type_registry.host")
-	builtin.Builtin = true
-	cohort, err := FreezeRefresh([]Version{a, never, b, removed, builtin}, nil)
-	if err != nil || len(cohort) != 2 || cohort[0].Member.Key != "enrichment.cisa_kev" {
-		t.Fatal("wrong refresh cohort")
-	}
-	a.Manifest.Extensions["example.org.fixture"].([]any)[0] = "mutated"
-	a.Envelope.ID = "mutated"
-	if cohort[1].Envelope.ID != "envelope-1" || cohort[1].Manifest.Extensions["example.org.fixture"].([]any)[0] != "original" {
-		t.Fatal("cohort input remained mutable")
-	}
-	_, err = FreezeRefresh([]Version{a, b}, map[string]bool{b.Member.Key: true})
-	var rejection *Rejection
-	if !errors.As(err, &rejection) || rejection.Reason != "verification_pending" {
-		t.Fatalf("pending cohort work: %v", err)
-	}
-	_, err = FreezeRefresh([]Version{never, removed}, map[string]bool{never.Member.Key: true})
-	if !errors.As(err, &rejection) || rejection.Reason != "verification_pending" {
-		t.Fatal("selected key with never-successful pending work did not block admission")
-	}
-	cohort, err = FreezeRefresh([]Version{never, removed, builtin}, nil)
-	if err != nil || len(cohort) != 0 {
-		t.Fatal("ineligible retained versions entered empty refresh")
-	}
-}
 func TestDependencyFallbackPrunesToFixedPointAndRejectsCycles_Unit(t *testing.T) {
+	t.Run("condition preserves unhealthy state while disabled", func(t *testing.T) {
+		for _, health := range []Health{Available, Failed, Missing} {
+			for _, disabled := range []bool{false, true} {
+				want := string(health)
+				if health == Available && disabled {
+					want = "disabled"
+				}
+				if got := Condition(Version{Health: health, Disabled: disabled}); got != want {
+					t.Fatalf("health=%s disabled=%t: %s", health, disabled, got)
+				}
+			}
+		}
+	})
 	base := []Version{}
 	for _, key := range []string{"type_registry.evidence", "type_registry.host", "type_registry.indicator"} {
 		v := fixtureVersion(key)
 		v.Builtin = true
 		base = append(base, v)
 	}
+	t.Run("effective set owns immutable input copies", func(t *testing.T) {
+		selected := fixtureVersion("enrichment.tor")
+		selected.Manifest.Extensions = map[string]any{"example.org.fixture": []any{"original"}}
+		got, _, err := ResolveEffectiveSet([]Version{selected}, base)
+		if err != nil {
+			t.Fatal(err)
+		}
+		index := slices.IndexFunc(got, func(v Version) bool { return v.Member.Key == selected.Member.Key })
+		if index < 0 {
+			t.Fatal("healthy optional member omitted")
+		}
+		selected.Envelope.ID = "mutated"
+		selected.Manifest.Extensions["example.org.fixture"].([]any)[0] = "mutated"
+		if got[index].Envelope.ID != "envelope-1" || got[index].Manifest.Extensions["example.org.fixture"].([]any)[0] != "original" {
+			t.Fatal("effective set aliases its input")
+		}
+	})
 	custom := fixtureVersion("type_registry.host")
 	custom.Member.Version = "custom"
 	custom.Health = Failed
@@ -155,21 +90,5 @@ func TestDependencyFallbackPrunesToFixedPointAndRejectsCycles_Unit(t *testing.T)
 	a.Manifest.Conflicts = []packformat.Conflict{{Key: "type_registry.host"}}
 	if _, _, err := ResolveEffectiveSet([]Version{a}, base); err == nil {
 		t.Fatal("optional conflict against mandatory registry admitted")
-	}
-}
-func TestPublicationRevisionComparisonIgnoresUnrelatedState_Unit(t *testing.T) {
-	captured := map[string]int64{"trust/repo": 2, "set/current": 4, "usage/host": 7}
-	current := map[string]int64{"trust/repo": 2, "set/current": 4, "usage/host": 7, "unrelated": 99}
-	if err := CheckCapturedRevisions(captured, current); err != nil {
-		t.Fatal(err)
-	}
-	current["trust/repo"]++
-	if err := CheckCapturedRevisions(captured, current); err == nil {
-		t.Fatal("shared repository race admitted")
-	}
-	current["trust/repo"] = 2
-	delete(current, "usage/host")
-	if err := CheckCapturedRevisions(captured, current); err == nil {
-		t.Fatal("missing usage guard admitted")
 	}
 }

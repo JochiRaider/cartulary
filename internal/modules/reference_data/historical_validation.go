@@ -22,18 +22,18 @@ var errHistoricalIntegrity = errors.New("reference pack: retained historical int
 // ValidateRequiredState runs before serving traffic. It authenticates retained
 // success at its recorded verification instant, including expired historical
 // pins, without advancing trust or changing health or administrative intent.
-func ValidateRequiredState(ctx context.Context, db postgres.DB, storage ArtifactStorage, limits Limits) error {
+func ValidateRequiredState(ctx context.Context, db postgres.DB, storage ArtifactStorage, limits Limits, lifetime *VerificationLifetime) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(limits.ReferencePacks.MaxVerificationSeconds)*time.Second)
 	defer cancel()
-	return validateHistoricalState(ctx, db, storage, limits, true, false)
+	return lifetime.Run(ctx, func(ctx context.Context) error { return validateHistoricalState(ctx, db, storage, limits, true, false) })
 }
 
 // RestoreHistoricalState is called under Recovery's exclusive target lease,
 // after authoritative rows and bytes have been restored. Indexes are derived
 // afresh; signatures and freshness are checked at each envelope's successful
 // instant, never at the restore clock. No success or provenance is invented.
-func RestoreHistoricalState(ctx context.Context, db postgres.DB, storage ArtifactStorage, limits Limits) error {
-	return validateHistoricalState(ctx, db, storage, limits, false, true)
+func RestoreHistoricalState(ctx context.Context, db postgres.DB, storage ArtifactStorage, limits Limits, lifetime *VerificationLifetime) error {
+	return lifetime.Run(ctx, func(ctx context.Context) error { return validateHistoricalState(ctx, db, storage, limits, false, true) })
 }
 
 func validateHistoricalState(ctx context.Context, db postgres.DB, storage ArtifactStorage, limits Limits, requiredOnly, rebuild bool) error {

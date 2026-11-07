@@ -25,7 +25,7 @@ func testPortableContainerExport(t *testing.T, ctx context.Context, pool *pgxpoo
 	if err != nil {
 		t.Fatal(err)
 	}
-	port, err := newTestIncidentReferences(pool, storage)
+	port, err := newTestIncidentReferences(t, pool, storage)
 	if err != nil {
 		t.Fatal(err)
 	}

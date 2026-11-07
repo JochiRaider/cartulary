@@ -88,7 +88,10 @@ func (r *incidentReferences) admitPortablePreparation(ctx context.Context, reque
 	keep := false
 	defer func() {
 		for index, input := range inputs {
-			_ = input.object.releasePublication()
+			if err := input.object.releasePublication(); err != nil {
+				resultErr = verificationCleanupError(resultErr, err)
+				cohort = nil
+			}
 			input.object.publication = nil
 			inputs[index] = input
 		}
@@ -100,7 +103,7 @@ func (r *incidentReferences) admitPortablePreparation(ctx context.Context, reque
 				cleanup = errors.Join(cleanup, r.storage.RemovePublished(input.object.Reference), input.object.releasePublication())
 			}
 			if cleanup != nil {
-				resultErr = cleanup
+				resultErr = verificationCleanupError(resultErr, cleanup)
 				cohort = nil
 			}
 		}

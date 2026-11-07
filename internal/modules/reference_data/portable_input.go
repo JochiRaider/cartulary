@@ -45,7 +45,7 @@ func (r *incidentReferences) preparePortableContainer(ctx context.Context, reque
 	closeErr := source.Close()
 	if prepareErr != nil {
 		if closeErr != nil {
-			return nil, closeErr
+			return nil, verificationCleanupError(prepareErr, closeErr)
 		}
 		if errors.Is(prepareErr, errPortableContainerLength) {
 			return nil, portableIdentityError()
@@ -57,7 +57,7 @@ func (r *incidentReferences) preparePortableContainer(ctx context.Context, reque
 		if !keep {
 			if err := errors.Join(r.storage.RemovePublished(object.Reference), object.releasePublication()); err != nil {
 				result = nil
-				resultErr = err
+				resultErr = verificationCleanupError(resultErr, err)
 			}
 		}
 	}()

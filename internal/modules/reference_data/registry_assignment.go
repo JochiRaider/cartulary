@@ -17,6 +17,9 @@ var mandatoryRegistryKeys = []string{"type_registry.evidence", "type_registry.ho
 // Acquire before locking source records. A multi-owner mutation acquires all
 // mandatory registry guards together, in publication order, so participants
 // cannot invert the order by assigning different kinds of record in turn.
+// The returned consumer uses that transaction; do not substitute a standalone
+// NewConsumer while these guards are held. Callers own normal commit/rollback,
+// but definitive content loss may already have rolled back the whole transaction.
 type RegistryAssignments interface {
 	BeginTx(context.Context, pgx.Tx) (RegistryAssignment, error)
 }
@@ -26,7 +29,11 @@ type RegistryAssignments interface {
 // assignment; unchanged identities and unrelated edits do not advance usage.
 // Neither the session nor its consumer may escape the calling transaction.
 // Definitive authoritative content loss rolls back the source transaction
-// before publishing integrity invalidation, and returns pack_unavailable.
+// before attempting independent integrity publication, and returns
+// pack_unavailable. Treat this as failure of the whole source operation; never
+// continue or commit it. Operational storage failures do not publish invalidity.
+// A failed read does not prove that an integrity consequence committed. Neither
+// the assignment nor embedded Consumer may be used after commit or rollback.
 type RegistryAssignment interface {
 	Consumer
 	RecordUsage(context.Context, string) error

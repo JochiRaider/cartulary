@@ -19,10 +19,6 @@ func VerifyTrust(metadataFiles map[string][]byte, inventory Inventory, repositor
 	return verifyTrust(context.Background(), metadataFiles, inventory, repository, at, snapshot, nil, false)
 }
 
-func VerifyTrustWithDiagnostics(ctx context.Context, metadataFiles map[string][]byte, inventory Inventory, repository string, at time.Time, snapshot TrustSnapshot, scratch DiagnosticScratch) (TrustProposal, error) {
-	return verifyTrust(ctx, metadataFiles, inventory, repository, at, snapshot, scratch, true)
-}
-
 type trustProgram struct {
 	files      map[string][]byte
 	paths      []string

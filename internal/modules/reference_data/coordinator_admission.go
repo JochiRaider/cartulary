@@ -36,6 +36,9 @@ type importIdentity struct {
 // never evidence of authenticity or success. Invalid content is examined again
 // by the queued attempt so it receives the ordered verification verdict.
 func probeContainerIdentity(ctx context.Context, storage VerificationStorage, ref StagingRef, limits packformat.ArchiveLimits) (identity importIdentity, resultErr error) {
+	if lifetime, _ := ctx.Value(verificationLifetimeKey{}).(*VerificationLifetime); lifetime == nil {
+		return identity, errors.New("reference pack: verification lifetime required")
+	}
 	source, size, err := storage.OpenStaged(ctx, ref)
 	if err != nil {
 		return identity, err
@@ -45,14 +48,14 @@ func probeContainerIdentity(ctx context.Context, storage VerificationStorage, re
 	defer func() {
 		if operationalErr := errors.Join(checked.fault, source.Close()); operationalErr != nil {
 			identity = importIdentity{}
-			resultErr = operationalErr
+			resultErr = verificationCleanupError(resultErr, operationalErr)
 		}
 	}()
 	workspace, err := storage.NewWorkspace(ctx)
 	if err != nil {
 		return identity, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, workspace.Close()) }()
+	defer func() { resultErr = verificationCleanupError(resultErr, closeVerificationWorkspace(ctx, workspace)) }()
 	inventory, err := packformat.Extract(ctx, source, size, limits, workspace)
 	if err != nil {
 		var invalid *packformat.Failure

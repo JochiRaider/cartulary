@@ -7836,6 +7836,7 @@
     },
     "/api/v1/reference-packs": {
       "get": {
+        "description": "Requires a claimed Reference Pack profile and current deployment administrator. Family authentication and authorization precede routing and validation; operation-declared cookie CSRF follows method selection. Family admission matches original and structurally cleaned escaped paths. Repeated literal slashes or literal dot segments return HTTP 404 after family authorization, without a redirect or operation dispatch. Encoded slashes and dots remain segment data decoded once. Only the declared HTTP method is supported, without implicit HEAD or OPTIONS.",
         "operationId": "listReferencePacks",
         "parameters": [
           {
@@ -7911,6 +7912,15 @@
               }
             },
             "description": "Invalid pagination request"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundErrorResponse"
           }
         },
         "security": [
@@ -7931,6 +7941,7 @@
     },
     "/api/v1/reference-packs/import": {
       "post": {
+        "description": "Requires a claimed Reference Pack profile and current deployment administrator. Family authentication and authorization precede routing and validation; operation-declared cookie CSRF follows method selection. Family admission matches original and structurally cleaned escaped paths. Repeated literal slashes or literal dot segments return HTTP 404 after family authorization, without a redirect or operation dispatch. Encoded slashes and dots remain segment data decoded once. Only the declared HTTP method is supported, without implicit HEAD or OPTIONS. Accepts no query members: malformed raw query or decoded UTF-8 returns invalid_reference_pack_request/malformed_query; pagination members and aliases return invalid_pagination_request/pagination_not_supported; other members return invalid_reference_pack_request/unknown_query_member. Query validation precedes body consumption, lookup and replay.",
         "operationId": "importReferencePack",
         "requestBody": {
           "content": {
@@ -7963,6 +7974,15 @@
             },
             "description": "Invalid reference-pack upload request"
           },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -7994,6 +8014,7 @@
     },
     "/api/v1/reference-packs/refresh": {
       "post": {
+        "description": "Requires a claimed Reference Pack profile and current deployment administrator. Family authentication and authorization precede routing and validation; operation-declared cookie CSRF follows method selection. Family admission matches original and structurally cleaned escaped paths. Repeated literal slashes or literal dot segments return HTTP 404 after family authorization, without a redirect or operation dispatch. Encoded slashes and dots remain segment data decoded once. Only the declared HTTP method is supported, without implicit HEAD or OPTIONS. Accepts no query members: malformed raw query or decoded UTF-8 returns invalid_reference_pack_request/malformed_query; pagination members and aliases return invalid_pagination_request/pagination_not_supported; other members return invalid_reference_pack_request/unknown_query_member. Query validation precedes body consumption, lookup and replay.",
         "operationId": "refreshReferencePacks",
         "requestBody": {
           "content": {
@@ -8026,6 +8047,15 @@
             },
             "description": "Invalid reference-pack refresh request"
           },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -8057,6 +8087,7 @@
     },
     "/api/v1/reference-packs/validation-summaries/{summary_id}": {
       "get": {
+        "description": "Requires a claimed Reference Pack profile and current deployment administrator. Family authentication and authorization precede routing and validation; operation-declared cookie CSRF follows method selection. Family admission matches original and structurally cleaned escaped paths. Repeated literal slashes or literal dot segments return HTTP 404 after family authorization, without a redirect or operation dispatch. Encoded slashes and dots remain segment data decoded once. Only the declared HTTP method is supported, without implicit HEAD or OPTIONS. Accepts no query members: malformed raw query or decoded UTF-8 returns invalid_reference_pack_request/malformed_query; pagination members and aliases return invalid_pagination_request/pagination_not_supported; other members return invalid_reference_pack_request/unknown_query_member. Query validation precedes body consumption, lookup and replay.",
         "operationId": "getReferencePackValidationSummary",
         "parameters": [
           {
@@ -8090,6 +8121,12 @@
             },
             "description": "Invalid pagination request"
           },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -8119,6 +8156,7 @@
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}": {
       "get": {
+        "description": "Requires a claimed Reference Pack profile and current deployment administrator. Family authentication and authorization precede routing and validation; operation-declared cookie CSRF follows method selection. Family admission matches original and structurally cleaned escaped paths. Repeated literal slashes or literal dot segments return HTTP 404 after family authorization, without a redirect or operation dispatch. Encoded slashes and dots remain segment data decoded once. Only the declared HTTP method is supported, without implicit HEAD or OPTIONS. Accepts no query members: malformed raw query or decoded UTF-8 returns invalid_reference_pack_request/malformed_query; pagination members and aliases return invalid_pagination_request/pagination_not_supported; other members return invalid_reference_pack_request/unknown_query_member. Query validation precedes body consumption, lookup and replay. pack_version is an exact opaque router-decoded identity, including action words; no missing-version shortcut is supported.",
         "operationId": "getReferencePackVersion",
         "parameters": [
           {
@@ -8159,6 +8197,12 @@
             },
             "description": "Invalid pagination request"
           },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -8188,6 +8232,7 @@
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/activate": {
       "post": {
+        "description": "Requires a claimed Reference Pack profile and current deployment administrator. Family authentication and authorization precede routing and validation; operation-declared cookie CSRF follows method selection. Family admission matches original and structurally cleaned escaped paths. Repeated literal slashes or literal dot segments return HTTP 404 after family authorization, without a redirect or operation dispatch. Encoded slashes and dots remain segment data decoded once. Only the declared HTTP method is supported, without implicit HEAD or OPTIONS. Accepts no query members: malformed raw query or decoded UTF-8 returns invalid_reference_pack_request/malformed_query; pagination members and aliases return invalid_pagination_request/pagination_not_supported; other members return invalid_reference_pack_request/unknown_query_member. Query validation precedes body consumption, lookup and replay. pack_version is an exact opaque router-decoded identity, including action words; no missing-version shortcut is supported.",
         "operationId": "activateReferencePackVersion",
         "parameters": [
           {
@@ -8248,6 +8293,12 @@
             },
             "description": "Invalid reference-pack action request"
           },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -8289,6 +8340,7 @@
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/disable": {
       "post": {
+        "description": "Requires a claimed Reference Pack profile and current deployment administrator. Family authentication and authorization precede routing and validation; operation-declared cookie CSRF follows method selection. Family admission matches original and structurally cleaned escaped paths. Repeated literal slashes or literal dot segments return HTTP 404 after family authorization, without a redirect or operation dispatch. Encoded slashes and dots remain segment data decoded once. Only the declared HTTP method is supported, without implicit HEAD or OPTIONS. Accepts no query members: malformed raw query or decoded UTF-8 returns invalid_reference_pack_request/malformed_query; pagination members and aliases return invalid_pagination_request/pagination_not_supported; other members return invalid_reference_pack_request/unknown_query_member. Query validation precedes body consumption, lookup and replay. pack_version is an exact opaque router-decoded identity, including action words; no missing-version shortcut is supported.",
         "operationId": "disableReferencePackVersion",
         "parameters": [
           {
@@ -8349,6 +8401,12 @@
             },
             "description": "Invalid reference-pack action request"
           },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -8390,6 +8448,7 @@
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/remove": {
       "post": {
+        "description": "Requires a claimed Reference Pack profile and current deployment administrator. Family authentication and authorization precede routing and validation; operation-declared cookie CSRF follows method selection. Family admission matches original and structurally cleaned escaped paths. Repeated literal slashes or literal dot segments return HTTP 404 after family authorization, without a redirect or operation dispatch. Encoded slashes and dots remain segment data decoded once. Only the declared HTTP method is supported, without implicit HEAD or OPTIONS. Accepts no query members: malformed raw query or decoded UTF-8 returns invalid_reference_pack_request/malformed_query; pagination members and aliases return invalid_pagination_request/pagination_not_supported; other members return invalid_reference_pack_request/unknown_query_member. Query validation precedes body consumption, lookup and replay. pack_version is an exact opaque router-decoded identity, including action words; no missing-version shortcut is supported.",
         "operationId": "removeReferencePackVersion",
         "parameters": [
           {
@@ -8440,6 +8499,12 @@
             },
             "description": "Invalid reference-pack action request"
           },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -8481,6 +8546,7 @@
     },
     "/api/v1/reference-packs/{pack_key}/{pack_version}/reverify": {
       "post": {
+        "description": "Requires a claimed Reference Pack profile and current deployment administrator. Family authentication and authorization precede routing and validation; operation-declared cookie CSRF follows method selection. Family admission matches original and structurally cleaned escaped paths. Repeated literal slashes or literal dot segments return HTTP 404 after family authorization, without a redirect or operation dispatch. Encoded slashes and dots remain segment data decoded once. Only the declared HTTP method is supported, without implicit HEAD or OPTIONS. Accepts no query members: malformed raw query or decoded UTF-8 returns invalid_reference_pack_request/malformed_query; pagination members and aliases return invalid_pagination_request/pagination_not_supported; other members return invalid_reference_pack_request/unknown_query_member. Query validation precedes body consumption, lookup and replay. pack_version is an exact opaque router-decoded identity, including action words; no missing-version shortcut is supported.",
         "operationId": "reverifyReferencePackVersion",
         "parameters": [
           {
@@ -8530,6 +8596,12 @@
               }
             },
             "description": "Invalid reference-pack action request"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenErrorResponse"
           },
           "404": {
             "content": {

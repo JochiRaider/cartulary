@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"io"
 	"os"
 	"os/exec"
@@ -582,7 +583,7 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer restoredPacks.Close()
-	if err := reference_data.ValidateRequiredState(ctx, mustOpenOperatorPool(t, targetDB.DSN), restoredPacks, reference_data.DefaultLimits()); err != nil {
+	if err := reference_data.ValidateRequiredState(ctx, mustOpenOperatorPool(t, targetDB.DSN), restoredPacks, reference_data.DefaultLimits(), verificationtest.Lifetime(t)); err != nil {
 		t.Fatal("restored Reference Pack state not ready", err)
 	}
 	var restoredMembers int
@@ -881,7 +882,7 @@ func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxp
 	if err := reference_data.ReconcileBaseRelease(ctx, pool, livePacks, reference_data.BaseReleaseOptions{Finalizer: recoveryBaseFinalizer(t), Limits: reference_data.DefaultLimits()}, consistencyPointAt.Add(-time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	packs, err := referenceassembly.NewRecoveryStorage(deployment.Roots.TemporaryWork.Path, deployment.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits())
+	packs, err := referenceassembly.NewRecoveryStorage(deployment.Roots.TemporaryWork.Path, deployment.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1146,8 +1146,12 @@
           "summary": "activation_policy has a malformed non-null JSON value."
         },
         {
-          "code": "pack_version_required",
-          "summary": "The action route did not include an exact pack_version segment."
+          "code": "malformed_query",
+          "summary": "The raw reference-pack query cannot be parsed or contains invalid decoded UTF-8."
+        },
+        {
+          "code": "unknown_query_member",
+          "summary": "A non-list reference-pack operation includes an undeclared query member."
         },
         {
           "code": "auto_activation_not_supported",

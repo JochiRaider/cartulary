@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,6 +15,25 @@ import (
 )
 
 func TestAdmissionAlgorithmResultAndDeadline_Unit(t *testing.T) {
+	t.Run("revocable terminal completion", testTerminalCompletionGrace)
+	t.Run("nested cleanup reuses original interruption", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(extensiondeadline.WithCancellationTracking(t.Context()))
+		if extensiondeadline.GraceExhausted(ctx) || extensiondeadline.GraceExhausted(t.Context()) {
+			t.Fatal("read manufactured exhaustion")
+		}
+		cancel()
+		fatal := 0
+		p := extensiondeadline.InvocationPolicy{Grace: 5 * time.Millisecond, Exhausted: func(error) { fatal++ }}
+		if extensiondeadline.Sample(ctx, p) == nil {
+			t.Fatal("missing interruption")
+		}
+		time.Sleep(10 * time.Millisecond)
+		nested := extensiondeadline.ReuseCancellationTracking(context.WithValue(ctx, struct{}{}, "nested"))
+		_, err := extensiondeadline.Complete(nested, p, func(context.Context) (struct{}, error) { return struct{}{}, nil })
+		if !errors.Is(err, extensiondeadline.ErrGraceExhausted) || fatal != 1 || !extensiondeadline.GraceExhausted(nested) || !extensiondeadline.GraceExhausted(ctx) || extensiondeadline.GraceExhausted(t.Context()) {
+			t.Fatal("cleanup obtained fresh grace", err, fatal)
+		}
+	})
 	policy := extensiondeadline.InvocationPolicy{Grace: time.Second, Exhausted: func(err error) { t.Errorf("unexpected fatal invocation: %v", err) }}
 	t.Run("canceled callback retains invocation until completion", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -336,4 +356,95 @@ func assertAdmissionPhaseOverflow(t *testing.T) {
 	if failure.Findings[0].Details["actual"] != 4097 {
 		t.Fatal("phase overflow did not stop at the first excess finding")
 	}
+}
+
+// Terminal publication survives semantic cancellation only until the original
+// operation grace. A delayed sink cannot leave a live publication context.
+func testTerminalCompletionGrace(t *testing.T) {
+	type key struct{}
+	for _, canceled := range []bool{false, true} {
+		t.Run(fmt.Sprint("cooperative_", canceled), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.WithValue(t.Context(), key{}, "kept"))
+			defer cancel()
+			if canceled {
+				cancel()
+			}
+			policy := extensiondeadline.InvocationPolicy{Grace: time.Second, Exhausted: func(error) { t.Error("normal completion exhausted") }}
+			var retained context.Context
+			result, err := extensiondeadline.CompleteWithinGrace(ctx, policy, func(publication context.Context) (string, error) {
+				retained = publication
+				if publication.Err() != nil || publication.Value(key{}) != "kept" {
+					t.Error("completion lost context values or cooperative capability")
+				}
+				return "committed", nil
+			})
+			if err != nil || result.Err != nil || result.Value != "committed" || extensiondeadline.GraceExhausted(ctx) || retained.Err() == nil {
+				t.Fatal("normal completion classification or scope release", result, err)
+			}
+		})
+	}
+	for _, grace := range []time.Duration{0, 20 * time.Millisecond} {
+		t.Run("shared_"+grace.String(), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(extensiondeadline.WithCancellationTracking(t.Context()))
+			defer cancel()
+			contexts := make(chan context.Context, 2)
+			release, sinkRelease := make(chan struct{}), make(chan struct{})
+			fatal := make(chan struct{})
+			done := make(chan error, 2)
+			policy := extensiondeadline.InvocationPolicy{Grace: grace, Exhausted: func(error) { close(fatal); <-sinkRelease }}
+			for range 2 {
+				go func() {
+					_, err := extensiondeadline.CompleteWithinGrace(extensiondeadline.ReuseCancellationTracking(ctx), policy, func(publication context.Context) (struct{}, error) {
+						contexts <- publication
+						<-release
+						return struct{}{}, nil
+					})
+					done <- err
+				}()
+			}
+			first, second := <-contexts, <-contexts
+			cancel()
+			select {
+			case <-fatal:
+			case <-time.After(time.Second):
+				t.Error("no fatal selection")
+			}
+			for _, publication := range []context.Context{first, second} {
+				if !errors.Is(context.Cause(publication), extensiondeadline.ErrGraceExhausted) {
+					t.Error("sink signaled before publication revocation", context.Cause(publication))
+				}
+			}
+			select {
+			case err := <-done:
+				t.Error("active completion escaped", err)
+			default:
+			}
+			close(release)
+			close(sinkRelease)
+			for range 2 {
+				if err := <-done; !errors.Is(err, extensiondeadline.ErrGraceExhausted) {
+					t.Error("late result replaced fatal", err)
+				}
+			}
+			_, err := extensiondeadline.CompleteWithinGrace(ctx, policy, func(context.Context) (struct{}, error) {
+				t.Error("exhausted operation granted new publication")
+				return struct{}{}, nil
+			})
+			if !errors.Is(err, extensiondeadline.ErrGraceExhausted) {
+				t.Fatal("new completion reset grace", err)
+			}
+		})
+	}
+	t.Run("expired inherited deadline admits no publication", func(t *testing.T) {
+		ctx, cancel := context.WithDeadline(extensiondeadline.WithCancellationTracking(t.Context()), time.Now().Add(-time.Second))
+		defer cancel()
+		policy := extensiondeadline.InvocationPolicy{Grace: time.Millisecond, Exhausted: func(error) {}}
+		_, err := extensiondeadline.CompleteWithinGrace(ctx, policy, func(context.Context) (struct{}, error) {
+			t.Error("expired grace admitted publication")
+			return struct{}{}, nil
+		})
+		if !errors.Is(err, extensiondeadline.ErrGraceExhausted) {
+			t.Fatal(err)
+		}
+	})
 }

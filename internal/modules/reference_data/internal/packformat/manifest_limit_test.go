@@ -65,7 +65,7 @@ func TestATTACKManifestAndPathLimits_Unit(t *testing.T) {
 	if err != nil || len(admitted.Files) != 66 || len(admitted.Artifacts) != 64 {
 		t.Fatal("complete manifest boundary", err)
 	}
-	if err := VerifyDependencies(context.Background(), admitted, func(_ context.Context, dependency Dependency) (Manifest, bool, error) {
+	if err := verifyDependencies(context.Background(), admitted, func(_ context.Context, dependency Dependency) (Manifest, bool, error) {
 		// Authenticated retention is an explicit input to this pure boundary.
 		return Manifest{Key: dependency.Key, Version: dependency.Version}, true, nil
 	}, newDiagnosticTestScratch()); err != nil {

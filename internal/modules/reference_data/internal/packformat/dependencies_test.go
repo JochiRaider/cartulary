@@ -21,7 +21,7 @@ func TestDependencyVerificationGraphAndPrecedence_Unit(t *testing.T) {
 	}
 	check := func(want string, count int) *ValidationSummary {
 		t.Helper()
-		err := VerifyDependencies(ctx, root, resolve, nil)
+		err := verifyDependencies(ctx, root, resolve, nil)
 		if want == "" {
 			if err != nil {
 				t.Fatal(err)
@@ -57,11 +57,11 @@ func TestDependencyVerificationGraphAndPrecedence_Unit(t *testing.T) {
 	root.Conflicts = nil
 	graph["a"] = Manifest{Key: root.Key, Version: "a", Dependencies: []Dependency{edge("missing-transitive")}}
 	check("dependencies", 1)
-	if err := VerifyDependencies(ctx, root, nil, nil); err == nil {
+	if err := verifyDependencies(ctx, root, nil, nil); err == nil {
 		t.Fatal("missing resolver skipped dependency checks")
 	}
 	operational := errors.New("injected read failure")
-	if err := VerifyDependencies(ctx, root, func(context.Context, Dependency) (Manifest, bool, error) { return Manifest{}, false, operational }, nil); !errors.Is(err, operational) {
+	if err := verifyDependencies(ctx, root, func(context.Context, Dependency) (Manifest, bool, error) { return Manifest{}, false, operational }, nil); !errors.Is(err, operational) {
 		t.Fatal("operational error became a content verdict", err)
 	}
 }

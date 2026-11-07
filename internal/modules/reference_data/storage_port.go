@@ -110,7 +110,12 @@ type VerificationWorkspace interface {
 	Write(context.Context, string, func(io.Writer) error) error
 	Open(context.Context, string) (io.ReadCloser, error)
 	Remove(context.Context, string) error
-	Close() error
+	// Close seals the workspace and releases its ownership, even on failure.
+	// Lock waiting and deletion use the supplied owner-supervised completion
+	// context. Failed cleanup
+	// leaves private scratch for reconciliation; repeated calls return the
+	// recorded result and must not retry deletion after ownership is released.
+	Close(context.Context) error
 }
 
 func validateStorageReference(raw string) error {
@@ -136,6 +141,12 @@ func validateStorageReference(raw string) error {
 		}
 	}
 	return nil
+}
+
+// WorkspaceReconciler reclaims only abandoned private scratch. Lease ownership,
+// not operation status or age, proves eligibility independently of published bytes.
+type WorkspaceReconciler interface {
+	ReconcileWorkspaces(context.Context) error
 }
 
 // CollectionStorage holds the publication namespace exclusively for the entire

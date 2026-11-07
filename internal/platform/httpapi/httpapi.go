@@ -182,7 +182,10 @@ func NewHandler(options ...Options) (http.Handler, error) {
 		}
 	}
 
-	handler := http.Handler(mux)
+	handler, err := option.Dependencies.PublicRoutes.withOwnerFamilies(mux, extensionRoutesFromDependencies(option.Dependencies))
+	if err != nil {
+		return nil, err
+	}
 	handler = withUnclaimedReservedExtensionFamilies(handler, extensionRoutesFromDependencies(option.Dependencies))
 	if option.Dependencies.Telemetry.Enabled {
 		handler = telemetry.HTTPMiddleware(handler, option.Dependencies.Telemetry.ServiceVersion)
@@ -213,11 +216,11 @@ func withAdmissionGate(next http.Handler, admission AdmissionGate) http.Handler 
 
 func withUnclaimedReservedExtensionFamilies(next http.Handler, routes []ExtensionRoute) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			if match, ok := MatchReservedExtensionRouteIn(routes, r.URL.Path); ok && !match.Claimed {
+		for _, route := range routes {
+			if !route.Claimed && routeFamilyMatchesRequest(route.RouteFamily, r) {
 				_ = WriteError(w, r, http.StatusNotFound, "extension_profile_not_claimed", "extension profile not claimed", map[string]any{
-					"profile_id":   match.ProfileID,
-					"route_family": match.RouteFamily,
+					"profile_id":   route.ProfileID,
+					"route_family": route.RouteFamily,
 				})
 				return
 			}

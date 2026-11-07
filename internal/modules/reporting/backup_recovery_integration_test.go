@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"strings"
 	"testing"
 	"time"
@@ -37,7 +38,7 @@ func assertReportingPrivateBackupRestore(t *testing.T, runtime *appsupport.Runti
 	}
 	defer sourceConnection.Close()
 	sourcePool := sourceConnection.Pool()
-	sourcePacks, err := referenceassembly.NewRecoveryStorage(source.Server.Config.Roots.TemporaryWork.Path, source.Server.Config.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits())
+	sourcePacks, err := referenceassembly.NewRecoveryStorage(source.Server.Config.Roots.TemporaryWork.Path, source.Server.Config.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +97,7 @@ func assertReportingPrivateBackupRestore(t *testing.T, runtime *appsupport.Runti
 	defer targetConnection.Close()
 	targetPool := targetConnection.Pool()
 	temporaryRoot, publishedRoot := t.TempDir(), t.TempDir()
-	targetPacks, err := referenceassembly.NewRecoveryStorage(temporaryRoot, publishedRoot, reference_data.DefaultLimits())
+	targetPacks, err := referenceassembly.NewRecoveryStorage(temporaryRoot, publishedRoot, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 	if err != nil {
 		t.Fatal(err)
 	}

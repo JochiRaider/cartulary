@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"testing"
 	"time"
 
@@ -59,7 +60,7 @@ func newCapturedBackupContractFixture(t *testing.T, ctx context.Context, postgre
 	if err := reference_data.ReconcileBaseRelease(ctx, sourcePool, sourceLive, reference_data.BaseReleaseOptions{Finalizer: recoveryBaseFinalizer(t), Limits: reference_data.DefaultLimits()}, time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)); err != nil {
 		t.Fatal(err)
 	}
-	sourcePacks, err := referenceassembly.NewRecoveryStorage(sourceTemporary, sourcePublished, reference_data.DefaultLimits())
+	sourcePacks, err := referenceassembly.NewRecoveryStorage(sourceTemporary, sourcePublished, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	extensiondeadline "github.com/JochiRaider/cartulary/internal/modules/extensions/deadline"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs/jobcontract"
 	"os"
 	"reflect"
@@ -56,6 +57,7 @@ func (f coordinatorTestFinalizer) FinalizeReferencePackJobCancellation(ctx conte
 }
 
 func TestCanonicalCoordinatorLeasedJobsAndTerminalReplay_Integration(t *testing.T) {
+	t.Run("cleanup failure cannot publish a successful preparation", testPreparationCleanupFailure)
 	f := newCanonicalCoordinatorFixture(t, "reference-pack-coordinator-jobs")
 	ctx := context.Background()
 	c, pool, manager, storage, actor := f.coordinator, f.pool, f.manager, f.storage, f.actor
@@ -86,6 +88,11 @@ func TestCanonicalCoordinatorLeasedJobsAndTerminalReplay_Integration(t *testing.
 	var initialEnvelope *string
 	if err := pool.QueryRow(ctx, `SELECT health,current_envelope_id FROM reference_pack_candidates WHERE pack_key='type_registry.host' AND pack_version='signed-fixture.1'`).Scan(&initialHealth, &initialEnvelope); err != nil || initialHealth != "failed" || initialEnvelope != nil {
 		t.Fatal("initial abort fabricated success or remained staged", initialHealth, initialEnvelope, err)
+	}
+	_, err = c.VerifyRetained(ctx, VerificationRequest{Kind: "reverify", ActorUserID: actor, ClientTxnID: "never-successful-reverify", PackKeys: []string{"type_registry.host"}, KeysProvided: true, PackVersion: "signed-fixture.1"})
+	var ineligible *OperationRejection
+	if !errors.As(err, &ineligible) || ineligible.Reason != "no_successful_verification" {
+		t.Fatal("never-successful candidate admitted for reverify", err)
 	}
 	accepted, err := c.Import(ctx, actor, "signed-import", bytes.NewReader(container))
 	if err != nil {
@@ -118,7 +125,7 @@ func TestCanonicalCoordinatorLeasedJobsAndTerminalReplay_Integration(t *testing.
 	if err != nil || version.Health != "verified_available" || version.PendingWork || version.ManifestSHA256 == nil || version.LastVerifiedAt == nil || len(version.VerifiedSignerKeyIDs) != 1 || version.Dependencies == nil || len(version.Dependencies) != 0 {
 		t.Fatal("administrative successful envelope projection", version, err)
 	}
-	action, apiErr := DecodeActionRequest(strings.NewReader(`{"client_txn_id":"disable-signed"}`))
+	action, apiErr := decodeActionRequest(strings.NewReader(`{"client_txn_id":"disable-signed"}`), false)
 	if apiErr != nil {
 		t.Fatal(apiErr)
 	}
@@ -306,7 +313,7 @@ AND convert_from(e.canonical_attestation,'UTF8')::jsonb->>'operator_operation_id
 	// Restore authenticates the historical success at its original instant even
 	// though the fresh reverify just condemned its expired metadata. Rebuilding
 	// a derived index must not repair or overwrite the live verdict.
-	if err := RestoreHistoricalState(ctx, pool, storage, DefaultLimits()); err != nil {
+	if err := RestoreHistoricalState(ctx, pool, storage, DefaultLimits(), testVerificationLifetime(t)); err != nil {
 		t.Fatal("historically valid expired metadata failed restore", err)
 	}
 	if err := pool.QueryRow(ctx, `SELECT health FROM reference_pack_candidates WHERE pack_key='type_registry.host' AND pack_version='signed-fixture.1'`).Scan(&health); err != nil || health != "failed" {
@@ -341,7 +348,7 @@ AND convert_from(e.canonical_attestation,'UTF8')::jsonb->>'operator_operation_id
 	if err != nil {
 		t.Fatal("terminal cancellation retained pending-work guard", err)
 	}
-	removeRequest, apiErr := DecodeActionRequest(strings.NewReader(`{"client_txn_id":"remove-signed","reason":"Fixture retirement"}`))
+	removeRequest, apiErr := decodeActionRequest(strings.NewReader(`{"client_txn_id":"remove-signed","reason":"Fixture retirement"}`), false)
 	if apiErr != nil {
 		t.Fatal(apiErr)
 	}
@@ -414,6 +421,58 @@ AND convert_from(e.canonical_attestation,'UTF8')::jsonb->>'operator_operation_id
 	if err != nil || job.Status != jobs.StatusFailed || job.ErrorSummary == nil || job.ErrorSummary.Details["reason_code"] != "unsupported_container_format" {
 		t.Fatal("empty container lost its content verdict", job, err)
 	}
+}
+
+func testPreparationCleanupFailure(t *testing.T) {
+	f := newCanonicalCoordinatorFixture(t, "reference-pack-cleanup-failure")
+	ctx := t.Context()
+	accepted, err := f.coordinator.Import(ctx, f.actor, "cleanup-failure", bytes.NewReader(f.container))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(accepted.Job.JobID)
+	execution, claimed, err := f.manager.Claim(ctx, id)
+	if err != nil || !claimed {
+		t.Fatal("claim", claimed, err)
+	}
+	f.storage.closeFaultAt = f.storage.workspaces + 1
+	f.storage.closeFault = errors.New("workspace cleanup unavailable")
+	if err := f.coordinator.Execute(ctx, execution); err != nil {
+		t.Fatal("execution failure finalization", err)
+	}
+	job, err := f.manager.Get(ctx, id)
+	if err != nil || job.Status != jobs.StatusFailed || job.ErrorSummary == nil || job.ErrorSummary.Code != "internal_error" {
+		t.Fatal("cleanup fault became success or content rejection", job, err)
+	}
+	var members int
+	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM reference_pack_attempt_members m JOIN reference_pack_attempts a USING(attempt_id) JOIN reference_pack_operations o USING(operation_id) WHERE o.job_id=$1`, id).Scan(&members); err != nil || members != 0 {
+		t.Fatal("cleanup fault retained a successful preparation or content verdict", members, err)
+	}
+	version, err := f.coordinator.GetVersion(ctx, "type_registry.host", "signed-fixture.1")
+	if err != nil || version.Health != "failed" || version.ManifestSHA256 != nil || version.LastFailureCode != nil {
+		t.Fatal("cleanup fault published content", version, err)
+	}
+	f.storage.closeFault = nil
+	f.storage.closeFaultAt = 0
+	fatalJob, err := f.coordinator.Import(ctx, f.actor, "fatal-cleanup", bytes.NewReader(f.container))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fatalID := uuid.MustParse(fatalJob.Job.JobID)
+	execution, claimed, err = f.manager.Claim(ctx, fatalID)
+	if err != nil || !claimed {
+		t.Fatal(claimed, err)
+	}
+	f.storage.closeFaultAt = f.storage.workspaces + 1
+	f.storage.closeFault = extensiondeadline.ErrGraceExhausted
+	if err := f.coordinator.Execute(ctx, execution); !errors.Is(err, extensiondeadline.ErrGraceExhausted) {
+		t.Fatal("fatal cleanup was replaced", err)
+	}
+	var terminal bool
+	if err := f.pool.QueryRow(ctx, `SELECT terminal_at IS NOT NULL FROM reference_pack_operations WHERE job_id=$1`, fatalID).Scan(&terminal); err != nil || terminal {
+		t.Fatal("fatal cleanup published ordinary terminal outcome", terminal, err)
+	}
+
 }
 
 type signedCoordinatorVector struct {
@@ -516,7 +575,7 @@ func newCanonicalCoordinatorFixture(t *testing.T, name string) canonicalCoordina
 		t.Fatal(err)
 	}
 	now := vector.At
-	c, err := NewCoordinator(CoordinatorOptions{RegistryUsage: lifecycleFixtureUsage{}, Postgres: pool, Storage: storage, Configuration: Configuration{ClockTrusted: true}, Limits: DefaultLimits(), JobAdmission: transactions, JobExecutionGuard: transactions, JobOperations: manager, JobFinalizer: coordinatorTestFinalizer{owner: finalizer}, Now: func() time.Time { return now }})
+	c, err := NewCoordinator(CoordinatorOptions{Lifetime: testVerificationLifetime(t), RegistryUsage: lifecycleFixtureUsage{}, Postgres: pool, Storage: storage, Configuration: Configuration{ClockTrusted: true}, Limits: DefaultLimits(), JobAdmission: transactions, JobExecutionGuard: transactions, JobOperations: manager, JobFinalizer: coordinatorTestFinalizer{owner: finalizer}, Now: func() time.Time { return now }})
 	if err != nil {
 		t.Fatal(err)
 	}

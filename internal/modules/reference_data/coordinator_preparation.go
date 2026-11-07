@@ -194,7 +194,11 @@ func (c *verificationService) prepareMember(ctx context.Context, a executionAtte
 // The coordinator owns the one verification/index/artifact preparation path.
 // Lifecycle Jobs and destination cohorts supply their frozen input bindings;
 // neither transport can publish these private results.
-func (c *verificationService) prepareVerificationMember(ctx context.Context, a executionAttempt, m frozenMember, input verificationAttempt) error {
+func (c *verificationService) prepareVerificationMember(ctx context.Context, a executionAttempt, m frozenMember, input verificationAttempt) (resultErr error) {
+	return c.lifetime.Run(ctx, func(ctx context.Context) error { return c.prepareVerificationMemberScoped(ctx, a, m, input) })
+}
+
+func (c *verificationService) prepareVerificationMemberScoped(ctx context.Context, a executionAttempt, m frozenMember, input verificationAttempt) (resultErr error) {
 	var index *indexBuilder
 	content, err := verifyCanonicalContainer(ctx, c.storage, input, func(ctx context.Context, manifest packformat.Manifest, manifestSHA, payloadSHA string) (packformat.ContentSink, error) {
 		var err error
@@ -204,7 +208,11 @@ func (c *verificationService) prepareVerificationMember(ctx context.Context, a e
 	if err != nil {
 		return c.retainMemberFailure(ctx, a, m, err)
 	}
-	defer content.Close()
+	defer func() {
+		if err := content.Close(); err != nil {
+			resultErr = verificationCleanupError(resultErr, err)
+		}
+	}()
 	indexID, err := index.Complete(ctx)
 	if err != nil {
 		return err

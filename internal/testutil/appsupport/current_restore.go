@@ -1,6 +1,7 @@
 package appsupport
 
 import (
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"testing"
 	"time"
 
@@ -53,7 +54,7 @@ func (runtime *Runtime) CaptureRestoreServer(t testing.TB, source *ServerHarness
 		t.Fatal(err)
 	}
 	sourceRoots := source.Server.Config.Roots
-	sourcePacks, err := referenceassembly.NewRecoveryStorage(sourceRoots.TemporaryWork.Path, sourceRoots.ReferencePackStorage.Path, reference_data.DefaultLimits())
+	sourcePacks, err := referenceassembly.NewRecoveryStorage(sourceRoots.TemporaryWork.Path, sourceRoots.ReferencePackStorage.Path, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +131,7 @@ func (runtime *Runtime) CaptureRestoreServer(t testing.TB, source *ServerHarness
 		t.Fatalf("bind current restore target: %v", err)
 	}
 	roots := loaded.Deployment().Roots
-	targetPacks, err := referenceassembly.NewRecoveryStorage(roots.TemporaryWork.Path, roots.ReferencePackStorage.Path, reference_data.DefaultLimits())
+	targetPacks, err := referenceassembly.NewRecoveryStorage(roots.TemporaryWork.Path, roots.ReferencePackStorage.Path, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
 	if err != nil {
 		t.Fatal(err)
 	}

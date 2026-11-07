@@ -14,6 +14,7 @@ import (
 )
 
 func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback_Unit(t *testing.T) {
+	t.Run("inactive family wins across path forms", testCrossFamilyInactivePrecedence)
 	importProfile := extensionContract(t, "import")
 	enterpriseProfile := extensionContract(t, "enterprise_authentication")
 
@@ -105,6 +106,83 @@ func TestReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallb
 	outsideReserved := performRequest(t, unclaimedHandler, http.MethodGet, "/api/v1/outside-reserved-families", nil)
 	if outsideReserved.Code != http.StatusNotFound || strings.Contains(outsideReserved.Body.String(), "extension_profile_not_claimed") {
 		t.Fatalf("ordinary unknown paths must keep ordinary not-found handling: status=%d body=%q", outsideReserved.Code, outsideReserved.Body.String())
+	}
+}
+
+type dispatchBodyProbe struct{ reads int }
+
+func (body *dispatchBodyProbe) Read([]byte) (int, error) {
+	body.reads++
+	return 0, io.EOF
+}
+
+func testCrossFamilyInactivePrecedence(t *testing.T) {
+	for _, claimedID := range []string{"reference_pack", "import"} {
+		t.Run(claimedID+" claimed", func(t *testing.T) {
+			inactiveID := "import"
+			if claimedID == "import" {
+				inactiveID = "reference_pack"
+			}
+			claimedRoot := extensionContract(t, claimedID).RouteFamilies[0]
+			inactiveRoot := extensionContract(t, inactiveID).RouteFamilies[0]
+			projections := httpapiextensions.FromGeneratedRegistry(t, claimedID)
+			policyCalls, operationCalls := 0, 0
+			handler, err := httpapi.NewHandler(httpapi.Options{
+				Dependencies: projections.Dependencies(httpapi.DependencySet{}),
+				AdditionalRoutes: []httpapi.RouteRegistrar{func(_ *http.ServeMux, deps httpapi.DependencySet) error {
+					owner := ""
+					handlers := map[string]http.HandlerFunc{}
+					for _, operation := range httpapi.ContractOperations() {
+						if operation.Availability == claimedID && (operation.PathTemplate == claimedRoot || strings.HasPrefix(operation.PathTemplate, claimedRoot+"/")) {
+							owner = operation.OwnerID
+							handlers[operation.OperationID] = func(w http.ResponseWriter, _ *http.Request) {
+								operationCalls++
+								w.WriteHeader(http.StatusNoContent)
+							}
+						}
+					}
+					policy := func(http.Handler) http.Handler {
+						return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+							policyCalls++
+							w.WriteHeader(http.StatusUnauthorized)
+						})
+					}
+					return httpapi.BindOwnerFamilyRoutes(deps, owner, claimedID, claimedRoot, policy, handlers)
+				}},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Positive controls establish the claimed policy and direct Base route.
+			if response := performRequest(t, handler, "GET", claimedRoot, nil); response.Code != http.StatusUnauthorized || policyCalls != 1 {
+				t.Fatal("claimed family policy was not installed")
+			}
+			policyCalls = 0
+			if response := performRequest(t, handler, "GET", "/readyz", nil); response.Code != http.StatusOK || policyCalls != 0 {
+				t.Fatal("direct Base route lost precedence")
+			}
+			for _, path := range []string{
+				claimedRoot + "/../" + strings.TrimPrefix(inactiveRoot, "/api/v1/"),
+				inactiveRoot + "/../" + strings.TrimPrefix(claimedRoot, "/api/v1/"),
+				inactiveRoot + "/../../../readyz",
+			} {
+				for _, method := range []string{"GET", "POST", "HEAD", "OPTIONS", "PATCH"} {
+					body := &dispatchBodyProbe{}
+					response := performRequest(t, handler, method, path+"?invalid=%zz", body)
+					if response.Code != http.StatusNotFound || response.Header().Get("Location") != "" {
+						t.Fatalf("%s %s: status=%d Location=%q", method, path, response.Code, response.Header().Get("Location"))
+					}
+					payload := readJSONMap(t, response.Body.String())["error"].(map[string]any)
+					details := payload["details"].(map[string]any)
+					if payload["code"] != "extension_profile_not_claimed" || payload["retryable"] != false || details["profile_id"] != inactiveID || details["route_family"] != inactiveRoot {
+						t.Fatalf("wrong inactive family for %s %s: %#v", method, path, payload)
+					}
+					if policyCalls != 0 || operationCalls != 0 || body.reads != 0 {
+						t.Fatalf("inactive traversal reached policy=%d operation=%d body reads=%d", policyCalls, operationCalls, body.reads)
+					}
+				}
+			}
+		})
 	}
 }
 

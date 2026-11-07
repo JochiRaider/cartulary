@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 	evidenceflow "github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/flowtest"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"io"
 	"net/http"
 	"os"
@@ -964,10 +965,10 @@ func testPersistedRootRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer storage.Close()
-	if err := reference_data.ValidateRequiredState(context.Background(), harness.Pool, storage, reference_data.DefaultLimits()); err != nil {
+	if err := reference_data.ValidateRequiredState(context.Background(), harness.Pool, storage, reference_data.DefaultLimits(), verificationtest.Lifetime(t)); err != nil {
 		t.Fatal("restart rejected valid retained root rotation", err)
 	}
-	if err := reference_data.RestoreHistoricalState(context.Background(), harness.Pool, storage, reference_data.DefaultLimits()); err != nil {
+	if err := reference_data.RestoreHistoricalState(context.Background(), harness.Pool, storage, reference_data.DefaultLimits(), verificationtest.Lifetime(t)); err != nil {
 		t.Fatal("restore rejected valid retained root rotation", err)
 	}
 }

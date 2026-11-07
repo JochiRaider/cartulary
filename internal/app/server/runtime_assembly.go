@@ -191,6 +191,10 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		reconciliationTimeout:   time.Duration(runtimeSettings.ReconciliationSeconds) * time.Second,
 		stagedObjectSweepPeriod: time.Duration(runtimeSettings.StagedObjectSweepSeconds) * time.Second,
 	}
+	referenceLifetime, err := reference_data.NewVerificationLifetime(time.Duration(normalizedCfg.Timeouts.Extensions.CancellationGraceSeconds)*time.Second, runtime.fatalIntegrity)
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		if resultErr != nil && runtime.lifecycle.FatalReason() != "" {
 			resultErr = publicationStartupFatal{reason: runtime.lifecycle.FatalReason()}
@@ -764,7 +768,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, fmt.Errorf("reconcile Base reference registries: %w", err)
 	}
-	if err := reference_data.ValidateRequiredState(ctx, postgresHandle, rootReferencePackStorage, settingsProjection.ReferenceData()); err != nil {
+	if err := reference_data.ValidateRequiredState(ctx, postgresHandle, rootReferencePackStorage, settingsProjection.ReferenceData(), referenceLifetime); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("validate retained Reference Pack state: %w", err)
 	}
@@ -912,13 +916,13 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, fmt.Errorf("reconcile terminal Reference Pack jobs: %w", err)
 	}
-	collector, err := reference_data.NewObjectCollector(referenceDatabase, rootReferencePackStorage, referenceObserver)
+	collector, err := reference_data.NewObjectCollector(referenceDatabase, rootReferencePackStorage, rootReferencePackStorage, referenceObserver)
 	if err != nil {
 		runtime.Close()
 		return nil, err
 	}
 	// Startup reconciles bytes after terminal Jobs are classified. Periodic
-	// maintenance consumes later removal tombstones and abandoned publications.
+	// maintenance consumes abandoned scratch, removal tombstones and publications.
 	cleanupCtx, cancelCollection := context.WithTimeout(ctx, 30*time.Second)
 	cleanupErr := collector.Sweep(cleanupCtx)
 	cancelCollection()
@@ -1191,7 +1195,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability source catalog: %w", err)
 	}
-	incidentReferences, err := reference_data.NewIncidentReferences(reference_data.IncidentReferenceOptions{Postgres: referenceDatabase, Storage: rootReferencePackStorage, Configuration: normalizedCfg.ReferencePacks, Limits: settingsProjection.ReferenceData(), JobExecutions: jobTransactions, JobOperations: jobManager, Observer: referenceObserver, Now: now})
+	incidentReferences, err := reference_data.NewIncidentReferences(reference_data.IncidentReferenceOptions{Lifetime: referenceLifetime, Postgres: referenceDatabase, Storage: rootReferencePackStorage, Configuration: normalizedCfg.ReferencePacks, Limits: settingsProjection.ReferenceData(), JobExecutions: jobTransactions, JobOperations: jobManager, Observer: referenceObserver, Now: now})
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability reference retention: %w", err)
@@ -1390,7 +1394,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 	importRoutes := importModule.RegisterRoutes()
 	var referenceAdministration reference_data.AdministrativeApplication
 	if referencePackRouteAdmitted {
-		referenceAdministration, err = referenceassembly.NewAdministration(reference_data.CoordinatorOptions{
+		referenceAdministration, err = referenceassembly.NewAdministration(reference_data.CoordinatorOptions{Lifetime: referenceLifetime,
 			Observer: referenceObserver, Postgres: referenceDatabase, Storage: referencePackStorage,
 			Configuration: normalizedCfg.ReferencePacks, Limits: settingsProjection.ReferenceData(),
 			JobAdmission: jobTransactions, JobOperations: jobManager, JobExecutionGuard: jobTransactions,

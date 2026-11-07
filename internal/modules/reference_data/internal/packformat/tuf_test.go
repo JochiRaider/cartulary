@@ -490,7 +490,7 @@ func TestOfflineTUFCompleteSchemaDiagnostics_Unit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			summary, err := TrustSchemaSummary(context.Background(), files, nil)
+			summary, err := trustSchemaSummary(context.Background(), files, nil)
 			if err != nil || (summary.Result == "succeeded") != (variant == "missing") {
 				t.Fatal("target binding shape precedence", variant, summary, err)
 			}
@@ -523,7 +523,7 @@ func TestOfflineTUFCompleteSchemaDiagnostics_Unit(t *testing.T) {
 		m["private_secret"] = true
 	})
 	change("metadata/targets.json", func(m map[string]any) { m["signed"].(map[string]any)["delegations"] = nil })
-	_, err = VerifyTrustWithDiagnostics(context.Background(), files, v.Inventory, "test.repo", v.VerificationTime, trust, newDiagnosticTestScratch())
+	_, err = verifyTrustWithDiagnostics(context.Background(), files, v.Inventory, "test.repo", v.VerificationTime, trust, newDiagnosticTestScratch())
 	var failure *Failure
 	if !errors.As(err, &failure) || failure.Code != "tuf_metadata_invalid" || failure.Summary == nil {
 		t.Fatal("signature error masked schema enumeration", err)
@@ -549,7 +549,7 @@ func TestOfflineTUFCompleteSchemaDiagnostics_Unit(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := TrustSchemaSummary(ctx, files, nil); !errors.Is(err, context.Canceled) {
+	if _, err := trustSchemaSummary(ctx, files, nil); !errors.Is(err, context.Canceled) {
 		t.Fatal("cancellation became metadata verdict", err)
 	}
 }
@@ -626,7 +626,7 @@ func TestOfflineTUFRegistryProgramDiagnostics_Unit(t *testing.T) {
 			}
 			at := vector.VerificationTime
 			tc.mutate(files, inventory, &trust, &at)
-			_, err = VerifyTrustWithDiagnostics(context.Background(), files, inventory, "test.repo", at, trust, nil)
+			_, err = verifyTrustWithDiagnostics(context.Background(), files, inventory, "test.repo", at, trust, nil)
 			var failure *Failure
 			if !errors.As(err, &failure) || failure.CheckID != tc.check || failure.Summary == nil || failure.Summary.Total != tc.count {
 				t.Fatalf("check=%s count=%d: %#v / %v", tc.check, tc.count, failure, err)
@@ -647,7 +647,7 @@ func TestOfflineTUFRegistryProgramDiagnostics_Unit(t *testing.T) {
 			for _, path := range paths {
 				reversed[path] = files[path]
 			}
-			_, err = VerifyTrustWithDiagnostics(context.Background(), reversed, inventory, "test.repo", at, trust, nil)
+			_, err = verifyTrustWithDiagnostics(context.Background(), reversed, inventory, "test.repo", at, trust, nil)
 			if !errors.As(err, &failure) {
 				t.Fatal(err)
 			}
