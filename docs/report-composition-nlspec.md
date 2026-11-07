@@ -9,6 +9,8 @@ schema_id: cartulary.report_composition_nlspec.v1
 
 # 1. Status, Scope, And Authority
 
+The native Reference Pack cutover binds preview admission and replay to Reference Pack subsystem major 3, pack contract v2, and immutable pack-set v2. The existing preview identity and Reporting owner interfaces remain unchanged. Incompatible retained bindings fail before mutation or readiness; no current-set substitution or legacy conversion is permitted.
+
 Version 1.3.1 additionally declares the selected preview Job terminal-success contract in REQ-RC-035a under Core 00 §1.7.
 
 This 1.3.0 cutover amendment is adopted with Reporting 1.4.0. The human-reviewed source candidate is repository commit `6d3472ff6758100c963d8dafc20eb03189188885` at this document path; Core 00 §1.2 records the coordinated adoption, behavior scope and companion dependencies. An authoritative preview supplies its existing immutable `preview_attempt_id` and microsecond admission instant to Reporting 1.4.0. Reporting derives preview-specific model, deck and token IDs; it must not allocate a synthetic release identity for a preview. The same admitted attempt replays with the same identity, time, exact snapshot and Reference Pack binding.

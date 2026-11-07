@@ -134,7 +134,7 @@ func testLimitDiagnostics(t *testing.T) {
 	assertLimit(summary, "max_path_bytes", "1024", "1025")
 	assertLimit(summary, "max_segment_bytes", "255", "1025")
 	summary, err = CheckSummary(ctx, "content_schema", nil, func(ctx context.Context, emit FindingSink) error {
-		_, err := enumerateContentRows(ctx, strings.NewReader(strings.Repeat("a", 1048577)), nil, "$.entries", "entry", 1, emit)
+		_, err := enumerateContentRows(ctx, strings.NewReader(strings.Repeat("a", 1048577)), nil, "$.entries", "entry", 1, 1048576, emit)
 		return err
 	})
 	if err != nil {

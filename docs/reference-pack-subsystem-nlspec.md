@@ -2,8 +2,8 @@
 title: Cartulary Reference Pack Subsystem NLSpec
 status: adopted/current
 document_class: nlspec
-document_version: 0.2.0
-contract_major: 2
+document_version: 0.3.0
+contract_major: 3
 profile_id: reference_pack
 schema_id: cartulary.reference_pack_subsystem_nlspec.v1
 ---
@@ -12,7 +12,7 @@ schema_id: cartulary.reference_pack_subsystem_nlspec.v1
 
 This NLSpec defines the Cartulary Reference Pack subsystem. It specializes the existing `reference_pack` extension profile and defines the limited Base Profile contract for immutable built-in type registries. It does not create a second extension identity.[^7]
 
-Contract major 2 replaces the adopted Reference Pack administration contract. The canonical pack, content-profile, and algorithm identifiers introduced here have never been adopted and retain their `.v1` identifiers for first adoption. Application compatibility majors and the `/api/v1` route namespace are separate contracts and are not incremented by this document. Retired pack bytes are rejected; no compatibility reader or dual-write format is defined. Incident portability's changed reference representation requires incident-bundle format 5. A migration MUST reject incompatible retained state before mutation rather than invent trust, silently delete incident data, or rewrite indicator identities. The consolidated database lineage v3 enforces this through reset-only lineage admission; it contains no historical Reference Pack cutover catalog or row converter. Required Base registry and profile initialization remains an application-owned startup operation.
+Contract major 3 adopts the native ATT&CK profile and the v2 pack contract. Only `cartulary.reference_pack_contract.v2` is admitted. ATT&CK content/profile schemas are v2; unchanged profile schemas, manifest shape, TUF method, application compatibility major and HTTP namespace retain their identifiers. Closed predecessor schemas remain historical evidence, never admission paths. Incident-bundle format 7 carries only the current `reference_pack_refs.v2` catalog. Before any reconciliation write, schema mutation, worker admission or readiness, incompatible retained pack versions, immutable sets, pending operations and dependent artifacts MUST fail closed. No historical byte rewrite, compatibility reader, implicit reset or data conversion is permitted. Validation uses isolated fresh state; preserving live predecessor state requires a separately adopted migration. Required Base registries retain their content and receive new release-bound v2 manifest identities.
 
 **RP-REQ-001**
 This NLSpec MUST own only these behavior families:
@@ -78,8 +78,8 @@ The Reference Pack Extension Profile MUST remain a deployment-scoped administrat
 | `RP-GATE-010` | Security authority | The security authority confirms that the Ed25519-only v1 profile is permitted for the target compliance posture. |
 | `RP-GATE-011` | Licensing authority | Every project-distributed external-data pack has an approved redistribution classification and required notices. |
 | `RP-GATE-012` | Corpus maintenance | Required behavioral families and every supported profile have executed fixture coverage under §29; ordinary owner review resolves normative placeholders and contradictions. Counts and identifier mappings do not establish completeness. |
-| `RP-GATE-013` | Extensions Subsystem NLSpec | Profile major 2, configuration v2 and lifecycle Jobs v2 are adopted with shared transaction/deadline finalization and empty capability arrays. |
-| `RP-GATE-014` | Core 01 incident portability owner | Incident-bundle format 5, exact references, destination trust, inactive import, required-member failure and licensing rules are adopted together. |
+| `RP-GATE-013` | Extensions Subsystem NLSpec | Profile major 3, unchanged configuration v2 and lifecycle Jobs v2 are adopted with shared transaction/deadline finalization and empty capability arrays. |
+| `RP-GATE-014` | Core 01 incident portability owner | Incident-bundle format 7, exact references, destination trust, inactive import, required-member failure and licensing rules are adopted together. |
 | `RP-GATE-015` | Core 01/Core 04 recovery owners | Current recovery contributions retain content, envelopes, trust history, immutable provenance and pins; historical-time verification and required-loss readiness are adopted. |
 | `RP-GATE-016` | Core 01 Jobs and Extensions owners | Local operator admission has an explicit non-user actor and operation identity in the common Job, durable admission evidence, terminal finalization and recovery contracts; no fabricated user or second verification pipeline is permitted. The operator waits on the same admitted lifecycle Job without creating a listener. |
 
@@ -174,7 +174,7 @@ This document uses semantic document versioning only for the NLSpec artifact. `d
 | `pack_release_sequence` | Per-repository, per-pack-key rollback-protection counter | Integer ordering only for import admission. |
 
 **RP-REQ-018**
-The exact v1 pack contract identifier MUST be `cartulary.reference_pack_contract.v1`. A change to canonical bytes, identity, digest, trust, dependency, activation, pack-set, or consumer semantics MUST use a new pack contract identifier and a new `contract_major`.
+The current pack contract identifier MUST be `cartulary.reference_pack_contract.v2`. A change to canonical bytes, identity, digest, trust, dependency, activation, pack-set, or consumer semantics MUST use a new pack contract identifier and a new `contract_major`.
 
 **RP-REQ-019**
 Editorial corrections that do not change observable behavior MAY increment only the patch component of `document_version`. Additive content-profile registrations MAY increment the minor component only when existing canonical bytes, defaults, errors, and consumers remain unchanged.
@@ -194,7 +194,7 @@ The dependencies in Table 4-B identify the imported owners and external contract
 | Reporting Subsystem NLSpec | Pack-sensitive reporting consumer boundary | Reporting 1.4.0 companion amendment after `RP-GATE-006`. |
 | Report Composition Subsystem NLSpec | Exact admitted preview identity and time | Report Composition 1.3.0 companion amendment after `RP-GATE-006`. |
 | Extensions Subsystem NLSpec | Profile/configuration/Job version selection; transaction and deadline protocol | Coordinated companion amendment under `RP-GATE-013`. |
-| Core 01 incident portability owner | Format 5 references, embedding and destination reuse | Coordinated §12.3 companion amendment under `RP-GATE-014`. |
+| Core 01 incident portability owner | Format 7 references, embedding and destination reuse | Coordinated §12.3 companion amendment under `RP-GATE-014`. |
 | Core 01/Core 04 recovery owners | Current recovery catalog and historical integrity | Coordinated backup/restore companion amendments under `RP-GATE-015`. |
 | OpenTelemetry NLSpec | Telemetry mechanics | Current adopted OpenTelemetry NLSpec after `RP-GATE-007`. |
 | Testing Harness NLSpec | Fixture and generated-artifact mechanics | Current adopted Testing Harness NLSpec after `RP-GATE-008`. |
@@ -435,7 +435,7 @@ For an operator-imported container, the implementation MUST use the untrusted `t
 | Member | Type | Null allowed | Rule |
 | --- | --- | ---: | --- |
 | `schema_id` | string | No | Exactly `cartulary.reference_pack_manifest.v1`. |
-| `pack_contract_version` | string | No | Exactly `cartulary.reference_pack_contract.v1`. |
+| `pack_contract_version` | string | No | Exactly `cartulary.reference_pack_contract.v2`. |
 | `pack_key` | string | No | RP-REQ-022. |
 | `pack_kind` | string | No | Exact registered value for the selected content profile. |
 | `pack_version` | string | No | RP-REQ-023. |
@@ -720,7 +720,7 @@ Missing binding data and mismatches between structurally admitted binding values
 Threshold satisfaction MUST count only distinct valid signatures from key IDs authorized for the applicable role in the currently trusted root, except for the explicitly defined old/new root authorization union in RP-REQ-067. An untrusted signer, invalid signature, duplicate signer, or insufficient distinct threshold fails with `signature_threshold_not_met`, or `tuf_root_rotation_invalid` when evaluating a root update. Verification MUST examine every supplied signature and MUST NOT stop after reaching a threshold.
 
 **RP-REQ-074**
-The successful verification attestation MUST retain the complete sorted set of valid authorized supplied signer key IDs for each role, not an implementation-selected threshold subset. Root transitions retain predecessor-authorized and successor-authorized signer sets separately. Profile major 2 exposes the complete targets-role set through `verified_signer_key_ids[]` under RP-REQ-215; the retired scalar `signer_key_id` is not an alternate projection. Coordinated adoption of that Core amendment remains required before a Reference Pack conformance claim.
+The successful verification attestation MUST retain the complete sorted set of valid authorized supplied signer key IDs for each role, not an implementation-selected threshold subset. Root transitions retain predecessor-authorized and successor-authorized signer sets separately. Profile major 3 preserves the complete targets-role set through `verified_signer_key_ids[]` under RP-REQ-215; the retired scalar `signer_key_id` is not an alternate projection. Coordinated adoption of that Core amendment remains required before a Reference Pack conformance claim.
 
 ## 10.5 Expiry and historical use
 
@@ -1023,7 +1023,7 @@ A pack is content-compatible only when the exact pair `(pack_key, content_profil
 | `type_registry.host` | `type_registry` | `cartulary.reference_pack.type_registry.host.v1` | `1` | entries | `registry` |
 | `type_registry.evidence` | `type_registry` | `cartulary.reference_pack.type_registry.evidence.v1` | `1` | entries | `registry` |
 | `type_registry.indicator` | `type_registry` | `cartulary.reference_pack.type_registry.indicator.v1` | `1` | entries | `registry` |
-| `framework.attack` | `framework` | `cartulary.reference_pack.framework.attack.v1` | `1` | objects and relationships | `framework_reference` |
+| `framework.attack` | `framework` | `cartulary.reference_pack.framework.attack.v2` | `2` | objects and relationships | `framework_reference` |
 | `framework.d3fend` | `framework` | `cartulary.reference_pack.framework.d3fend.v1` | `1` | objects and relationships | `framework_reference` |
 | `framework.veris` | `framework` | `cartulary.reference_pack.framework.veris.v1` | `1` | objects and relationships | `framework_reference` |
 | `enrichment.tor` | `enrichment` | `cartulary.reference_pack.enrichment.tor.v1` | `1` | entries | `advisory_enrichment` |
@@ -1040,7 +1040,7 @@ A pack is content-compatible only when the exact pair `(pack_key, content_profil
 The registry reflects the current Core pack keys and the locally staged dataset families observed in the Kanvas research. That research also identifies missing checksum and signature verification as a supply-chain weakness, which this NLSpec closes through mandatory verification.[^6]
 
 **RP-REQ-100**
-A profile's `pack_kind` MUST equal the exact value in Table 13-A. The public Core resource may continue to serialize `pack_kind` as an open string, but this v1 registry is closed for conformant content profiles.
+A profile's `pack_kind` MUST equal the exact value in Table 13-A. The public Core resource may continue to serialize `pack_kind` as an open string, but the current profile registry is closed for conformant content profiles.
 
 ## 13.1 Common NDJSON
 
@@ -1052,7 +1052,7 @@ Every NDJSON file MUST:
 - use LF as the only line separator;
 - terminate every line, including the last, with LF;
 - contain no blank line or comment;
-- contain no line longer than 1048576 bytes including LF;
+- contain no line longer than the profile bound including LF: 4194304 bytes for ATT&CK v2, 1048576 for every other profile;
 - contain exactly the count declared by `content_summary`.
 
 **RP-REQ-102**
@@ -1099,7 +1099,7 @@ Aliases MUST be sorted by the profile's alias-normalization output, then exact a
 ## 13.3 Common framework object and relationship members
 
 **RP-REQ-108**
-Every framework object MUST be a closed object containing exactly:
+Every framework object MUST contain the following common members. ATT&CK v2 additionally requires the closed native members in §15.1; other profiles contain exactly these members:
 
 | Member | Type | Null allowed | Rule |
 | --- | --- | ---: | --- |
@@ -1119,7 +1119,7 @@ Every framework object MUST be a closed object containing exactly:
 A framework `external_refs[]` item contains exactly `source_name`, `external_id`, and nullable `url`. `source_name` and `external_id` are non-empty single-line strings. `url` is either `null` or the canonical output of RP-REQ-124 with scheme `https`, no userinfo, and no fragment. Items sort by `source_name`, then `external_id`, then `url` with `null` first. Duplicates are invalid. Reference uniqueness uses the complete tuple. Different references MAY share an external ID. Derived lookup keys form a set per object and exact `(lookup_kind, lookup_value)`; repeated keys coalesce in canonical first-occurrence order without changing canonical content or provenance. Lookup returns each matching object once, while different objects sharing an external ID remain separate results.
 
 **RP-REQ-110**
-Every framework relationship MUST be a closed object containing exactly:
+Every framework relationship MUST contain the following common members. ATT&CK v2 additionally requires the closed native members in §15.1; other profiles contain exactly these members:
 
 | Member | Type | Null allowed | Rule |
 | --- | --- | ---: | --- |
@@ -1370,7 +1370,7 @@ The three framework profiles use the common object and relationship contracts wi
 
 | Pack key | Object schema ID | Relationship schema ID |
 | --- | --- | --- |
-| `framework.attack` | `cartulary.reference_pack.framework.attack.object.v1` | `cartulary.reference_pack.framework.attack.relationship.v1` |
+| `framework.attack` | `cartulary.reference_pack.framework.attack.object.v2` | `cartulary.reference_pack.framework.attack.relationship.v2` |
 | `framework.d3fend` | `cartulary.reference_pack.framework.d3fend.object.v1` | `cartulary.reference_pack.framework.d3fend.relationship.v1` |
 | `framework.veris` | `cartulary.reference_pack.framework.veris.object.v1` | `cartulary.reference_pack.framework.veris.relationship.v1` |
 
@@ -1396,6 +1396,722 @@ external_id
 
 **RP-REQ-137**
 Framework results have authority class `framework_reference`. They may support report, diagram, suggestion, and analyst-pivot behavior only. They MUST NOT create a Base Profile workbook surface or mutate incident state.
+
+## 15.1 Native ATT&CK v2 amendment — 2026-11-06
+
+**RP-REQ-265** Native ATT&CK objects add required `source` (one closed typed source object below) and `source_domains` (1..3 unique contributing bundle domains, sorted ascending: `enterprise-attack`, `ics-attack`, `mobile-attack`). Object identity/type MUST equal `source.id`/`source.type`. Relationships add required `source_kind` (`stix_sro` or `embedded_reference`) and `source`; source is the closed relationship type for direct SROs and exactly null for embedded assertions. `extensions` remains exactly `{}`. No raw bundle, producer, profile, source lock, audit, fixture manifest or private key is a runtime member.
+
+**RP-REQ-266** Native values preserve parsed values, array order and optional-member absence. Native strings are inert data and preserve URL schemes, fragments, whitespace and lifecycle distinctions; common display strings still obey common normalization/limits. Display labels use trimmed NFC names, except marking definitions use `MITRE ATT&CK marking ` plus source ID. Descriptions normalize CRLF/CR to LF, trim under RP-REQ-118, apply NFC, and become null if absent or empty. Never truncate. Common external references retain only real external IDs; their URLs are unchanged only when already admitted by RP-REQ-109, otherwise null. Full original citations, including those without IDs and relationship citations, remain in native source. No URL triggers egress.
+
+**RP-REQ-267** Lookup aliases are the sorted unique NFC/ASCII-folded union of source `aliases` and `x_mitre_aliases`, excluding every key attached to more than one distinct object ID across all domains and lifecycle states. Exclude collisions from every affected lookup array. Preserve both original alias fields. Generic `deprecated` is the boolean OR of present true `revoked` and `x_mitre_deprecated`; their native absent/false/true states remain independent. No implicit current-only view is introduced. Retain retired endpoints. A unique non-retired direct `revoked-by` SRO supplies `replacement_object_id`; absence gives null. Existing replacement integrity limits apply. SRO lifecycle is independent of endpoint lifecycle.
+
+**RP-REQ-268** Coalesce cross-domain records only with identical source ID, selected version and JCS source content, retaining every locator. Same-domain duplicate IDs or unresolved same-ID differences fail. Manifest source artifacts sort before assigning source indexes. Source locators are original `/objects/<index>` JSON pointers. Direct SROs preserve direction, procedure text and upstream `source.id`. Embedded relationships use exactly the following mappings, one edge per property occurrence; identical cross-domain copies coalesce with all corresponding locators. Different occurrences remain distinct even when endpoints agree. Relationship IDs and ordering use RP-REQ-111/102 unchanged, with the v2 profile ID. No transitive MITRE assertion is inferred.
+
+| Source field | Predicate | Direction | Locator suffix |
+| --- | --- | --- | --- |
+| Matrix `tactic_refs[i]` | `has-tactic` | matrix → tactic | `/tactic_refs/i` |
+| Technique `kill_chain_phases[i]` | `member-of-tactic` | technique → unique tactic matching domain and short name | `/kill_chain_phases/i` |
+| Strategy `x_mitre_analytic_refs[i]` | `has-analytic` | strategy → analytic | `/x_mitre_analytic_refs/i` |
+| Analytic `x_mitre_log_source_references[i].x_mitre_data_component_ref` | `uses-data-component` | analytic → component | `/x_mitre_log_source_references/i/x_mitre_data_component_ref` |
+
+Each embedded mapping requires the declared native source and target types: `x-mitre-matrix` → `x-mitre-tactic`, `attack-pattern` → `x-mitre-tactic`, `x-mitre-detection-strategy` → `x-mitre-analytic`, and `x-mitre-analytic` → `x-mitre-data-component`, respectively. A missing endpoint or incorrect native endpoint type fails with `content_semantic_invalid`; endpoints are not omitted, redirected or coerced. Endpoint retirement alone does not invalidate an edge. Embedded descriptions are null. All referenced objects, including provenance and collection entries, must resolve; collection object versions must agree. Related assets without STIX IDs remain structured metadata, with no invented endpoint. Creator, modifier, marking and collection references are provenance, not threat assertions. ICS sub-techniques and `subtechnique-of` assertions are admitted.
+
+**RP-REQ-269** The following closed native field registry is normative. All object levels reject unknown members. Required members are marked `required`; others preserve absence and admit no default. Strings have a maximum of 8192 Unicode scalars unless a tighter row below applies. Ordinary arrays have at most 64 items, component log sources 512, collection contents 32768. Every complete augmented row, including LF, obeys the 4194304-byte bound. Bundle framing and release metadata remain source-only evidence. Runtime validates canonical native metadata and common projections; it never requires or executes the producer profile or reads upstream bundles. Relationship retrieval remains outside the §21 operation registry.
+
+### Native `attack-pattern`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^attack-pattern--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.kill_chain_phases` | optional | array | maxItems=64 |
+| `source.kill_chain_phases[]` | required | object | closed typed value |
+| `source.kill_chain_phases[].kill_chain_name` | required | string | maxLength=8192 |
+| `source.kill_chain_phases[].phase_name` | required | string | maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="attack-pattern" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_impact_type` | optional | array | maxItems=64 |
+| `source.x_mitre_impact_type[]` | required | string | maxLength=8192 |
+| `source.x_mitre_is_subtechnique` | optional | boolean | closed typed value |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_platforms` | optional | array | maxItems=64 |
+| `source.x_mitre_platforms[]` | required | string | maxLength=8192 |
+| `source.x_mitre_remote_support` | optional | boolean | closed typed value |
+| `source.x_mitre_tactic_type` | optional | array | maxItems=64 |
+| `source.x_mitre_tactic_type[]` | required | string | maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `campaign`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.first_seen` | optional | string | format="date-time"; maxLength=8192 |
+| `source.id` | required | string | `pattern="^campaign--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.last_seen` | optional | string | format="date-time"; maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="campaign" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_first_seen_citation` | optional | string | maxLength=8192 |
+| `source.x_mitre_last_seen_citation` | optional | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `course-of-action`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^course-of-action--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="course-of-action" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `identity`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^identity--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.identity_class` | optional | string | maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="identity" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `intrusion-set`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^intrusion-set--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="intrusion-set" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `malware`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^malware--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.is_family` | optional | boolean | closed typed value |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="malware" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_platforms` | optional | array | maxItems=64 |
+| `source.x_mitre_platforms[]` | required | string | maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `marking-definition`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.definition` | optional | object | closed typed value |
+| `source.definition.statement` | optional | string | maxLength=8192 |
+| `source.definition_type` | optional | string | maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^marking-definition--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="marking-definition" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `relationship`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^relationship--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.relationship_type` | required | string | enum=["attributed-to", "detects", "mitigates", "revoked-by", "subtechnique-of", "targets", "uses"]; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.source_ref` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.target_ref` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.type` | required | union | const="relationship" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `tool`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^tool--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="tool" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_platforms` | optional | array | maxItems=64 |
+| `source.x_mitre_platforms[]` | required | string | maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `x-mitre-analytic`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^x-mitre-analytic--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="x-mitre-analytic" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_log_source_references` | optional | array | maxItems=64 |
+| `source.x_mitre_log_source_references[]` | required | object | closed typed value |
+| `source.x_mitre_log_source_references[].channel` | required | string | maxLength=8192 |
+| `source.x_mitre_log_source_references[].name` | required | string | maxLength=8192 |
+| `source.x_mitre_log_source_references[].x_mitre_data_component_ref` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_mutable_elements` | optional | array | maxItems=64 |
+| `source.x_mitre_mutable_elements[]` | required | object | closed typed value |
+| `source.x_mitre_mutable_elements[].description` | required | string | maxLength=8192 |
+| `source.x_mitre_mutable_elements[].field` | required | string | maxLength=8192 |
+| `source.x_mitre_platforms` | optional | array | maxItems=64 |
+| `source.x_mitre_platforms[]` | required | string | maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `x-mitre-asset`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^x-mitre-asset--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="x-mitre-asset" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_platforms` | optional | array | maxItems=64 |
+| `source.x_mitre_platforms[]` | required | string | maxLength=8192 |
+| `source.x_mitre_related_assets` | optional | array | maxItems=64 |
+| `source.x_mitre_related_assets[]` | required | object | closed typed value |
+| `source.x_mitre_related_assets[].description` | optional | string | maxLength=8192 |
+| `source.x_mitre_related_assets[].name` | required | string | maxLength=8192 |
+| `source.x_mitre_related_assets[].related_asset_sectors` | optional | array | maxItems=64 |
+| `source.x_mitre_related_assets[].related_asset_sectors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_sectors` | optional | array | maxItems=64 |
+| `source.x_mitre_sectors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `x-mitre-collection`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^x-mitre-collection--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="x-mitre-collection" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contents` | required | array | maxItems=32768 |
+| `source.x_mitre_contents[]` | required | object | closed typed value |
+| `source.x_mitre_contents[].object_modified` | required | string | format="date-time"; maxLength=8192 |
+| `source.x_mitre_contents[].object_ref` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_version` | required | string | maxLength=8192 |
+
+### Native `x-mitre-data-component`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^x-mitre-data-component--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="x-mitre-data-component" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_log_sources` | optional | array | maxItems=512 |
+| `source.x_mitre_log_sources[]` | required | object | closed typed value |
+| `source.x_mitre_log_sources[].channel` | required | string | maxLength=8192 |
+| `source.x_mitre_log_sources[].name` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `x-mitre-data-source`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^x-mitre-data-source--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="x-mitre-data-source" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_collection_layers` | optional | array | maxItems=64 |
+| `source.x_mitre_collection_layers[]` | required | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_platforms` | optional | array | maxItems=64 |
+| `source.x_mitre_platforms[]` | required | string | maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `x-mitre-detection-strategy`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^x-mitre-detection-strategy--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="x-mitre-detection-strategy" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_analytic_refs` | optional | array | maxItems=64 |
+| `source.x_mitre_analytic_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `x-mitre-matrix`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^x-mitre-matrix--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.tactic_refs` | optional | array | maxItems=64 |
+| `source.tactic_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.type` | required | union | const="x-mitre-matrix" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+### Native `x-mitre-tactic`
+
+| Field | Presence | Type | Constraints |
+| --- | --- | --- | --- |
+| `source` | required | object | closed typed value |
+| `source.aliases` | optional | array | maxItems=64 |
+| `source.aliases[]` | required | string | maxLength=8192 |
+| `source.created` | optional | string | format="date-time"; maxLength=8192 |
+| `source.created_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.description` | optional | string | maxLength=8192 |
+| `source.external_references` | optional | array | maxItems=64 |
+| `source.external_references[]` | required | object | closed typed value |
+| `source.external_references[].description` | optional | string | maxLength=8192 |
+| `source.external_references[].external_id` | optional | string | maxLength=8192 |
+| `source.external_references[].source_name` | required | string | maxLength=8192 |
+| `source.external_references[].url` | optional | string | maxLength=8192 |
+| `source.id` | required | string | `pattern="^x-mitre-tactic--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.labels` | optional | array | maxItems=64 |
+| `source.labels[]` | required | string | maxLength=8192 |
+| `source.modified` | optional | string | format="date-time"; maxLength=8192 |
+| `source.name` | optional | string | maxLength=8192 |
+| `source.object_marking_refs` | optional | array | maxItems=64 |
+| `source.object_marking_refs[]` | required | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.revoked` | optional | boolean | closed typed value |
+| `source.spec_version` | optional | string | maxLength=8192 |
+| `source.type` | required | union | const="x-mitre-tactic" |
+| `source.x_mitre_aliases` | optional | array | maxItems=64 |
+| `source.x_mitre_aliases[]` | required | string | maxLength=8192 |
+| `source.x_mitre_attack_spec_version` | optional | string | maxLength=8192 |
+| `source.x_mitre_contributors` | optional | array | maxItems=64 |
+| `source.x_mitre_contributors[]` | required | string | maxLength=8192 |
+| `source.x_mitre_deprecated` | optional | boolean | closed typed value |
+| `source.x_mitre_domains` | optional | array | maxItems=64 |
+| `source.x_mitre_domains[]` | required | string | maxLength=8192 |
+| `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
+| `source.x_mitre_shortname` | required | string | maxLength=8192 |
+| `source.x_mitre_version` | optional | string | maxLength=8192 |
 
 # 16. Enrichment content profiles
 
@@ -1665,14 +2381,14 @@ The application MUST maintain one `algorithm_behavior_digest` for every applicat
 # 19. Immutable reference pack set
 
 **RP-REQ-163**
-Every ready Base Profile runtime MUST maintain one current immutable `cartulary.reference_pack_set.v1`, even when the Reference Pack Extension Profile is not claimed. The set MUST contain exactly one effective member for each required Base registry key.
+Every ready Base Profile runtime MUST maintain one current immutable `cartulary.reference_pack_set.v2`, even when the Reference Pack Extension Profile is not claimed. The set MUST contain exactly one effective member for each required Base registry key.
 
 **RP-REQ-164**
-`cartulary.reference_pack_set.v1` is a closed object:
+`cartulary.reference_pack_set.v2` is a closed object:
 
 | Member | Type | Rule |
 | --- | --- | --- |
-| `schema_id` | string | Exactly `cartulary.reference_pack_set.v1`. |
+| `schema_id` | string | Exactly `cartulary.reference_pack_set.v2`. |
 | `pack_set_id` | string | Derived by RP-REQ-167. |
 | `pack_set_sha256` | string | Derived by RP-REQ-166. |
 | `members` | array | `3..64` sorted pack-set members; at most one per `pack_key`. |
@@ -1699,7 +2415,7 @@ Members MUST sort by `pack_key`, then `pack_version`. A duplicate `pack_key` is 
 lowercase_hex(
   SHA256(
     RFC8785_JCS({
-      "schema_id": "cartulary.reference_pack_set.v1",
+      "schema_id": "cartulary.reference_pack_set.v2",
       "members": members
     })
   )
@@ -1836,7 +2552,7 @@ The command MUST wait for the admitted background job to reach a terminal state 
 
 Exit code is `0` for `succeeded`, `2` for invalid command use, and `3` for an admitted or pre-admission operation failure.
 
-The command loads the deployment configuration through the normal configuration mechanism and requires the Reference Pack profile to be admitted. The deployment's admitted lifecycle worker owns execution; the command MUST NOT create another worker or listener. If that worker is stopped, the Job remains queued until normal worker recovery starts execution. Interruption of command observation MUST NOT cancel or replay an admitted Job. The failed command result retains any known `job_id`; the operator inspects that Job before deliberately admitting another import. Configuration, storage, schema-readiness, observation, and process-lease failures map to `internal_error` without raw error text. A canceled terminal Job maps to `job_canceled`. Typed admission rejections and terminal verification failures retain their declared code and reason. Invalid syntax maps to `invalid_operator_request`.
+The command loads the deployment configuration through the normal configuration mechanism and requires the Reference Pack profile to be admitted. Before acquiring a process or serving lease, reconciling workspaces, collecting objects, publishing input bytes or admitting a Job, application assembly MUST coordinate read-only retained-state checks from Reference Data and Reporting, including delegated Composition bindings. Runtime checks share one read-only database snapshot. Incompatible retained state returns `reference_pack_operation_rejected/contract_incompatible` with exit 3 and null Job and pack attribution; rejection changes no retained state. Migration checks remain inside migration exclusion before writes, and server checks precede readiness and startup mutation. The deployment's admitted lifecycle worker owns execution; the command MUST NOT create another worker or listener. If that worker is stopped, the Job remains queued until normal worker recovery starts execution. Interruption of command observation MUST NOT cancel or replay an admitted Job. The failed command result retains any known `job_id`; the operator inspects that Job before deliberately admitting another import. Configuration, storage, schema-readiness, observation, and process-lease failures map to `internal_error` without raw error text. A canceled terminal Job maps to `job_canceled`. Typed admission rejections and terminal verification failures retain their declared code and reason. Invalid syntax maps to `invalid_operator_request`.
 
 The command allocates one nonzero operation UUID before input admission. The Reference Data operation, Jobs' durable local submitter identity and the `.v2` private route identity MUST agree on that UUID. No human submitter or human route receipt is invented. Jobs retain the local UUID after ordinary private-request compaction. The public `submitted_by_user_id` is explicitly null for this branch. A new command invocation allocates a new operation; it is an explicit new verification request.
 
@@ -1989,7 +2705,7 @@ Pack consumers MUST use the operations in Table 21-A. They MUST NOT read extract
 
 | Operation | Request | Result |
 | --- | --- | --- |
-| `ResolveCurrentPackSet` | none | Complete current `cartulary.reference_pack_set.v1`. |
+| `ResolveCurrentPackSet` | none | Complete current `cartulary.reference_pack_set.v2`. |
 | `GetPackEntry` | `pack_set_id`, `pack_key`, `entry_id` | One entry and provenance or `entry_not_found`. |
 | `LookupPackEntries` | `pack_set_id`, `pack_key`, `lookup_kind`, `lookup_value`, optional `limit`, optional `cursor` | Ordered page and provenance. |
 | `EvaluateIndicatorValue` | `pack_set_id`, `indicator_type_id`, `value_kind`, `raw_value` | Canonical indicator evaluation. |
@@ -2178,7 +2894,7 @@ archive_compression_ratio_exceeded
 archive_member_count_exceeded
 ```
 
-The resulting registry is closed. No other `reference_pack_verification_failed` reason is valid in contract major 2. Table 22-A defines reason meanings, not precedence. The check registry in Table 12-B exclusively owns content-check precedence. Timeout is an execution-abort mapping and never a content-invalidity verdict.
+The resulting registry is closed. No other `reference_pack_verification_failed` reason is valid in contract major 3. Table 22-A defines reason meanings, not precedence. The check registry in Table 12-B exclusively owns content-check precedence. Timeout is an execution-abort mapping and never a content-invalidity verdict.
 
 **Table 22-A. Reference Pack verification reason mapping**
 
@@ -2294,7 +3010,7 @@ Every pack-derived report or snapshot value MUST retain entry-level provenance s
 ## 23.2 Incident portability
 
 **RP-REQ-225**
-`reference_pack_refs.json` MUST be a closed object with required `schema_id='reference_pack_refs.v1'`, `sets`, and `versions`. Both collections are required non-null arrays; no references is exactly `sets=[]` and `versions=[]`. This representation is carried only by incident-bundle format 5. Each `sets` element is the complete RP-REQ-164 pack-set object, with digest and ID recomputed under RP-REQ-166 and RP-REQ-167. Sets sort by `pack_set_id` and reject duplicate IDs. Each version tuple occurs exactly once in `versions`, sorted by `pack_key`, `pack_version`, `manifest_sha256`, then `payload_sha256`. Every set member MUST resolve to exactly one matching version item, and every version item MUST be referenced by a set. A same-key/version digest collision is invalid. Each version item contains exactly:
+`reference_pack_refs.json` MUST be a closed object with required `schema_id='reference_pack_refs.v2'`, `sets`, and `versions`. Both collections are required non-null arrays; no references is exactly `sets=[]` and `versions=[]`. This representation is carried only by incident-bundle format 7. Each `sets` element is the complete RP-REQ-164 pack-set object, with digest and ID recomputed under RP-REQ-166 and RP-REQ-167. Sets sort by `pack_set_id` and reject duplicate IDs. Each version tuple occurs exactly once in `versions`, sorted by `pack_key`, `pack_version`, `manifest_sha256`, then `payload_sha256`. Every set member MUST resolve to exactly one matching version item, and every version item MUST be referenced by a set. A same-key/version digest collision is invalid. Each version item contains exactly:
 
 ```text
 pack_key
@@ -2323,7 +3039,7 @@ Only `redistribution='allowed'` pack payloads may be embedded. Restricted or pro
 
 When an incident bundle embeds operator packs or classifies pack members as required, it MUST include `ext/reference_packs/content.json`. This is a closed `reference_pack_content.v1` object with required non-null `schema_id`, `containers`, and `required_members`. It is bounded to 16777216 UTF-8 bytes before JSON admission, including whitespace. Original JSON MUST pass strict duplicate-member and Unicode admission; producer output is canonical JSON followed by one LF. An absent content manifest means no embedded containers and no required members. A present empty or null document is invalid. Empty collections are explicit arrays.
 
-`containers` contains at most 16384 closed objects, each with required non-null `manifest_sha256`, `container_sha256`, and `size_bytes`. Both digests are lowercase 64-digit hexadecimal; size is an integer in the inclusive range 1–9007199254740991 and is additionally subject to the effective deployment's ordinary pack/container and incident-bundle limits. Rows sort by `manifest_sha256` and reject duplicates. Every row MUST resolve to exactly one `operator_imported` version in `reference_pack_refs.v1`. The only container path for that row is `ext/reference_packs/containers/<manifest_sha256>.pack`; the digest token is the exact row value. No alias, supplied path, archive suffix, duplicate version encoding, unreferenced container, or embedded built-in container is admitted by this format. The container format is detected from its bytes. A catalog row may name unavailable optional bytes; it does not prove their availability or trust.
+`containers` contains at most 16384 closed objects, each with required non-null `manifest_sha256`, `container_sha256`, and `size_bytes`. Both digests are lowercase 64-digit hexadecimal; size is an integer in the inclusive range 1–9007199254740991 and is additionally subject to the effective deployment's ordinary pack/container and incident-bundle limits. Rows sort by `manifest_sha256` and reject duplicates. Every row MUST resolve to exactly one `operator_imported` version in `reference_pack_refs.v2`. The only container path for that row is `ext/reference_packs/containers/<manifest_sha256>.pack`; the digest token is the exact row value. No alias, supplied path, archive suffix, duplicate version encoding, unreferenced container, or embedded built-in container is admitted by this format. The container format is detected from its bytes. A catalog row may name unavailable optional bytes; it does not prove their availability or trust.
 
 `required_members` contains at most 65536 closed objects, each with required non-null `pack_set_id` and `pack_key`. Each pair MUST resolve to the exact member of an admitted reference set. Rows sort by set ID then key, reject duplicates, and never refer to a floating current selection. Requirement of one member does not imply requirement of other members or sets. If several sets select the same version, any required pair selecting it makes that exact version necessary for import. Required membership is meaningful with references-only transport and does not override redistribution restrictions. Source-artifact owners select these exact requirements; no server infers them from the destination's active set.
 
@@ -2335,7 +3051,7 @@ An embedded export selects only exact referenced operator-imported versions with
 
 ### Destination retention of source reference catalogs
 
-The complete `reference_pack_refs.v1` member is limited to 67108864 UTF-8 bytes, including admitted JSON whitespace; admission checks the bound before JSON parsing. It contains at most 1024 sets and 16384 version rows. Equality is admitted; excess is `reference_pack_refs.exact_shape`. These limits bound portability admission independently from a pack container's limits. The producer emits canonical JSON followed by one LF. Consumer admission requires strict original JSON and canonical array ordering, but does not require canonical object-member order or whitespace.
+The complete `reference_pack_refs.v2` member is limited to 67108864 UTF-8 bytes, including admitted JSON whitespace; admission checks the bound before JSON parsing. It contains at most 1024 sets and 16384 version rows. Equality is admitted; excess is `reference_pack_refs.exact_shape`. These limits bound portability admission independently from a pack container's limits. The producer emits canonical JSON followed by one LF. Consumer admission requires strict original JSON and canonical array ordering, but does not require canonical object-member order or whitespace.
 
 The destination MUST retain an admitted source reference catalog as immutable historical evidence, including exact optional tuples that are unavailable locally. Re-export MUST preserve those references; it MUST NOT substitute the current active set or erase unresolved members. Source reference metadata never authorizes local content or replaces local first-success provenance.
 
@@ -2345,7 +3061,7 @@ Reference Data supplies an opaque preparation and a transaction-bound retention 
 
 Reuse leaves current health, administrative disablement, activation, and trust revisions unchanged. Every reusable member receives a destination-envelope pin, including members of an otherwise unavailable set. A complete reusable set is retained with its exact identity and destination first-success provenance and receives a set pin. An incomplete set remains an unresolved exact source reference; no partial member list receives its identity. Removal MUST consider both set pins and individual version pins under the same pack-key guard. Backup includes source catalogs, destination resolution evidence, and both pin forms. Restore validates their identities and linkage before readiness.
 
-The local retention operation uses closed canonical `cartulary.reference_pack_portability_input.v1` with required non-null `schema_id`, `incident_id`, `source_operation_id`, `catalog_sha256`, and `content_manifest`. The latter is the complete admitted `reference_pack_content.v1` object; absence at transport admission materializes its empty object with both arrays present. Required-member classification is retained through re-export even in references-only mode. A prior retained catalog without that evidence requires explicit cutover; no classification is inferred. UUIDs are nonzero canonical lowercase UUIDs. The digest is SHA-256 of the canonical `reference_pack_refs.v1` object without a trailing LF. Its closed result is `cartulary.reference_pack_portability_resolution.v1`, containing exactly required `schema_id` and `versions`. The array has one item per source version, in the same canonical order. Each item contains exactly required `pack_key`, `pack_version`, `available`, and `reason_code`. `available=true` requires explicit null reason. Otherwise the reason is exactly one of `not_retained` (no retained successful logical version), `removed` (an exact removed version), `not_usable` (unusable health or incomplete index), or `content_unavailable` (missing or invalid retained bytes). Execution failures are not optional-content absence and abort retention. These destination facts do not change the source catalog, confer trust on embedded bytes, or weaken required-artifact behavior under RP-REQ-227.
+The local retention operation uses closed canonical `cartulary.reference_pack_portability_input.v2` with required non-null `schema_id`, `incident_id`, `source_operation_id`, `catalog_sha256`, and `content_manifest`. The latter is the complete admitted `reference_pack_content.v1` object; absence at transport admission materializes its empty object with both arrays present. Required-member classification is retained through re-export even in references-only mode. A prior retained catalog without that evidence requires explicit cutover; no classification is inferred. UUIDs are nonzero canonical lowercase UUIDs. The digest is SHA-256 of the canonical `reference_pack_refs.v2` object without a trailing LF. Its closed result is `cartulary.reference_pack_portability_resolution.v1`, containing exactly required `schema_id` and `versions`. The array has one item per source version, in the same canonical order. Each item contains exactly required `pack_key`, `pack_version`, `available`, and `reason_code`. `available=true` requires explicit null reason. Otherwise the reason is exactly one of `not_retained` (no retained successful logical version), `removed` (an exact removed version), `not_usable` (unusable health or incomplete index), or `content_unavailable` (missing or invalid retained bytes). Execution failures are not optional-content absence and abort retention. These destination facts do not change the source catalog, confer trust on embedded bytes, or weaken required-artifact behavior under RP-REQ-227.
 
 The Reference Data retention operation UUID is UUIDv5 with the source operation UUID as namespace and the exact UTF-8 name `reference_pack:incident_retention`. This separates owner operation identities while preserving attribution and idempotent replay. Successful retention becomes terminal when its catalog, resolution, pins, and incident import commit together. Failed preparation becomes terminal with its attributable rejection or operational-abort evidence and the parent failed or canceled Job; it creates no catalog.
 
@@ -2540,12 +3256,14 @@ The fixed v1 subsystem limits are:
 | Framework relationships | `5000000` |
 | Aliases per entry or object | `64` |
 | Source refs per entry, object, or relationship | `64` |
-| Any profile-specific array per entry or object | `64` |
+| Ordinary profile-specific array per entry or object | `64` |
+| ATT&CK data-component `x_mitre_log_sources` | `512` |
+| ATT&CK collection `x_mitre_contents` | `32768` |
 | Pack-set members | `64` |
-| NDJSON line bytes including LF | `1048576` |
+| NDJSON line bytes including LF | ATT&CK v2: `4194304`; other profiles: `1048576` |
 | Retained validation issues | `1000` |
 
-Equality at a maximum is valid. A value greater than a maximum is invalid.
+Equality at a maximum is valid. A value greater than a maximum is invalid. The current machine projection is `cartulary.reference_pack_limits.v2`. The `max_line_bytes` limit is profile-scoped and obtains its numeric bound exclusively from the current profile registry. Native arrays bind their declared resource limit to the Table 26-C token. A selected native type remains selected when one of its fields is invalid: diagnostics MUST identify that field and its violated bound rather than replacing the finding with an enclosing union type error. Resource excess stops descendant traversal; no alternative branch is guessed to conceal the failure.
 
 **Table 26-C. Exact limit failure mapping**
 
@@ -2578,7 +3296,9 @@ Equality at a maximum is valid. A value greater than a maximum is invalid.
 | `max_relationships` | Table 26-B | `reference_pack_verification_failed/content_schema_invalid` |
 | `max_aliases` | Table 26-B | `reference_pack_verification_failed/content_schema_invalid` |
 | `max_source_refs` | Table 26-B | `reference_pack_verification_failed/content_schema_invalid` |
-| `max_profile_array` | Table 26-B | `reference_pack_verification_failed/content_schema_invalid` |
+| `max_profile_array` | Table 26-B ordinary arrays | `reference_pack_verification_failed/content_schema_invalid` |
+| `max_attack_component_log_sources` | Table 26-B component log sources | `reference_pack_verification_failed/content_schema_invalid` |
+| `max_attack_collection_entries` | Table 26-B collection contents | `reference_pack_verification_failed/content_schema_invalid` |
 | `max_set_members` | Table 26-B | `reference_pack_operation_rejected/contract_incompatible` for an activation proposal; current sixteen-key profile cannot reach this guard. |
 | `max_line_bytes` | Table 26-B | `reference_pack_verification_failed/content_schema_invalid` |
 | `max_issues` | Table 26-B | Truncate under RP-REQ-094; no failure. |

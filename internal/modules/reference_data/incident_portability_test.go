@@ -26,12 +26,12 @@ func TestIncidentBundleReferenceCatalogValidation_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	empty, err := EncodeIncidentBundleReferences(nil, nil)
-	if err != nil || string(empty) != "{\"schema_id\":\"reference_pack_refs.v1\",\"sets\":[],\"versions\":[]}\n" {
+	if err != nil || string(empty) != "{\"schema_id\":\"reference_pack_refs.v2\",\"sets\":[],\"versions\":[]}\n" {
 		t.Fatalf("empty catalog = %s, %v", empty, err)
 	}
 	for name, payload := range map[string]string{
-		"retired array": "[]", "omitted fields": "{}", "null collections": `{"schema_id":"reference_pack_refs.v1","sets":null,"versions":[]}`,
-		"duplicate key":     `{"schema_id":"reference_pack_refs.v1","sets":[],"sets":[],"versions":[]}`,
+		"retired array": "[]", "omitted fields": "{}", "null collections": `{"schema_id":"reference_pack_refs.v2","sets":null,"versions":[]}`,
+		"duplicate key":     `{"schema_id":"reference_pack_refs.v2","sets":[],"sets":[],"versions":[]}`,
 		"malformed Unicode": `{"schema_id":"\ud800","sets":[],"versions":[]}`, "trailing JSON": string(empty) + `{}`,
 	} {
 		t.Run(name, func(t *testing.T) {

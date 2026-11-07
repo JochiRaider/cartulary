@@ -18,7 +18,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-const ContractID = "cartulary.reference_pack_contract.v1"
+const ContractID = "cartulary.reference_pack_contract.v2"
 
 // SafeManifestIdentity attributes a candidate without trusting its content or
 // materializing producer defaults. Every other field remains unverified.
@@ -40,13 +40,15 @@ func SafeManifestIdentity(data []byte) (string, string) {
 }
 
 type Profile struct {
-	Key       string `json:"pack_key"`
-	Kind      string `json:"pack_kind"`
-	ID        string `json:"content_profile_id"`
-	Version   string `json:"content_profile_version"`
-	Shape     string `json:"payload_shape"`
-	Authority string `json:"authority_class"`
-	Required  bool   `json:"required_base"`
+	Key          string            `json:"pack_key"`
+	Kind         string            `json:"pack_kind"`
+	ID           string            `json:"content_profile_id"`
+	Version      string            `json:"content_profile_version"`
+	Shape        string            `json:"payload_shape"`
+	Authority    string            `json:"authority_class"`
+	Required     bool              `json:"required_base"`
+	Schemas      map[string]string `json:"schemas"`
+	MaxLineBytes int               `json:"max_line_bytes"`
 }
 type Manifest struct {
 	SchemaID            string  `json:"schema_id"`
@@ -129,7 +131,7 @@ func loadProfiles() map[string]Profile {
 	var catalog struct {
 		Profiles []Profile `json:"profiles"`
 	}
-	if err := json.Unmarshal(projection("profiles.v1.json"), &catalog); err != nil {
+	if err := json.Unmarshal(projection("profiles.v2.json"), &catalog); err != nil {
 		panic("invalid reference pack profile projection")
 	}
 	result := map[string]Profile{}

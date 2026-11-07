@@ -32,6 +32,36 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "app.migrate.integration.reference_pack_retained_admission",
+      "owner_id": "app.migrate",
+      "family_id": "app.migrate.integration",
+      "collaborator_ids": [
+        "module.reference_data",
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "app.migrate.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/migrate",
+        "tests": [
+          "TestMigrateReferencePackRetainedAdmission_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "app.migrate.unit.migrate_facade_contract",
       "owner_id": "app.migrate",
       "family_id": "app.migrate.unit",

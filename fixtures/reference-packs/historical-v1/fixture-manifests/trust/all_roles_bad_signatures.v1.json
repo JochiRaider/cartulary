@@ -1,0 +1,137 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_trust_all_roles_bad_signatures",
+  "fixture_version": 1,
+  "fixture_family": "tuf_failure",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/trust/all_roles_bad_signatures.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "role_signature",
+      "severity": "error",
+      "phase": "tuf_metadata",
+      "code": "signature_threshold_not_met",
+      "path": "$.metadata[0].signatures",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_0788ec0a7c3f5c8008fb412d932f6de767f639095296846b406bb309caee1dbe",
+      "reason_code": "signature_threshold_not_met"
+    },
+    {
+      "check_id": "role_signature",
+      "severity": "error",
+      "phase": "tuf_metadata",
+      "code": "signature_threshold_not_met",
+      "path": "$.metadata[0].signatures[0]",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_f08ccd20ccc80d2148ebf4646143905c0dcefc77319e3d1edab0bb5925627177",
+      "reason_code": "signature_threshold_not_met"
+    },
+    {
+      "check_id": "role_signature",
+      "severity": "error",
+      "phase": "tuf_metadata",
+      "code": "signature_threshold_not_met",
+      "path": "$.metadata[1].signatures",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_2e0564848d63e1a56a90edce8a5307b9105737f9ce199066405a9857c86e7f8e",
+      "reason_code": "signature_threshold_not_met"
+    },
+    {
+      "check_id": "role_signature",
+      "severity": "error",
+      "phase": "tuf_metadata",
+      "code": "signature_threshold_not_met",
+      "path": "$.metadata[1].signatures[0]",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_f93408e2b772ef32b03da2dbf7070e5aef8be8a9ff1ca5ad6614608b0eba9734",
+      "reason_code": "signature_threshold_not_met"
+    },
+    {
+      "check_id": "role_signature",
+      "severity": "error",
+      "phase": "tuf_metadata",
+      "code": "signature_threshold_not_met",
+      "path": "$.metadata[2].signatures",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_60ed0afcc9675a3cef07d7ef052f405ff94655b3357fb11b881eeaf1bd8d2293",
+      "reason_code": "signature_threshold_not_met"
+    },
+    {
+      "check_id": "role_signature",
+      "severity": "error",
+      "phase": "tuf_metadata",
+      "code": "signature_threshold_not_met",
+      "path": "$.metadata[2].signatures[0]",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_b67334f17e5cc79588fab4dad3c4bf4d2724e987105208d7586363dc10d6f189",
+      "reason_code": "signature_threshold_not_met"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "signature_threshold_not_met"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

@@ -3622,6 +3622,10 @@ resolve_harness_config(target, raw_make_vars, raw_env, wrapper_cli_args):
 
 ### 5.3 Per-Target Input Registry
 
+The Reference Pack producer targets are public helper-only operations with retained tool summaries. `reference-pack-producer-build` accepts no target-local inputs and retains two byte-identical executable builds. `reference-pack-source` accepts `ACTION=acquire|check|audit` (default `check`), `SOURCE_DIR` (default `.cartulary/reference-packs/attack/20.1`), `SOURCE_LOCK` (default `contracts/reference-pack-producers/attack/source-lock.v20.1.json`), and optional `BUILT_AT` (required by audit). Only acquire permits network access.
+
+`reference-pack-package` requires `ACTION=assemble|envelope|renew` and `INPUT`, the path to a closed typed producer JSON input. It assembles immutable logical packs or creates/renews fixture envelopes offline. Inputs bind exact build times, source/profile identities, executable bytes, publication ledger and signing context; renewal preserves prior artifacts. Private signing material is excluded from pack containers, bootstrap files and public evidence. These commands supply build evidence, not deployment trust or distribution approval. Authored task-surface and execution-topology/work-graph owners project these commands through Make; product coverage remains in owner rows.
+
 **TH-HARNESS-REQ-112**
 Every public target MUST declare a closed per-target input contract. This NLSpec owns the current public target-local input contract. Authored `tools/task_surface_owner.json` MUST use `cartulary.task_surface_owner.v4`, and generated `tools/task_surface_manifest.json` MUST use `cartulary.task_surface_manifest.v16` or a later adopted projection schema. Both MUST contain `input_contract` for every row with `target_class="public"`; neither may independently widen, narrow, or reinterpret the closed contract below. Execution topology may reference a target name but MUST NOT own or override its input contract.
 

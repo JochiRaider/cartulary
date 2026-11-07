@@ -1,0 +1,69 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_type_compatibility_removed_key",
+  "fixture_version": 1,
+  "fixture_family": "type_compatibility",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/type_compatibility/removed_key.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "type_registry",
+      "severity": "error",
+      "phase": "type_registry_compatibility",
+      "code": "type_registry_incompatible",
+      "path": "$.entries",
+      "entry_id": null,
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_0abec4cdd579778647602dcab42fd19d467f8c3aa7248b0ced6008485c7858a5",
+      "reason_code": "type_registry_incompatible"
+    },
+    {
+      "check_id": "type_registry",
+      "severity": "error",
+      "phase": "type_registry_compatibility",
+      "code": "type_registry_incompatible",
+      "path": "$.entries",
+      "entry_id": "domain_name",
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_7e4cffdab67e4c6346d870757dcde16d286c86d2fead8f23beff5d38c8a4a98b",
+      "reason_code": "type_registry_incompatible"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "type_registry_incompatible"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

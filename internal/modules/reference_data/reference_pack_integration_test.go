@@ -94,7 +94,7 @@ func TestImportListReadReplayAndJobSummary_Integration(t *testing.T) {
 		t.Fatalf("expected one version, got %#v", versions)
 	}
 	resource := versions[0].(map[string]any)
-	requireReferencePackResource(t, resource, "type_registry.evidence", "base-2026-10-02.1", reference_data.ConditionVerifiedAvailable, true)
+	requireReferencePackResource(t, resource, "type_registry.evidence", "base-2026-11-06.1", reference_data.ConditionVerifiedAvailable, true)
 
 	read := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.host/1", nil, httptestx.WithCookies(adminLogin.Session))
 	readResource := httptestx.RequireSuccessEnvelope(t, read, http.StatusOK)["data"].(map[string]any)
@@ -153,7 +153,7 @@ func TestActivationDisableReverifyAndRefreshLifecycle_Integration(t *testing.T) 
 	disableV2 := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/2/disable", "txn-rp-disable-v2", "")
 	disabled := httptestx.RequireSuccessEnvelope(t, disableV2, http.StatusOK)["data"].(map[string]any)["pack_version"].(map[string]any)
 	requireReferencePackResource(t, disabled, "type_registry.host", "2", reference_data.ConditionDisabled, false)
-	requireActivationState(t, harness.DB, "type_registry.host", sql.NullString{String: "base-2026-10-02.1", Valid: true}, sql.NullString{})
+	requireActivationState(t, harness.DB, "type_registry.host", sql.NullString{String: "base-2026-11-06.1", Valid: true}, sql.NullString{})
 	disableAgain := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.host/2/disable", "txn-rp-disable-v2-again", "")
 	requireReasonError(t, disableAgain, http.StatusConflict, "reference_pack_operation_rejected", "not_disableable")
 
@@ -317,7 +317,7 @@ func TestMinimumDisconnectedBundleSeededExactly_Integration(t *testing.T) {
 			if err := rows.Scan(&key, &version, &manifest); err != nil {
 				t.Fatal(err)
 			}
-			if !bytes.Contains(manifest, []byte(`"pack_contract_version":"cartulary.reference_pack_contract.v1"`)) {
+			if !bytes.Contains(manifest, []byte(`"pack_contract_version":"cartulary.reference_pack_contract.v2"`)) {
 				t.Fatal("noncanonical Base contract")
 			}
 			got = append(got, key+"@"+version)
@@ -325,7 +325,7 @@ func TestMinimumDisconnectedBundleSeededExactly_Integration(t *testing.T) {
 		if err := rows.Err(); err != nil {
 			t.Fatal(err)
 		}
-		requireStringSlicesEqual(t, got, []string{"type_registry.evidence@base-2026-10-02.1", "type_registry.host@base-2026-10-02.1", "type_registry.indicator@base-2026-10-02.1"}, "Base inventory")
+		requireStringSlicesEqual(t, got, []string{"type_registry.evidence@base-2026-11-06.1", "type_registry.host@base-2026-11-06.1", "type_registry.indicator@base-2026-11-06.1"}, "Base inventory")
 		if queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_indexes`) < 11 {
 			t.Fatal("Base registries are empty")
 		}

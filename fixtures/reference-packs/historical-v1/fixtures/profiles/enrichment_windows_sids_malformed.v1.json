@@ -1,0 +1,7 @@
+{
+  "pack_key": "enrichment.windows_sids",
+  "members": {
+    "payload/entries.ndjson": "{\"aliases\":[],\"category\":\"system\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"S-1-5-18\",\"extensions\":{},\"name\":\"Synthetic SID fixture\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.windows_sids.entry.v1\",\"scope\":\"local\",\"sid\":\"S-1-5-18\"}\n"
+  },
+  "schema_id": "cartulary.reference_pack_content_fixture.v1"
+}

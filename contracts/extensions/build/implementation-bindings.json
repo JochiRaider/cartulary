@@ -145,7 +145,7 @@
     },
     {
       "profile_id": "reference_pack",
-      "contract_major": 2,
+      "contract_major": 3,
       "implementation_id": "cartulary.reference_pack.builtin.v2",
       "state_ownership_kind": "core_managed",
       "implemented_contribution_ids": [

@@ -16774,8 +16774,8 @@
       "qualified_name": "public.reference_pack_indexes.rp_indexes_ck3",
       "management_class": "cartulary_authored",
       "source_owner": "reference_data",
-      "migration_version": 26,
-      "migration_file": "00026_reference_data.sql",
+      "migration_version": 48,
+      "migration_file": "00048_reference_pack_native_index_bound.sql",
       "dependency_object_ids": [
         "table.public.reference-pack-indexes"
       ],

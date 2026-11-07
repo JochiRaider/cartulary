@@ -190,25 +190,29 @@ func testPortableContentManifest(t *testing.T) {
 func testPortableContentReachableLimits(t *testing.T) {
 	keys := []string{"type_registry.host", "type_registry.evidence", "type_registry.indicator", "framework.attack", "framework.d3fend", "framework.veris", "enrichment.tor", "enrichment.cisa_kev", "enrichment.ms_portals", "enrichment.windows_event_ids", "enrichment.entra_app_ids", "enrichment.lolbas", "enrichment.loldrivers", "enrichment.lolesxi", "enrichment.hijacklibs", "enrichment.windows_sids"}
 	slices.Sort(keys)
-	refs := PortableReferences{SchemaID: "reference_pack_refs.v1", Sets: []Set{}, Versions: []PortableVersion{}}
+	refs := PortableReferences{SchemaID: "reference_pack_refs.v2", Sets: []Set{}, Versions: []PortableVersion{}}
 	content := EmptyPortableContent()
 	for i := range 1024 {
 		members := []SetMember{}
 		for _, key := range keys {
 			version := fmt.Sprintf("v%04d", i)
 			manifest := Digest([]byte("manifest:" + key + "/" + version))
-			member := SetMember{Key: key, Version: version, ManifestSHA256: manifest, PayloadSHA256: strings.Repeat("2", 64), Contract: "cartulary.reference_pack_contract.v1", ProfileID: "cartulary.reference_pack." + key + ".v1", ProfileVersion: "1"}
+			member := SetMember{Key: key, Version: version, ManifestSHA256: manifest, PayloadSHA256: strings.Repeat("2", 64), Contract: "cartulary.reference_pack_contract.v2", ProfileID: "cartulary.reference_pack." + key + ".v1", ProfileVersion: "1"}
+			if key == "framework.attack" {
+				member.ProfileID = "cartulary.reference_pack.framework.attack.v2"
+				member.ProfileVersion = "2"
+			}
 			members = append(members, member)
 			refs.Versions = append(refs.Versions, PortableVersion{SetMember: member, DistributionKind: "operator_imported", VerificationMethod: "tuf_1_0_35_offline_bundle_v1", SourceProfileID: "fixture.portable.v1", SourceProfileSHA256: strings.Repeat("3", 64)})
 			content.Containers = append(content.Containers, PortableContainer{ManifestSHA256: manifest, ContainerSHA256: strings.Repeat("4", 64), SizeBytes: 1})
 		}
-		preimage, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_set.v1", "members": members})
+		preimage, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_set.v2", "members": members})
 		if err != nil {
 			t.Fatal(err)
 		}
 		digest := Digest(preimage)
 		id := "rpset_" + digest
-		refs.Sets = append(refs.Sets, Set{SchemaID: "cartulary.reference_pack_set.v1", ID: id, SHA256: digest, Members: members})
+		refs.Sets = append(refs.Sets, Set{SchemaID: "cartulary.reference_pack_set.v2", ID: id, SHA256: digest, Members: members})
 		for _, key := range keys {
 			content.RequiredMembers = append(content.RequiredMembers, PortableRequiredMember{SetID: id, Key: key})
 		}
@@ -219,7 +223,7 @@ func testPortableContentReachableLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 16801852 || Digest(encoded) != "3d9bc8208997cd162253dc1dcc2edffdd2316c6fe5d7d5a5fbb70a4a979466c1" {
+	if len(encoded) != 16801852 || Digest(encoded) != "53be70be2539390991c828aa3e7c361592652c7d505f7da9436c82f37f292837" {
 		t.Fatal("independent catalog changed")
 	}
 	admitted, err := DecodePortableReferences(encoded)
@@ -234,7 +238,7 @@ func testPortableContentReachableLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 5091405 || Digest(encoded) != "78d7f14cc0a3914823e3bec2fe21b2f4385f524004292fe3176be22a8ccaed89" {
+	if len(encoded) != 5091405 || Digest(encoded) != "04355fdc65375b88a49b1d827e84d944b3866d817eb7de649b25ad886f50090f" {
 		t.Fatal("independent content changed")
 	}
 	got, err := DecodePortableContent(encoded, admitted)

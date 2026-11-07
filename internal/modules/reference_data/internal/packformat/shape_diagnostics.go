@@ -3,6 +3,8 @@ package packformat
 import (
 	"encoding/json"
 	"errors"
+	"maps"
+	"slices"
 	"strconv"
 	"time"
 	"unicode/utf8"
@@ -12,6 +14,10 @@ import (
 )
 
 var errShapeMismatch = errors.New("reference pack schema mismatch")
+
+// The finding is already retained. Abort traversal without converting a content
+// resource limit into an operational failure.
+var errShapeLimit = errors.New("reference pack schema resource limit reached")
 
 func diagnosticMember(path, name string) string {
 	for i, r := range name {
@@ -74,7 +80,15 @@ func (s *shape) walk(value any, path string, emit FindingSink) error {
 			return err
 		}
 	}
-	if s.anyOf != nil {
+	if s.anyDispatch != nil {
+		if branch := s.anyDispatch.selectBranch(value); branch != nil {
+			if err := branch.walk(value, path, emit); err != nil {
+				return err
+			}
+		} else if err := report("type", diagnosticKind(value)); err != nil {
+			return err
+		}
+	} else if s.anyOf != nil {
 		found := false
 		for _, child := range s.anyOf {
 			found = found || child.matches(value)
@@ -85,7 +99,15 @@ func (s *shape) walk(value any, path string, emit FindingSink) error {
 			}
 		}
 	}
-	if s.oneOf != nil {
+	if s.oneDispatch != nil {
+		if branch := s.oneDispatch.selectBranch(value); branch != nil {
+			if err := branch.walk(value, path, emit); err != nil {
+				return err
+			}
+		} else if err := report("type", diagnosticKind(value)); err != nil {
+			return err
+		}
+	} else if s.oneOf != nil {
 		count := 0
 		for _, child := range s.oneOf {
 			if child.matches(value) {
@@ -107,7 +129,10 @@ func (s *shape) walk(value any, path string, emit FindingSink) error {
 		}
 		if max != nil && actual > *max {
 			if s.limitID != "" {
-				return emit(LimitFinding(path, s.limitID, int64(*max), int64(actual)))
+				if err := emit(LimitFinding(path, s.limitID, int64(*max), int64(actual))); err != nil {
+					return err
+				}
+				return errShapeLimit
 			}
 			return report(strconv.Itoa(*max), strconv.Itoa(actual))
 		}
@@ -166,7 +191,7 @@ func (s *shape) walk(value any, path string, emit FindingSink) error {
 			}
 		case "date-time":
 			at, err := time.Parse(time.RFC3339Nano, v)
-			if err != nil || at.Year() < 1 || at.UTC().Format(time.RFC3339Nano) != v {
+			if err != nil || at.Year() < 1 || (!s.nativeDateTime && at.UTC().Format(time.RFC3339Nano) != v) {
 				return report("type", "")
 			}
 		}
@@ -219,7 +244,8 @@ func (s *shape) walk(value any, path string, emit FindingSink) error {
 				}
 			}
 		}
-		for name, child := range v {
+		for _, name := range slices.Sorted(maps.Keys(v)) {
+			child := v[name]
 			rule, known := s.properties[name]
 			childPath := path + `["<unknown>"]`
 			if known {

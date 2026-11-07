@@ -1,0 +1,7 @@
+{
+  "pack_key": "enrichment.cisa_kev",
+  "members": {
+    "payload/entries.ndjson": "{\"aliases\":[],\"cve_id\":\"CVE-2099-0000\",\"date_added\":\"2026-10-01\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"due_date\":\"2026-10-02\",\"entry_id\":\"CVE-2099-0000\",\"extensions\":{},\"known_ransomware_campaign_use\":\"not_reported\",\"notes\":null,\"product\":\"Test\",\"replacement_entry_id\":null,\"required_action\":\"None; synthetic fixture.\",\"schema_id\":\"cartulary.reference_pack.enrichment.cisa_kev.entry.v1\",\"short_description\":\"Fixture only.\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"vendor_project\":\"Synthetic fixture\",\"vulnerability_name\":\"Synthetic example, not a vulnerability advisory\"}\n"
+  },
+  "schema_id": "cartulary.reference_pack_content_fixture.v1"
+}

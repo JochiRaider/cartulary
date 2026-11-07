@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.reference_pack_owner_fixture.v1",
+  "fixture_id": "rpfx_owner_snapshot_binding",
+  "scenario": "snapshot_binding",
+  "owner_id": "module.reporting",
+  "row_id": "module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c",
+  "test_name": "TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration"
+}

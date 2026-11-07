@@ -292,6 +292,13 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, err
 	}
+	if postgresPool != nil {
+		if err := referenceassembly.ValidateRetainedRuntimeState(ctx, postgresPool); err != nil {
+			runtime.Close()
+			return nil, err
+		}
+	}
+
 	migrationSource, err := dbmigrations.Source()
 	if err != nil {
 		runtime.Close()

@@ -13,7 +13,7 @@ func VNextRecoveryObjectInventory(
 	return recovery.NewVNextObjectInventoryProvider(
 		"module.reference_data",
 		"reference_packs.members",
-		"reference_data.snapshot_member_inventory.v2",
+		"reference_data.snapshot_member_inventory.v3",
 		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
 			rows, err := snapshot.QueryRows(ctx, `
 SELECT o.object_id::text, o.storage_ref, o.sha256, o.size_bytes

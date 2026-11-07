@@ -1,0 +1,31 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_admission_source_0b221a86ed33",
+  "fixture_version": 1,
+  "fixture_family": "source_profile",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/admission/source_0b221a86ed33.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": "f6b0b8c87e942b8c428f19d4da7b649532f2f0dca2415f82f1a89cf2b02e8a06",
+  "expected_payload_sha256": "e38ff4e85cc452ea298b402bd1003c3ba199db81e9f2fd9a8f3931369965e584",
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [],
+  "expected_public_error": null,
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

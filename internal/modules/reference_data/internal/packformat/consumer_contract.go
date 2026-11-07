@@ -26,9 +26,9 @@ func loadConsumerContracts() map[string]consumerContract {
 			Order     []string `json:"field_order"`
 		} `json:"operations"`
 	}
-	decoder := json.NewDecoder(bytes.NewReader(projection("consumer_operations.v1.json")))
+	decoder := json.NewDecoder(bytes.NewReader(projection("consumer_operations.v2.json")))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&catalog); err != nil || catalog.Schema != "cartulary.reference_pack_consumer_operations.v1" || len(catalog.Operations) != 5 {
+	if err := decoder.Decode(&catalog); err != nil || catalog.Schema != "cartulary.reference_pack_consumer_operations.v2" || len(catalog.Operations) != 5 {
 		panic("invalid consumer operation projection")
 	}
 	contracts := map[string]consumerContract{}

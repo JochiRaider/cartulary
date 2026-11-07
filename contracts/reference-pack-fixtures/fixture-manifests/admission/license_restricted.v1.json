@@ -7,7 +7,7 @@
     "contracts/reference-pack-fixtures/fixtures/admission/license_restricted.v1.json"
   ],
   "expected_container_sha256": null,
-  "expected_manifest_sha256": "f189169abf4df41587b0ffdbf7a1dcc6dd9cdf55ccff8238e28e8eae850423c6",
+  "expected_manifest_sha256": "e06d1f31a2a9dc78a351322f8dc78621a3d064bcffad1df1d6361b6d0010719b",
   "expected_payload_sha256": "e38ff4e85cc452ea298b402bd1003c3ba199db81e9f2fd9a8f3931369965e584",
   "expected_pack_set_sha256": null,
   "expected_condition": null,

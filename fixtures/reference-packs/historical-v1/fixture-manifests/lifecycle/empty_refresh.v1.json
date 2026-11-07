@@ -1,0 +1,31 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_lifecycle_empty_refresh",
+  "fixture_version": 1,
+  "fixture_family": "refresh",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/lifecycle.v1.json",
+    "contracts/reference-pack-fixtures/fixtures/signed-container.v1.json",
+    "contracts/reference-packs/builtins/release.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": "6ea5d0df82ca56462258b50add81bf809fa44ffbd0f3bf345c7491ddf1c50162",
+  "expected_payload_sha256": "afaae18a960bf0d7f75365494966403333706ee4b7f680ca789c5cad8a237b8f",
+  "expected_pack_set_sha256": "d03e5b11dc6577abf9a8f9317ddb9d6dac21c9d0a710dc5a4ae25d912b77629d",
+  "expected_condition": "disabled",
+  "expected_issues": [],
+  "expected_public_error": null,
+  "expected_side_effects": [
+    "job_admitted"
+  ],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "trust_state_changed"
+  ]
+}

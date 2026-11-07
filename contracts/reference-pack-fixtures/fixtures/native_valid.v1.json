@@ -1,0 +1,10 @@
+{
+  "schema_id": "cartulary.attack_native_fixture.v1",
+  "pack_key": "framework.attack",
+  "manifest": "fixtures/reference-packs/attack-native-v2/20.1/logical/797de8a4133f5bd4b7ff79a26ce57efcdeebc43556033ea3f7ff685004252865/manifest.json",
+  "members": {
+    "notices/MITRE-ATTACK.txt": "fixtures/reference-packs/attack-native-v2/20.1/logical/797de8a4133f5bd4b7ff79a26ce57efcdeebc43556033ea3f7ff685004252865/notices/MITRE-ATTACK.txt",
+    "payload/objects.ndjson": "fixtures/reference-packs/attack-native-v2/20.1/logical/797de8a4133f5bd4b7ff79a26ce57efcdeebc43556033ea3f7ff685004252865/payload/objects.ndjson",
+    "payload/relationships.ndjson": "fixtures/reference-packs/attack-native-v2/20.1/logical/797de8a4133f5bd4b7ff79a26ce57efcdeebc43556033ea3f7ff685004252865/payload/relationships.ndjson"
+  }
+}

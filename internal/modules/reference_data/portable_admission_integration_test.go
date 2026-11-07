@@ -137,7 +137,7 @@ func testPortablePreparationAdmission(t *testing.T, pool *pgxpool.Pool, storage 
 			t.Fatal(claimed, err)
 		}
 		request := IncidentReferenceImportRequest{References: data, IncidentID: uuid.New(), OperationID: jobID, ActorID: actor, At: at, Execution: execution, ExecutionStarted: time.Now(), OpenContainer: func(context.Context, string) (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(body)), nil }}
-		input, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_portability_input.v1", "incident_id": request.IncidentID.String(), "source_operation_id": jobID.String(), "catalog_sha256": packformat.Digest(data), "content_manifest": content})
+		input, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_portability_input.v2", "incident_id": request.IncidentID.String(), "source_operation_id": jobID.String(), "catalog_sha256": packformat.Digest(data), "content_manifest": content})
 		if err != nil {
 			t.Fatal(err)
 		}

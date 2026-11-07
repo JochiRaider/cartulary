@@ -136,7 +136,7 @@ func (r *incidentReferences) PrepareImport(ctx context.Context, request Incident
 	if err := packformat.ValidatePortableContainerInventory(content, request.EmbeddedPaths); err != nil {
 		return nil, &IncidentBundleReferenceValidationError{InvariantID: IncidentBundleReferenceIdentityInvariant}
 	}
-	input, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_portability_input.v1", "incident_id": incident.String(), "source_operation_id": operation.String(), "catalog_sha256": packformat.Digest(canonical), "content_manifest": content})
+	input, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_portability_input.v2", "incident_id": incident.String(), "source_operation_id": operation.String(), "catalog_sha256": packformat.Digest(canonical), "content_manifest": content})
 	if err != nil {
 		return nil, err
 	}

@@ -155,6 +155,11 @@
         "target": "ui-review-stop",
         "owner_section": "Section 15.1",
         "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
+      },
+      {
+        "target": "reference-pack-package",
+        "owner_section": "Section 4",
+        "reason": "Explicit offline fixture production; product verification remains in owner-routed tests."
       }
     ],
     "out_of_scope_targets": [
@@ -302,6 +307,16 @@
         "target": "test-run-recovery-status",
         "owner_section": "Section 11",
         "reason": "Read-only exact recovery lookup does not execute test work."
+      },
+      {
+        "target": "reference-pack-producer-build",
+        "owner_section": "Section 4",
+        "reason": "Producer-only source preparation; product verification remains in owner-routed tests."
+      },
+      {
+        "target": "reference-pack-source",
+        "owner_section": "Section 4",
+        "reason": "Producer-only source preparation; product verification remains in owner-routed tests."
       }
     ]
   },
@@ -673,6 +688,20 @@
           "target": "release-evidence-verify",
           "description": "verify selected retained release evidence without launching tests",
           "usage": "EVIDENCE_ROOTS_FILE=<path>"
+        },
+        {
+          "target": "reference-pack-producer-build",
+          "description": "build and retain the immutable ATT&CK source producer"
+        },
+        {
+          "target": "reference-pack-source",
+          "description": "acquire, check or audit pinned ATT&CK inputs; never assembles a pack",
+          "usage": "ACTION=acquire|check|audit SOURCE_DIR=<path> BUILT_AT=<UTC>"
+        },
+        {
+          "target": "reference-pack-package",
+          "description": "assemble immutable packs and create or renew isolated fixture envelopes",
+          "usage": "ACTION=assemble|envelope|renew INPUT=<typed-json>"
         }
       ]
     }
@@ -688,9 +717,11 @@
       "selection": "aggregate",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -718,6 +749,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -742,6 +774,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -758,9 +792,11 @@
       "selection": "aggregate",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -788,6 +824,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -812,6 +849,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -831,9 +870,11 @@
       },
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -861,6 +902,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -885,6 +927,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -901,9 +945,11 @@
       "selection": "aggregate",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -931,6 +977,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -955,6 +1002,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -971,9 +1020,11 @@
       "selection": "command",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -1001,6 +1052,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -1025,6 +1077,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -1041,9 +1095,11 @@
       "selection": "command",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -1071,6 +1127,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -1095,6 +1152,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -1111,9 +1170,11 @@
       "selection": "command",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -1141,6 +1202,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -1165,6 +1227,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -1181,9 +1245,11 @@
       "selection": "command",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -1211,6 +1277,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -1235,6 +1302,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -1251,9 +1320,11 @@
       "selection": "command",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -1281,6 +1352,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -1305,6 +1377,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -1336,9 +1410,11 @@
       "selection": "command",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -1366,6 +1442,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -1390,6 +1467,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -1406,9 +1485,11 @@
       "selection": "command",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -1436,6 +1517,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -1460,6 +1542,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -1650,9 +1734,11 @@
       "selection": "command",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -1680,6 +1766,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -1704,6 +1791,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -1720,9 +1809,11 @@
       "selection": "command",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -1750,6 +1841,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -1774,6 +1866,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -2129,9 +2223,11 @@
       "selection": "command",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -2159,6 +2255,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -2183,6 +2280,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -2311,9 +2410,11 @@
       "type": "ui_review",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -2341,6 +2442,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -2365,6 +2467,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -2377,9 +2481,11 @@
       "type": "ui_review",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -2407,6 +2513,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -2431,6 +2538,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -2443,9 +2552,11 @@
       "type": "ui_review",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -2473,6 +2584,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -2497,6 +2609,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -2509,9 +2623,11 @@
       "type": "ui_review",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -2539,6 +2655,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -2563,6 +2680,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -2575,9 +2694,11 @@
       "type": "ui_review",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -2605,6 +2726,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -2629,6 +2751,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -2641,9 +2765,11 @@
       "type": "ui_review",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -2671,6 +2797,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -2695,6 +2822,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -2707,9 +2836,11 @@
       "type": "ui_review",
       "test_target": "self",
       "binding_names": [
+        "ACTION",
         "BENCHMARK_MANIFEST",
         "BIOME_CHECK_FLAGS",
         "BIOME_SCRIPT_CHECK_FLAGS",
+        "BUILT_AT",
         "CARTULARY_CLEANUP_DRY_RUN",
         "CARTULARY_DESTRUCTIVE_CONFIRM",
         "CARTULARY_TEST_RESULTS_DIR",
@@ -2737,6 +2868,7 @@
         "GO_TMP_DIR",
         "GO_TOOLCHAIN",
         "HARNESS_RUNTIME_BIN",
+        "INPUT",
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
@@ -2761,6 +2893,8 @@
         "SHELLCHECK_BIN",
         "SHELLCHECK_VERSION",
         "SOURCECHECK_BIN",
+        "SOURCE_DIR",
+        "SOURCE_LOCK",
         "SQLC_BIN",
         "STATICCHECK_BIN",
         "SYFT_BIN",
@@ -2817,6 +2951,71 @@
         "recover-status"
       ],
       "operation_id": "harness.test_run_recovery_status"
+    },
+    "reference-pack-producer-build": {
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "reference-pack-producer-build",
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
+      "env": {
+        "GO": "$(GO)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
+        "NODE_BIN": "$(NODE_BIN)"
+      },
+      "command": [
+        "bash",
+        "./tools/reference-packs/build.sh"
+      ],
+      "test_target": "self",
+      "operation_id": "harness.reference_pack_producer_build"
+    },
+    "reference-pack-source": {
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "reference-pack-source",
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
+      "env": {
+        "GO": "$(GO)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
+        "NODE_BIN": "$(NODE_BIN)",
+        "ACTION": "$(ACTION)",
+        "SOURCE_DIR": "$(SOURCE_DIR)",
+        "BUILT_AT": "$(BUILT_AT)",
+        "SOURCE_LOCK": "$(SOURCE_LOCK)"
+      },
+      "command": [
+        "bash",
+        "./tools/reference-packs/source.sh"
+      ],
+      "test_target": "self",
+      "operation_id": "harness.reference_pack_source"
+    },
+    "reference-pack-package": {
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "reference-pack-package",
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
+      "env": {
+        "NODE_BIN": "$(NODE_BIN)",
+        "ACTION": "$(ACTION)",
+        "INPUT": "$(INPUT)"
+      },
+      "command": [
+        "bash",
+        "./tools/reference-packs/package.sh"
+      ],
+      "test_target": "self",
+      "operation_id": "harness.reference_pack_package"
     }
   },
   "targets": [
@@ -11624,6 +11823,287 @@
           }
         ]
       }
+    },
+    {
+      "name": "reference-pack-producer-build",
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.reference_pack_producer_build.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "build/bin",
+            ".cartulary/reference-packs/builders"
+          ]
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      },
+      "backing_scripts": [
+        "tools/reference-packs/build.sh"
+      ]
+    },
+    {
+      "name": "reference-pack-source",
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.reference_pack_source.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "ACTION",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "default": "check",
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "values": [
+              "acquire",
+              "check",
+              "audit"
+            ]
+          },
+          {
+            "name": "SOURCE_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": ".cartulary/reference-packs/attack/20.1",
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BUILT_AT",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "semantic_text",
+            "default": "",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "SOURCE_LOCK",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": "contracts/reference-pack-producers/attack/source-lock.v20.1.json",
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      },
+      "backing_scripts": [
+        "tools/reference-packs/source.sh"
+      ]
+    },
+    {
+      "name": "reference-pack-package",
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 12000,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.reference_pack_package.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "ACTION",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "enum",
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "values": [
+              "assemble",
+              "envelope",
+              "renew"
+            ],
+            "default": null
+          },
+          {
+            "name": "INPUT",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": true,
+            "type": "path",
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "default": null
+          }
+        ]
+      },
+      "backing_scripts": [
+        "tools/reference-packs/package.sh"
+      ]
     }
   ],
   "harness_tiers": {

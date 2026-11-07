@@ -1,0 +1,34 @@
+{
+  "schema_id": "cartulary.reference_pack_attestation.v1",
+  "event_kind": "payload_invalidation",
+  "pack_key": "type_registry.host",
+  "pack_version": "fixture.1",
+  "distribution_kind": "operator_imported",
+  "verification_method": "tuf_1_0_35_offline_bundle_v1",
+  "result": "failed",
+  "occurred_at": "2026-10-03T00:00:00.125Z",
+  "actor_kind": "system",
+  "actor_user_id": null,
+  "operator_operation_id": null,
+  "container_sha256": null,
+  "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "source_profile_id": "fixture.v1",
+  "source_profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "trust_repository_id": "fixture.repo",
+  "trusted_metadata_versions": {
+    "root": 1,
+    "targets": 2,
+    "snapshot": 3,
+    "timestamp": 4
+  },
+  "verified_signer_key_ids": [
+    "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  ],
+  "trust_valid_until": "2026-10-04T00:00:00Z",
+  "validation_summary_ref": null,
+  "prior_active_version": "fixture.1",
+  "resulting_pack_set_id": "rpset_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "attestation_id": "rpa\u005f17330339efc49544e7be125607fe5cb26acdab9e0e2f4b8f60269103e365a7ba"
+}

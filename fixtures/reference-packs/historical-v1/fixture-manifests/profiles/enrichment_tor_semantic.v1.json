@@ -1,0 +1,52 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_profile_enrichment_tor_semantic",
+  "fixture_version": 1,
+  "fixture_family": "content_profile",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/profiles/enrichment_tor_semantic.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [
+    {
+      "check_id": "content_semantics",
+      "severity": "error",
+      "phase": "content_semantics",
+      "code": "content_semantic_invalid",
+      "path": "$.entries[0].source_refs[0].artifact_index",
+      "entry_id": "192.0.2.0/24",
+      "safe_details": {
+        "limit_id": null,
+        "expected_token": null,
+        "actual_token": null,
+        "related_pack_key": null,
+        "related_pack_version": null
+      },
+      "issue_id": "rpi_fe48140128d7c0b6b3b2b6e31ac863f44ea6287606e576ddc3764c22b745ddf7",
+      "reason_code": "content_semantic_invalid"
+    }
+  ],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "content_semantic_invalid"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

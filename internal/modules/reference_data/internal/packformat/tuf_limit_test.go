@@ -179,7 +179,7 @@ func testCompleteTUFByteBoundaries(t *testing.T) {
 	var limits struct {
 		Fixed map[string]int `json:"fixed"`
 	}
-	if err := json.Unmarshal(projection("limits.v1.json"), &limits); err != nil || limits.Fixed["max_json_nesting_depth"] != 10000 {
+	if err := json.Unmarshal(projection("limits.v2.json"), &limits); err != nil || limits.Fixed["max_json_nesting_depth"] != 10000 {
 		t.Fatal("JSON nesting projection drift", err)
 	}
 	deep := strings.Repeat("[", 9998) + "0" + strings.Repeat("]", 9998)

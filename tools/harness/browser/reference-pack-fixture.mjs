@@ -115,7 +115,7 @@ export function referencePackBundle({
   const release = JSON.parse(
     readFileSync(
       new URL(
-        "../../../contracts/reference-packs/builtins/release.v1.json",
+        "../../../contracts/reference-packs/builtins/release.v2.json",
         import.meta.url,
       ),
     ),

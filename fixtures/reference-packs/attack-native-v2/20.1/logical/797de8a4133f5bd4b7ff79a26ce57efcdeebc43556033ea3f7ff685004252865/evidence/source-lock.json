@@ -1,0 +1,47 @@
+{
+  "schema_id": "cartulary.attack_source_lock.v1",
+  "repository": "https://github.com/mitre-attack/attack-stix-data",
+  "tag": "v20.1",
+  "tag_object": "fe094cfc533102f8eed3acefd89bb38a96fdf2c1",
+  "commit": "f59b03ecf828579d5f9e93683ce25b7e2e5fd9d7",
+  "catalog_version": "20.1",
+  "published_at": "2026-11-05T16:35:43Z",
+  "major_release_date": "2026-10-13",
+  "research_cutoff": "2026-11-06",
+  "release_url": "https://api.github.com/repos/mitre-attack/attack-stix-data/releases/tags/v20.1",
+  "tag_url": "https://api.github.com/repos/mitre-attack/attack-stix-data/git/tags/fe094cfc533102f8eed3acefd89bb38a96fdf2c1",
+  "artifacts": [
+    {
+      "name": "LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/f59b03ecf828579d5f9e93683ce25b7e2e5fd9d7/LICENSE.txt",
+      "sha256": "738144f7fb054722a4ef9d3367c51710341dc12fc574c6ac3a41daaaecd8bf5e",
+      "size_bytes": 1354,
+      "domain": "license",
+      "collection_id": null
+    },
+    {
+      "name": "enterprise-attack.json",
+      "url": "https://github.com/mitre-attack/attack-stix-data/releases/download/v20.1/enterprise-attack.json",
+      "sha256": "539a843a7b53ed9749740b2123dddae3726b1a4831841c32aca740b011b910b5",
+      "size_bytes": 55277605,
+      "domain": "enterprise-attack",
+      "collection_id": "x-mitre-collection--1f5f1533-f617-4ca8-9ab4-6a02367fa019"
+    },
+    {
+      "name": "ics-attack.json",
+      "url": "https://github.com/mitre-attack/attack-stix-data/releases/download/v20.1/ics-attack.json",
+      "sha256": "3f6448369f9135ade84ff6437479441530d0b262f910dca991879a7146b524ff",
+      "size_bytes": 5291092,
+      "domain": "ics-attack",
+      "collection_id": "x-mitre-collection--90c00720-636b-4485-b342-8751d232bf09"
+    },
+    {
+      "name": "mobile-attack.json",
+      "url": "https://github.com/mitre-attack/attack-stix-data/releases/download/v20.1/mobile-attack.json",
+      "sha256": "632e2ec40848394f9873a7a3485fc32f92b861a4e7271f7e88e0cb02f11bb6af",
+      "size_bytes": 6144331,
+      "domain": "mobile-attack",
+      "collection_id": "x-mitre-collection--dac0d2d7-8653-445c-9bff-82f934c1e858"
+    }
+  ]
+}

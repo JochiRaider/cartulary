@@ -5200,7 +5200,9 @@
       "kind": "artifact",
       "execution": {
         "type": "installation",
-        "prerequisites": ["$(NODE_BIN)"],
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
         "mode": "command",
         "command": [
           "env",
@@ -5813,6 +5815,80 @@
         ]
       },
       "kind": "policy"
+    },
+    "harness.reference_pack_producer_build": {
+      "report_key": "reference-pack-producer-build",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "reference-pack-producer-build",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "bash",
+          "./tools/reference-packs/build.sh"
+        ],
+        "test_target": "self"
+      }
+    },
+    "harness.reference_pack_source": {
+      "report_key": "reference-pack-source",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "reference-pack-source",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "ACTION": "$(ACTION)",
+          "SOURCE_DIR": "$(SOURCE_DIR)",
+          "BUILT_AT": "$(BUILT_AT)",
+          "SOURCE_LOCK": "$(SOURCE_LOCK)"
+        },
+        "command": [
+          "bash",
+          "./tools/reference-packs/source.sh"
+        ],
+        "test_target": "self"
+      }
+    },
+    "harness.reference_pack_package": {
+      "report_key": "reference-pack-package",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "reference-pack-package",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "ACTION": "$(ACTION)",
+          "INPUT": "$(INPUT)"
+        },
+        "command": [
+          "bash",
+          "./tools/reference-packs/package.sh"
+        ],
+        "test_target": "self"
+      }
     }
   },
   "row_execution_contexts": {

@@ -707,7 +707,8 @@
         "reference_pack_refs.exact_shape",
         "reference_pack_refs.identity_exact",
         "reference_pack_refs.degradation_bounded"
-      ]
+      ],
+      "schema_id": "reference_pack_refs.v2"
     },
     {
       "family_id": "extension_payload",

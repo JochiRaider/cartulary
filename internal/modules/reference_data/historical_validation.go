@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission"
 	"io"
 	"reflect"
 	"time"
@@ -38,6 +39,9 @@ func RestoreHistoricalState(ctx context.Context, db postgres.DB, storage Artifac
 func validateHistoricalState(ctx context.Context, db postgres.DB, storage ArtifactStorage, limits Limits, requiredOnly, rebuild bool) error {
 	if db == nil || storage == nil {
 		return errors.New("reference pack: historical validation dependencies required")
+	}
+	if err := contractadmission.Validate(ctx, db); err != nil {
+		return err
 	}
 	if err := validateRootHistory(ctx, db); err != nil {
 		return err

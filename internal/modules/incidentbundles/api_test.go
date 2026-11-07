@@ -626,7 +626,7 @@ func minimalRequiredBundleFiles() map[string][]byte {
 		case "data/incident.json":
 			files[path] = []byte(`{"id":"11111111-1111-1111-1111-111111111111"}` + "\n")
 		case "data/reference_pack_refs.json":
-			files[path] = []byte(`{"schema_id":"reference_pack_refs.v1","sets":[],"versions":[]}` + "\n")
+			files[path] = []byte(`{"schema_id":"reference_pack_refs.v2","sets":[],"versions":[]}` + "\n")
 		default:
 			files[path] = []byte{}
 		}

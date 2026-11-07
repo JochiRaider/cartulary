@@ -6,9 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	reportingjson "github.com/JochiRaider/cartulary/internal/modules/reporting/canonicaljson"
 	"io"
 	"mime/multipart"
@@ -33,15 +35,13 @@ import (
 func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *testing.T) {
 	expected := referencetest.OwnerFixture(t, "snapshot_binding")
 	runtime := appsupport.StartRuntime(t)
-	input, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-input.v1.json")
+	now := time.Now().UTC()
+	keys, err := producer.NewFixtureSigningContext()
 	if err != nil {
 		t.Fatal(err)
 	}
-	refs, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/portable-references.v1.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	fixture := referencetest.PortableFixture(t, time.Now().UTC(), input, refs)
+	previous := referencetest.AuthenticATTACKFixture(t, "../../..", "20.0", now, keys, 2)
+	fixture := referencetest.AuthenticATTACKFixture(t, "../../..", "20.1", now, keys, 3)
 	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
 	if err := os.WriteFile(bootstrap, fixture.Bootstrap, 0600); err != nil {
 		t.Fatal(err)
@@ -51,8 +51,11 @@ func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *te
 	post := func(path string, body map[string]any) *http.Response {
 		return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+path, body, httptestx.WithCookies(admin.Session, admin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRF.Value))
 	}
+	oldJob := httptestx.RequireSuccessEnvelope(t, uploadReportingReferencePack(t, harness, admin, previous.Container), http.StatusAccepted)["data"].(map[string]any)
+	requireJobStatusWithin(t, harness, admin, oldJob["job_id"].(string), "succeeded", 120*time.Second)
+	httptestx.RequireSuccessEnvelope(t, post("/api/v1/reference-packs/"+previous.Key+"/"+previous.Version+"/activate", map[string]any{"client_txn_id": "binding-activate200"}), http.StatusOK)
 	importJob := httptestx.RequireSuccessEnvelope(t, uploadReportingReferencePack(t, harness, admin, fixture.Container), http.StatusAccepted)["data"].(map[string]any)
-	requireJobStatus(t, harness, admin, importJob["job_id"].(string), "succeeded")
+	requireJobStatusWithin(t, harness, admin, importJob["job_id"].(string), "succeeded", 120*time.Second)
 	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "binding-incident", "incident_key": "RP-SNAPSHOT-BINDING", "title": "Exact reference binding"})
 	// Block publication, not admission. This makes activation occur after the
 	// durable snapshot Job pin but before the snapshot worker can finish.
@@ -69,8 +72,8 @@ func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *te
 	if err := harness.DB.QueryRow(`SELECT p.pack_set_id,s.pack_set_sha256 FROM reference_pack_pins p JOIN reference_pack_sets s USING(pack_set_id) WHERE p.owner_kind='reporting_snapshot_job' AND p.owner_id=$1`, snapshotJob["job_id"]).Scan(&admitted, &digest); err != nil {
 		t.Fatal("missing admission pin", err)
 	}
-	if digest != *expected.Set || admitted != "rpset_"+digest {
-		t.Fatal("independent Base identity changed", admitted)
+	if digest != previous.SetSHA256 || admitted != "rpset_"+digest {
+		t.Fatal("independent authentic v20.0 set identity changed", admitted)
 	}
 	httptestx.RequireSuccessEnvelope(t, post("/api/v1/reference-packs/"+fixture.Key+"/"+fixture.Version+"/activate", map[string]any{"client_txn_id": "binding-activate"}), http.StatusOK)
 	var current string
@@ -99,9 +102,10 @@ func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *te
 	}
 	retention := reportingReadinessReferences(t, harness)
 	requireRetainedSnapshotReadiness(t, harness, snapshot, retention)
-	// Lose only the pinned Base host manifest. The active imported replacement
+	httptestx.RequireErrorEnvelope(t, post("/api/v1/reference-packs/"+previous.Key+"/"+previous.Version+"/remove", map[string]any{"client_txn_id": "binding-pinned-remove", "reason": "verify retained snapshot pin"}), http.StatusConflict, "reference_pack_operation_rejected")
+	// Lose only the pinned v20.0 ATT&CK manifest. The active v20.1 replacement
 	// remains intact and cannot be silently substituted into the old snapshot.
-	if _, err := harness.DB.Exec(`UPDATE reference_pack_objects SET available=false WHERE sha256 IN (SELECT v.manifest_sha256 FROM reference_pack_versions v JOIN reference_pack_candidates c USING(pack_key,pack_version) WHERE c.pack_key='type_registry.host' AND c.distribution_kind='packaged_builtin')`); err != nil {
+	if _, err := harness.DB.Exec(`UPDATE reference_pack_objects SET available=false WHERE sha256 IN (SELECT v.manifest_sha256 FROM reference_pack_versions v JOIN reference_pack_candidates c USING(pack_key,pack_version) WHERE v.manifest_sha256=$1)`, previous.ManifestSHA256); err != nil {
 		t.Fatal(err)
 	}
 	httptestx.RequireErrorEnvelope(t, release("binding-loss"), http.StatusConflict, expected.Error.Code)
@@ -220,8 +224,8 @@ func uploadReportingReferencePack(t testing.TB, harness *appsupport.ServerHarnes
 		disposition, media string
 		data               []byte
 	}{
-		{`form-data; name="metadata"`, "application/json", []byte(`{"client_txn_id":"binding-import"}`)},
-		{`form-data; name="file"; filename="reference.zip"`, "application/zip", container},
+		{`form-data; name="metadata"`, "application/json", []byte(`{"client_txn_id":"binding-import-` + fmt.Sprintf("%x", sha256.Sum256(container))[:12] + `"}`)},
+		{`form-data; name="file"; filename="reference.tar"`, "application/x-tar", container},
 	} {
 		header := textproto.MIMEHeader{}
 		header.Set("Content-Disposition", part.disposition)

@@ -1,0 +1,57 @@
+{
+  "schema_id": "cartulary.attack_candidate_index.v1",
+  "candidate_id": "cartulary.attack.all-domains.native.candidate-1",
+  "status": "proposal_only",
+  "artifacts": [
+    {
+      "path": "acquisition.v1.schema.json",
+      "sha256": "24011eb06eba3523a37946f353198b35496652da6a5bae1bc7a7dfc63eb4d775",
+      "size_bytes": 3027
+    },
+    {
+      "path": "dispositions.v1.json",
+      "sha256": "0507533ae781f9ace02faf9743fe62e534ad7f638df34f921070934f06f65a0d",
+      "size_bytes": 1483
+    },
+    {
+      "path": "field-policy.candidate.v1.json",
+      "sha256": "d8515b522ff84ea1f71677fed4b82389cfe41d5c7c4db323a8334fefc6f1920e",
+      "size_bytes": 35375
+    },
+    {
+      "path": "fixtures/cases.v1.json",
+      "sha256": "d7315321a79b9c80ad85193ec4f40f7816d7f4702ed94477aa9efeb9cbcbfc52",
+      "size_bytes": 1420
+    },
+    {
+      "path": "fixtures/inputs.v1.json",
+      "sha256": "11f675a02453eb2353d017213d9d0f2f6948a2b4f4e8607561ec7c9c9065854b",
+      "size_bytes": 3760
+    },
+    {
+      "path": "fixtures/native-cases.v1.json",
+      "sha256": "720efea8b8a8d0f3b1b09718d0940f6000806f2b9ec1e13085751c006e674e66",
+      "size_bytes": 18210
+    },
+    {
+      "path": "native-source.candidate.v1.schema.json",
+      "sha256": "461c5f13bf9760fb86f4559ffa88030865f8f9705e9fb6be4ea51aecdc88ebd8",
+      "size_bytes": 72250
+    },
+    {
+      "path": "object.candidate.v1.schema.json",
+      "sha256": "9810038bb1a10cd939b11bf78f04b4fa0902113745ca8389a6085f2dfcfa51b5",
+      "size_bytes": 71139
+    },
+    {
+      "path": "relationship.candidate.v1.schema.json",
+      "sha256": "eb783672e334ffea5873baac128acea03b187997063f29d75169a42c8ef5c5d5",
+      "size_bytes": 7108
+    },
+    {
+      "path": "source-profile.candidate.v1.json",
+      "sha256": "9cc1bd346824b2ebb7457e49aecf3cfa1e11b39876a160e2ba32277c13191e40",
+      "size_bytes": 9966
+    }
+  ]
+}

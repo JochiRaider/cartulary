@@ -61,6 +61,9 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 							t.Fatal(err)
 						}
 						row["external_refs"] = []any{map[string]any{"source_name": "a", "external_id": "shared", "url": nil}, map[string]any{"source_name": "a", "external_id": "shared", "url": "https://example.com/"}, map[string]any{"source_name": "b", "external_id": "shared", "url": nil}}
+						if fixture.Key == "framework.attack" {
+							row["source"].(map[string]any)["external_references"] = []any{map[string]any{"source_name": "a", "external_id": "shared"}, map[string]any{"source_name": "a", "external_id": "shared", "url": "https://example.com/"}, map[string]any{"source_name": "b", "external_id": "shared"}}
+						}
 						lines[i] = string(integrationCanonical(t, row))
 					}
 					return []byte(strings.Join(lines, "\n") + "\n")
@@ -145,7 +148,11 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 			if strings.HasPrefix(fixture.Key, "framework.") {
 				limit := 1
 				request := reference_data.LookupPackEntriesRequest{PackSetID: set.Value.ID, PackKey: fixture.Key, LookupKind: "external_id", LookupValue: "shared", Limit: &limit}
-				for _, want := range []string{"fixture:1", "fixture:2"} {
+				expectedIDs := []string{"fixture:1", "fixture:2"}
+				if fixture.Key == "framework.attack" {
+					expectedIDs = []string{"tool--00000000-0000-4000-8000-000000000001", "tool--00000000-0000-4000-8000-000000000002"}
+				}
+				for index, want := range expectedIDs {
 					page := consumer.LookupPackEntries(ctx, request)
 					if page.Error != nil || page.Value == nil || len(page.Value.Items) != 1 {
 						t.Fatalf("external ID page: %#v", page)
@@ -158,7 +165,7 @@ func TestAllCanonicalProfilesThroughProductionConsumers_Integration(t *testing.T
 						t.Fatal("lookup duplicated object or lost references", item)
 					}
 					request.Cursor = page.Value.NextCursor
-					if (want == "fixture:2") != (request.Cursor == nil) {
+					if (index == len(expectedIDs)-1) != (request.Cursor == nil) {
 						t.Fatal("incorrect final page")
 					}
 				}

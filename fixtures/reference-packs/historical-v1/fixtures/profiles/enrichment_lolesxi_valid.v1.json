@@ -1,0 +1,7 @@
+{
+  "pack_key": "enrichment.lolesxi",
+  "members": {
+    "payload/entries.ndjson": "{\"aliases\":[],\"categories\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"fixture\",\"extensions\":{},\"name\":\"fixture\",\"platforms\":[\"esxi\"],\"references\":[\"https://example.invalid/\"],\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.lolesxi.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"usage_examples\":[]}\n"
+  },
+  "schema_id": "cartulary.reference_pack_content_fixture.v1"
+}

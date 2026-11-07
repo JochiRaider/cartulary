@@ -28,7 +28,7 @@ func TestPortableRetentionClosedShapeAndCatalogBinding_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	input := map[string]any{"schema_id": "cartulary.reference_pack_portability_input.v1", "incident_id": "58000000-0000-4000-8000-000000000001", "source_operation_id": "58000000-0000-4000-8000-000000000002", "catalog_sha256": Digest(canonical), "content_manifest": EmptyPortableContent()}
+	input := map[string]any{"schema_id": "cartulary.reference_pack_portability_input.v2", "incident_id": "58000000-0000-4000-8000-000000000001", "source_operation_id": "58000000-0000-4000-8000-000000000002", "catalog_sha256": Digest(canonical), "content_manifest": EmptyPortableContent()}
 	versions := []any{}
 	for _, v := range refs.Versions {
 		versions = append(versions, map[string]any{"pack_key": v.Key, "pack_version": v.Version, "available": false, "reason_code": "not_retained"})
@@ -132,20 +132,24 @@ func TestPortableCatalogReachableSetAndVersionLimits_Unit(t *testing.T) {
 	// supplies the expected admission result or fixture identities.
 	keys := []string{"type_registry.host", "type_registry.evidence", "type_registry.indicator", "framework.attack", "framework.d3fend", "framework.veris", "enrichment.tor", "enrichment.cisa_kev", "enrichment.ms_portals", "enrichment.windows_event_ids", "enrichment.entra_app_ids", "enrichment.lolbas", "enrichment.loldrivers", "enrichment.lolesxi", "enrichment.hijacklibs", "enrichment.windows_sids"}
 	slices.Sort(keys)
-	refs := PortableReferences{SchemaID: "reference_pack_refs.v1", Sets: []Set{}, Versions: []PortableVersion{}}
+	refs := PortableReferences{SchemaID: "reference_pack_refs.v2", Sets: []Set{}, Versions: []PortableVersion{}}
 	for i := range 1024 {
 		members := []SetMember{}
 		for _, key := range keys {
-			member := SetMember{Key: key, Version: fmt.Sprintf("v%04d", i), ManifestSHA256: strings.Repeat("1", 64), PayloadSHA256: strings.Repeat("2", 64), Contract: "cartulary.reference_pack_contract.v1", ProfileID: "cartulary.reference_pack." + key + ".v1", ProfileVersion: "1"}
+			member := SetMember{Key: key, Version: fmt.Sprintf("v%04d", i), ManifestSHA256: strings.Repeat("1", 64), PayloadSHA256: strings.Repeat("2", 64), Contract: "cartulary.reference_pack_contract.v2", ProfileID: "cartulary.reference_pack." + key + ".v1", ProfileVersion: "1"}
+			if key == "framework.attack" {
+				member.ProfileID = "cartulary.reference_pack.framework.attack.v2"
+				member.ProfileVersion = "2"
+			}
 			members = append(members, member)
 			refs.Versions = append(refs.Versions, PortableVersion{SetMember: member, DistributionKind: "operator_imported", VerificationMethod: "tuf_1_0_35_offline_bundle_v1", SourceProfileID: "fixture.portable.v1", SourceProfileSHA256: strings.Repeat("3", 64)})
 		}
-		preimage, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_set.v1", "members": members})
+		preimage, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_set.v2", "members": members})
 		if err != nil {
 			t.Fatal(err)
 		}
 		digest := Digest(preimage)
-		refs.Sets = append(refs.Sets, Set{SchemaID: "cartulary.reference_pack_set.v1", ID: "rpset_" + digest, SHA256: digest, Members: members})
+		refs.Sets = append(refs.Sets, Set{SchemaID: "cartulary.reference_pack_set.v2", ID: "rpset_" + digest, SHA256: digest, Members: members})
 	}
 	slices.SortFunc(refs.Sets, func(a, b Set) int { return strings.Compare(a.ID, b.ID) })
 	slices.SortFunc(refs.Versions, func(a, b PortableVersion) int { return strings.Compare(a.Key+"\x00"+a.Version, b.Key+"\x00"+b.Version) })
@@ -153,7 +157,7 @@ func TestPortableCatalogReachableSetAndVersionLimits_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 16801852 || Digest(encoded) != "77c739df8eb8f288d36f3d926984fe373f879b4878236ff38e63db3d2a59c24e" {
+	if len(encoded) != 16801852 || Digest(encoded) != "5e10789baf55e362c7adc0c5df6622bd35e1085a23a1b4b2005a7342a4680657" {
 		t.Fatal("independent at-limit catalog changed")
 	}
 	admitted, err := DecodePortableReferences(encoded)
@@ -162,7 +166,7 @@ func TestPortableCatalogReachableSetAndVersionLimits_Unit(t *testing.T) {
 	}
 	// Whitespace is admitted at this unsigned transport boundary. It makes the
 	// byte ceiling reachable without changing semantic cardinality constraints.
-	empty := []byte(`{"schema_id":"reference_pack_refs.v1","sets":[],"versions":[]}`)
+	empty := []byte(`{"schema_id":"reference_pack_refs.v2","sets":[],"versions":[]}`)
 	atLimit := append(empty, bytes.Repeat([]byte{' '}, 67108864-len(empty))...)
 	if _, err := DecodePortableReferences(atLimit); err != nil {
 		t.Fatal("complete byte-limit catalog rejected", err)

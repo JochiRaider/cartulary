@@ -44,7 +44,10 @@ func loadContentShapes() map[string]*shape {
 			kinds = []string{"object", "relationship"}
 		}
 		for _, kind := range kinds {
-			result[p.Key+"/"+kind] = compileProjection("profiles/" + p.Key + "." + kind + ".v1.schema.json")
+			result[p.Key+"/"+kind] = compileProjection(p.Schemas[kind])
+			if p.Key == "framework.attack" && result[p.Key+"/"+kind].properties["source"].oneDispatch == nil {
+				panic("native source schema requires disjoint union dispatch")
+			}
 		}
 	}
 	return result
@@ -52,6 +55,7 @@ func loadContentShapes() map[string]*shape {
 
 type contentState struct {
 	manifest     Manifest
+	attack       *attackState
 	ids          map[string]bool
 	aliases      map[string]bool
 	replacements map[string]string
@@ -111,6 +115,9 @@ func validateContentPhase(ctx context.Context, m Manifest, source ContentSource,
 	}
 	state := contentState{manifest: m, emit: emit, ids: map[string]bool{}, aliases: map[string]bool{}, replacements: map[string]string{}}
 	kinds := []string{"entry"}
+	if m.Key == "framework.attack" && phase == contentSemantics {
+		state.attack = newAttackState()
+	}
 	if p.Shape == "objects_relationships" {
 		kinds = []string{"object", "relationship"}
 	}
@@ -140,6 +147,26 @@ func validateContentPhase(ctx context.Context, m Manifest, source ContentSource,
 		}
 		if closeErr != nil {
 			return ErrStorage
+		}
+		if state.attack != nil && kind == "object" {
+			if err := state.attack.finishObjects(); err != nil {
+				if emit == nil {
+					return err
+				}
+				if err := emit(Finding{Path: "$.objects"}); err != nil {
+					return err
+				}
+			}
+		}
+		if state.attack != nil && kind == "relationship" {
+			if err := state.attack.finish(); err != nil {
+				if emit == nil {
+					return err
+				}
+				if err := emit(Finding{Path: "$.relationships"}); err != nil {
+					return err
+				}
+			}
 		}
 		if phase == contentSemantics && kind != "relationship" {
 			if err := state.validateReplacements(); err != nil {
@@ -180,7 +207,7 @@ func admittedContentCount(kind string, count int64) bool {
 }
 
 func (s *contentState) read(ctx context.Context, stream io.Reader, kind string, expected int64, sink ContentSink, phase contentPhase) error {
-	reader := bufio.NewReaderSize(contextReader{ctx, stream}, 1048576)
+	reader := bufio.NewReaderSize(contextReader{ctx, stream}, profiles[s.manifest.Key].MaxLineBytes)
 	count := int64(0)
 	for {
 		line, err := reader.ReadSlice('\n')
@@ -343,6 +370,9 @@ func (s *contentState) row(m map[string]any, kind string, c *semanticChecks) (Co
 		row.Keys = append(row.Keys, LookupKey{"alias", key, id})
 	}
 	if kind == "object" {
+		if s.attack != nil {
+			s.attack.object(m, c)
+		}
 		previous := ""
 		row.Keys = append(row.Keys, LookupKey{"object_id", id, id})
 		// Reference tuples preserve source provenance. The external-ID index
@@ -401,11 +431,13 @@ func (s *contentState) validateReplacements() error {
 }
 func (s *contentState) relationship(m map[string]any, c *semanticChecks) (ContentRow, error) {
 	typ, source, target, id := m["relationship_type"].(string), m["source_object_id"].(string), m["target_object_id"].(string), m["relationship_id"].(string)
-	refs, err := canonicaljson.Marshal(m["source_refs"])
+	expected, err := RelationshipID(s.manifest.ProfileID, typ, source, target, m["source_refs"])
 	if err != nil {
 		return ContentRow{}, err
 	}
-	expected := "rpr_" + Digest(append([]byte(s.manifest.ProfileID+"\x00"+typ+"\x00"+source+"\x00"+target+"\x00"), refs...))
+	if s.attack != nil {
+		s.attack.relationship(m, c)
+	}
 	order := typ + "\x00" + source + "\x00" + target + "\x00" + id
 	c.require(id == expected, ".relationship_id")
 	c.require(s.ids[source], ".source_object_id")

@@ -140,7 +140,9 @@ func TestExecutableFixtureContracts_Unit(t *testing.T) {
 				}
 			}
 		default:
-			if strings.HasPrefix(id, "rpfx_profile_") || strings.HasPrefix(id, "rpfx_type_compatibility_") {
+			if strings.HasPrefix(id, "rpfx_native_") {
+				t.Run(id, func(t *testing.T) { runNativeFixture(t, root, input, m) })
+			} else if strings.HasPrefix(id, "rpfx_profile_") || strings.HasPrefix(id, "rpfx_type_compatibility_") {
 				runProfileManifest(t, input, m)
 			} else if strings.HasPrefix(id, "rpfx_dependency_") {
 				t.Run(id, func(t *testing.T) { runDependencyManifest(t, input, m) })
@@ -404,6 +406,9 @@ func runProfileManifest(t *testing.T, input []byte, manifest map[string]any) {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(got, want) {
-		t.Fatalf("profile diagnostics differ: %s\ngot %s\nwant %s", fixture.Key, got, want)
+		for _, issue := range summary.Issues {
+			t.Logf("actual issue %s: check=%s path=%s code=%s", issue.ID, issue.CheckID, issue.Path, issue.Code)
+		}
+		t.Fatalf("profile diagnostics differ: %s", fixture.Key)
 	}
 }

@@ -1917,7 +1917,11 @@ func requireFailedReleaseJob(t testing.TB, harness *appsupport.ServerHarness, ac
 
 func requireJobStatus(t testing.TB, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, jobID string, wantStatus string) map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	return requireJobStatusWithin(t, harness, actor, jobID, wantStatus, 5*time.Second)
+}
+func requireJobStatusWithin(t testing.TB, harness *appsupport.ServerHarness, actor authcookietest.AuthCookies, jobID string, wantStatus string, budget time.Duration) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(budget)
 	var last map[string]any
 	for time.Now().Before(deadline) {
 		resp := httptestx.DoJSON(

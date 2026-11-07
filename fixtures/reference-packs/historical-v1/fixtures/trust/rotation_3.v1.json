@@ -1,0 +1,68 @@
+{
+  "case_id": "rotation_3",
+  "bootstrap": "{\"signatures\":[{\"keyid\":\"978f3399cf70330d80903774f6f68d5e1a5801572a3d9f4f339065bb5350b790\",\"sig\":\"b2a446cb2d06fb7325e6f2e1654707855f4120a7d798a881188afe1461fe0635b23a7e97e0b40217287085af37522d6fbd8eb3f55401a61990f51e349338710a\"},{\"keyid\":\"b7f1db352c91cea64dfcc5961d5b304bba678ac91e2a69b799a2f0bc40cf341a\",\"sig\":\"13ad8c8e827ba280b8b862f84e824d3e87f60668d884d9e5b1804b6a8bcb655482f593aafe6e1a8cee1e5b978aa3d266ac8146dc0673e656de292dfa8e45bb0c\"},{\"keyid\":\"dc85dc4cbdc7658537beb98a399e49e468add8bf7dfa25f0ef27badeacb41af2\",\"sig\":\"f033dcac8bae0f06628a6de1b00ad4083eefc8b249748ee1b40055ad413d597f7422ca5fe6dda0154644040cb88056607d649922a88433990987c01448264b0c\"}],\"signed\":{\"_type\":\"root\",\"cartulary\":{\"schema_id\":\"cartulary.reference_pack_tuf_root_binding.v1\",\"trust_repository_id\":\"test.repo\"},\"consistent_snapshot\":false,\"expires\":\"2027-10-01T00:00:00Z\",\"keys\":{\"978f3399cf70330d80903774f6f68d5e1a5801572a3d9f4f339065bb5350b790\":{\"keytype\":\"ed25519\",\"keyval\":{\"public\":\"08539a2cdb2380e36e07b531e0c893c8968b785de251347d0e66a1458f1a217c\"},\"scheme\":\"ed25519\"},\"b7f1db352c91cea64dfcc5961d5b304bba678ac91e2a69b799a2f0bc40cf341a\":{\"keytype\":\"ed25519\",\"keyval\":{\"public\":\"3469b1261f189dcafc5d50b8522bb45b4abc6c1e779fdd89e742d11db5c4fda5\"},\"scheme\":\"ed25519\"},\"dc85dc4cbdc7658537beb98a399e49e468add8bf7dfa25f0ef27badeacb41af2\":{\"keytype\":\"ed25519\",\"keyval\":{\"public\":\"14cad1662d662e13e6aad1b5d09c6849b7ea6a8b1862d3b7c9362b1c4fdfcda2\"},\"scheme\":\"ed25519\"}},\"roles\":{\"root\":{\"keyids\":[\"978f3399cf70330d80903774f6f68d5e1a5801572a3d9f4f339065bb5350b790\",\"b7f1db352c91cea64dfcc5961d5b304bba678ac91e2a69b799a2f0bc40cf341a\",\"dc85dc4cbdc7658537beb98a399e49e468add8bf7dfa25f0ef27badeacb41af2\"],\"threshold\":2},\"snapshot\":{\"keyids\":[\"978f3399cf70330d80903774f6f68d5e1a5801572a3d9f4f339065bb5350b790\"],\"threshold\":1},\"targets\":{\"keyids\":[\"978f3399cf70330d80903774f6f68d5e1a5801572a3d9f4f339065bb5350b790\"],\"threshold\":1},\"timestamp\":{\"keyids\":[\"978f3399cf70330d80903774f6f68d5e1a5801572a3d9f4f339065bb5350b790\"],\"threshold\":1}},\"spec_version\":\"1.0.35\",\"version\":1}}",
+  "metadata": {
+    "metadata/2.root.json": "{\"signatures\":[{\"keyid\":\"4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91\",\"sig\":\"2352338130f3c5c9172fb294b747b80b4d05a924ae662cd4fb3c3e96a99e3c5568c55785d1c5d2330dc4283ff09d30d2c6d50d912c9fc78476cdaa3622c7840b\"},{\"keyid\":\"8963b415d0661dd03f736235a02405bcc894e36e31a7daf15f1aa961092f1e37\",\"sig\":\"e62d2cbd4d252bc5f7a3de1598f43dad0f0126d06567acd558b6506ec34bdd8bb21e3f2fea2759b663fcede6a85c0a48f62b4bdda832c7d2109a9249a7371e08\"},{\"keyid\":\"978f3399cf70330d80903774f6f68d5e1a5801572a3d9f4f339065bb5350b790\",\"sig\":\"6faee51a4547f448f6eb1132cd26d899e7ecb16e93d591b49d8822ec3eefaddfc380751a616a1461fa1107ff252533e6487b5b70c2caf16f9defbdde7d40b003\"},{\"keyid\":\"b7f1db352c91cea64dfcc5961d5b304bba678ac91e2a69b799a2f0bc40cf341a\",\"sig\":\"6d17979e63306f2f5397a53e6ab9f1a32822662b5834e8359fd6bf92d316e9a1727e43d599a1b49d48fe37a5db0c0fff01d31e0e2bca355c72ae9f2176178b03\"},{\"keyid\":\"d98170daf5207985711abbefc0ed0e40ecd8ff6ffbd69edfe87f0e06ba3bf201\",\"sig\":\"1aa696907542fbef500594149677fffbd34af6ba671126176fc66d3d4a987695fdb34bff622b1229d72b13809aec1589a5124e3da7760d34b70e372b5696f303\"},{\"keyid\":\"dc85dc4cbdc7658537beb98a399e49e468add8bf7dfa25f0ef27badeacb41af2\",\"sig\":\"e109f3771336787e14f12fe13cfb061183352be286f5781e325c2d7e150fbea61d49fd96cc3db2c608fa93b83b5f9ba0143aa6bae9de8e6578bf2ba314634405\"}],\"signed\":{\"_type\":\"root\",\"cartulary\":{\"schema_id\":\"cartulary.reference_pack_tuf_root_binding.v1\",\"trust_repository_id\":\"test.repo\"},\"consistent_snapshot\":false,\"expires\":\"2027-10-01T00:00:00Z\",\"keys\":{\"4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91\":{\"keytype\":\"ed25519\",\"keyval\":{\"public\":\"97dc61e6022e2902dc05fb4c4f5dfc10f95b063f9c7ed785a4aa4470a8351328\"},\"scheme\":\"ed25519\"},\"8963b415d0661dd03f736235a02405bcc894e36e31a7daf15f1aa961092f1e37\":{\"keytype\":\"ed25519\",\"keyval\":{\"public\":\"2e4d2059986915110cec6e86feaf8d47dd7fcd4f39dae0c08bd0ce6544bd78bc\"},\"scheme\":\"ed25519\"},\"d98170daf5207985711abbefc0ed0e40ecd8ff6ffbd69edfe87f0e06ba3bf201\":{\"keytype\":\"ed25519\",\"keyval\":{\"public\":\"438fbb37543cb0183b5d83039f2ca5e4ce2fb16667114d20440d8c0b5d27e1e3\"},\"scheme\":\"ed25519\"}},\"roles\":{\"root\":{\"keyids\":[\"4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91\",\"8963b415d0661dd03f736235a02405bcc894e36e31a7daf15f1aa961092f1e37\",\"d98170daf5207985711abbefc0ed0e40ecd8ff6ffbd69edfe87f0e06ba3bf201\"],\"threshold\":2},\"snapshot\":{\"keyids\":[\"4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91\"],\"threshold\":1},\"targets\":{\"keyids\":[\"4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91\"],\"threshold\":1},\"timestamp\":{\"keyids\":[\"4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91\"],\"threshold\":1}},\"spec_version\":\"1.0.35\",\"version\":2}}",
+    "metadata/targets.json": "{\"signatures\":[{\"keyid\":\"4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91\",\"sig\":\"297fdfc9e2a2929af95dcd107e1662fec6c87bb41d84b4cd5fcc57cc3bd5dcbd18fb1b23893bb7c31a88a670314d8ea1b164a44cf3e0f2919a848d67adbd310d\"}],\"signed\":{\"_type\":\"targets\",\"cartulary\":{\"manifest_sha256\":\"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"pack_key\":\"enrichment.tor\",\"pack_release_sequence\":1,\"pack_version\":\"test-1\",\"payload_sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"schema_id\":\"cartulary.reference_pack_tuf_targets_binding.v1\",\"trust_repository_id\":\"test.repo\"},\"expires\":\"2026-12-01T00:00:00Z\",\"spec_version\":\"1.0.35\",\"targets\":{\"bundle.json\":{\"hashes\":{\"sha256\":\"523a35908cf68602592246fa92ce0ba54a28ad7ee3a2b57a24115422342b6339\"},\"length\":89},\"manifest.json\":{\"hashes\":{\"sha256\":\"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\"},\"length\":2},\"payload/entries.ndjson\":{\"hashes\":{\"sha256\":\"ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356\"},\"length\":3}},\"version\":1}}",
+    "metadata/snapshot.json": "{\"signatures\":[{\"keyid\":\"4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91\",\"sig\":\"76ddd51beb8ae55c37ec7a796fd34617da9642566efb2776a29f5bb87877bb200e769705c28fad9f38f21d29d9905b14325ba3d7952d25100633d5ce5ea71303\"}],\"signed\":{\"_type\":\"snapshot\",\"expires\":\"2026-10-16T00:00:00Z\",\"meta\":{\"targets.json\":{\"hashes\":{\"sha256\":\"4766daf8a20105e4e4d3bb55ff30561ed5b27f0c22de15b830340280b10ad179\"},\"length\":1053,\"version\":1}},\"spec_version\":\"1.0.35\",\"version\":1}}",
+    "metadata/timestamp.json": "{\"signatures\":[{\"keyid\":\"4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91\",\"sig\":\"0e1fba768423d1b2a00291a511dc3fb46523fa0c9c6d3f2c7ccb77b925079a6618dab6ef3d9874ce0179e1f23cde73770a368ad7a523dc20c961bb3c550e8e09\"}],\"signed\":{\"_type\":\"timestamp\",\"expires\":\"2026-10-09T00:00:00Z\",\"meta\":{\"snapshot.json\":{\"hashes\":{\"sha256\":\"b83c3f4b1ffb2364808a4b57cf8c2d808489b3aa9edc5fa011b06f3ef6e6d8dd\"},\"length\":468,\"version\":1}},\"spec_version\":\"1.0.35\",\"version\":1}}"
+  },
+  "inventory": {
+    "bundle.json": {
+      "Path": "bundle.json",
+      "Size": 89,
+      "SHA256": "523a35908cf68602592246fa92ce0ba54a28ad7ee3a2b57a24115422342b6339"
+    },
+    "manifest.json": {
+      "Path": "manifest.json",
+      "Size": 2,
+      "SHA256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    "payload/entries.ndjson": {
+      "Path": "payload/entries.ndjson",
+      "Size": 3,
+      "SHA256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    }
+  },
+  "verification_time": "2026-10-02T00:00:00Z",
+  "expected_valid_until": "2026-10-09T00:00:00Z",
+  "expected_targets_signers": [
+    "4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91"
+  ],
+  "expected_root_version": 2,
+  "schema_id": "cartulary.reference_pack_trust_fixture.v1",
+  "retained_versions": {},
+  "forget_root_history": false,
+  "consume_roots": false,
+  "expected_role_signers": {
+    "root": [
+      "4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91",
+      "8963b415d0661dd03f736235a02405bcc894e36e31a7daf15f1aa961092f1e37",
+      "d98170daf5207985711abbefc0ed0e40ecd8ff6ffbd69edfe87f0e06ba3bf201"
+    ],
+    "targets": [
+      "4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91"
+    ],
+    "snapshot": [
+      "4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91"
+    ],
+    "timestamp": [
+      "4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91"
+    ]
+  },
+  "expected_root_transitions": [
+    {
+      "version": 2,
+      "previous_signers": [
+        "978f3399cf70330d80903774f6f68d5e1a5801572a3d9f4f339065bb5350b790",
+        "b7f1db352c91cea64dfcc5961d5b304bba678ac91e2a69b799a2f0bc40cf341a",
+        "dc85dc4cbdc7658537beb98a399e49e468add8bf7dfa25f0ef27badeacb41af2"
+      ],
+      "next_signers": [
+        "4ddc216397b90026001a27a7da65ccd971dda4fe2c5c25540612c345482dda91",
+        "8963b415d0661dd03f736235a02405bcc894e36e31a7daf15f1aa961092f1e37",
+        "d98170daf5207985711abbefc0ed0e40ecd8ff6ffbd69edfe87f0e06ba3bf201"
+      ]
+    }
+  ]
+}

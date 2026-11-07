@@ -132,15 +132,17 @@ func TestVNextRestoreRejectsRetiredGraphBindingsBeforeTargetMutation_Unit(t *tes
 		t.Fatalf("load Recovery generation registry: %v", err)
 	}
 	projected := contractrecovery.RecoveryGenerations[0]
-	for _, schemas := range retiredGraphRestoreSchemaPairs() {
+	for _, schemas := range append(retiredGraphRestoreSchemaPairs(), [2]string{"reference_pack", "v1"}) {
 		t.Run(schemas[0]+"-"+schemas[1], func(t *testing.T) {
 			proofs := currentGraphRestoreProofs(projected)
 			registryProof := proofs["graph-registry-current"]
-			registryProof.SchemaID = "cartulary.graph_projection_restore_source_registry." + schemas[0]
-			proofs["graph-registry-current"] = registryProof
-			bindingProof := proofs["graph-binding-current"]
-			bindingProof.SchemaID = "cartulary.graph_projection_restore_implementation_binding." + schemas[1]
-			proofs["graph-binding-current"] = bindingProof
+			if schemas[0] != "reference_pack" {
+				registryProof.SchemaID = "cartulary.graph_projection_restore_source_registry." + schemas[0]
+				proofs["graph-registry-current"] = registryProof
+				bindingProof := proofs["graph-binding-current"]
+				bindingProof.SchemaID = "cartulary.graph_projection_restore_implementation_binding." + schemas[1]
+				proofs["graph-binding-current"] = bindingProof
+			}
 			otherProof := VNextArtifactProof{
 				Kind: "postgres_snapshot", SchemaID: PostgresSnapshotArtifactV3SchemaID,
 				LogicalRef: "postgres", ContentType: "application/json", PlaintextBytes: 2,
@@ -154,6 +156,9 @@ func TestVNextRestoreRejectsRetiredGraphBindingsBeforeTargetMutation_Unit(t *tes
 				CodecRegistrySHA256:        projected.CodecRegistrySHA256,
 				PostgresSnapshotRef:        "postgres", ObjectStoreManifestRef: "postgres",
 				Artifacts: []VNextArtifactProof{proofs["graph-registry-current"], proofs["graph-binding-current"], otherProof},
+			}
+			if schemas[0] == "reference_pack" {
+				manifest.RecoveryStateCatalogSHA256 = "b2b352c3fb2105c7371ae6d03f62572408fd7814fddd7203e5a3f00d25530be1"
 			}
 			if err := assignSelfDigest(vNextIntegrityManifestDigestDomain, &manifest.ManifestSHA256, manifest); err != nil {
 				t.Fatalf("digest old-Graph manifest: %v", err)
@@ -169,7 +174,7 @@ func TestVNextRestoreRejectsRetiredGraphBindingsBeforeTargetMutation_Unit(t *tes
 				"postgres":               []byte(`{}`),
 			}}
 			service := &VNextRestoreService{storage: storage, generations: registry}
-			if _, err := service.validateIntegrityManifest(manifest); err != nil {
+			if _, err := service.validateIntegrityManifest(manifest); err != nil && schemas[0] != "reference_pack" {
 				t.Fatalf("negative fixture fails unrelated manifest admission: %v", err)
 			}
 			target := &recordingAtomicRestoreTarget{}
@@ -178,8 +183,12 @@ func TestVNextRestoreRejectsRetiredGraphBindingsBeforeTargetMutation_Unit(t *tes
 			}); !errors.Is(err, ErrVNextBackup) {
 				t.Fatalf("retired Graph %v restore error = %v, want ErrVNextBackup", schemas, err)
 			}
-			if storage.readCalls != 4 {
-				t.Fatalf("retired Graph fixture did not reach artifact preflight: %d reads, want 4", storage.readCalls)
+			expectedReads := 4
+			if schemas[0] == "reference_pack" {
+				expectedReads = 1
+			}
+			if storage.readCalls != expectedReads {
+				t.Fatalf("retired Graph fixture did not reach artifact preflight: %d reads, want %d", storage.readCalls, expectedReads)
 			}
 			if target.atomicCalls != 0 {
 				t.Fatalf("retired Graph %v restore entered target mutation %d times", schemas, target.atomicCalls)

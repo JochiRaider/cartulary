@@ -7,7 +7,7 @@
     "contracts/reference-pack-fixtures/fixtures/admission/source_fe60f8ccc99b.v1.json"
   ],
   "expected_container_sha256": null,
-  "expected_manifest_sha256": "e2bcbf4d688e6a419c49e145eaa7688acd03e0a49e4d06b524476ca207daf952",
+  "expected_manifest_sha256": "fdd6be3969f0eb08c4370adce2ba4b3ea5b163d5e8b9662cc36fe66c2b1fa615",
   "expected_payload_sha256": "e38ff4e85cc452ea298b402bd1003c3ba199db81e9f2fd9a8f3931369965e584",
   "expected_pack_set_sha256": null,
   "expected_condition": null,

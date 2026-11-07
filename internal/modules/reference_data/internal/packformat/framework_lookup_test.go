@@ -25,6 +25,10 @@ func testFrameworkExternalLookupKeys(t *testing.T) {
 					map[string]any{"source_name": "a", "external_id": "shared", "url": "https://example.com/"},
 					map[string]any{"source_name": "b", "external_id": "shared", "url": nil},
 				}
+				if fixture.Key == "framework.attack" {
+					source := value.(map[string]any)["source"].(map[string]any)
+					source["external_references"] = []any{map[string]any{"source_name": "a", "external_id": "shared"}, map[string]any{"source_name": "a", "external_id": "shared", "url": "https://example.com/"}, map[string]any{"source_name": "b", "external_id": "shared"}}
+				}
 				encoded, err := canonicaljson.Marshal(value)
 				if err != nil {
 					t.Fatal(err)

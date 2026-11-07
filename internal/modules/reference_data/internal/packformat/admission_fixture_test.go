@@ -106,6 +106,13 @@ func assertManifestVerdict(t *testing.T, expected map[string]any, verdict error)
 	}
 	want, err := canonicaljson.Marshal(expected["expected_issues"])
 	if err != nil || !bytes.Equal(got, want) {
-		t.Fatalf("diagnostic tuple changed: %v\ngot %s\nwant %s", err, got, want)
+		for _, issue := range failure.Summary.Issues {
+			t.Logf("actual issue %s: check=%s path=%s code=%s", issue.ID, issue.CheckID, issue.Path, issue.Code)
+		}
+		for _, value := range expected["expected_issues"].([]any) {
+			issue := value.(map[string]any)
+			t.Logf("expected issue %v: check=%v path=%v code=%v", issue["issue_id"], issue["check_id"], issue["path"], issue["code"])
+		}
+		t.Fatalf("diagnostic tuple changed: %v", err)
 	}
 }

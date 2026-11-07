@@ -1,0 +1,35 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_native_valid_20_0",
+  "fixture_version": 1,
+  "fixture_family": "content_profile",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/native_valid_20_0.v1.json",
+    "fixtures/reference-packs/attack-native-v2/20.0/logical/6e94d63980e3816b0edb6303da63a6f54387dfd90764b5f6d58efa51caec876f/manifest.json",
+    "fixtures/reference-packs/attack-native-v2/20.0/logical/6e94d63980e3816b0edb6303da63a6f54387dfd90764b5f6d58efa51caec876f/notices/MITRE-ATTACK.txt",
+    "fixtures/reference-packs/attack-native-v2/20.0/logical/6e94d63980e3816b0edb6303da63a6f54387dfd90764b5f6d58efa51caec876f/payload/objects.ndjson",
+    "fixtures/reference-packs/attack-native-v2/20.0/logical/6e94d63980e3816b0edb6303da63a6f54387dfd90764b5f6d58efa51caec876f/payload/relationships.ndjson"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": "6e94d63980e3816b0edb6303da63a6f54387dfd90764b5f6d58efa51caec876f",
+  "expected_payload_sha256": "af29e228df3453600b4388969c12c5e4be5f1e5c4f6a45c798207f25cb8e936a",
+  "expected_pack_set_sha256": "7e339b1228cf502ca8fc5b80a741aeb54c9447acd7d19b49193ebab8871fa1c7",
+  "expected_condition": null,
+  "expected_issues": [],
+  "expected_public_error": null,
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

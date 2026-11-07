@@ -78,12 +78,12 @@ func BuildSet(members []SetMember) (Set, error) {
 	preimage, err := canonicaljson.Marshal(struct {
 		Schema  string      `json:"schema_id"`
 		Members []SetMember `json:"members"`
-	}{"cartulary.reference_pack_set.v1", members})
+	}{"cartulary.reference_pack_set.v2", members})
 	if err != nil {
 		return Set{}, err
 	}
 	digest := Digest(preimage)
-	return Set{SchemaID: "cartulary.reference_pack_set.v1", ID: "rpset_" + digest, SHA256: digest, Members: members}, nil
+	return Set{SchemaID: "cartulary.reference_pack_set.v2", ID: "rpset_" + digest, SHA256: digest, Members: members}, nil
 }
 
 // SameContent never compares mutable verification or administrative fields.

@@ -32,6 +32,36 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "app.operator.integration.reference_pack_retained_admission",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.integration",
+      "collaborator_ids": [
+        "module.reference_data",
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator",
+        "tests": [
+          "TestOperatorReferencePackRetainedAdmission_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "app.operator.process.collaboration_requeue_v2_process_contract_4ce8fef4eb",
       "owner_id": "app.operator",
       "family_id": "app.operator.process",

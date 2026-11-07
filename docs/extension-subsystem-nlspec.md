@@ -10,6 +10,8 @@ contract_major: 2
 
 # 1. Status, scope, and authority
 
+The 2026-11-06 coordinated amendment adopts Reference Pack 0.3.0 / profile major 3. Configuration shape and namespace remain v2; pack bytes, sets and consumer results use the successor bindings owned by Reference Pack. No v1 pack compatibility reader is admitted.
+
 Version `0.14.8` is adopted/current under Core 00 §1.5.1 and §1.7. The orientation amendment coordinates Network Flow major 10/state 7/minimum 7 and the current Reporting/Recovery bindings, including the
 2026-11-03 explicit configuration namespace clarification, the
 2026-11-02 registry normalization/fact-identity, Job success/proof byte-contract and selected terminal-contract amendments and the 2026-11-01 durable Recovery target admission and transaction byte-contract
@@ -607,7 +609,7 @@ Verified by: EXT-AC-003, EXT-AC-004, EXT-AC-011, EXT-AC-016, EXT-AC-024, EXT-AC-
 | `import` | `true` | `1` | `import.claimed` | `/api/v1/import-sessions` | `[]` | none |
 | `incident_portability` | `true` | `1` | `incident_portability.claimed` | `/api/v1/incident-bundles` | `[]` | none |
 | `network_flow_activity` | `true` | `9` | `network_flow_activity.claimed` | `/api/v1/incidents/{incident_id}/network-flow` | `["network_analysis"]` | `import`, major `1` |
-| `reference_pack` | `true` | `2` | `reference_pack.claimed` | `/api/v1/reference-packs` | `[]` | none |
+| `reference_pack` | `true` | `3` | `reference_pack.claimed` | `/api/v1/reference-packs` | `[]` | none |
 | `snapshot_reporting` | `true` | `1` | `snapshot_reporting.claimed` | `/api/v1/incidents/{incident_id}/report-compositions`; `/api/v1/releases`; `/api/v1/snapshots` | `[]` | none |
 
 **Table 6-B. Current-profile descriptor classifications**

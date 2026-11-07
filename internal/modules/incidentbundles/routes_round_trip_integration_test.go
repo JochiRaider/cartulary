@@ -3,10 +3,14 @@ package incidentbundles_test
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
+	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -55,10 +59,21 @@ func TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration(t 
 
 func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
-	source := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "native-reference-source", TestRouteMode: httptestx.TestRouteModeDisabled})
+	keys, err := producer.NewFixtureSigningContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := referencetest.AuthenticATTACKFixture(t, "../../..", "20.1", time.Now().UTC(), keys, 3)
+	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
+	if err = os.WriteFile(bootstrap, fixture.Bootstrap, 0600); err != nil {
+		t.Fatal(err)
+	}
+	source := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "native-reference-source", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}})
 	target := startIsolatedIncidentBundleServer(t, runtime, "native-reference-target")
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
+	referencetest.ImportAuthenticATTACK(t, source.Server, sourceAdmin, fixture, "native-attack-import")
+	httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+"/api/v1/reference-packs/"+fixture.Key+"/"+fixture.Version+"/activate", map[string]any{"client_txn_id": "native-attack-activate"}, httptestx.WithCookies(sourceAdmin.Session, sourceAdmin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRF.Value)), http.StatusOK)
 	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "native-reference-incident", "incident_key": "NATIVE-REFERENCES", "title": "  Retained cafe\u0301 ", "description": " Start\r\n\t\u200d\u2028\u2029" + strings.Repeat("😀", 16370) + " end ", "severity": " high "})
 	id := incident["incident_id"].(string)
 	removedActor := flowtest.SeedActor(t, source.DB, flowtest.ActorAttributes{Email: "portable-removed@example.test", DisplayName: "Removed member"})
@@ -74,17 +89,22 @@ func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T
 		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 		waitJob(t, source.Server, sourceAdmin, job["job_id"].(string))
 	}
+	embedded := exportBundleBytes(t, source, sourceAdmin, id, "native-attack-embedding-refusal", "embedded")
+	if _, included := zipMemberMap(t, embedded)[fixture.Path]; included {
+		t.Fatal("restricted ATT&CK bytes embedded")
+	}
+
 	container := exportBundleBytes(t, source, sourceAdmin, id, "native-reference-export")
 	exported := zipMemberBytes(t, container, "data/reference_pack_refs.json")
 	refs, err := reference_data.DecodeIncidentBundleReferences(exported)
-	if err != nil || len(refs.Sets) != 1 || len(refs.Versions) != 3 {
+	if err != nil || len(refs.Sets) != 1 || len(refs.Versions) != 4 {
 		t.Fatal("native snapshot bindings absent or duplicated", string(exported), err)
 	}
 	var pinned string
 	if err := source.DB.QueryRow(`SELECT p.snapshot_admission_json->'reference_packs'->>'pack_set_id' FROM reporting_snapshots s JOIN reporting_job_payloads p ON p.job_id=s.create_job_id WHERE s.incident_id=$1 ORDER BY s.snapshot_id LIMIT 1`, id).Scan(&pinned); err != nil {
 		t.Fatal(err)
 	}
-	if refs.Sets[0].ID != pinned {
+	if refs.Sets[0].ID != pinned || pinned != "rpset_"+fixture.SetSHA256 {
 		t.Fatal("native binding substituted")
 	}
 

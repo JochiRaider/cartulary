@@ -70,6 +70,10 @@ Graph Projection NLSpec 2.2.0 owns the distinct catalog-resolved Graph restore p
 Profiles: base
 Verified by: AC-469
 
+### Native ATT&CK coordinated adoption — 2026-11-06
+
+The maintainer authorized Reference Pack 0.3.0 / contract major 3 and its clean v2 pack-contract cutover. ATT&CK v2 preserves typed source metadata; relationship consumer APIs remain separately gated. Core 01's incident-bundle 7 outer format binds the current Reference Data reference catalog v2. Required Base registry manifests are reissued; incompatible retained state fails before mutation or readiness, with no legacy reader or automatic reset. Reporting, Composition and Recovery preserve exact current pack-set identities and reject incompatible historical bindings. Adoption, implementation evidence, fixture trust, deployment trust and distribution approval are separate dispositions. This amendment supersedes earlier Reference Pack major-2 bindings in the current owner registry; historical adoption records remain history.
+
 ### 1.1 Investigation workbench amendment — 2026-10-06
 
 The workbench document revision is adopted as requirements, with implementation,
@@ -118,7 +122,7 @@ handoff do not independently confer specification authority or release approval.
 | Core 03 current corpus | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` | Workbook/inspector source editing and authoring presentation boundaries. |
 | Core 04 current corpus | `docs/spec/04_security_deployment_and_conformance.md` | Current-role authorization, reveal-map retention/access, sandbox confinement, authored-text defaults and release gates. Proposed benchmark/job-progress material is excluded. |
 | Graph Projection 2.2.0 | `docs/graph_projection_nlspec.md` | Already-adopted completed digest-bound results and lease/restore consumer boundary. |
-| Reference Pack 0.2.0 / major 2 | `docs/reference-pack-subsystem-nlspec.md` | Already-adopted exact retained immutable pack-set inputs. |
+| Reference Pack 0.3.0 / major 3 | `docs/reference-pack-subsystem-nlspec.md` | Already-adopted exact retained immutable pack-set inputs. |
 | Extensions 0.12.0 / major 2 | `docs/extension-subsystem-nlspec.md` | Already-adopted typed render-export participant operation/result and authorization boundary. |
 | Domain companion | `docs/domain.md` | Non-normative incident history and extension-only composition vocabulary. |
 
@@ -492,10 +496,10 @@ With `docs/extension-subsystem-nlspec.md` and every companion named by its coord
 | `import` | `true` | `1` | Import owner sections in Core 01 | `[]` |
 | `incident_portability` | `true` | `1` | Incident Portability owner sections in Core 01 | `[]` |
 | `network_flow_activity` | `true` | `9` | `docs/network-flow-activity-nlspec.md` version `9.0.0` | exactly `import@1` |
-| `reference_pack` | `true` | `2` | Reference Pack owner sections in Core 01, specialized by the coordinated Reference Pack NLSpec 0.2.0 cutover | `[]` |
+| `reference_pack` | `true` | `3` | Reference Pack owner sections in Core 01, specialized by the coordinated Reference Pack NLSpec 0.3.0 cutover | `[]` |
 | `snapshot_reporting` | `true` | `1` | adopted Reporting and Report Composition owner documents | `[]` |
 
-The Reference Pack major-2 row is the coordinated pre-production cutover amendment and matches `contracts/extensions/fragments/core00.recognition.json`. The subsystem boundary in `docs/reference-pack-subsystem-nlspec.md` owns format, trust, profiles, immutable sets and consumer semantics; Core retains recognition, public transport, common Jobs and the other outer owner boundaries. The subsystem NLSpec is adopted/current at 0.2.0 within those boundaries. Adoption establishes requirements, not implementation readiness or a production profile-conformance claim; its execution and publication conditions remain explicit in that document. A second implementation or recreation/interchangeability report is not a pre-production acceptance prerequisite.
+The Reference Pack major-3 row is the coordinated pre-production cutover amendment and matches `contracts/extensions/fragments/core00.recognition.json`. The subsystem boundary in `docs/reference-pack-subsystem-nlspec.md` owns format, trust, profiles, immutable sets and consumer semantics; Core retains recognition, public transport, common Jobs and the other outer owner boundaries. The subsystem NLSpec is adopted/current at 0.3.0 within those boundaries. Adoption establishes requirements, not implementation readiness or a production profile-conformance claim; its execution and publication conditions remain explicit in that document. A second implementation or recreation/interchangeability report is not a pre-production acceptance prerequisite.
 
 Primary-owner references in this table are human navigation and adoption evidence. Executable dependency declarations MUST identify only imported typed schemas, algorithms, and artifacts with real executable resolvers, as required by Extensions §1.1. They MUST NOT bind document versions, document digests, owner-document manifests, or requirement-accounting metadata. Tests, generators, runtime metadata and release evidence MUST NOT read, stat, hash or otherwise depend on Markdown. Capability facts are prohibited in Extensions contract major `2`; every required capability array is present and empty, and attempted activation fails with `extension_capability_not_supported`. A structurally valid nonempty capability array is an activation attempt even when it contains an unknown future string; callers MUST NOT receive a token-specific classification or have any supplied token echoed. Structural array or member-type failures remain request or manifest validation failures. This requirement is current through the atomic Extensions companion adoption; no pre-adoption recognition or capability contract remains current.
 Profiles: base

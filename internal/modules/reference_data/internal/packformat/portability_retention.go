@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var portabilityInputShape = compileProjection("portability_input.v1.schema.json")
+var portabilityInputShape = compileProjection("portability_input.v2.schema.json")
 var portabilityResolutionShape = compileProjection("portability_resolution.v1.schema.json")
 var errPortabilityRetention = errors.New("reference pack: invalid portability retention evidence")
 

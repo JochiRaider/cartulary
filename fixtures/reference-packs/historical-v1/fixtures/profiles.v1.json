@@ -1,0 +1,105 @@
+{
+  "schema_id": "cartulary.reference_pack_profile_vectors.v1",
+  "provenance": "Authored synthetic examples. Optional fixtures are not upstream datasets and must not be activated as production enrichment. Relationship digests computed independently with Python hashlib.",
+  "cases": [
+    {
+      "pack_key": "type_registry.host",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"category\":\"general\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"unknown\",\"extensions\":{},\"icon_key\":\"unknown\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.host.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n"
+      }
+    },
+    {
+      "pack_key": "type_registry.evidence",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"category\":\"general\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"unknown\",\"extensions\":{},\"icon_key\":\"unknown\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.evidence.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n"
+      }
+    },
+    {
+      "pack_key": "type_registry.indicator",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"allowed_value_kinds\":[\"atomic\"],\"dedupe_algorithm_id\":\"cartulary.indicator.dedupe.normalized.v1\",\"defang_algorithm_id\":\"cartulary.indicator.defang.domain.v1\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"domain_name\",\"extensions\":{},\"normalization_algorithm_id\":\"cartulary.indicator.normalize.domain_ascii.v1\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.indicator.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"stix_mapping\":{\"pattern_property\":\"value\",\"stix_object_type\":\"domain-name\"},\"validation_algorithm_id\":\"cartulary.indicator.validate.domain_ascii.v1\"}\n{\"aliases\":[],\"allowed_value_kinds\":[\"atomic\"],\"dedupe_algorithm_id\":\"cartulary.indicator.dedupe.normalized.v1\",\"defang_algorithm_id\":\"cartulary.indicator.defang.email.v1\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"email_addr\",\"extensions\":{},\"normalization_algorithm_id\":\"cartulary.indicator.normalize.email_ascii.v1\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.indicator.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"stix_mapping\":{\"pattern_property\":\"value\",\"stix_object_type\":\"email-addr\"},\"validation_algorithm_id\":\"cartulary.indicator.validate.email_ascii.v1\"}\n{\"aliases\":[],\"allowed_value_kinds\":[\"atomic\"],\"dedupe_algorithm_id\":\"cartulary.indicator.dedupe.normalized.v1\",\"defang_algorithm_id\":\"cartulary.indicator.defang.ipv4.v1\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"ipv4_addr\",\"extensions\":{},\"normalization_algorithm_id\":\"cartulary.indicator.normalize.ipv4.v1\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.indicator.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"stix_mapping\":{\"pattern_property\":\"value\",\"stix_object_type\":\"ipv4-addr\"},\"validation_algorithm_id\":\"cartulary.indicator.validate.ipv4.v1\"}\n{\"aliases\":[],\"allowed_value_kinds\":[\"atomic\"],\"dedupe_algorithm_id\":\"cartulary.indicator.dedupe.normalized.v1\",\"defang_algorithm_id\":\"cartulary.indicator.defang.ipv6.v1\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"ipv6_addr\",\"extensions\":{},\"normalization_algorithm_id\":\"cartulary.indicator.normalize.ipv6.v1\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.indicator.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"stix_mapping\":{\"pattern_property\":\"value\",\"stix_object_type\":\"ipv6-addr\"},\"validation_algorithm_id\":\"cartulary.indicator.validate.ipv6.v1\"}\n{\"aliases\":[],\"allowed_value_kinds\":[\"atomic\",\"reference\"],\"dedupe_algorithm_id\":\"cartulary.indicator.dedupe.normalized.v1\",\"defang_algorithm_id\":\"cartulary.indicator.defang.identity.v1\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"process_name\",\"extensions\":{},\"normalization_algorithm_id\":\"cartulary.indicator.normalize.process_name.v1\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.indicator.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"stix_mapping\":{\"pattern_property\":\"name\",\"stix_object_type\":\"process\"},\"validation_algorithm_id\":\"cartulary.indicator.validate.process_name.v1\"}\n{\"aliases\":[],\"allowed_value_kinds\":[\"atomic\",\"reference\"],\"dedupe_algorithm_id\":\"cartulary.indicator.dedupe.normalized.v1\",\"defang_algorithm_id\":\"cartulary.indicator.defang.identity.v1\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"registry_key\",\"extensions\":{},\"normalization_algorithm_id\":\"cartulary.indicator.normalize.windows_registry_key.v1\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.indicator.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"stix_mapping\":{\"pattern_property\":\"key\",\"stix_object_type\":\"windows-registry-key\"},\"validation_algorithm_id\":\"cartulary.indicator.validate.windows_registry_key.v1\"}\n{\"aliases\":[],\"allowed_value_kinds\":[\"atomic\"],\"dedupe_algorithm_id\":\"cartulary.indicator.dedupe.sha256.v1\",\"defang_algorithm_id\":\"cartulary.indicator.defang.identity.v1\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"sha256\",\"extensions\":{},\"normalization_algorithm_id\":\"cartulary.indicator.normalize.sha256.v1\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.indicator.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"stix_mapping\":{\"pattern_property\":\"hashes.'SHA-256'\",\"stix_object_type\":\"file\"},\"validation_algorithm_id\":\"cartulary.indicator.validate.sha256.v1\"}\n{\"aliases\":[],\"allowed_value_kinds\":[\"atomic\",\"pattern\",\"reference\"],\"dedupe_algorithm_id\":\"cartulary.indicator.dedupe.text_hash.v1\",\"defang_algorithm_id\":\"cartulary.indicator.defang.identity.v1\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"text\",\"extensions\":{},\"normalization_algorithm_id\":\"cartulary.indicator.normalize.text.v1\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.indicator.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"stix_mapping\":null,\"validation_algorithm_id\":\"cartulary.indicator.validate.text.v1\"}\n{\"aliases\":[],\"allowed_value_kinds\":[\"atomic\",\"reference\"],\"dedupe_algorithm_id\":\"cartulary.indicator.dedupe.normalized.v1\",\"defang_algorithm_id\":\"cartulary.indicator.defang.http_url.v1\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"url\",\"extensions\":{},\"normalization_algorithm_id\":\"cartulary.indicator.normalize.http_url.v1\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.type_registry.indicator.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"stix_mapping\":{\"pattern_property\":\"value\",\"stix_object_type\":\"url\"},\"validation_algorithm_id\":\"cartulary.indicator.validate.http_url.v1\"}\n"
+      }
+    },
+    {
+      "pack_key": "framework.attack",
+      "members": {
+        "payload/objects.ndjson": "{\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic framework object\",\"extensions\":{},\"external_refs\":[],\"object_id\":\"fixture:1\",\"object_type\":\"fixture\",\"replacement_object_id\":null,\"schema_id\":\"cartulary.reference_pack.framework.attack.object.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n{\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic framework object\",\"extensions\":{},\"external_refs\":[],\"object_id\":\"fixture:2\",\"object_type\":\"fixture\",\"replacement_object_id\":null,\"schema_id\":\"cartulary.reference_pack.framework.attack.object.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:2\"}]}\n",
+        "payload/relationships.ndjson": "{\"description\":null,\"extensions\":{},\"relationship_id\":\"rpr_9629715a6b23819767f3a8c5bce5f81cc4917f986df873e3c0c27c931cab5f91\",\"relationship_type\":\"related-to\",\"schema_id\":\"cartulary.reference_pack.framework.attack.relationship.v1\",\"source_object_id\":\"fixture:1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:edge\"}],\"target_object_id\":\"fixture:2\"}\n"
+      }
+    },
+    {
+      "pack_key": "framework.d3fend",
+      "members": {
+        "payload/objects.ndjson": "{\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic framework object\",\"extensions\":{},\"external_refs\":[],\"object_id\":\"fixture:1\",\"object_type\":\"fixture\",\"replacement_object_id\":null,\"schema_id\":\"cartulary.reference_pack.framework.d3fend.object.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n{\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic framework object\",\"extensions\":{},\"external_refs\":[],\"object_id\":\"fixture:2\",\"object_type\":\"fixture\",\"replacement_object_id\":null,\"schema_id\":\"cartulary.reference_pack.framework.d3fend.object.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:2\"}]}\n",
+        "payload/relationships.ndjson": "{\"description\":null,\"extensions\":{},\"relationship_id\":\"rpr_b437cbdf876b2e72deaf8b9d4d331b00c4a57ef2b93ea66fe79f770f3e332a00\",\"relationship_type\":\"related-to\",\"schema_id\":\"cartulary.reference_pack.framework.d3fend.relationship.v1\",\"source_object_id\":\"fixture:1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:edge\"}],\"target_object_id\":\"fixture:2\"}\n"
+      }
+    },
+    {
+      "pack_key": "framework.veris",
+      "members": {
+        "payload/objects.ndjson": "{\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic framework object\",\"extensions\":{},\"external_refs\":[],\"object_id\":\"fixture:1\",\"object_type\":\"fixture\",\"replacement_object_id\":null,\"schema_id\":\"cartulary.reference_pack.framework.veris.object.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n{\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic framework object\",\"extensions\":{},\"external_refs\":[],\"object_id\":\"fixture:2\",\"object_type\":\"fixture\",\"replacement_object_id\":null,\"schema_id\":\"cartulary.reference_pack.framework.veris.object.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:2\"}]}\n",
+        "payload/relationships.ndjson": "{\"description\":null,\"extensions\":{},\"relationship_id\":\"rpr_2cfce66f056cfdb136028f7f01869fb83eb81793f489c4528efa9b1bf9e34104\",\"relationship_type\":\"related-to\",\"schema_id\":\"cartulary.reference_pack.framework.veris.relationship.v1\",\"source_object_id\":\"fixture:1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:edge\"}],\"target_object_id\":\"fixture:2\"}\n"
+      }
+    },
+    {
+      "pack_key": "enrichment.tor",
+      "members": {
+        "payload/entries.ndjson": "{\"address_family\":\"ipv4\",\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"192.0.2.0/24\",\"extensions\":{},\"first_observed_at\":null,\"last_observed_at\":null,\"network\":\"192.0.2.0/24\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.tor.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n"
+      }
+    },
+    {
+      "pack_key": "enrichment.cisa_kev",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"cve_id\":\"CVE-2099-0000\",\"date_added\":\"2026-10-01\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"due_date\":\"2026-10-02\",\"entry_id\":\"CVE-2099-0000\",\"extensions\":{},\"known_ransomware_campaign_use\":\"not_reported\",\"notes\":null,\"product\":\"Test\",\"replacement_entry_id\":null,\"required_action\":\"None; synthetic fixture.\",\"schema_id\":\"cartulary.reference_pack.enrichment.cisa_kev.entry.v1\",\"short_description\":\"Fixture only.\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"vendor_project\":\"Synthetic fixture\",\"vulnerability_name\":\"Synthetic example, not a vulnerability advisory\"}\n"
+      }
+    },
+    {
+      "pack_key": "enrichment.ms_portals",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"audiences\":[],\"clouds\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"example\",\"extensions\":{},\"portal_urls\":[\"https://example.invalid/\"],\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.ms_portals.entry.v1\",\"service_id\":\"example\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n"
+      }
+    },
+    {
+      "pack_key": "enrichment.windows_event_ids",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"example:provider:65535:*\",\"event_id\":65535,\"event_version\":null,\"extensions\":{},\"level\":null,\"opcode\":null,\"provider_name\":\"Example:Provider\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.windows_event_ids.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"task\":null}\n{\"aliases\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"example:provider:65535:255\",\"event_id\":65535,\"event_version\":255,\"extensions\":{},\"level\":null,\"opcode\":null,\"provider_name\":\"Example:Provider\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.windows_event_ids.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"task\":null}\n"
+      }
+    },
+    {
+      "pack_key": "enrichment.entra_app_ids",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"app_id\":\"00000000-0000-0000-0000-000000000001\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"00000000-0000-0000-0000-000000000001\",\"extensions\":{},\"publisher\":null,\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.entra_app_ids.entry.v1\",\"service_principal_names\":[\"example.invalid\"],\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n"
+      }
+    },
+    {
+      "pack_key": "enrichment.lolbas",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"categories\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"fixture\",\"extensions\":{},\"name\":\"fixture.exe\",\"platforms\":[\"windows\"],\"references\":[\"https://example.invalid/\"],\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.lolbas.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"usage_examples\":[\"Inert synthetic text.\"]}\n"
+      }
+    },
+    {
+      "pack_key": "enrichment.loldrivers",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"categories\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"driver_id\":\"fixture\",\"entry_id\":\"fixture\",\"extensions\":{},\"filenames\":[\"fixture.sys\"],\"hashes\":[{\"algorithm\":\"sha256\",\"value\":\"0000000000000000000000000000000000000000000000000000000000000000\"}],\"references\":[\"https://example.invalid/\"],\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.loldrivers.entry.v1\",\"signer_names\":[],\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n"
+      }
+    },
+    {
+      "pack_key": "enrichment.lolesxi",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"categories\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"fixture\",\"extensions\":{},\"name\":\"fixture\",\"platforms\":[\"esxi\"],\"references\":[\"https://example.invalid/\"],\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.lolesxi.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"usage_examples\":[]}\n"
+      }
+    },
+    {
+      "pack_key": "enrichment.hijacklibs",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"candidate_paths\":[\"C:\\\\fixture\\\\fixture.dll\"],\"categories\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"fixture\",\"extensions\":{},\"library_name\":\"fixture.dll\",\"references\":[\"https://example.invalid/\"],\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.hijacklibs.entry.v1\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}],\"usage_examples\":[]}\n"
+      }
+    },
+    {
+      "pack_key": "enrichment.windows_sids",
+      "members": {
+        "payload/entries.ndjson": "{\"aliases\":[],\"category\":\"system\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"S-1-5-18\",\"extensions\":{},\"name\":\"Synthetic SID fixture\",\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.windows_sids.entry.v1\",\"scope\":\"local\",\"sid\":\"S-1-5-18\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n"
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema_id": "cartulary.reference_pack_dependency_fixture.v1",
+  "candidate": {
+    "pack_key": "enrichment.lolbas",
+    "pack_version": "root",
+    "dependencies": [
+      {
+        "pack_key": "enrichment.lolbas",
+        "pack_version": "absent-a",
+        "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "pack_key": "enrichment.lolbas",
+        "pack_version": "absent-b",
+        "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "conflicts": [
+      {
+        "pack_key": "enrichment.lolbas",
+        "pack_version": null
+      }
+    ]
+  },
+  "retained": []
+}

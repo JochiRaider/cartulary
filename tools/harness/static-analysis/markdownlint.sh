@@ -23,6 +23,7 @@ markdown_inputs=(
   "$ROOT_DIR/pnpm-lock.yaml"
   "$ROOT_DIR/tools/harness/static-analysis/markdownlint.sh"
   "$ROOT_DIR/tools/harness/static-analysis/markdownlint-runner.sh"
+  "$ROOT_DIR/tools/harness/static-analysis/requirement-declarations.cjs"
   "$ROOT_DIR/tools/harness/readiness/cache-artifact.sh"
 )
 while IFS= read -r -d '' rel; do

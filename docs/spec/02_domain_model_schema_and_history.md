@@ -3029,3 +3029,8 @@ Verified by: AC-231, AC-280, AC-318
 The current profile MUST NOT standardize party-merge behavior or phone-number normalization as part of the base party model. Implementations MAY surface duplicate suggestions, but they MUST NOT auto-merge parties or treat phone-like text as a canonical dedupe key.
 Profiles: base
 Verified by: AC-231, AC-279, AC-280
+
+
+## Native Reference Pack coordinated amendment — 2026-11-06
+
+Reference Pack 0.3.0 / profile major 3 governs the clean pack-contract v2 cutover. Only current immutable v2 pack sets and `reference_pack_refs.v2` are admitted; incident-bundle outer version remains 7. Incompatible retained pack state and dependent inputs fail before mutation or readiness. No reset, historical rewrite or compatibility reader is authorized. Required Base registry content is retained under new release-bound manifest identities. Activation remains deployment-scoped and reference-only, with no automatic incident mutation. Current authorization, offline TUF thresholds and trusted wall-clock admission remain unchanged.

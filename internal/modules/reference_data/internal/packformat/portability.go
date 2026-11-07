@@ -8,7 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
-const PortableReferencesSchemaID = "reference_pack_refs.v1"
+const PortableReferencesSchemaID = "reference_pack_refs.v2"
 
 type PortableVersion struct {
 	SetMember
@@ -24,7 +24,7 @@ type PortableReferences struct {
 	Versions []PortableVersion `json:"versions"`
 }
 
-var portableReferencesShape = compileProjection("reference_pack_refs.v1.schema.json")
+var portableReferencesShape = compileProjection("reference_pack_refs.v2.schema.json")
 
 // DecodePortableReferences authenticates no content. It admits the complete
 // reference graph before any destination lookup or trust decision is made.

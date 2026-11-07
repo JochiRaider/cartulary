@@ -541,7 +541,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/attack-native-v2"
+      ]
     },
     {
       "row_id": "module.reporting.integration.snapshot_reporting_route_idempotency_treats_an_o_1d2451a56f",

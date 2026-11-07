@@ -50,7 +50,7 @@ export function incidentBundleFixture(status = "active", root = path.resolve(imp
     "data/reference_pack_refs.json",
     Buffer.from(
       JSON.stringify({
-        schema_id: "reference_pack_refs.v1",
+        schema_id: "reference_pack_refs.v2",
         sets: [],
         versions: [],
       }),

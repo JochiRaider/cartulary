@@ -1,0 +1,38 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_native_malformed",
+  "fixture_version": 1,
+  "fixture_family": "content_profile",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/native_malformed.v1.json",
+    "fixtures/reference-packs/attack-native-v2/20.1/logical/797de8a4133f5bd4b7ff79a26ce57efcdeebc43556033ea3f7ff685004252865/notices/MITRE-ATTACK.txt",
+    "fixtures/reference-packs/attack-native-v2/20.1/logical/797de8a4133f5bd4b7ff79a26ce57efcdeebc43556033ea3f7ff685004252865/payload/relationships.ndjson",
+    "fixtures/reference-packs/attack-native-v2/derivatives/malformed/objects.ndjson",
+    "fixtures/reference-packs/attack-native-v2/endpoint-types/reissued-malformed/manifest.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": "2b5fc2d1634bb2f57c5aae2ef048677fd6fc859f163650db742b5a2388a2facf",
+  "expected_payload_sha256": "939aa266885eca882c54381e6badc19fa3910124bac366a5dec651e447b37b18",
+  "expected_pack_set_sha256": null,
+  "expected_condition": null,
+  "expected_issues": [],
+  "expected_public_error": {
+    "code": "reference_pack_verification_failed",
+    "reason_code": "content_schema_invalid"
+  },
+  "expected_side_effects": [],
+  "forbidden_side_effects": [
+    "active_pointer_changed",
+    "attestation_appended",
+    "audit_event_appended",
+    "candidate_created",
+    "condition_changed",
+    "index_published",
+    "job_admitted",
+    "network_request_attempted",
+    "pack_set_published",
+    "payload_bytes_deleted",
+    "temporary_state_removed",
+    "trust_state_changed"
+  ]
+}

@@ -18,7 +18,7 @@
       "phase": "content_semantics",
       "code": "content_semantic_invalid",
       "path": "$.objects[0].source_refs[0].artifact_index",
-      "entry_id": "fixture:1",
+      "entry_id": "tool--00000000-0000-4000-8000-000000000001",
       "safe_details": {
         "limit_id": null,
         "expected_token": null,
@@ -26,7 +26,7 @@
         "related_pack_key": null,
         "related_pack_version": null
       },
-      "issue_id": "rpi_a9ab63c224f59446f060ad367c190d2578f65bd895382b6dccb82c10d4c7049c",
+      "issue_id": "rpi_a16fbb4e7d55ac8dac1f7b4bc2b235c72536794f21353869d048b7f7905daeb3",
       "reason_code": "content_semantic_invalid"
     }
   ],

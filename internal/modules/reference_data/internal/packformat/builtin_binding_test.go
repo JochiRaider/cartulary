@@ -14,8 +14,34 @@ func TestBuiltinBindingClosesIdentityAndShape_Unit(t *testing.T) {
 			Members map[string]string `json:"members"`
 		} `json:"packs"`
 	}
-	if err := json.Unmarshal(projection("builtins/release.v1.json"), &release); err != nil {
+	if err := json.Unmarshal(projection("builtins/release.v2.json"), &release); err != nil {
 		t.Fatal(err)
+	}
+	var witness struct {
+		SetSHA  string      `json:"pack_set_sha256"`
+		Members []SetMember `json:"members"`
+	}
+	if err := json.Unmarshal(projection("builtins/witness.v2.json"), &witness); err != nil {
+		t.Fatal(err)
+	}
+	set, err := BuildSet(witness.Members)
+	if err != nil || set.SHA256 != witness.SetSHA {
+		t.Fatal("independent Base set witness", err)
+	}
+	var previous struct {
+		Packs []struct {
+			Members map[string]string `json:"members"`
+		} `json:"packs"`
+	}
+	if err := json.Unmarshal(projection("builtins/release.v1.json"), &previous); err != nil {
+		t.Fatal(err)
+	}
+	for i, pack := range release.Packs {
+		for path, data := range pack.Members {
+			if path != "manifest.json" && previous.Packs[i].Members[path] != data {
+				t.Fatal("Base registry or notice changed", path)
+			}
+		}
 	}
 	for _, pack := range release.Packs {
 		data, err := canonicaljson.Marshal(pack.Binding)
@@ -33,6 +59,15 @@ func TestBuiltinBindingClosesIdentityAndShape_Unit(t *testing.T) {
 		payload, err := PayloadDigest(manifest.Files)
 		if err != nil || !binding.Matches(manifest, Digest([]byte(pack.Members["manifest.json"])), payload) {
 			t.Fatal("release identity mismatch", err)
+		}
+		found := false
+		for _, w := range witness.Members {
+			if w.Key == manifest.Key {
+				found = w.Version == manifest.Version && w.ManifestSHA256 == binding.ManifestSHA256 && w.PayloadSHA256 == payload && manifest.Sequence == 2 && w.Contract == manifest.Contract && w.ProfileID == manifest.ProfileID && w.ProfileVersion == manifest.ProfileVersion
+			}
+		}
+		if !found {
+			t.Fatal("independent complete Base tuple changed", manifest.Key)
 		}
 		for name := range pack.Binding {
 			for _, value := range []any{nil, true} {

@@ -1,0 +1,47 @@
+{
+  "schema_id": "cartulary.recovery_generation_registry.v1",
+  "generations": [
+    {
+      "generation_id": "recovery.import_projection.v2",
+      "capture_current": true,
+      "catalog": {
+        "artifact_path": "fixtures/recovery-state-catalog.v2.json",
+        "schema_id": "cartulary.recovery_state_catalog.v2",
+        "canonical_sha256": "d3538797d32b27e3a97261737bc89c743bfb39ad6c974ff979397f0d113abe0f",
+        "catalog_digest_sha256": "b2b352c3fb2105c7371ae6d03f62572408fd7814fddd7203e5a3f00d25530be1",
+        "contribution_count": 30,
+        "authored_table_count": 163,
+        "required_table_count": 122,
+        "object_family_count": 7
+      },
+      "codec_registry": {
+        "schema_ids": [
+          "cartulary.backup_artifact_envelope.v3",
+          "cartulary.backup_integrity_manifest.v4",
+          "cartulary.extension_postgres_binding_proof.v1",
+          "cartulary.graph_projection_restore_implementation_binding.v9",
+          "cartulary.graph_projection_restore_source_registry.v6",
+          "cartulary.object_store_backup_manifest.v2",
+          "cartulary.object_store_backup_summary.v2",
+          "cartulary.operator_recovery_journal_payload.v7",
+          "cartulary.postgres_snapshot_artifact.v3",
+          "cartulary.postgres_snapshot_unit.v1"
+        ],
+        "digest_sha256": "18f7bcd2642ac2be3ef1f1729a190e55a94e7d7d7e1a6ae877dfc28413afbd93"
+      },
+      "graph": {
+        "algorithm_id": "graphprojection.restore_rebuild.v5",
+        "source_registry": {
+          "artifact_path": "fixtures/graph-projection-restore-source-registry.v6.json",
+          "schema_id": "cartulary.graph_projection_restore_source_registry.v6",
+          "canonical_sha256": "320b231b6ac35d24692b53ee83e5782ca2c8fbbd74e083f2ad25857b09670c18"
+        },
+        "implementation_binding": {
+          "artifact_path": "fixtures/graph-projection-restore-implementation-binding.v9.json",
+          "schema_id": "cartulary.graph_projection_restore_implementation_binding.v9",
+          "canonical_sha256": "121cf11a1e050ac4378be2ed5d56dce6b8d6d44ecd861b7f8c49d64ce4a9908d"
+        }
+      }
+    }
+  ]
+}

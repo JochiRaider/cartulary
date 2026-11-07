@@ -314,6 +314,7 @@ type sourceCatalogProjection struct {
 	SpecialConsumers []struct {
 		FamilyID string `json:"family_id"`
 		Versions []int  `json:"versions"`
+		SchemaID string `json:"schema_id"`
 	} `json:"special_consumers"`
 }
 
@@ -387,6 +388,9 @@ func assertAuthoredSourceCatalogV4(t *testing.T) {
 		t.Fatalf("authored special consumers = %d, want 4", len(authored.SpecialConsumers))
 	}
 	for _, consumer := range authored.SpecialConsumers {
+		if consumer.FamilyID == "reference_packs" && consumer.SchemaID != "reference_pack_refs.v2" {
+			t.Fatal("Reference Data catalog binding must use v2")
+		}
 		if !slices.Equal(consumer.Versions, []int{7}) {
 			t.Fatalf("authored special consumer %q versions = %#v, want [7]", consumer.FamilyID, consumer.Versions)
 		}

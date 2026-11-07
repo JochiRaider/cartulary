@@ -1254,12 +1254,14 @@ func jsonRaw(t testing.TB, value any) []byte {
 	return payload
 }
 
-func exportBundleBytes(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID string, clientTxnID string) []byte {
+func exportBundleBytes(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID string, clientTxnID string, mode ...string) []byte {
 	t.Helper()
-	job := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, login, map[string]any{
-		"incident_id":   incidentID,
-		"client_txn_id": clientTxnID,
-	}), http.StatusAccepted)["data"].(map[string]any)
+	request := map[string]any{"incident_id": incidentID, "client_txn_id": clientTxnID}
+	if len(mode) > 0 {
+		request["reference_pack_mode"] = mode[0]
+		request["optional_sections"] = []string{"reference_packs"}
+	}
+	job := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, login, request), http.StatusAccepted)["data"].(map[string]any)
 	terminal := waitJob(t, harness.Server, login, job["job_id"].(string))
 	ref := terminal["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)
 	storageRef := stringScalar(t, harness.DB, `SELECT bundle_storage_ref FROM incident_bundle_exports WHERE bundle_id = $1`, ref["id"].(string))

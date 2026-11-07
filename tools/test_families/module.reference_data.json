@@ -393,7 +393,8 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestAllCanonicalProfilesThroughProductionConsumers_Integration"
+          "TestAllCanonicalProfilesThroughProductionConsumers_Integration",
+          "TestAuthenticATTACKProductionLifecycle_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -407,7 +408,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/attack-native-v2"
+      ]
     },
     {
       "row_id": "module.reference_data.integration.canonical_persistence",
@@ -468,6 +472,35 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.execution_admission_scope",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestCanonicalCoordinatorExecutionScope_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
         "postgres"
       ],
       "postgres_isolation": "exclusive"
@@ -648,7 +681,10 @@
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "shared"
+      "postgres_isolation": "shared",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/historical-v1"
+      ]
     },
     {
       "row_id": "module.reference_data.integration.reference_pack_upload_envelope_failures_create_n_710dd1d70f",
@@ -824,6 +860,35 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/producer",
+        "tests": [
+          "TestATTACKNativeCandidate",
+          "TestATTACKPublicationLedger",
+          "TestATTACKSourceContractClosure",
+          "TestATTACKSourceFixtures",
+          "TestATTACKSourceRetentionBoundaries"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.reference_data.unit.canonical_consumers",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.unit",
@@ -875,7 +940,10 @@
       "fixture_capability": "none",
       "aggregate_placement": "fast",
       "service_dependencies": [],
-      "postgres_isolation": "none"
+      "postgres_isolation": "none",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/attack-native-v2"
+      ]
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_archive_admission",
@@ -1014,7 +1082,11 @@
           "TestContentCanonicalMemberBytesRemainUnmodified_Unit",
           "TestContentRejectsMalformedStreamsAndSemanticAmbiguity_Unit",
           "TestContentSchemasRejectOmissionNullAndUnknownMembers_Unit",
-          "TestEventAndSIDIdentitiesAndLookupBoundaries_Unit"
+          "TestEventAndSIDIdentitiesAndLookupBoundaries_Unit",
+          "TestNativeATTACKLimitSummary_Unit",
+          "TestNativeATTACKProjectionAndLocalReferences_Unit",
+          "TestNativeATTACKTypedEmbeddedEndpoints_Unit",
+          "TestSchemaUnionDispatchAndLimitBindings_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1025,7 +1097,10 @@
       "fixture_capability": "none",
       "aggregate_placement": "fast",
       "service_dependencies": [],
-      "postgres_isolation": "none"
+      "postgres_isolation": "none",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/attack-native-v2"
+      ]
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_state",
@@ -1233,6 +1308,7 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
+          "TestNativeATTACKSignedEndpointSemantics_Unit",
           "TestRetainedProvenanceClosedAndBoundToExactSet_Unit",
           "TestSuccessfulEnvelopeClosedPersistence_Unit",
           "TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit",
@@ -1248,7 +1324,10 @@
       "fixture_capability": "none",
       "aggregate_placement": "fast",
       "service_dependencies": [],
-      "postgres_isolation": "none"
+      "postgres_isolation": "none",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/attack-native-v2"
+      ]
     },
     {
       "row_id": "module.reference_data.unit.reference_pack_verifier_fails_closed_for_extract_ae36003205",
@@ -1263,6 +1342,31 @@
         "package": "./internal/modules/reference_data",
         "tests": [
           "TestVerifierRejectsArchiveLimits_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.retained_binding_admission",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/contractadmission",
+        "tests": [
+          "TestReferenceBindingLoadFailures"
         ]
       },
       "evidence_class": "unit",

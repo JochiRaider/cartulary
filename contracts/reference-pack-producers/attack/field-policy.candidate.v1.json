@@ -1,0 +1,923 @@
+{
+  "schema_id": "cartulary.attack_field_policy.v1",
+  "candidate_id": "cartulary.attack.native.candidate.1",
+  "status": "proposal_only",
+  "common_fields": {
+    "id": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.id",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "type": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.type",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "name": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.name",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "description": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.description",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "created": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.created",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "modified": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.modified",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "spec_version": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.spec_version",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "x_mitre_version": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.x_mitre_version",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "x_mitre_attack_spec_version": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.x_mitre_attack_spec_version",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "created_by_ref": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.created_by_ref",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": true
+    },
+    "x_mitre_modified_by_ref": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.x_mitre_modified_by_ref",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": true
+    },
+    "revoked": {
+      "kinds": [
+        "boolean"
+      ],
+      "disposition": "included_natively",
+      "target": "source.revoked",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "x_mitre_deprecated": {
+      "kinds": [
+        "boolean"
+      ],
+      "disposition": "included_natively",
+      "target": "source.x_mitre_deprecated",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "object_marking_refs": {
+      "kinds": [
+        "array"
+      ],
+      "disposition": "included_natively",
+      "target": "source.object_marking_refs",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "object_marking_refs[]": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.object_marking_refs[]",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": true
+    },
+    "x_mitre_domains": {
+      "kinds": [
+        "array"
+      ],
+      "disposition": "included_natively",
+      "target": "source.x_mitre_domains",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "x_mitre_domains[]": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.x_mitre_domains[]",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "x_mitre_contributors": {
+      "kinds": [
+        "array"
+      ],
+      "disposition": "included_natively",
+      "target": "source.x_mitre_contributors",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "x_mitre_contributors[]": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.x_mitre_contributors[]",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "labels": {
+      "kinds": [
+        "array"
+      ],
+      "disposition": "included_natively",
+      "target": "source.labels",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "labels[]": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.labels[]",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "aliases": {
+      "kinds": [
+        "array"
+      ],
+      "disposition": "included_natively",
+      "target": "source.aliases",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "aliases[]": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.aliases[]",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "x_mitre_aliases": {
+      "kinds": [
+        "array"
+      ],
+      "disposition": "included_natively",
+      "target": "source.x_mitre_aliases",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "x_mitre_aliases[]": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.x_mitre_aliases[]",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "external_references": {
+      "kinds": [
+        "array"
+      ],
+      "disposition": "included_natively",
+      "target": "source.external_references",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "external_references[]": {
+      "kinds": [
+        "object"
+      ],
+      "disposition": "included_natively",
+      "target": "source.external_references[]",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "external_references[].source_name": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.external_references[].source_name",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "external_references[].external_id": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.external_references[].external_id",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "external_references[].url": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.external_references[].url",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    },
+    "external_references[].description": {
+      "kinds": [
+        "string"
+      ],
+      "disposition": "included_natively",
+      "target": "source.external_references[].description",
+      "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+      "reference": false
+    }
+  },
+  "object_types": {
+    "campaign": {
+      "first_seen": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.first_seen",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "last_seen": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.last_seen",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_first_seen_citation": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_first_seen_citation",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_last_seen_citation": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_last_seen_citation",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "course-of-action": {},
+    "intrusion-set": {},
+    "malware": {
+      "x_mitre_platforms": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_platforms[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "is_family": {
+        "kinds": [
+          "boolean"
+        ],
+        "disposition": "included_natively",
+        "target": "source.is_family",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "tool": {
+      "x_mitre_platforms": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_platforms[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "attack-pattern": {
+      "x_mitre_platforms": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_platforms[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_is_subtechnique": {
+        "kinds": [
+          "boolean"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_is_subtechnique",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_remote_support": {
+        "kinds": [
+          "boolean"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_remote_support",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_tactic_type": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_tactic_type",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_tactic_type[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_tactic_type[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_impact_type": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_impact_type",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_impact_type[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_impact_type[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "kill_chain_phases": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.kill_chain_phases",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "kill_chain_phases[]": {
+        "kinds": [
+          "object"
+        ],
+        "disposition": "included_natively",
+        "target": "source.kill_chain_phases[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "kill_chain_phases[].kill_chain_name": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.kill_chain_phases[].kill_chain_name",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "kill_chain_phases[].phase_name": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.kill_chain_phases[].phase_name",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "x-mitre-matrix": {
+      "tactic_refs": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.tactic_refs",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "tactic_refs[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.tactic_refs[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": true
+      }
+    },
+    "x-mitre-tactic": {
+      "x_mitre_shortname": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_shortname",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "x-mitre-analytic": {
+      "x_mitre_platforms": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_platforms[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_log_source_references": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_log_source_references",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_log_source_references[]": {
+        "kinds": [
+          "object"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_log_source_references[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_log_source_references[].x_mitre_data_component_ref": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_log_source_references[].x_mitre_data_component_ref",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": true
+      },
+      "x_mitre_log_source_references[].name": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_log_source_references[].name",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_log_source_references[].channel": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_log_source_references[].channel",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_mutable_elements": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_mutable_elements",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_mutable_elements[]": {
+        "kinds": [
+          "object"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_mutable_elements[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_mutable_elements[].field": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_mutable_elements[].field",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_mutable_elements[].description": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_mutable_elements[].description",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "x-mitre-data-component": {
+      "x_mitre_log_sources": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_log_sources",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_log_sources[]": {
+        "kinds": [
+          "object"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_log_sources[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_log_sources[].name": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_log_sources[].name",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_log_sources[].channel": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_log_sources[].channel",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "x-mitre-data-source": {
+      "x_mitre_platforms": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_platforms[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_collection_layers": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_collection_layers",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_collection_layers[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_collection_layers[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "x-mitre-detection-strategy": {
+      "x_mitre_analytic_refs": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_analytic_refs",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_analytic_refs[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_analytic_refs[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": true
+      }
+    },
+    "x-mitre-asset": {
+      "x_mitre_platforms": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_platforms[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_platforms[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_sectors": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_sectors",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_sectors[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_sectors[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_related_assets": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_related_assets",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_related_assets[]": {
+        "kinds": [
+          "object"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_related_assets[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_related_assets[].name": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_related_assets[].name",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_related_assets[].description": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_related_assets[].description",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_related_assets[].related_asset_sectors": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_related_assets[].related_asset_sectors",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_related_assets[].related_asset_sectors[]": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_related_assets[].related_asset_sectors[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "x-mitre-collection": {
+      "x_mitre_contents": {
+        "kinds": [
+          "array"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_contents",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_contents[]": {
+        "kinds": [
+          "object"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_contents[]",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "x_mitre_contents[].object_ref": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_contents[].object_ref",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": true
+      },
+      "x_mitre_contents[].object_modified": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.x_mitre_contents[].object_modified",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "identity": {
+      "identity_class": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.identity_class",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "marking-definition": {
+      "definition_type": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.definition_type",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "definition": {
+        "kinds": [
+          "object"
+        ],
+        "disposition": "included_natively",
+        "target": "source.definition",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "definition.statement": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.definition.statement",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      }
+    },
+    "relationship": {
+      "relationship_type": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.relationship_type",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": false
+      },
+      "source_ref": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.source_ref",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": true
+      },
+      "target_ref": {
+        "kinds": [
+          "string"
+        ],
+        "disposition": "included_natively",
+        "target": "source.target_ref",
+        "reason": "Proposed typed native source member, preserving value, order, spelling and presence. This proposal is not admitted by runtime v1.",
+        "reference": true
+      }
+    }
+  },
+  "relationship_types": [
+    "attributed-to",
+    "detects",
+    "mitigates",
+    "revoked-by",
+    "subtechnique-of",
+    "targets",
+    "uses"
+  ]
+}

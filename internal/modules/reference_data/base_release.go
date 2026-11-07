@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepacks"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packstate"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
@@ -55,7 +56,7 @@ func releaseArtifact(name string) ([]byte, error) {
 	return nil, errors.New("reference pack: application release binding absent")
 }
 func loadBuiltinRelease(ctx context.Context) (builtinRelease, []preparedVersion, error) {
-	data, err := releaseArtifact("release.v1.json")
+	data, err := releaseArtifact("release.v2.json")
 	if err != nil {
 		return builtinRelease{}, nil, err
 	}
@@ -161,6 +162,9 @@ func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage Artifac
 	defer func() { end(referenceOutcome(resultErr)) }()
 	if pool == nil || storage == nil || at.IsZero() {
 		return errors.New("reference pack: incomplete Base startup dependencies")
+	}
+	if err := contractadmission.Validate(ctx, pool); err != nil {
+		return err
 	}
 	if err := validateCoordinatorLimits(options.Limits); err != nil {
 		return err

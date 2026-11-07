@@ -66,10 +66,13 @@ func ContentSchemaFindings(ctx context.Context, m Manifest, source ContentSource
 		if err != nil {
 			return ErrStorage
 		}
-		boundedStop, scanErr := enumerateContentRows(ctx, reader, contentShapes[m.Key+"/"+kind], diagnosticPath, kind, *expected, emit)
+		boundedStop, scanErr := enumerateContentRows(ctx, reader, contentShapes[m.Key+"/"+kind], diagnosticPath, kind, *expected, profile.MaxLineBytes, emit)
 		closeErr := reader.Close()
-		if scanErr != nil || closeErr != nil {
-			return errors.Join(scanErr, closeErr)
+		if closeErr != nil {
+			return errors.Join(ErrStorage, closeErr)
+		}
+		if scanErr != nil {
+			return scanErr
 		}
 		if boundedStop {
 			break
@@ -78,8 +81,8 @@ func ContentSchemaFindings(ctx context.Context, m Manifest, source ContentSource
 	return nil
 }
 
-func enumerateContentRows(ctx context.Context, source io.Reader, shape *shape, path, kind string, expected int64, emit FindingSink) (bool, error) {
-	reader := bufio.NewReaderSize(contextReader{ctx, source}, 1048576)
+func enumerateContentRows(ctx context.Context, source io.Reader, shape *shape, path, kind string, expected int64, maxLineBytes int, emit FindingSink) (bool, error) {
+	reader := bufio.NewReaderSize(contextReader{ctx, source}, maxLineBytes)
 	count := int64(0)
 	for {
 		line, err := reader.ReadSlice('\n')
@@ -93,7 +96,7 @@ func enumerateContentRows(ctx context.Context, source io.Reader, shape *shape, p
 		if errors.Is(err, bufio.ErrBufferFull) {
 			// The full buffer has no LF: even an immediately following LF would
 			// exceed the inclusive line bound. Stop without reading that byte.
-			return true, emit(LimitFinding(rowPath, "max_line_bytes", 1048576, 1048577))
+			return true, emit(LimitFinding(rowPath, "max_line_bytes", int64(maxLineBytes), int64(maxLineBytes+1)))
 		}
 		if err != nil && !errors.Is(err, io.EOF) {
 			return false, ErrStorage

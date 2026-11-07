@@ -63,13 +63,16 @@ func loadDiagnosticVocabulary() diagnosticWords {
 		walk(value)
 	}
 	var limits map[string]any
-	if err := json.Unmarshal(projection("limits.v1.json"), &limits); err != nil {
+	if err := json.Unmarshal(projection("limits.v2.json"), &limits); err != nil {
 		panic("invalid diagnostic limit projection")
 	}
 	for _, group := range []string{"fixed", "defaults", "ranges"} {
 		for name := range limits[group].(map[string]any) {
 			v.limits[name] = true
 		}
+	}
+	for _, name := range limits["profile_scoped"].([]any) {
+		v.limits[name.(string)] = true
 	}
 	return v
 }

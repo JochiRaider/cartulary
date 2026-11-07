@@ -1,0 +1,38 @@
+{
+  "schema_id": "cartulary.attack_field_dispositions.v1",
+  "status": "producer_evidence_only",
+  "values": {
+    "included_natively": "Typed native field in the proposal, not current runtime support.",
+    "transformed": "Explicit deterministic mapping preserving source locators.",
+    "source_only": "Retained upstream evidence, unavailable in native consumer results.",
+    "excluded": "Omitted with a field-specific scope reason."
+  },
+  "input_scopes": [
+    {
+      "path": "bundle.type",
+      "disposition": "source_only",
+      "reason": "Distribution framing, not an ATT&CK entity; validated exactly bundle and retained in original bytes."
+    },
+    {
+      "path": "bundle.id",
+      "disposition": "source_only",
+      "reason": "Distribution bundle identity retained in exact original bytes; not a canonical object identity."
+    },
+    {
+      "path": "bundle.objects[]",
+      "disposition": "included_natively",
+      "reason": "Every encountered object category has a closed native source proposal and recursive property disposition."
+    },
+    {
+      "path": "LICENSE.txt",
+      "disposition": "transformed",
+      "reason": "Exact bytes proposed as declared notices/MITRE-ATTACK.txt with LicenseRef-MITRE-ATTACK binding; no text rewrite."
+    },
+    {
+      "path": "GitHub release/tag/ref metadata",
+      "disposition": "source_only",
+      "reason": "Acquisition identity witnesses retained outside runtime pack."
+    }
+  ],
+  "excluded_categories": []
+}

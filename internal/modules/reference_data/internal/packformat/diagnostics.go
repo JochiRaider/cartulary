@@ -111,7 +111,7 @@ func RunChecks(ctx context.Context, scratch DiagnosticScratch, program map[strin
 		}
 		run := program[check.ID]
 		collector := newDiagnosticCollector(ctx, check, scratch)
-		if err := run(ctx, collector.add); err != nil {
+		if err := run(ctx, collector.add); err != nil && err != errShapeLimit {
 			return nil, err
 		}
 		if err := ctx.Err(); err != nil {
@@ -143,7 +143,7 @@ func CheckSummary(ctx context.Context, id string, scratch DiagnosticScratch, run
 			return nil, err
 		}
 		collector := newDiagnosticCollector(ctx, check, scratch)
-		if err := run(ctx, collector.add); err != nil {
+		if err := run(ctx, collector.add); err != nil && err != errShapeLimit {
 			return nil, err
 		}
 		if err := ctx.Err(); err != nil {

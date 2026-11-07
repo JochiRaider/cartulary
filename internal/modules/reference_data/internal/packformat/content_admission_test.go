@@ -38,7 +38,11 @@ func testNestedContentAdmission(t *testing.T) {
 						var rows contentRows
 						err = ValidateContent(context.Background(), fixtureManifest(fixture), contentMemory(members), &rows)
 						var failure *Failure
-						if !errors.As(err, &failure) || failure.Code != "content_schema_invalid" || len(rows) != 0 {
+						expectedCode := "content_schema_invalid"
+						if fixture.Key == "framework.attack" && ((location == "/source/name" && mutation == "omitted") || (location == "/source" && mutation == "null" && strings.Contains(path, "relationships"))) {
+							expectedCode = "content_semantic_invalid"
+						}
+						if !errors.As(err, &failure) || failure.Code != expectedCode || len(rows) != 0 {
 							t.Fatalf("malformed content admitted or indexed: %v, rows=%d", err, len(rows))
 						}
 					})

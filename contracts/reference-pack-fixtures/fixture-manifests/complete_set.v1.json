@@ -9,7 +9,7 @@
   "expected_container_sha256": null,
   "expected_manifest_sha256": null,
   "expected_payload_sha256": null,
-  "expected_pack_set_sha256": "86ae1b3bd0957d3785c8caa1da184cc5e25ad051b0bbcc32924b94d6ac95e715",
+  "expected_pack_set_sha256": "c43cfc98407b4798c065c0095f9ceae2a645de4bc35810c2eb1affc3d0ae682e",
   "expected_condition": null,
   "expected_issues": [],
   "expected_public_error": null,

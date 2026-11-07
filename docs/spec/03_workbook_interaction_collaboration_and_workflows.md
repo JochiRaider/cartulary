@@ -4165,3 +4165,8 @@ invoker remains attached. When source inspection replaces a record inspector,
 dismissal focuses the active workbook surface without changing its query, selected
 record or scroll position. The source presentation does not depend on the lifetime
 of Import sessions or jobs.
+
+
+## Native Reference Pack coordinated amendment — 2026-11-06
+
+Reference Pack 0.3.0 / profile major 3 governs the clean pack-contract v2 cutover. Only current immutable v2 pack sets and `reference_pack_refs.v2` are admitted; incident-bundle outer version remains 7. Incompatible retained pack state and dependent inputs fail before mutation or readiness. No reset, historical rewrite or compatibility reader is authorized. Required Base registry content is retained under new release-bound manifest identities. Activation remains deployment-scoped and reference-only, with no automatic incident mutation. Current authorization, offline TUF thresholds and trusted wall-clock admission remain unchanged.

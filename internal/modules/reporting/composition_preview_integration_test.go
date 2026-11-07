@@ -2,10 +2,15 @@ package reporting_test
 
 import (
 	"encoding/json"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
+	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
@@ -22,10 +27,19 @@ import (
 func TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	assetPack, templates := declaredTemplateImageRegistry(t)
+	keys, err := producer.NewFixtureSigningContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := referencetest.AuthenticATTACKFixture(t, "../../..", "20.1", time.Now().UTC(), keys, 3)
+	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
+	if err = os.WriteFile(bootstrap, fixture.Bootstrap, 0600); err != nil {
+		t.Fatal(err)
+	}
 	var manager *jobs.Manager
 	var transactions *jobs.TransactionService
 	var runner *jobs.Runner
-	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension-profile-reporting-composition-preview", TestRouteMode: httptestx.TestRouteModeDisabled, ConfigureRuntime: func(options *server.Options) {
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "extension-profile-reporting-composition-preview", Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}, TestRouteMode: httptestx.TestRouteModeDisabled, ConfigureRuntime: func(options *server.Options) {
 		options.ReportingTemplatePacks = templates
 		observeJobs := options.ObserveJobs
 		options.ObserveJobs = func(m *jobs.Manager, txs *jobs.TransactionService, r *jobs.Runner, pool *pgxpool.Pool) {
@@ -36,6 +50,8 @@ func TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integrati
 		}
 	}})
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+	referencetest.ImportAuthenticATTACK(t, harness.Server, adminLogin, fixture, "preview-native-attack-import")
+	httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+fixture.Key+"/"+fixture.Version+"/activate", map[string]any{"client_txn_id": "preview-native-attack-activate"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusOK)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-preview-incident",
 		"incident_key":  "IR-PREVIEW-01",
@@ -66,6 +82,9 @@ SELECT record_id::text FROM party
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
+	if requireSnapshotExportModel(t, harness.DB, snapshotID)["reference_packs"].(map[string]any)["pack_set_id"] != "rpset_"+fixture.SetSHA256 {
+		t.Fatal("preview authentic reference binding")
+	}
 
 	composition := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t, http.DefaultClient,

@@ -39,9 +39,9 @@ func RecoveryStateContribution() recoverystate.Contribution {
 		),
 		recoverystate.AuthoritativeObjectFamily(
 			"reference_packs.members",
-			"reference_data.snapshot_member_inventory.v2",
-			"reference_data.validate_member_inventory.v2",
-			"reference_data.restore_member_inventory.v2",
+			"reference_data.snapshot_member_inventory.v3",
+			"reference_data.validate_member_inventory.v3",
+			"reference_data.restore_member_inventory.v3",
 		),
 	)
 }

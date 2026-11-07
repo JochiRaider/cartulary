@@ -1,0 +1,510 @@
+{
+  "schema_id": "cartulary.attack_native_cases.v1",
+  "purpose": "Synthetic schema-shape witnesses only, never a positive MITRE reference pack or an upstream SRO assertion. Relationship digests here are shape-only; no runtime verifier is invoked.",
+  "cases": [
+    {
+      "name": "native_optional_ids_original_urls_and_independent_flags",
+      "schema_file": "native-source.candidate.v1.schema.json",
+      "value": {
+        "type": "x-mitre-analytic",
+        "id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "name": "Native citation and lifecycle witness",
+        "revoked": true,
+        "x_mitre_deprecated": false,
+        "external_references": [
+          {
+            "source_name": "mitre-attack",
+            "external_id": "AN1789",
+            "url": "https://attack.mitre.org/detectionstrategies/DET0682#AN1789"
+          },
+          {
+            "source_name": "procedure citation",
+            "url": "http://example.invalid/original#citation"
+          }
+        ],
+        "x_mitre_log_source_references": [
+          {
+            "x_mitre_data_component_ref": "x-mitre-data-component--22222222-2222-4222-8222-222222222222",
+            "name": "source",
+            "channel": "channel"
+          }
+        ],
+        "x_mitre_mutable_elements": [
+          {
+            "field": "Threshold",
+            "description": "exact text"
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "name": "closed_citation",
+      "schema_file": "native-source.candidate.v1.schema.json",
+      "value": {
+        "type": "x-mitre-analytic",
+        "id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "name": "Native citation and lifecycle witness",
+        "revoked": true,
+        "x_mitre_deprecated": false,
+        "external_references": [
+          {
+            "source_name": "mitre-attack",
+            "external_id": "AN1789",
+            "url": "https://attack.mitre.org/detectionstrategies/DET0682#AN1789",
+            "unexpected": true
+          },
+          {
+            "source_name": "procedure citation",
+            "url": "http://example.invalid/original#citation"
+          }
+        ],
+        "x_mitre_log_source_references": [
+          {
+            "x_mitre_data_component_ref": "x-mitre-data-component--22222222-2222-4222-8222-222222222222",
+            "name": "source",
+            "channel": "channel"
+          }
+        ],
+        "x_mitre_mutable_elements": [
+          {
+            "field": "Threshold",
+            "description": "exact text"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "lifecycle_boolean",
+      "schema_file": "native-source.candidate.v1.schema.json",
+      "value": {
+        "type": "x-mitre-analytic",
+        "id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "name": "Native citation and lifecycle witness",
+        "revoked": "false",
+        "x_mitre_deprecated": false,
+        "external_references": [
+          {
+            "source_name": "mitre-attack",
+            "external_id": "AN1789",
+            "url": "https://attack.mitre.org/detectionstrategies/DET0682#AN1789"
+          },
+          {
+            "source_name": "procedure citation",
+            "url": "http://example.invalid/original#citation"
+          }
+        ],
+        "x_mitre_log_source_references": [
+          {
+            "x_mitre_data_component_ref": "x-mitre-data-component--22222222-2222-4222-8222-222222222222",
+            "name": "source",
+            "channel": "channel"
+          }
+        ],
+        "x_mitre_mutable_elements": [
+          {
+            "field": "Threshold",
+            "description": "exact text"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "typed_component_reference",
+      "schema_file": "native-source.candidate.v1.schema.json",
+      "value": {
+        "type": "x-mitre-analytic",
+        "id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "name": "Native citation and lifecycle witness",
+        "revoked": true,
+        "x_mitre_deprecated": false,
+        "external_references": [
+          {
+            "source_name": "mitre-attack",
+            "external_id": "AN1789",
+            "url": "https://attack.mitre.org/detectionstrategies/DET0682#AN1789"
+          },
+          {
+            "source_name": "procedure citation",
+            "url": "http://example.invalid/original#citation"
+          }
+        ],
+        "x_mitre_log_source_references": [
+          {
+            "x_mitre_data_component_ref": 42,
+            "name": "source",
+            "channel": "channel"
+          }
+        ],
+        "x_mitre_mutable_elements": [
+          {
+            "field": "Threshold",
+            "description": "exact text"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "object_native_and_canonical_projection",
+      "schema_file": "object.candidate.v1.schema.json",
+      "value": {
+        "schema_id": "cartulary.attack.native.object.candidate.v1",
+        "object_id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "object_type": "x-mitre-analytic",
+        "display_label": "Native citation and lifecycle witness",
+        "description": null,
+        "aliases": [],
+        "deprecated": true,
+        "replacement_object_id": null,
+        "external_refs": [
+          {
+            "source_name": "mitre-attack",
+            "external_id": "AN1789",
+            "url": null
+          }
+        ],
+        "source_refs": [
+          {
+            "artifact_index": 0,
+            "locator": "/objects/1"
+          }
+        ],
+        "extensions": {},
+        "source_domains": [
+          "enterprise-attack"
+        ],
+        "source": {
+          "type": "x-mitre-analytic",
+          "id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+          "name": "Native citation and lifecycle witness",
+          "revoked": true,
+          "x_mitre_deprecated": false,
+          "external_references": [
+            {
+              "source_name": "mitre-attack",
+              "external_id": "AN1789",
+              "url": "https://attack.mitre.org/detectionstrategies/DET0682#AN1789"
+            },
+            {
+              "source_name": "procedure citation",
+              "url": "http://example.invalid/original#citation"
+            }
+          ],
+          "x_mitre_log_source_references": [
+            {
+              "x_mitre_data_component_ref": "x-mitre-data-component--22222222-2222-4222-8222-222222222222",
+              "name": "source",
+              "channel": "channel"
+            }
+          ],
+          "x_mitre_mutable_elements": [
+            {
+              "field": "Threshold",
+              "description": "exact text"
+            }
+          ]
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "native_source_required",
+      "schema_file": "object.candidate.v1.schema.json",
+      "value": {
+        "schema_id": "cartulary.attack.native.object.candidate.v1",
+        "object_id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "object_type": "x-mitre-analytic",
+        "display_label": "Native citation and lifecycle witness",
+        "description": null,
+        "aliases": [],
+        "deprecated": true,
+        "replacement_object_id": null,
+        "external_refs": [
+          {
+            "source_name": "mitre-attack",
+            "external_id": "AN1789",
+            "url": null
+          }
+        ],
+        "source_refs": [
+          {
+            "artifact_index": 0,
+            "locator": "/objects/1"
+          }
+        ],
+        "extensions": {},
+        "source_domains": [
+          "enterprise-attack"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "extensions_closed",
+      "schema_file": "object.candidate.v1.schema.json",
+      "value": {
+        "schema_id": "cartulary.attack.native.object.candidate.v1",
+        "object_id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "object_type": "x-mitre-analytic",
+        "display_label": "Native citation and lifecycle witness",
+        "description": null,
+        "aliases": [],
+        "deprecated": true,
+        "replacement_object_id": null,
+        "external_refs": [
+          {
+            "source_name": "mitre-attack",
+            "external_id": "AN1789",
+            "url": null
+          }
+        ],
+        "source_refs": [
+          {
+            "artifact_index": 0,
+            "locator": "/objects/1"
+          }
+        ],
+        "extensions": {
+          "opaque": {}
+        },
+        "source_domains": [
+          "enterprise-attack"
+        ],
+        "source": {
+          "type": "x-mitre-analytic",
+          "id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+          "name": "Native citation and lifecycle witness",
+          "revoked": true,
+          "x_mitre_deprecated": false,
+          "external_references": [
+            {
+              "source_name": "mitre-attack",
+              "external_id": "AN1789",
+              "url": "https://attack.mitre.org/detectionstrategies/DET0682#AN1789"
+            },
+            {
+              "source_name": "procedure citation",
+              "url": "http://example.invalid/original#citation"
+            }
+          ],
+          "x_mitre_log_source_references": [
+            {
+              "x_mitre_data_component_ref": "x-mitre-data-component--22222222-2222-4222-8222-222222222222",
+              "name": "source",
+              "channel": "channel"
+            }
+          ],
+          "x_mitre_mutable_elements": [
+            {
+              "field": "Threshold",
+              "description": "exact text"
+            }
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "sro_citations_and_upstream_identity",
+      "schema_file": "relationship.candidate.v1.schema.json",
+      "value": {
+        "schema_id": "cartulary.attack.native.relationship.candidate.v1",
+        "relationship_id": "rpr_1111111111111111111111111111111111111111111111111111111111111111",
+        "relationship_type": "uses",
+        "source_object_id": "malware--33333333-3333-4333-8333-333333333333",
+        "target_object_id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "description": "Original procedure citation preserved natively.",
+        "source_refs": [
+          {
+            "artifact_index": 0,
+            "locator": "/objects/9"
+          }
+        ],
+        "extensions": {},
+        "source_kind": "stix_sro",
+        "source": {
+          "type": "relationship",
+          "id": "relationship--44444444-4444-4444-8444-444444444444",
+          "relationship_type": "uses",
+          "source_ref": "malware--33333333-3333-4333-8333-333333333333",
+          "target_ref": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+          "external_references": [
+            {
+              "source_name": "Procedure citation",
+              "url": "http://example.invalid/#citation"
+            }
+          ]
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "sro_original_required",
+      "schema_file": "relationship.candidate.v1.schema.json",
+      "value": {
+        "schema_id": "cartulary.attack.native.relationship.candidate.v1",
+        "relationship_id": "rpr_1111111111111111111111111111111111111111111111111111111111111111",
+        "relationship_type": "uses",
+        "source_object_id": "malware--33333333-3333-4333-8333-333333333333",
+        "target_object_id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "description": "Original procedure citation preserved natively.",
+        "source_refs": [
+          {
+            "artifact_index": 0,
+            "locator": "/objects/9"
+          }
+        ],
+        "extensions": {},
+        "source_kind": "stix_sro",
+        "source": null
+      },
+      "valid": false
+    },
+    {
+      "name": "embedded_has_no_fabricated_sro",
+      "schema_file": "relationship.candidate.v1.schema.json",
+      "value": {
+        "schema_id": "cartulary.attack.native.relationship.candidate.v1",
+        "relationship_id": "rpr_1111111111111111111111111111111111111111111111111111111111111111",
+        "relationship_type": "uses",
+        "source_object_id": "malware--33333333-3333-4333-8333-333333333333",
+        "target_object_id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "description": "Original procedure citation preserved natively.",
+        "source_refs": [
+          {
+            "artifact_index": 0,
+            "locator": "/objects/9"
+          }
+        ],
+        "extensions": {},
+        "source_kind": "embedded_reference",
+        "source": null
+      },
+      "valid": true
+    },
+    {
+      "name": "embedded_cannot_claim_sro",
+      "schema_file": "relationship.candidate.v1.schema.json",
+      "value": {
+        "schema_id": "cartulary.attack.native.relationship.candidate.v1",
+        "relationship_id": "rpr_1111111111111111111111111111111111111111111111111111111111111111",
+        "relationship_type": "uses",
+        "source_object_id": "malware--33333333-3333-4333-8333-333333333333",
+        "target_object_id": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+        "description": "Original procedure citation preserved natively.",
+        "source_refs": [
+          {
+            "artifact_index": 0,
+            "locator": "/objects/9"
+          }
+        ],
+        "extensions": {},
+        "source_kind": "embedded_reference",
+        "source": {
+          "type": "relationship",
+          "id": "relationship--44444444-4444-4444-8444-444444444444",
+          "relationship_type": "uses",
+          "source_ref": "malware--33333333-3333-4333-8333-333333333333",
+          "target_ref": "x-mitre-analytic--11111111-1111-4111-8111-111111111111",
+          "external_references": [
+            {
+              "source_name": "Procedure citation",
+              "url": "http://example.invalid/#citation"
+            }
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "name": "retained_acquisition_inventory_shape",
+      "schema_file": "acquisition.v1.schema.json",
+      "value": {
+        "release_metadata": {
+          "path": "metadata/release-44f246e021566c4de7557dbcd5a9737a5af0f44e82321bf050240fa4be08d5d1.json",
+          "sha256": "44f246e021566c4de7557dbcd5a9737a5af0f44e82321bf050240fa4be08d5d1",
+          "size_bytes": 7047
+        },
+        "schema_id": "cartulary.attack_acquisition.v1",
+        "source_lock_sha256": "171183b6b4c7e2f8fb0b4e2c08cc0f36d411602c13746fe755f052110c3ddeaa",
+        "sources": [
+          {
+            "path": "sources/738144f7fb054722a4ef9d3367c51710341dc12fc574c6ac3a41daaaecd8bf5e/LICENSE.txt",
+            "sha256": "738144f7fb054722a4ef9d3367c51710341dc12fc574c6ac3a41daaaecd8bf5e",
+            "size_bytes": 1354
+          },
+          {
+            "path": "sources/539a843a7b53ed9749740b2123dddae3726b1a4831841c32aca740b011b910b5/enterprise-attack.json",
+            "sha256": "539a843a7b53ed9749740b2123dddae3726b1a4831841c32aca740b011b910b5",
+            "size_bytes": 55277605
+          },
+          {
+            "path": "sources/3f6448369f9135ade84ff6437479441530d0b262f910dca991879a7146b524ff/ics-attack.json",
+            "sha256": "3f6448369f9135ade84ff6437479441530d0b262f910dca991879a7146b524ff",
+            "size_bytes": 5291092
+          },
+          {
+            "path": "sources/632e2ec40848394f9873a7a3485fc32f92b861a4e7271f7e88e0cb02f11bb6af/mobile-attack.json",
+            "sha256": "632e2ec40848394f9873a7a3485fc32f92b861a4e7271f7e88e0cb02f11bb6af",
+            "size_bytes": 6144331
+          }
+        ],
+        "tag_metadata": {
+          "path": "metadata/tag-6cccb53be257e9502a5306b66c246b4d454f4a0346eee7912f1e45ca5e8802f8.json",
+          "sha256": "6cccb53be257e9502a5306b66c246b4d454f4a0346eee7912f1e45ca5e8802f8",
+          "size_bytes": 712
+        },
+        "tag_reference": {
+          "path": "metadata/tag-ref-6a5f969026c1749173bb0b01942b761035bd907a1b327bebb1ffed271f594a0d.json",
+          "sha256": "6a5f969026c1749173bb0b01942b761035bd907a1b327bebb1ffed271f594a0d",
+          "size_bytes": 359
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "acquisition_requires_tag_reference",
+      "schema_file": "acquisition.v1.schema.json",
+      "value": {
+        "release_metadata": {
+          "path": "metadata/release-44f246e021566c4de7557dbcd5a9737a5af0f44e82321bf050240fa4be08d5d1.json",
+          "sha256": "44f246e021566c4de7557dbcd5a9737a5af0f44e82321bf050240fa4be08d5d1",
+          "size_bytes": 7047
+        },
+        "schema_id": "cartulary.attack_acquisition.v1",
+        "source_lock_sha256": "171183b6b4c7e2f8fb0b4e2c08cc0f36d411602c13746fe755f052110c3ddeaa",
+        "sources": [
+          {
+            "path": "sources/738144f7fb054722a4ef9d3367c51710341dc12fc574c6ac3a41daaaecd8bf5e/LICENSE.txt",
+            "sha256": "738144f7fb054722a4ef9d3367c51710341dc12fc574c6ac3a41daaaecd8bf5e",
+            "size_bytes": 1354
+          },
+          {
+            "path": "sources/539a843a7b53ed9749740b2123dddae3726b1a4831841c32aca740b011b910b5/enterprise-attack.json",
+            "sha256": "539a843a7b53ed9749740b2123dddae3726b1a4831841c32aca740b011b910b5",
+            "size_bytes": 55277605
+          },
+          {
+            "path": "sources/3f6448369f9135ade84ff6437479441530d0b262f910dca991879a7146b524ff/ics-attack.json",
+            "sha256": "3f6448369f9135ade84ff6437479441530d0b262f910dca991879a7146b524ff",
+            "size_bytes": 5291092
+          },
+          {
+            "path": "sources/632e2ec40848394f9873a7a3485fc32f92b861a4e7271f7e88e0cb02f11bb6af/mobile-attack.json",
+            "sha256": "632e2ec40848394f9873a7a3485fc32f92b861a4e7271f7e88e0cb02f11bb6af",
+            "size_bytes": 6144331
+          }
+        ],
+        "tag_metadata": {
+          "path": "metadata/tag-6cccb53be257e9502a5306b66c246b4d454f4a0346eee7912f1e45ca5e8802f8.json",
+          "sha256": "6cccb53be257e9502a5306b66c246b4d454f4a0346eee7912f1e45ca5e8802f8",
+          "size_bytes": 712
+        }
+      },
+      "valid": false
+    }
+  ]
+}

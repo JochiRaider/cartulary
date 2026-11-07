@@ -152,7 +152,7 @@ func TestContentSchemasRejectOmissionNullAndUnknownMembers_Unit(t *testing.T) {
 					t.Fatalf("%s accepts omission of %s", f.Key, name)
 				}
 				m[name] = nil
-				nullable := slices.Contains([]string{"description", "replacement_entry_id", "replacement_object_id", "stix_mapping", "first_observed_at", "last_observed_at", "notes", "event_version", "level", "task", "opcode", "publisher"}, name)
+				nullable := slices.Contains([]string{"description", "replacement_entry_id", "replacement_object_id", "stix_mapping", "first_observed_at", "last_observed_at", "notes", "event_version", "level", "task", "opcode", "publisher", "source"}, name)
 				if !nullable && shape.matches(m) {
 					t.Fatalf("%s accepts null %s", f.Key, name)
 				}

@@ -64,7 +64,10 @@ case "clean": return "cartulary.harness.command.clean.v2"
 case "distclean": return "cartulary.harness.command.distclean.v2"
 case "test-run-recover": return "cartulary.harness.command.test_run_recover.v2"
 case "release-evidence-verify": return "cartulary.harness.command.release_evidence_verify.v1"
-case "test-run-recovery-status": return "cartulary.harness.command.test_run_recovery_status.v1" }; return "" }
+case "test-run-recovery-status": return "cartulary.harness.command.test_run_recovery_status.v1"
+case "reference-pack-producer-build": return "cartulary.harness.command.reference_pack_producer_build.v1"
+case "reference-pack-source": return "cartulary.harness.command.reference_pack_source.v1"
+case "reference-pack-package": return "cartulary.harness.command.reference_pack_package.v1" }; return "" }
 const maximumPhasesPerUnit = 128
 var failureClasses = []string{"product","security","config","infra","harness","artifact","timing","interrupted","unknown"}
 var failureReasons = []string{"usage_error","configuration_error","preflight_error","service_start_error","service_readiness_timeout","fixture_error","resource_conflict","test_assertion_failure","security_finding","child_target_failure","tool_diagnostic_failure","scheduler_accounting_error","test_accounting_unmapped","artifact_error","cleanup_error","duration_baseline_drift","timeout_failure","cancelled_or_interrupted","unknown_failure"}

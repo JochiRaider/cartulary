@@ -11,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -60,7 +61,13 @@ func (e referencePackExecutor) runCommand(ctx context.Context, args []string) in
 		}
 		port, close, err := e.open(ctx, loaded)
 		if err != nil {
-			fail("internal_error")
+			if contractadmission.IsIncompatible(err) {
+				fail("reference_pack_operation_rejected")
+				reason := "contract_incompatible"
+				result.ReasonCode = &reason
+			} else {
+				fail("internal_error")
+			}
 			break
 		}
 		result = port.importAndObserve(ctx, id, args[2])
@@ -115,6 +122,16 @@ func openReferencePackLocalRuntime(ctx context.Context, loaded configassembly.Lo
 	if err := database_migrations.RequireApplicationCryptoFormat(ctx, pool.Pool()); err != nil {
 		return nil, nil, err
 	}
+	if err := referenceassembly.ValidateRetainedRuntimeState(ctx, pool.Pool()); err != nil {
+		return nil, nil, err
+	}
+	source, err := dbmigrations.Source()
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := database_migrations.EnsureSchemaReady(ctx, pool.Pool(), source); err != nil {
+		return nil, nil, err
+	}
 	operationCtx, cancel := context.WithCancel(ctx)
 	cleanups = append(cleanups, cancel)
 	lease, err := processlease.AcquireApplicationRecoveryServing(operationCtx, pool.Pool(), time.Duration(cfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds)*time.Second, time.Duration(cfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second)
@@ -136,13 +153,7 @@ func openReferencePackLocalRuntime(ctx context.Context, loaded configassembly.Lo
 			}
 		}
 	}()
-	source, err := dbmigrations.Source()
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := database_migrations.EnsureSchemaReady(operationCtx, pool.Pool(), source); err != nil {
-		return nil, nil, err
-	}
+
 	storage, err := referenceassembly.NewRootStorage(cfg.Roots.TemporaryWork.Path, cfg.Roots.ReferencePackStorage.Path)
 	if err != nil {
 		return nil, nil, err

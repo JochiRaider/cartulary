@@ -141,7 +141,7 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 			Members map[string]string `json:"members"`
 		} `json:"packs"`
 	}
-	b, err := os.ReadFile("../../../contracts/reference-packs/builtins/release.v1.json")
+	b, err := os.ReadFile("../../../contracts/reference-packs/builtins/release.v2.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,6 +207,10 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 	manifest["source_as_of"] = integrationSigningDay.Format(time.RFC3339)
 	manifest["built_at"] = integrationSigningDay.Format(time.RFC3339)
 	manifest["content_profile_id"] = "cartulary.reference_pack." + options.PackKey + ".v1"
+	if options.PackKey == "framework.attack" {
+		manifest["content_profile_id"] = "cartulary.reference_pack.framework.attack.v2"
+		manifest["content_profile_version"] = "2"
+	}
 	if options.ContractVersion != "" {
 		manifest["pack_contract_version"] = options.ContractVersion
 	}
@@ -375,7 +379,11 @@ func postReferencePackUpload(t testing.TB, baseURL string, login authcookietest.
 
 func requireJob(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	return requireJobWithin(t, harness, login, jobID, 5*time.Second)
+}
+func requireJobWithin(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, jobID string, budget time.Duration) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(budget)
 	var job map[string]any
 	for {
 		job = requireJobNow(t, harness, login, jobID)

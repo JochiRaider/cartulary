@@ -284,6 +284,12 @@
       "filename": "00047_import_projection_rows.sql",
       "sha256": "f1b1317328dca9772f0cd9f00d5ede9e66e6d67bdee2ff18c22c601abea8e22f",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 48,
+      "filename": "00048_reference_pack_native_index_bound.sql",
+      "sha256": "0738348779b34f516f5530bdbbd26585dc78dd0f2aca67f2c1e0eebe690ce8a5",
+      "historical_phase_shaped": false
     }
   ]
 }

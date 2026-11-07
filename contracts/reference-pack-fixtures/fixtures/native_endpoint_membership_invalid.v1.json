@@ -1,0 +1,10 @@
+{
+  "schema_id": "cartulary.attack_native_fixture.v1",
+  "pack_key": "framework.attack",
+  "manifest": "fixtures/reference-packs/attack-native-v2/endpoint-types/native_endpoint_membership_invalid/manifest.json",
+  "members": {
+    "notices/MITRE-ATTACK.txt": "fixtures/reference-packs/attack-native-v2/endpoint-types/native_endpoint_membership_invalid/notices/MITRE-ATTACK.txt",
+    "payload/objects.ndjson": "fixtures/reference-packs/attack-native-v2/endpoint-types/native_endpoint_membership_invalid/payload/objects.ndjson",
+    "payload/relationships.ndjson": "fixtures/reference-packs/attack-native-v2/endpoint-types/native_endpoint_membership_invalid/payload/relationships.ndjson"
+  }
+}

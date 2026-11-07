@@ -1,17 +1,17 @@
 {
-  "schema_id": "reference_pack_refs.v1",
+  "schema_id": "reference_pack_refs.v2",
   "sets": [
     {
-      "schema_id": "cartulary.reference_pack_set.v1",
-      "pack_set_id": "rpset_fb5b01906ae6f2b39c4ad67d942848371331d0ee93e62cbef9cfb8f38375bc98",
-      "pack_set_sha256": "fb5b01906ae6f2b39c4ad67d942848371331d0ee93e62cbef9cfb8f38375bc98",
+      "schema_id": "cartulary.reference_pack_set.v2",
+      "pack_set_id": "rpset_c936674fa61126953193cb8d72e8d93ce597f614d050a92cdd59fdc50d68342d",
+      "pack_set_sha256": "c936674fa61126953193cb8d72e8d93ce597f614d050a92cdd59fdc50d68342d",
       "members": [
         {
           "pack_key": "type_registry.evidence",
           "pack_version": "fixture-1",
           "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "pack_contract_version": "cartulary.reference_pack_contract.v1",
+          "pack_contract_version": "cartulary.reference_pack_contract.v2",
           "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
           "content_profile_version": "1"
         },
@@ -20,7 +20,7 @@
           "pack_version": "fixture-1",
           "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "pack_contract_version": "cartulary.reference_pack_contract.v1",
+          "pack_contract_version": "cartulary.reference_pack_contract.v2",
           "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
           "content_profile_version": "1"
         },
@@ -29,7 +29,7 @@
           "pack_version": "fixture-1",
           "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "pack_contract_version": "cartulary.reference_pack_contract.v1",
+          "pack_contract_version": "cartulary.reference_pack_contract.v2",
           "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
           "content_profile_version": "1"
         }
@@ -42,7 +42,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "pack_contract_version": "cartulary.reference_pack_contract.v2",
       "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
       "content_profile_version": "1",
       "distribution_kind": "operator_imported",
@@ -55,7 +55,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "pack_contract_version": "cartulary.reference_pack_contract.v2",
       "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
       "content_profile_version": "1",
       "distribution_kind": "operator_imported",
@@ -68,7 +68,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v1",
+      "pack_contract_version": "cartulary.reference_pack_contract.v2",
       "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
       "content_profile_version": "1",
       "distribution_kind": "operator_imported",

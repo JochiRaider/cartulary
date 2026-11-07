@@ -18,7 +18,7 @@
       "phase": "content_schema",
       "code": "content_schema_invalid",
       "path": "$.objects[0].source_refs",
-      "entry_id": "fixture:1",
+      "entry_id": "tool--00000000-0000-4000-8000-000000000001",
       "safe_details": {
         "limit_id": null,
         "expected_token": "required",
@@ -26,7 +26,7 @@
         "related_pack_key": null,
         "related_pack_version": null
       },
-      "issue_id": "rpi_6f730b72b8646992d18bf8f2ea621941b70b5b7f5c0a686fedc52cda111c26ff",
+      "issue_id": "rpi_f6a45289fc522303e5ad2ac48ccd24fc74c91162374ec81d894c0f7406d03901",
       "reason_code": "content_schema_invalid"
     }
   ],

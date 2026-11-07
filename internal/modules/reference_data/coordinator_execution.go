@@ -14,7 +14,9 @@ import (
 
 // Execute is the only Reference Pack Jobs handler. Jobs owns queueing and the
 // execution lease; this coordinator owns frozen inputs, verification, semantic
-// publication and the terminal receipt transaction.
+// publication and the terminal receipt transaction. Application assembly admits
+// retained state before starting workers; execution validates only this
+// operation's frozen inputs and selected cohort, within its verification budget.
 func (c *Coordinator) Execute(ctx context.Context, execution jobs.Execution) (resultErr error) {
 	monotonicStart := time.Now()
 	start := c.now().UTC()

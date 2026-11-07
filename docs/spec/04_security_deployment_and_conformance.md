@@ -5363,3 +5363,10 @@ schema below 39 fails read-only admission with `schema_fresh_state_required`
 before any successor DDL or migration-ledger mutation. Provision an explicitly
 new target; keep the prior executable and its data together for historical
 access. Neither application startup nor test setup resets a live target.
+
+
+## Native Reference Pack coordinated amendment — 2026-11-06
+
+Reference Pack 0.3.0 / profile major 3 governs the clean pack-contract v2 cutover. Only current immutable v2 pack sets and `reference_pack_refs.v2` are admitted; incident-bundle outer version remains 7. Incompatible retained pack state and dependent inputs fail before mutation or readiness. No reset, historical rewrite or compatibility reader is authorized. Required Base registry content is retained under new release-bound manifest identities. Activation remains deployment-scoped and reference-only, with no automatic incident mutation. Current authorization, offline TUF thresholds and trusted wall-clock admission remain unchanged.
+
+Recovery current generation `recovery.reference_pack_native.v3` binds the v2 Reference Data state catalog through the owner’s v3 member inventory, validation, and restore algorithms. A predecessor catalog digest is rejected during immutable transfer preflight, before restore-target mutation. The unchanged outer Recovery codecs do not authorize predecessor Reference Pack state.

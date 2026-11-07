@@ -1,0 +1,7 @@
+{
+  "pack_key": "enrichment.ms_portals",
+  "members": {
+    "payload/entries.ndjson": "{\"aliases\":[],\"audiences\":[],\"clouds\":[],\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"example\",\"extensions\":{},\"portal_urls\":[\"https://example.invalid/\"],\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.ms_portals.entry.v1\",\"service_id\":\"example\",\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]}\n"
+  },
+  "schema_id": "cartulary.reference_pack_content_fixture.v1"
+}

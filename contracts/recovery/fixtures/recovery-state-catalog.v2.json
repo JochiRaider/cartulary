@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.recovery_state_catalog.v2",
-  "catalog_digest_sha256": "b2b352c3fb2105c7371ae6d03f62572408fd7814fddd7203e5a3f00d25530be1",
+  "catalog_digest_sha256": "c159793413093c4265ff087208a076affc6d80f4acfd920f2fc52c357a6e08ef",
   "contribution_digests": [
     {
       "owner_id": "module.artifacts",
@@ -92,7 +92,7 @@
     },
     {
       "owner_id": "module.reference_data",
-      "sha256": "4bff9ee66d4bcb45959acc99e204feca0de69ad4787fc382131eccad0eac9968"
+      "sha256": "8f835e213efd4d4bbb8f94447040715360f0319be63d2b18be7c24090c4e4e9d"
     },
     {
       "owner_id": "module.reportcomposition",
@@ -1649,9 +1649,9 @@
       "state_class": "authoritative",
       "backup_inclusion": "authoritative_required",
       "restore_action": "restore",
-      "inventory_algorithm_id": "reference_data.snapshot_member_inventory.v2",
-      "validation_algorithm_id": "reference_data.validate_member_inventory.v2",
-      "restore_algorithm_id": "reference_data.restore_member_inventory.v2"
+      "inventory_algorithm_id": "reference_data.snapshot_member_inventory.v3",
+      "validation_algorithm_id": "reference_data.validate_member_inventory.v3",
+      "restore_algorithm_id": "reference_data.restore_member_inventory.v3"
     },
     {
       "owner_id": "module.reporting",

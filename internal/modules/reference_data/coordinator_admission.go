@@ -19,6 +19,7 @@ import (
 // admission and execution need not allocate in proportion to retained versions.
 type frozenOperation struct {
 	SchemaID            string    `json:"schema_id"`
+	Contract            string    `json:"pack_contract_version"`
 	Kind                string    `json:"kind"`
 	AdmittedAt          time.Time `json:"admitted_at"`
 	PackSetID           *string   `json:"pack_set_id"`
@@ -123,7 +124,7 @@ type operationAdmission struct {
 // Jobs admission and its idempotency receipt. Locks are short and acquired in
 // repository/key/current-set/usage order; no verification runs under them.
 func admitOperationTx(ctx context.Context, tx pgx.Tx, a operationAdmission) (frozenOperation, error) {
-	frozen := frozenOperation{SchemaID: "cartulary.reference_pack_operation_input.v2", Kind: a.Kind, AdmittedAt: a.At.UTC(), ClockTrusted: a.ClockTrusted, TimeoutSeconds: a.TimeoutSeconds, ContainerSHA256: a.ContainerSHA, ContainerBytes: a.ContainerBytes}
+	frozen := frozenOperation{Contract: packformat.ContractID, SchemaID: "cartulary.reference_pack_operation_input.v3", Kind: a.Kind, AdmittedAt: a.At.UTC(), ClockTrusted: a.ClockTrusted, TimeoutSeconds: a.TimeoutSeconds, ContainerSHA256: a.ContainerSHA, ContainerBytes: a.ContainerBytes}
 	if a.ID == uuid.Nil || a.At.IsZero() || a.TimeoutSeconds < 60 || a.TimeoutSeconds > 86400 {
 		return frozen, errors.New("reference pack: invalid operation admission")
 	}
@@ -329,10 +330,10 @@ func decodeFrozenOperation(data []byte) (frozenOperation, error) {
 		return value, errors.New("reference pack: invalid retained operation input")
 	}
 	object, ok := decoded.(map[string]any)
-	if !ok || len(object) != 11 {
+	if !ok || len(object) != 12 {
 		return value, errors.New("reference pack: invalid retained operation input")
 	}
-	for _, name := range []string{"schema_id", "kind", "admitted_at", "set_revision", "configuration_sha256", "clock_trusted", "timeout_seconds"} {
+	for _, name := range []string{"schema_id", "pack_contract_version", "kind", "admitted_at", "set_revision", "configuration_sha256", "clock_trusted", "timeout_seconds"} {
 		if object[name] == nil {
 			return value, errors.New("reference pack: incomplete retained operation input")
 		}
@@ -349,7 +350,7 @@ func decodeFrozenOperation(data []byte) (frozenOperation, error) {
 	if err := json.Unmarshal(data, &value); err != nil {
 		return value, err
 	}
-	if value.SchemaID != "cartulary.reference_pack_operation_input.v2" || value.AdmittedAt.IsZero() || value.TimeoutSeconds < 60 || value.TimeoutSeconds > 86400 || !slices.Contains([]string{"import", "reverify", "refresh", "activate", "disable", "remove", "integrity"}, value.Kind) || (value.PackSetID == nil && value.Kind != "integrity" || value.PackSetID != nil && !setIDPattern.MatchString(*value.PackSetID)) || value.SetRevision < 1 || !isLowerSHA256(value.ConfigurationSHA256) {
+	if value.Contract != packformat.ContractID || value.SchemaID != "cartulary.reference_pack_operation_input.v3" || value.AdmittedAt.IsZero() || value.TimeoutSeconds < 60 || value.TimeoutSeconds > 86400 || !slices.Contains([]string{"import", "reverify", "refresh", "activate", "disable", "remove", "integrity"}, value.Kind) || (value.PackSetID == nil && value.Kind != "integrity" || value.PackSetID != nil && !setIDPattern.MatchString(*value.PackSetID)) || value.SetRevision < 1 || !isLowerSHA256(value.ConfigurationSHA256) {
 		return value, errors.New("reference pack: retired or invalid operation input")
 	}
 	if value.Kind == "import" {

@@ -5082,3 +5082,8 @@ state and exact selected Graph reconstruction in the shared final transaction.
 Execution from retained Reporting inputs remains independent of current graph
 refresh intent, source jobs, live credentials and deployment-local correlation
 keys. Recovery continues to use its own authoritative inventory and lifecycle.
+
+
+## Native Reference Pack binding amendment — 2026-11-06
+
+The adopted Reference Pack 0.3.0 / major 3 cutover binds current immutable pack sets under pack-contract v2. Existing snapshot binding shapes retain exact set IDs, digests and first-success provenance. Incompatible retained inputs fail before mutation or readiness and are never rebound to current state. No relationship retrieval operation, direct Reference Data storage access or new graph pivot is admitted by this amendment.

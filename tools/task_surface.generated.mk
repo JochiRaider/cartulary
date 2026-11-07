@@ -87,7 +87,10 @@ else
   distclean \
   test-run-recover \
   release-evidence-verify \
-  test-run-recovery-status
+  test-run-recovery-status \
+  reference-pack-producer-build \
+  reference-pack-source \
+  reference-pack-package
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -227,6 +230,11 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make package-inspect                install and inspect the exact archive without a checkout or build tools' \
 	'  make release-evidence-verify' \
 	'                                      EVIDENCE_ROOTS_FILE=<path> verify selected retained release evidence without launching tests' \
+	'  make reference-pack-producer-build  build and retain the immutable ATT&CK source producer' \
+	'  make reference-pack-source' \
+	'                                      ACTION=acquire|check|audit SOURCE_DIR=<path> BUILT_AT=<UTC> acquire, check or audit pinned ATT&CK inputs; never assembles a pack' \
+	'  make reference-pack-package' \
+	'                                      ACTION=assemble|envelope|renew INPUT=<typed-json> assemble immutable packs and create or renew isolated fixture envelopes' \
 	'' \
 	'test-fast inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
@@ -357,6 +365,12 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'release-evidence-verify inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
 	'test-run-recovery-status inputs: RESULTS_DIR=path (required)' \
+	'  side effects: retained_artifacts' \
+	'reference-pack-producer-build inputs: none' \
+	'  side effects: retained_artifacts, build_outputs' \
+	'reference-pack-source inputs: ACTION=acquire|check|audit (default check), SOURCE_DIR=path (default .cartulary/reference-packs/attack/20.1), BUILT_AT=semantic_text (default ), SOURCE_LOCK=path (default contracts/reference-pack-producers/attack/source-lock.v20.1.json)' \
+	'  side effects: retained_artifacts' \
+	'reference-pack-package inputs: ACTION=assemble|envelope|renew (required), INPUT=path (required)' \
 	'  side effects: retained_artifacts' \
 	''
 
@@ -1011,5 +1025,27 @@ test-run-recovery-status:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-run-recovery-status)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
 	$(Q)$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-run-recovery-status}" $(RUN_STEP_SCRIPT) "test-run-recovery-status" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR)" $(HARNESS_RUNTIME_BIN) recover-status
+
+reference-pack-producer-build: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+reference-pack-producer-build: export CARTULARY_TEST_TARGET ?= reference-pack-producer-build
+reference-pack-producer-build:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,reference-pack-producer-build)
+	$(Q)$(RUN_STEP_SCRIPT) "reference-pack-producer-build" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" bash ./tools/reference-packs/build.sh
+
+reference-pack-source: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+reference-pack-source: export CARTULARY_TEST_TARGET ?= reference-pack-source
+reference-pack-source:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,reference-pack-source)
+	$(Q)ACTION="$(ACTION)" BUILT_AT="$(BUILT_AT)" SOURCE_DIR="$(SOURCE_DIR)" SOURCE_LOCK="$(SOURCE_LOCK)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION BUILT_AT SOURCE_DIR SOURCE_LOCK)" $(RUN_STEP_SCRIPT) "reference-pack-source" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ACTION="$(ACTION)" BUILT_AT="$(BUILT_AT)" SOURCE_DIR="$(SOURCE_DIR)" SOURCE_LOCK="$(SOURCE_LOCK)" CARTULARY_MAKE_INPUT_SOURCES="$(call \
+	  TASK_SURFACE_INPUT_SOURCES,ACTION BUILT_AT SOURCE_DIR SOURCE_LOCK)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" ACTION="$(ACTION)" SOURCE_DIR="$(SOURCE_DIR)" BUILT_AT="$(BUILT_AT)" SOURCE_LOCK="$(SOURCE_LOCK)" bash ./tools/reference-packs/source.sh
+
+reference-pack-package: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+reference-pack-package: export CARTULARY_TEST_TARGET ?= reference-pack-package
+reference-pack-package:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,reference-pack-package)
+	$(Q)ACTION="$(ACTION)" INPUT="$(INPUT)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION INPUT)" $(RUN_STEP_SCRIPT) "reference-pack-package" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ACTION="$(ACTION)" INPUT="$(INPUT)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION INPUT)" NODE_BIN="$(NODE_BIN)" ACTION="$(ACTION)" INPUT="$(INPUT)" bash ./tools/reference-packs/package.sh
 
 endif

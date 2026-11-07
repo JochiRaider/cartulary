@@ -63,6 +63,7 @@ const profileByVersion = new Map([
   [24, "snapshot_reporting"],
   [25, "incident_portability"],
   [26, "reference_pack"],
+  [48, "reference_pack"],
 ]);
 const recoveryCatalog = JSON.parse(
   readFileSync(path.join(root, "contracts/recovery/fixtures/recovery-state-catalog.v2.json"), "utf8"),
