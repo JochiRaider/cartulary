@@ -33,7 +33,7 @@
       "$ref": "profiles/enrichment.windows_event_ids.entry.v2.schema.json"
     },
     {
-      "$ref": "profiles/enrichment.entra_app_ids.entry.v1.schema.json"
+      "$ref": "profiles/enrichment.entra_app_ids.entry.v2.schema.json"
     },
     {
       "$ref": "profiles/enrichment.lolbas.entry.v1.schema.json"

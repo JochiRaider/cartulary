@@ -1,0 +1,30 @@
+{
+  "schema_id": "cartulary.entra_source_profile.v2",
+  "source_profile_id": "cartulary.entra_app_ids.microsoft_docs.2026_11_06.v2",
+  "research_cutoff": "2026-11-06",
+  "input_inventory": "inventory.v2.json",
+  "quarantine": "quarantine.v2.json",
+  "editorial": "editorial.v2.json",
+  "baseline": "baseline.v2.json",
+  "source_selection": "Exact commit URLs, byte lengths and SHA-256; section-bounded tables with exact headers and counts; raw rows retained before validation. Only S3 ID cells admit literal <br> separators.",
+  "locator_grammar": "L<positive-line> or L<positive-line>#id=<canonical-app-id>; LF and CRLF each delimit one line.",
+  "normalization": "Strict UTF-8; NFC human text; remove syntactic cell padding only; lowercase ASCII UUID hex; no UUID version/variant restriction; no ID repair; unsupported markup or controls fail.",
+  "identity": "entry_id equals app_id; coalesce only equal ID and label, retaining every admitted source locator; disagreements fail. No tenant object IDs, inferred SPNs, verification or lifecycle claims.",
+  "aliases": "Complete display labels plus the two explicitly documented current/former name pairs. NFC then ASCII lowercase keys; within-entry choose smallest exact UTF-8 spelling; omit cross-entry collisions from every entry; sort normalized key then bytes.",
+  "projection": "Microsoft documentation attribution; empty SPNs; false deprecated; null replacement; empty extensions. S1: original editorial summary. S2-only: null description. S3-only: exact original historical note.",
+  "serialization": "RFC 8785 entries ordered by entry_id with one final LF each; runtime v2 schemas and semantic validator; no truncation.",
+  "distribution": "Apache-2.0 factual identifiers/names and original summaries only. Exact research sources and upstream licenses remain outside runtime archive.",
+  "failure": "Missing/changed source or quarantine bytes, new malformed assertions, unsupported markup, name conflicts, count drift, unmatched editorial facts or baseline mismatch fail before public output.",
+  "expected": {
+    "rows": 145,
+    "assertions": 147,
+    "quarantined": 7,
+    "admitted": 140,
+    "coalesced": 1,
+    "entries": 139,
+    "historical_only": 119,
+    "entries_with_aliases": 135,
+    "aliases": 139,
+    "spns": 0
+  }
+}

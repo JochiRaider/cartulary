@@ -51,7 +51,7 @@ func extractWindowsSysmonManifest(s WindowsSource, b []byte, sources map[string]
 		return nil, nil, e
 	}
 	if root.Name != "manifests" {
-		return nil, nil, errors.New("Sysmon manifest collection required")
+		return nil, nil, errors.New("expected a Sysmon manifest collection")
 	}
 	rows := []WindowsRecord{}
 	dispositions := []WindowsDisposition{}

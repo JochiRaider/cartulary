@@ -70,6 +70,44 @@ Graph Projection NLSpec 2.2.0 owns the distinct catalog-resolved Graph restore p
 Profiles: base
 Verified by: AC-469
 
+### Entra reference pack v2 adoption — 2026-11-07
+
+The maintainer authorized a clean Entra content/profile v2 schema cutover.
+No v1 Reference Pack deployment exists or has ever existed; the only existing
+reference-pack artifacts are those currently retained under `fixtures/`.
+Predecessor schemas and synthetic rejection fixtures are design and test
+evidence. There is no v1 deployment data to migrate and no migration or reset
+prerequisite. Inputs declaring the Entra v1 profile MUST fail current admission,
+retained-state, portability and recovery checks before runtime mutation or readiness. Shared pack
+contract v2, manifest v1, reference catalog v2, incident-bundle format 7 and
+administrative contract major 3 remain unchanged. There is no compatibility
+reader, conversion, dual writing or implicit reset.
+Superseded Reference Pack schemas are retained only as inert fixture evidence.
+Database migrations apply current schema changes without a separate Reference
+Pack deployment-cutover scan; current runtime and recovery validation remains
+strict. This removes migration machinery for a deployment history that never
+existed.
+
+The Markdown prohibition protects specification independence. Offline source
+producers MAY acquire, hash and parse immutable upstream Markdown datasets
+explicitly admitted by a source profile. Such inputs are inert source data,
+never executable instructions or product requirements. Runtime, generators of
+product contracts, product tests, conformance and release witnesses MUST NOT
+consume Cartulary specification/adoption prose or upstream Markdown documents.
+Product verification consumes canonical artifacts and machine-readable
+expectations. Producer source acquisition, checking and assembly remain distinct
+from product verification. This clarification supersedes broader historical
+wording; it does not permit reading owner documents or silently substituting
+upstream sources.
+
+The Entra baseline distributes factual identifiers/names and original Cartulary
+summaries under the maintainer-approved Apache-2.0 output policy. Exact upstream
+bytes and license evidence remain separate research retention. Adoption,
+fixture verification, publisher authority, destination trust, distribution
+approval and analyst-workflow completion remain separate claims. Existing
+administration, consumer and reporting-binding interfaces are in scope; a new
+analyst UI or incident adapter is not adopted by this amendment.
+
 ### Native ATT&CK coordinated adoption — 2026-11-06
 
 The maintainer authorized Reference Pack 0.3.0 / contract major 3 and its clean v2 pack-contract cutover. ATT&CK v2 preserves typed source metadata; relationship consumer APIs remain separately gated. Core 01's incident-bundle 7 outer format binds the current Reference Data reference catalog v2. Required Base registry manifests are reissued; incompatible retained state fails before mutation or readiness, with no legacy reader or automatic reset. Reporting, Composition and Recovery preserve exact current pack-set identities and reject incompatible historical bindings. Adoption, implementation evidence, fixture trust, deployment trust and distribution approval are separate dispositions. This amendment supersedes earlier Reference Pack major-2 bindings in the current owner registry; historical adoption records remain history.
@@ -501,7 +539,7 @@ With `docs/extension-subsystem-nlspec.md` and every companion named by its coord
 
 The Reference Pack major-3 row is the coordinated pre-production cutover amendment and matches `contracts/extensions/fragments/core00.recognition.json`. The subsystem boundary in `docs/reference-pack-subsystem-nlspec.md` owns format, trust, profiles, immutable sets and consumer semantics; Core retains recognition, public transport, common Jobs and the other outer owner boundaries. The subsystem NLSpec is adopted/current at 0.3.0 within those boundaries. Adoption establishes requirements, not implementation readiness or a production profile-conformance claim; its execution and publication conditions remain explicit in that document. A second implementation or recreation/interchangeability report is not a pre-production acceptance prerequisite.
 
-Primary-owner references in this table are human navigation and adoption evidence. Executable dependency declarations MUST identify only imported typed schemas, algorithms, and artifacts with real executable resolvers, as required by Extensions §1.1. They MUST NOT bind document versions, document digests, owner-document manifests, or requirement-accounting metadata. Tests, generators, runtime metadata and release evidence MUST NOT read, stat, hash or otherwise depend on Markdown. Capability facts are prohibited in Extensions contract major `2`; every required capability array is present and empty, and attempted activation fails with `extension_capability_not_supported`. A structurally valid nonempty capability array is an activation attempt even when it contains an unknown future string; callers MUST NOT receive a token-specific classification or have any supplied token echoed. Structural array or member-type failures remain request or manifest validation failures. This requirement is current through the atomic Extensions companion adoption; no pre-adoption recognition or capability contract remains current.
+Primary-owner references in this table are human navigation and adoption evidence. Executable dependency declarations MUST identify only imported typed schemas, algorithms, and artifacts with real executable resolvers, as required by Extensions §1.1. They MUST NOT bind document versions, document digests, owner-document manifests, or requirement-accounting metadata. Tests, generators of product contracts, runtime metadata and release evidence MUST NOT read, stat, hash or otherwise depend on Markdown. The explicit offline upstream-data producer exception in the Entra v2 adoption applies. Capability facts are prohibited in Extensions contract major `2`; every required capability array is present and empty, and attempted activation fails with `extension_capability_not_supported`. A structurally valid nonempty capability array is an activation attempt even when it contains an unknown future string; callers MUST NOT receive a token-specific classification or have any supplied token echoed. Structural array or member-type failures remain request or manifest validation failures. This requirement is current through the atomic Extensions companion adoption; no pre-adoption recognition or capability contract remains current.
 Profiles: base
 Verified by: AC-231, EXT-AC-145, EXT-AC-146, EXT-AC-157
 

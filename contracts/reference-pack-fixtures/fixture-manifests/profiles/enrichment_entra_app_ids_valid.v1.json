@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_profile_enrichment_entra_app_ids_valid",
-  "fixture_version": 1,
+  "fixture_version": 2,
   "fixture_family": "content_profile",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/profiles/enrichment_entra_app_ids_valid.v1.json"

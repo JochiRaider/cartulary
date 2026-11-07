@@ -73,7 +73,7 @@ func TestBaseReconciliationRechecksSelectedBytesBeforePublication_Integration(t 
 			}
 			// Reconciliation is historical integrity, so current expiry and the
 			// fresh-operation clock assertion must not reject healthy content.
-			err = ReconcileBaseRelease(ctx, f.pool, storage, BaseReleaseOptions{ProfileClaimed: true, Limits: DefaultLimits()}, f.vector.Expiry.Add(time.Second))
+			err = ReconcileBaseRelease(ctx, f.pool, storage, BaseReleaseOptions{Finalizer: newBaseTestFinalizer(t), ProfileClaimed: true, Limits: DefaultLimits()}, f.vector.Expiry.Add(time.Second))
 			var rejected *OperationRejection
 			switch mode {
 			case "operational":

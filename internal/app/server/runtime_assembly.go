@@ -292,12 +292,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		runtime.Close()
 		return nil, err
 	}
-	if postgresPool != nil {
-		if err := referenceassembly.ValidateRetainedRuntimeState(ctx, postgresPool); err != nil {
-			runtime.Close()
-			return nil, err
-		}
-	}
 
 	migrationSource, err := dbmigrations.Source()
 	if err != nil {
@@ -319,6 +313,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			})
 		}
 		return nil, err
+	}
+	if postgresPool != nil {
+		if err := referenceassembly.ValidateRetainedRuntimeState(ctx, postgresPool); err != nil {
+			runtime.Close()
+			return nil, err
+		}
 	}
 	lease, leaseErr := dependencies.acquireApplicationProcessLease(
 		ctx,
@@ -754,8 +754,13 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 			return nil, fmt.Errorf("reconcile Reference Pack trust bootstrap: %w", err)
 		}
 	}
+	referenceMutationFinalizer, err := extensionassembly.NewReferencePackMutationFinalizer(runtime.fatalIntegrity)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
 	referenceObserver := referenceassembly.NewOperationObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
-	if err := reference_data.ReconcileBaseRelease(ctx, referenceDatabase, rootReferencePackStorage, reference_data.BaseReleaseOptions{Observer: referenceObserver, ProfileClaimed: referencePackRouteAdmitted, ClockTrusted: normalizedCfg.ReferencePacks.ClockTrusted, Limits: settingsProjection.ReferenceData()}, now()); err != nil {
+	if err := reference_data.ReconcileBaseRelease(ctx, referenceDatabase, rootReferencePackStorage, reference_data.BaseReleaseOptions{Finalizer: referenceMutationFinalizer, Observer: referenceObserver, ProfileClaimed: referencePackRouteAdmitted, ClockTrusted: normalizedCfg.ReferencePacks.ClockTrusted, Limits: settingsProjection.ReferenceData()}, now()); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("reconcile Base reference registries: %w", err)
 	}
@@ -769,11 +774,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 		return nil, err
 	}
 	cursorCodec := pagination.NewCodec(cursorKey)
-	referenceMutationFinalizer, err := extensionassembly.NewReferencePackMutationFinalizer(runtime.fatalIntegrity)
-	if err != nil {
-		runtime.Close()
-		return nil, err
-	}
 	referenceIntegrity := reference_data.IntegrityOptions{Observer: referenceObserver, Finalizer: referenceMutationFinalizer, Limits: settingsProjection.ReferenceData()}
 	referenceConsumer, err := reference_data.NewConsumer(referenceDatabase, rootReferencePackStorage, cursorCodec, now, referenceIntegrity)
 	if err != nil {

@@ -27,7 +27,7 @@ func TestIncidentReferencesRetainLocalVersionsAndUnavailableHistory_Integration(
 	defer pool.Close()
 	storage := &coordinatorMemoryStorage{objects: map[string][]byte{}}
 	at := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
-	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{Limits: DefaultLimits()}, at); err != nil {
+	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{Finalizer: newBaseTestFinalizer(t), Limits: DefaultLimits()}, at); err != nil {
 		t.Fatal(err)
 	}
 	actor := uuid.New()

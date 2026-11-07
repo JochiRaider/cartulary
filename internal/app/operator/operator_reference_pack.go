@@ -122,14 +122,14 @@ func openReferencePackLocalRuntime(ctx context.Context, loaded configassembly.Lo
 	if err := database_migrations.RequireApplicationCryptoFormat(ctx, pool.Pool()); err != nil {
 		return nil, nil, err
 	}
-	if err := referenceassembly.ValidateRetainedRuntimeState(ctx, pool.Pool()); err != nil {
-		return nil, nil, err
-	}
 	source, err := dbmigrations.Source()
 	if err != nil {
 		return nil, nil, err
 	}
 	if err := database_migrations.EnsureSchemaReady(ctx, pool.Pool(), source); err != nil {
+		return nil, nil, err
+	}
+	if err := referenceassembly.ValidateRetainedRuntimeState(ctx, pool.Pool()); err != nil {
 		return nil, nil, err
 	}
 	operationCtx, cancel := context.WithCancel(ctx)

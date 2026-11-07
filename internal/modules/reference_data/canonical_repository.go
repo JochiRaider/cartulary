@@ -1,18 +1,15 @@
 package reference_data
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
@@ -44,52 +41,47 @@ func versionObjectID(key, version string) string {
 
 func (r *canonicalRepository) CurrentSet(ctx context.Context) (PackSet, error) {
 	var data []byte
-	err := r.pool.QueryRow(ctx, `SELECT s.canonical_set FROM reference_pack_current_set c JOIN reference_pack_sets s USING(pack_set_id) WHERE c.singleton`).Scan(&data)
+	var id, digest string
+	err := r.pool.QueryRow(ctx, `SELECT s.canonical_set,s.pack_set_id,s.pack_set_sha256 FROM reference_pack_current_set c JOIN reference_pack_sets s USING(pack_set_id) WHERE c.singleton`).Scan(&data, &id, &digest)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return PackSet{}, consumerError("pack_unavailable")
 	}
 	if err != nil {
 		return PackSet{}, err
 	}
-	return decodeRetainedSet(data)
+	return decodeRetainedSet(data, id, digest)
 }
 func (r *canonicalRepository) RetainedSet(ctx context.Context, id string) (PackSet, error) {
 	var data []byte
-	err := r.pool.QueryRow(ctx, `SELECT canonical_set FROM reference_pack_sets WHERE pack_set_id=$1`, id).Scan(&data)
+	var digest string
+	err := r.pool.QueryRow(ctx, `SELECT canonical_set,pack_set_sha256 FROM reference_pack_sets WHERE pack_set_id=$1`, id).Scan(&data, &digest)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return PackSet{}, consumerError("pack_set_not_found")
 	}
 	if err != nil {
 		return PackSet{}, err
 	}
-	return decodeRetainedSet(data)
+	return decodeRetainedSet(data, id, digest)
 }
-func decodeRetainedSet(data []byte) (PackSet, error) {
-	var set PackSet
-	if err := json.Unmarshal(data, &set); err != nil {
-		return PackSet{}, err
-	}
-	expected, err := buildPackSet(set.Members)
-	if err != nil || expected.ID != set.ID || expected.SHA256 != set.SHA256 || expected.SchemaID != set.SchemaID || !slices.Equal(expected.Members, set.Members) {
+func decodeRetainedSet(data []byte, id, digest string) (PackSet, error) {
+	set, err := packformat.DecodeBoundSet(data, id, digest)
+	if err != nil {
 		return PackSet{}, consumerError("pack_unavailable")
 	}
-	canonical, err := canonicaljson.Marshal(set)
-	if err != nil || !bytes.Equal(canonical, data) {
-		return PackSet{}, consumerError("pack_unavailable")
-	}
-	return set, nil
+	return packSetFromFormat(set), nil
 }
 func (r *canonicalRepository) Provenance(ctx context.Context, setID, key string) (PackProvenance, error) {
 	var data, setData []byte
-	err := r.pool.QueryRow(ctx, `SELECT canonical_set,canonical_provenance FROM reference_pack_sets WHERE pack_set_id=$1`, setID).Scan(&setData, &data)
+	var digest string
+	err := r.pool.QueryRow(ctx, `SELECT canonical_set,canonical_provenance,pack_set_sha256 FROM reference_pack_sets WHERE pack_set_id=$1`, setID).Scan(&setData, &data, &digest)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return PackProvenance{}, consumerError("pack_set_not_found")
 	}
 	if err != nil {
 		return PackProvenance{}, err
 	}
-	set, err := decodeRetainedSet(setData)
-	if err != nil || set.ID != setID {
+	set, err := decodeRetainedSet(setData, setID, digest)
+	if err != nil {
 		return PackProvenance{}, consumerError("pack_unavailable")
 	}
 	anchors, err := decodeRetainedProvenance(data, set)
@@ -214,15 +206,15 @@ func (r *canonicalRepository) Lookup(ctx context.Context, member PackSetMember, 
 // PinCurrentTx is called inside the consuming owner's admission transaction.
 // It captures one current set and never silently rebases after locking.
 func PinCurrentTx(ctx context.Context, tx pgx.Tx, ownerKind, ownerID string, operationID uuid.UUID) (PackSet, error) {
-	var before string
+	var before, digest string
 	var data []byte
-	if err := tx.QueryRow(ctx, `SELECT s.pack_set_id,s.canonical_set FROM reference_pack_current_set c JOIN reference_pack_sets s USING(pack_set_id) WHERE singleton`).Scan(&before, &data); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT s.pack_set_id,s.canonical_set,s.pack_set_sha256 FROM reference_pack_current_set c JOIN reference_pack_sets s USING(pack_set_id) WHERE singleton`).Scan(&before, &data, &digest); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PackSet{}, consumerError("pack_unavailable")
 		}
 		return PackSet{}, err
 	}
-	set, err := decodeRetainedSet(data)
+	set, err := decodeRetainedSet(data, before, digest)
 	if err != nil {
 		return PackSet{}, err
 	}

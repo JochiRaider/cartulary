@@ -3,7 +3,7 @@
 ## Authority and editing safeguards
 
 - Adopted subsystem NLSpecs and normative Core sections govern behavior under [Core 00 precedence](docs/spec/00_document_set_status_and_precedence.md). Typed contracts are downstream projections; tests and routing do not define requirements or prove specification completeness. Repair conflicting projections or implementation within the authorized scope; humans review projection fidelity.
-- Tests, generators, runtime metadata, conformance, and release evidence must not read, stat, hash, or otherwise depend on `docs/`, README, or other Markdown.
+- Tests, generators, runtime metadata, conformance, and release evidence must not read, stat, hash, or otherwise depend on Cartulary specification/adoption prose, `docs/`, or README. Offline source producers may acquire and parse explicitly pinned upstream Markdown datasets under an immutable source profile. Product tests consume canonical artifacts and machine-readable expectations, never upstream Markdown documents or live websites.
 - Do not hand-edit paths covered by `generated_roots` or `generated_files` in the [generated-artifact policy](tools/generated_artifact_policy.json), outputs declared by the [execution topology](tools/execution_topology_manifest.json), or tool-managed dependencies such as `go.sum` and `pnpm-lock.yaml`. Update authored inputs and regenerate through Make.
 
 ## Load guidance when relevant

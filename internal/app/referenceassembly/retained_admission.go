@@ -2,11 +2,10 @@ package referenceassembly
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	referenceadmission "github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission"
-	reportingadmission "github.com/JochiRaider/cartulary/internal/modules/reporting/migrationadmission"
+	reportingadmission "github.com/JochiRaider/cartulary/internal/modules/reporting/referenceadmission"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -29,16 +28,5 @@ func ValidateRetainedRuntimeState(ctx context.Context, db interface {
 	}
 	return reportingadmission.ValidateReferenceBindings(ctx, tx, func(b []byte) error {
 		return referenceadmission.ValidateBinding(ctx, tx, b)
-	})
-}
-
-// Migration owns exclusion and connection lifetime; this composition owns only
-// the order of read-only owner inspections before any migration writes.
-func ValidateRetainedMigrationState(ctx context.Context, conn *sql.Conn) error {
-	if err := referenceadmission.ValidateMigration(ctx, conn); err != nil {
-		return err
-	}
-	return reportingadmission.ValidateReferenceBindingsMigration(ctx, conn, func(b []byte) error {
-		return referenceadmission.ValidateBindingMigration(ctx, conn, b)
 	})
 }

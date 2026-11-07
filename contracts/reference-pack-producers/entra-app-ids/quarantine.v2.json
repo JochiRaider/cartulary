@@ -1,0 +1,54 @@
+{
+  "schema_id": "cartulary.entra_quarantine.v2",
+  "assertions": [
+    {
+      "source_id": "S1",
+      "source_sha256": "18f5c30552235b140ba7267a35953218b19b2f0a06e291726f941469b4af5d0c",
+      "locator": "L36",
+      "raw_row": "| Azure ESTS Service | fc03f97a-9db0-4627-a216-ec98ce54e018 | Standards compliant authentication service for Microsoft Entra. |",
+      "reason": "conflicting_identity"
+    },
+    {
+      "source_id": "S1",
+      "source_sha256": "18f5c30552235b140ba7267a35953218b19b2f0a06e291726f941469b4af5d0c",
+      "locator": "L37",
+      "raw_row": "| Azure HDInsight Cluster API | fc03f97a-9db0-4627-a216-ec98ce54e018 | Big data analytics service that includes the Apache Hadoop and Apache Spark ecosystems, which enables the processing of massive amounts of data. |",
+      "reason": "conflicting_identity"
+    },
+    {
+      "source_id": "S1",
+      "source_sha256": "18f5c30552235b140ba7267a35953218b19b2f0a06e291726f941469b4af5d0c",
+      "locator": "L42",
+      "raw_row": "| CPIM Service | bb2a2e3a-c5e7-4f0a-88e0-8e01fd3fc1f4 | The Customer and Partner Identity Management (CPIM) service provides a solution for customers to create user directories for external identities to authenticate to apps registered in their tenant.<br/>These external identity features can include social identity providers, such as Google or Facebook, self-service sign-up, and API connectors in the self-service sign-up flow. |",
+      "reason": "conflicting_identity"
+    },
+    {
+      "source_id": "S1",
+      "source_sha256": "18f5c30552235b140ba7267a35953218b19b2f0a06e291726f941469b4af5d0c",
+      "locator": "L43",
+      "raw_row": "| Dynamics Lifecycle services | bb2a2e3a-c5e7-4f0a-88e0-8e01fd3fc1f4 | An Azure-based portal that provides a unifying, collaborative environment for customers and partners to manage the application lifecycle of their Microsoft Dynamics implementations. |",
+      "reason": "conflicting_identity"
+    },
+    {
+      "source_id": "S1",
+      "source_sha256": "18f5c30552235b140ba7267a35953218b19b2f0a06e291726f941469b4af5d0c",
+      "locator": "L49",
+      "raw_row": "| Partner Customer Delegated Admin Migration | 39d63e7-7fa3-4b2b-94ea-ee256fdb8c2f | Granular Delegated Admin Privileges (GDAP) uses Extended Tools and Production (XTAP) to grant a partner's access to a customer tenant. |",
+      "reason": "malformed_uuid"
+    },
+    {
+      "source_id": "S1",
+      "source_sha256": "18f5c30552235b140ba7267a35953218b19b2f0a06e291726f941469b4af5d0c",
+      "locator": "L50",
+      "raw_row": "| Power Virtual Agents Service<br/>9d8f559b-5984-46a4-902a-ad4271e83efa | 9d8f559b-5984-46a4-902a-ad4271e83efa<br/>9d8f559b-5984-46a4-902a-ad4271e83efa | Power Virtual Agents is the former name for Microsoft Copilot Studio. Both instances of this app allow the service to manage the applications and service principals created for each agent. |",
+      "reason": "ambiguous_malformed_cell"
+    },
+    {
+      "source_id": "S3",
+      "source_sha256": "6404a9527b7789267fcad93b9056403495ccc67b634fe7038971e68fa7f2cae9",
+      "locator": "L117",
+      "raw_row": "|CPIM Service|bb2a2e3a-c5e7-4f0a-88e0-8e01fd3fc1f4|",
+      "reason": "conflicting_identity"
+    }
+  ]
+}

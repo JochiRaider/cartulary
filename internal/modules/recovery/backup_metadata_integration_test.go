@@ -50,7 +50,11 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	runBackingStorageMetadataRestore(t, nil)
 }
 
-func runBackingStorageMetadataRestore(t *testing.T, pack *recoveryPackFixture) {
+func runBackingStorageMetadataRestore(t *testing.T, pack *recoveryPackFixture, historical ...*recoveryPackFixture) {
+	var previous *recoveryPackFixture
+	if len(historical) > 0 {
+		previous = historical[0]
+	}
 	runtimeHarness := appsupport.StartRuntime(t)
 	objects := s3test.Start(t)
 	options := appsupport.ServerOptions{Prefix: "backup_restore-i-10-01-metadata", TestRouteMode: httptestx.TestRouteModeDisabled}
@@ -92,16 +96,53 @@ func runBackingStorageMetadataRestore(t *testing.T, pack *recoveryPackFixture) {
 
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	if pack != nil {
-		referencehttp.ImportPackFixture(t, harness.Server, adminLogin, pack.PortablePackFixture, "restore-pack-import")
-		activation := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+pack.Key+"/"+pack.Version+"/activate", map[string]any{"client_txn_id": "restore-pack-activate"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader("X-CSRF-Token", adminLogin.CSRF.Value))
+		selected := pack
+		if previous != nil {
+			selected = previous
+		}
+		referencehttp.ImportPackFixture(t, harness.Server, adminLogin, selected.PortablePackFixture, "restore-pack-import")
+		activation := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+selected.Key+"/"+selected.Version+"/activate", map[string]any{"client_txn_id": "restore-pack-activate"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader("X-CSRF-Token", adminLogin.CSRF.Value))
 		httptestx.RequireSuccessEnvelope(t, activation, http.StatusOK)
+		if previous != nil {
+			referencehttp.ImportPackFixture(t, harness.Server, adminLogin, pack.PortablePackFixture, "restore-pack-import-current")
+		}
 	}
+
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-backup_restore-i-10-01-incident",
 		"incident_key":  "backup_restore-i-10-01",
 		"title":         "Recovery and coordination recovery-metadata Backup Metadata",
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
+	var snapshotJobID, sourceReferenceBinding string
+	if previous != nil {
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots", map[string]any{"incident_id": incidentID.String(), "client_txn_id": "restore-historical-pin"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader("X-CSRF-Token", adminLogin.CSRF.Value))
+		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
+		snapshotJobID = job["job_id"].(string)
+		finished := false
+		deadline := time.Now().Add(120 * time.Second)
+		for time.Now().Before(deadline) {
+			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJobID, nil, httptestx.WithCookies(adminLogin.Session))
+			state := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+			if state["status"] == "succeeded" {
+				finished = true
+				break
+			}
+			if state["status"] == "failed" || state["status"] == "canceled" {
+				t.Fatal("snapshot pin", state["error_summary"])
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+		if !finished {
+			t.Fatal("snapshot pin did not finish")
+		}
+		if err := harness.DB.QueryRow(`SELECT (snapshot_admission_json->'reference_packs')::text FROM reporting_job_payloads WHERE job_id=$1`, snapshotJobID).Scan(&sourceReferenceBinding); err != nil {
+			t.Fatal(err)
+		}
+		activation := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+pack.Key+"/"+pack.Version+"/activate", map[string]any{"client_txn_id": "restore-pack-activate-current"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader("X-CSRF-Token", adminLogin.CSRF.Value))
+		httptestx.RequireSuccessEnvelope(t, activation, http.StatusOK)
+	}
+
 	// These retained declarations are deliberately incompatible with current
 	// profile semantics. Recovery must preserve their exact logical entries;
 	// only a later claim may reject them. The large JSON integer must never pass
@@ -280,7 +321,8 @@ INSERT INTO object_blobs (
 		t.Fatalf("fresh target SeaweedFS bucket is not empty before restore: %#v", objects)
 	}
 
-	targetPacks, err := referenceassembly.NewRecoveryStorage(t.TempDir(), t.TempDir(), reference_data.DefaultLimits())
+	targetPublishedRoot := t.TempDir()
+	targetPacks, err := referenceassembly.NewRecoveryStorage(t.TempDir(), targetPublishedRoot, reference_data.DefaultLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,6 +396,56 @@ INSERT INTO object_blobs (
 			t.Fatal("restored pack envelope differs", recoveredReadErr, recoveredCloseErr)
 		}
 		t.Logf("pack recovered exact set=%s manifest=%s", restoredSet, restoredManifest)
+	}
+	if previous != nil {
+		var restoredBinding, pinned, containerRef string
+		if err := targetPool.QueryRow(ctx, `SELECT (snapshot_admission_json->'reference_packs')::text FROM reporting_job_payloads WHERE job_id=$1`, snapshotJobID).Scan(&restoredBinding); err != nil || restoredBinding != sourceReferenceBinding {
+			t.Fatal("restored snapshot provenance", err)
+		}
+		if err := targetPool.QueryRow(ctx, `SELECT pack_set_id FROM reference_pack_pins WHERE owner_id=$1 AND owner_kind='reporting_snapshot_job'`, snapshotJobID).Scan(&pinned); err != nil || pinned != "rpset_"+previous.SetSHA256 {
+			t.Fatal("restored historical pin", pinned, err)
+		}
+		for _, query := range []string{
+			`SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]')::text FROM reference_pack_roots t`,
+			`SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]')::text FROM reference_pack_metadata_versions t`,
+			`SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]')::text FROM reference_pack_envelopes t`,
+			`SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]')::text FROM reference_pack_sets t`,
+		} {
+			var original, restored string
+			if err := recoveryPool.QueryRow(ctx, query).Scan(&original); err != nil {
+				t.Fatal(err)
+			}
+			if err := targetPool.QueryRow(ctx, query).Scan(&restored); err != nil || restored != original {
+				t.Fatal("retained trust/set/envelope bytes changed", query, err)
+			}
+		}
+		if err := targetPool.QueryRow(ctx, `SELECT e.container_ref FROM reference_pack_candidates c JOIN reference_pack_envelopes e ON e.envelope_id=c.current_envelope_id WHERE c.pack_key=$1 AND c.pack_version=$2`, previous.Key, previous.Version).Scan(&containerRef); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(targetPublishedRoot, containerRef)
+		original, err := os.ReadFile(path)
+		if err != nil || !bytes.Equal(original, previous.Container) {
+			t.Fatal("historical envelope bytes", err)
+		}
+		for _, defect := range []string{"corruption", "loss"} {
+			if defect == "loss" {
+				err = os.Remove(path)
+			} else {
+				err = os.WriteFile(path, []byte("corrupted retained Entra envelope"), 0600)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = targetPacks.ValidateHistoricalState(ctx, targetPool); err == nil {
+				t.Fatal("required historical envelope defect reached readiness", defect)
+			}
+			if err = os.WriteFile(path, original, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err = targetPacks.ValidateHistoricalState(ctx, targetPool); err != nil {
+				t.Fatal("restored exact envelope did not recover readiness", err)
+			}
+		}
 	}
 	var retainedCount int
 	if err := targetPool.QueryRow(ctx, `SELECT count(*) FROM network_flow_graph_views

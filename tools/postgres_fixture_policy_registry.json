@@ -111,7 +111,7 @@
     "module.recovery.integration.restore_candidate_uses_object_store_backup_lates_c2cf211fbd",
     "module.recovery.integration.restore_verification_atomic_completion_449dbe5d91",
     "module.recovery.store.durable_backup_set_creation_requires_artifact_ba_d68130215e",
-    "module.reference_data.integration.reference_pack_storage_reference_cutover_is_reset_dc28423946",
+    "module.reference_data.integration.reference_pack_storage_schema",
     "module.reportcomposition.integration.resolve_release_tuple_tx_reason_matrix_ad31a02455",
     "module.revisions.integration.migration_61_admits_fresh_schema_and_rejects_leg_20baec4d72",
     "module.revisions.portability.atomicity",

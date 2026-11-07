@@ -1,0 +1,27 @@
+Cartulary Entra application ID reference catalog
+
+This advisory catalog contains factual application/client identifiers and names
+from selected Microsoft documentation, together with original Cartulary text.
+It is not a Microsoft registry, a verified-publisher result, or an authorization
+or security verdict. Absence from this catalog establishes none of those facts.
+
+The 139 identities include 20 with selected current-documentation support and
+119 supported only by the historical 2025-05-30 snapshot. Historical inclusion
+does not establish present naming, ownership, availability or lifecycle status.
+Seven source assertions are quarantined; one repeated identity is coalesced.
+Shared labels retain distinct IDs and are omitted from ambiguous alias lookup.
+No service-principal names or tenant observations are supplied by this release.
+
+Source references identify exact retained research bytes and original line
+locators. Copied upstream descriptions, documentation and licensing evidence
+are not included in this payload. Original summaries are separately authored;
+application names and Microsoft attribution identify documented facts.
+
+Selected source revisions:
+S1: https://raw.githubusercontent.com/MicrosoftDocs/entra-docs/ad2392b54e54af312a83c1095d1532609ac46a05/docs/identity/monitoring-health/reference-service-principal-table.md
+S2: https://raw.githubusercontent.com/MicrosoftDocs/SupportArticles-docs/6052ca412335c69ac07a3eaca9ee6cc9d1a097b1/support/entra/entra-id/governance/verify-first-party-apps-sign-in.md
+S3: https://raw.githubusercontent.com/MicrosoftDocs/SupportArticles-docs/4d3e713353ecd290d8615487c486df4b5649501c/support/entra/entra-id/governance/verify-first-party-apps-sign-in.md
+
+Cartulary's factual projection and original text are distributed under the
+Apache License, Version 2.0, as directed by the repository maintainer.
+Upstream materials retain their own recorded licenses in research retention.

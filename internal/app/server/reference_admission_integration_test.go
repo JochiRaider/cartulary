@@ -17,7 +17,9 @@ import (
 
 func TestServerReferencePackRetainedAdmission_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	for _, kind := range append(slices.Clone(admissionfixture.Cases), "binding query failure") {
+	cases := append(slices.Clone(admissionfixture.Cases), "binding query failure", "reference table missing", "reporting table missing")
+	cases = append(cases, admissionfixture.SchemaCases...)
+	for _, kind := range cases {
 		t.Run(kind, func(t *testing.T) {
 			database := harness.PrepareIsolatedDatabaseT(t, "server-reference-admission")
 			db, err := pgtest.OpenPurposeDatabase(t.Context(), database.DSN, postgres.PurposeMigration)
@@ -25,9 +27,14 @@ func TestServerReferencePackRetainedAdmission_Integration(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer db.Close()
-			if kind == "binding query failure" {
+			switch kind {
+			case "crypto state", "schema behind", "schema ahead", "schema lineage":
+				admissionfixture.SeedSchemaFailure(t, db, kind)
+			case "binding query failure":
 				admissionfixture.SeedBindingQueryFailure(t, db)
-			} else {
+			case "reference table missing", "reporting table missing":
+				admissionfixture.SeedMissingTable(t, db, kind)
+			default:
 				admissionfixture.Seed(t, db, kind)
 			}
 			admitted := openAdmittedRuntimePool(t, t.Context(), database)
@@ -44,10 +51,16 @@ func TestServerReferencePackRetainedAdmission_Integration(t *testing.T) {
 			if runtime != nil {
 				t.Fatal("rejected state reached runtime")
 			}
-			if kind == "binding query failure" {
+			if slices.Contains(admissionfixture.SchemaCases, kind) {
+				admissionfixture.RequireSchemaFailure(t, err, kind)
+			} else if kind == "binding query failure" || kind == "reference table missing" || kind == "reporting table missing" {
+				code := "42P01"
+				if kind == "binding query failure" {
+					code = "42703"
+				}
 				var databaseError *pgconn.PgError
-				if contractadmission.IsIncompatible(err) || !errors.As(err, &databaseError) || databaseError.Code != "42703" {
-					t.Fatal("binding query failure lost its operational classification", err)
+				if contractadmission.IsIncompatible(err) || !errors.As(err, &databaseError) || databaseError.Code != code {
+					t.Fatal("query failure lost its operational classification", err)
 				}
 			} else if !contractadmission.IsIncompatible(err) {
 				t.Fatalf("retained %s reached startup: %v", kind, err)

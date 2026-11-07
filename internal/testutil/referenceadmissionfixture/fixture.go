@@ -13,10 +13,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/jackc/pgx/v5"
 )
 
-var Cases = []string{"manifest", "set", "portable catalog", "portable preparation", "pending", "prepared", "snapshot", "render", "composition"}
+var Cases = []string{"current manifest extra", "current manifest missing", "current set unordered", "current set noncanonical", "current set identity", "entra manifest", "entra set", "entra portable catalog", "entra portable preparation", "entra snapshot", "entra render", "entra composition", "manifest", "set", "portable catalog", "portable preparation", "pending", "prepared", "snapshot", "render", "composition"}
 
 const identity = "00000000-0000-4000-8000-000000000001"
 
@@ -24,27 +25,68 @@ var digest = strings.Repeat("a", 64)
 
 func Seed(t testing.TB, db *sql.DB, kind string) {
 	t.Helper()
+	if strings.HasPrefix(kind, "current ") {
+		seedMalformedCurrent(t, db, kind)
+		return
+	}
+	if strings.HasPrefix(kind, "entra ") {
+		seedEntra(t, db, strings.TrimPrefix(kind, "entra "))
+		return
+	}
 	seed(t, db, kind, nil)
 }
 
 func SeedPortable(t testing.TB, db *sql.DB, catalog []byte) {
 	t.Helper()
-	seed(t, db, "portable catalog", catalog)
+	canonical, err := canonicaljson.Canonicalize(catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed(t, db, "portable catalog", canonical)
 }
 
 // SeedBindingQueryFailure leaves the global inspection queries readable and
 // supplies a structurally valid Reporting binding. Only resolving that binding
-// needs the unavailable column, so this fault reaches the owner callback.
+// needs catalog ordering by incident, so this fault reaches the owner callback.
 func SeedBindingQueryFailure(t testing.TB, db *sql.DB) {
 	t.Helper()
 	Seed(t, db, "snapshot")
-	if _, err := db.ExecContext(t.Context(), `ALTER TABLE reference_pack_sets RENAME COLUMN pack_set_id TO unavailable_binding_id`); err != nil {
+	if _, err := db.ExecContext(t.Context(), `ALTER TABLE reference_pack_portable_catalogs RENAME COLUMN incident_id TO unavailable_binding_id`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// SeedMissingTable makes a required current table unavailable without deleting
+// its retained contents. Runtime admission must report an operational failure.
+func SeedMissingTable(t testing.TB, db *sql.DB, kind string) {
+	t.Helper()
+	var query string
+	switch kind {
+	case "reference table missing":
+		query = `ALTER TABLE reference_pack_portable_catalogs RENAME TO unavailable_reference_catalogs`
+	case "reporting table missing":
+		query = `ALTER TABLE reporting_composition_preview_outputs RENAME TO unavailable_reporting_previews`
+	default:
+		t.Fatalf("unknown missing-table fixture %q", kind)
+	}
+	if _, err := db.ExecContext(t.Context(), query); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func seed(t testing.TB, db *sql.DB, kind string, catalog []byte) {
+	seedWith(t, db, kind, catalog, nil)
+}
+
+func seedWith(t testing.TB, db *sql.DB, kind string, catalog []byte, overrides map[string][]byte) {
 	t.Helper()
+	raw := func(key string, fallback []byte) []byte {
+		if v, ok := overrides[key]; ok {
+			return v
+		}
+		return fallback
+	}
+
 	exec := func(query string, args ...any) {
 		t.Helper()
 		if _, err := db.ExecContext(context.Background(), query, args...); err != nil {
@@ -60,11 +102,11 @@ func seed(t testing.TB, db *sql.DB, kind string, catalog []byte) {
 	case "manifest":
 		exec(`INSERT INTO reference_pack_key_state(pack_key) VALUES('framework.attack')`)
 		exec(`INSERT INTO reference_pack_candidates(pack_key,pack_version,distribution_kind,health,admitted_at) VALUES('framework.attack','retained','operator_imported','staged',now())`)
-		exec(`INSERT INTO reference_pack_versions(pack_key,pack_version,pack_release_sequence,manifest_sha256,payload_sha256,manifest_bytes) VALUES('framework.attack','retained',1,$1,$1,$2)`, digest, []byte(`{"pack_contract_version":"cartulary.reference_pack_contract.v1"}`))
+		exec(`INSERT INTO reference_pack_versions(pack_key,pack_version,pack_release_sequence,manifest_sha256,payload_sha256,manifest_bytes) VALUES('framework.attack','retained',1,$1,$1,$2)`, digest, raw("manifest", []byte(`{"pack_contract_version":"cartulary.reference_pack_contract.v1"}`)))
 	case "set":
-		exec(`INSERT INTO reference_pack_sets(pack_set_id,pack_set_sha256,canonical_set,canonical_provenance,first_operation_id) VALUES($1,$2,$3,'[]',$4)`, "rpset_"+digest, digest, []byte(`{"schema_id":"cartulary.reference_pack_set.v1"}`), identity)
+		exec(`INSERT INTO reference_pack_sets(pack_set_id,pack_set_sha256,canonical_set,canonical_provenance,first_operation_id) VALUES($1,$2,$3,'[]',$4)`, "rpset_"+digest, digest, raw("set", []byte(`{"schema_id":"cartulary.reference_pack_set.v1"}`)), identity)
 	case "portable preparation":
-		exec(`INSERT INTO reference_pack_portable_preparations(operation_id,canonical_references,canonical_context) VALUES($1,$2,'{}')`, identity, []byte(`{"schema_id":"reference_pack_refs.v1"}`))
+		exec(`INSERT INTO reference_pack_portable_preparations(operation_id,canonical_references,canonical_context) VALUES($1,$2,'{}')`, identity, raw("references", []byte(`{"schema_id":"reference_pack_refs.v1"}`)))
 	case "prepared":
 		exec(`INSERT INTO reference_pack_attempts(attempt_id,operation_id,started_at) VALUES($1,$1,now())`, identity)
 		exec(`INSERT INTO reference_pack_attempt_members(attempt_id,ordinal,pack_key,pack_version,verdict,canonical_prepared) VALUES($1,1,'framework.attack','retained','succeeded',$2)`, identity, []byte(`{"schema_id":"retired"}`))
@@ -81,6 +123,7 @@ func seed(t testing.TB, db *sql.DB, kind string, catalog []byte) {
 		}
 		exec(`INSERT INTO jobs(job_id,scope_kind,incident_id,status,cancelable,submitted_by_user_id,submitted_at,updated_at,progress_completed,handler_name,job_kind,progress_unit_id,auth_policy) VALUES($1,'incident',$1,'queued',true,$1,now(),now(),0,'reporting.snapshot_create.v1','reporting.snapshot_create.v1','cartulary.reporting.snapshot.v1','incident_membership')`, identity)
 		binding := fmt.Sprintf(`{"pack_set_id":"rpset_%s","pack_set_sha256":"%s","provenance":[]}`, digest, digest)
+		binding = string(raw("binding", []byte(binding)))
 		if kind == "snapshot" {
 			admission := `{"schema_id":"cartulary.reporting_snapshot_admission.v1","reference_packs":` + binding + `}`
 			exec(`INSERT INTO reporting_job_payloads(job_id,job_kind,incident_id,actor_user_id,snapshot_admission_json,snapshot_admission_sha256) VALUES($1,'snapshot_create',$1,$1,$2,$3)`, identity, admission, digest)

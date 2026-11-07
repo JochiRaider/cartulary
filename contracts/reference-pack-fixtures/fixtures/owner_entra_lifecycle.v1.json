@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.reference_pack_owner_fixture.v1",
+  "fixture_id": "rpfx_owner_entra_lifecycle",
+  "scenario": "entra_lifecycle",
+  "owner_id": "module.reference_data",
+  "row_id": "module.reference_data.integration.entra_canonical_lifecycle",
+  "test_name": "TestEntraCanonicalProductionLifecycle_Integration"
+}

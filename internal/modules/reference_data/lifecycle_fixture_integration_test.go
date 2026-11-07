@@ -100,7 +100,7 @@ func TestCanonicalLifecycleFixtureManifests_Integration(t *testing.T) {
 			var accepted JobAcceptedResult
 			switch step.Operation {
 			case "reconcile_claimed", "reconcile_unclaimed":
-				err = ReconcileBaseRelease(ctx, f.pool, f.storage, BaseReleaseOptions{ProfileClaimed: step.Operation == "reconcile_claimed", ClockTrusted: true, Limits: DefaultLimits(), Observer: observer}, *f.now)
+				err = ReconcileBaseRelease(ctx, f.pool, f.storage, BaseReleaseOptions{Finalizer: newBaseTestFinalizer(t), ProfileClaimed: step.Operation == "reconcile_claimed", ClockTrusted: true, Limits: DefaultLimits(), Observer: observer}, *f.now)
 			case "import", "renew":
 				data := f.container
 				if step.Input != nil {

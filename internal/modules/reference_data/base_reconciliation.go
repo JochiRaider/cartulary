@@ -46,10 +46,11 @@ func inspectReconciliation(ctx context.Context, pool postgres.DB, storage Artifa
 	keys := slices.Clone(mandatoryRegistryKeys)
 	if setID != nil {
 		var data []byte
-		if err := tx.QueryRow(ctx, `SELECT canonical_set FROM reference_pack_sets WHERE pack_set_id=$1`, *setID).Scan(&data); err != nil {
+		var digest string
+		if err := tx.QueryRow(ctx, `SELECT canonical_set,pack_set_sha256 FROM reference_pack_sets WHERE pack_set_id=$1`, *setID).Scan(&data, &digest); err != nil {
 			return capture, err
 		}
-		set, err := decodeRetainedSet(data)
+		set, err := decodeRetainedSet(data, *setID, digest)
 		if err != nil {
 			return capture, err
 		}

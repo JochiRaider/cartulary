@@ -1,6 +1,7 @@
 package packformat
 
 import (
+	"bytes"
 	"encoding/json"
 	"slices"
 	"strings"
@@ -70,8 +71,7 @@ func DecodePortableReferences(data []byte) (PortableReferences, error) {
 			return bad()
 		}
 		previous = set.ID
-		expected, err := BuildSet(set.Members)
-		if err != nil || !equalJSON(set, expected) {
+		if err := ValidateSet(set); err != nil {
 			return bad()
 		}
 		for _, member := range set.Members {
@@ -85,6 +85,20 @@ func DecodePortableReferences(data []byte) (PortableReferences, error) {
 	}
 	if len(used) != len(versions) {
 		return bad()
+	}
+	return refs, nil
+}
+
+// DecodeRetainedPortableReferences additionally requires canonical stored bytes.
+// Incoming transport admission retains its separate encoding policy.
+func DecodeRetainedPortableReferences(data []byte) (PortableReferences, error) {
+	refs, err := DecodePortableReferences(data)
+	if err != nil {
+		return PortableReferences{}, err
+	}
+	canonical, err := canonicaljson.Marshal(refs)
+	if err != nil || !bytes.Equal(canonical, data) {
+		return PortableReferences{}, fail("reference_pack_refs.exact_shape")
 	}
 	return refs, nil
 }

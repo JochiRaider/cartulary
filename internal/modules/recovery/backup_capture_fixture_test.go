@@ -2,6 +2,7 @@ package recovery_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 	"testing"
 	"time"
@@ -55,7 +56,7 @@ func newCapturedBackupContractFixture(t *testing.T, ctx context.Context, postgre
 		t.Fatal(err)
 	}
 	t.Cleanup(sourceLive.Close)
-	if err := reference_data.ReconcileBaseRelease(ctx, sourcePool, sourceLive, reference_data.BaseReleaseOptions{Limits: reference_data.DefaultLimits()}, time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)); err != nil {
+	if err := reference_data.ReconcileBaseRelease(ctx, sourcePool, sourceLive, reference_data.BaseReleaseOptions{Finalizer: recoveryBaseFinalizer(t), Limits: reference_data.DefaultLimits()}, time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)); err != nil {
 		t.Fatal(err)
 	}
 	sourcePacks, err := referenceassembly.NewRecoveryStorage(sourceTemporary, sourcePublished, reference_data.DefaultLimits())
@@ -107,4 +108,13 @@ func currentStateCatalog(t testing.TB) *recoverystate.Catalog {
 		t.Fatal(err)
 	}
 	return catalog
+}
+
+func recoveryBaseFinalizer(t testing.TB) reference_data.ActionFinalizer {
+	t.Helper()
+	finalizer, err := extensionassembly.NewReferencePackMutationFinalizer(func(err error) { t.Errorf("indeterminate Base publication: %v", err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return finalizer
 }

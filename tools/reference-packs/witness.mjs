@@ -4,10 +4,18 @@ import { createHash, createPublicKey, verify } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { witnessWindowsSources } from './windows-witness.mjs';
+import { witnessEntraEntries } from './entra-witness.mjs';
 
 const [action, inputPath, reportPath, sourceRoot] = process.argv.slice(2);
-if (action === 'source-audit' && fs.statSync(reportPath).size === 0) process.exit(0);
 const input = JSON.parse(fs.readFileSync(inputPath));
+const admittedInputs = {
+  'source-audit': ['cartulary.attack_source_lock.v1', 'cartulary.windows_event_inventory.v2', 'cartulary.entra_inventory.v2'],
+  assemble: ['cartulary.attack_package_input.v1', 'cartulary.windows_event_build_input.v2', 'cartulary.entra_build_input.v2', 'cartulary.base_registry_reissue_input.v1'],
+  envelope: ['cartulary.attack_envelope_input.v1', 'cartulary.windows_event_envelope_input.v2', 'cartulary.windows_event_release_envelope_input.v2', 'cartulary.entra_envelope_input.v2', 'cartulary.entra_release_envelope_input.v2'],
+};
+if (!admittedInputs[action === 'renew' ? 'envelope' : action]?.includes(input.schema_id)) throw new Error('unsupported witness input schema');
+if (action === 'source-audit' && input.schema_id === 'cartulary.attack_source_lock.v1' && fs.statSync(reportPath).size === 0) process.exit(0);
+
 const report = JSON.parse(fs.readFileSync(reportPath));
 const sha = (b) => createHash('sha256').update(b).digest('hex');
 const requireValue = (condition, reason) => { if (!condition) throw new Error(reason); };
@@ -45,7 +53,17 @@ function logical(root) {
 }
 let witness;
 let output;
-if (action === 'source-audit' && input.schema_id === 'cartulary.windows_event_inventory.v2') {
+if (action === 'source-audit' && input.schema_id === 'cartulary.entra_inventory.v2') {
+  const result = witnessEntraEntries(fs.readFileSync(path.join(sourceRoot, 'candidates', `${report.entries_sha256}.ndjson`)));
+  witness = { schema_id: 'cartulary.entra_independent_corpus_witness.v2', ...result };
+  output = path.join(sourceRoot, 'witnesses', `audit-${sha(fs.readFileSync(reportPath))}.json`);
+} else if (action === 'assemble' && input.schema_id === 'cartulary.entra_build_input.v2') {
+  const root = path.join(input.output_root, report.logical_path);
+  const result = logical(root);
+  const corpus = witnessEntraEntries(fs.readFileSync(path.join(root, 'payload/entries.ndjson')), result.manifest);
+  witness = { schema_id: 'cartulary.entra_independent_logical_witness.v2', manifest_sha256: result.manifest_sha256, payload_sha256: result.payload_sha256, files: result.files, ...corpus };
+  output = path.join(input.output_root, 'witnesses', `logical-${report.manifest_sha256}.json`);
+} else if (action === 'source-audit' && input.schema_id === 'cartulary.windows_event_inventory.v2') {
   const root = path.join(sourceRoot, 'audits', sha(fs.readFileSync(reportPath)));
   witness = witnessWindowsSources(fs.readFileSync(path.join(root, 'evidence.tar')), fs.readFileSync(path.join(root, 'entries.candidate.ndjson')), report);
   output = path.join(sourceRoot, 'witnesses', `audit-${sha(fs.readFileSync(reportPath))}.json`);
@@ -97,6 +115,14 @@ if (action === 'source-audit' && input.schema_id === 'cartulary.windows_event_in
   witness = { schema_id: 'cartulary.attack_independent_logical_witness.v1', implementation: 'node_crypto_independent_jcs', manifest_sha256: result.manifest_sha256, payload_sha256: result.payload_sha256, files: result.files, rows, native_records: source.size, embedded_relationships: embedded, source_lock_sha256: sha(fs.readFileSync(input.source_lock)), exact_native_preservation: true, exact_mitre_notice: true };
   output = path.join(input.output_root, 'witnesses', `logical-${report.manifest_sha256}.json`);
 } else if (action === 'envelope' || action === 'renew') {
+  const schemas = {
+    'cartulary.attack_envelope_input.v1': 'cartulary.attack_independent_envelope_witness.v1',
+    'cartulary.windows_event_envelope_input.v2': 'cartulary.windows_event_independent_envelope_witness.v2',
+    'cartulary.windows_event_release_envelope_input.v2': 'cartulary.windows_event_independent_envelope_witness.v2',
+    'cartulary.entra_envelope_input.v2': 'cartulary.entra_independent_envelope_witness.v2',
+    'cartulary.entra_release_envelope_input.v2': 'cartulary.entra_independent_envelope_witness.v2',
+  };
+  requireValue(Object.hasOwn(schemas, input.schema_id), 'unsupported envelope witness schema');
   const root = path.join(input.output_root, report.envelope_path);
   const bytes = fs.readFileSync(path.join(root, 'container.pack'));
   const bootstrapBytes = fs.readFileSync(path.join(root, 'bootstrap.json'));
@@ -147,7 +173,7 @@ if (action === 'source-audit' && input.schema_id === 'cartulary.windows_event_in
     requireValue(b.length === d.length && sha(b) === d.hashes.sha256 && JSON.parse(b).signed.version === d.version, 'metadata link witness');
   }
   requireValue(sha(members.get('manifest.json')) === report.manifest_sha256, 'envelope logical identity witness');
-  witness = { schema_id: ['cartulary.windows_event_envelope_input.v2','cartulary.windows_event_release_envelope_input.v2'].includes(input.schema_id) ? 'cartulary.windows_event_independent_envelope_witness.v2' : 'cartulary.attack_independent_envelope_witness.v1', implementation: 'node_crypto_ed25519_independent_ustar', manifest_sha256: report.manifest_sha256, payload_sha256: report.payload_sha256, container_sha256: sha(bytes), container_bytes: bytes.length, bootstrap_sha256: sha(bootstrapBytes), metadata_version: report.metadata_version, signers, byte_integrity: true, signature_integrity: true, freshness_verified: false };
+  witness = { schema_id: schemas[input.schema_id], implementation: 'node_crypto_ed25519_independent_ustar', manifest_sha256: report.manifest_sha256, payload_sha256: report.payload_sha256, container_sha256: sha(bytes), container_bytes: bytes.length, bootstrap_sha256: sha(bootstrapBytes), metadata_version: report.metadata_version, signers, byte_integrity: true, signature_integrity: true, freshness_verified: false };
   output = path.join(input.output_root, 'witnesses', `envelope-${report.container_sha256}.json`);
 }
 if (witness) process.stdout.write(`Independent witness retained: ${output}; sha256=${retain(output, witness)}\n`);

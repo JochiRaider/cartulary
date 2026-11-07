@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.reference_pack_owner_fixture.v1",
+  "fixture_id": "rpfx_owner_entra_portability",
+  "scenario": "portable_destination",
+  "owner_id": "module.incidentbundles",
+  "row_id": "module.incidentbundles.integration.entra_bundle_round_trip",
+  "test_name": "TestEntraProducedPackSurvivesBundleRoundTrip_Integration"
+}

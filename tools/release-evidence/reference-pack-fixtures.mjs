@@ -27,17 +27,17 @@ export function packageFixtures(repoRoot, destination) {
   const bootstrap = canonical({ schema_id: "cartulary.reference_pack_trust_bootstrap.v1", repositories: [{ repository_id: repository, trusted_root: JSON.parse(root(1)), trusted_root_sha256: digest(root(1)) }] });
   writeFileSync(path.join(destination, "trust.json"), bootstrap, { mode: 0o644 });
   const base = JSON.parse(readFileSync(path.join(repoRoot, "contracts/reference-packs/builtins/release.v2.json")));
-  const profiles = JSON.parse(readFileSync(path.join(repoRoot, "contracts/reference-pack-fixtures/fixtures/profiles.v1.json")));
+  const profiles = JSON.parse(readFileSync(path.join(repoRoot, "contracts/reference-packs/profiles.v2.json"))).profiles;
   function bundle(name, { key = "enrichment.tor", version = 2, metadataVersion = version, rotation = false, badSignature = false, incompatible = false } = {}) {
     const source = base.packs.find((pack) => pack.binding.pack_key === key) ?? base.packs[0];
     const members = Object.fromEntries(Object.entries(source.members).map(([name, value]) => [name, Buffer.from(value)]));
     const manifest = JSON.parse(members["manifest.json"]);
     if (!key.startsWith("type_registry.")) {
       for (const name of Object.keys(members)) if (name.startsWith("payload/")) delete members[name];
-      const profile = profiles.cases.find((profile) => profile.pack_key === key);
+      const profile = JSON.parse(readFileSync(path.join(repoRoot, `contracts/reference-pack-fixtures/fixtures/profiles/${key.replaceAll(".", "_")}_valid.v1.json`)));
       for (const [name, value] of Object.entries(profile.members)) members[name] = Buffer.from(value);
     }
-    Object.assign(manifest, { pack_key: key, pack_kind: key.split(".")[0], pack_version: String(version), pack_release_sequence: version + 1, trust_repository_id: repository, source_as_of: expiry(0), built_at: expiry(0), content_profile_id: `cartulary.reference_pack.${key}.v1` });
+    Object.assign(manifest, { pack_key: key, pack_kind: key.split(".")[0], pack_version: String(version), pack_release_sequence: version + 1, trust_repository_id: repository, source_as_of: expiry(0), built_at: expiry(0), content_profile_id: profiles.find(profile => profile.pack_key === key).content_profile_id, content_profile_version: profiles.find(profile => profile.pack_key === key).content_profile_version });
     if (incompatible) manifest.pack_contract_version = "999";
     manifest.files = Object.keys(members).filter((name) => name !== "manifest.json").sort().map((name) => ({ path: name, role: name.startsWith("notices/") ? "notice" : "payload", media_type: name.startsWith("notices/") ? "text/plain" : "application/x-ndjson", size_bytes: members[name].length, sha256: digest(members[name]) }));
     manifest.content_summary = { kind: "entries", entry_count: members["payload/entries.ndjson"].filter((byte) => byte === 10).length };

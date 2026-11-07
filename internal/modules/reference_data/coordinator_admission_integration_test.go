@@ -108,7 +108,7 @@ func TestCanonicalAdmissionFreezesCohortAndRejectsRelevantStaleState_Integration
 	defer pool.Close()
 	storage := &coordinatorMemoryStorage{objects: map[string][]byte{}}
 	at := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
-	options := BaseReleaseOptions{ProfileClaimed: true, Limits: DefaultLimits()}
+	options := BaseReleaseOptions{Finalizer: newBaseTestFinalizer(t), ProfileClaimed: true, Limits: DefaultLimits()}
 	if err := ReconcileBaseRelease(ctx, pool, storage, options, at); err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +321,7 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 		t.Fatal(err)
 	}
 	storage := &coordinatorMemoryStorage{engineStorage: engineStorage{container: container}, objects: map[string][]byte{}}
-	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{ProfileClaimed: true, ClockTrusted: true, Limits: DefaultLimits()}, vector.At); err != nil {
+	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{Finalizer: newBaseTestFinalizer(t), ProfileClaimed: true, ClockTrusted: true, Limits: DefaultLimits()}, vector.At); err != nil {
 		t.Fatal(err)
 	}
 	c := &verificationService{referenceDependencies: &referenceDependencies{pool: pool, storage: storage, limits: DefaultLimits(), configuration: Configuration{ClockTrusted: true}, now: func() time.Time { return vector.At }}}
@@ -468,11 +468,7 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 	if _, err := tx.Exec(ctx, `UPDATE reference_pack_candidates SET administratively_disabled=false WHERE pack_key=$1 AND pack_version=$2`, identity.Key, identity.Version); err != nil {
 		t.Fatal(err)
 	}
-	var setData []byte
-	if err := tx.QueryRow(ctx, `SELECT canonical_set FROM reference_pack_sets JOIN reference_pack_current_set USING(pack_set_id)`).Scan(&setData); err != nil {
-		t.Fatal(err)
-	}
-	base, err := decodeRetainedSet(setData)
+	base, err := (&canonicalRepository{pool: tx}).CurrentSet(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -537,11 +533,11 @@ func TestCanonicalCoordinatorPublishesSignedContentAndAtomicInvalidation_Integra
 		}
 	}
 	assertFallback(&identity.Version)
-	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{ProfileClaimed: true, ClockTrusted: true, Limits: DefaultLimits()}, vector.Expiry.Add(time.Second)); err != nil {
+	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{Finalizer: newBaseTestFinalizer(t), ProfileClaimed: true, ClockTrusted: true, Limits: DefaultLimits()}, vector.Expiry.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	assertFallback(&identity.Version)
-	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{Limits: DefaultLimits()}, vector.Expiry.Add(2*time.Second)); err != nil {
+	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{Finalizer: newBaseTestFinalizer(t), Limits: DefaultLimits()}, vector.Expiry.Add(2*time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	assertFallback(nil)

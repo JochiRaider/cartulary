@@ -161,19 +161,19 @@ func validateHistoricalAttestations(ctx context.Context, db postgres.DB) error {
 func validateHistoricalSets(ctx context.Context, db postgres.DB, requiredOnly bool) error {
 	after := ""
 	for {
-		var id string
+		var id, digest string
 		var data, provenance []byte
-		err := db.QueryRow(ctx, `SELECT pack_set_id,canonical_set,canonical_provenance FROM reference_pack_sets s
+		err := db.QueryRow(ctx, `SELECT pack_set_id,canonical_set,canonical_provenance,pack_set_sha256 FROM reference_pack_sets s
  WHERE pack_set_id COLLATE "C">$1 AND (NOT $2 OR EXISTS(SELECT 1 FROM reference_pack_current_set c WHERE c.pack_set_id=s.pack_set_id) OR EXISTS(SELECT 1 FROM reference_pack_pins p WHERE p.pack_set_id=s.pack_set_id))
- ORDER BY pack_set_id COLLATE "C" LIMIT 1`, after, requiredOnly).Scan(&id, &data, &provenance)
+ ORDER BY pack_set_id COLLATE "C" LIMIT 1`, after, requiredOnly).Scan(&id, &data, &provenance, &digest)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		set, err := decodeRetainedSet(data)
-		if err != nil || set.ID != id {
+		set, err := decodeRetainedSet(data, id, digest)
+		if err != nil {
 			return errHistoricalIntegrity
 		}
 		if _, err := decodeRetainedProvenance(provenance, set); err != nil {

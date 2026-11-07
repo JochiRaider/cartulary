@@ -24,14 +24,17 @@
         "snapshot_binding",
         "portable_destination",
         "historical_readiness",
-        "windows_online"
+        "windows_online",
+        "entra_lifecycle",
+        "recovery"
       ]
     },
     "owner_id": {
       "enum": [
         "module.reporting",
         "module.incidentbundles",
-        "module.reference_data"
+        "module.reference_data",
+        "module.recovery"
       ]
     },
     "row_id": {

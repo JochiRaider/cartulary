@@ -62,7 +62,7 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 		t.Fatal("fresh migration fabricated retained pack state", freshRows, err)
 	}
 	at := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
-	if err := reference_data.ReconcileBaseRelease(ctx, pool, storage, reference_data.BaseReleaseOptions{Limits: reference_data.DefaultLimits()}, at); err != nil {
+	if err := reference_data.ReconcileBaseRelease(ctx, pool, storage, reference_data.BaseReleaseOptions{Finalizer: consumerIntegrityOptions(t).Finalizer, Limits: reference_data.DefaultLimits()}, at); err != nil {
 		t.Fatal(err)
 	}
 	if err := reference_data.ValidateRequiredState(ctx, pool, storage, reference_data.DefaultLimits()); err != nil {
@@ -89,7 +89,7 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM reference_pack_objects),(SELECT count(*) FROM reference_pack_envelopes)`).Scan(&objects, &envelopes); err != nil {
 		t.Fatal(err)
 	}
-	if err := reference_data.ReconcileBaseRelease(ctx, pool, storage, reference_data.BaseReleaseOptions{ProfileClaimed: true, Limits: reference_data.DefaultLimits()}, at.Add(time.Hour)); err != nil {
+	if err := reference_data.ReconcileBaseRelease(ctx, pool, storage, reference_data.BaseReleaseOptions{Finalizer: consumerIntegrityOptions(t).Finalizer, ProfileClaimed: true, Limits: reference_data.DefaultLimits()}, at.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	after := consumer.GetPackProvenance(ctx, request)

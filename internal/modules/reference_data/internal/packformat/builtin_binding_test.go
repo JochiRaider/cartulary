@@ -28,21 +28,6 @@ func TestBuiltinBindingClosesIdentityAndShape_Unit(t *testing.T) {
 	if err != nil || set.SHA256 != witness.SetSHA {
 		t.Fatal("independent Base set witness", err)
 	}
-	var previous struct {
-		Packs []struct {
-			Members map[string]string `json:"members"`
-		} `json:"packs"`
-	}
-	if err := json.Unmarshal(projection("builtins/release.v1.json"), &previous); err != nil {
-		t.Fatal(err)
-	}
-	for i, pack := range release.Packs {
-		for path, data := range pack.Members {
-			if path != "manifest.json" && previous.Packs[i].Members[path] != data {
-				t.Fatal("Base registry or notice changed", path)
-			}
-		}
-	}
 	for _, pack := range release.Packs {
 		data, err := canonicaljson.Marshal(pack.Binding)
 		if err != nil {
@@ -55,6 +40,12 @@ func TestBuiltinBindingClosesIdentityAndShape_Unit(t *testing.T) {
 		manifest, err := DecodeManifest([]byte(pack.Members["manifest.json"]), false)
 		if err != nil {
 			t.Fatal(err)
+		}
+		for _, file := range manifest.Files {
+			member, exists := pack.Members[file.Path]
+			if !exists || int64(len(member)) != file.Size || Digest([]byte(member)) != file.SHA256 {
+				t.Fatal("current Base member differs from its manifest", file.Path)
+			}
 		}
 		payload, err := PayloadDigest(manifest.Files)
 		if err != nil || !binding.Matches(manifest, Digest([]byte(pack.Members["manifest.json"])), payload) {

@@ -1,0 +1,111 @@
+{
+  "schema_id": "cartulary.entra_inventory.v2",
+  "sources": [
+    {
+      "source_id": "L1",
+      "kind": "license",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/entra-docs/ad2392b54e54af312a83c1095d1532609ac46a05/LICENSE",
+      "repository": "MicrosoftDocs/entra-docs",
+      "commit": "ad2392b54e54af312a83c1095d1532609ac46a05",
+      "commit_at": "2026-06-15T16:35:27Z",
+      "front_matter_date": null,
+      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+      "size_bytes": 1141,
+      "heading": null,
+      "header": [],
+      "expected_rows": 0,
+      "expected_assertions": 0,
+      "license_input_id": null
+    },
+    {
+      "source_id": "L2",
+      "kind": "license",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/SupportArticles-docs/6052ca412335c69ac07a3eaca9ee6cc9d1a097b1/LICENSE",
+      "repository": "MicrosoftDocs/SupportArticles-docs",
+      "commit": "6052ca412335c69ac07a3eaca9ee6cc9d1a097b1",
+      "commit_at": "2026-03-19T20:09:11Z",
+      "front_matter_date": null,
+      "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+      "size_bytes": 18650,
+      "heading": null,
+      "header": [],
+      "expected_rows": 0,
+      "expected_assertions": 0,
+      "license_input_id": null
+    },
+    {
+      "source_id": "L3",
+      "kind": "license",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/SupportArticles-docs/4d3e713353ecd290d8615487c486df4b5649501c/LICENSE",
+      "repository": "MicrosoftDocs/SupportArticles-docs",
+      "commit": "4d3e713353ecd290d8615487c486df4b5649501c",
+      "commit_at": "2025-05-30T02:07:03Z",
+      "front_matter_date": null,
+      "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+      "size_bytes": 18650,
+      "heading": null,
+      "header": [],
+      "expected_rows": 0,
+      "expected_assertions": 0,
+      "license_input_id": null
+    },
+    {
+      "source_id": "S1",
+      "kind": "dataset",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/entra-docs/ad2392b54e54af312a83c1095d1532609ac46a05/docs/identity/monitoring-health/reference-service-principal-table.md",
+      "repository": "MicrosoftDocs/entra-docs",
+      "commit": "ad2392b54e54af312a83c1095d1532609ac46a05",
+      "commit_at": "2026-06-15T16:35:27Z",
+      "front_matter_date": "05/06/2025",
+      "sha256": "18f5c30552235b140ba7267a35953218b19b2f0a06e291726f941469b4af5d0c",
+      "size_bytes": 7071,
+      "heading": "Microsoft service principal sign-in logs",
+      "header": [
+        "Application display name",
+        "Application ID",
+        "Description"
+      ],
+      "expected_rows": 22,
+      "expected_assertions": 22,
+      "license_input_id": "L1"
+    },
+    {
+      "source_id": "S2",
+      "kind": "dataset",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/SupportArticles-docs/6052ca412335c69ac07a3eaca9ee6cc9d1a097b1/support/entra/entra-id/governance/verify-first-party-apps-sign-in.md",
+      "repository": "MicrosoftDocs/SupportArticles-docs",
+      "commit": "6052ca412335c69ac07a3eaca9ee6cc9d1a097b1",
+      "commit_at": "2026-03-19T20:09:11Z",
+      "front_matter_date": "06/03/2025",
+      "sha256": "6afab62af17bad767dfd7c5a982c3cff65682210d09f6eb8453fa60396e155c8",
+      "size_bytes": 5825,
+      "heading": "Application IDs of Microsoft tenant-owned applications",
+      "header": [
+        "Application Name",
+        "Application IDs"
+      ],
+      "expected_rows": 4,
+      "expected_assertions": 4,
+      "license_input_id": "L2"
+    },
+    {
+      "source_id": "S3",
+      "kind": "dataset",
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/SupportArticles-docs/4d3e713353ecd290d8615487c486df4b5649501c/support/entra/entra-id/governance/verify-first-party-apps-sign-in.md",
+      "repository": "MicrosoftDocs/SupportArticles-docs",
+      "commit": "4d3e713353ecd290d8615487c486df4b5649501c",
+      "commit_at": "2025-05-30T02:07:03Z",
+      "front_matter_date": "03/08/2024",
+      "sha256": "6404a9527b7789267fcad93b9056403495ccc67b634fe7038971e68fa7f2cae9",
+      "size_bytes": 13993,
+      "heading": "Application IDs of commonly used Microsoft applications",
+      "header": [
+        "Application Name",
+        "Application IDs"
+      ],
+      "expected_rows": 119,
+      "expected_assertions": 121,
+      "license_input_id": "L3"
+    }
+  ]
+}

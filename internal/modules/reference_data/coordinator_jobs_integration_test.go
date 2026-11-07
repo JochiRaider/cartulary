@@ -24,6 +24,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func newBaseTestFinalizer(t testing.TB) ActionFinalizer {
+	t.Helper()
+	owner, err := extensionstore.NewOwnerMutationFinalizer(func(err error) { t.Errorf("indeterminate Base publication: %v", err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return coordinatorTestFinalizer{owner: owner}
+}
+
 type coordinatorTestFinalizer struct {
 	owner *extensionstore.OwnerFinalizer
 }
@@ -471,7 +480,7 @@ func newCanonicalCoordinatorFixture(t *testing.T, name string) canonicalCoordina
 		t.Fatalf("bootstrap replay duplicated audit or operation: %d/%d", rootAudits, rootOperations)
 	}
 	storage := &coordinatorMemoryStorage{objects: map[string][]byte{}}
-	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{ProfileClaimed: true, ClockTrusted: true, Limits: DefaultLimits()}, vector.At); err != nil {
+	if err := ReconcileBaseRelease(ctx, pool, storage, BaseReleaseOptions{Finalizer: newBaseTestFinalizer(t), ProfileClaimed: true, ClockTrusted: true, Limits: DefaultLimits()}, vector.At); err != nil {
 		t.Fatal(err)
 	}
 	definitions := []jobs.Definition{}

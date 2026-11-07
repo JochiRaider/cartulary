@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -66,7 +67,7 @@ func TestOperatorReferencePackRetainedAdmission_Integration(t *testing.T) {
 			}
 		})
 	}
-	for _, mode := range []string{"current", "unavailable portable", "cancelled", "query failure", "binding query failure"} {
+	for _, mode := range append([]string{"current", "unavailable portable", "cancelled", "query failure", "binding query failure", "reference table missing", "reporting table missing"}, admissionfixture.SchemaCases...) {
 		t.Run(mode, func(t *testing.T) {
 			database := harness.PrepareIsolatedDatabaseT(t, "operator-admission-outcome")
 			db, err := pgtest.OpenPurposeDatabase(t.Context(), database.DSN, postgres.PurposeMigration)
@@ -81,6 +82,9 @@ func TestOperatorReferencePackRetainedAdmission_Integration(t *testing.T) {
 				}
 				admissionfixture.SeedPortable(t, db, raw)
 			}
+			if slices.Contains(admissionfixture.SchemaCases, mode) {
+				admissionfixture.SeedSchemaFailure(t, db, mode)
+			}
 			if mode == "query failure" {
 				if _, err := db.ExecContext(t.Context(), `ALTER TABLE reference_pack_sets RENAME COLUMN canonical_set TO unavailable_column`); err != nil {
 					t.Fatal(err)
@@ -88,6 +92,9 @@ func TestOperatorReferencePackRetainedAdmission_Integration(t *testing.T) {
 			}
 			if mode == "binding query failure" {
 				admissionfixture.SeedBindingQueryFailure(t, db)
+			}
+			if mode == "reference table missing" || mode == "reporting table missing" {
+				admissionfixture.SeedMissingTable(t, db, mode)
 			}
 			roots := configtest.SetupTempRoots(t)
 			configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], database.DSN, postgres.PurposeRuntime)
@@ -117,10 +124,17 @@ func TestOperatorReferencePackRetainedAdmission_Integration(t *testing.T) {
 			if err == nil || port != nil || contractadmission.IsIncompatible(err) {
 				t.Fatal("operational failure classification", err)
 			}
-			if mode == "binding query failure" {
+			if slices.Contains(admissionfixture.SchemaCases, mode) {
+				admissionfixture.RequireSchemaFailure(t, err, mode)
+			}
+			if mode == "query failure" || mode == "binding query failure" || mode == "reference table missing" || mode == "reporting table missing" {
+				code := "42703"
+				if mode == "reference table missing" || mode == "reporting table missing" {
+					code = "42P01"
+				}
 				var databaseError *pgconn.PgError
-				if !errors.As(err, &databaseError) || databaseError.Code != "42703" {
-					t.Fatal("did not reach the binding query fault", err)
+				if !errors.As(err, &databaseError) || databaseError.Code != code {
+					t.Fatal("did not reach the query fault", err)
 				}
 			}
 			var stdout, stderr bytes.Buffer

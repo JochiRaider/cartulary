@@ -154,7 +154,7 @@ func TestPortableCatalogReachableSetAndVersionLimits_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 16801852 || Digest(encoded) != "a3488c351c6a2eb50981f9530a023bc33e475cfbade2a13b2735c72a5ca0fa65" {
+	if len(encoded) != 16801852 || Digest(encoded) != "f9f380df78c83e08fbb1943d4a8b06bc917564c917b6df7795d6d0113ef38a5b" {
 		t.Fatal("independent at-limit catalog changed")
 	}
 	admitted, err := DecodePortableReferences(encoded)

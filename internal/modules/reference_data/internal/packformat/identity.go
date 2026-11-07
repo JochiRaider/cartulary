@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"slices"
 	"strings"
 
@@ -53,6 +54,53 @@ type Set struct {
 }
 
 func admittedSetCardinality(count int) bool { return count >= 3 && count <= 64 }
+
+var setShape = compileProjection("pack_set.v2.schema.json")
+
+// DecodeSet admits immutable canonical bytes. Only BuildSet may normalize input.
+func DecodeSet(data []byte) (Set, error) {
+	value, err := canonicaljson.DecodeStrict(data)
+	if err != nil || !setShape.matches(value) {
+		return Set{}, fail("contract_incompatible")
+	}
+	var set Set
+	if err := json.Unmarshal(data, &set); err != nil {
+		return Set{}, fail("contract_incompatible")
+	}
+	if err := ValidateSet(set); err != nil {
+		return Set{}, err
+	}
+	canonical, err := canonicaljson.Marshal(set)
+	if err != nil || !bytes.Equal(data, canonical) {
+		return Set{}, fail("contract_incompatible")
+	}
+	return set, nil
+}
+
+// DecodeBoundSet additionally binds canonical content to its retained or
+// requested identity. Valid bytes for another set never satisfy that binding.
+func DecodeBoundSet(data []byte, id, digest string) (Set, error) {
+	set, err := DecodeSet(data)
+	if err != nil {
+		return Set{}, err
+	}
+	if set.ID != id || set.SHA256 != digest {
+		return Set{}, fail("contract_incompatible")
+	}
+	return set, nil
+}
+
+// ValidateSet is shared with closed nested portable graphs after shape admission.
+func ValidateSet(set Set) error {
+	expected, err := BuildSet(set.Members)
+	if err != nil {
+		return err
+	}
+	if !equalJSON(set, expected) {
+		return fail("contract_incompatible")
+	}
+	return nil
+}
 
 func BuildSet(members []SetMember) (Set, error) {
 	if !admittedSetCardinality(len(members)) {

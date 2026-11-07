@@ -74,9 +74,12 @@ func (p publicationPolicy) allocationSchema() string {
 
 var attackFixturePolicy = publicationPolicy{FixtureRepository, "framework.attack", "cartulary.attack", "v1", true}
 var windowsFixturePolicy = publicationPolicy{WindowsFixtureRepository, WindowsKey, "cartulary.windows_event", "v2", true}
+var entraFixturePolicy = publicationPolicy{EntraFixtureRepository, EntraKey, "cartulary.entra", "v2", true}
+var windowsReleasePolicy = publicationPolicy{WindowsReleaseRepository, WindowsKey, "cartulary.windows_event_release", "v2", false}
+var entraReleasePolicy = publicationPolicy{EntraRepository, EntraKey, "cartulary.entra_release", "v2", false}
 
 func fixturePolicyForRepository(repository string) (publicationPolicy, error) {
-	for _, p := range []publicationPolicy{attackFixturePolicy, windowsFixturePolicy} {
+	for _, p := range []publicationPolicy{attackFixturePolicy, windowsFixturePolicy, entraFixturePolicy} {
 		if p.Repository == repository {
 			return p, nil
 		}
@@ -93,6 +96,11 @@ func NewFixtureSigningContext() (SigningContext, error) {
 // NewWindowsFixtureSigningContext creates isolated test authority only.
 func NewWindowsFixtureSigningContext() (SigningContext, error) {
 	return newSigningContext(windowsFixturePolicy)
+}
+
+// NewEntraFixtureSigningContext creates isolated authority for canonical corpus tests.
+func NewEntraFixtureSigningContext() (SigningContext, error) {
+	return newSigningContext(entraFixturePolicy)
 }
 
 func newSigningContext(policy publicationPolicy) (SigningContext, error) {
@@ -281,7 +289,11 @@ func Envelope(ctx context.Context, inputBytes []byte, renew bool) (EnvelopeRepor
 		return EnvelopeReport{}, err
 	}
 	policy := attackFixturePolicy
-	if in.SchemaID == "cartulary.windows_event_envelope_input.v2" {
+	if in.SchemaID == "cartulary.entra_envelope_input.v2" {
+		policy = entraFixturePolicy
+	} else if in.SchemaID == "cartulary.entra_release_envelope_input.v2" {
+		policy = entraReleasePolicy
+	} else if in.SchemaID == "cartulary.windows_event_envelope_input.v2" {
 		policy = windowsFixturePolicy
 	} else if in.SchemaID == "cartulary.windows_event_release_envelope_input.v2" {
 		policy = windowsReleasePolicy
@@ -375,7 +387,7 @@ func Envelope(ctx context.Context, inputBytes []byte, renew bool) (EnvelopeRepor
 		return r, err
 	}
 	if !policy.Fixture {
-		if err = verifyReleaseEnvelope(ctx, container, bootstrap, r, in.LedgerRoot); err != nil {
+		if err = verifyReleaseEnvelope(ctx, container, bootstrap, r, in.LedgerRoot, policy); err != nil {
 			return r, err
 		}
 	}

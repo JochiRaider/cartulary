@@ -9,7 +9,6 @@ import (
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
-	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	reportingmigration "github.com/JochiRaider/cartulary/internal/modules/reporting/migrationadmission"
@@ -41,7 +40,7 @@ func newMigrateRunner(stderr io.Writer) migrateRunner {
 		},
 		openSQL: postgres.OpenSQL,
 		apply: func(ctx context.Context, db, guard *sql.DB, source *database_migrations.Source, inspect func(context.Context) error) error {
-			return database_migrations.ApplyWithCryptoAdmission(ctx, db, guard, source, inspect, referenceassembly.ValidateRetainedMigrationState, networkflow.ValidateMigrationAdmission, reportingmigration.Validate)
+			return database_migrations.ApplyWithCryptoAdmission(ctx, db, guard, source, inspect, networkflow.ValidateMigrationAdmission, reportingmigration.Validate)
 		},
 		source: dbmigrations.Source,
 	}

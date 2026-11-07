@@ -12,7 +12,41 @@ schema_id: cartulary.reference_pack_subsystem_nlspec.v1
 
 This NLSpec defines the Cartulary Reference Pack subsystem. It specializes the existing `reference_pack` extension profile and defines the limited Base Profile contract for immutable built-in type registries. It does not create a second extension identity.[^7]
 
-Contract major 3 adopts the native ATT&CK profile and the v2 pack contract. Only `cartulary.reference_pack_contract.v2` is admitted. ATT&CK and Windows Event IDs content/profile schemas are v2; unchanged profile schemas, manifest shape, TUF method, application compatibility major and HTTP namespace retain their identifiers. Closed predecessor schemas remain historical evidence, never admission paths. Incident-bundle format 7 carries only the current `reference_pack_refs.v2` catalog. Before any reconciliation write, schema mutation, worker admission or readiness, incompatible retained pack versions, immutable sets, pending operations and dependent artifacts MUST fail closed. No historical byte rewrite, compatibility reader, implicit reset or data conversion is permitted. Validation uses isolated fresh state; preserving live predecessor state requires a separately adopted migration. Required Base registries retain their content and receive new release-bound v2 manifest identities.
+Contract major 3 adopts the native ATT&CK profile and the v2 pack contract. Only `cartulary.reference_pack_contract.v2` is admitted. ATT&CK, Windows Event IDs and Entra Application IDs content/profile schemas are v2; unchanged profile schemas, manifest shape, TUF method, application compatibility major and HTTP namespace retain their identifiers. Closed predecessor schemas remain design and test evidence, never admission paths. Incident-bundle format 7 carries only the current `reference_pack_refs.v2` catalog. Before any runtime reconciliation write, worker admission or readiness, incompatible retained pack versions, immutable sets, pending operations and dependent artifacts MUST fail closed. No historical byte rewrite, compatibility reader, implicit reset or data conversion is permitted. Validation uses isolated fresh state. Required Base registries retain their content and receive new release-bound v2 manifest identities.
+
+No v1 Reference Pack deployment exists or has ever existed. The only existing
+reference-pack artifacts are those currently retained under `fixtures/`.
+Predecessor schema files, including `fixtures/reference-packs/historical-v1/`,
+and synthetic incompatible-state tests do not establish a deployed pack or an
+installed user base. This is a pre-deployment schema cutover with no v1 data to
+migrate and no migration or environment-reset prerequisite. Profile definitions
+describe supported formats; they do not establish that a corresponding pack
+has been produced or deployed.
+
+Current admission MUST validate the declared current artifact structure rather
+than recursively blacklist predecessor schema identifiers inside arbitrary JSON.
+Retained manifests and standalone sets MUST satisfy their closed current shapes,
+canonical encoding, identities, member ordering and applicable semantic rules.
+Readers MUST reject malformed representations rather than normalize them into
+acceptance. Every stored-set read MUST also bind the decoded identity and digest
+to the selected row's `pack_set_id` and `pack_set_sha256`, and to the requested
+identity when supplied. A valid canonical set stored under another identity is
+an integrity failure; it MUST fail retained admission before startup mutation
+or recovery index rebuilding, and consumer reads MUST report unavailability.
+A portable-only binding MUST be resolved from the validated retained
+catalog, not from a database-reserialized approximation of canonical set bytes.
+Pending operations use only the closed operation-input and portability-input
+contracts; they contain no embedded profile or entry compatibility bindings.
+The current `cartulary.reference_pack_reconciliation.v1` input describes a
+terminal synchronous reconciliation receipt, never a committed pending operation.
+Its suffix does not identify a v1 pack or deployment.
+Superseded schemas are inert design fixtures outside the runtime contract bundle.
+Database migration MUST NOT add a Reference Pack v1 migration, conversion, or
+pre-migration content scan. The current Entra profile and entry schema remain v2
+only; startup, operator import, consumers and recovery retain their current
+contract and integrity validation. Required current tables MUST be present;
+admission MUST propagate database failures without treating an absent table as
+an empty compatible catalog.
 
 **RP-REQ-001**
 This NLSpec MUST own only these behavior families:
@@ -147,7 +181,7 @@ Framework and enrichment data MUST be advisory or reference-only. It MUST NOT cr
 | Pack-defined workbook surface | No `view_schema`, system view, built-in tab, saved view, or extension workspace is created. |
 | Forms-first capture dependency | Pack absence or verification work does not block ordinary workbook capture. |
 | Automatic authoritative enrichment | Hits remain advisory and do not mutate incident source records. |
-| Mutable deployment-local override layer | No override resource, precedence stack, or unversioned local mutation exists in v1. |
+| Mutable deployment-local override layer | No override resource, precedence stack, or unversioned local mutation exists. |
 | Version-range dependency | Only exact dependency tuples are valid. |
 | Generic template-pack behavior | Reporting template packs remain outside this NLSpec. |
 | Browser trust-root administration | No browser route creates, replaces, or removes a trust root. |
@@ -180,7 +214,7 @@ The current pack contract identifier MUST be `cartulary.reference_pack_contract.
 Editorial corrections that do not change observable behavior MAY increment only the patch component of `document_version`. Additive content-profile registrations MAY increment the minor component only when existing canonical bytes, defaults, errors, and consumers remain unchanged.
 
 **RP-REQ-020**
-The dependencies in Table 4-B identify the imported owners and external contract versions. A newer external contract version MUST NOT be substituted without revising this NLSpec or its named owner. Coordinated owner amendments are reviewed and adopted through the existing repository document-status process. Repository history records the reviewed changes; companion-document hashes, repeated revision bindings and separate signoff dossiers are not required. Tests, generators, runtime metadata and release evidence MUST NOT read, stat or hash Markdown files.
+The dependencies in Table 4-B identify the imported owners and external contract versions. A newer external contract version MUST NOT be substituted without revising this NLSpec or its named owner. Coordinated owner amendments are reviewed and adopted through the existing repository document-status process. Repository history records the reviewed changes; companion-document hashes, repeated revision bindings and separate signoff dossiers are not required. Tests, generators of product contracts, runtime metadata and release evidence MUST NOT read, stat or hash Markdown files. Offline source producers MAY acquire, hash and parse explicitly pinned upstream Markdown datasets under an immutable source profile, as adopted in Core 00. These inert data inputs MUST NOT be product-test expectations, runtime dependencies or a route to consuming Cartulary owner prose.
 
 **Table 4-B. Normative dependency registry**
 
@@ -310,7 +344,7 @@ The terminating TAR zero-block run contains 2–20 blocks inclusive, including t
 Path comparison is exact ASCII byte comparison. The archive MUST additionally reject two paths that differ only by ASCII letter case. Directory member names MUST end with `/`; regular-file member names MUST not end with `/`.
 
 **RP-REQ-038**
-Every `extensions` member is required, non-null, and a closed empty object. Its only admitted value in the canonical v1 schemas is `{}`. Omission, null, another JSON type, and any member (including a namespaced member) MUST be rejected. Adding extension semantics requires an adopted schema and profile revision; consumers MUST NOT silently ignore or repair such content. This rule does not change the explicitly admitted TUF `signed` extension policy in Table 10-A.
+Every `extensions` member is required, non-null, and a closed empty object. Its only admitted value in the current canonical schemas is `{}`. Omission, null, another JSON type, and any member (including a namespaced member) MUST be rejected. Adding extension semantics requires an adopted schema and profile revision; consumers MUST NOT silently ignore or repair such content. This rule does not change the explicitly admitted TUF `signed` extension policy in Table 10-A.
 
 # 7. Pack container and logical layout
 
@@ -370,7 +404,7 @@ payload/objects.ndjson
 payload/relationships.ndjson
 ```
 
-A pack containing both shapes, neither shape, or an additional payload member fails unless the registered content profile explicitly declares the additional member. No v1 profile declares an additional payload member.
+A pack containing both shapes, neither shape, or an additional payload member fails unless the registered content profile explicitly declares the additional member. No current profile declares an additional payload member.
 
 **RP-REQ-044**
 `notices/` MAY contain one or more UTF-8 text files whose paths are declared in the manifest. A notice file MUST use media type `text/plain`, UTF-8 without BOM, Unicode NFC, LF line endings, no NUL, and no C0 or C1 control except LF and horizontal tab. It MUST be non-empty and MUST end in exactly one LF. An omitted `notices/` directory means no notice file is present.
@@ -479,12 +513,12 @@ Items MUST sort by `source_ref`, then `source_version`, then `sha256`. Exact dup
 
 **Table 8-D. `compatibility` object**
 
-| Member | Type | Required v1 value |
+| Member | Type | Required value |
 | --- | --- | --- |
 | `cartulary_contract_majors` | integer array | Exactly `[1]`. |
-| `required_capabilities` | string array | Default and required v1 value `[]`. |
+| `required_capabilities` | string array | Required value `[]`. |
 
-A non-empty `required_capabilities` array is contract-incompatible in v1.
+A non-empty `required_capabilities` array is contract-incompatible.
 
 **Table 8-E. `dependencies[]` item**
 
@@ -748,6 +782,18 @@ On startup of an application release, every current-release packaged built-in ve
 
 Before ready state, startup reconciliation MUST execute in one publication boundary: verify all current-release built-ins; re-evaluate the byte availability, digests, pack contract, content profile, dependencies, and runtime compatibility of every retained active member without reapplying metadata-expiry freshness; invalidate unavailable or incompatible optional members; and publish one complete replacement set when the effective member list changes. When the Reference Pack Extension Profile is unclaimed, reconciliation MUST remove every operator-imported active pointer, invalidate every optional dependent, select the current-release packaged built-in for each required key with `activation_mode='application_release'`, and retain imported versions only as inactive historical state. When the profile is claimed, a compatible active operator-imported required registry remains active and the current-release built-in becomes its fallback; a required key without such an imported active version MUST use the current-release built-in. Startup reconciliation MUST record a `profile_reconciliation` attestation whenever it changes an effective pointer or invalidates an optional member.
 
+Preparation MAY publish leased, unreferenced physical objects before the
+publication transaction. The reconciliation operation receipt, index generations,
+versions, envelopes, release bindings, set selection and attestations MUST commit
+together. An unsuccessful transaction MUST leave no durable unfinished
+reconciliation operation or index generation. Verification and storage I/O precede
+publication; ordered retention and selection guards MUST recheck captured state.
+The shared owner mutation finalizer MUST classify an uncertain commit using the
+exact immutable terminal receipt, including operation identity, frozen input and
+final outcome. Proven committed effects remain authoritative. Indeterminate
+publication MUST prevent readiness and MUST NOT authorize object deletion;
+existing guarded collection may later reclaim only unreferenced bytes.
+
 **RP-REQ-079**
 When the Reference Pack Extension Profile is not claimed, the internal registry resolver MUST use exactly the three current-release packaged built-ins selected by startup reconciliation, imported versions MUST remain inactive, and the public Reference Pack route family MUST remain unavailable. When the profile is claimed, all retained packaged built-ins MUST become visible as `distribution_kind='packaged_builtin'`, and every effective required or optional version MUST participate in the active reference pack set.
 
@@ -778,7 +824,7 @@ The legal verification-condition transitions are:
 | `staged` | `missing` | Staged container or payload became unavailable before verification completed. |
 | `verified_available` | `disabled` | Explicit disable of an operator-imported version. |
 | `disabled` | `disabled` | Successful reverify preserves administrative disablement. |
-| `disabled` | `verified_available` | Explicit successful activation clears administrative disablement. No separate re-enable operation exists in v1. |
+| `disabled` | `verified_available` | Explicit successful activation clears administrative disablement. No separate re-enable operation exists. |
 | `verified_available`, `disabled`, or active | `failed` | Later reverify or integrity check fails. |
 | `verified_available`, `disabled`, or active | `missing` | Required retained payload becomes unavailable. |
 | `failed` or `missing` | `staged` | New exact reimport of the same logical version. |
@@ -810,7 +856,7 @@ No other key receives automatic fallback.
 The closed activation-mode registry is `normal`, `rollback`, `safety_fallback`, and `application_release`. Explicit activation of a retained verified version that has a prior successful activation attestation, or of an operator-imported target whose sequence is lower than the replaced version in the same sequence scope, MUST use `rollback`. Startup selection of the current application release built-in uses `application_release`; RP-REQ-085 uses `safety_fallback`; every other explicit activation uses `normal`. Every activation preserves sequence history and records the replaced version. Import rollback remains forbidden under RP-REQ-028.
 
 **RP-REQ-088**
-Mutable deployment-local registry overrides are not supported in v1. Organization-specific registry behavior MUST be delivered as a complete immutable operator-imported pack version. Core 02 §11 carries the corresponding replacement-pack rule; adoption still requires the exact amended owner revision to be recorded.
+Mutable deployment-local registry overrides are not supported. Organization-specific registry behavior MUST be delivered as a complete immutable operator-imported pack version. Core 02 §11 carries the corresponding replacement-pack rule; adoption still requires the exact amended owner revision to be recorded.
 
 # 12. Verification pipeline, issues, and publication boundary
 
@@ -1030,7 +1076,7 @@ A pack is content-compatible only when the exact pair `(pack_key, content_profil
 | `enrichment.cisa_kev` | `enrichment` | `cartulary.reference_pack.enrichment.cisa_kev.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.ms_portals` | `enrichment` | `cartulary.reference_pack.enrichment.ms_portals.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.windows_event_ids` | `enrichment` | `cartulary.reference_pack.enrichment.windows_event_ids.v2` | `2` | entries | `advisory_enrichment` |
-| `enrichment.entra_app_ids` | `enrichment` | `cartulary.reference_pack.enrichment.entra_app_ids.v1` | `1` | entries | `advisory_enrichment` |
+| `enrichment.entra_app_ids` | `enrichment` | `cartulary.reference_pack.enrichment.entra_app_ids.v2` | `2` | entries | `advisory_enrichment` |
 | `enrichment.lolbas` | `enrichment` | `cartulary.reference_pack.enrichment.lolbas.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.loldrivers` | `enrichment` | `cartulary.reference_pack.enrichment.loldrivers.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.lolesxi` | `enrichment` | `cartulary.reference_pack.enrichment.lolesxi.v1` | `1` | entries | `advisory_enrichment` |
@@ -2133,7 +2179,7 @@ A no-hit lookup is successful and returns an empty result array. Pack unavailabl
 | `enrichment.cisa_kev` | `cartulary.reference_pack.enrichment.cisa_kev.entry.v1` | `cve_id`, `vendor_project`, `product`, `vulnerability_name`, `date_added`, `short_description`, `required_action`, `due_date`, `known_ransomware_campaign_use`, nullable `notes` | `cve_id`: ASCII uppercase `CVE-YYYY-NNNN...`. |
 | `enrichment.ms_portals` | `cartulary.reference_pack.enrichment.ms_portals.entry.v1` | `service_id`, `portal_urls`, `audiences`, `clouds` | `service_id`: exact; `url_host`: canonical ASCII domain or IP host; `alias`: ASCII case-insensitive. |
 | `enrichment.windows_event_ids` | `cartulary.reference_pack.enrichment.windows_event_ids.entry.v2` | `provider_name`, `event_id`, nullable `event_version`, nullable `level`, nullable `task`, nullable `opcode`, typed `documentation` | `provider_event_id`: ASCII-lower provider name, NUL, decimal event ID; `event_id`: exact integer. |
-| `enrichment.entra_app_ids` | `cartulary.reference_pack.enrichment.entra_app_ids.entry.v1` | `app_id`, nullable `publisher`, `service_principal_names` | `app_id`: lowercase canonical UUID; `service_principal_name`: ASCII case-insensitive; `alias`: ASCII case-insensitive. |
+| `enrichment.entra_app_ids` | `cartulary.reference_pack.enrichment.entra_app_ids.entry.v2` | `app_id`, nullable `publisher`, `service_principal_names` | `app_id`: lowercase canonical UUID; `service_principal_name`: ASCII case-insensitive; `alias`: ASCII case-insensitive. |
 | `enrichment.lolbas` | `cartulary.reference_pack.enrichment.lolbas.entry.v1` | `name`, `platforms`, `categories`, `usage_examples`, `references` | `entry_id`: exact; `name`: ASCII case-insensitive; `alias`: ASCII case-insensitive. |
 | `enrichment.loldrivers` | `cartulary.reference_pack.enrichment.loldrivers.entry.v1` | `driver_id`, `filenames`, `hashes`, `signer_names`, `categories`, `references` | `driver_id`: exact; `filename`: ASCII case-insensitive basename; `hash`: lowercase exact by algorithm; `alias`: ASCII case-insensitive. |
 | `enrichment.lolesxi` | `cartulary.reference_pack.enrichment.lolesxi.entry.v1` | `name`, `platforms`, `categories`, `usage_examples`, `references` | Same as LOLBAS. |
@@ -2208,7 +2254,7 @@ An `enrichment.windows_event_ids` entry contains exactly the common entry member
 `entry_id` MUST equal `ascii_lower_v1(provider_name) + ":" + base10(event_id) + ":" + version_token`, where `version_token` is `*` for null or the shortest base-10 event version. Parse the last two colons from the right; provider names may contain colons. The maximum identity length is 266 UTF-8 bytes. `provider_event_id` lookup input is one closed object containing `provider_name`, `event_id`, and optional `event_version`; omitted `event_version` matches every version, explicit numeric version matches only that version and excludes null-version entries, and explicit `null` is invalid. Results sort by `event_version` with `null` first, then `entry_id`. `event_id` lookup returns every matching provider sorted by `ascii_lower_v1(provider_name)`, exact provider bytes, nullable version, then `entry_id`.
 
 Windows entries use content profile and entry schema v2. This is a clean
-pre-production cutover: Windows v1 MUST fail admission, including retained-state,
+pre-deployment schema cutover: inputs declaring the Windows v1 profile MUST fail admission, including retained-state,
 portable-import and recovery admission. No compatibility reader, conversion,
 dual writing or implicit reset is permitted. Other pack profiles, pack contract
 v2 and incident-bundle format 7 are unchanged.
@@ -2406,6 +2452,51 @@ An `enrichment.entra_app_ids` entry contains exactly the common entry members pl
 | `service_principal_names` | string array | `0..64` ASCII single-line values, each at most 1024 bytes. |
 
 Service-principal names sort by `ascii_lower_v1(value)`, then exact bytes; duplicate normalized values are invalid. `app_id` lookup lowercases ASCII UUID hex before canonical validation. `service_principal_name` and `alias` lookup use ASCII case-insensitive comparison. Results sort by `entry_id`.
+
+Runtime Entra validation MUST enforce the reusable v2 content profile, not a
+fixed catalog size or source snapshot. The pinned producer and independent
+machine-readable corpus expectations MUST enforce the release's factual
+identities, descriptions, historical qualifiers, materialized defaults and exact
+source artifact identities and locators. Product tests MUST NOT derive those
+expectations by rerunning producer extraction or reading upstream Markdown.
+
+Entra entries use content profile and entry schema v2, with profile version
+`"2"`. Inputs declaring the Entra v1 profile MUST fail incoming, retained-state, portable and recovery
+admission before mutation or readiness. No conversion or compatibility reader
+is permitted; unrelated current profiles and complete-set formats are unchanged.
+
+The source profile `cartulary.entra_app_ids.microsoft_docs.2026_11_06.v2`
+freezes three Microsoft documentation revisions and the 139-entry baseline:
+145 selected rows, 147 assertions, seven quarantined assertions, 140 admitted
+assertions and one coalescence. Twenty entries have selected current-source
+support; 119 have only historical-source support. The producer MUST retain
+exact bytes, dates with their meanings, line locators, exclusions, source-field
+accounting and all supporting references. Conflicting identity claims MUST NOT
+be repaired, majority-selected or turned into aliases. The four entries with
+shared labels retain separate IDs and omit those ambiguous aliases; the two
+explicit former-name annotations contribute four additional aliases.
+
+The public projection contains factual names/IDs and original Cartulary text,
+never copied upstream descriptions. The 16 admitted service-principal-table
+entries receive supported original summaries; the four current ownership-table
+entries have null descriptions. All 119 historical-only entries carry the
+source profile's exact original historical qualifier. Publisher attribution
+means Microsoft documentation attribution, not Graph verified-publisher status
+or event authorization. No baseline SPNs or lifecycle conclusions are inferred.
+The baseline has 135 entries with aliases and 139 aliases in total. Until a
+separate source profile adopts shared-SPN behavior, the producer MUST reject
+cross-entry shared normalized SPNs. This does not define new lookup kinds.
+
+The maintainer authorizes Apache-2.0 distribution of this factual projection
+and original summaries with project license and original scope/attribution
+notices. The recorded output decision MUST bind the accepted source lock;
+upstream licensing evidence remains research evidence, not relicensed content.
+Research and public roots MUST be disjoint. Production source stages may parse
+the pinned upstream Markdown; product tests and witnesses consume canonical
+artifacts and JSON expectations without reading Markdown or live websites.
+The real Entra publisher and isolated fixture publisher MUST have distinct
+identities and keys. Source acceptance/build/signing times remain explicit;
+content updates and trust-envelope renewal remain separate operations.
 
 **RP-REQ-146**
 LOLBAS and LOLESXi entries contain exactly the common entry members plus `name`, `platforms`, `categories`, `usage_examples`, and `references`. Their rules are:
@@ -2639,7 +2730,7 @@ Every pack-dependent operation MUST capture one `pack_set_id` at admission and M
 The first successful publication of a retained logical set MUST fix an immutable provenance anchor for every member. Consumer provenance for that set always uses those anchors. Later verification may update administrative health, successful-envelope selection, and current verification timestamps, but MUST NOT rewrite the set's provenance. Local provenance anchors are not part of the content-derived pack-set digest and are not imported as destination trust.
 
 **RP-REQ-172**
-Every retained pack set referenced by a reproducibility pin MUST remain queryable and reconstructable. An application release MUST retain decoders, validators, and consumer behavior required to read every content-profile version referenced by a retained pin; an upgrade that cannot do so MUST fail readiness or require an owner-defined migration before the upgrade is admitted. An unpinned historical pack set MAY be garbage-collected only when none of its members or attestations are needed for rollback, audit, backup retention, or other retained state.
+Every retained pack set referenced by a reproducibility pin MUST remain queryable and reconstructable. An application release MUST retain decoders, validators, and consumer behavior required to read every admitted content-profile version referenced by a retained pin. For future application upgrades, inability to preserve that behavior MUST fail readiness unless an owner-defined migration is adopted before the upgrade is admitted. This forward-looking requirement does not create a v1 migration prerequisite for the current pre-deployment cutover. An unpinned historical pack set MAY be garbage-collected only when none of its members or attestations are needed for rollback, audit, backup retention, or other retained state.
 
 **RP-REQ-173**
 Derived caches and indexes MUST bind to at least:
@@ -2741,7 +2832,7 @@ The command MUST wait for the admitted background job to reach a terminal state 
 
 Exit code is `0` for `succeeded`, `2` for invalid command use, and `3` for an admitted or pre-admission operation failure.
 
-The command loads the deployment configuration through the normal configuration mechanism and requires the Reference Pack profile to be admitted. Before acquiring a process or serving lease, reconciling workspaces, collecting objects, publishing input bytes or admitting a Job, application assembly MUST coordinate read-only retained-state checks from Reference Data and Reporting, including delegated Composition bindings. Runtime checks share one read-only database snapshot. Incompatible retained state returns `reference_pack_operation_rejected/contract_incompatible` with exit 3 and null Job and pack attribution; rejection changes no retained state. Migration checks remain inside migration exclusion before writes, and server checks precede readiness and startup mutation. The deployment's admitted lifecycle worker owns execution; the command MUST NOT create another worker or listener. If that worker is stopped, the Job remains queued until normal worker recovery starts execution. Interruption of command observation MUST NOT cancel or replay an admitted Job. The failed command result retains any known `job_id`; the operator inspects that Job before deliberately admitting another import. Configuration, storage, schema-readiness, observation, and process-lease failures map to `internal_error` without raw error text. A canceled terminal Job maps to `job_canceled`. Typed admission rejections and terminal verification failures retain their declared code and reason. Invalid syntax maps to `invalid_operator_request`.
+The command loads the deployment configuration through the normal configuration mechanism and requires the Reference Pack profile to be admitted. Read-only cryptographic-state admission MUST precede schema readiness, which MUST precede Reference Data and Reporting retained-content inspection. Schema readiness retains the Core 01 lineage and migration-head diagnostics. Required-table failures after schema readiness remain operational errors; they MUST NOT be skipped. Before acquiring a process or serving lease, reconciling workspaces, collecting objects, publishing input bytes or admitting a Job, application assembly MUST coordinate read-only retained-state checks from Reference Data and Reporting, including delegated Composition bindings. Runtime checks share one read-only database snapshot. Incompatible retained state returns `reference_pack_operation_rejected/contract_incompatible` with exit 3 and null Job and pack attribution; rejection changes no retained state. Server checks precede readiness and startup mutation. Database migration owns schema lifecycle and does not run a Reference Pack content-compatibility scan; content admission belongs to runtime and recovery. The deployment's admitted lifecycle worker owns execution; the command MUST NOT create another worker or listener. If that worker is stopped, the Job remains queued until normal worker recovery starts execution. Interruption of command observation MUST NOT cancel or replay an admitted Job. The failed command result retains any known `job_id`; the operator inspects that Job before deliberately admitting another import. Configuration, storage, schema-readiness, observation, and process-lease failures map to `internal_error` without raw error text. A canceled terminal Job maps to `job_canceled`. Typed admission rejections and terminal verification failures retain their declared code and reason. Invalid syntax maps to `invalid_operator_request`.
 
 The command allocates one nonzero operation UUID before input admission. The Reference Data operation, Jobs' durable local submitter identity and the `.v2` private route identity MUST agree on that UUID. No human submitter or human route receipt is invented. Jobs retain the local UUID after ordinary private-request compaction. The public `submitted_by_user_id` is explicitly null for this branch. A new command invocation allocates a new operation; it is an explicit new verification request.
 
@@ -3250,7 +3341,7 @@ Reference Data supplies an opaque preparation and a transaction-bound retention 
 
 Reuse leaves current health, administrative disablement, activation, and trust revisions unchanged. Every reusable member receives a destination-envelope pin, including members of an otherwise unavailable set. A complete reusable set is retained with its exact identity and destination first-success provenance and receives a set pin. An incomplete set remains an unresolved exact source reference; no partial member list receives its identity. Removal MUST consider both set pins and individual version pins under the same pack-key guard. Backup includes source catalogs, destination resolution evidence, and both pin forms. Restore validates their identities and linkage before readiness.
 
-The local retention operation uses closed canonical `cartulary.reference_pack_portability_input.v2` with required non-null `schema_id`, `incident_id`, `source_operation_id`, `catalog_sha256`, and `content_manifest`. The latter is the complete admitted `reference_pack_content.v1` object; absence at transport admission materializes its empty object with both arrays present. Required-member classification is retained through re-export even in references-only mode. A prior retained catalog without that evidence requires explicit cutover; no classification is inferred. UUIDs are nonzero canonical lowercase UUIDs. The digest is SHA-256 of the canonical `reference_pack_refs.v2` object without a trailing LF. Its closed result is `cartulary.reference_pack_portability_resolution.v1`, containing exactly required `schema_id` and `versions`. The array has one item per source version, in the same canonical order. Each item contains exactly required `pack_key`, `pack_version`, `available`, and `reason_code`. `available=true` requires explicit null reason. Otherwise the reason is exactly one of `not_retained` (no retained successful logical version), `removed` (an exact removed version), `not_usable` (unusable health or incomplete index), or `content_unavailable` (missing or invalid retained bytes). Execution failures are not optional-content absence and abort retention. These destination facts do not change the source catalog, confer trust on embedded bytes, or weaken required-artifact behavior under RP-REQ-227.
+The local retention operation uses closed canonical `cartulary.reference_pack_portability_input.v2` with required non-null `schema_id`, `incident_id`, `source_operation_id`, `catalog_sha256`, and `content_manifest`. The latter is the complete admitted `reference_pack_content.v1` object; absence at transport admission materializes its empty object with both arrays present. Required-member classification is retained through re-export even in references-only mode. A retained catalog without that required evidence is incompatible and MUST fail admission; no classification is inferred. UUIDs are nonzero canonical lowercase UUIDs. The digest is SHA-256 of the canonical `reference_pack_refs.v2` object without a trailing LF. Its closed result is `cartulary.reference_pack_portability_resolution.v1`, containing exactly required `schema_id` and `versions`. The array has one item per source version, in the same canonical order. Each item contains exactly required `pack_key`, `pack_version`, `available`, and `reason_code`. `available=true` requires explicit null reason. Otherwise the reason is exactly one of `not_retained` (no retained successful logical version), `removed` (an exact removed version), `not_usable` (unusable health or incomplete index), or `content_unavailable` (missing or invalid retained bytes). Execution failures are not optional-content absence and abort retention. These destination facts do not change the source catalog, confer trust on embedded bytes, or weaken required-artifact behavior under RP-REQ-227.
 
 The Reference Data retention operation UUID is UUIDv5 with the source operation UUID as namespace and the exact UTF-8 name `reference_pack:incident_retention`. This separates owner operation identities while preserving attribution and idempotent replay. Successful retention becomes terminal when its catalog, resolution, pins, and incident import commit together. Failed preparation becomes terminal with its attributable rejection or operational-abort evidence and the parent failed or canceled Job; it creates no catalog.
 
@@ -3415,7 +3506,7 @@ Core 04 MUST expose the effective limits below. Omission resolves to the stated 
 Equality at the effective configured value is valid. Exceeding `max_container_bytes` fails with `container_bytes_exceeded`; the other three limits use their existing exact archive-limit reasons. Packaged built-ins do not apply compression-ratio validation.
 
 **RP-REQ-244**
-The fixed v1 subsystem limits are:
+The fixed subsystem limits are:
 
 **Table 26-B. Fixed subsystem limits**
 

@@ -451,7 +451,7 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sourcePacks.Close()
-	if err := reference_data.ReconcileBaseRelease(ctx, mustOpenOperatorPool(t, sourceDB.DSN), sourcePacks, reference_data.BaseReleaseOptions{Limits: reference_data.DefaultLimits()}, time.Now().UTC()); err != nil {
+	if err := reference_data.ReconcileBaseRelease(ctx, mustOpenOperatorPool(t, sourceDB.DSN), sourcePacks, reference_data.BaseReleaseOptions{Finalizer: recoveryBaseFinalizer(t), Limits: reference_data.DefaultLimits()}, time.Now().UTC()); err != nil {
 		t.Fatal("seed retained Base registries", err)
 	}
 	operatorBin := injectedOperatorBinary(t)
@@ -878,7 +878,7 @@ func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxp
 		t.Fatal(err)
 	}
 	defer livePacks.Close()
-	if err := reference_data.ReconcileBaseRelease(ctx, pool, livePacks, reference_data.BaseReleaseOptions{Limits: reference_data.DefaultLimits()}, consistencyPointAt.Add(-time.Hour)); err != nil {
+	if err := reference_data.ReconcileBaseRelease(ctx, pool, livePacks, reference_data.BaseReleaseOptions{Finalizer: recoveryBaseFinalizer(t), Limits: reference_data.DefaultLimits()}, consistencyPointAt.Add(-time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	packs, err := referenceassembly.NewRecoveryStorage(deployment.Roots.TemporaryWork.Path, deployment.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits())
@@ -1715,4 +1715,13 @@ func repoRoot() string {
 		}
 		directory = parent
 	}
+}
+
+func recoveryBaseFinalizer(t testing.TB) reference_data.ActionFinalizer {
+	t.Helper()
+	finalizer, err := extensionassembly.NewReferencePackMutationFinalizer(func(err error) { t.Errorf("indeterminate Base publication: %v", err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return finalizer
 }

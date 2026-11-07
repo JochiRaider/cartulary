@@ -31,6 +31,11 @@ type ProducedWindowsPack struct {
 // authored Base bindings and the actual produced Windows logical identity.
 func WindowsSetDigest(t testing.TB, repositoryRoot string, f ProducedWindowsPack) string {
 	t.Helper()
+	return producedSetDigest(t, repositoryRoot, f.PortablePackFixture, f.ManifestSHA256, f.PayloadSHA256, "cartulary.reference_pack.enrichment.windows_event_ids.v2")
+}
+
+func producedSetDigest(t testing.TB, repositoryRoot string, f PortablePackFixture, manifestSHA, payloadSHA, profile string) string {
+	t.Helper()
 	b, e := os.ReadFile(filepath.Join(repositoryRoot, "contracts/reference-packs/builtins/release.v2.json"))
 	if e != nil {
 		t.Fatal(e)
@@ -54,7 +59,7 @@ func WindowsSetDigest(t testing.TB, repositoryRoot string, f ProducedWindowsPack
 	if len(members) != 3 {
 		t.Fatal("expected three Base registries")
 	}
-	members = append(members, map[string]any{"pack_key": f.Key, "pack_version": f.Version, "manifest_sha256": f.ManifestSHA256, "payload_sha256": f.PayloadSHA256, "pack_contract_version": "cartulary.reference_pack_contract.v2", "content_profile_id": "cartulary.reference_pack.enrichment.windows_event_ids.v2", "content_profile_version": "2"})
+	members = append(members, map[string]any{"pack_key": f.Key, "pack_version": f.Version, "manifest_sha256": manifestSHA, "payload_sha256": payloadSHA, "pack_contract_version": "cartulary.reference_pack_contract.v2", "content_profile_id": profile, "content_profile_version": "2"})
 	slices.SortFunc(members, func(a, b map[string]any) int { return strings.Compare(a["pack_key"].(string), b["pack_key"].(string)) })
 	b, e = json.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_set.v2", "members": members})
 	if e != nil {

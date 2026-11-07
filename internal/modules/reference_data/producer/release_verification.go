@@ -12,8 +12,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
-var windowsReleasePolicy = publicationPolicy{WindowsReleaseRepository, WindowsKey, "cartulary.windows_event_release", "v2", false}
-
 type envelopeDestination map[string][]byte
 
 func (d envelopeDestination) Write(_ context.Context, name string, write func(io.Writer) error) error {
@@ -27,7 +25,7 @@ func (d envelopeDestination) Write(_ context.Context, name string, write func(io
 
 // Use the runtime's archive, trust and content admission with the actual clock
 // before exposing a real release. This neither installs trust nor activates it.
-func verifyReleaseEnvelope(ctx context.Context, container, bootstrap []byte, report EnvelopeReport, ledgerRoot string) error {
+func verifyReleaseEnvelope(ctx context.Context, container, bootstrap []byte, report EnvelopeReport, ledgerRoot string, policy publicationPolicy) error {
 	files := envelopeDestination{}
 	inventory, err := packformat.Extract(ctx, bytes.NewReader(container), int64(len(container)), packformat.DefaultArchiveLimits(), files)
 	if err != nil {
@@ -65,7 +63,7 @@ func verifyReleaseEnvelope(ctx context.Context, container, bootstrap []byte, rep
 	if err = packformat.ValidateContent(ctx, m, packageSource(files), nil); err != nil {
 		return err
 	}
-	receipt, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.windows_event_release_verification.v2", "container_sha256": Digest(container), "bootstrap_sha256": Digest(bootstrap), "manifest_sha256": report.ManifestSHA256, "payload_sha256": report.PayloadSHA256, "verified_at": at.Format(time.RFC3339Nano), "trust_valid_until": proposal.ValidUntil.Format(time.RFC3339), "status": "accepted"})
+	receipt, err := canonicaljson.Marshal(map[string]any{"schema_id": policy.Prefix + "_verification." + policy.Version, "container_sha256": Digest(container), "bootstrap_sha256": Digest(bootstrap), "manifest_sha256": report.ManifestSHA256, "payload_sha256": report.PayloadSHA256, "verified_at": at.Format(time.RFC3339Nano), "trust_valid_until": proposal.ValidUntil.Format(time.RFC3339), "status": "accepted"})
 	if err != nil {
 		return err
 	}

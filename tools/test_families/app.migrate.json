@@ -32,12 +32,12 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "app.migrate.integration.reference_pack_retained_admission",
+      "row_id": "app.migrate.integration.reference_pack_schema_boundary",
       "owner_id": "app.migrate",
       "family_id": "app.migrate.integration",
       "collaborator_ids": [
-        "module.reference_data",
-        "module.reporting"
+        "module.database_migrations",
+        "module.reference_data"
       ],
       "verification_ids": [
         "app.migrate.verification.behavior_contract"
@@ -46,7 +46,7 @@
       "selector": {
         "package": "./internal/app/migrate",
         "tests": [
-          "TestMigrateReferencePackRetainedAdmission_Integration"
+          "TestMigrateReferencePackSchemaBoundary_Integration"
         ]
       },
       "evidence_class": "integration",

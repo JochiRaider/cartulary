@@ -152,6 +152,7 @@ func loadBuiltinRelease(ctx context.Context) (builtinRelease, []preparedVersion,
 // input is release-bound canonical content, never runtime-generated empty packs.
 type BaseReleaseOptions struct {
 	Observer       OperationObserver
+	Finalizer      ActionFinalizer
 	ProfileClaimed bool
 	ClockTrusted   bool
 	Limits         Limits
@@ -160,7 +161,7 @@ type BaseReleaseOptions struct {
 func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage ArtifactStorage, options BaseReleaseOptions, at time.Time) (resultErr error) {
 	ctx, end := observeReferenceOperation(ctx, options.Observer, "reference_pack.reconcile")
 	defer func() { end(referenceOutcome(resultErr)) }()
-	if pool == nil || storage == nil || at.IsZero() {
+	if pool == nil || storage == nil || options.Finalizer == nil || at.IsZero() {
 		return errors.New("reference pack: incomplete Base startup dependencies")
 	}
 	if err := contractadmission.Validate(ctx, pool); err != nil {
@@ -186,9 +187,6 @@ func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage Artifac
 		return err
 	}
 	frozen, _ := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_reconciliation.v1", "application_release_id": release.ReleaseID, "profile_claimed": claimed, "clock_trusted": options.ClockTrusted, "max_verification_seconds": options.Limits.ReferencePacks.MaxVerificationSeconds, "max_container_bytes": archive.ContainerBytes, "max_extracted_bytes": archive.ExtractedBytes, "max_compression_ratio": archive.CompressionRatio, "max_members": archive.Members})
-	if _, err := pool.Exec(ctx, `INSERT INTO reference_pack_operations(operation_id,kind,actor_kind,admitted_at,frozen_input) VALUES($1,'reconcile','application_release',$2,$3)`, operationID, at, frozen); err != nil {
-		return err
-	}
 	created := []StorageRef{}
 	leases := []io.Closer{}
 	defer func() {
@@ -218,19 +216,6 @@ func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage Artifac
 			}
 			continue
 		}
-		builder, err := newIndexBuilder(ctx, pool, operationID, p.Content.Manifest, p.Content.ManifestSHA256, p.Content.PayloadSHA256)
-		if err != nil {
-			return err
-		}
-		for _, row := range p.Rows {
-			if err := builder.Append(ctx, row); err != nil {
-				return err
-			}
-		}
-		p.IndexID, err = builder.Complete(ctx)
-		if err != nil {
-			return err
-		}
 		pack := release.Packs[i]
 		paths := make([]string, 0, len(pack.Members))
 		for path := range pack.Members {
@@ -255,7 +240,7 @@ func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage Artifac
 	if err != nil {
 		return err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	if err := lockByteRetentionTx(ctx, tx, false); err != nil {
 		return err
 	}
@@ -281,6 +266,9 @@ func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage Artifac
 	if err := capture.guard(ctx, tx, inserted.RowsAffected() == 1, currentRevision); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, `INSERT INTO reference_pack_operations(operation_id,kind,actor_kind,admitted_at,frozen_input) VALUES($1,'reconcile','application_release',$2,$3)`, operationID, at, frozen); err != nil {
+		return err
+	}
 	for _, key := range mandatoryRegistryKeys {
 		if _, err := tx.Exec(ctx, `INSERT INTO reference_pack_registry_usage(pack_key,revision) VALUES($1,1) ON CONFLICT DO NOTHING`, key); err != nil {
 			return err
@@ -294,6 +282,19 @@ func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage Artifac
 			return err
 		}
 		if previous == nil {
+			builder, err := newIndexBuilderTx(ctx, tx, operationID, p.Content.Manifest, p.Content.ManifestSHA256, p.Content.PayloadSHA256)
+			if err != nil {
+				return err
+			}
+			for _, row := range p.Rows {
+				if err := builder.Append(ctx, row); err != nil {
+					return err
+				}
+			}
+			p.IndexID, err = builder.Complete(ctx)
+			if err != nil {
+				return err
+			}
 			id, err := publishVersionTx(ctx, tx, p, operationID, nil)
 			if err != nil {
 				return err
@@ -396,10 +397,11 @@ func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage Artifac
 		return err
 	}
 	commitStarted = true
-	if err := tx.Commit(ctx); err != nil {
-		return err
-	}
-	return nil
+	return options.Finalizer.FinalizeReferencePackAction(ctx, tx, func(proofCtx context.Context) (bool, error) {
+		var committed bool
+		err := pool.QueryRow(proofCtx, `SELECT EXISTS(SELECT 1 FROM reference_pack_operations WHERE operation_id=$1 AND kind='reconcile' AND actor_kind='application_release' AND terminal_at IS NOT NULL AND frozen_input=$2 AND final_outcome=$3)`, operationID, frozen, outcome).Scan(&committed)
+		return committed, err
+	})
 }
 
 func memberFor(content *verifiedContent) PackSetMember {

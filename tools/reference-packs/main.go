@@ -57,10 +57,14 @@ func run() error {
 			}
 			if header.SchemaID == "cartulary.windows_event_build_input.v2" {
 				report, err = producer.AssembleWindows(context.Background(), b, builder)
+			} else if header.SchemaID == "cartulary.entra_build_input.v2" {
+				report, err = producer.AssembleEntra(context.Background(), b, builder)
 			} else if header.SchemaID == "cartulary.base_registry_reissue_input.v1" {
 				report, err = producer.ReissueBase(context.Background(), b, builder)
-			} else {
+			} else if header.SchemaID == "cartulary.attack_package_input.v1" {
 				report, err = producer.Assemble(context.Background(), b, builder)
+			} else {
+				return errors.New("unsupported package input schema")
 			}
 		} else {
 			report, err = producer.Envelope(context.Background(), b, *action == "renew")
@@ -100,6 +104,33 @@ func run() error {
 	}
 	if err = json.Unmarshal(lock, &sourceHeader); err != nil {
 		return err
+	}
+	if sourceHeader.SchemaID == "cartulary.entra_inventory.v2" {
+		var report any
+		switch *action {
+		case "acquire":
+			report, err = producer.EntraAcquire(context.Background(), root, lock, producer.EntraHTTPFetcher{})
+		case "check":
+			report, err = producer.EntraCheck(root, lock)
+		case "audit":
+			report, err = producer.EntraAuditSources(context.Background(), root, lock, builder)
+		default:
+			return errors.New("entra sources require the pinned inventory, not discovery")
+		}
+		if err != nil {
+			return err
+		}
+		b, e := canonicaljson.Marshal(report)
+		if e != nil {
+			return e
+		}
+		if *reportPath != "" {
+			if e = os.WriteFile(*reportPath, b, 0600); e != nil {
+				return e
+			}
+		}
+		fmt.Printf("Entra %s: report_sha256=%s; source_root=%s\n", *action, producer.Digest(b), *directory)
+		return nil
 	}
 	if sourceHeader.SchemaID == "cartulary.windows_event_inventory.v2" {
 		var report any
@@ -157,6 +188,9 @@ func run() error {
 	}
 	if *action == "discover" {
 		return errors.New("discovery requires a Windows source inventory")
+	}
+	if sourceHeader.SchemaID != producer.LockSchema {
+		return errors.New("unsupported source inventory schema")
 	}
 	switch *action {
 	case "acquire":

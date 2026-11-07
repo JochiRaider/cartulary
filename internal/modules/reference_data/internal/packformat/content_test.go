@@ -391,6 +391,7 @@ func TestWindowsEventIDsProfileContent_Unit(t *testing.T) {
 }
 
 func TestEntraAppIDsProfileContent_Unit(t *testing.T) {
+	t.Run("synthetic SPN and cutover boundaries", testEntraBoundaries)
 	testCanonicalProfileContent(t, contentFixtureFor(t, "enrichment.entra_app_ids"))
 	testProfileSchemaClosure(t, contentFixtureFor(t, "enrichment.entra_app_ids"))
 	testNestedContentAdmission(t, contentFixtureFor(t, "enrichment.entra_app_ids"))

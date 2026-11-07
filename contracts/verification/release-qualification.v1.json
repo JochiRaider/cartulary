@@ -499,6 +499,7 @@
         "module.reference_data.integration.enrichment_tor_independently_imports_activates_a_69bd8896bd",
         "module.reference_data.integration.enrichment_windows_event_ids_independently_impor_2bc83a2b47",
         "module.reference_data.integration.enrichment_windows_sids_independently_imports_ac_0a6c5f8b7f",
+        "module.reference_data.integration.entra_canonical_lifecycle",
         "module.reference_data.integration.framework_attack_independently_imports_activates_cd0be06ccc",
         "module.reference_data.integration.framework_d3fend_independently_imports_activates_f8ef62f99f",
         "module.reference_data.integration.framework_veris_independently_imports_activates_8ed7f795eb",
@@ -746,6 +747,34 @@
         "module.revisions.store.destructive_commands_authorize_the_current_actor_ad6fddd708",
         "module.revisions.integration.history_logical_page_boundaries",
         "module.revisions.portability.contract_and_attribution"
+      ]
+    },
+    {
+      "obligation_id": "reference.entra_retention",
+      "normative_owners": [
+        "ReferencePack",
+        "Reporting"
+      ],
+      "capability": "Entra v2 complete-corpus retention",
+      "expectation": "139-entry canonical corpus retains exact sets and provenance across rendering, format-7 transfer, and recovery; unsupported profiles fail runtime admission before mutation",
+      "owner_ids": [
+        "app.operator",
+        "app.server",
+        "module.incidentbundles",
+        "module.recovery",
+        "module.reference_data",
+        "module.reporting"
+      ],
+      "row_ids": [
+        "app.operator.integration.reference_pack_retained_admission",
+        "app.server.integration.reference_pack_retained_admission",
+        "module.incidentbundles.integration.entra_bundle_round_trip",
+        "module.recovery.integration.entra_recovery",
+        "module.reference_data.integration.canonical_persistence",
+        "module.reference_data.unit.entra_corpus_expectations",
+        "module.reference_data.unit.entra_source_producer",
+        "module.reference_data.unit.retained_binding_admission",
+        "module.reporting.integration.entra_snapshot_binding"
       ]
     }
   ]

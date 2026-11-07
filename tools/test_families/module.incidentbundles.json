@@ -67,6 +67,37 @@
       ]
     },
     {
+      "row_id": "module.incidentbundles.integration.entra_bundle_round_trip",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.reference_data",
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestEntraProducedPackSurvivesBundleRoundTrip_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.incidentbundles.integration.extension_portability_matrix_and_atomic_import_1b27fc2d91",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",

@@ -16,8 +16,8 @@
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "pack_contract_version": "cartulary.reference_pack_contract.v2",
-      "content_profile_id": "cartulary.reference_pack.enrichment.entra_app_ids.v1",
-      "content_profile_version": "1"
+      "content_profile_id": "cartulary.reference_pack.enrichment.entra_app_ids.v2",
+      "content_profile_version": "2"
     },
     {
       "pack_key": "enrichment.hijacklibs",
@@ -146,5 +146,5 @@
       "content_profile_version": "1"
     }
   ],
-  "expected_set_id": "rpset_14ff598dada9abf613ec67daeb65f1149a2aa249c33ef31a1d01a5439081d89f"
+  "expected_set_id": "rpset_6bfef30e80abcc1dc73f11e041a5f7c7a551a7e67c337e3028edc34af6c504ba"
 }

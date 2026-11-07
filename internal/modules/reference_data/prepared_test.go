@@ -2,8 +2,10 @@ package reference_data
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
@@ -50,6 +52,7 @@ func preparedFixture(t *testing.T) []byte {
 }
 
 func TestPreparedResultClosedShapeAndBindings_Unit(t *testing.T) {
+	t.Run("Entra v2 retained cutover", testEntraPreparedCutover)
 	data := preparedFixture(t)
 	if _, err := decodePrepared(data); err != nil {
 		t.Fatal(err)
@@ -132,6 +135,59 @@ func TestPreparedResultClosedShapeAndBindings_Unit(t *testing.T) {
 	for _, invalid := range [][]byte{append(bytes.Clone(data), '\n'), append([]byte(`{"index_id":null,`), data[1:]...)} {
 		if _, err := decodePrepared(invalid); err == nil {
 			t.Fatal("noncanonical or duplicate member admitted")
+		}
+	}
+}
+
+// Retained admission checks binding fidelity; signature authentication belongs
+// to the verifier. Adapt a valid preparation and prove the profile is the only
+// rejected change, with every length/digest/binding updated consistently.
+func testEntraPreparedCutover(t *testing.T) {
+	original := preparedFixture(t)
+	for _, version := range []string{"2", "1"} {
+		v, err := canonicaljson.DecodeStrict(original)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p := v.(map[string]any)
+		raw, err := base64.StdEncoding.DecodeString(p["manifest"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m map[string]any
+		if err = json.Unmarshal(raw, &m); err != nil {
+			t.Fatal(err)
+		}
+		m["pack_key"] = "enrichment.entra_app_ids"
+		m["pack_kind"] = "enrichment"
+		m["content_profile_id"] = "cartulary.reference_pack.enrichment.entra_app_ids.v" + version
+		m["content_profile_version"] = version
+		raw, err = canonicaljson.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest := packformat.Digest(raw)
+		p["manifest"] = base64.StdEncoding.EncodeToString(raw)
+		envelope := p["envelope"].(map[string]any)
+		envelope["pack_key"] = m["pack_key"]
+		envelope["manifest_sha256"] = digest
+		binding := envelope["trust_proposal"].(map[string]any)["binding"].(map[string]any)
+		binding["pack_key"] = m["pack_key"]
+		binding["manifest_sha256"] = digest
+		for _, value := range p["objects"].([]any) {
+			object := value.(map[string]any)
+			if object["path"] == "manifest.json" {
+				object["sha256"] = digest
+				object["size"] = len(raw)
+			}
+		}
+		encoded, err := canonicaljson.Marshal(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = decodePrepared(encoded)
+		if (err == nil) != (version == "2") {
+			t.Fatal("Entra prepared cutover", version, err)
 		}
 	}
 }

@@ -24,3 +24,6 @@ fixtures/ir-incident/v1/*.csv -text whitespace=cr-at-eol
 fixtures/ir-incident/v1/*.tsv -text whitespace=cr-at-eol
 fixtures/network-flow-orientation/v1/*.csv -text whitespace=cr-at-eol
 fixtures/network-flow/NF-FIX-029-cisco-sna-flow-search/source/*.csv -text whitespace=cr-at-eol
+
+# Signed reference-pack USTAR containers are immutable binary artifacts.
+*.pack binary

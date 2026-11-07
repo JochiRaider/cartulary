@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.reference_pack_owner_fixture.v1",
+  "fixture_id": "rpfx_owner_entra_recovery",
+  "scenario": "recovery",
+  "owner_id": "module.recovery",
+  "row_id": "module.recovery.integration.entra_recovery",
+  "test_name": "TestEntraProducedPackRestoresExactProvenance_Integration"
+}
