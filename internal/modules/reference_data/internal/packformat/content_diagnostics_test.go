@@ -13,12 +13,7 @@ import (
 
 func testContentSemanticFindings(t *testing.T) {
 	ctx := context.Background()
-	var fixture contentFixture
-	for _, candidate := range contentFixtures(t) {
-		if candidate.Key == "type_registry.host" {
-			fixture = candidate
-		}
-	}
+	fixture := contentFixtureFor(t, "type_registry.host")
 	original := strings.Split(fixture.Members["payload/entries.ndjson"], "\n")[0]
 	lines := []string{}
 	for _, id := range []string{"first", "second"} {
@@ -76,12 +71,7 @@ func testContentSemanticFindings(t *testing.T) {
 
 func testRegistrySemanticFindings(t *testing.T) {
 	ctx := context.Background()
-	var fixture contentFixture
-	for _, candidate := range contentFixtures(t) {
-		if candidate.Key == "type_registry.indicator" {
-			fixture = candidate
-		}
-	}
+	fixture := contentFixtureFor(t, "type_registry.indicator")
 	lines := strings.Split(strings.TrimSuffix(fixture.Members["payload/entries.ndjson"], "\n"), "\n")
 	for i, line := range lines {
 		value, err := canonicaljson.DecodeStrict([]byte(line))
@@ -122,13 +112,7 @@ func testRegistrySemanticFindings(t *testing.T) {
 }
 
 func testContentSchemaFindings(t *testing.T) {
-	var fixture contentFixture
-	for _, candidate := range contentFixtures(t) {
-		if candidate.Key == "type_registry.host" {
-			fixture = candidate
-			break
-		}
-	}
+	fixture := contentFixtureFor(t, "type_registry.host")
 	valid := strings.Split(fixture.Members["payload/entries.ndjson"], "\n")[0]
 	rows := []string{}
 	for i := range 3 {

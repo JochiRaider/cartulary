@@ -10,7 +10,7 @@ import (
 
 // captureCatalogState preserves semantic endpoint evidence from a harness-owned
 // fresh database. It excludes physical OIDs and never reads documentation.
-func captureCatalogState(t *testing.T, db *sql.DB) {
+func semanticCatalogState(t testing.TB, db *sql.DB) map[string]json.RawMessage {
 	t.Helper()
 	queries := map[string]string{
 		"engine":      `SELECT current_setting('server_version_num') AS version, current_setting('data_checksums') AS checksums, current_user AS owner`,
@@ -66,6 +66,12 @@ func captureCatalogState(t *testing.T, db *sql.DB) {
 		t.Fatal(err)
 	}
 	state["seeds"] = value
+	return state
+}
+
+func captureCatalogState(t *testing.T, db *sql.DB) {
+	t.Helper()
+	state := semanticCatalogState(t, db)
 	encoded, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		t.Fatal(err)

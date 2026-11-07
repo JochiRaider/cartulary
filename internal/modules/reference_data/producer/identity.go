@@ -25,11 +25,9 @@ type Builder struct {
 }
 
 func BuilderIdentity() (Builder, error) {
-	name, err := os.Executable()
-	if err != nil {
-		return Builder{}, err
-	}
-	file, err := os.Open(name)
+	// The Linux producer identifies the running image, even if its pathname
+	// has been replaced or unlinked since launch.
+	file, err := os.Open("/proc/self/exe")
 	if err != nil {
 		return Builder{}, err
 	}
@@ -42,5 +40,5 @@ func BuilderIdentity() (Builder, error) {
 	if info, ok := debug.ReadBuildInfo(); ok {
 		version = info.GoVersion
 	}
-	return Builder{ID: "cartulary.attack.source-producer", Version: "native-v2", SHA256: Digest(b), Size: int64(len(b)), GoVersion: version}, nil
+	return Builder{ID: "cartulary.reference-pack.producer", Version: "references-v2", SHA256: Digest(b), Size: int64(len(b)), GoVersion: version}, nil
 }

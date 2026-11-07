@@ -6822,6 +6822,7 @@
             "summary_emission": "value",
             "child_forwarding": "runtime_env",
             "values": [
+              "discover",
               "acquire",
               "check",
               "audit"
@@ -6832,12 +6833,11 @@
             "binding": "make_variable",
             "allowed_sources": [
               "make_command_line",
-              "environment",
-              "makefile_default"
+              "environment"
             ],
-            "required": false,
+            "required": true,
             "type": "path",
-            "default": ".cartulary/reference-packs/attack/20.1",
+            "default": null,
             "empty_string": "invalid",
             "normalization": "path_token",
             "invalid_reason": "usage_error",
@@ -6866,17 +6866,48 @@
             "binding": "make_variable",
             "allowed_sources": [
               "make_command_line",
-              "environment",
-              "makefile_default"
+              "environment"
             ],
-            "required": false,
+            "required": true,
             "type": "path",
-            "default": "contracts/reference-pack-producers/attack/source-lock.v20.1.json",
+            "default": null,
             "empty_string": "invalid",
             "normalization": "path_token",
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "EDITORIAL",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment"
+            ],
+            "required": false,
+            "type": "path",
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "default": null
+          },
+          {
+            "name": "SOURCE_INPUT",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment"
+            ],
+            "required": false,
+            "type": "path",
+            "empty_string": "omitted",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "default": null
           }
         ]
       },

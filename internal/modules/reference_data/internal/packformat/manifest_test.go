@@ -31,7 +31,6 @@ func manifestFixture(t *testing.T) manifestVector {
 	return v
 }
 func TestManifestIndependentIdentityVector_Unit(t *testing.T) {
-	t.Run("complete manifest and path limits", testCompleteManifestAndPathLimits)
 	v := manifestFixture(t)
 	m, err := DecodeManifest([]byte(v.Canonical), true)
 	if err != nil {

@@ -1,4 +1,4 @@
-package testsupport
+package fixturehttp
 
 import (
 	"bytes"
@@ -10,14 +10,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-// ImportAuthenticATTACK drives public import and Job observation. Callers own
+// ImportPackFixture drives public import and Job observation. Callers own
 // fresh runtime state and explicitly choose activation after this staged import.
-func ImportAuthenticATTACK(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, fixture AuthenticATTACKPack, transaction string) {
+func ImportPackFixture(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, fixture testsupport.PortablePackFixture, transaction string) {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -28,7 +29,7 @@ func ImportAuthenticATTACK(t testing.TB, server *httptestx.Server, login authcoo
 	if _, err = fmt.Fprintf(part, `{"client_txn_id":%q}`, transaction); err != nil {
 		t.Fatal(err)
 	}
-	part, err = writer.CreatePart(textproto.MIMEHeader{"Content-Disposition": {`form-data; name="file"; filename="attack.tar"`}, "Content-Type": {"application/x-tar"}})
+	part, err = writer.CreatePart(textproto.MIMEHeader{"Content-Disposition": {`form-data; name="file"; filename="fixture.tar"`}, "Content-Type": {"application/x-tar"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,9 +56,9 @@ func ImportAuthenticATTACK(t testing.TB, server *httptestx.Server, login authcoo
 		case "succeeded":
 			return
 		case "failed", "canceled":
-			t.Fatalf("authentic import failed: %v", state["error_summary"])
+			t.Fatalf("fixture import failed: %v", state["error_summary"])
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	t.Fatal("authentic import did not finish within its observation budget")
+	t.Fatal("fixture import did not finish within its observation budget")
 }

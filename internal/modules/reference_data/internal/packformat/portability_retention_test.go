@@ -136,11 +136,8 @@ func TestPortableCatalogReachableSetAndVersionLimits_Unit(t *testing.T) {
 	for i := range 1024 {
 		members := []SetMember{}
 		for _, key := range keys {
-			member := SetMember{Key: key, Version: fmt.Sprintf("v%04d", i), ManifestSHA256: strings.Repeat("1", 64), PayloadSHA256: strings.Repeat("2", 64), Contract: "cartulary.reference_pack_contract.v2", ProfileID: "cartulary.reference_pack." + key + ".v1", ProfileVersion: "1"}
-			if key == "framework.attack" {
-				member.ProfileID = "cartulary.reference_pack.framework.attack.v2"
-				member.ProfileVersion = "2"
-			}
+			profile := profiles[key]
+			member := SetMember{Key: key, Version: fmt.Sprintf("v%04d", i), ManifestSHA256: strings.Repeat("1", 64), PayloadSHA256: strings.Repeat("2", 64), Contract: "cartulary.reference_pack_contract.v2", ProfileID: profile.ID, ProfileVersion: profile.Version}
 			members = append(members, member)
 			refs.Versions = append(refs.Versions, PortableVersion{SetMember: member, DistributionKind: "operator_imported", VerificationMethod: "tuf_1_0_35_offline_bundle_v1", SourceProfileID: "fixture.portable.v1", SourceProfileSHA256: strings.Repeat("3", 64)})
 		}
@@ -157,7 +154,7 @@ func TestPortableCatalogReachableSetAndVersionLimits_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 16801852 || Digest(encoded) != "5e10789baf55e362c7adc0c5df6622bd35e1085a23a1b4b2005a7342a4680657" {
+	if len(encoded) != 16801852 || Digest(encoded) != "a3488c351c6a2eb50981f9530a023bc33e475cfbade2a13b2735c72a5ca0fa65" {
 		t.Fatal("independent at-limit catalog changed")
 	}
 	admitted, err := DecodePortableReferences(encoded)

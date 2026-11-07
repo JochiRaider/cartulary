@@ -398,6 +398,7 @@ func (db *MigrationDatabase) ApplyThrough(ctx context.Context, version int64) er
 }
 
 // RollbackThrough rolls this scratch database back through a non-negative target.
+// Successful steps commit individually; a later error does not undo them.
 func (db *MigrationDatabase) RollbackThrough(ctx context.Context, version int64) error {
 	if err := validateRollbackThroughVersion(version); err != nil {
 		return err

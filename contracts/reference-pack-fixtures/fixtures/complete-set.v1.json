@@ -79,8 +79,8 @@
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "pack_contract_version": "cartulary.reference_pack_contract.v2",
-      "content_profile_id": "cartulary.reference_pack.enrichment.windows_event_ids.v1",
-      "content_profile_version": "1"
+      "content_profile_id": "cartulary.reference_pack.enrichment.windows_event_ids.v2",
+      "content_profile_version": "2"
     },
     {
       "pack_key": "enrichment.windows_sids",
@@ -146,5 +146,5 @@
       "content_profile_version": "1"
     }
   ],
-  "expected_set_id": "rpset_c43cfc98407b4798c065c0095f9ceae2a645de4bc35810c2eb1affc3d0ae682e"
+  "expected_set_id": "rpset_14ff598dada9abf613ec67daeb65f1149a2aa249c33ef31a1d01a5439081d89f"
 }

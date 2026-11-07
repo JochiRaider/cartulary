@@ -262,35 +262,86 @@ func emptyMigrationDatabase(t testing.TB, harness *pgtest.Harness) *pgtest.Migra
 	return database
 }
 
-func TestCatalogAppliesEveryVersionAndRejectsOrientationDowngrade_Integration(t *testing.T) {
-	harness := pgtest.Start(t)
-	// Migration 38 is a deliberate clean cutover. Its predecessor lineage
-	// remains testable, but the current schema cannot be downgraded.
-	current := harness.MigrationDatabaseT(t)
-	before := queryManagedCatalogObjects(t, current.SQL())
-	if err := current.RollbackThrough(t.Context(), 37); err == nil {
-		t.Fatal("orientation cutover accepted a downgrade")
-	}
-	var head int64
-	if err := current.SQL().QueryRowContext(t.Context(), `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`).Scan(&head); err != nil || head != canonicalRepositoryHead(t) {
-		t.Fatalf("rejected downgrade changed migration head: %d, %v", head, err)
-	}
-	if after := queryManagedCatalogObjects(t, current.SQL()); !reflect.DeepEqual(before, after) {
-		t.Fatal("rejected downgrade changed the managed schema")
-	}
-	database := harness.MigrationDatabaseThroughT(t, 37)
-	ctx := context.Background()
+func TestOrientationDowngradeBarrier_Integration(t *testing.T) {
+	assertDowngradeBarrier(t, 38, 37)
+}
 
+func TestImportProjectionDowngradeBarrier_Integration(t *testing.T) {
+	assertDowngradeBarrier(t, 47, 46)
+}
+
+func assertDowngradeBarrier(t *testing.T, version, target int64) {
+	t.Helper()
+	database := pgtest.Start(t).MigrationDatabaseThroughT(t, version)
+	before := semanticCatalogState(t, database.SQL())
+	ledger := migrationLedger(t, database.SQL())
+	if err := database.RollbackThrough(t.Context(), target); err == nil {
+		t.Fatal("irreversible cutover accepted a downgrade")
+	}
+	assertMigrationHead(t, database.SQL(), version)
+	if ledger != migrationLedger(t, database.SQL()) || !reflect.DeepEqual(before, semanticCatalogState(t, database.SQL())) {
+		t.Fatal("rejected barrier changed the ledger or semantic catalog")
+	}
+}
+
+func TestScratchRollbackPreservesCompletedSteps_Integration(t *testing.T) {
+	database := pgtest.Start(t).MigrationDatabaseThroughT(t, 48)
+	db := database.SQL()
+	var before, after string
+	query := `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid='public.reference_pack_indexes'::regclass AND conname='rp_indexes_ck3'`
+	if err := db.QueryRowContext(t.Context(), query).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.RollbackThrough(t.Context(), 46); err == nil {
+		t.Fatal("migration 47 accepted a downgrade")
+	}
+	assertMigrationHead(t, db, 47)
+	if err := db.QueryRowContext(t.Context(), query).Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if before == after || strings.Contains(after, "4194303") || !strings.Contains(after, "1048576") {
+		t.Fatalf("successful migration 48 Down was not retained: %s", after)
+	}
+	state, ledger := semanticCatalogState(t, db), migrationLedger(t, db)
+	if err := database.RollbackThrough(t.Context(), 46); err == nil {
+		t.Fatal("repeated barrier accepted a downgrade")
+	}
+	if ledger != migrationLedger(t, db) || !reflect.DeepEqual(state, semanticCatalogState(t, db)) {
+		t.Fatal("failing migration 47 changed committed state")
+	}
+}
+
+func TestCatalogHistoricalRollbackAndForwardTraversal_Integration(t *testing.T) {
+	database := pgtest.Start(t).MigrationDatabaseThroughT(t, 37)
 	for version := int64(36); version >= 0; version-- {
-		if err := database.RollbackThrough(ctx, version); err != nil {
+		if err := database.RollbackThrough(t.Context(), version); err != nil {
 			t.Fatalf("rollback canonical catalog through version %d: %v", version, err)
 		}
+		assertMigrationHead(t, database.SQL(), version)
 	}
 	for version := int64(1); version <= canonicalRepositoryHead(t); version++ {
-		if err := database.ApplyThrough(ctx, version); err != nil {
+		if err := database.ApplyThrough(t.Context(), version); err != nil {
 			t.Fatalf("apply canonical catalog through version %d: %v", version, err)
 		}
+		assertMigrationHead(t, database.SQL(), version)
 	}
+}
+
+func assertMigrationHead(t testing.TB, db *sql.DB, want int64) {
+	t.Helper()
+	var head int64
+	if err := db.QueryRowContext(t.Context(), `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`).Scan(&head); err != nil || head != want {
+		t.Fatalf("migration head = %d, want %d: %v", head, want, err)
+	}
+}
+
+func migrationLedger(t testing.TB, db *sql.DB) string {
+	t.Helper()
+	var ledger string
+	if err := db.QueryRowContext(t.Context(), `SELECT jsonb_agg(to_jsonb(v) ORDER BY id)::text FROM public.goose_db_version v`).Scan(&ledger); err != nil {
+		t.Fatal(err)
+	}
+	return ledger
 }
 
 const validExternalMigrationBody = "-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n"

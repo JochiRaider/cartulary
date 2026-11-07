@@ -455,7 +455,9 @@
         "internal/app/incidentportabilityassembly/catalog.go",
         "internal/app/incidentportabilityassembly/catalog_test.go",
         "internal/app/migrate/migrate.go",
+        "internal/app/migrate/reference_admission_integration_test.go",
         "internal/app/operator/operator_recovery.go",
+        "internal/app/operator/operator_reference_admission_integration_test.go",
         "internal/app/operator/operator_reference_pack.go",
         "internal/app/operator/operator_reference_pack_test.go",
         "internal/app/recoveryassembly/state_catalog.go",
@@ -466,12 +468,15 @@
         "internal/app/revisionassembly/revisions_test.go",
         "internal/app/server/module_settings.go",
         "internal/app/server/module_settings_test.go",
+        "internal/app/server/reference_admission_integration_test.go",
         "internal/app/server/runtime_assembly.go",
         "internal/app/serverprocess/recovery_sentinel_test.go",
         "internal/modules/incidentbundles/api_test.go",
         "internal/modules/incidentbundles/bundle.go",
         "internal/modules/incidentbundles/import_execution_failure.go",
         "internal/modules/incidentbundles/module.go",
+        "internal/modules/incidentbundles/reference_attack_round_trip_integration_test.go",
+        "internal/modules/incidentbundles/reference_windows_round_trip_integration_test.go",
         "internal/modules/incidentbundles/routes_reference_verification_integration_test.go",
         "internal/modules/incidentbundles/routes_reporting_artifacts_integration_test.go",
         "internal/modules/incidentbundles/routes_round_trip_integration_test.go",
@@ -504,9 +509,11 @@
         "internal/modules/recovery/backup_metadata_integration_test.go",
         "internal/modules/recovery/operatortest/operator_process_test.go",
         "internal/modules/recovery/operatortest/portable_restore_process_test.go",
+        "internal/modules/recovery/reference_windows_integration_test.go",
         "internal/modules/recovery/restore_projection_contract_test.go",
         "internal/modules/reference_data/**",
         "internal/modules/reporting/backup_recovery_integration_test.go",
+        "internal/modules/reporting/composition_preview_integration_test.go",
         "internal/modules/reporting/composition_preview_port.go",
         "internal/modules/reporting/model_isolation_test.go",
         "internal/modules/reporting/portable_artifacts.go",
@@ -515,7 +522,9 @@
         "internal/modules/reporting/portable_references.go",
         "internal/modules/reporting/preview_recovery.go",
         "internal/modules/reporting/redaction.go",
+        "internal/modules/reporting/reference_binding_attack_integration_test.go",
         "internal/modules/reporting/reference_binding_integration_test.go",
+        "internal/modules/reporting/reference_binding_windows_integration_test.go",
         "internal/modules/reporting/release_payload_test.go",
         "internal/modules/reporting/release_recovery.go",
         "internal/modules/reporting/render_admission.go",
@@ -1651,7 +1660,7 @@
     },
     {
       "id": "production-no-reference-pack-fixtures",
-      "match_kind": "exact",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/gen/contractreferencepackfixtures",
         "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
@@ -1702,6 +1711,19 @@
       "allowed_paths": [],
       "production_only": true,
       "match_kind": "subtree"
+    },
+    {
+      "id": "production-no-reference-pack-producer",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
+      ],
+      "scan_paths": [
+        "cmd/**",
+        "internal/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
     }
   ],
   "go_import_allowlists": [
@@ -3531,7 +3553,9 @@
         "internal/modules/recovery/**",
         "internal/platform/objectstore/**"
       ],
-      "allowed_paths": [],
+      "allowed_paths": [
+        "internal/modules/reference_data/producer/**"
+      ],
       "production_only": true,
       "match_kind": "source_text"
     },

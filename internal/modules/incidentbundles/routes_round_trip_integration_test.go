@@ -3,14 +3,13 @@ package incidentbundles_test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+	referencehttp "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport/fixturehttp"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -57,23 +56,23 @@ func TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration(t 
 	}
 }
 
-func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T) {
+type roundTripPackFixture struct {
+	referencetest.PortablePackFixture
+	SetSHA256 string
+}
+
+func runNativeSnapshotRoundTrip(t *testing.T, fixture roundTripPackFixture, embedAllowed bool) {
 	runtime := appsupport.StartRuntime(t)
-	keys, err := producer.NewFixtureSigningContext()
-	if err != nil {
-		t.Fatal(err)
-	}
-	fixture := referencetest.AuthenticATTACKFixture(t, "../../..", "20.1", time.Now().UTC(), keys, 3)
 	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
-	if err = os.WriteFile(bootstrap, fixture.Bootstrap, 0600); err != nil {
+	if err := os.WriteFile(bootstrap, fixture.Bootstrap, 0600); err != nil {
 		t.Fatal(err)
 	}
 	source := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "native-reference-source", TestRouteMode: httptestx.TestRouteModeDisabled, Env: map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}})
-	target := startIsolatedIncidentBundleServer(t, runtime, "native-reference-target")
+	target := startIsolatedIncidentBundleServerWithEnv(t, runtime, "native-reference-target", map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"})
 	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
 	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
-	referencetest.ImportAuthenticATTACK(t, source.Server, sourceAdmin, fixture, "native-attack-import")
-	httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+"/api/v1/reference-packs/"+fixture.Key+"/"+fixture.Version+"/activate", map[string]any{"client_txn_id": "native-attack-activate"}, httptestx.WithCookies(sourceAdmin.Session, sourceAdmin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRF.Value)), http.StatusOK)
+	referencehttp.ImportPackFixture(t, source.Server, sourceAdmin, fixture.PortablePackFixture, "native-pack-import")
+	httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+"/api/v1/reference-packs/"+fixture.Key+"/"+fixture.Version+"/activate", map[string]any{"client_txn_id": "native-pack-activate"}, httptestx.WithCookies(sourceAdmin.Session, sourceAdmin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRF.Value)), http.StatusOK)
 	incident := scenariotest.CreateIncident(t, source.Server, sourceAdmin, map[string]any{"client_txn_id": "native-reference-incident", "incident_key": "NATIVE-REFERENCES", "title": "  Retained cafe\u0301 ", "description": " Start\r\n\t\u200d\u2028\u2029" + strings.Repeat("😀", 16370) + " end ", "severity": " high "})
 	id := incident["incident_id"].(string)
 	removedActor := flowtest.SeedActor(t, source.DB, flowtest.ActorAttributes{Email: "portable-removed@example.test", DisplayName: "Removed member"})
@@ -89,12 +88,19 @@ func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T
 		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
 		waitJob(t, source.Server, sourceAdmin, job["job_id"].(string))
 	}
-	embedded := exportBundleBytes(t, source, sourceAdmin, id, "native-attack-embedding-refusal", "embedded")
-	if _, included := zipMemberMap(t, embedded)[fixture.Path]; included {
-		t.Fatal("restricted ATT&CK bytes embedded")
+	embedded := exportBundleBytes(t, source, sourceAdmin, id, "native-pack-embedding-refusal", "embedded")
+	if included, ok := zipMemberMap(t, embedded)[fixture.Path]; embedAllowed {
+		if !ok || !bytes.Equal(included, fixture.Container) {
+			t.Fatal("allowed pack container not embedded exactly")
+		}
+	} else if ok {
+		t.Fatal("restricted pack bytes embedded")
 	}
 
 	container := exportBundleBytes(t, source, sourceAdmin, id, "native-reference-export")
+	if embedAllowed {
+		container = embedded
+	}
 	exported := zipMemberBytes(t, container, "data/reference_pack_refs.json")
 	refs, err := reference_data.DecodeIncidentBundleReferences(exported)
 	if err != nil || len(refs.Sets) != 1 || len(refs.Versions) != 4 {
@@ -120,6 +126,16 @@ func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T
 	assertImportFailureLeavesState(t, target, targetAdmin, id, "noncanonical-incident-source", replaceStructuredBundleMember(t, container, "data/incident.json", malformed), "source_family_invalid")
 	importBundleAndWait(t, target.Server, targetAdmin, container, "native-reference-import")
 	roundTrip := exportBundleBytes(t, target, targetAdmin, id, "native-reference-reexport")
+	if embedAllowed {
+		roundTrip = exportBundleBytes(t, target, targetAdmin, id, "pack-embedded-reexport", "embedded")
+		if !bytes.Equal(zipMemberBytes(t, roundTrip, fixture.Path), fixture.Container) {
+			t.Fatal("destination changed retained pack bytes")
+		}
+		var health, current string
+		if err := target.DB.QueryRow(`SELECT c.health,s.pack_set_id FROM reference_pack_candidates c CROSS JOIN reference_pack_current_set s WHERE c.pack_key=$1 AND c.pack_version=$2`, fixture.Key, fixture.Version).Scan(&health, &current); err != nil || health != "verified_available" || current == "rpset_"+fixture.SetSHA256 {
+			t.Fatal("destination verification or explicit activation", health, current, err)
+		}
+	}
 	var restoredRow map[string]any
 	if err := json.Unmarshal(zipMemberBytes(t, roundTrip, "data/incident.json"), &restoredRow); err != nil {
 		t.Fatal(err)

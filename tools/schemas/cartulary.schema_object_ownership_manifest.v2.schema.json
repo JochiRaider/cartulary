@@ -34,39 +34,8 @@
   },
   "$defs": {
     "migration_file": {
-      "enum": [
-        "00001_database_infrastructure.sql",
-        "00002_auth.sql",
-        "00003_incidents.sql",
-        "00004_recovery.sql",
-        "00005_deployment_admin.sql",
-        "00006_platform_jobs.sql",
-        "00007_records.sql",
-        "00008_revisions.sql",
-        "00009_parties.sql",
-        "00010_timeline.sql",
-        "00011_entities.sql",
-        "00012_indicators.sql",
-        "00013_assessments.sql",
-        "00014_links.sql",
-        "00015_tasks_and_decisions.sql",
-        "00016_artifacts.sql",
-        "00017_evidence.sql",
-        "00018_saved_views.sql",
-        "00019_imports.sql",
-        "00020_network_flow.sql",
-        "00021_projections.sql",
-        "00022_graph_projection.sql",
-        "00023_reporting.sql",
-        "00024_report_composition.sql",
-        "00025_incident_bundles.sql",
-        "00026_reference_data.sql",
-        "00027_extensions.sql",
-        "00028_administrative_audit.sql",
-        "00029_collaboration.sql",
-        "00030_network_flow_diagnostic_identity.sql",
-        "00031_evidence_blob_cleanup_claims.sql"
-      ]
+      "type": "string",
+      "pattern": "^\\d{5}_[a-z0-9][a-z0-9_]*\\.sql$"
     },
     "object_kind": {
       "enum": [
@@ -199,7 +168,7 @@
         "source_owner": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
         "migration_version": {
           "oneOf": [
-            { "type": "integer", "minimum": 1, "maximum": 29 },
+            { "type": "integer", "minimum": 1 },
             { "type": "null" }
           ]
         },
@@ -254,7 +223,7 @@
           },
           "then": {
             "properties": {
-              "migration_version": { "type": "integer", "minimum": 1, "maximum": 30 },
+              "migration_version": { "type": "integer", "minimum": 1 },
               "migration_file": { "$ref": "#/$defs/migration_file" }
             }
           },

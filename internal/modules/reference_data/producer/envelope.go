@@ -54,10 +54,49 @@ type EnvelopeReport struct {
 
 var signingRoles = []string{"root-1", "root-2", "root-3", "targets", "snapshot", "timestamp"}
 
+type publicationPolicy struct {
+	Repository, Key, Prefix, Version string
+	Fixture                          bool
+}
+
+func (p publicationPolicy) contextSchema() string {
+	if p.Fixture {
+		return p.Prefix + "_fixture_signing_context." + p.Version
+	}
+	return p.Prefix + "_signing_context." + p.Version
+}
+func (p publicationPolicy) allocationSchema() string {
+	if p.Fixture {
+		return p.Prefix + "_fixture_envelope_allocation." + p.Version
+	}
+	return p.Prefix + "_envelope_allocation." + p.Version
+}
+
+var attackFixturePolicy = publicationPolicy{FixtureRepository, "framework.attack", "cartulary.attack", "v1", true}
+var windowsFixturePolicy = publicationPolicy{WindowsFixtureRepository, WindowsKey, "cartulary.windows_event", "v2", true}
+
+func fixturePolicyForRepository(repository string) (publicationPolicy, error) {
+	for _, p := range []publicationPolicy{attackFixturePolicy, windowsFixturePolicy} {
+		if p.Repository == repository {
+			return p, nil
+		}
+	}
+	return publicationPolicy{}, errors.New("isolated fixture repository required")
+}
+
 // NewFixtureSigningContext creates local fixture authority, never deployment
 // authority. Callers must keep these bytes outside runtime and public evidence.
 func NewFixtureSigningContext() (SigningContext, error) {
-	c := SigningContext{SchemaID: "cartulary.attack_fixture_signing_context.v1", Repository: FixtureRepository, Seeds: map[string]string{}}
+	return newSigningContext(attackFixturePolicy)
+}
+
+// NewWindowsFixtureSigningContext creates isolated test authority only.
+func NewWindowsFixtureSigningContext() (SigningContext, error) {
+	return newSigningContext(windowsFixturePolicy)
+}
+
+func newSigningContext(policy publicationPolicy) (SigningContext, error) {
+	c := SigningContext{SchemaID: policy.contextSchema(), Repository: policy.Repository, Seeds: map[string]string{}}
 	for _, role := range signingRoles {
 		seed := make([]byte, ed25519.SeedSize)
 		if _, err := rand.Read(seed); err != nil {
@@ -68,11 +107,11 @@ func NewFixtureSigningContext() (SigningContext, error) {
 	return c, nil
 }
 
-func loadSigningContext(path string, create bool) (SigningContext, error) {
+func loadSigningContext(path string, create bool, policy publicationPolicy) (SigningContext, error) {
 	var c SigningContext
 	b, err := readRegular(path)
 	if errors.Is(err, os.ErrNotExist) && create {
-		c, err = NewFixtureSigningContext()
+		c, err = newSigningContext(policy)
 		if err != nil {
 			return c, err
 		}
@@ -102,14 +141,14 @@ func loadSigningContext(path string, create bool) (SigningContext, error) {
 	if err != nil {
 		return c, err
 	}
-	if info.Mode().Perm()&0077 != 0 || c.SchemaID != "cartulary.attack_fixture_signing_context.v1" || c.Repository != FixtureRepository || len(c.Seeds) != len(signingRoles) {
-		return c, errors.New("private isolated fixture signing context required")
+	if info.Mode().Perm()&0077 != 0 || c.SchemaID != policy.contextSchema() || c.Repository != policy.Repository || len(c.Seeds) != len(signingRoles) {
+		return c, errors.New("private signing context must match the selected publisher policy")
 	}
 	seen := map[string]bool{}
 	for _, role := range signingRoles {
 		seed, err := hex.DecodeString(c.Seeds[role])
 		if err != nil || len(seed) != ed25519.SeedSize || seen[c.Seeds[role]] {
-			return c, errors.New("distinct fixture signing keys required")
+			return c, errors.New("distinct signing keys required")
 		}
 		seen[c.Seeds[role]] = true
 	}
@@ -120,12 +159,23 @@ func loadSigningContext(path string, create bool) (SigningContext, error) {
 // The caller supplies all signing times and versions. Verification is a separate
 // production operation with a fresh trusted wall clock.
 func FixtureEnvelope(ctx context.Context, members map[string][]byte, c SigningContext, rootExpires, onlineExpires string, version int64) ([]byte, []byte, error) {
+	policy, err := fixturePolicyForRepository(c.Repository)
+	if err != nil {
+		return nil, nil, err
+	}
+	return buildEnvelope(ctx, members, c, policy, rootExpires, onlineExpires, version)
+}
+
+func buildEnvelope(ctx context.Context, members map[string][]byte, c SigningContext, policy publicationPolicy, rootExpires, onlineExpires string, version int64) ([]byte, []byte, error) {
 	manifest, err := packformat.DecodeManifest(members["manifest.json"], true)
 	if err != nil {
 		return nil, nil, err
 	}
-	if manifest.Repository == nil || *manifest.Repository != FixtureRepository || manifest.License.Redistribution != "restricted" || manifest.Key != "framework.attack" {
-		return nil, nil, errors.New("isolated restricted ATT&CK manifest required")
+	if manifest.Repository == nil || *manifest.Repository != policy.Repository || manifest.Key != policy.Key || c.Repository != policy.Repository || c.SchemaID != policy.contextSchema() || len(c.Seeds) != len(signingRoles) {
+		return nil, nil, errors.New("matching publisher and pack identity required")
+	}
+	if policy.Key == "framework.attack" && manifest.License.Redistribution != "restricted" {
+		return nil, nil, errors.New("ATT&CK fixture remains restricted")
 	}
 	payload, err := packformat.PayloadDigest(manifest.Files)
 	if err != nil {
@@ -137,7 +187,7 @@ func FixtureEnvelope(ctx context.Context, members map[string][]byte, c SigningCo
 	for _, role := range signingRoles {
 		seed, err := hex.DecodeString(c.Seeds[role])
 		if err != nil || len(seed) != 32 {
-			return nil, nil, errors.New("invalid fixture key")
+			return nil, nil, errors.New("invalid signing key")
 		}
 		key := ed25519.NewKeyFromSeed(seed)
 		public := map[string]any{"keytype": "ed25519", "scheme": "ed25519", "keyval": map[string]any{"public": hex.EncodeToString(key.Public().(ed25519.PublicKey))}}
@@ -146,6 +196,9 @@ func FixtureEnvelope(ctx context.Context, members map[string][]byte, c SigningCo
 			return nil, nil, err
 		}
 		id := Digest(b)
+		if _, exists := keys[id]; exists {
+			return nil, nil, errors.New("distinct signing keys required")
+		}
 		keys[id] = public
 		ids[role] = id
 		private[id] = key
@@ -168,7 +221,7 @@ func FixtureEnvelope(ctx context.Context, members map[string][]byte, c SigningCo
 	for _, role := range []string{"targets", "snapshot", "timestamp"} {
 		roles[role] = map[string]any{"keyids": []string{ids[role]}, "threshold": 1}
 	}
-	root, err := sign(map[string]any{"_type": "root", "spec_version": "1.0.35", "version": 1, "expires": rootExpires, "consistent_snapshot": false, "keys": keys, "roles": roles, "cartulary": map[string]any{"schema_id": "cartulary.reference_pack_tuf_root_binding.v1", "trust_repository_id": FixtureRepository}}, []string{ids["root-1"], ids["root-2"]})
+	root, err := sign(map[string]any{"_type": "root", "spec_version": "1.0.35", "version": 1, "expires": rootExpires, "consistent_snapshot": false, "keys": keys, "roles": roles, "cartulary": map[string]any{"schema_id": "cartulary.reference_pack_tuf_root_binding.v1", "trust_repository_id": policy.Repository}}, []string{ids["root-1"], ids["root-2"]})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -180,7 +233,7 @@ func FixtureEnvelope(ctx context.Context, members map[string][]byte, c SigningCo
 		}
 		files[f.Path] = b
 	}
-	files["bundle.json"], err = canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_bundle_hint.v1", "trust_repository_id": FixtureRepository})
+	files["bundle.json"], err = canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_bundle_hint.v1", "trust_repository_id": policy.Repository})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -191,7 +244,7 @@ func FixtureEnvelope(ctx context.Context, members map[string][]byte, c SigningCo
 	for name, b := range files {
 		targets[name] = descriptor(b)
 	}
-	binding := map[string]any{"schema_id": "cartulary.reference_pack_tuf_targets_binding.v1", "trust_repository_id": FixtureRepository, "pack_key": manifest.Key, "pack_version": manifest.Version, "pack_release_sequence": manifest.Sequence, "manifest_sha256": Digest(files["manifest.json"]), "payload_sha256": payload}
+	binding := map[string]any{"schema_id": "cartulary.reference_pack_tuf_targets_binding.v1", "trust_repository_id": policy.Repository, "pack_key": manifest.Key, "pack_version": manifest.Version, "pack_release_sequence": manifest.Sequence, "manifest_sha256": Digest(files["manifest.json"]), "payload_sha256": payload}
 	files["metadata/targets.json"], err = sign(map[string]any{"_type": "targets", "spec_version": "1.0.35", "version": version, "expires": onlineExpires, "targets": targets, "cartulary": binding}, []string{ids["targets"]})
 	if err != nil {
 		return nil, nil, err
@@ -208,7 +261,7 @@ func FixtureEnvelope(ctx context.Context, members map[string][]byte, c SigningCo
 			return nil, nil, err
 		}
 	}
-	bootstrap, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_trust_bootstrap.v1", "repositories": []any{map[string]any{"repository_id": FixtureRepository, "trusted_root": json.RawMessage(root), "trusted_root_sha256": Digest(root)}}})
+	bootstrap, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_trust_bootstrap.v1", "repositories": []any{map[string]any{"repository_id": policy.Repository, "trusted_root": json.RawMessage(root), "trusted_root_sha256": Digest(root)}}})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -227,7 +280,16 @@ func Envelope(ctx context.Context, inputBytes []byte, renew bool) (EnvelopeRepor
 	if err := DecodeClosed(inputBytes, &in); err != nil {
 		return EnvelopeReport{}, err
 	}
-	if in.SchemaID != "cartulary.attack_envelope_input.v1" || in.LedgerRoot == "" || in.MetadataVersion < 1 || in.MetadataVersion > 9007199254740991 || !validBuildTime(in.IssuedAt) || !validBuildTime(in.RootExpires) || !validBuildTime(in.OnlineExpires) || in.OnlineExpires <= in.IssuedAt || in.RootExpires < in.OnlineExpires || renew != (in.PreviousEnvelope != "") {
+	policy := attackFixturePolicy
+	if in.SchemaID == "cartulary.windows_event_envelope_input.v2" {
+		policy = windowsFixturePolicy
+	} else if in.SchemaID == "cartulary.windows_event_release_envelope_input.v2" {
+		policy = windowsReleasePolicy
+		if err := windowsDecode(inputBytes, "release_envelope", &in); err != nil {
+			return EnvelopeReport{}, err
+		}
+	}
+	if in.SchemaID != policy.Prefix+"_envelope_input."+policy.Version || in.LedgerRoot == "" || in.MetadataVersion < 1 || in.MetadataVersion > 9007199254740991 || !validBuildTime(in.IssuedAt) || !validBuildTime(in.RootExpires) || !validBuildTime(in.OnlineExpires) || in.OnlineExpires <= in.IssuedAt || in.RootExpires < in.OnlineExpires || renew != (in.PreviousEnvelope != "") {
 		return EnvelopeReport{}, errors.New("invalid explicit envelope inputs")
 	}
 	for _, public := range []string{in.OutputRoot, in.LogicalRoot, in.LedgerRoot} {
@@ -251,11 +313,14 @@ func Envelope(ctx context.Context, inputBytes []byte, renew bool) (EnvelopeRepor
 		}
 		members[f.Path] = b
 	}
-	c, err := loadSigningContext(in.SigningContext, in.CreateSigningContext)
+	if m.Repository == nil || *m.Repository != policy.Repository || m.Key != policy.Key {
+		return EnvelopeReport{}, errors.New("logical pack does not match publisher policy")
+	}
+	c, err := loadSigningContext(in.SigningContext, in.CreateSigningContext, policy)
 	if err != nil {
 		return EnvelopeReport{}, err
 	}
-	container, bootstrap, err := FixtureEnvelope(ctx, members, c, in.RootExpires, in.OnlineExpires, in.MetadataVersion)
+	container, bootstrap, err := buildEnvelope(ctx, members, c, policy, in.RootExpires, in.OnlineExpires, in.MetadataVersion)
 	if err != nil {
 		return EnvelopeReport{}, err
 	}
@@ -263,7 +328,7 @@ func Envelope(ctx context.Context, inputBytes []byte, renew bool) (EnvelopeRepor
 	if err != nil {
 		return EnvelopeReport{}, err
 	}
-	r := EnvelopeReport{SchemaID: "cartulary.attack_envelope_report.v1", Repository: FixtureRepository, ManifestSHA256: Digest(b), PayloadSHA256: payload, ContainerSHA256: Digest(container), ContainerBytes: int64(len(container)), BootstrapSHA256: Digest(bootstrap), MetadataVersion: in.MetadataVersion, IssuedAt: in.IssuedAt, EnvelopePath: "envelopes/" + Digest(container)}
+	r := EnvelopeReport{SchemaID: policy.Prefix + "_envelope_report." + policy.Version, Repository: policy.Repository, ManifestSHA256: Digest(b), PayloadSHA256: payload, ContainerSHA256: Digest(container), ContainerBytes: int64(len(container)), BootstrapSHA256: Digest(bootstrap), MetadataVersion: in.MetadataVersion, IssuedAt: in.IssuedAt, EnvelopePath: "envelopes/" + Digest(container)}
 	if renew {
 		previousBytes, err := readRegular(filepath.Join(in.PreviousEnvelope, "envelope-report.json"))
 		if err != nil {
@@ -289,7 +354,7 @@ func Envelope(ctx context.Context, inputBytes []byte, renew bool) (EnvelopeRepor
 	}
 	// Metadata versions are scoped by immutable pack identity, matching the
 	// production trust store. Immutable reservations also survive failed writes.
-	reservation, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.attack_fixture_envelope_allocation.v1", "trust_repository_id": FixtureRepository, "manifest_sha256": r.ManifestSHA256, "metadata_version": r.MetadataVersion, "container_sha256": r.ContainerSHA256, "bootstrap_sha256": r.BootstrapSHA256, "issued_at": r.IssuedAt})
+	reservation, err := canonicaljson.Marshal(map[string]any{"schema_id": policy.allocationSchema(), "trust_repository_id": policy.Repository, "manifest_sha256": r.ManifestSHA256, "metadata_version": r.MetadataVersion, "container_sha256": r.ContainerSHA256, "bootstrap_sha256": r.BootstrapSHA256, "issued_at": r.IssuedAt})
 	if err != nil {
 		return r, err
 	}
@@ -305,24 +370,16 @@ func Envelope(ctx context.Context, inputBytes []byte, renew bool) (EnvelopeRepor
 	if err != nil {
 		return r, err
 	}
-	if err = os.MkdirAll(in.OutputRoot, 0700); err != nil {
-		return r, err
-	}
-	out, err := os.OpenRoot(in.OutputRoot)
-	if err != nil {
-		return r, err
-	}
-	defer out.Close()
-	for name, b := range map[string][]byte{"container.pack": container, "bootstrap.json": bootstrap} {
-		if err = Retain(out, r.EnvelopePath+"/"+name, b, 0600); err != nil {
-			return r, err
-		}
-	}
 	reportBytes, err := canonicaljson.Marshal(r)
 	if err != nil {
 		return r, err
 	}
-	if err = Retain(out, r.EnvelopePath+"/envelope-report.json", reportBytes, 0600); err != nil {
+	if !policy.Fixture {
+		if err = verifyReleaseEnvelope(ctx, container, bootstrap, r, in.LedgerRoot); err != nil {
+			return r, err
+		}
+	}
+	if err = publishTree(in.OutputRoot, r.EnvelopePath, map[string][]byte{"container.pack": container, "bootstrap.json": bootstrap, "envelope-report.json": reportBytes}); err != nil {
 		return r, err
 	}
 	return r, nil

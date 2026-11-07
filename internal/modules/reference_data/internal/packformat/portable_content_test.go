@@ -197,11 +197,8 @@ func testPortableContentReachableLimits(t *testing.T) {
 		for _, key := range keys {
 			version := fmt.Sprintf("v%04d", i)
 			manifest := Digest([]byte("manifest:" + key + "/" + version))
-			member := SetMember{Key: key, Version: version, ManifestSHA256: manifest, PayloadSHA256: strings.Repeat("2", 64), Contract: "cartulary.reference_pack_contract.v2", ProfileID: "cartulary.reference_pack." + key + ".v1", ProfileVersion: "1"}
-			if key == "framework.attack" {
-				member.ProfileID = "cartulary.reference_pack.framework.attack.v2"
-				member.ProfileVersion = "2"
-			}
+			profile := profiles[key]
+			member := SetMember{Key: key, Version: version, ManifestSHA256: manifest, PayloadSHA256: strings.Repeat("2", 64), Contract: "cartulary.reference_pack_contract.v2", ProfileID: profile.ID, ProfileVersion: profile.Version}
 			members = append(members, member)
 			refs.Versions = append(refs.Versions, PortableVersion{SetMember: member, DistributionKind: "operator_imported", VerificationMethod: "tuf_1_0_35_offline_bundle_v1", SourceProfileID: "fixture.portable.v1", SourceProfileSHA256: strings.Repeat("3", 64)})
 			content.Containers = append(content.Containers, PortableContainer{ManifestSHA256: manifest, ContainerSHA256: strings.Repeat("4", 64), SizeBytes: 1})
@@ -223,7 +220,7 @@ func testPortableContentReachableLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 16801852 || Digest(encoded) != "53be70be2539390991c828aa3e7c361592652c7d505f7da9436c82f37f292837" {
+	if len(encoded) != 16801852 || Digest(encoded) != "7c5aa7acc9ee352115c058d95717da95698d5c8b6bb4c2cb3b8828ea2b16097b" {
 		t.Fatal("independent catalog changed")
 	}
 	admitted, err := DecodePortableReferences(encoded)
@@ -238,7 +235,7 @@ func testPortableContentReachableLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 5091405 || Digest(encoded) != "04355fdc65375b88a49b1d827e84d944b3866d817eb7de649b25ad886f50090f" {
+	if len(encoded) != 5091405 || Digest(encoded) != "86b7a920be153d717b94ad7da292a20022d3e16e134139f78bd93248d79469c1" {
 		t.Fatal("independent content changed")
 	}
 	got, err := DecodePortableContent(encoded, admitted)

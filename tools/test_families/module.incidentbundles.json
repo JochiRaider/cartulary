@@ -33,6 +33,40 @@
       "postgres_isolation": "shared"
     },
     {
+      "row_id": "module.incidentbundles.integration.attack_pack_portability_preserves_independent_re_a273637b25",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.reference_data",
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestATTACKSnapshotReferencesSurviveBundleRoundTrip_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/attack-native-v2"
+      ]
+    },
+    {
       "row_id": "module.incidentbundles.integration.extension_portability_matrix_and_atomic_import_1b27fc2d91",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",
@@ -107,7 +141,6 @@
         "package": "./internal/modules/incidentbundles",
         "tests": [
           "TestIncidentReferenceCatalogSurvivesUnavailablePackRoundTrip_Integration",
-          "TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration",
           "TestSupersededTimelineReplacementSurvivesImport_Integration"
         ]
       },
@@ -122,10 +155,7 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive",
-      "fixture_input_roots": [
-        "fixtures/reference-packs/attack-native-v2"
-      ]
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_export_jobs_use_the_incident_sco_d94a8de941",
@@ -563,6 +593,37 @@
         "fixtures/network-flow-orientation/v1",
         "fixtures/network-flow/NF-FIX-029-cisco-sna-flow-search"
       ]
+    },
+    {
+      "row_id": "module.incidentbundles.integration.windows_event_ids_pack_portability_preserves_ind_d31bf11266",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.integration",
+      "collaborator_ids": [
+        "module.reference_data",
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestWindowsProducedPackSurvivesBundleRoundTrip_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidentbundles.unit.catalog_requires_the_composed_revisions_source_p_f5281c6d1f",

@@ -230,11 +230,11 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make package-inspect                install and inspect the exact archive without a checkout or build tools' \
 	'  make release-evidence-verify' \
 	'                                      EVIDENCE_ROOTS_FILE=<path> verify selected retained release evidence without launching tests' \
-	'  make reference-pack-producer-build  build and retain the immutable ATT&CK source producer' \
+	'  make reference-pack-producer-build  reproduce and retain the immutable reference-pack producer executable' \
 	'  make reference-pack-source' \
-	'                                      ACTION=acquire|check|audit SOURCE_DIR=<path> BUILT_AT=<UTC> acquire, check or audit pinned ATT&CK inputs; never assembles a pack' \
+	'                                      ACTION=discover|acquire|check|audit SOURCE_LOCK=<JSON> SOURCE_DIR=<path> discover, acquire, check or audit explicit pack source inputs' \
 	'  make reference-pack-package' \
-	'                                      ACTION=assemble|envelope|renew INPUT=<typed-json> assemble immutable packs and create or renew isolated fixture envelopes' \
+	'                                      ACTION=assemble|envelope|renew INPUT=<typed-json> assemble immutable packs and create or renew signed release or fixture envelopes' \
 	'' \
 	'test-fast inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
@@ -368,7 +368,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: retained_artifacts' \
 	'reference-pack-producer-build inputs: none' \
 	'  side effects: retained_artifacts, build_outputs' \
-	'reference-pack-source inputs: ACTION=acquire|check|audit (default check), SOURCE_DIR=path (default .cartulary/reference-packs/attack/20.1), BUILT_AT=semantic_text (default ), SOURCE_LOCK=path (default contracts/reference-pack-producers/attack/source-lock.v20.1.json)' \
+	'reference-pack-source inputs: ACTION=discover|acquire|check|audit (default check), SOURCE_DIR=path (required), BUILT_AT=semantic_text (default ), SOURCE_LOCK=path (required), EDITORIAL=path (optional), SOURCE_INPUT=path (optional)' \
 	'  side effects: retained_artifacts' \
 	'reference-pack-package inputs: ACTION=assemble|envelope|renew (required), INPUT=path (required)' \
 	'  side effects: retained_artifacts' \
@@ -1038,8 +1038,8 @@ reference-pack-source: export CARTULARY_TEST_TARGET ?= reference-pack-source
 reference-pack-source:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,reference-pack-source)
-	$(Q)ACTION="$(ACTION)" BUILT_AT="$(BUILT_AT)" SOURCE_DIR="$(SOURCE_DIR)" SOURCE_LOCK="$(SOURCE_LOCK)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION BUILT_AT SOURCE_DIR SOURCE_LOCK)" $(RUN_STEP_SCRIPT) "reference-pack-source" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ACTION="$(ACTION)" BUILT_AT="$(BUILT_AT)" SOURCE_DIR="$(SOURCE_DIR)" SOURCE_LOCK="$(SOURCE_LOCK)" CARTULARY_MAKE_INPUT_SOURCES="$(call \
-	  TASK_SURFACE_INPUT_SOURCES,ACTION BUILT_AT SOURCE_DIR SOURCE_LOCK)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" ACTION="$(ACTION)" SOURCE_DIR="$(SOURCE_DIR)" BUILT_AT="$(BUILT_AT)" SOURCE_LOCK="$(SOURCE_LOCK)" bash ./tools/reference-packs/source.sh
+	$(Q)ACTION="$(ACTION)" BUILT_AT="$(BUILT_AT)" EDITORIAL="$(EDITORIAL)" SOURCE_DIR="$(SOURCE_DIR)" SOURCE_INPUT="$(SOURCE_INPUT)" SOURCE_LOCK="$(SOURCE_LOCK)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION BUILT_AT EDITORIAL SOURCE_DIR SOURCE_INPUT SOURCE_LOCK)" $(RUN_STEP_SCRIPT) "reference-pack-source" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ACTION="$(ACTION)" BUILT_AT="$(BUILT_AT)" EDITORIAL="$(EDITORIAL)" \
+	  SOURCE_DIR="$(SOURCE_DIR)" SOURCE_INPUT="$(SOURCE_INPUT)" SOURCE_LOCK="$(SOURCE_LOCK)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION BUILT_AT EDITORIAL SOURCE_DIR SOURCE_INPUT SOURCE_LOCK)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" ACTION="$(ACTION)" SOURCE_DIR="$(SOURCE_DIR)" BUILT_AT="$(BUILT_AT)" SOURCE_LOCK="$(SOURCE_LOCK)" bash ./tools/reference-packs/source.sh
 
 reference-pack-package: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 reference-pack-package: export CARTULARY_TEST_TARGET ?= reference-pack-package

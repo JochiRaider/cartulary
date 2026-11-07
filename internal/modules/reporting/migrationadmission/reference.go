@@ -89,7 +89,7 @@ func ValidateReferenceBindings(ctx context.Context, db ReferenceReader, admit fu
 }
 func admitBindings(bindings map[string]bool, admit func([]byte) error) error {
 	if admit == nil {
-		return errors.New("Reporting Reference Data admission callback required")
+		return errors.New("reporting Reference Data admission callback required")
 	}
 	for b := range bindings {
 		if err := admit([]byte(b)); err != nil {

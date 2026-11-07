@@ -3,6 +3,8 @@ import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { ownersByVersion } from "./owner-allocation.mjs";
 import { catalogDDLSource } from "./catalog-ddl-source.mjs";
+import { collectForeignKeyCoverage, requireForeignKeyCoverage } from "./foreign-key-coverage.mjs";
+import { validateSchemaSync } from "../harness/contract/index.mjs";
 
 const root = process.cwd();
 const migrationRoot = path.join(root, "db/migrations");
@@ -38,7 +40,6 @@ const history = {
     };
   }),
 };
-writeJSON("tools/migration_history_manifest.json", history);
 
 for (const [index, filename] of migrationFiles.entries()) {
   const version = index + 1;
@@ -53,6 +54,7 @@ const profileByVersion = new Map([
   [32, "import"],
   [33, "import"],
   [39, "import"],
+  [49, "import"],
   [20, "network_flow_activity"],
   [30, "network_flow_activity"],
   [34, "network_flow_activity"],
@@ -94,6 +96,11 @@ for (const [index, filename] of migrationFiles.entries()) {
   }
 }
 
+const coverage = collectForeignKeyCoverage(migrationFiles.map((filename) => ({
+  filename, source: readFileSync(path.join(migrationRoot, filename), "utf8"),
+})));
+requireForeignKeyCoverage(coverage);
+const coveredNames = new Set(coverage.map((fk) => fk.name));
 const entries = [
   externalObject("schema.public", "schema", "public", "administrator_managed", "schema_usage", "schema_usage"),
   externalObject("extension.pgcrypto", "extension", "public.pgcrypto", "administrator_managed", "type_use", "type_use"),
@@ -133,6 +140,11 @@ const manifest = {
   ])].sort(),
   entries,
 };
+requireForeignKeyCoverage(coverage, entries);
+validateSchemaSync(history.schema_id, history);
+validateSchemaSync(manifest.schema_id, manifest);
+// Validate the complete projection before replacing either generated document.
+writeJSON("tools/migration_history_manifest.json", history);
 writeJSON("tools/schema_object_ownership_manifest.json", manifest);
 
 function collectRelationEvents(source, version, filename) {
@@ -353,10 +365,10 @@ function toManifestEntry(object) {
   const runtimeImmutableTables = new Set([
     "import_committed_source_blobs",
     "import_committed_source_chunks",
-    "import_committed_source_records",
     "import_committed_sources",
   ]);
   const runtimeAppendOnlyTables = new Set([
+    "import_committed_source_records",
     "administrative_audit_projections",
     "deployment_admin_audit_events",
     "reference_pack_attempt_members",
@@ -468,7 +480,7 @@ function toManifestEntry(object) {
     extension_profile_id: object.profile,
     recovery_classification: normalizeRecoveryClass(recoveryClass),
     sqlc_input: new RegExp(`\\b${escapeRegExp(bareName)}\\b`, "u").test(queryText),
-    foreign_key_index_status: object.foreignKey ? "covered" : "not_applicable",
+    foreign_key_index_status: object.object_kind === "constraint" && coveredNames.has(object.qualified_name) ? "covered" : "not_applicable",
     approval: null,
   };
 }

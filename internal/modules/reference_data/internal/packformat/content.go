@@ -5,11 +5,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
@@ -333,6 +335,24 @@ func (s *contentState) row(m map[string]any, kind string, c *semanticChecks) (Co
 		c.require(order > previousRef, path)
 		previousRef = order
 	}
+	if s.manifest.Key == "enrichment.windows_event_ids" {
+		for i, value := range m["documentation"].([]any) {
+			block := value.(map[string]any)
+			c.require(windowsDocumentationPresentation(block["content"]), fmt.Sprintf(".documentation[%d].content", i))
+			previous := ""
+			for j, v := range block["source_refs"].([]any) {
+				ref := v.(map[string]any)
+				index, ok := integer(ref["artifact_index"], 0, int64(len(s.manifest.Artifacts))-1)
+				loc := ref["locator"].(string)
+				order := strconv.FormatInt(index+100, 10) + "\x00" + loc
+				p := fmt.Sprintf(".documentation[%d].source_refs[%d]", i, j)
+				c.require(ok, p+".artifact_index")
+				c.require(singleLine(loc, 1024), p+".locator")
+				c.require(order > previous, p)
+				previous = order
+			}
+		}
+	}
 	if kind == "relationship" {
 		return s.relationship(m, c)
 	}
@@ -402,6 +422,26 @@ func (s *contentState) row(m map[string]any, kind string, c *semanticChecks) (Co
 	keys, err := validateProfileEntry(s.manifest.Key, m, c)
 	row.Keys = append(row.Keys, keys...)
 	return row, err
+}
+
+func windowsDocumentationPresentation(value any) bool {
+	switch v := value.(type) {
+	case string:
+		return strings.TrimRightFunc(v, unicode.IsSpace) == v
+	case map[string]any:
+		for _, x := range v {
+			if !windowsDocumentationPresentation(x) {
+				return false
+			}
+		}
+	case []any:
+		for _, x := range v {
+			if !windowsDocumentationPresentation(x) {
+				return false
+			}
+		}
+	}
+	return true
 }
 func (s *contentState) validateReplacements() error {
 	path := "$.entries"

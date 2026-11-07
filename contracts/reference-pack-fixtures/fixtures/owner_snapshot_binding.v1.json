@@ -3,6 +3,6 @@
   "fixture_id": "rpfx_owner_snapshot_binding",
   "scenario": "snapshot_binding",
   "owner_id": "module.reporting",
-  "row_id": "module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c",
-  "test_name": "TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration"
+  "row_id": "module.reporting.integration.attack_snapshots_retain_their_exact_independentl_a1740e14f8",
+  "test_name": "TestATTACKSnapshotAdmissionRetainsProducedSet_Integration"
 }

@@ -294,33 +294,20 @@ func assertCatalogStructuralFacts(t testing.TB, db *sql.DB, manifest schemaObjec
 	if err := db.QueryRowContext(context.Background(), `SELECT count(*) FROM pg_catalog.pg_constraint AS constraint_row JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = constraint_row.connamespace WHERE namespace.nspname = 'public' AND NOT constraint_row.convalidated`).Scan(&invalidConstraints); err != nil || invalidConstraints != 0 {
 		t.Fatalf("invalid constraint count = %d: %v", invalidConstraints, err)
 	}
-	var foreignKeys, uncovered int
-	if err := db.QueryRowContext(context.Background(), `
-SELECT count(*), count(*) FILTER (WHERE NOT EXISTS (
-    SELECT 1 FROM pg_catalog.pg_index AS index_state
-    WHERE index_state.indrelid = constraint_row.conrelid
-      AND index_state.indisvalid AND index_state.indisready AND index_state.indpred IS NULL
-      AND index_state.indnkeyatts >= cardinality(constraint_row.conkey)
-      AND NOT EXISTS (
-          SELECT 1 FROM generate_subscripts(constraint_row.conkey, 1) AS position
-          WHERE (index_state.indkey::smallint[])[position - 1] <> constraint_row.conkey[position]
-      )
-))
-FROM pg_catalog.pg_constraint AS constraint_row
-JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = constraint_row.connamespace
-WHERE namespace.nspname = 'public' AND constraint_row.contype = 'f'
-`).Scan(&foreignKeys, &uncovered); err != nil {
-		t.Fatal(err)
-	}
-	coveredManifest := 0
+	coverage := queryForeignKeyCoverage(t, db)
+	want := make(map[string]bool)
 	for _, entry := range manifest.Entries {
 		if entry.ForeignKeyIndexStatus == "covered" {
-			coveredManifest++
+			want[entry.QualifiedName] = true
 		}
 	}
-	if foreignKeys == 0 || uncovered != 0 || coveredManifest != foreignKeys {
-		t.Fatalf("FK coverage = actual %d, manifest %d, uncovered %d (%v)", foreignKeys, coveredManifest, uncovered, queryUncoveredForeignKeys(t, db))
+	assertExactStringSet(t, coverage, want)
+	for name, covered := range coverage {
+		if !covered {
+			t.Errorf("uncovered foreign key: %s", name)
+		}
 	}
+	t.Logf("independent FK coverage: %d exact identities", len(coverage))
 	var unsafeRoutines int
 	if err := db.QueryRowContext(context.Background(), `
 SELECT count(*)
@@ -359,17 +346,15 @@ WHERE namespace.nspname = 'public'
 	}
 }
 
-func queryUncoveredForeignKeys(t testing.TB, db *sql.DB) []string {
+func queryForeignKeyCoverage(t testing.TB, db *sql.DB) map[string]bool {
 	t.Helper()
-	rows, err := db.QueryContext(context.Background(), `
-SELECT relation.relname || '.' || constraint_row.conname
-FROM pg_catalog.pg_constraint AS constraint_row
-JOIN pg_catalog.pg_class AS relation ON relation.oid = constraint_row.conrelid
-JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = constraint_row.connamespace
-WHERE namespace.nspname = 'public' AND constraint_row.contype = 'f'
-  AND NOT EXISTS (
+	rows, err := db.QueryContext(t.Context(), `
+SELECT namespace.nspname || '.' || relation.relname || '.' || constraint_row.conname,
+  EXISTS (
       SELECT 1 FROM pg_catalog.pg_index AS index_state
-      WHERE index_state.indrelid = constraint_row.conrelid
+      JOIN pg_catalog.pg_class AS index_relation ON index_relation.oid=index_state.indexrelid
+      JOIN pg_catalog.pg_am AS method ON method.oid=index_relation.relam
+      WHERE index_state.indrelid = constraint_row.conrelid AND method.amname='btree'
         AND index_state.indisvalid AND index_state.indisready AND index_state.indpred IS NULL
         AND index_state.indnkeyatts >= cardinality(constraint_row.conkey)
         AND NOT EXISTS (
@@ -377,19 +362,27 @@ WHERE namespace.nspname = 'public' AND constraint_row.contype = 'f'
             WHERE (index_state.indkey::smallint[])[position - 1] <> constraint_row.conkey[position]
         )
   )
+FROM pg_catalog.pg_constraint AS constraint_row
+JOIN pg_catalog.pg_class AS relation ON relation.oid = constraint_row.conrelid
+JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = constraint_row.connamespace
+WHERE namespace.nspname = 'public' AND constraint_row.contype = 'f'
 ORDER BY relation.relname, constraint_row.conname
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer rows.Close()
-	var result []string
+	result := make(map[string]bool)
 	for rows.Next() {
 		var name string
-		if err := rows.Scan(&name); err != nil {
+		var covered bool
+		if err := rows.Scan(&name, &covered); err != nil {
 			t.Fatal(err)
 		}
-		result = append(result, name)
+		if _, duplicate := result[name]; duplicate {
+			t.Fatalf("duplicate FK identity: %s", name)
+		}
+		result[name] = covered
 	}
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)

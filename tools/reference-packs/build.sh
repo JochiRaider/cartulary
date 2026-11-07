@@ -4,7 +4,7 @@ set -euo pipefail
 bash ./tools/harness/readiness/go-toolchain-readiness.sh ensure
 "${NODE_BIN:?}" tools/harness/readiness/cryptographic-build-cli.mjs verify
 mkdir -p build/bin "${GO_CACHE_DIR:?}" "${GO_MOD_CACHE_DIR:?}" "${GO_TMP_DIR:?}"
-producer_work="$(mktemp -d build/.attack-producer.XXXXXXXX)"
+producer_work="$(mktemp -d build/.reference-pack-producer.XXXXXXXX)"
 trap 'rm -rf -- "$producer_work"' EXIT
 for pass in first second; do
   env CGO_ENABLED=0 GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" \
@@ -26,7 +26,7 @@ if [[ -e "$producer_store/identity.json" ]]; then
 else
   ln -- "$producer_work/identity.json" "$producer_store/identity.json"
 fi
-printf '{"schema_id":"cartulary.attack_builder_reproduction.v1","first_sha256":"%s","second_sha256":"%s","byte_identical":true}\n' \
+printf '{"schema_id":"cartulary.reference_pack_builder_reproduction.v1","first_sha256":"%s","second_sha256":"%s","byte_identical":true}\n' \
   "$producer_sha" "$producer_sha" > "$producer_work/reproducibility.json"
 if [[ -e "$producer_store/reproducibility.json" ]]; then
   cmp -- "$producer_work/reproducibility.json" "$producer_store/reproducibility.json"
@@ -34,4 +34,4 @@ else
   ln -- "$producer_work/reproducibility.json" "$producer_store/reproducibility.json"
 fi
 install -m 0755 "$producer_work/first" build/bin/reference-pack-producer
-printf 'ATT&CK source producer reproduced: %s; evidence=%s\n' "$producer_sha" "$producer_store"
+printf 'Reference pack producer reproduced: %s; evidence=%s\n' "$producer_sha" "$producer_store"

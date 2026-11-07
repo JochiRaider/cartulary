@@ -38,10 +38,16 @@
   "obligations": [
     {
       "obligation_id": "dependencies.maintenance",
-      "normative_owners": ["TestingHarness", "Core04"],
+      "normative_owners": [
+        "TestingHarness",
+        "Core04"
+      ],
       "capability": "Dependency pruning and runtime engine admission",
       "expectation": "Explicit Go maintenance prunes unused requirements before tool compilation; the actual nested accessibility engine matches its pin without a redundant root dependency",
-      "owner_ids": ["harness.command_surface", "harness.browser"],
+      "owner_ids": [
+        "harness.command_surface",
+        "harness.browser"
+      ],
       "row_ids": [
         "harness.command_surface.behavior.public_registry_parity",
         "harness.browser.boundary_support.ui_review_lifecycle"
@@ -430,9 +436,11 @@
         "module.reporting"
       ],
       "row_ids": [
-        "module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c",
+        "module.reporting.integration.attack_snapshots_retain_their_exact_independentl_a1740e14f8",
         "module.reporting.integration.graph_input_admission_reads_the_exact_selected_c_4c42af0393",
-        "module.reporting.integration.portable_artifact_stream_retention"
+        "module.reporting.integration.portable_artifact_stream_retention",
+        "module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c",
+        "module.reporting.integration.windows_event_ids_snapshots_retain_their_exact_i_7312056cfb"
       ]
     },
     {
@@ -479,10 +487,27 @@
         "module.reference_data"
       ],
       "row_ids": [
-        "module.reference_data.integration.all_profiles_consumer_boundary",
+        "module.reference_data.integration.attack_producer_artifacts_preserve_independent_a_67e9ef139a",
         "module.reference_data.integration.canonical_persistence",
+        "module.reference_data.integration.enrichment_cisa_kev_independently_imports_activa_c6cc146f1c",
+        "module.reference_data.integration.enrichment_entra_app_ids_independently_imports_a_07faf90a4a",
+        "module.reference_data.integration.enrichment_hijacklibs_independently_imports_acti_42ba3a94e9",
+        "module.reference_data.integration.enrichment_lolbas_independently_imports_activate_f14dd266ff",
+        "module.reference_data.integration.enrichment_loldrivers_independently_imports_acti_a068f18ffc",
+        "module.reference_data.integration.enrichment_lolesxi_independently_imports_activat_ebb18a1387",
+        "module.reference_data.integration.enrichment_ms_portals_independently_imports_acti_860490d5c2",
+        "module.reference_data.integration.enrichment_tor_independently_imports_activates_a_69bd8896bd",
+        "module.reference_data.integration.enrichment_windows_event_ids_independently_impor_2bc83a2b47",
+        "module.reference_data.integration.enrichment_windows_sids_independently_imports_ac_0a6c5f8b7f",
+        "module.reference_data.integration.framework_attack_independently_imports_activates_cd0be06ccc",
+        "module.reference_data.integration.framework_d3fend_independently_imports_activates_f8ef62f99f",
+        "module.reference_data.integration.framework_veris_independently_imports_activates_8ed7f795eb",
+        "module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a",
         "module.reference_data.integration.reference_pack_import_jobs_re_derive_route_famil_dd456a1690",
-        "module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a"
+        "module.reference_data.integration.type_registry_evidence_independently_imports_act_046a55d962",
+        "module.reference_data.integration.type_registry_host_independently_imports_activat_a3707c8ace",
+        "module.reference_data.integration.type_registry_indicator_independently_imports_ac_6c2cb894b3",
+        "module.reference_data.integration.windows_event_ids_producer_artifacts_preserve_in_466944f93e"
       ]
     },
     {

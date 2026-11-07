@@ -13,13 +13,7 @@ import (
 // into a complete canonical row. Expected byte/count limits are independently
 // specified; no production limit is raised to accommodate the fixture.
 func testCompleteContentLineBoundary(t *testing.T) {
-	var fixture contentFixture
-	for _, f := range contentFixtures(t) {
-		if f.Key == "enrichment.lolbas" {
-			fixture = f
-			break
-		}
-	}
+	fixture := contentFixtureFor(t, "enrichment.lolbas")
 	value, err := canonicaljson.DecodeStrict([]byte(strings.TrimSuffix(fixture.Members["payload/entries.ndjson"], "\n")))
 	if err != nil {
 		t.Fatal(err)

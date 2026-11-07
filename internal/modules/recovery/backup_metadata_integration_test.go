@@ -29,6 +29,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+	referencehttp "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport/fixturehttp"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
@@ -39,10 +41,27 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
+type recoveryPackFixture struct {
+	referencetest.PortablePackFixture
+	ManifestSHA256, PayloadSHA256, SetSHA256 string
+}
+
 func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testing.T) {
+	runBackingStorageMetadataRestore(t, nil)
+}
+
+func runBackingStorageMetadataRestore(t *testing.T, pack *recoveryPackFixture) {
 	runtimeHarness := appsupport.StartRuntime(t)
 	objects := s3test.Start(t)
-	harness := runtimeHarness.StartServer(t, appsupport.ServerOptions{Prefix: "backup_restore-i-10-01-metadata", TestRouteMode: httptestx.TestRouteModeDisabled})
+	options := appsupport.ServerOptions{Prefix: "backup_restore-i-10-01-metadata", TestRouteMode: httptestx.TestRouteModeDisabled}
+	if pack != nil {
+		bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
+		if err := os.WriteFile(bootstrap, pack.Bootstrap, 0600); err != nil {
+			t.Fatal(err)
+		}
+		options.Env = map[string]string{"CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH": bootstrap, "CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED": "true"}
+	}
+	harness := runtimeHarness.StartServer(t, options)
 	ctx := t.Context()
 	recoveryDSN, err := harness.Database.DSNForPurpose(postgres.PurposeRecovery)
 	if err != nil {
@@ -72,6 +91,11 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	}
 
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+	if pack != nil {
+		referencehttp.ImportPackFixture(t, harness.Server, adminLogin, pack.PortablePackFixture, "restore-pack-import")
+		activation := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+pack.Key+"/"+pack.Version+"/activate", map[string]any{"client_txn_id": "restore-pack-activate"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader("X-CSRF-Token", adminLogin.CSRF.Value))
+		httptestx.RequireSuccessEnvelope(t, activation, http.StatusOK)
+	}
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-backup_restore-i-10-01-incident",
 		"incident_key":  "backup_restore-i-10-01",
@@ -309,6 +333,28 @@ INSERT INTO object_blobs (
 		t.Fatalf("restore latest retained backup into fresh SeaweedFS-backed target: %v", err)
 	}
 	admitted.Complete(t, serviceBackedRestore)
+	if err := targetPacks.ValidateHistoricalState(ctx, targetPool); err != nil {
+		t.Fatal("restored reference availability", err)
+	}
+	if pack != nil {
+		var restoredSet, restoredManifest, restoredPayload, restoredContainerRef string
+		if err := targetPool.QueryRow(ctx, `SELECT s.pack_set_id,v.manifest_sha256,v.payload_sha256,e.container_ref FROM reference_pack_current_set s CROSS JOIN reference_pack_versions v JOIN reference_pack_candidates c USING(pack_key,pack_version) JOIN reference_pack_envelopes e ON e.envelope_id=c.current_envelope_id WHERE v.pack_key=$1 AND v.pack_version=$2`, pack.Key, pack.Version).Scan(&restoredSet, &restoredManifest, &restoredPayload, &restoredContainerRef); err != nil {
+			t.Fatal(err)
+		}
+		if restoredSet != "rpset_"+pack.SetSHA256 || restoredManifest != pack.ManifestSHA256 || restoredPayload != pack.PayloadSHA256 {
+			t.Fatal("restored pack provenance changed")
+		}
+		recovered, err := targetPacks.OpenRecoveryObject(ctx, restoredContainerRef)
+		if err != nil {
+			t.Fatal(err)
+		}
+		recoveredBytes, recoveredReadErr := io.ReadAll(recovered)
+		recoveredCloseErr := recovered.Close()
+		if recoveredReadErr != nil || recoveredCloseErr != nil || !bytes.Equal(recoveredBytes, pack.Container) {
+			t.Fatal("restored pack envelope differs", recoveredReadErr, recoveredCloseErr)
+		}
+		t.Logf("pack recovered exact set=%s manifest=%s", restoredSet, restoredManifest)
+	}
 	var retainedCount int
 	if err := targetPool.QueryRow(ctx, `SELECT count(*) FROM network_flow_graph_views
 	 WHERE semantic_query_json->>'counter'='9007199254740993' AND declaration_state='retired' AND display_name='Retained Ω'`).Scan(&retainedCount); err != nil || retainedCount != 2 {

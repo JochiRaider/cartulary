@@ -11,8 +11,6 @@ import (
 	"testing"
 
 	attackinputs "github.com/JochiRaider/cartulary/contracts/reference-pack-producers/attack"
-	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepacks"
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 const contractRoot = "../../../../contracts/reference-pack-producers/attack/"
@@ -24,23 +22,6 @@ func fixtureBytes(t *testing.T, name string) []byte {
 		t.Fatal(err)
 	}
 	return b
-}
-func encoded(t *testing.T, v any) []byte {
-	t.Helper()
-	b, err := canonicaljson.Marshal(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return b
-}
-func testRoot(t *testing.T) *os.Root {
-	t.Helper()
-	root, err := os.OpenRoot(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { root.Close() })
-	return root
 }
 
 type fixtureFetcher struct {
@@ -247,11 +228,8 @@ func TestATTACKSourceContractClosure(t *testing.T) {
 	if _, err := ReadLock([]byte(`{"schema_id":"a","schema_id":"b"}`)); err == nil {
 		t.Fatal("duplicate JSON member admitted")
 	}
-	for _, artifact := range contractreferencepacks.Artifacts {
-		if strings.Contains(artifact.Path, "reference-pack-producers") || strings.Contains(artifact.JSON, "cartulary.attack.native.candidate") {
-			t.Fatal("producer candidate leaked into runtime projection")
-		}
-	}
+	assertATTACKProducerExcludedFromRuntime(t)
+
 	// A source-profile candidate is a regular exact file, never executable
 	// runtime transformation or a symlink into human documentation.
 	for _, name := range []string{"source-lock.v20.1.json", "field-policy.candidate.v1.json"} {

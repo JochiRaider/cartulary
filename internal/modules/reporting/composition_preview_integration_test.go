@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+	referencehttp "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport/fixturehttp"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -50,7 +51,7 @@ func TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integrati
 		}
 	}})
 	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
-	referencetest.ImportAuthenticATTACK(t, harness.Server, adminLogin, fixture, "preview-native-attack-import")
+	referencehttp.ImportPackFixture(t, harness.Server, adminLogin, fixture.PortablePackFixture, "preview-native-attack-import")
 	httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+fixture.Key+"/"+fixture.Version+"/activate", map[string]any{"client_txn_id": "preview-native-attack-activate"}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)), http.StatusOK)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-preview-incident",

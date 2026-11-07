@@ -384,12 +384,12 @@ func Acquire(ctx context.Context, root *os.Root, lockBytes []byte, fetcher Fetch
 	}
 	for _, source := range l.Artifacts {
 		file := EvidenceFile{Path: "sources/" + source.SHA256 + "/" + source.Name, SHA256: source.SHA256, Size: source.Size}
-		b, err := ReadEvidence(root, file)
+		_, err := ReadEvidence(root, file)
 		if err != nil {
 			if _, exists := root.Lstat(file.Path); !errors.Is(exists, os.ErrNotExist) {
 				return a, err
 			}
-			b, err = fetcher.Fetch(ctx, source.URL, source.Size)
+			b, err := fetcher.Fetch(ctx, source.URL, source.Size)
 			if err != nil {
 				return a, err
 			}

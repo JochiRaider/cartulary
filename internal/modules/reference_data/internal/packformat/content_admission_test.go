@@ -15,73 +15,71 @@ import (
 // The expectations here are independent of the compiled schema: every member
 // is required, every object is closed, and only these named fields admit null.
 // Mutations go through the same full content boundary that builds live indexes.
-func testNestedContentAdmission(t *testing.T) {
-	for _, fixture := range contentFixtures(t) {
-		for _, path := range slices.Sorted(maps.Keys(fixture.Members)) {
-			lines := strings.Split(strings.TrimSuffix(fixture.Members[path], "\n"), "\n")
-			for lineIndex, line := range lines {
-				value, err := canonicaljson.DecodeStrict([]byte(line))
-				if err != nil {
-					t.Fatal(err)
-				}
-				assertRejected := func(location, mutation string) {
-					t.Helper()
-					t.Run(fmt.Sprintf("%s/%s/%d%s/%s", fixture.Key, path, lineIndex, location, mutation), func(t *testing.T) {
-						encoded, err := canonicaljson.Marshal(value)
-						if err != nil {
-							t.Fatal(err)
+func testNestedContentAdmission(t *testing.T, fixture contentFixture) {
+	for _, path := range slices.Sorted(maps.Keys(fixture.Members)) {
+		lines := strings.Split(strings.TrimSuffix(fixture.Members[path], "\n"), "\n")
+		for lineIndex, line := range lines {
+			value, err := canonicaljson.DecodeStrict([]byte(line))
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertRejected := func(location, mutation string) {
+				t.Helper()
+				t.Run(fmt.Sprintf("%s/%s/%d%s/%s", fixture.Key, path, lineIndex, location, mutation), func(t *testing.T) {
+					encoded, err := canonicaljson.Marshal(value)
+					if err != nil {
+						t.Fatal(err)
+					}
+					members := maps.Clone(fixture.Members)
+					changed := slices.Clone(lines)
+					changed[lineIndex] = string(encoded)
+					members[path] = strings.Join(changed, "\n") + "\n"
+					var rows contentRows
+					err = ValidateContent(context.Background(), fixtureManifest(fixture), contentMemory(members), &rows)
+					var failure *Failure
+					expectedCode := "content_schema_invalid"
+					if fixture.Key == "framework.attack" && ((location == "/source/name" && mutation == "omitted") || (location == "/source" && mutation == "null" && strings.Contains(path, "relationships"))) {
+						expectedCode = "content_semantic_invalid"
+					}
+					if !errors.As(err, &failure) || failure.Code != expectedCode || len(rows) != 0 {
+						t.Fatalf("malformed content admitted or indexed: %v, rows=%d", err, len(rows))
+					}
+				})
+			}
+			var visit func(any, string)
+			visit = func(node any, location string) {
+				switch node := node.(type) {
+				case map[string]any:
+					for _, key := range slices.Sorted(maps.Keys(node)) {
+						original := node[key]
+						at := location + "/" + key
+						delete(node, key)
+						assertRejected(at, "omitted")
+						node[key] = wrongContentType(original)
+						assertRejected(at, "wrong_type")
+						if !nullableContentMember(key) {
+							node[key] = nil
+							assertRejected(at, "null")
 						}
-						members := maps.Clone(fixture.Members)
-						changed := slices.Clone(lines)
-						changed[lineIndex] = string(encoded)
-						members[path] = strings.Join(changed, "\n") + "\n"
-						var rows contentRows
-						err = ValidateContent(context.Background(), fixtureManifest(fixture), contentMemory(members), &rows)
-						var failure *Failure
-						expectedCode := "content_schema_invalid"
-						if fixture.Key == "framework.attack" && ((location == "/source/name" && mutation == "omitted") || (location == "/source" && mutation == "null" && strings.Contains(path, "relationships"))) {
-							expectedCode = "content_semantic_invalid"
-						}
-						if !errors.As(err, &failure) || failure.Code != expectedCode || len(rows) != 0 {
-							t.Fatalf("malformed content admitted or indexed: %v, rows=%d", err, len(rows))
-						}
-					})
-				}
-				var visit func(any, string)
-				visit = func(node any, location string) {
-					switch node := node.(type) {
-					case map[string]any:
-						for _, key := range slices.Sorted(maps.Keys(node)) {
-							original := node[key]
-							at := location + "/" + key
-							delete(node, key)
-							assertRejected(at, "omitted")
-							node[key] = wrongContentType(original)
-							assertRejected(at, "wrong_type")
-							if !nullableContentMember(key) {
-								node[key] = nil
-								assertRejected(at, "null")
-							}
-							node[key] = original
-							visit(original, at)
-						}
-						node["unknown_private_field"] = "value must never enter a diagnostic"
-						assertRejected(location, "unknown_member")
-						delete(node, "unknown_private_field")
-					case []any:
-						for index, original := range node {
-							at := fmt.Sprintf("%s/%d", location, index)
-							node[index] = nil
-							assertRejected(at, "null_element")
-							node[index] = wrongContentType(original)
-							assertRejected(at, "wrong_element_type")
-							node[index] = original
-							visit(original, at)
-						}
+						node[key] = original
+						visit(original, at)
+					}
+					node["unknown_private_field"] = "value must never enter a diagnostic"
+					assertRejected(location, "unknown_member")
+					delete(node, "unknown_private_field")
+				case []any:
+					for index, original := range node {
+						at := fmt.Sprintf("%s/%d", location, index)
+						node[index] = nil
+						assertRejected(at, "null_element")
+						node[index] = wrongContentType(original)
+						assertRejected(at, "wrong_element_type")
+						node[index] = original
+						visit(original, at)
 					}
 				}
-				visit(value, "")
 			}
+			visit(value, "")
 		}
 	}
 }

@@ -12,7 +12,7 @@ schema_id: cartulary.reference_pack_subsystem_nlspec.v1
 
 This NLSpec defines the Cartulary Reference Pack subsystem. It specializes the existing `reference_pack` extension profile and defines the limited Base Profile contract for immutable built-in type registries. It does not create a second extension identity.[^7]
 
-Contract major 3 adopts the native ATT&CK profile and the v2 pack contract. Only `cartulary.reference_pack_contract.v2` is admitted. ATT&CK content/profile schemas are v2; unchanged profile schemas, manifest shape, TUF method, application compatibility major and HTTP namespace retain their identifiers. Closed predecessor schemas remain historical evidence, never admission paths. Incident-bundle format 7 carries only the current `reference_pack_refs.v2` catalog. Before any reconciliation write, schema mutation, worker admission or readiness, incompatible retained pack versions, immutable sets, pending operations and dependent artifacts MUST fail closed. No historical byte rewrite, compatibility reader, implicit reset or data conversion is permitted. Validation uses isolated fresh state; preserving live predecessor state requires a separately adopted migration. Required Base registries retain their content and receive new release-bound v2 manifest identities.
+Contract major 3 adopts the native ATT&CK profile and the v2 pack contract. Only `cartulary.reference_pack_contract.v2` is admitted. ATT&CK and Windows Event IDs content/profile schemas are v2; unchanged profile schemas, manifest shape, TUF method, application compatibility major and HTTP namespace retain their identifiers. Closed predecessor schemas remain historical evidence, never admission paths. Incident-bundle format 7 carries only the current `reference_pack_refs.v2` catalog. Before any reconciliation write, schema mutation, worker admission or readiness, incompatible retained pack versions, immutable sets, pending operations and dependent artifacts MUST fail closed. No historical byte rewrite, compatibility reader, implicit reset or data conversion is permitted. Validation uses isolated fresh state; preserving live predecessor state requires a separately adopted migration. Required Base registries retain their content and receive new release-bound v2 manifest identities.
 
 **RP-REQ-001**
 This NLSpec MUST own only these behavior families:
@@ -1029,7 +1029,7 @@ A pack is content-compatible only when the exact pair `(pack_key, content_profil
 | `enrichment.tor` | `enrichment` | `cartulary.reference_pack.enrichment.tor.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.cisa_kev` | `enrichment` | `cartulary.reference_pack.enrichment.cisa_kev.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.ms_portals` | `enrichment` | `cartulary.reference_pack.enrichment.ms_portals.v1` | `1` | entries | `advisory_enrichment` |
-| `enrichment.windows_event_ids` | `enrichment` | `cartulary.reference_pack.enrichment.windows_event_ids.v1` | `1` | entries | `advisory_enrichment` |
+| `enrichment.windows_event_ids` | `enrichment` | `cartulary.reference_pack.enrichment.windows_event_ids.v2` | `2` | entries | `advisory_enrichment` |
 | `enrichment.entra_app_ids` | `enrichment` | `cartulary.reference_pack.enrichment.entra_app_ids.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.lolbas` | `enrichment` | `cartulary.reference_pack.enrichment.lolbas.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.loldrivers` | `enrichment` | `cartulary.reference_pack.enrichment.loldrivers.v1` | `1` | entries | `advisory_enrichment` |
@@ -2132,7 +2132,7 @@ A no-hit lookup is successful and returns an empty result array. Pack unavailabl
 | `enrichment.tor` | `cartulary.reference_pack.enrichment.tor.entry.v1` | `network`, `address_family`, nullable `first_observed_at`, nullable `last_observed_at` | `ip_literal`: canonicalize as IPv4 or IPv6 and test membership; `network`: exact canonical CIDR. |
 | `enrichment.cisa_kev` | `cartulary.reference_pack.enrichment.cisa_kev.entry.v1` | `cve_id`, `vendor_project`, `product`, `vulnerability_name`, `date_added`, `short_description`, `required_action`, `due_date`, `known_ransomware_campaign_use`, nullable `notes` | `cve_id`: ASCII uppercase `CVE-YYYY-NNNN...`. |
 | `enrichment.ms_portals` | `cartulary.reference_pack.enrichment.ms_portals.entry.v1` | `service_id`, `portal_urls`, `audiences`, `clouds` | `service_id`: exact; `url_host`: canonical ASCII domain or IP host; `alias`: ASCII case-insensitive. |
-| `enrichment.windows_event_ids` | `cartulary.reference_pack.enrichment.windows_event_ids.entry.v1` | `provider_name`, `event_id`, nullable `event_version`, nullable `level`, nullable `task`, nullable `opcode` | `provider_event_id`: ASCII-lower provider name, NUL, decimal event ID; `event_id`: exact integer. |
+| `enrichment.windows_event_ids` | `cartulary.reference_pack.enrichment.windows_event_ids.entry.v2` | `provider_name`, `event_id`, nullable `event_version`, nullable `level`, nullable `task`, nullable `opcode`, typed `documentation` | `provider_event_id`: ASCII-lower provider name, NUL, decimal event ID; `event_id`: exact integer. |
 | `enrichment.entra_app_ids` | `cartulary.reference_pack.enrichment.entra_app_ids.entry.v1` | `app_id`, nullable `publisher`, `service_principal_names` | `app_id`: lowercase canonical UUID; `service_principal_name`: ASCII case-insensitive; `alias`: ASCII case-insensitive. |
 | `enrichment.lolbas` | `cartulary.reference_pack.enrichment.lolbas.entry.v1` | `name`, `platforms`, `categories`, `usage_examples`, `references` | `entry_id`: exact; `name`: ASCII case-insensitive; `alias`: ASCII case-insensitive. |
 | `enrichment.loldrivers` | `cartulary.reference_pack.enrichment.loldrivers.entry.v1` | `driver_id`, `filenames`, `hashes`, `signer_names`, `categories`, `references` | `driver_id`: exact; `filename`: ASCII case-insensitive basename; `hash`: lowercase exact by algorithm; `alias`: ASCII case-insensitive. |
@@ -2206,6 +2206,195 @@ An `enrichment.windows_event_ids` entry contains exactly the common entry member
 | `opcode` | string or null | Single-line, maximum 128 scalars. |
 
 `entry_id` MUST equal `ascii_lower_v1(provider_name) + ":" + base10(event_id) + ":" + version_token`, where `version_token` is `*` for null or the shortest base-10 event version. Parse the last two colons from the right; provider names may contain colons. The maximum identity length is 266 UTF-8 bytes. `provider_event_id` lookup input is one closed object containing `provider_name`, `event_id`, and optional `event_version`; omitted `event_version` matches every version, explicit numeric version matches only that version and excludes null-version entries, and explicit `null` is invalid. Results sort by `event_version` with `null` first, then `entry_id`. `event_id` lookup returns every matching provider sorted by `ascii_lower_v1(provider_name)`, exact provider bytes, nullable version, then `entry_id`.
+
+Windows entries use content profile and entry schema v2. This is a clean
+pre-production cutover: Windows v1 MUST fail admission, including retained-state,
+portable-import and recovery admission. No compatibility reader, conversion,
+dual writing or implicit reset is permitted. Other pack profiles, pack contract
+v2 and incident-bundle format 7 are unchanged.
+
+An entry additionally contains required `documentation`, an ordered array of
+at most 512 closed blocks. Every block has `kind`, `scope`, `source_refs` and typed
+`content`. The existing typed vocabulary remains available for project-authored
+material. The Windows producer MUST distribute factual definitions and original
+Cartulary summaries only. It MUST NOT project copied upstream prose, message
+templates, XML examples, reference tables or other excerpts into public entries.
+Provider names, IDs, explicit versions, GUIDs, supported numeric descriptors,
+technical symbols, classification labels and documented applicability facts may
+be projected with their evidence scopes. Absence MUST remain absence; facts from
+one version MUST NOT be assigned to another. Authored summaries are advisory and
+MUST NOT invent observations or unsupported explanations.
+
+Source references identify the immutable local research archive. The archive is
+not a distributable payload or consumer dependency. Research retention preserves
+source-specific variants, original whitespace, placeholders, samples, tables and
+quality disputes; consumers receive the factual projection and authored summaries.
+Nested arrays have at most 1024 items, text at most 65536 scalars, and the complete
+canonical entry retains the 1 MiB line bound. Canonical authored text MUST remove
+trailing Unicode White_Space, including trailing empty paragraphs. Neither the
+producer nor consumers may execute source text or follow source links implicitly.
+The selection of public facts is an explicit allowlist, not a heuristic redaction
+of arbitrary upstream text. Overflow fails rather than truncating public content.
+
+The producer profile `cartulary.windows_event_ids.microsoft_references.v2` defines
+coverage over a closed inventory of first-party references and explicitly admitted
+derived CSV evidence. It MUST NOT claim an
+installed Windows build inventory or observed incident occurrences. Its scoped
+providers include Microsoft-Windows-Security-Auditing, Microsoft-Windows-Eventlog,
+Microsoft-Windows-PowerShell, PowerShellCore, Microsoft-Windows-TaskScheduler,
+Microsoft-Windows-WMI-Activity, Sysmon, and the providers explicitly documented
+for Security, System, Application and Setup in the reviewed inventory. The
+authored source profile MUST enumerate the reviewed publisher names; channel
+names MUST NOT supply or alias publisher identities. Provider-qualified log
+blocks and subscription selectors MUST bind IDs locally, never to every publisher
+mentioned elsewhere on a page. Each provider's actual coverage and exclusions
+MUST be reported, including zero coverage. Community catalogs and Q&A are outside
+this source profile.
+
+Discovery MUST finish with a disposition for every candidate link in the selected
+index traversal. Acquisition MUST retain exact source bytes, requested and resolved
+URLs, actual retrieval instants, byte counts, digests and available revision
+evidence. HTTPS destinations and redirects MUST stay within the first-party
+allowlist and finite time, byte and source-count limits. A partial acquisition
+MUST NOT publish a complete lock. Accepted locks MUST be immutable; checking,
+reconciliation and building MUST use retained bytes without network refresh.
+Executable inputs MUST be HTML, XML, JSON, CSV, bounded OOXML, inert manifest
+template declarations or notice text,
+never Markdown. Local supplied files MUST retain their exact bytes, digest and
+actual admission time. Unknown original download times MUST remain absent;
+local admission is not a network retrieval. Reusing retained bytes MUST preserve
+their recorded origin without consulting a live website. Local filesystem paths
+are acquisition parameters, not portable source identities. OOXML is inert
+bounded ZIP/XML; unsafe paths, duplicate members, external entities, DTDs and
+excessive expansion MUST be rejected.
+Online sources are one-time acquisition references. Tests and acceptance checks
+MUST NOT require their continued availability or unchanged live content. Retained
+bytes and synthetic fixtures supply verification inputs; source URLs are citations,
+not liveness checks. A later source update is an explicit new acquisition, never
+an implicit prerequisite for validating an existing artifact.
+
+Sysmon's pinned shared manifest MUST retain explicit per-event versions and
+explicitly exclude Linux-only definitions. Its matching retained template may
+establish the Windows publisher declaration but MUST NOT be executed. Manifest
+schema/binary versions MUST remain context rather than event versions. Symbolic
+native descriptors MUST remain documentation unless their numeric values are
+explicitly established. Documentary event sections with no version produce
+distinct null-version definitions, with their full explanatory text retained.
+
+Explicit documented versions establish separate identities; a documented version
+list MUST NOT copy one sample's fields into other versions. Provider-qualified
+version-unspecified assertions use null. Missing GUID evidence remains absent;
+known GUIDs MUST agree for a normalized provider. This producer emits numeric
+`level`, `task` and `opcode` as shortest decimal strings only when supported for
+that exact identity; unresolved symbolic values remain documentary context.
+Documentation XML contributes only its explicitly retained System fragment.
+Monitoring tables that omit a provider MUST retain per-row exclusion accounting;
+current/legacy Windows ID columns are not event versions, and monitoring
+criticality is not the native event level. Such tables MUST NOT supply a provider
+by implication from a channel, article heading or matching ID elsewhere.
+Occurrence payload examples and placeholders MUST NOT be repaired into schemas
+or described as collected evidence. Manifest templates and messages remain
+inert source evidence. DTDs and entity resolution MUST be disabled.
+
+Every admitted source assertion MUST have an immutable member/fragment locator
+and one emitted, coalesced, excluded or blocking disposition. Reconciliation
+MUST preserve presentation variants and citations, reject conflicting known
+facts, and enforce content bounds after complete deterministic formatting without
+truncation. An independent source identity accounting witness MAY be used for
+an explicitly requested source audit; it MUST NOT be a normal build or assembly
+acceptance gate. Source-only candidate audits do not confer publication,
+trust or redistribution approval.
+
+The combined CSV adapter MUST account for every CSV record and every associated
+original worksheet row and Word event section. CSV records use quoted-field
+parsing, including embedded newlines, and strict structured JSON. Original
+worksheet cells and OOXML body-child ranges establish recoverable provenance;
+an external extracted-text intermediate MUST NOT be required. Recovered citations
+are separate digest-bound evidence, never edits to supplied files. Missing provider
+evidence MUST trigger original-source inspection. Unresolved identities MUST block
+unless an authored, reviewed exclusion names the exact retained CSV row and its
+digest. Such an exclusion MUST emit `excluded` with reason
+`user_excluded_provider_unresolved`, retain all source accounting and suppress
+only that row's missing-provider blocker. It MUST NOT assign a guessed provider,
+hide other input defects or apply implicitly to future rows. Duplicate, changed,
+absent or no-longer-applicable exclusions MUST fail review. The user's approved
+255 unresolved rows use this explicit exclusion path. A missing citation alone
+is not an exclusion. A reviewed association
+to a retained provider-qualified event document MUST bind the exact CSV record,
+document bytes and System fragment by digest. Events MUST NOT be required to
+appear in both Word and Excel. Each original independently contributes evidence;
+absence from the other source is neither an exclusion nor an admission blocker.
+Word documentation is sufficient on its own; it MUST NOT require confirmation
+from Excel or an online source. An explicitly reviewed association may instead
+select one authoritative retained provider-qualified definition. Its sample's
+explicit provider, event ID and numeric version establish those identity facts;
+the ID and version MUST match the selected CSV row. No additional title, message
+or field-label corroboration against another document is required. Original
+bytes cited by supplied claims MUST still be retained and their locators resolve;
+this is not a second-source requirement. An unstated provider MUST NOT be invented.
+Stale, duplicate or unresolvable reviewed associations MUST block reconciliation.
+Provider names and available GUIDs come from the explicit System fragment;
+this correspondence does not authorize descriptor inheritance. Both the original
+locators and selected retained fragments MUST appear in the immutable
+assertion index. An unreviewed ID/title match alone, a
+truncated display label, or a source-boundary association is insufficient.
+The 8191 boundary
+marker is retained with an explicit non-event disposition. Event-level catalog
+context does not generate extra null-version definitions. Mismatched sample IDs
+cannot supply another event's provider or descriptors. Malformed sample payloads
+remain qualified; only independently parseable matching System fragments may
+supply native fields. Contradictory descriptive claims remain separately sourced
+in local research, with a generated quality flag where applicable in the factual
+projection. Conflicting canonical identity, GUID or native descriptors
+block publication. Documentation blocks MUST be returned completely by existing
+GetPackEntry and LookupPackEntries operations, with their exact set provenance.
+
+Publication MUST bind its reservation to repository, pack key, version and all
+output-affecting input identities, including the actual builder executable.
+Completed logical artifacts MUST become visible atomically from staging.
+Renewal changes transport trust evidence while preserving logical content.
+Fixture authority MUST use its own repository and ledger namespace; it MUST NOT
+confer deployment trust. Research retention and distribution roots MUST be
+disjoint. Published logical directories MUST contain only the manifest and its
+declared payload/project-notice members; evidence archives, upstream artifacts,
+source profiles and research/build reports MUST remain under local retention.
+Signed containers and portability MUST carry only the final pack's admitted
+members and trust metadata. Provenance hashes and locators do not embed sources.
+
+The project user's 2026-11-07 direction licenses the factual definitions and
+original summaries under the project's Apache-2.0 license. The exact-lock decision
+and project license notice MUST be recorded as authored producer inputs. This
+decision applies only to that output, not to upstream research materials. Real
+Windows builds MUST reject attempts to substitute acquired Microsoft/Sysmon
+notices or another content policy. Synthetic fixture decisions remain separately
+scoped. Deployment trust still requires its own actual publisher/signing inputs.
+The Windows release publisher uses the independent repository identity
+`cartulary.windows_event_ids`, separate from both fixture repositories. Its
+closed release-envelope input supplies the logical root, output and ledger roots,
+private signing-context path, explicit creation choice, issuance/expiry instants
+and metadata version. A new local publisher authority MAY be created when the
+operator requests pack creation. Its public bootstrap MUST accompany the pack;
+creating that authority does not install deployment trust. Private context bytes
+MUST remain outside public output, logical and ledger roots with owner-only access.
+The release path MUST verify the completed container through the runtime archive,
+manifest, content and TUF admission facilities using the actual UTC wall clock
+before atomic publication. Verification receipts stay in local ledger retention.
+Fixture adapters retain their existing identities and restrictions. Updates
+create new acquisitions and immutable releases; activation remains explicit.
+
+Windows qualification MUST exercise production behavior: parsing usable inputs,
+safe packaging and verification, import, activation, lookup, presentation and
+retained-release consumption. Provenance-only research tests and duplicate
+source-accounting witnesses MUST NOT run as part of the normal build or test
+cycle. This does not remove runtime integrity or exact-pack-set binding rules.
+
+Each maintained reference pack MUST have independent source inputs, producer
+policy, fixture authority, publication reservations and selectable qualification
+scenarios. A pack's qualification MUST NOT load another optional pack's retained
+corpus, require its release artifacts, activate it as setup, or select its tests.
+Shared packaging, verification and lifecycle helpers MUST be pack-neutral and
+receive explicit fixture inputs. The required Base registries remain application
+prerequisites; they do not introduce a dependency between optional packs.
 
 **RP-REQ-145**
 An `enrichment.entra_app_ids` entry contains exactly the common entry members plus:

@@ -382,7 +382,7 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.reference_data.integration.all_profiles_consumer_boundary",
+      "row_id": "module.reference_data.integration.attack_producer_artifacts_preserve_independent_a_67e9ef139a",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.integration",
       "collaborator_ids": [],
@@ -393,7 +393,6 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestAllCanonicalProfilesThroughProductionConsumers_Integration",
           "TestAuthenticATTACKProductionLifecycle_Integration"
         ]
       },
@@ -477,6 +476,286 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.reference_data.integration.enrichment_cisa_kev_independently_imports_activa_c6cc146f1c",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestCISAKEVProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.enrichment_entra_app_ids_independently_imports_a_07faf90a4a",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestEntraAppIDsProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.enrichment_hijacklibs_independently_imports_acti_42ba3a94e9",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestHijackLibsProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.enrichment_lolbas_independently_imports_activate_f14dd266ff",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestLOLBASProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.enrichment_loldrivers_independently_imports_acti_a068f18ffc",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestLOLDriversProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.enrichment_lolesxi_independently_imports_activat_ebb18a1387",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestLOLESXiProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.enrichment_ms_portals_independently_imports_acti_860490d5c2",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestMSPortalsProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.enrichment_tor_independently_imports_activates_a_69bd8896bd",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestTORProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.enrichment_windows_event_ids_independently_impor_2bc83a2b47",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestWindowsEventIDsProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.enrichment_windows_sids_independently_imports_ac_0a6c5f8b7f",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestWindowsSIDsProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.reference_data.integration.execution_admission_scope",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.integration",
@@ -501,6 +780,93 @@
       "fixture_capability": "postgres_dedicated",
       "aggregate_placement": "standard",
       "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.framework_attack_independently_imports_activates_cd0be06ccc",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestATTACKProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/attack-native-v2"
+      ]
+    },
+    {
+      "row_id": "module.reference_data.integration.framework_d3fend_independently_imports_activates_f8ef62f99f",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestD3FENDProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.framework_veris_independently_imports_activates_8ed7f795eb",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestVERISProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
         "postgres"
       ],
       "postgres_isolation": "exclusive"
@@ -699,6 +1065,118 @@
         "package": "./internal/modules/reference_data",
         "tests": [
           "TestUploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.type_registry_evidence_independently_imports_act_046a55d962",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestEvidenceRegistryProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.type_registry_host_independently_imports_activat_a3707c8ace",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestHostRegistryProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.type_registry_indicator_independently_imports_ac_6c2cb894b3",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestIndicatorRegistryProfileConsumer_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.windows_event_ids_producer_artifacts_preserve_in_466944f93e",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestWindowsOnlineProductionLifecycle_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1078,14 +1556,8 @@
       "selector": {
         "package": "./internal/modules/reference_data/internal/packformat",
         "tests": [
-          "TestAllDeclaredProfilesHaveCanonicalContentAndIndexes_Unit",
-          "TestContentCanonicalMemberBytesRemainUnmodified_Unit",
           "TestContentRejectsMalformedStreamsAndSemanticAmbiguity_Unit",
-          "TestContentSchemasRejectOmissionNullAndUnknownMembers_Unit",
-          "TestEventAndSIDIdentitiesAndLookupBoundaries_Unit",
-          "TestNativeATTACKLimitSummary_Unit",
-          "TestNativeATTACKProjectionAndLocalReferences_Unit",
-          "TestNativeATTACKTypedEmbeddedEndpoints_Unit",
+          "TestContentSchemaFailurePrecedence_Unit",
           "TestSchemaUnionDispatchAndLimitBindings_Unit"
         ]
       },
@@ -1097,10 +1569,7 @@
       "fixture_capability": "none",
       "aggregate_placement": "fast",
       "service_dependencies": [],
-      "postgres_isolation": "none",
-      "fixture_input_roots": [
-        "fixtures/reference-packs/attack-native-v2"
-      ]
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_state",
@@ -1151,6 +1620,341 @@
           "TestOfflineTUFRequiresBothRootThresholdsAndRejectsExtraSignatures_Unit",
           "TestOfflineTUFRootNestedAdmissionPrecedesCanonicalAndRotation_Unit",
           "TestPreparedBoundAndSchemaReferenceConfinement_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.enrichment_cisa_kev_independently_validates_cano_9bc6dc025b",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestCISAKEVIdentityBoundaries_Unit",
+          "TestCISAKEVProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.enrichment_entra_app_ids_independently_validates_02047fa20a",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestEntraAppIDsProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.enrichment_hijacklibs_independently_validates_ca_4c78461ed3",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestHijackLibsProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.enrichment_lolbas_independently_validates_canoni_397137c3ee",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestLOLBASProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.enrichment_loldrivers_independently_validates_ca_8d4da9f6a9",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestLOLDriversProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.enrichment_lolesxi_independently_validates_canon_5a1260a9d7",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestLOLESXiProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.enrichment_ms_portals_independently_validates_ca_57e34f2a64",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestMSPortalsProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.enrichment_tor_independently_validates_canonical_e4e41a33af",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestTORProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.enrichment_windows_event_ids_independently_valid_fc66475a5f",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestWindowsEventIDsProfileContent_Unit",
+          "TestWindowsEventIdentityAndLookupBoundaries_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.enrichment_windows_sids_independently_validates_6f7b5c9cc9",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestWindowsSIDIdentityBoundaries_Unit",
+          "TestWindowsSIDsProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.framework_attack_independently_validates_canonic_147df00f1f",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestATTACKManifestAndPathLimits_Unit",
+          "TestATTACKProfileContent_Unit",
+          "TestNativeATTACKLimitSummary_Unit",
+          "TestNativeATTACKProjectionAndLocalReferences_Unit",
+          "TestNativeATTACKTypedEmbeddedEndpoints_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/attack-native-v2"
+      ]
+    },
+    {
+      "row_id": "module.reference_data.unit.framework_d3fend_independently_validates_canonic_420fac0262",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestD3FENDProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.framework_veris_independently_validates_canonica_bb0bacb53d",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestVERISProfileContent_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1422,6 +2226,109 @@
         "tests": [
           "TestSupportReferencePackListFilterAppliesSearchAndExactFilters",
           "TestSupportReferencePackListQueryUsesSharedListQueryScope"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.type_registry_evidence_independently_validates_c_ac918d851a",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestEvidenceRegistryProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.type_registry_host_independently_validates_canon_2d41993e71",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestHostRegistryProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.type_registry_indicator_independently_validates_bc40be154e",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestIndicatorRegistryProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.windows_online_producer_preserves_documented_ide_30fc80a930",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/producer",
+        "tests": [
+          "TestWindowsOnlineFixtureTrust",
+          "TestWindowsOnlineProjection",
+          "TestWindowsOnlinePublication",
+          "TestWindowsOnlineSources"
         ]
       },
       "evidence_class": "unit",

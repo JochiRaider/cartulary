@@ -86,14 +86,26 @@ Verified by: AC-509, AC-510, AC-511, AC-512, AC-515
 
 `db/migrations` is schema-evolution and database-contract infrastructure for the modular monolith. It is not a domain module and it MUST NOT become a second source of product behavior outside the owning Core or adopted subsystem specification.
 
-The current project is pre-production. Transition from another DDL lineage to Production DDL Rebaseline v3 is reset-only. Within the current v3 lineage, owner-authorized changes MUST append contiguous migrations with explicit machine-owned allocation under REQ-01-661, preserving the baseline and previously authored increments. Catalog projections MUST be regenerated from those inputs. The migration-history manifest MUST declare `immutable_through_version=0`: this pre-production catalog does not establish a protected deployed-production history boundary. Disposable databases MAY be recreated. An explicitly adopted current-line owner contract MAY require preservation and transformation of retained data, as NF-REQ-032c does for Network Flow canonical identities; it does not authorize conversion from another DDL lineage. Once a production migration baseline is established, applied history remains append-only unless the relevant owner authorizes a separate reset or rebaseline contract.
+The current project is pre-production. Transition from another DDL lineage to Production DDL Rebaseline v4 is reset-only. Within the current v4 lineage, owner-authorized changes MUST append contiguous migrations with explicit machine-owned allocation under REQ-01-661, preserving the baseline and previously authored increments. Catalog projections MUST be regenerated from those inputs. The migration-history manifest MUST declare `immutable_through_version=0`: this pre-production catalog does not establish a protected deployed-production history boundary. Disposable databases MAY be recreated. An explicitly adopted current-line owner contract MAY require preservation and transformation of retained data, as NF-REQ-032c does for Network Flow canonical identities; it does not authorize conversion from another DDL lineage. Once a production migration baseline is established, applied history remains append-only unless the relevant owner authorizes a separate reset or rebaseline contract.
 
-When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v3`; its pre-production immutable boundary is `0`, and its baseline contains versions `1..29`. The authored migration catalog determines the current repository head, including owner-authorized increments. A database with v1 or v2 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v3 upgrade source. After cryptographic-state admission under REQ-04-164, repository migration tooling MUST reject it before executing v3 DDL with boundary `prod_ddl_rebaseline_v3`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v3 catalog from version 1.`
+When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v4`; its pre-production immutable boundary is `0`, and its baseline contains versions `1..29`. The authored migration catalog determines the current repository head, including owner-authorized increments. A database with v1, v2 or v3 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v4 upgrade source. After cryptographic-state admission under REQ-04-164, repository migration tooling MUST reject it before executing v4 DDL with boundary `prod_ddl_rebaseline_v4`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v4 catalog from version 1.`
 
-The transition from a previous lineage to v3 is pre-production and reset-only. It defines no export/import transition, row transformation, data bridge, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable previous-lineage source. A requirement to preserve previous-lineage database content blocks that transition and requires a separately adopted data-migration contract. Current-line owner-authorized increments follow REQ-01-661 and their adopted data-preservation obligations.
+The transition from a previous lineage to v4 is pre-production and reset-only. It defines no export/import transition, row transformation, data bridge, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable previous-lineage source. A requirement to preserve previous-lineage database content blocks that transition and requires a separately adopted data-migration contract. Current-line owner-authorized increments follow REQ-01-661 and their adopted data-preservation obligations.
 After read-only cryptographic-state admission under REQ-04-164, server startup MUST verify the configured database is on the current production DDL lineage and at the repository migration head before object-store setup, bootstrap mutation, WebSocket setup, background-job runner setup, HTTP handler construction, or readiness. A current-line database behind the repository head MUST fail startup with `invalid_deployment_config` and reason code `schema_migration_required`; a current-line database ahead of the repository head MUST fail startup with reason code `schema_version_ahead`; a database from an unmarked or different migration line MUST surface the same `cartulary.migration_remediation_report.v1` remediation report used by repository migration tooling.
 
 Migration `Down` sections document goose reversibility only. A `Down` section MUST NOT be represented as a production rollback, restore, or data-recovery guarantee unless the applicable recovery owner separately defines that operator workflow and its validation evidence.
+
+Foreign-key coverage MUST be derived from the complete authored Up catalog at
+its current head, not asserted solely because a foreign key exists. Coverage
+requires a non-partial B-tree index whose leading plain key columns exactly match
+the foreign-key columns in declared order. Included columns and expressions cannot
+substitute for that prefix. Installed indexes MUST also be valid and ready.
+Source generation MUST reject uncovered keys and unsupported key-bearing syntax;
+independent PostgreSQL catalog inspection MUST verify exact per-key coverage.
+Current authored coverage has no unindexed exceptions. Ownership-manifest v2
+retains its wire shape; exact version/file membership comes from canonical
+migration allocation, not a second filename enumeration or frozen version ceiling.
+Schema validation and allocation validation MUST both accept every emitted manifest.
 
 Every schema object family created or mutated by authored migrations MUST have one repository schema owner recorded in `tools/schema_object_ownership_manifest.json` or a successor owner manifest. The owner manifest is implementation-support evidence: it maps physical tables, views, functions, indexes, constraints, extension objects, and migration bookkeeping to the logical module owner, but it does not make extension-profile schema part of the Base Profile.
 
@@ -168,7 +180,7 @@ Profiles: base
 Verified by: AC-537
 
 **REQ-01-661**
-The current pre-production Production DDL Rebaseline v3 baseline MUST contain exactly 29
+The current pre-production Production DDL Rebaseline v4 baseline MUST contain exactly 29
 contiguous authored SQL migrations, versions `1..29`. Those baseline files remain unchanged. Later owner-authorized incremental migrations MUST append contiguous versions with explicit machine-owned allocation. Network Flow major 8 appends version 30 for diagnostic table-scoped uniqueness; it rewrites no historical diagnostic bytes.
 
 Recovery appends version 35 after the already allocated owner increments
@@ -198,15 +210,19 @@ or accept a pre-existing Cartulary object. Procedural `IF NOT EXISTS (SELECT …
 consistency guards do not create or alter an object and are permitted.
 Every Up section MUST be transactional and every authored or ledger reference
 MUST be schema-qualified. Down sections are disposable Testing Harness cleanup
-only, MUST reverse owner objects explicitly without `CASCADE`, and MUST leave
-only administrator-provisioned roles/logins/extensions and Goose's exact
-version-zero metadata residue.
+only. Reversible historical sections MUST reverse owner objects explicitly without
+`CASCADE`; rollback of that reversible lineage through zero MUST leave only
+administrator-provisioned roles/logins/extensions and Goose's exact version-zero
+metadata residue. Irreversible owner cutovers MUST reject their own Down step.
+A multi-step scratch rollback commits each successful step independently; rejection
+of a later step MUST NOT be described as restoring the starting head.
 
 The migration-history evidence contract remains
 `cartulary.migration_history_evidence.v2`; the remediation contract remains
 `cartulary.migration_remediation_report.v1`. Catalog bytes, hashes, digests,
-and corresponding goldens change intentionally with owner-approved baseline edits. Recovery MUST
-retain exactly 148 table entries, exactly 116 `authoritative_required` entries,
+and corresponding goldens advance with owner-authorized appended migrations.
+Existing authored migration bytes MUST remain unchanged. Recovery MUST retain
+the exact table set and classifications from its current owner catalog,
 including Incidents-owned `incident_membership_versions` and the unique Revisions-owned authoritative
 `record_revision_conflict_facts` entry. Public product routes, payloads,
 lifecycle, ordering, and authorization MUST NOT change.
@@ -12628,6 +12644,12 @@ filter does not grant metadata or raw-source access to ordinary incident readers
 For generic Workbook application, Imports MUST publish immutable associations
 `(incident_id, committed_source_id, source_row_ref, record_id)` from successful
 owner results in the same transaction as the source and destination effects.
+Runtime access to these associations is append-only (`SELECT`, `INSERT`). Direct
+runtime `UPDATE`, `DELETE`, and `TRUNCATE` MUST remain denied; authorized parent
+physical deletion uses the existing cascading foreign keys. Soft deletion and
+workflow cleanup MUST preserve associations. Recovery retains its separately
+owned restoration privileges. Reclaimable committed-source application records,
+blobs and chunks retain their existing `table_immutable` policy.
 Association identity is `(committed_source_id, source_row_ref)`. Original source
 row references are integers at least 2. Edits, merges and workflow cleanup MUST
 NOT repoint historical associations to a different record or application.

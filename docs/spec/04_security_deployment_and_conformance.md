@@ -2486,7 +2486,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   - Verifies: REQ-01-660
 - **AC-542**: Production DDL Rebaseline v4 evidence proves that one pristine
   exact PostgreSQL 18.6 database with `server_version_num=180006` and data
-  checksums enabled applies exactly versions `1..47` under lineage
+  checksums enabled applies the complete contiguous authored catalog through its current head under lineage
   `cartulary.prod_ddl_rebaseline.v4`; v1, v2, v3, foreign, unmarked-nonzero, and
   contaminated cryptographically admitted states fail before v4 DDL with remediation-report schema v1,
   boundary `prod_ddl_rebaseline_v4`, reason `historical_migration_lineage`, and
@@ -2496,7 +2496,9 @@ These criteria provide direct runtime-family verification for substantive base-p
   owner, dependency, FK coverage, routine, Recovery, SQLC, and per-purpose
   access allocation. Prerequisite matrices prove exact administrator-owned
   `pgcrypto` 1.3 and `citext` 1.6 state, contamination rejection, qualified
-  DDL, transactional Up sections, and exact rollback-through-zero residue.
+  DDL, transactional Up sections, exact historical reversible rollback-through-zero
+  residue, cutover rejection at each addressed boundary, and independently committed
+  successful steps before a later scratch rollback failure.
   Resolver, connection, and PostgreSQL catalog matrices prove three-purpose
   credential isolation, closed failure precedence and redaction, no-follow
   bounded files, fixed role attributes and memberships, per-connection
@@ -2504,7 +2506,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   object ownership, explicit ACLs, `PUBLIC` revocation, default-deny future
   objects, runtime denial of migration and restore authority, and complete
   Recovery under `cartulary_recovery`. Only Recovery may update target control state; runtime credentials can only read it.
-  Recovery contains exactly 163 catalog tables and 122 required tables, including
+  Recovery contains the exact current owner-catalog table set and classifications, including
   the streamed import projection and committed-source record associations, with membership version history and the
   unique Revisions conflict-fact entry; evidence remains v2, remediation
   remains v1, and public product behavior and SQLC have no unexplained delta.
@@ -4854,7 +4856,9 @@ class in the adopted object-ownership manifest. Runtime classes are:
 - `table_read_write`: table `SELECT`, `INSERT`, `UPDATE`, `DELETE`;
 - `table_append_only`: table `SELECT`, `INSERT`;
 - `table_immutable`: table `SELECT`, `INSERT`, `DELETE`; immutable committed
-  source records and blobs permit owner-controlled reclamation, never updates;
+  application records and blobs permit owner-controlled reclamation, never updates;
+  source-to-record associations instead use `table_append_only`, with physical
+  cleanup through parent foreign-key cascades and unchanged Recovery authority;
 - `table_read_only`: table `SELECT`;
 - `table_no_access`: no table privilege;
 - `migration_ledger_read`: migration metadata `SELECT` only;

@@ -23,7 +23,8 @@
       "enum": [
         "snapshot_binding",
         "portable_destination",
-        "historical_readiness"
+        "historical_readiness",
+        "windows_online"
       ]
     },
     "owner_id": {

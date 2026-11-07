@@ -134,7 +134,7 @@
       "runtime_scan": "excluded",
       "support_scan": "included",
       "service_starting": false,
-      "rationale": "Owner-provided indicator registry fixtures for caller tests; production uses the exact-set consumer and transactional assignment ports."
+      "rationale": "Owner-provided independent pack fixtures and staged HTTP import helpers for caller-owned test runtimes; production uses exact-set consumer and transactional assignment ports."
     },
     {
       "path": "internal/modules/timeline/testsupport",

@@ -28,7 +28,7 @@ func OwnerFixture(t testing.TB, scenario string) OwnerFixtureExpectation {
 			continue
 		}
 		var expected OwnerFixtureExpectation
-		if err := json.Unmarshal([]byte(artifact.JSON), &expected); err != nil || expected.Set == nil {
+		if err := json.Unmarshal([]byte(artifact.JSON), &expected); err != nil || expected.Set == nil && expected.Condition == nil {
 			t.Fatal("invalid canonical owner fixture", err)
 		}
 		return expected

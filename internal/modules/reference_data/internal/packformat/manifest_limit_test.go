@@ -12,14 +12,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
-func testCompleteManifestAndPathLimits(t *testing.T) {
-	var fixture contentFixture
-	for _, f := range contentFixtures(t) {
-		if f.Key == "framework.attack" {
-			fixture = f
-			break
-		}
-	}
+func TestATTACKManifestAndPathLimits_Unit(t *testing.T) {
+	fixture := contentFixtureFor(t, "framework.attack")
 	m, err := DecodeManifest([]byte(manifestFixture(t).Canonical), true)
 	if err != nil {
 		t.Fatal(err)

@@ -2,6 +2,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { ownersByVersion as ownerByVersion } from "../../../database-migrations/owner-allocation.mjs";
 import { catalogDDLSource } from "../../../database-migrations/catalog-ddl-source.mjs";
+import { collectForeignKeyCoverage, requireForeignKeyCoverage } from "../../../database-migrations/foreign-key-coverage.mjs";
+import { validateSchemaSync } from "../../contract/index.mjs";
 
 import {
   assertObjectKeys,
@@ -64,6 +66,7 @@ const requirementPattern = /^[A-Z][A-Z0-9-]*-[0-9]+$/u;
 
 export function validateSchemaObjectOwnershipManifestShape(file) {
   const manifest = readJsonObject(file, file);
+  validateSchemaSync(schemaID, manifest);
   validateManifestShape(manifest, file, canonicalMigrationAllocation(file));
   return manifest;
 }
@@ -88,6 +91,9 @@ export function validateSchemaObjectOwnership(root) {
       .map((entry) => [`${entry.object_kind}:${entry.qualified_name}`, entry]),
   );
   const observed = collectFinalAuthoredObjects(migrationDir, actualFiles);
+  requireForeignKeyCoverage(collectForeignKeyCoverage(actualFiles.map((filename) => ({
+    filename, source: readFileSync(path.join(migrationDir, filename), "utf8"),
+  }))), manifest.entries);
   const missing = [...observed.keys()].filter((identity) => !authoredByIdentity.has(identity));
   const stale = [...authoredByIdentity.keys()].filter((identity) => !observed.has(identity));
   if (missing.length > 0 || stale.length > 0) {

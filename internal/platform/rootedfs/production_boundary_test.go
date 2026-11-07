@@ -25,6 +25,12 @@ func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 		"internal/platform/objectstore",
 		"internal/platform/postgres",
 	}
+	// These are offline producer tooling and test fixture data, not deployment
+	// root consumers. Runtime packages must never import either boundary.
+	nonRuntimeRoots := []string{
+		"internal/modules/reference_data/producer/",
+		"internal/modules/reference_data/testsupport/",
+	}
 	allowedRawEffects := map[string]map[string]bool{
 		"internal/modules/recovery/testsupport/recovery.go": {
 			"MkdirAll":  true,
@@ -76,6 +82,20 @@ func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 			file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
 			if err != nil {
 				return err
+			}
+			for _, prefix := range nonRuntimeRoots {
+				if strings.HasPrefix(relativePath, prefix) {
+					return nil
+				}
+			}
+			for _, spec := range file.Imports {
+				importPath := strings.Trim(spec.Path.Value, `"`)
+				for _, prefix := range nonRuntimeRoots {
+					boundary := "github.com/JochiRaider/cartulary/" + strings.TrimSuffix(prefix, "/")
+					if importPath == boundary || strings.HasPrefix(importPath, boundary+"/") {
+						violations = append(violations, relativePath+": runtime import of "+importPath)
+					}
+				}
 			}
 			osAliases := map[string]bool{}
 			for _, spec := range file.Imports {

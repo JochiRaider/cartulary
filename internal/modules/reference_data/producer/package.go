@@ -260,14 +260,7 @@ func Assemble(ctx context.Context, inputBytes []byte, builder Builder) (PackageR
 	m.Summary.Objects = &countObjects
 	m.Summary.Relationships = &countRelationships
 	m.License = packformat.License{Expression: "LicenseRef-MITRE-ATTACK", ListVersion: "3.28.0", Redistribution: input.Redistribution, Notices: []string{"notices/MITRE-ATTACK.txt"}, Bindings: []packformat.LicenseBinding{{Ref: "LicenseRef-MITRE-ATTACK", Path: "notices/MITRE-ATTACK.txt"}}}
-	for name, b := range members {
-		role, media := "payload", "application/x-ndjson"
-		if strings.HasPrefix(name, "notices/") {
-			role, media = "notice", "text/plain"
-		}
-		m.Files = append(m.Files, packformat.File{Path: name, Role: role, MediaType: media, Size: int64(len(b)), SHA256: Digest(b)})
-	}
-	slices.SortFunc(m.Files, func(a, b packformat.File) int { return strings.Compare(a.Path, b.Path) })
+	m.Files = logicalMemberInventory(members)
 	manifest, err := canonicaljson.Marshal(m)
 	if err != nil {
 		return PackageReport{}, err
@@ -302,31 +295,17 @@ func Assemble(ctx context.Context, inputBytes []byte, builder Builder) (PackageR
 		return PackageReport{}, err
 	}
 	members["manifest.json"] = manifest
-	if err = os.MkdirAll(input.OutputRoot, 0700); err != nil {
-		return PackageReport{}, err
-	}
-	out, err := os.OpenRoot(input.OutputRoot)
-	if err != nil {
-		return PackageReport{}, err
-	}
-	defer out.Close()
 	report := PackageReport{SchemaID: "cartulary.attack_package_report.v1", ManifestSHA256: Digest(manifest), PayloadSHA256: payload, SourceProfileSHA256: Digest(profileBytes), SourceAuditSHA256: Digest(auditBytes), Builder: builder, Objects: countObjects, Relationships: countRelationships, Files: m.Files, LogicalPath: "logical/" + Digest(manifest)}
-	for name, b := range members {
-		if err = Retain(out, report.LogicalPath+"/"+name, b, 0600); err != nil {
-			return PackageReport{}, err
-		}
-	}
 	reportBytes, err := canonicaljson.Marshal(report)
 	if err != nil {
 		return PackageReport{}, err
 	}
-	if err = Retain(out, report.LogicalPath+"/build-report.json", reportBytes, 0600); err != nil {
-		return PackageReport{}, err
-	}
+	members["build-report.json"] = reportBytes
 	for name, b := range map[string][]byte{"source-profile.json": profileBytes, "source-lock.json": lockBytes, "field-policy.json": policy, "publication-input.json": publicationBytes} {
-		if err = Retain(out, report.LogicalPath+"/evidence/"+name, b, 0600); err != nil {
-			return PackageReport{}, err
-		}
+		members["evidence/"+name] = b
+	}
+	if err = publishTree(input.OutputRoot, report.LogicalPath, members); err != nil {
+		return PackageReport{}, err
 	}
 	return report, nil
 }

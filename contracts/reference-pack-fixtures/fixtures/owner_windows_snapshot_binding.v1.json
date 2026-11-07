@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.reference_pack_owner_fixture.v1",
+  "fixture_id": "rpfx_owner_windows_snapshot_binding",
+  "scenario": "snapshot_binding",
+  "owner_id": "module.reporting",
+  "row_id": "module.reporting.integration.windows_event_ids_snapshots_retain_their_exact_i_7312056cfb",
+  "test_name": "TestWindowsSnapshotAdmissionRetainsProducedSet_Integration"
+}

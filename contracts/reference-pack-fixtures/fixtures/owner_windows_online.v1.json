@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.reference_pack_owner_fixture.v1",
+  "fixture_id": "rpfx_owner_windows_online",
+  "scenario": "windows_online",
+  "owner_id": "module.reference_data",
+  "row_id": "module.reference_data.integration.windows_event_ids_producer_artifacts_preserve_in_466944f93e",
+  "test_name": "TestWindowsOnlineProductionLifecycle_Integration"
+}

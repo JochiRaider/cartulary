@@ -10,7 +10,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	reportingjson "github.com/JochiRaider/cartulary/internal/modules/reporting/canonicaljson"
 	"io"
 	"mime/multipart"
@@ -32,16 +31,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *testing.T) {
-	expected := referencetest.OwnerFixture(t, "snapshot_binding")
+type bindingFixture struct {
+	referencetest.PortablePackFixture
+	ManifestSHA256, SetSHA256 string
+}
+
+func runSnapshotReferenceBinding(t *testing.T, expected referencetest.OwnerFixtureExpectation, previous, fixture bindingFixture) {
 	runtime := appsupport.StartRuntime(t)
-	now := time.Now().UTC()
-	keys, err := producer.NewFixtureSigningContext()
-	if err != nil {
-		t.Fatal(err)
-	}
-	previous := referencetest.AuthenticATTACKFixture(t, "../../..", "20.0", now, keys, 2)
-	fixture := referencetest.AuthenticATTACKFixture(t, "../../..", "20.1", now, keys, 3)
 	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
 	if err := os.WriteFile(bootstrap, fixture.Bootstrap, 0600); err != nil {
 		t.Fatal(err)
@@ -73,7 +69,7 @@ func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *te
 		t.Fatal("missing admission pin", err)
 	}
 	if digest != previous.SetSHA256 || admitted != "rpset_"+digest {
-		t.Fatal("independent authentic v20.0 set identity changed", admitted)
+		t.Fatal("independent retained set identity changed", admitted)
 	}
 	httptestx.RequireSuccessEnvelope(t, post("/api/v1/reference-packs/"+fixture.Key+"/"+fixture.Version+"/activate", map[string]any{"client_txn_id": "binding-activate"}), http.StatusOK)
 	var current string
@@ -103,7 +99,7 @@ func TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration(t *te
 	retention := reportingReadinessReferences(t, harness)
 	requireRetainedSnapshotReadiness(t, harness, snapshot, retention)
 	httptestx.RequireErrorEnvelope(t, post("/api/v1/reference-packs/"+previous.Key+"/"+previous.Version+"/remove", map[string]any{"client_txn_id": "binding-pinned-remove", "reason": "verify retained snapshot pin"}), http.StatusConflict, "reference_pack_operation_rejected")
-	// Lose only the pinned v20.0 ATT&CK manifest. The active v20.1 replacement
+	// Lose only the pinned A manifest. The active B replacement
 	// remains intact and cannot be silently substituted into the old snapshot.
 	if _, err := harness.DB.Exec(`UPDATE reference_pack_objects SET available=false WHERE sha256 IN (SELECT v.manifest_sha256 FROM reference_pack_versions v JOIN reference_pack_candidates c USING(pack_key,pack_version) WHERE v.manifest_sha256=$1)`, previous.ManifestSHA256); err != nil {
 		t.Fatal(err)

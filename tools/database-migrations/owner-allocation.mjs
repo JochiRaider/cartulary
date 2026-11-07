@@ -23,4 +23,5 @@ export const ownersByVersion = new Map([
  [46, "incidentbundles"],
  [47, "imports"],
  [48, "reference_data"],
+ [49, "imports"],
 ]);

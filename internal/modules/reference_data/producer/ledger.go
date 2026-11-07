@@ -26,6 +26,10 @@ type Publication struct {
 // A failed build leaves its reservation occupied; replay must bind identical
 // explicit inputs. There is no overwrite or deployment-identity allocator.
 func allocatePublication(directory, version, inputSHA string) (Publication, error) {
+	return allocateScopedPublication(directory, version, inputSHA, "cartulary.attack_fixture_publication.v1", FixtureRepository, "framework.attack")
+}
+
+func allocateScopedPublication(directory, version, inputSHA, schema, repository, key string) (Publication, error) {
 	if directory == "" || version == "" || !digestPattern.MatchString(inputSHA) {
 		return Publication{}, errors.New("invalid fixture publication request")
 	}
@@ -69,7 +73,7 @@ func allocatePublication(directory, version, inputSHA string) (Publication, erro
 			return Publication{}, err
 		}
 		canonical, err := canonicaljson.Marshal(p)
-		if err != nil || !bytes.Equal(b, canonical) || p.SchemaID != "cartulary.attack_fixture_publication.v1" || p.Repository != FixtureRepository || p.Key != "framework.attack" || p.Sequence != highest+1 || entry.Name() != fmt.Sprintf("%016d.json", p.Sequence) || !digestPattern.MatchString(p.InputSHA256) {
+		if err != nil || !bytes.Equal(b, canonical) || p.SchemaID != schema || p.Repository != repository || p.Key != key || p.Sequence != highest+1 || entry.Name() != fmt.Sprintf("%016d.json", p.Sequence) || !digestPattern.MatchString(p.InputSHA256) {
 			return Publication{}, errors.New("invalid publication ledger chain")
 		}
 		highest = p.Sequence
@@ -87,7 +91,7 @@ func allocatePublication(directory, version, inputSHA string) (Publication, erro
 	if highest >= 9007199254740991 {
 		return Publication{}, errors.New("fixture sequence exhausted")
 	}
-	p := Publication{"cartulary.attack_fixture_publication.v1", FixtureRepository, "framework.attack", version, highest + 1, inputSHA}
+	p := Publication{schema, repository, key, version, highest + 1, inputSHA}
 	b, err := canonicaljson.Marshal(p)
 	if err != nil {
 		return Publication{}, err

@@ -162,36 +162,15 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 	if err = json.Unmarshal(members["manifest.json"], &manifest); err != nil {
 		t.Fatal(err)
 	}
-	var profiles struct {
-		Cases []struct {
-			Key     string            `json:"pack_key"`
-			Members map[string]string `json:"members"`
-		} `json:"cases"`
-	}
 	if !strings.HasPrefix(options.PackKey, "type_registry.") {
-		b, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/profiles.v1.json")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err = json.Unmarshal(b, &profiles); err != nil {
-			t.Fatal(err)
-		}
+		profile := canonicalProfileFixtureFor(t, options.PackKey)
 		for path := range members {
 			if strings.HasPrefix(path, "payload/") {
 				delete(members, path)
 			}
 		}
-		found := false
-		for _, p := range profiles.Cases {
-			if p.Key == options.PackKey {
-				found = true
-				for path, data := range p.Members {
-					members[path] = []byte(data)
-				}
-			}
-		}
-		if !found {
-			t.Fatalf("no canonical profile fixture for %s", options.PackKey)
+		for path, data := range profile.Members {
+			members[path] = []byte(data)
 		}
 	}
 	manifest["pack_key"] = options.PackKey
@@ -206,10 +185,12 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 	manifest["trust_repository_id"] = "integration.repo"
 	manifest["source_as_of"] = integrationSigningDay.Format(time.RFC3339)
 	manifest["built_at"] = integrationSigningDay.Format(time.RFC3339)
-	manifest["content_profile_id"] = "cartulary.reference_pack." + options.PackKey + ".v1"
-	if options.PackKey == "framework.attack" {
-		manifest["content_profile_id"] = "cartulary.reference_pack.framework.attack.v2"
-		manifest["content_profile_version"] = "2"
+	for _, profile := range packformat.Profiles() {
+		if profile.Key == options.PackKey {
+			manifest["content_profile_id"] = profile.ID
+			manifest["content_profile_version"] = profile.Version
+			break
+		}
 	}
 	if options.ContractVersion != "" {
 		manifest["pack_contract_version"] = options.ContractVersion
@@ -402,4 +383,25 @@ func requireJobNow(t testing.TB, harness *appsupport.ServerHarness, login authco
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+}
+
+type canonicalProfileFixture struct {
+	Key     string            `json:"pack_key"`
+	Members map[string]string `json:"members"`
+}
+
+func canonicalProfileFixtureFor(t testing.TB, key string) canonicalProfileFixture {
+	t.Helper()
+	raw, err := os.ReadFile("../../../contracts/reference-pack-fixtures/fixtures/profiles/" + strings.ReplaceAll(key, ".", "_") + "_valid.v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture canonicalProfileFixture
+	if err := json.Unmarshal(raw, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.Key != key {
+		t.Fatal("profile fixture identity mismatch")
+	}
+	return fixture
 }

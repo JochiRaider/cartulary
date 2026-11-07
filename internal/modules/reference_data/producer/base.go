@@ -76,7 +76,7 @@ func ReissueBase(ctx context.Context, b []byte, builder Builder) (map[string]any
 		}
 		for _, f := range m.Files {
 			if int64(len(content[f.Path])) != f.Size || Digest(content[f.Path]) != f.SHA256 {
-				return nil, errors.New("Base registry bytes changed")
+				return nil, errors.New("base registry bytes changed")
 			}
 		}
 		payload, err := packformat.PayloadDigest(m.Files)
@@ -95,7 +95,7 @@ func ReissueBase(ctx context.Context, b []byte, builder Builder) (map[string]any
 	if err != nil {
 		return nil, err
 	}
-	if err = os.MkdirAll(filepath.Dir(in.OutputFile), 0755); err != nil {
+	if err = os.MkdirAll(filepath.Dir(in.OutputFile), 0700); err != nil {
 		return nil, err
 	}
 	out, err := os.OpenRoot(filepath.Dir(in.OutputFile))

@@ -97,6 +97,39 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.reporting.integration.attack_snapshots_retain_their_exact_independentl_a1740e14f8",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [
+        "module.reference_data"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestATTACKSnapshotAdmissionRetainsProducedSet_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/attack-native-v2"
+      ]
+    },
+    {
       "row_id": "module.reporting.integration.current_snapshot_workers_enforce_initiating_auth_ae8ac370b2",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.integration",
@@ -526,7 +559,6 @@
         "package": "./internal/modules/reporting",
         "tests": [
           "TestSnapshotAdmissionAndCancellationDoNotWaitForSourceCapture_Integration",
-          "TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration",
           "TestSnapshotReplayAndReleaseProvenanceAreStable_Integration"
         ]
       },
@@ -541,10 +573,7 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive",
-      "fixture_input_roots": [
-        "fixtures/reference-packs/attack-native-v2"
-      ]
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reporting.integration.snapshot_reporting_route_idempotency_treats_an_o_1d2451a56f",
@@ -587,6 +616,36 @@
         "package": "./internal/modules/reporting",
         "tests": [
           "TestExactShapesAndRouteScopedVisibility_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reporting.integration.windows_event_ids_snapshots_retain_their_exact_i_7312056cfb",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [
+        "module.reference_data"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestWindowsSnapshotAdmissionRetainsProducedSet_Integration"
         ]
       },
       "evidence_class": "integration",
