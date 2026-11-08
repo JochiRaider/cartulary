@@ -67,48 +67,25 @@ func Assemble(ctx context.Context, inputBytes []byte, builder Builder) (PackageR
 	if err != nil {
 		return PackageReport{}, err
 	}
-	l, err := ReadLock(lockBytes)
-	if err != nil {
-		return PackageReport{}, err
-	}
 	profileBytes, err := os.ReadFile(input.SourceProfile)
 	if err != nil {
 		return PackageReport{}, err
-	}
-	profileValue, err := canonicaljson.DecodeStrict(profileBytes)
-	if err != nil {
-		return PackageReport{}, err
-	}
-	profile, ok := profileValue.(map[string]any)
-	if !ok || profile["status"] != "adopted_frozen" || profile["source_profile_id"] != "cartulary.attack.all-domains.native.v2.r2" {
-		return PackageReport{}, errors.New("frozen adopted source profile required")
-	}
-	locks, ok := profile["accepted_source_lock_sha256"].([]any)
-	if !ok || !slices.Contains(locks, any(Digest(lockBytes))) {
-		return PackageReport{}, errors.New("source lock outside frozen profile")
 	}
 	policy, err := os.ReadFile(input.FieldPolicy)
 	if err != nil {
 		return PackageReport{}, err
 	}
-	if profile["field_policy_sha256"] != Digest(policy) {
-		return PackageReport{}, errors.New("field policy identity mismatch")
+	inputs, err := admitATTACKInputs(lockBytes, profileBytes, policy)
+	if err != nil {
+		return PackageReport{}, err
 	}
-	schemaBindings, ok := profile["adopted_schema_sha256"].(map[string]any)
-	if !ok || len(schemaBindings) != 3 {
-		return PackageReport{}, errors.New("native schema bindings required")
-	}
-	for _, name := range []string{"profiles/framework.attack.native_source.v2.schema.json", "profiles/framework.attack.object.v2.schema.json", "profiles/framework.attack.relationship.v2.schema.json"} {
-		if schemaBindings[name] != packformat.ProjectionDigest(name) {
-			return PackageReport{}, errors.New("frozen native schema identity mismatch")
-		}
-	}
+	l := inputs.lock
 	root, err := os.OpenRoot(input.SourceRoot)
 	if err != nil {
 		return PackageReport{}, err
 	}
 	defer root.Close()
-	audit, err := Audit(ctx, root, lockBytes, policy, input.BuiltAt, builder)
+	audit, err := auditATTACKSources(ctx, root, inputs, input.BuiltAt, builder)
 	if err != nil {
 		return PackageReport{}, err
 	}
@@ -249,7 +226,7 @@ func Assemble(ctx context.Context, inputBytes []byte, builder Builder) (PackageR
 	}
 	members["payload/objects.ndjson"] = objectBytes.Bytes()
 	members["payload/relationships.ndjson"] = relationshipBytes.Bytes()
-	m := packformat.Manifest{SchemaID: "cartulary.reference_pack_manifest.v1", Contract: packformat.ContractID, Key: "framework.attack", Kind: "framework", Version: input.PackVersion, Sequence: 1, ProfileID: "cartulary.reference_pack.framework.attack.v2", ProfileVersion: "2", SourceProfileID: profile["source_profile_id"].(string), SourceProfileSHA256: Digest(profileBytes), Repository: &input.Repository, SourceIdentifier: l.Repository, SourceVersion: l.CatalogVersion, SourceAsOf: &l.PublishedAt, BuiltAt: input.BuiltAt, Artifacts: artifacts, Dependencies: []packformat.Dependency{}, Conflicts: []packformat.Conflict{}, Extensions: map[string]any{}}
+	m := packformat.Manifest{SchemaID: "cartulary.reference_pack_manifest.v1", Contract: packformat.ContractID, Key: "framework.attack", Kind: "framework", Version: input.PackVersion, Sequence: 1, ProfileID: "cartulary.reference_pack.framework.attack.v2", ProfileVersion: "2", SourceProfileID: inputs.profileID, SourceProfileSHA256: Digest(profileBytes), Repository: &input.Repository, SourceIdentifier: l.Repository, SourceVersion: l.CatalogVersion, SourceAsOf: &l.PublishedAt, BuiltAt: input.BuiltAt, Artifacts: artifacts, Dependencies: []packformat.Dependency{}, Conflicts: []packformat.Conflict{}, Extensions: map[string]any{}}
 	m.Builder.ID = builder.ID
 	m.Builder.Version = builder.Version
 	m.Builder.SHA256 = builder.SHA256

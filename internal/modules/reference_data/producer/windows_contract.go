@@ -199,14 +199,14 @@ var windowsSchemas = sync.OnceValues(func() (map[string]*jsonschema.Schema, erro
 	}
 	schemas := map[string]*jsonschema.Schema{}
 	for _, name := range []string{"inventory", "lock", "acquisition", "acquisition_inputs", "evidence", "editorial", "reconciliation", "build", "license", "error", "csv_row", "summaries", "release_envelope"} {
-		s, e := CompileCandidate(b, "#/$defs/"+name)
+		s, e := compileProducerSchema(b, "#/$defs/"+name)
 		if e != nil {
 			return nil, e
 		}
 		schemas[name] = s
 	}
 	for _, name := range []string{"docx_sample_metadata_for_row_version_json", "docx_other_sample_metadata_json", "docx_section_contexts_json", "docx_field_definitions_json", "docx_reference_tables_json", "docx_links_json", "docx_image_references_json", "docx_subcategory_guidance_json", "xlsx_catalog_rows_json", "source_locators_json", "source_artifact_metadata_json", "quality_notes_json"} {
-		s, e := CompileCandidate(b, "#/$defs/"+name)
+		s, e := compileProducerSchema(b, "#/$defs/"+name)
 		if e != nil {
 			return nil, e
 		}

@@ -1,8 +1,30 @@
 # MITRE ATT&CK reference pack: live implementation handoff
 
-Status: pre-adoption source preparation implemented; native runtime contract proposal awaiting review.
+Status: historical implementation evidence. The opening proposal-era sections are superseded by the adopted native v2 work recorded later in this file. Current producer consolidation and proposal retirement are controlled by [the Reference Data tracker](reference_data-module-refactor-tracker.md), §20. Retained proposal artifacts are immutable provenance, not a supported execution path.
 Research cutoff: 2026-11-06. Initial checkout: clean `main`, `ba4fdc06d6fb353c5f52ffe08e8a008d55311dd3`.
 No commit, push, deployment, publisher sequence allocation, database reset, or deployment-root change was performed.
+
+## Current producer contract
+
+The current ATT&CK audit and assembly paths admit only the exact frozen native
+v2.r2 profile, its pinned v20.0/v20.1 source locks, native field policy and compiled
+schema bindings. `--candidate` is removed. Audit emits
+`cartulary.attack_source_audit.v2` with exact `source_profile_id` and
+`source_profile_sha256`, and uses `lookup_aliases`. The former `pack_status`,
+`native_candidate` and `proposed_lookup_aliases` fields are removed without a
+compatibility writer. `--report-file` receives the same canonical bytes retained
+under `audits/<sha256>.json`, including attributable failed audits; a failed audit
+still exits unsuccessfully. Source evidence does not establish runtime trust,
+conformance or distribution approval.
+
+Use the public Make producer build, source and package targets. Qualification
+uses isolated source/output roots and fixture-only ledgers. Historical assembly
+input files below point to retained fixtures and ledgers; do not replay them with
+a changed builder. Original profiles, policies, source locks, packs, reports and
+publication ledgers remain immutable. A changed executable changes builder
+provenance and may change manifest identity even when payload bytes are identical.
+The controlling tracker records current qualification; the following sections
+preserve earlier work and are not current command or compatibility requirements.
 
 ## Scope and authority
 

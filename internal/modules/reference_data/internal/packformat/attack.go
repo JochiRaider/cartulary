@@ -11,6 +11,19 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
+// ValidateATTACKNativeSource applies the same closed native source shapes used
+// by canonical content validation. It never loads producer or upstream inputs.
+func ValidateATTACKNativeSource(source map[string]any) error {
+	kind := "object"
+	if source["type"] == "relationship" {
+		kind = "relationship"
+	}
+	if !contentShapes["framework.attack/"+kind].properties["source"].matches(source) {
+		return fail("content_schema_invalid")
+	}
+	return nil
+}
+
 // ATTACKText is the common display projection. Native values are never passed
 // through it for storage: whitespace, optional presence and URLs remain exact.
 func ATTACKText(value string) string {

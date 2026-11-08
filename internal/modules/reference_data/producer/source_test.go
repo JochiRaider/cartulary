@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,7 +58,21 @@ func sourceFixture(t *testing.T, scenario string) ([]byte, *fixtureFetcher) {
 	tool := enterprise[2].(map[string]any)
 	relation := enterprise[3].(map[string]any)
 	switch scenario {
-	case "valid", "hash_mismatch", "malformed_json", "release_mismatch", "tag_moved":
+	case "valid", "hash_mismatch", "malformed_json", "late_malformed_json", "release_mismatch", "tag_moved":
+	case "native_created_valid":
+		tool["created"] = "2026-11-05T00:00:00Z"
+	case "native_created_invalid":
+		tool["created"] = "not-a-timestamp"
+	case "native_contributors_64", "native_contributors_65":
+		count := 64
+		if scenario == "native_contributors_65" {
+			count++
+		}
+		contributors := make([]string, count)
+		for i := range contributors {
+			contributors[i] = fmt.Sprintf("Synthetic contributor %02d", i)
+		}
+		tool["x_mitre_contributors"] = contributors
 	case "unknown_relationship_type":
 		relation["relationship_type"] = "inferred-transitive-path"
 	case "unknown_property":
@@ -79,7 +94,7 @@ func sourceFixture(t *testing.T, scenario string) ([]byte, *fixtureFetcher) {
 		if a.Domain != "license" {
 			b = encoded(t, input.Bundles[a.Name])
 		}
-		if scenario == "malformed_json" && a.Domain == "enterprise-attack" {
+		if (scenario == "malformed_json" && a.Domain == "enterprise-attack") || (scenario == "late_malformed_json" && a.Domain == "mobile-attack") {
 			b = []byte("{")
 		}
 		lock.Artifacts[i].SHA256 = Digest(b)
@@ -141,7 +156,7 @@ func TestATTACKSourceFixtures(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			report, err := Audit(context.Background(), root, lock, fixtureBytes(t, "field-policy.candidate.v1.json"), "2026-11-06T00:00:00Z", Builder{ID: "unit-fixture", Version: "1", SHA256: strings.Repeat("1", 64), Size: 1, GoVersion: "unit-fixture"})
+			report, err := auditATTACKSources(context.Background(), root, syntheticATTACKInputs(t, lock), "2026-11-06T00:00:00Z", Builder{ID: "unit-fixture", Version: "1", SHA256: strings.Repeat("1", 64), Size: 1, GoVersion: "unit-fixture"})
 			if tc.Expected != nil {
 				if report.SchemaID != "" && report.Status != "source_audit_failed" {
 					t.Fatal("failed audit claimed success")
@@ -149,11 +164,16 @@ func TestATTACKSourceFixtures(t *testing.T) {
 				if err == nil || !strings.Contains(strings.Join(report.Issues, "\n")+"\n"+err.Error(), *tc.Expected) {
 					t.Fatalf("expected %s: %v %v", *tc.Expected, err, report.Issues)
 				}
+				again, againErr := auditATTACKSources(context.Background(), root, syntheticATTACKInputs(t, lock), "2026-11-06T00:00:00Z", Builder{ID: "unit-fixture", Version: "1", SHA256: strings.Repeat("1", 64), Size: 1, GoVersion: "unit-fixture"})
+				if againErr == nil || !bytes.Equal(encoded(t, report), encoded(t, again)) {
+					t.Fatal("failed audit is not byte reproducible")
+				}
 				return
 			}
 			if err != nil {
 				t.Fatal(err, report.Issues)
 			}
+			assertAuditReportContract(t, report, syntheticATTACKInputs(t, lock))
 			// Independently authored witness for the small, explicitly synthetic
 			// source parser fixture. The real release is audited by Make separately.
 			if report.LookupAliases["malware--11111111-1111-4111-8111-111111111111"][0] != "unique" {
@@ -169,7 +189,7 @@ func TestATTACKSourceFixtures(t *testing.T) {
 			if _, err := Check(root, lock); err != nil {
 				t.Fatal(err)
 			}
-			again, err := Audit(context.Background(), root, lock, fixtureBytes(t, "field-policy.candidate.v1.json"), report.BuiltAt, report.Builder)
+			again, err := auditATTACKSources(context.Background(), root, syntheticATTACKInputs(t, lock), report.BuiltAt, report.Builder)
 			if err != nil || !bytes.Equal(encoded(t, report), encoded(t, again)) {
 				t.Fatal("audit is not byte reproducible", err)
 			}
@@ -178,6 +198,51 @@ func TestATTACKSourceFixtures(t *testing.T) {
 }
 
 func TestATTACKSourceRetentionBoundaries(t *testing.T) {
+	t.Run("retained_acquisition_inventory_shape", func(t *testing.T) {
+		root := testRoot(t)
+		lock, fetch := sourceFixture(t, "valid")
+		if _, err := Acquire(context.Background(), root, lock, fetch); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Check(root, lock); err != nil {
+			t.Fatal(err)
+		}
+		schema, err := compileProducerSchema(fixtureBytes(t, "acquisition.v1.schema.json"), "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := root.ReadFile("acquisition.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var acquired map[string]any
+		if err := json.Unmarshal(b, &acquired); err != nil {
+			t.Fatal(err)
+		}
+		if err := schema.Validate(acquired); err != nil {
+			t.Fatal(err)
+		}
+		t.Run("acquisition_requires_tag_reference", func(t *testing.T) {
+			b, err := root.ReadFile("acquisition.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var receipt map[string]any
+			if err := json.Unmarshal(b, &receipt); err != nil {
+				t.Fatal(err)
+			}
+			delete(receipt, "tag_reference")
+			if err := schema.Validate(receipt); err == nil {
+				t.Fatal("acquisition schema accepted absent tag reference")
+			}
+			if err := root.WriteFile("acquisition.json", encoded(t, receipt), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Check(root, lock); err == nil {
+				t.Fatal("missing tag reference admitted")
+			}
+		})
+	})
 	root := testRoot(t)
 	lock, fetch := sourceFixture(t, "valid")
 	a, err := Acquire(context.Background(), root, lock, fetch)
@@ -205,6 +270,11 @@ func TestATTACKSourceRetentionBoundaries(t *testing.T) {
 }
 
 func TestATTACKSourceContractClosure(t *testing.T) {
+	t.Run("schema compiler", testProducerSchemaCompiler)
+	t.Run("current admission", testATTACKCurrentAdmission)
+	t.Run("partial audit report", testATTACKPartialAudit)
+	t.Run("native audit enforcement", testATTACKNativeAuditEnforcement)
+
 	lock := fixtureBytes(t, "source-lock.v20.1.json")
 	var value map[string]any
 	if err := json.Unmarshal(lock, &value); err != nil {
@@ -230,12 +300,39 @@ func TestATTACKSourceContractClosure(t *testing.T) {
 	}
 	assertATTACKProducerExcludedFromRuntime(t)
 
-	// A source-profile candidate is a regular exact file, never executable
+	// A source-profile input is a regular exact file, never executable
 	// runtime transformation or a symlink into human documentation.
-	for _, name := range []string{"source-lock.v20.1.json", "field-policy.candidate.v1.json"} {
+	for _, name := range []string{"source-lock.v20.1.json", "field-policy.native.v1.json"} {
 		st, err := os.Lstat(filepath.Join(contractRoot, name))
 		if err != nil || !st.Mode().IsRegular() {
 			t.Fatal("producer input not regular", err)
 		}
 	}
+}
+
+// Synthetic input admission is test-only. The exported producer entry points
+// must reject these locks; source and projection tests use this private seam.
+func syntheticATTACKInputs(t *testing.T, lockBytes []byte) attackInputs {
+	t.Helper()
+	inputs, err := readSyntheticATTACKInputs(lockBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return inputs
+}
+
+func readSyntheticATTACKInputs(lockBytes []byte) (attackInputs, error) {
+	lock, err := ReadLock(lockBytes)
+	if err != nil {
+		return attackInputs{}, err
+	}
+	policyBytes, err := attackinputs.Files.ReadFile("field-policy.native.v1.json")
+	if err != nil {
+		return attackInputs{}, err
+	}
+	policy, err := ReadPolicy(policyBytes)
+	if err != nil {
+		return attackInputs{}, err
+	}
+	return attackInputs{lock: lock, policy: policy, profileID: "synthetic-unit-source", lockBytes: lockBytes, policyBytes: policyBytes, profileBytes: []byte(`{"purpose":"synthetic private seam only"}`)}, nil
 }

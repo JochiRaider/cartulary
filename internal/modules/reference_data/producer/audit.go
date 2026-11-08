@@ -14,6 +14,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"golang.org/x/text/unicode/norm"
 )
@@ -39,7 +40,7 @@ func ReadPolicy(b []byte) (Policy, error) {
 	if err := DecodeClosed(b, &p); err != nil {
 		return p, err
 	}
-	if p.SchemaID != "cartulary.attack_field_policy.v1" || p.CandidateID == "" || (p.Status != "proposal_only" && p.Status != "adopted_current") || len(p.Types) == 0 || len(p.Common) == 0 || len(p.RelationshipTypes) == 0 || !slices.IsSorted(p.RelationshipTypes) {
+	if p.SchemaID != "cartulary.attack_field_policy.v1" || p.CandidateID == "" || p.Status != "adopted_current" || len(p.Types) == 0 || len(p.Common) == 0 || len(p.RelationshipTypes) == 0 || !slices.IsSorted(p.RelationshipTypes) {
 		return p, errors.New("field policy identity invalid")
 	}
 	groups := []map[string]FieldRule{p.Common}
@@ -101,14 +102,14 @@ type RefEdge struct {
 	Locator  Locator `json:"locator"`
 }
 type AuditReport struct {
+	SourceProfileID               string                    `json:"source_profile_id"`
+	SourceProfileSHA256           string                    `json:"source_profile_sha256"`
 	SchemaID                      string                    `json:"schema_id"`
 	Status                        string                    `json:"status"`
-	PackStatus                    string                    `json:"pack_status"`
 	BuiltAt                       string                    `json:"built_at"`
 	LockSHA256                    string                    `json:"source_lock_sha256"`
 	PolicySHA256                  string                    `json:"field_policy_sha256"`
 	Builder                       Builder                   `json:"builder"`
-	NativeCandidate               *CandidateValidation      `json:"native_candidate"`
 	Domains                       map[string]*DomainStats   `json:"domains"`
 	UniqueRecords                 int                       `json:"unique_records"`
 	UniqueTypes                   map[string]int            `json:"unique_types"`
@@ -116,7 +117,7 @@ type AuditReport struct {
 	Properties                    map[string]*FieldStats    `json:"properties"`
 	RecordLocators                map[string][]Locator      `json:"record_locators"`
 	Collisions                    []AliasCollision          `json:"alias_collisions"`
-	LookupAliases                 map[string][]string       `json:"proposed_lookup_aliases"`
+	LookupAliases                 map[string][]string       `json:"lookup_aliases"`
 	TacticMemberships             []RefEdge                 `json:"tactic_memberships"`
 	AliasOccurrenceCount          int                       `json:"alias_occurrences"`
 	MaxAliases                    int                       `json:"max_aliases_per_object"`
@@ -150,15 +151,20 @@ var stixID = regexp.MustCompile(`^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a
 
 // Audit examines retained exact source bytes. Output is producer evidence, not
 // runtime payload, a source-profile adoption, or a product-verification result.
-func Audit(ctx context.Context, root *os.Root, lockBytes, policyBytes []byte, builtAt string, builder Builder) (AuditReport, error) {
-	l, err := ReadLock(lockBytes)
+func Audit(ctx context.Context, root *os.Root, lockBytes, profileBytes, policyBytes []byte, builtAt string, builder Builder) (AuditReport, error) {
+	inputs, err := admitATTACKInputs(lockBytes, profileBytes, policyBytes)
 	if err != nil {
 		return AuditReport{}, err
 	}
-	p, err := ReadPolicy(policyBytes)
-	if err != nil {
+	return auditATTACKSources(ctx, root, inputs, builtAt, builder)
+}
+
+func auditATTACKSources(ctx context.Context, root *os.Root, inputs attackInputs, builtAt string, builder Builder) (r AuditReport, auditErr error) {
+	if err := ctx.Err(); err != nil {
 		return AuditReport{}, err
 	}
+	l, p := inputs.lock, inputs.policy
+	lockBytes, policyBytes := inputs.lockBytes, inputs.policyBytes
 	stamp, err := time.Parse(time.RFC3339, builtAt)
 	pub, _ := time.Parse(time.RFC3339, l.PublishedAt)
 	if err != nil || stamp.Before(pub) || stamp.UTC().Format(time.RFC3339) != builtAt {
@@ -171,8 +177,9 @@ func Audit(ctx context.Context, root *os.Root, lockBytes, policyBytes []byte, bu
 	if err != nil {
 		return AuditReport{}, err
 	}
-	r := AuditReport{SchemaID: "cartulary.attack_source_audit.v1", Status: "source_audit_failed", PackStatus: "blocked_native_contract_adoption", BuiltAt: builtAt, LockSHA256: Digest(lockBytes), PolicySHA256: Digest(policyBytes), Builder: builder, Domains: map[string]*DomainStats{}, UniqueTypes: map[string]int{}, Properties: map[string]*FieldStats{}, RecordLocators: map[string][]Locator{}, Collisions: []AliasCollision{}, LookupAliases: map[string][]string{}, TacticMemberships: []RefEdge{}, VersionValues: map[string]map[string]int{}, Lifecycle: map[string]int{}, EmbeddedReferences: map[string]int{}, References: []RefEdge{}, Issues: []string{}}
+	r = AuditReport{SchemaID: "cartulary.attack_source_audit.v2", Status: "source_audit_failed", SourceProfileID: inputs.profileID, SourceProfileSHA256: Digest(inputs.profileBytes), BuiltAt: builtAt, LockSHA256: Digest(lockBytes), PolicySHA256: Digest(policyBytes), Builder: builder, Domains: map[string]*DomainStats{}, UniqueTypes: map[string]int{}, Properties: map[string]*FieldStats{}, RecordLocators: map[string][]Locator{}, Collisions: []AliasCollision{}, LookupAliases: map[string][]string{}, TacticMemberships: []RefEdge{}, VersionValues: map[string]map[string]int{}, Lifecycle: map[string]int{}, EmbeddedReferences: map[string]int{}, References: []RefEdge{}, Issues: []string{}}
 	s := auditState{policy: p, report: &r, records: map[string]sourceRecord{}, aliases: map[string]map[string]bool{}, originals: map[string]map[string]bool{}, replacements: map[string]string{}, replacementLocators: map[string]Locator{}}
+	defer s.summarize()
 	for i, source := range l.Artifacts {
 		if err := ctx.Err(); err != nil {
 			return r, err
@@ -184,11 +191,14 @@ func Audit(ctx context.Context, root *os.Root, lockBytes, policyBytes []byte, bu
 		if err != nil {
 			return r, err
 		}
-		if err = s.bundle(b, source, l.CatalogVersion); err != nil {
+		if err = s.bundle(ctx, b, source, l.CatalogVersion); err != nil {
 			return r, err
 		}
 	}
 	s.finish()
+	if err := ctx.Err(); err != nil {
+		return r, err
+	}
 	if len(r.Issues) > 0 {
 		r.Status = "source_audit_failed"
 		return r, errors.New("source audit failed; inspect retained issues")
@@ -201,7 +211,7 @@ func (s *auditState) issue(code, id, field string) {
 	s.report.Issues = append(s.report.Issues, code+":"+id+":"+field)
 }
 
-func (s *auditState) bundle(b []byte, source SourceArtifact, version string) error {
+func (s *auditState) bundle(ctx context.Context, b []byte, source SourceArtifact, version string) error {
 	v, err := canonicaljson.DecodeStrict(b)
 	if err != nil {
 		return errors.New("malformed source JSON")
@@ -223,6 +233,9 @@ func (s *auditState) bundle(b []byte, source SourceArtifact, version string) err
 	seen := map[string]bool{}
 	collections := 0
 	for index, item := range objects {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		o, ok := item.(map[string]any)
 		if !ok {
 			return errors.New("STIX object must be an object")
@@ -240,6 +253,9 @@ func (s *auditState) bundle(b []byte, source SourceArtifact, version string) err
 			s.issue("unclassified_type", oid, typ)
 		}
 		loc := Locator{Artifact: source.Name, Pointer: fmt.Sprintf("/objects/%d", index)}
+		if err := packformat.ValidateATTACKNativeSource(o); err != nil {
+			s.issue("native_source_invalid", oid, loc.Artifact+":"+loc.Pointer)
+		}
 		s.report.RecordLocators[oid] = append(s.report.RecordLocators[oid], loc)
 		encoded, err := canonicaljson.Marshal(o)
 		if err != nil {
@@ -455,16 +471,6 @@ func sortedKeys[M ~map[string]V, V any](m M) []string {
 }
 func (s *auditState) finish() {
 	r := s.report
-	r.UniqueRecords = len(s.records)
-	for _, locs := range r.RecordLocators {
-		domains := map[string]bool{}
-		for _, loc := range locs {
-			domains[loc.Artifact] = true
-		}
-		if len(domains) > 1 {
-			r.DuplicateIDs++
-		}
-	}
 	for _, key := range sortedKeys(s.aliases) {
 		if len(s.aliases[key]) > 1 {
 			r.Collisions = append(r.Collisions, AliasCollision{Key: key, ObjectIDs: sortedKeys(s.aliases[key]), OriginalAliases: sortedKeys(s.originals[key])})
@@ -568,6 +574,22 @@ func (s *auditState) finish() {
 			}
 		}
 	}
+}
+
+// summarize also runs for partial failed audits, before report retention.
+func (s *auditState) summarize() {
+	r := s.report
+	r.UniqueRecords = len(s.records)
+	for _, locs := range r.RecordLocators {
+		domains := map[string]bool{}
+		for _, loc := range locs {
+			domains[loc.Artifact] = true
+		}
+		if len(domains) > 1 {
+			r.DuplicateIDs++
+		}
+	}
+
 	slices.SortFunc(r.References, func(a, b RefEdge) int {
 		for _, pair := range [][2]string{{a.SourceID, b.SourceID}, {a.Property, b.Property}, {a.TargetID, b.TargetID}, {a.Locator.Artifact, b.Locator.Artifact}, {a.Locator.Pointer, b.Locator.Pointer}} {
 			if n := strings.Compare(pair[0], pair[1]); n != 0 {

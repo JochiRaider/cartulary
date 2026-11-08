@@ -2,15 +2,27 @@
 
 ## 1. Scope and Source Posture
 
-This is the controlling remediation plan and execution handoff. The user authorized implementation of the proposed plan on 2026-11-07 after choosing a targeted audit, retirement of the ambiguous missing-version shortcut/reason, closed non-list queries, and declared-only HTTP methods. The original inventory is retained as historical planning evidence, not a complete new correctness audit.
+This is the controlling tracker for the authorized Reference Data remediation. Producer consolidation and proposal retirement, S-28–32, are complete on the evidence in §20. I7 / S-33–36 is complete: §21 records closure of the supplemental audit/command validation gaps and handoff inconsistency identified by review. Earlier implementation passes remain valid for their stated coverage; I7's separate final-source evidence closes its supplemental gates. The earlier planning-only restrictions and document-session results below remain historical. Each slice is a separate sequential workstream; its completion checkpoint must be recorded here before the next slice starts.
 
-- Target: `internal/modules/reference_data`; canonical repository root `/home/jochi/code/cartulary`.
-- Controlling artifact: `docs/handoffs/reference_data-module-refactor-tracker.md`; no replacement tracker.
-- Current mode: S-24–27 fatal-finalization remediation COMPLETE (§19). F-21/F-24/F-25 close on final S-27 evidence; F-22/F-23 remain closed. S-23's premature fatal-finalization closure claim remains superseded. CI remains explicitly excluded from completion requirements.
-- Scope: completed F-01/F-10, F-04 and F-14–17; portable iteration F-21/F-23/F-24 and fatal-finalization F-25, with F-22 remaining closed. No wholesale module extraction, data migration/reset, legacy reader, UI redesign or timed publication claim.
-- Execution baseline E-10: `main` at `3cc655473f872f796fd0dd07d1b8bb99e7947b2b`; no staged or tracked working-tree changes; this tracker was already untracked with SHA-256 `308d5dbf556df4045933e28f3179d55e0089c3535dd6129d02239288751388e1`. Preserve that prior artifact and its useful history.
-- Each slice is a separate workstream. Update this tracker after completing each workstream and before starting its successor. Record actual checks and retained evidence; never promote expected characterization failures into passing product evidence.
-- The earlier planning-only restrictions and future-authorization statements below describe historical sessions. They are superseded for current work by this authorization and §§6–9. Historical S-00 and S-03 remain complete; the current final execution slice is S-27 (§19).
+- Supplied output and admitted artifact: `/home/jochi/code/cartulary/docs/handoffs/reference_data-module-refactor-tracker.md`; permitted location `docs/handoffs`; no replacement tracker.
+- Target established from this tracker's existing identity: `internal/modules/reference_data`, a directory under canonical repository root `/home/jochi/code/cartulary`; normalized label `reference-data`. Preserve the established underscore filename.
+- Artifact mode: `normal` for bounded producer remediation. Planning completeness does not mean an exhaustive subsystem correctness or dead-code audit. Sections 20–21 contain the design and evidence; §21 controls current supplemental status and gates.
+- Planning baseline I6-00: clean `main`, HEAD `a8f2fe2d84eecf88ced265b34327e0a8c7d4c8df`. Target/output and parent components are not symlinks; the existing output is a single-link regular file with the expected canonical target identity.
+- Current scope: F-30–32 and authorized S-33–36, supplementing completed F-26–29 / S-28–32. Preserve current runtime pack contracts, immutable profile/policy bytes, publication ledger guarantees, fixture signing and live Windows validation. No general module extraction, runtime lifecycle change, schema/data migration, UI work, source acquisition, deployment or release-certification claim.
+- Historical S-24–27 completed fatal-finalization remediation (§19); F-21/F-24/F-25 remain closed on that evidence, with F-22/F-23 also closed. S-23's premature closure remains superseded. Earlier execution permissions and test passes are historical, not authorization or qualification for this iteration.
+- Framework `docs/handoffs/cartulary_modular_refactor_planning_framework.md` and the refactor-tracker skill/format remain applicable. The current implementation may change the scoped producer, owner-local validation, tests, authored routing and supporting documentation. Update this tracker after each completed workstream and before the successor begins.
+
+The following table records the earlier document-session baseline. The implementation baseline I6-03 and final preservation comparison are in §20; the tracker was already dirty when implementation began.
+
+| Baseline item | Starting evidence / identity | Final comparison / outcome | Limits |
+| --- | --- | --- | --- |
+| Branch and commit | `main` / `a8f2fe2d84eecf88ced265b34327e0a8c7d4c8df`; I6-00 | Final session comparison in §20 | Prior sessions used `3cc655473…`; their passes are not current-source evidence. |
+| Staged/index state | Clean; index content, mode and file identity in `/tmp/reference-i6-docs-iigz5fsh/baseline.json` | Final session comparison in §20 | Read-only Git uses `--no-optional-locks`. |
+| Unstaged and untracked content | Clean; all 8,936 tracked/nonignored entries fingerprinted, with regular-file hashes and file identities in the same baseline | Only the admitted tracker may differ | Enumeration includes nonignored untracked files; none existed at baseline. |
+| Relevant ignored outputs | `/tmp/reference-i6-docs-iigz5fsh/ignored-baseline.json`: frontend installation/toolchain, Corepack, static-analysis cache, installed lockfile and workspace lock | Final session comparison in §20 | Not a snapshot of every ignored product run or dependency file. Lint results/static cache are redirected outside the repository; installation is prohibited. |
+| Tracker content and identity | Initial SHA-256 `a9c17bf05d5c050db071ebeca9cd9b7bd84825aaa61927e8e900efe429092966`; device/inode/mode/link count in baseline; initial text in `tracker-before.md` beside it | Identity/content rechecked before writing; final comparison in §20 | Re-read and reconcile on any concurrent change; never overwrite unseen edits. |
+
+The baseline records hashes and metadata, not repository contents or secrets. The retained original tracker supports historical reconciliation. Historical baseline and authority records follow; their session-specific statements do not override the current scope above.
 
 Baseline E-00: branch `main`, commit `3cc655473f872f796fd0dd07d1b8bb99e7947b2b`; initially clean staged, unstaged and untracked state. The tracker was absent. The target and output-parent path components were inspected for symlink/identity hazards. There were 240 tracked regular Go target files in eight directories, including 93 test files; none were excluded. There was no prior tracker handoff history to preserve. The requested directory is distinct from the normalized label: no rename is planned.
 
@@ -20,15 +32,15 @@ Authority order is: adopted subsystem NLSpecs for their named subsystem; Core 00
 
 | Evidence ID | Inspected authority or support source | Scope and posture |
 | --- | --- | --- |
-| O-01 | `docs/reference-pack-subsystem-nlspec.md`, status/scope, current adoption, canonical formats, verification/lifecycle, consumer, route delegation and portability/recovery passages (§§1, 4, 9–12, 14, 19–25, 29) | Adopted Reference Pack 0.3.0 / profile major 3; pack contract v2, current immutable v2 sets, current ATTACK/Windows/Entra content profiles. Shared manifest/schema namespaces do not all become v2. Adoption is authority evidence, separate from implementation evidence. |
-| O-02 | `docs/spec/00_document_set_status_and_precedence.md`, precedence and coordinated adoption entries | Current adoption includes native ATTACK 2026-11-06 and Entra 2026-11-07. No authority inferred from the target directory name. |
+| O-01 | `docs/reference-pack-subsystem-nlspec.md`, status/scope, current adoption, canonical formats, verification/lifecycle, consumer, route delegation and portability/recovery passages (§§1, 4, 9–12, 14, 19–25, 29) | Revalidated for I6: adopted Reference Pack 0.4.0 / profile major 3; pack contract v2, current immutable v2 sets, current ATTACK/Windows/Entra/VERIS content profiles. Shared manifest/schema namespaces do not all become v2. Adoption is authority evidence, separate from implementation evidence. |
+| O-02 | `docs/spec/00_document_set_status_and_precedence.md`, precedence and coordinated adoption entries | Revalidated adoption includes native ATTACK 2026-11-06 and Entra/VERIS 2026-11-07. No authority inferred from the target directory name. |
 | O-03 | `docs/spec/01_architecture_storage_and_view_contracts.md`, §2, Reference Pack public contract §17.4 and coordinated amendment | Logical module boundaries; common HTTP, paging, idempotency, Jobs and route-family authorization. REQ-01-480/481 distinguish current family authorization order and administrative resource shape. |
 | O-04 | `docs/spec/02_domain_model_schema_and_history.md`, indicator identity/participant and §11 registry passages | Reference Data owns registry algorithms; Indicators owns incident identity and mutations; caller acquires registry guards before incident/record locks. |
 | O-05 | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md`, coordinated Reference Pack amendment | Pack activation is deployment scoped and does not automatically mutate incident records. Workbook interaction remains outside this target. |
 | O-06 | `docs/spec/04_security_deployment_and_conformance.md`, §4.1 and Reference Pack adoption/configuration passages | Offline hostile-pack verification, attribution, current authorization, trusted-clock/configuration requirements. Core 05 publication is not invoked by this planning task. |
 | O-07 | `docs/domain.md`, §§5, 7, 10, 10.2, 11, 14 and owner-navigation passages | Supporting Reference Data context; anti-corruption boundary with incident entities; Base readiness versus optional enrichment; vocabulary guidance below adopted owners. |
 | E-01 | `AGENTS.md`, `internal/AGENTS.md`, `tools/AGENTS.md`; `docs/handoffs/cartulary_modular_refactor_planning_framework.md` | Procedure and planning template. Applicable nested-instruction enumeration found no additional target/docs subtree instructions. Framework workflow names are adapted to live seams. |
-| E-02 | Every target file in §2 | Direct file reads of declarations/imports and relevant bodies/assertions; critical seams also read in full. This is complete file-level planning inventory, not a line-by-line correctness audit. No search-only target row. |
+| E-02 | Historical E-00 target files in the original §2 table | Historical direct reads of declarations/imports and relevant bodies/assertions; critical seams also read in full. This was a file-level planning inventory, not a correctness audit. Current I6 depth is separately accounted above; E-02 does not establish current direct inspection of all 259 files. |
 | E-03 | `internal/app/referenceassembly/administration.go`, `administration_test.go`, `storage.go`, `artifact_storage.go`, `verification_storage.go`, `operator_admission.go`, `retained_admission.go`, `registry_transactions.go`, `registry_usage.go`, `recovery_storage.go`, `telemetry.go`; `internal/app/server/runtime_assembly.go`, `runtime_routes.go`, `module_settings.go`; `internal/app/configassembly/reference_pack.go` | Assembly/constructor and selected concrete adapter bodies. Worker registration, physical roots, source-owned usage and startup orchestration remain in application assembly. |
 | E-04 | `internal/app/extensionassembly/reference_pack_jobs.go`; `internal/app/operator/operator_reference_pack.go`; `internal/platform/httpapi/operation_catalog.go`, `httpapi.go`; `internal/platform/httpauth/httpauth.go` | Exact finalization adapter, route binding/dispatch and relevant auth/operator paths. Supports F-01; unknown-family/method responses are not assumed protected by a nonexistent outer admin check. |
 | E-05 | `internal/modules/indicators/application.go`, `internal/identity/identity.go`; `internal/app/revisionassembly/revisions.go`; `internal/modules/reporting/snapshot_capture.go`, `store.go`, `portable_references.go` | Exact caller portions: guarded registry evaluation, immutable reporting binding and revision provider composition. These callers do not transfer their owning domain to Reference Data. |
@@ -37,13 +49,58 @@ Authority order is: adopted subsystem NLSpecs for their named subsystem; Core 00
 | E-08 | `contracts/openapi/cartulary.openapi.yaml` (nine operation objects); `tools/generated_artifact_policy.json`; `tools/execution_topology_manifest.json`; `tools/backend_module_boundaries.json`; `tools/test_support_inventory.json` | Downstream generated contract and authored policies, read only. OpenAPI is explicitly generated, not an editable source of truth. |
 | E-09 | `tools/test_families/module.reference_data.json`; `contracts/verification/owners/module.reference_data.json`; `Makefile`; `tools/task_surface.generated.mk`, `task_surface.runtime.generated.mk`, `task_surface.help-all.generated.json`; relevant harness diagnostics/execution/Markdown scripts | Row ownership, command inputs, output/side-effect policy and invocation mechanics. Catalog accounting is not runtime architecture or passing test evidence. |
 
-Skills used as execution guidance: `/mnt/c/Users/jochi/.codex/skills/refactor-tracker/SKILL.md` and its tracker-format reference; `.agents/skills/cartulary-test-ops/SKILL.md` and command recipes. The user's exact table layouts take precedence over the skill's alternative layouts. No external browsing was needed for repository inspection.
+Skills used as execution guidance: `/mnt/c/Users/jochi/.codex/skills/refactor-tracker/SKILL.md` and its tracker-format reference; `.agents/skills/cartulary-test-ops/SKILL.md` and command recipes. Historical table layouts and IDs are retained; current planning additions follow the skill's evidence and readiness requirements. No external browsing was needed for repository inspection.
 
 ## 2. Current-State Repository Inventory
 
 The original inventory below is the E-00 snapshot: all 240 files, with no exclusions. Paths in its first column are relative to `internal/modules/reference_data/`. Current execution additions are recorded in the following delta table; unchanged historical line counts are not current source locations. Other filenames matching an inventory path use the same target root (including `internal/packformat/...`). Other paths beginning `internal/modules/`, `internal/app/`, `internal/platform/`, `internal/testutil/`, `internal/gen/`, `tools/` or `contracts/` are repository relative.
 
+### I6 planning enumeration and inspection depth
+
+The I6 planning universe was every tracked and nonignored untracked entry under the literal target: **259 regular Go files, 105 test files, eight directories**; no symlink, submodule or generated target entry was found. Ignored caches/build/results, vendor content and external trees were outside this universe. The complete historical path-by-path disposition and identity record is `/tmp/reference-i6-docs-iigz5fsh/target-inventory.json`.
+
+There are **15 directly inspected files and 244 metadata-only files** for this bounded planning pass; no enumerated entry is silently omitted. Direct inspection covers the files listed below. Every other current file, including new VERIS implementation, is metadata-only in this session even when historical E-02 recorded an earlier direct read. No whole-module behavioral revalidation is claimed. Required producer movement sources have been inspected; S-28 requires future executable characterization, not another unbounded inventory.
+
+| Path / kind, relative to target | Accounting / responsibility | Callers, dependencies and tests | Contract / owner / risk / evidence |
+| --- | --- | --- | --- |
+| `producer/audit.go`, `candidate.go`, `package.go` | Directly inspected; active proposal audit and adopted packaging paths | Producer CLI, source/candidate tests; pinned source acquisition, canonical JSON and current schema projections | C-18; offline Reference Data producer; high; E-I6-02/03 |
+| `producer/windows_contract.go` | Directly inspected; live Windows contracts use `CompileCandidate` | Windows decode/schema initialization and online producer tests; producer-local schema library | C-18; offline producer; medium; E-I6-04 |
+| `producer/candidate_test.go`, `source_test.go`, `attack_projection_test.go`, `ledger_test.go` | Directly inspected; proposal expectations, source integrity, runtime exclusion and ledger assertions | Embedded producer inputs; exact catalog selectors in §8 | C-18/19; test owner; medium; E-I6-02/05 |
+| `producer/envelope.go` | Directly inspected; fixture/release signing policies and shared envelope primitives | Multiple current content profiles and cross-owner fixtures | C-18; keep; E-I6-04; test-only callers do not imply dead code |
+| `internal/packformat/shape.go`, `content.go`, `attack_native_test.go` | Directly inspected; current schema/content validation and native assertions | Generated current contract projection, canonical content and existing native-profile selector | C-13/18/19; private format owner; high; E-I6-03/05 |
+| `portable_execution.go`, `verification_lifetime.go`, `attack_native_integration_test.go` | Directly inspected; historical lifecycle boundary and authentic canonical-artifact consumption | Existing lifetime owners and actual HTTP/consumer fixture path | C-10/17/18; runtime unchanged; E-I6-01/05 |
+| Every other current path in the retained inventory | Metadata-only; existing responsibility labels remain historical | No new movement or correctness conclusion for these files | Outside the bounded change surface, not excluded from enumeration |
+
+Relative to the 240-file historical table, these 20 paths now exist:
+
+- `contractadmission/content_profile_test.go`
+- `http_admission_integration_test.go`
+- `http_query.go`
+- `http_security_test.go`
+- `internal/packformat/diagnostic_helpers_test.go`
+- `internal/packformat/veris.go`
+- `internal/packformat/veris_test.go`
+- `object_collector_test.go`
+- `portable_cleanup_integration_test.go`
+- `producer/veris_package.go`
+- `producer/veris_projection.go`
+- `producer/veris_source.go`
+- `producer/veris_source_test.go`
+- `refresh_admission_matrix_integration_test.go`
+- `testsupport/veris_fixture.go`
+- `verification_lifetime.go`
+- `verification_lifetime_test.go`
+- `veris_lifecycle_integration_test.go`
+- `workspace_lifetime_integration_test.go`
+- `workspace_recovery_integration_test.go`
+
+Historical `contractadmission/entra_test.go` is absent; its current replacement is `contractadmission/content_profile_test.go`. The 20 additions minus this one historical path account for the 259-file total. These are changes since the historical inventory, not files created by this document session.
+
+Current direct caller expansion includes `tools/reference-packs/main.go`, `source.sh`, `witness.mjs`, the ATT&CK producer input embed and selected immutable JSON inputs, and authored test routing. Text searches identified references; exact file reads established the relevant CLI and Windows execution paths. External consumers of the internal producer CLI/report are not exhaustively known; the chosen clean cutover deliberately offers no proposal compatibility aliases.
+
 ### Execution inventory delta
+
+I6 adds `producer/attack_inputs.go`, `schema.go`, `command.go` and their focused tests, `producer/audit_report_test.go`, and `internal/packformat/attack_source_contract_test.go`; removes `producer/candidate.go` and `candidate_test.go`; and moves tools command composition into the existing offline producer package. The temporary sibling `producercli` package was removed during S-32 boundary qualification. Final inventory and preservation are recorded in §20; the earlier inventory below remains historical.
 
 | Path (repository relative) | Role / boundary | Validation / owner |
 | --- | --- | --- |
@@ -53,7 +110,7 @@ The original inventory below is the E-00 snapshot: all 240 files, with no exclus
 | `internal/platform/httpapi/family_routes.go` | Catalog-derived family routing and owner-supplied policy composition; no Reference Data import. | Shared runtime/catalog/parity checks. |
 | `internal/platform/httpapi/family_routes_test.go` | Registration rejection/atomicity, boundary, method and metadata probes under existing registry selector. | `platform.openapi.unit.runtime_profile_catalog`. |
 
-Historical target inventory after the preceding transport implementation: **243 Go files, 95 test files**, including all 240 original files; no moves or deletions. S-10 added `internal/packformat/diagnostic_helpers_test.go`, making the S-13 inventory **244 Go files, 96 test files**; existing files are retained. S-14–18 adds six module files, making the current inventory **250 Go files, 101 test files**. The new file contains only relocated diagnostic composition helpers and is directly inspected/tested. The two platform additions are outside that target total. The preceding transport iteration changed owner transport/API comments/tests, shared HTTP/auth plumbing/tests, authored contracts/catalog, their Make-generated projections, owner documentation and this tracker. S-09–13 deltas are in §16; current iteration deltas and preservation evidence are in §17. No producer, SQL, stored-format, UI implementation or dependency-lockfile edit is required.
+Historical target inventory after the preceding transport implementation: **243 Go files, 95 test files**, including all 240 original files; no moves or deletions. S-10 added `internal/packformat/diagnostic_helpers_test.go`, making the S-13 inventory **244 Go files, 96 test files**; existing files are retained. S-14–18 adds six module files, making that historical inventory **250 Go files, 101 test files**. The new file contains only relocated diagnostic composition helpers and is directly inspected/tested. The two platform additions are outside that target total. The preceding transport iteration changed owner transport/API comments/tests, shared HTTP/auth plumbing/tests, authored contracts/catalog, their Make-generated projections, owner documentation and this tracker. S-09–13 deltas are in §16; that iteration's deltas and preservation evidence are in §17. It required no producer, SQL, stored-format, UI implementation or dependency-lockfile edit; current planning scope is separately defined in §20.
 
 ### Historical file inventory
 
@@ -318,6 +375,8 @@ Caller/test cells marked `lexical` are conservative identifier/import cross-refe
 
 ## 3. Module Boundary Diagnosis
 
+I6 retains the subsystem boundary. Split the live producer schema utility from proposal-specific execution, consolidate adopted input admission, and retire the obsolete proposal path. The offline producer remains Reference Data-owned; no platform helper package or generic plugin abstraction is warranted. F-26–29 supersede the earlier blanket no-action conclusion only for the named ATT&CK producer seams. VERIS joins the existing source-specific producer responsibilities; its implementation is not refactored here.
+
 The target is a legitimate subsystem containing an application/mutation coordinator, persistence adapters, a transport-adjacent adapter and private format/state implementations. It is more than a thin service facade, but the inspected responsibilities have coherent Reference Pack semantics. Its size alone does not establish an accidental catch-all. No frontend shell, grid vendor implementation, generic workbook row/view-schema implementation or generic projection-refresh coordinator was found in the target.
 
 This is an architectural finding, not a decision to preserve every file forever. Keep/move/split below are planning dispositions. The narrow authorization seam in F-01 is corrected by S-02; the inspection does not justify a mass extraction to `platform`, `runtime` or another domain module.
@@ -339,6 +398,16 @@ This is an architectural finding, not a decision to preserve every file forever.
 | Generic rows, queries, saved views, view schemas, links, timeline, collaboration and grid vendor | Not implemented by the target; limited downstream effects through registry assignments/Jobs/portability | Existing source owners, workbook/projections, collaboration and grid adapter | defer | O-01 scope exclusions; E-05/06/07; C-21 | No direct target-owned implementation found to move. Do not infer ownership from framework examples or similar labels. Reopen only if a later slice traces an actual affected contract. |
 
 ## 4. Public Contract and Behavior Freeze Map
+
+Historical I6 contract delta (all rows retain their original evidence limits; I7 changes only the internal command return type and validation coverage in §21):
+
+| Contract / surface | Observed behavior and evidence | Adopted owner / required behavior | Disposition and prerequisites | Trace |
+| --- | --- | --- | --- | --- |
+| C-18: source audit and producer interface | CLI audit loads proposal index; packaging binds current `native.v2.r2`; Audit emits proposal-era status/fields; E-I6-02/03 | RP-REQ-001/002 and §§1, 17; RP-REQ-149–152 preserve offline separation and exact immutable source provenance; producer interface details are repository-support choices | Authorized producer behavior change: current-only audit inputs and report v2; no change to runtime pack admission or source-profile bytes | F-26/27; S-28/30/31; V-36/38/40 |
+| C-18: live Windows schema compilation and canonical packaging | Windows uses compiler in candidate file; assembly/report hashing and ledger remain live; E-I6-03/04 | RP-REQ-150/151 and deterministic-build requirements: preserve exact policy/profile binding, canonical artifacts, original source and signing distinctions | Preserve; characterize before moving; compare output for identical explicit inputs and builder identity, not distinct binaries | F-28; S-28/29; V-36/37/40 |
+| C-19: expectations and embedded inputs | Candidate test consumes 13 schema-shape cases; producer input embed includes proposal files; E-I6-05 | Machine expectations remain downstream of adopted requirements; product verification must not consume prose or live websites | Migrate useful assertions to current contracts before deleting obsolete selectors/dependencies; retain immutable historical evidence without an active proposal reader | F-29; S-28/31; V-36/39 |
+
+No HTTP, Job, saved-view, consumer result, persisted format, recovery or UI contract change is proposed. No new primary-owner contradiction was found. A stale proposal label in an immutable artifact is not permission to rewrite its bytes; preserve it as provenance.
 
 Preserve owner-aligned behavior; correct the explicitly authorized gaps under §§5–7. Historical observations below describe the pre-remediation baseline. Owner-required behavior and observed implementation are distinguished explicitly; F-01 is not an approved exception. No tests ran during historical S-00. “Existing tests” in that baseline means inspected source; current execution evidence is in §10. Before a slice, add characterization only for the affected uncovered behavior; avoid duplicating broad existing tests.
 
@@ -370,6 +439,17 @@ All nine operations below are bound by `RegisterRoutes` through generated operat
 | C-22: claimed-family authorization ordering and denial side effects | Core 01/04; Reference Data transport and application routing | `http_adapter.go:164,208`; `httpapi.go:185–225`; `operation_catalog.go:126–134`; O-03 REQ-01-480 | Upload-admin test checks a valid import; singleton pagination test uses authorized caller; shared unclaimed-family test | S-01/02: unauthenticated, ordinary authenticated and admin callers × claimed/unclaimed profile × malformed query/path, unsupported method, unknown descendant and normal nine operations. Assert no Job, receipt or pack mutation on denial. | high | Static mismatch: singleton query validation precedes auth; generated method routing/unknown paths can terminate before handler auth. No runtime reproduction run. This is implementation-versus-owner drift, not an owner contradiction. |
 
 ## 5. Coupling and Boundary Findings
+
+I6 findings at baseline, scoped to C-18/C-19 and S-28–32. All four findings are resolved by E-I6-S32; the baseline evidence and remediation rationale remain below:
+
+| Finding | Evidence | Risk / classification | Required action and durable benefit | Slice / validation |
+| --- | --- | --- | --- | --- |
+| F-26: active obsolete ATT&CK proposal execution | E-I6-02/03; CLI `--candidate`, proposal index, loader and validator still execute beside adopted packaging | high / must_fix for the current-only producer acceptance criterion | Remove the alternate proposal route; share current profile/policy admission with packaging so there is one supported producer contract | S-28/30; V-36/38/40; RESOLVED E-I6-S32 |
+| F-27: source audit claims obsolete adoption blockage | E-I6-02; `pack_status`, `native_candidate`, `proposed_lookup_aliases` | medium / must_fix for truthful current audit output | Report v2 describes source-audit outcome and exact profile provenance; it must not imply runtime conformance, deployment trust or distribution approval | S-30/31; V-38/40; RESOLVED E-I6-S32 |
+| F-28: live Windows schema utility lives in candidate implementation | E-I6-04; two Windows schema loops call `CompileCandidate` | medium / should_fix; required before deleting that file | Keep one private producer-local compiler under a current neutral name, preserving its behavior and Windows callers; no compatibility alias | S-29; V-37; RESOLVED E-I6-S32 |
+| F-29: candidate tests/embedded input closure retain obsolete workflow | E-I6-05; 13 cases, source fixtures, broad JSON embed and catalog selector | medium / must_fix for removal without lost assertions | Migrate useful tests, remove proposal-only executable dependencies and update authored routing; retain immutable artifacts needed by historical provenance | S-28/31; V-36/39; RESOLVED E-I6-S32 |
+
+These were active legacy responsibilities at the I6 baseline, not proven unreachable functions. The bounded lexical scan did not establish further dead runtime functions. Keep fixture signing helpers, consumer-result validation, effective-set fallback, retained-state rejection and current producer reissue paths. F-06/F-07's owner separation remains valid; their earlier blanket no-action wording is narrowed by F-26–29. F-12 remains deferred: file count alone still does not justify package subdivision.
 
 The next-iteration findings F-18–20, their remediation/compatibility decisions and final dispositions are recorded in §16. Earlier findings below retain their original scope and evidence.
 
@@ -406,7 +486,19 @@ F-02/03/05–09/11/13 retain their evidence-backed owner boundaries and safeguar
 
 ## 6. Refactor Workstreams
 
-This prerequisite table is authoritative. Each workstream has one implementation slice; no next workstream begins before the prior checkpoint is recorded. Phase A establishes owners/projections, B implements and validates focused behavior, C closes validation and handoff.
+The I6 table below records the completed producer-retirement prerequisite graph. The later historical table describes completed transport work. The current I7 prerequisite graph is in §21. Implementation is sequential; record each checkpoint before its successor. No sub-agent or parallel execution is prescribed.
+
+| Workflow ID / name | Class | Authoritative prerequisites | Goal / likely files | Validation | Handoff checkpoint / binary exit |
+| --- | --- | --- | --- | --- | --- |
+| WF-I6-00: characterization / S-28 | root | Revalidated I6 baseline and later implementation authorization | Current producer/CLI assertions and all 13 candidate-case destinations | V-36 | Complete assertion map and passing focused baseline; no lost behavior silently accepted |
+| WF-I6-01: schema utility / S-29 | chain | WF-I6-00 | `producer/candidate.go`, `windows_contract.go`, private producer schema helper | V-37 | Live Windows compiler callers migrated with unchanged semantics |
+| WF-I6-02: current audit / S-30 | chain | WF-I6-01 | Producer audit/assembly input admission and CLI | V-38 | Proposal CLI/loader/validator removed; current source audit works; checkpoint explicitly records report cleanup remaining |
+| WF-I6-03: reports and inputs / S-31 | chain | WF-I6-02 | Report DTO, assertions, input embed and authored test routing | V-39/40 | Report v2 and complete test migration; no active proposal input/alias remains |
+| WF-I6-04: qualification / S-32 | chain | WF-I6-03 | Final source, generated routing and tracker handoff | V-40/41 | All scoped obligations pass on frozen source, findings dispositioned and preservation evidence recorded |
+
+Every dependency resolves in this table; there are no conditional peers or cycles. Documentation publication is separate from S-28–32 and does not satisfy their implementation gates.
+
+Historical transport workstreams:
 
 | Workstream | Phase | Predecessor | Risk | Binary exit criterion |
 | --- | --- | --- | --- | --- |
@@ -420,6 +512,18 @@ This prerequisite table is authoritative. Each workstream has one implementation
 | S-03 validation/handoff | C | S-07 | Stale/partial evidence presented as completion | Targeted portfolio passes; all findings dispositioned; final handoff and preservation review recorded. CI is not a completion requirement. |
 
 ## 7. Proposed Refactor Slice Plan
+
+Completed I6 slices used §6's dependencies; current I7 slices use §21. Implementation is authorized by the user; entry gates and work status remain distinct.
+
+| Slice / kind | Findings / contracts | Intended change | Entry evidence / readiness | Tests / validation | Rollback / migration | Binary completion / future evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| S-28 / characterization | F-26–29; C-18/19 | Establish current-input, output and ledger evidence; map every candidate case before retirement | DONE; E-I6-S28 and V-36 characterization passed | V-36; §20 assertion map | Test-only rollback; no live-source fetching or schema relaxation | All 13 destinations implemented or explicitly justified as obsolete; focused baseline passes; retain E-I6-S28 |
+| S-29 / structural preservation | F-28; C-18 | Move/rename compiler to a private producer-local helper, migrating Windows and remaining current callers | DONE; E-I6-S29 compiler and Windows assertions passed | V-37 | Revert helper and callers together; no alias, library change or wire migration | No live caller depends on candidate compiler placement/name; Windows row passes; E-I6-S29 |
+| S-30 / producer cutover | F-26/27; C-18 | Cut CLI audit to adopted inputs; share admission with assembly; remove candidate flag, loader, validator and execution-only types | DONE; E-I6-S30 current admission and CLI passed | V-38; current input/strict rejection and CLI execution | Revert producer/CLI/tests together; S-30/31 form one releasable cutover; no input conversion | Current audit path passes; no proposal execution; remaining report-only types removed in S-31; E-I6-S30 |
+| S-31 / report cutover and cleanup | F-27/29; C-18/19 | Emit report v2, remove obsolete report DTO/types, retarget assertions and narrow embedded inputs; regenerate changed routing through Make | DONE; E-I6-S31 report/input cutover passed | V-39/40 | Revert report consumers and producer changes coherently; preserve old retained reports as historical bytes | All report destinations match canonical bytes; no active proposal dependency/selector; immutable evidence unchanged; E-I6-S31 |
+| S-32 / qualification | F-26–29; C-18/19 | Finalize, review, freeze, run scoped portfolio and publish final handoff | DONE; E-I6-S32 final qualification and handoff passed | V-40/41 | No deployment or data reset; repair invalidates affected qualification | Compatible source/commands/native exits/artifacts close each obligation; E-I6-S32 |
+
+The following table is the historical transport implementation plan, retained for traceability:
 
 | Slice | Implementation / interface decision | Validation | Rollback / migration |
 | --- | --- | --- | --- |
@@ -435,6 +539,28 @@ This prerequisite table is authoritative. Each workstream has one implementation
 Current readiness is determined by the predecessor exits, not by historical planning DONE rows. The authorized implementation proceeds without another permission gate. Unknown genuine primary-owner contradictions would block only their affected slice.
 
 ## 8. Validation Plan
+
+The following I6 plan and document-session discovery are historical; completed execution is recorded in §20. I7 supplemental validation is controlled by §21. All commands use repository root `/home/jochi/code/cartulary`. I6 planning discovery found 92 owner rows before the CLI row was added. The authored inventory authority is `tools/test_families/module.reference_data.json`; the dated I7 baseline is recorded once in §21. Counts are routing facts, not passes.
+
+| ID / layer | Findings / slices | Stage / exact public command | Environment / expected evidence | Failure gate |
+| --- | --- | --- | --- | --- |
+| V-36 / characterization | F-26–29; S-28 | Pre-move: `make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c,module.reference_data.unit.framework_attack_independently_validates_canonic_147df00f1f` | Fresh run ID, cache off; machine fixtures/current canonical schemas; baseline assertions and 13-case map | No deletion before current-path coverage is demonstrated |
+| V-37 / compiler preservation | F-28; S-29 | Post-slice: `make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.windows_online_producer_preserves_documented_ide_30fc80a930` | No services/live website; Windows schema and producer assertions | Block compiler removal or semantic drift |
+| V-38 / CLI/current audit | F-26/27; S-30 | Post-slice: ATT&CK producer row from V-36, extended with real current entry-path cases; `make reference-pack-producer-build` | Retained source or explicitly synthetic unit inputs; production rejects unbound sources; later tests must cover actual CLI dispatch/report destination rather than only isolated helpers | Wrong profile, proposal input, altered digest, malformed source or command dispatch must not yield success |
+| V-39 / test/input accounting | F-29; S-31 | Post-slice: `make generate` for authored selector/input changes, then `make source-check CHECK=generated` and `make source-check CHECK=schema` | Authored test-family inputs first; generated outputs only through Make; source/caller review confirms no stale proposal execution | Missing selector or active proposal dependency blocks completion |
+| V-40 / final behavior | F-26–29; S-31/32 | Final regression: exact five-row selection recorded in §20 after `make agent-finalize`, diff inspection and source freeze | Cache off; authentic lifecycle row needs PostgreSQL/object store; report/output parity cases stay in the producer row | Historical fixture import alone cannot prove new audit/assembly behavior; new pipeline assertions are required |
+| V-41 / boundaries and docs | F-26–29; S-32 | Final regression: `make lint CHECK=backend-boundary`, generated/schema checks above, `make lint-markdown`, `git diff --check` | Current source, exact retained roots/native exits; no added runtime producer dependency | Do not close findings on stale or failed evidence |
+| V-I6-DOC / document update | Tracker only | Planning-session check: `make lint-markdown` with the environment recorded in §20; `git diff --check`; baseline/index comparison | Installed-only prerequisites; external temporary results/static cache; fix disabled | Documentation task incomplete if lint or tracker-only preservation fails |
+
+The historical I6 plan called for current-input binding, current native schema rejection, deterministic audit/report output and identical-input assembly-output checks. Its completed implementation rejects `--candidate` without a compatibility alias and retains acquisition/ledger and runtime-exclusion assertions. Review found that native rejection and failed-report delivery needed stronger isolated witnesses; I7 adds those under the existing rows. Product tests use canonical artifacts and machine expectations, never specification prose or live websites. No I7 routing expansion is planned.
+
+| Historical I6 document-session invocation / side-effect evidence | Admission and result at that time | Evidence limits |
+| --- | --- | --- |
+| `make task-guide OWNER=module.reference_data DETAIL=rows JSON=1`; generated Make recipe and read-only diagnostic wrapper inspected | Plan-mode discovery passed, native exit 0; E-I6-05. Retained current catalog facts supply exact IDs above. | Selection only; no product pass. |
+| `make lint-markdown`; Make prerequisites, installed-readiness probe, step wrapper, static cache and runner inspected | Admitted with `CARTULARY_PREPARATION_POLICY=installed_only`, external results/static cache, network-disabled Corepack; result recorded in §20 | `fix:false`; readiness checks must fail instead of installing. |
+| Format, generation, agent-finalize, producer build/source/package and product suites | Not run in this document session | Future obligations only; no implementation, acquisition, release evidence, service mutation or dependency change is authorized here. |
+
+Historical validation plans and accounting follow. Their references to 84 rows, unrun checks or later passing runs belong to those earlier sessions and are superseded for current selection by this section.
 
 The following original selection is historical discovery, not passing evidence. Current execution is authorized; earlier write-boundary skip reasons no longer apply. S-03 uses the targeted portfolio below after `make agent-finalize`. The user explicitly removed CI from the requirements and directed cancellation of its in-flight invocation; neither CI nor `make check` is required. V-09 is `make openapi-compatibility-check`. V-07 owners are `platform.httpruntime`, `platform.openapi`, `app.server` and the existing shared-auth row owner.
 
@@ -473,7 +599,18 @@ Additional-source command discovery inspected `tools/harness/diagnostics/owner-d
 
 ## 9. Top-Level Work Tracker
 
-Historical T-001–009 completed initial planning; T-010/011/013/014 are superseded by this authorized execution chain. T-012 remains F-12's intentional deferral.
+Completed I6 work is recorded below; current I7 work and status are in §21:
+
+| ID | Work item / workflow | Status | Dependencies / trace | Exit condition |
+| --- | --- | --- | --- | --- |
+| T-028 | I6 document planning/update | DONE | I6-00; E-I6-01–06; F-26–29; I6-02 | Current tracker reconciled, Markdown passed and tracker-only write boundary verified; final transcription check recorded below |
+| T-029 | S-28 / WF-I6-00 | DONE | User implementation authorization; V-36 | Complete current-contract characterization and assertion map |
+| T-030 | S-29 / WF-I6-01 | DONE | RB-004; V-37; prerequisites in §6 | Compiler moved with live Windows behavior preserved |
+| T-031 | S-30 / WF-I6-02 | DONE | RB-004; V-38; prerequisites in §6 | Proposal execution retired; current audit entry path validated |
+| T-032 | S-31 / WF-I6-03 | DONE | RB-004; V-39/40; prerequisites in §6 | Report v2 and test/input cleanup complete |
+| T-033 | S-32 / WF-I6-04 | DONE | Earlier slice completion; V-40/41 | Frozen-source qualification and final handoff |
+
+Historical T-001–009 completed initial planning; T-010/011/013/014 were superseded by the historical execution chain below. T-012 remains F-12's intentional deferral. None of its DONE statuses completes S-28–32.
 
 | ID | Workstream | Status | Evidence / remaining gate |
 | --- | --- | --- | --- |
@@ -493,9 +630,11 @@ Historical T-001–009 completed initial planning; T-010/011/013/014 are superse
 
 ## 10. Session Handoff Log
 
-Session: `reference-data-planning-2026-11-07`, Codex. Date uses the supplied America/New_York session context. No prior tracker existed. “Inspected” and “touched” are separated; the only touched repository file is this tracker.
+Historical document session: `reference-i6-docs`, 2026-11-07 in the supplied America/New_York context. I6-00 was the clean `a8f2fe2d…` baseline. That session admitted only tracker writes; §20 records the subsequent implementation handoff and §21 records current I7 execution. The tables below preserve the original `reference-data-planning-2026-11-07` session, when no tracker existed, and its later execution history.
 
 ### Scope and authority
+
+I6 handoff — S-28–32 implementation authorized; Reference Pack 0.4.0/major 3 remains governing. I6-03 onward records execution; the rows below preserve earlier planning history.
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -504,11 +643,15 @@ Session: `reference-data-planning-2026-11-07`, Codex. Date uses the supplied Ame
 
 ### Backend module boundary
 
+I6 handoff — Current-only offline producer consolidation is implemented; runtime boundaries and Windows utility behavior are preserved. Final boundary qualification is recorded in §20.
+
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-11-07 | Codex / reference-data-planning | Legitimate owner with private format/state, SQL/transport adapters, opaque storage and application composition | Inspected all target files; E-03–06 exact caller portions; touched tracker only | Read-only source opens, symbol/import extraction and targeted caller searches | Keep current broad boundary; F-01 auth seam requires follow-up; F-04 integrity side effect documented | RB-001/002/003 for implementation | Execute S-01 only in a later test-authorized task; preserve C-11–17/21. |
 
 ### Frontend module boundary
+
+I6 handoff — Not applicable to I6: no presentation, transport or selector change; no UI inspection or browser validation required.
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -516,11 +659,15 @@ Session: `reference-data-planning-2026-11-07`, Codex. Date uses the supplied Ame
 
 ### Contract and codegen
 
+I6 handoff — S-30/31 introduce current admission and report v2. Immutable profiles/policies and runtime contracts are preserved; authored routing projections are regenerated through Make.
+
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-11-07 | Codex / reference-data-planning | Nine HTTP operations and current canonical identities mapped | Inspected E-08, target public DTO/format/contractadmission sources and owner passages; touched tracker only | JSON/source reads of generated policy/topology and OpenAPI operation objects | Generated roots/files protected; current major-3/v2 adoption distinct from code observations | None for planning; drift checks not run | Preserve outputs. If authored contracts change later, discover producer Make target and regenerate; never hand-edit OpenAPI or generated Go/TS. |
 
 ### Tests and harness
+
+I6 handoff — Candidate assertions have current destinations and focused tests pass. Final-source tests, checks and offline qualification are recorded in §20; earlier counts remain historical.
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -528,17 +675,34 @@ Session: `reference-data-planning-2026-11-07`, Codex. Date uses the supplied Ame
 
 ### Security and authorization
 
+I6 handoff — No runtime authorization change. Preserve offline acquisition boundary, pinned bytes, strict input validation and fixture/deployment trust separation; C-18.
+
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-11-07 | Codex / reference-data-planning | Static family-order mismatch identified; valid-operation checks and common Jobs auth already present | Inspected HTTP adapter/request code, exact shared mux/dispatcher, HTTP auth, upload/pagination/Jobs tests and Core 01 §17.4; touched tracker only | Targeted searches then exact source reads | F-01 is implementation drift, not owner contradiction; no exploit or runtime test performed | RB-001/002/003 | Confirm matrix without changing requirements; authorize narrow error-order correction separately. |
 
 ### Open risks and next session
 
+I6 handoff — RB-004 and F-26–29 are resolved. S-28–32, final qualification and handoff are complete; see E-I6-S32.
+
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-11-07 | Codex / reference-data-planning | File-level planning complete; no production refactor warranted beyond separately scoped auth correction | Inspected inventory/contract/workflow/slice/row maps; touched tracker only | Read-only Markdown structure/path-set/dependency/scope review; final Git/index/content comparison | S-00 complete; S-01/02 not execution-ready; canonical lint explicitly skipped | RB-001–003; V-00 scope exception | Start from F-01/C-22 and S-01; revalidate live identity, resolve gate placement, select exact rows. No rediscovery of the full target needed unless baseline changed. |
 
 Read-only exploratory commands included unsuccessful searches of guessed Core/route-file paths and a nonexistent Make subdirectory, followed by discovery of the actual files. Broad output and two metadata dumps were truncated; smaller exact-file reads/compact metadata extraction replaced them before relying on their contents. These were inspection issues, not failed validation runs. No files were restored or reverted to hide command outputs.
+
+### I6 evidence register
+
+E-I6-01–06 are pre-implementation inspection snapshots. E-I6-S28–32 and the implementation checkpoints below supersede their current-execution observations.
+
+| Evidence ID | Source / exact inspected surface | Baseline / observation | Applicability |
+| --- | --- | --- | --- |
+| E-I6-01 | Git baseline; tracker/framework; root/backend/tooling instructions; Reference Pack §§1, 17, VERIS adoption and domain owner navigation | `a8f2fe2d…`, 2026-11-07; immutable baseline under `/tmp/reference-i6-docs-iigz5fsh` | Current scope/admission; broad historical claims remain historical |
+| E-I6-02 | `producer/audit.go`, `candidate.go`, `candidate_test.go`; `tools/reference-packs/main.go` audit dispatch | Proposal index/loader/validator and stale report members execute today; no runtime dead-function claim | F-26/27; removal needs future current-path assertions |
+| E-I6-03 | `producer/package.go`; ATT&CK `source-profile.native.v2.r2.json`, native/candidate policies, candidate index; `internal/packformat/shape.go`, `content.go` | Packaging checks frozen profile/lock/policy/schema digests; native and candidate policy maps differ only in `candidate_id`/`status` | Preserve exact frozen bytes; share current admission without editing identities |
+| E-I6-04 | `producer/windows_contract.go`, `envelope.go`; compiler caller search | Windows schema initialization is a live compiler consumer; signing helpers have active fixture callers | F-28; retain useful code rather than deleting by filename/test-only use |
+| E-I6-05 | `source_test.go`, `attack_projection_test.go`, `ledger_test.go`, current native/ATT&CK lifecycle tests; embedded inputs; `tools/test_families/module.reference_data.json`; Make task-guide | 13 proposal schema cases, broad embed, exact current row selectors; task-guide exit 0; no tests run | F-29; existing lifecycle test imports canonical fixtures, so it cannot alone qualify new source audit/assembly |
+| E-I6-06 | Make/Markdown invocation chain, protected-output policy and topology; final tracker diff and baseline comparison | Planned documentation check only; results/checkpoint in §20 | Proves document validity and bounded writes, never product readiness |
 
 ### Execution checkpoint log
 
@@ -601,6 +765,14 @@ The shared router accepts a complete generated owner family and owner-supplied p
 
 ## 11. Open Questions and Blockers
 
+I6 scope decisions and the original characterization gate are resolved. I7 has no unresolved authority/design question; its supplemental validation obligations are in §21:
+
+| ID | Question or blocker | Affected scope | Needed evidence | Status / resolution |
+| --- | --- | --- | --- | --- |
+| RB-004 | Missing current-path pre-move characterization, including replacement of candidate-only assertions and CLI/report/assembly coverage | S-29–31; C-18/19; F-26–29 | Passing S-28 assertion destinations and focused baseline under V-36; later slices follow §6 | RESOLVED; E-I6-S28 demonstrates all replacement assertions before removal; E-I6-S30/31 cover current admission and reports |
+
+Historical blockers below remain closed for their original scopes; RB-001 is not authorization for I6 production work.
+
 | ID | Current disposition | Resolution / remaining condition |
 | --- | --- | --- |
 | RB-001 | DONE | User explicitly authorized implementation of the proposed plan. |
@@ -609,17 +781,20 @@ The shared router accepts a complete generated owner family and owner-supplied p
 
 ## 12. Binary Completion Criteria
 
-| Outcome | Current statement |
+The table below preserves I6 acceptance. Current supplemental completion requires V-42–45 / S-36 in §21; the I6 validation row does not close those gates.
+
+| Outcome | I6 statement at completion |
 | --- | --- |
-| Planning completeness | Prior iterations and bounded F-21/F-22 remediation in §17 complete; no exhaustive subsystem correctness or dead-code audit claimed. |
-| Implementation authorization | Granted for prior iterations and explicitly for S-14–18 by the user's instruction to implement this plan. |
-| Per-slice completion | Original S-04/S-08/S-01/S-02/S-05/S-06/S-07/S-03, post-review R-01–04, precedence P-01–03 and qualification Q-01–02 complete. S-09–13 remain historically complete (§16); S-14–18 are complete with the current qualification and handoff in §17. |
-| Final validation | Twenty-one selected product rows (16 Reference Data, 1 Extensions, 1 server, 3 operator) pass freshly with cache disabled on `sha256:5b40ffb972a84635f529b4d55d5734decf11afe1d1e399d4f843e64647819948`. Finalization, generated/schema, backend-boundary, Markdown and whitespace checks pass; §17 records exact evidence. Earlier HTTP/security evidence remains historical; no complete-owner/full-suite/release acceptance claim. |
-| Preservation review | I3-00 retains all prior user work. This iteration changes 54 existing paths and adds 11 files, with no deletions. New runtime work is scoped to owner cleanup, application lifetime/maintenance composition and the narrow Extensions reuse helper; related test callers, catalog, boundary policy and documentation follow. Staged content is unchanged; frozen source matches final evidence. No database, pack-format, public API, dependency-lockfile, UI or source-producer migration. |
+| Planning completeness | Complete for the bounded producer-retirement design in §20; no exhaustive module correctness/dead-code audit or production-readiness certification. Inventory accounts for every current path at its declared depth. |
+| Per-slice readiness | S-28–32 DONE; E-I6-S28–32 records all gates. Every workstream was checkpointed before its successor. |
+| Implementation authorization | User approved the remediation plan and requested implementation, including isolated retained-source qualification. |
+| Current validation | Five final selected rows, generated/schema/boundary checks, reproducible build, v20.0/v20.1 offline audit/assembly/replay, preservation and Markdown checks pass; exact evidence in §20. |
+| Session write-boundary verification | I6-02 verifies the historical document-only session. I6-03 establishes the separate implementation baseline; final source, immutable evidence and index preservation are checked in S-32. |
+| Historical completion | Original transport work and S-09–27 remain historical completions; §19 is the latest scoped fatal-finalization closure. Its 15-row portfolio and earlier 21-row §17 portfolio retain original source applicability only. |
 
-F-21/F-22 reopened the S-13 qualification and are now closed by S-18 in §17. S-13 remains baseline evidence; only the final current-source portfolio closes these findings.
+I6 planning acceptance: target/output admitted; inventory depth explicit; F-26–29 trace through C-18/19, S-28–32, V-36–41 and E-I6-01–06; workflow prerequisites resolve without cycles; every slice has entry/exit/rollback criteria; behavior changes are separate from compiler movement; immutable source artifacts remain unchanged; current and historical evidence are distinguished; documentation validation and tracker-only preservation pass. I6 implementation acceptance was S-32's separate gate. No deployment, data conversion, UI, timed publication, CI/full-owner or release claim was part of that document task.
 
-Completion requires every required remediation DONE with exact compatible evidence; no unaccounted selectors, generated drift or required failing checks; historical blockers resolved/superseded; intentional no-action/deferral decisions explicit; final source, commands, run roots, compatibility notes and handoff recorded. No data migration, deployment, visual-golden change or timed-publication claim is part of completion.
+The previous §12 current-state summary described S-18 rather than the later §19 completion. Its historical results remain in §§17–19; this replacement makes the current planning posture unambiguous without revoking those results.
 
 ## 13. Post-review remediation and handoff
 
@@ -1176,3 +1351,273 @@ Deployment requires no reset or data conversion. Cooperative portable cancellati
 Finalizer canonical-evidence and scheduler-drift maintenance were skipped with `results-dir-not-provided` because no compatible full warm-check root was supplied. No full run was created for those optional maintenance paths. Current-source targeted rows, native exits, cleanup and scans were inspected directly. No new failure occurred during this iteration; earlier retained failures and their diagnoses remain intact. CI, full-owner suites, UI/browser expansion and release certification were not run. The documentation validation and final S-27 handoff checkpoint follow.
 
 I5-06 / S-27 validation and handoff COMPLETE: V-33–35 pass on the frozen final source above, with the affected portable/recovery/process regressions passing as well. `CARTULARY_TEST_RUN_ID=reference-i5-s27-handoff make lint-markdown` passed (session 30298, native outer exit 0), with a passing `adhoc/lint-markdown/tool-run-summary.json`. `git diff --check` and `git diff --cached --exit-code` passed; the frozen-input comparison found no source drift. F-21/F-24/F-25 are resolved; F-22/F-23 remain closed. S-24–27 are DONE and no scoped blocker remains. The completion transcription receives the final documentation-only check `CARTULARY_TEST_RUN_ID=reference-i5-s27-handoff-final make lint-markdown`; no implementation source changes follow the freeze. No CI restart or full-owner suite was performed or required.
+
+## 20. Current producer consolidation and proposal retirement
+
+### I6 design decisions and authority
+
+The selected next iteration removes the active ATT&CK proposal workflow and simplifies current producer execution. It does not manufacture another runtime refactor after the completed helper/lifecycle removals. F-26–29 are evidenced legacy responsibilities; no additional dead runtime function was proven. S-28–32 execute under the single prerequisite graph in §6; completion evidence follows.
+
+Reference Pack 0.4.0/major 3 is adopted/current. RP-REQ-001/002 allocate source/pack behavior and imported outer interfaces; RP-REQ-149–152 require offline source interpretation, immutable source-profile provenance, and current runtime admission independent of source parsers. The current native ATT&CK profile and Core 00's current-only cutover support the chosen producer simplification without an amendment to runtime requirements. The producer CLI/report cutover is explicitly authorized; obsolete compatibility paths are removed. VERIS adoption RP-REQ-270–274 is reflected in inventory/authority only.
+
+| Decision | Concrete implementation / acceptance condition |
+| --- | --- |
+| Current producer input | CLI audit selects the retained `source-profile.native.v2.r2.json` and its exact native field policy; remove `--candidate` entirely. Validate admitted lock, profile ID/status, exact policy digest and current schema digest bindings with the same owner-local admission used by assembly. No fallback to proposal inputs, prose, a live website or a newer profile. |
+| One audit path | Replace proposal-index loading and native-candidate validation with current schema validation and existing source semantic auditing. Preserve strict source bytes, duplicate/collision/reference/lifecycle handling, deterministic ordering, cancellation and source-retention boundaries. Current native schemas come from the existing typed contract projection; do not copy another schema set into producer code. |
+| Compiler boundary | Retain the current compiler's behavior in a private producer-local helper with a neutral name. Migrate Windows and current producer callers; remove the exported candidate name without an alias. Do not turn this into a generic cross-module JSON Schema service. |
+| Report v2 | Emit `cartulary.attack_source_audit.v2`. Preserve source-audit pass/fail meaning and remaining factual fields; add `source_profile_id` and `source_profile_sha256`; replace `proposed_lookup_aliases` with `lookup_aliases`; remove `pack_status` and `native_candidate`. No v1 writer/reader adapter or synthetic adoption-success status. Audit success is source evidence, not runtime conformance, production trust or distribution approval. |
+| Report retention / destination | Continue content-addressed audit retention. When `--report-file` is supplied, write exactly the canonical bytes retained for that audit, including attributable failed-audit reports; no successful report when admission fails before a report exists. Preserve nonzero failure exit and existing independent witness dispatch for other producers; do not add a new release claim or witness system. |
+| Immutable provenance | Leave source profiles, native policy bytes and their IDs/digests unchanged, including historical `candidate_id` spelling and prose inside the pinned policy/profile JSON. They are immutable provenance, not compatibility aliases. Do not regenerate retained packs, signed envelopes, ledgers or historical reports. New report hashes may differ; for identical explicit builder and pack inputs, manifest/payload/notice bytes and publication identity must not. |
+| Test/input closure | Replace broad ATT&CK producer input embedding with the explicit set still consumed by current producer/tests. Remove proposal index/schema dependencies from current tests. Keep immutable historical artifacts at their existing paths when referenced by retained provenance; their presence is not an active reader. Preserve current acquisition schema, useful source fixtures, current/frozen profiles and source-lock bytes as needed by their actual consumers. |
+| Coherent cutover | S-30 removes execution-only candidate types; report-only DTO types remain only until S-31 removes their last use. S-30/31 are one releasable change and must not be independently deployed. This avoids uncompilable intermediate slices without creating a supported legacy mode. Roll back producer, CLI, report consumers, tests and routing together. |
+
+The generic fixture signing functions and the current Base reissue path materially support current artifacts and stay. Historical v1 rejection fixtures, live runtime fallback, retained-state validation, portable lifetime/finalization and cleanup safeguards remain. The names `v1`, `candidate` or `legacy` alone are insufficient deletion evidence.
+
+### Gap remediation accounting
+
+| Gap / areas | Remediation and rationale | Long-term benefit | Compatibility / migration | Risk if unresolved | Completion criteria |
+| --- | --- | --- | --- | --- | --- |
+| F-26 — implementation, tests, documentation; existing adopted specification suffices | Share exact frozen profile, lock, policy and compiled-schema admission across audit and assembly; remove proposal flag, loader and validator. One source contract eliminates divergent authority. | Smaller supported surface, consistent fail-closed admission, one owner-local extension point for a future deliberately versioned profile. | Remove `--candidate`; callers supply current pinned inputs. No compatibility alias, runtime or data migration. | Proposal validation could diverge from current packaging and accept unsupported provenance. | V-36/38/40: all rejected input variants fail without publication; both retained releases audit/assemble; old execution symbols and dependencies absent. |
+| F-27 — implementation, tests, documentation; producer report is a support contract | Introduce report v2 with exact profile provenance and truthful audit status; retain and deliver one canonical serialization, including failed partial audits. | Reports are deterministic, attributable and independent of adoption/trust claims. | Report readers select v2, rename `proposed_lookup_aliases` to `lookup_aliases`, consume profile ID/hash and drop `pack_status` / `native_candidate`. Old reports remain historical; no dual writer. | Misleading adoption blockage and incompatible report destinations undermine diagnosis and downstream automation. | V-38/40: exact success/failure delivery bytes, nonzero failure, no fabricated pre-admission report, repeatable partial reports and real audit-to-build linkage. |
+| F-28 — implementation and tests | Move the unchanged schema compiler into private producer-local `schema.go`; preserve strict decode, format checking and disabled external loaders. | Windows remains independent of retired proposal machinery without creating a shared platform abstraction. | Internal symbol rename only; no exported alias or Windows schema change. | Deleting the candidate file could break live Windows validation or preserve unnecessary coupling indefinitely. | V-37: Windows row and malformed/duplicate/schema/remote/file/date-time compiler assertions pass. |
+| F-29 — tests, authored routing/generated projection, documentation and embedded inputs | Migrate all 13 useful assertions, retain current source/ledger tests, explicitly embed consumed inputs and remove obsolete selectors. Preserve original historical files. | Verification follows adopted contracts; build dependencies expose only active inputs while provenance remains recoverable. | No fixture reissue, historical digest rewrite or product schema migration. New CLI row exercises the actual command/delivery boundary. | Lost assertions conceal regressions; broad embedding carries proposal dependencies forward and obscures what production consumes. | V-36/39/41: assertion map complete, source checks and boundary lint pass, no active proposal reader, immutable artifacts unchanged. |
+
+### Candidate assertion destinations
+
+This is the S-28 assertion mapping. All entries now execute against current contracts; E-I6-S28 records the pre-removal pass. Retarget synthetic values to current schema IDs/shapes without weakening their semantic assertions. Preserve existing current-schema assertions when they already cover a case; do not keep a parallel proposal validator solely to run its old test.
+
+| Existing case | Current destination / obligation |
+| --- | --- |
+| `native_optional_ids_original_urls_and_independent_flags` | Current native-source validation/projection: optional presence, unchanged original URLs and independent lifecycle flags |
+| `closed_citation` | Current native-source schema rejects unknown citation members |
+| `lifecycle_boolean` | Current native-source schema rejects wrongly typed lifecycle flags |
+| `typed_component_reference` | Current native-source schema rejects wrongly typed component references |
+| `object_native_and_canonical_projection` | Current object wrapper accepts matching native source and canonical projection |
+| `native_source_required` | Current object wrapper rejects absent source |
+| `extensions_closed` | Current object/relationship contract retains closed extensions |
+| `sro_citations_and_upstream_identity` | Current relationship wrapper preserves original SRO identity and citations |
+| `sro_original_required` | Current direct-SRO relationship rejects absent original source |
+| `embedded_has_no_fabricated_sro` | Current embedded relationship accepts explicit null source with real source locators |
+| `embedded_cannot_claim_sro` | Current embedded relationship rejects invented SRO source |
+| `retained_acquisition_inventory_shape` | Live acquisition reader/current acquisition schema accepts exact inventory shape |
+| `acquisition_requires_tag_reference` | Live acquisition reader/current acquisition schema rejects missing pinned tag evidence |
+
+Also retain the independent SHA-256 `abc` witness, source-audit determinism, alias-collision accounting, source retention/replay, wrong-property/type and missing-endpoint rejection, runtime producer exclusion, publication-ledger concurrency/collision/sequence/tamper assertions, and compiler-failure rejection. Move the malformed-schema compiler case into the private current-schema helper tests rather than preserving proposal-only types.
+
+New current-path cases must exercise exact profile/policy/schema binding, rejection of proposal or unbound inputs, CLI `--candidate` rejection, identical retained/report-file bytes on success and attributable failure, and current audit-to-assembly output preservation. Synthetic unit inputs may exercise private admission/semantic seams; the production entry point must never accept synthetic unpinned sources merely to simplify tests. Product tests consume retained canonical/machine fixtures, never live upstream data or Cartulary prose. S-32 qualifies named and byte-validated retained sources offline; no upstream acquisition is included.
+
+### Exact qualification portfolio
+
+These five exact rows define the final portfolio, including the relocated CLI selector. Focused checkpoints run first. After implementation, run `make agent-finalize`, inspect every resulting delta and freeze source before this final portfolio:
+
+```sh
+CARTULARY_TEST_RUN_ID=reference-i6-s32-final-fixed CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c,module.reference_data.unit.framework_attack_independently_validates_canonic_147df00f1f,module.reference_data.unit.windows_online_producer_preserves_documented_ide_30fc80a930,module.reference_data.integration.attack_producer_artifacts_preserve_independent_a_67e9ef139a,module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a
+```
+
+The unit rows need installed pinned tools; the lifecycle row needs harness-managed PostgreSQL and object store. Fresh final run IDs must not reuse an existing retained root. Extend the ATT&CK producer selector with new current-path cases and remove `TestATTACKNativeCandidate` only after its assertions are accounted for. Canonical-artifact lifecycle success cannot substitute for exercising the changed audit/assembly entry path. No producer source acquisition, fixture regeneration, full-owner/CI, browser, visual or release suite is required merely to close this bounded iteration.
+
+Generated/schema checks and backend-boundary lint accompany the final portfolio where specified in §8. If source changes after qualification, diagnose and rerun the affected obligations on compatible source rather than combining stale passes. Retain native exits, exact selections, run roots, cleanup/secret-scan outcomes and any failed-run diagnoses. Optional finalizer maintenance without a compatible full warm-check root remains explicitly skipped; do not manufacture a broad run solely for maintenance.
+
+### I6 document-session checkpoints
+
+I6-00 / E-I6-01: clean baseline captured before mutation. `/tmp/reference-i6-docs-iigz5fsh/baseline.json` records 8,936 tracked/nonignored file identities/content hashes plus index identity/hash; `tracker-before.md` retains the original tracker; `target-inventory.json` accounts for all 259 target paths; `ignored-baseline.json` covers relevant ignored prerequisite/cache locations. Current tracker identity/content rechecked immediately before this update. No production refactor, test/catalog change, dependency installation, source acquisition or fixture mutation was performed.
+
+I6-01 / T-028: controlling §§1–12 reconciled; prior permissions/results marked historical; F-26–29, S-28–32, V-36–41, RB-004 and the exact assertion map added. All historical IDs/results remain traceable. The selected clean producer cutover preserves frozen input bytes and separates live utility movement from changed CLI/report behavior. Documentation validation and final preservation comparison are the remaining current-session gates.
+
+The admitted documentation command uses existing pinned tools, installed-only prerequisite verification, network-disabled Corepack, external result/cache directories and Markdown `fix:false`:
+
+```sh
+CARTULARY_PREPARATION_POLICY=installed_only COREPACK_ENABLE_NETWORK=0 CARTULARY_TEST_RESULTS_DIR=/tmp/reference-i6-docs-iigz5fsh/results CARTULARY_STATIC_ANALYSIS_CACHE_DIR=/tmp/reference-i6-docs-iigz5fsh/static-cache CARTULARY_TEST_RUN_ID=reference-i6-docs make lint-markdown
+```
+
+This is the only managed validation kind used for this document session. `git diff --check` and the content/index/identity comparisons complete preservation review. Format, generation, agent-finalize, product suites, producer builds and source/package commands are intentionally skipped because this is documentation-only work. No expected or historical product check is treated as a current pass.
+
+
+I6-02 / T-028 document update COMPLETE: the exact documentation command above passed with native outer exit 0 (session 49853). Its retained summary is `/tmp/reference-i6-docs-iigz5fsh/results/reference-i6-docs/adhoc/lint-markdown/tool-run-summary.json`; it reports pass, zero failures and a 24,120 ms tool duration. `git diff --check` passed. `/tmp/reference-i6-docs-iigz5fsh/preservation-checkpoint.json` confirms that only this tracker changed among all 8,936 baseline inputs; HEAD/index content and identity are unchanged, with no changes in the inspected ignored prerequisite/cache locations. No production refactor or product verification ran. Planning is complete for this bounded iteration; S-28 remains ready for a later authorized implementation task, S-29–31 remain blocked by RB-004/prerequisites, and S-32 awaits their completion.
+
+Completion transcription is checked once more with the same command/environment and fresh run ID `reference-i6-docs-final`; its summary path is `/tmp/reference-i6-docs-iigz5fsh/results/reference-i6-docs-final/adhoc/lint-markdown/tool-run-summary.json`. That check and the final source/index/identity comparison are recorded in `/tmp/reference-i6-docs-iigz5fsh/final-checks.json` and `preservation-final.json`; this sentence specifies the artifact locations and does not preclaim the check's result. No repository edit follows the final successful check. Relevant ignored locations are covered by the named snapshot; no claim is made to hash every unrelated ignored historical run or dependency tree.
+
+
+### I6 implementation checkpoints
+
+I6-03 / S-28 IN_PROGRESS: implementation authorized on 2026-11-07. Baseline remains `main` at `a8f2fe2d84eecf88ced265b34327e0a8c7d4c8df`; only this tracker was dirty. `/tmp/reference-i6-exec-4688lrew/baseline.json` records content/identity for 8,936 tracked/nonignored entries, `tracker-before.md` preserves the prior tracker, `index-before` preserves index bytes, and `immutable-baseline.json` fingerprints 153 retained source, metadata, input and historical ledger files. Root/backend/tooling instructions and current source were revalidated. `make task-guide OWNER=module.reference_data` and `make help ALL=1` passed. No owner amendment is needed: RP-REQ-149–152 and the adopted native contracts support the current-only path.
+
+The approved plan extends V-40 with mandatory offline v20.0/v20.1 audit and assembly qualification using existing retained sources, isolated copied source roots, isolated outputs and fresh fixture-only ledgers. Never execute historical assembly input files unchanged: they address tracked fixtures and the historical ledger. No source acquisition, signing, fixture reissue, runtime migration or deployment is included. CLI tests receive an authored owner row. Exact profile bytes are bound in shared admission; synthetic unpinned sources are confined to private test seams. S-30 and S-31 form one releasable cutover. Report/builder identity changes are accounted separately from canonical payload/notice preservation.
+
+I6-04 / S-28 COMPLETE (E-I6-S28): all 13 replacement assertions now execute against current owner schemas/semantics or the live acquisition reader. Eleven are under `TestNativeATTACKProjectionAndLocalReferences_Unit/current_source_contracts`; two are under `TestATTACKSourceRetentionBoundaries/retained_acquisition_inventory_shape`. Original source/ledger tests remain active. Exact retained canonical fixture bytes and their explicit builder/manifest inputs are frozen by the baseline; later qualification compares payload/notices independently of the new executable identity. The old ATT&CK handoff now identifies its proposal-era opening as historical.
+
+`CARTULARY_TEST_RUN_ID=reference-i6-s28-characterization-final CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c,module.reference_data.unit.framework_attack_independently_validates_canonic_147df00f1f` passed with native outer exit 0 (session 38441), two rows passed and retained-secret scan passed. Run root: `.cartulary/test-results/reference-i6-s28-characterization-final`; summary `run-summary.json`. Earlier roots `reference-i6-s28-characterization` and `reference-i6-s28-characterization-fixed` failed with product/test_assertion_failure, outer exit 2, because new synthetic witnesses used float64 instead of the runtime decoder's json.Number and an embedded predicate in a direct SRO. Both test-only defects were corrected; no production schema was weakened. Cleanup reported no failures. `reference-i6-s28-format` passed. RB-004's pre-move assertion gate is satisfied; current CLI/admission/report cases remain obligations of S-30/31. S-29 begins only after this checkpoint.
+
+I6-05 / S-29 COMPLETE (E-I6-S29): the compiler is now `compileProducerSchema` in producer-local `schema.go`; both Windows schema loops and temporary candidate callers use it. Strict JSON, Draft 2020, format assertion and empty external loader behavior are unchanged. New helper assertions reject malformed/duplicate JSON, invalid schemas, HTTPS/file references and bad date-time values; the independent SHA-256 witness now has a current home. `CARTULARY_TEST_RUN_ID=reference-i6-s29-compiler CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.windows_online_producer_preserves_documented_ide_30fc80a930,module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c` passed with native outer exit 0 (session 4417), run root `.cartulary/test-results/reference-i6-s29-compiler`, two passing rows and retained-secret scan pass. F-28 is resolved subject to final-source regression. S-30 begins after this checkpoint; report DTO cleanup remains assigned to S-31.
+
+I6-06 / S-30 COMPLETE (E-I6-S30): public audit and assembly share `admitATTACKInputs`, binding exact frozen profile bytes, admitted lock, current policy and compiled native schemas. Public entry points reject synthetic/unbound sources; the private semantic seam is used only by tests. Native records use owner-local `packformat.ValidateATTACKNativeSource`; no new schema set, runtime producer import or general schema service was added. Cancellation is observed at audit entry and within the source-record loop. Proposal CLI/loading/validation execution is removed; the report-only DTO remains until S-31. Candidate tests were removed after their S-28 replacements passed.
+
+The first new CLI row targeted `tools/reference-packs`, which the harness schema intentionally excludes. `reference-i6-s30-format` failed before graph execution with config/configuration_error, and `reference-i6-s30-generate` failed at task-surface generation with the precise selector/package pattern error in `generate/generate-task-surface-and-execution-topology/stderr.log` (outer exit 2). The command was moved to the owner-local offline `producercli` package; the executable is composition-only. No harness allowlist/schema was widened. `make author-test-row-id` derived `module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_2640e6b813` for `./internal/modules/reference_data/producercli:TestATTACKProducerCLI`; authored routing and its generated topology digest now include that row. `reference-i6-s30-generate-fixed` and `reference-i6-s30-format-fixed` passed, outer exit 0.
+
+`CARTULARY_TEST_RUN_ID=reference-i6-s30-current CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c,module.reference_data.unit.framework_attack_independently_validates_canonic_147df00f1f,module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_2640e6b813` passed, outer exit 0 (session 85230), three rows and retained-secret scan passed. `CARTULARY_TEST_RUN_ID=reference-i6-s30-build make reference-pack-producer-build` passed, outer exit 0 (session 83622). Current CLI execution was then exercised on a byte-validated isolated copy of retained v20.1 with `CARTULARY_TEST_RUN_ID=reference-i6-s30-audit make reference-pack-source ACTION=audit SOURCE_DIR=.cartulary/reference-packs/i6-qualification-20261108/20.1/source SOURCE_LOCK=contracts/reference-pack-producers/attack/source-lock.v20.1.json BUILT_AT=2026-11-06T23:02:00Z`; outer exit 0 (session 75026), 31,796 unique records and zero issues. Its intermediate report remains v1 pending S-31 and is not a releasable outcome. Run roots are `.cartulary/test-results/<run-id>` with `run-summary.json` for tests and `<target>/tool-run-summary.json` for standalone tools. S-31 starts after this checkpoint.
+
+
+I6-07 / S-31 COMPLETE (E-I6-S31): audit now emits `cartulary.attack_source_audit.v2`, binds the exact profile ID/hash, uses `lookup_aliases` and removes the obsolete pack/candidate fields and DTO. The command retains one canonical byte sequence and delivers those same bytes through `--report-file` on success or attributable failure; failure remains unsuccessful. Partial audit counts and ordering are deterministic. All 13 migrated assertions remain active. The ATT&CK embed now explicitly names only current consumed inputs; proposal JSON files remain unchanged as historical evidence. The candidate selector is removed and the new owner-local CLI selector is active. The supporting ATT&CK handoff documents the current contract and historical-input replay restriction.
+
+`CARTULARY_TEST_RUN_ID=reference-i6-s31-reports-final CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c,module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_2640e6b813` passed, native outer exit 0 (session 62941), two rows, cleanup without failures and retained-secret scan pass. `reference-i6-s31-format-final` / `make format` passed, native 0 (29893). `reference-i6-s31-generated-check` / `make source-check CHECK=generated` and `reference-i6-s31-schema-check` / `make source-check CHECK=schema` passed, native 0 (38090/96594). Prior `reference-i6-s31-generate` and `reference-i6-s31-reports` summaries report pass; their native session exits were not retained across context continuation, so final qualifying checks above supply independently captured exits. These roots are under `.cartulary/test-results/`. No normative amendment or immutable input rewrite was required. S-32 begins after this checkpoint with finalization, frozen-source validation and mandatory isolated offline qualification.
+
+
+I6-08 / S-32 qualification repair: `reference-i6-s32-finalize` passed (native 0, session 21931), followed by review/freeze on harness source digest `sha256:4aab6a17085437567e81a3132f3b19597689cfd25e2b243826c70ae88a411a95`. The five-row `reference-i6-s32-final` passed (native 0, session 70952), as did `reference-i6-s32-generated`, `reference-i6-s32-schema`, `reference-i6-s32-build` and both real-source audit commands `reference-i6-s32-audit-20-0` / `20-1`. These passes precede the boundary repair below and are not final closure.
+
+`reference-i6-s32-boundary` failed, native outer 2 (session 95809), product/test_assertion_failure; `unit-logs/row-module.records.architecture.boundary/stderr.log` identifies three violations introduced by the new sibling `producercli` package and six pre-existing import violations in three VERIS fixture-only integration files. Cleanup completed without failure. The producer import/raw-filesystem restrictions are retained unchanged: command composition and its tests move into the existing offline `producer` package, with `RunCommand` called only from the tools entrypoint. The CLI selector is regenerated as `module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a` for `./internal/modules/reference_data/producer:TestATTACKProducerCLI`. This removes the unnecessary sibling package and keeps one enforceable offline boundary.
+
+The exact existing VERIS test files in Incident Bundles, Recovery and Reporting consume fixture signing/testsupport just like already-listed ATT&CK/Entra/Windows tests. Only their three explicit paths are added to the Reference Data facade test allowlist; no production exception, wildcard, test behavior change or owner weakening is introduced. This narrow authored boundary projection repair is necessary for the required check. Finalization, source freeze, the five-row portfolio, boundary/generated/schema checks, final build and offline qualification will be repeated on repaired source. Earlier run roots and builder evidence remain intact.
+
+
+I6-09 / S-32 repair checkpoint: `reference-i6-s32-repair-format` and `reference-i6-s32-repair-generate` passed, native 0 (sessions 77752/69468). `reference-i6-s32-repair-boundary` passed, native 0 (43851), confirming the existing production import and filesystem restrictions remain satisfied. The first relocated CLI row (`reference-i6-s32-repair-cli`, 19155) failed at compilation, outer 2, normalized infra/preflight_error with missing_selector_result at the row: the standard-library `flag` import collided with the producer's existing `flag` helper. The bounded log is `unit-logs/go-dea23afc276bb8f5-f0ba9d0ab6ad/stderr.log`. Aliasing the standard-library import fixes this move-only defect; no tests executed in that failed invocation and cleanup completed without failure.
+
+
+I6-10 / S-32 final qualification PASS; handoff documentation check pending. The relocated CLI regression `reference-i6-s32-repair-cli-fixed` passed, native 0 (36786). `reference-i6-s32-finalize-fixed` passed, native 0 (1934), with no unexpected generated changes. Final executable source is frozen at harness digest `sha256:ba7640b08e64c42b4677b92b2a6049acd5f451806fbb50be32a3697ed30fa4b3`; `/tmp/reference-i6-exec-4688lrew/final-source-fixed.json` records the independently inspected path hashes (aggregate `ebc9ce16c8155f08a0a3227170b3a8d799a35f44b3790e6d8b024073193571c4`, a distinct scope/encoding from the harness digest). Only documentation changes follow this freeze.
+
+All commands below ran from the repository root. Each run root is `.cartulary/test-results/<run-id>`. Graph commands retain `run-summary.json`, `run-manifest.json`, exact row results, `cleanup-results.json` and `retained-secret-scan.json`; standalone producer tools retain `<target>/tool-run-summary.json` and referenced logs. All final graph roots have the frozen digest above, no cleanup failures and passing retained-secret scans. Each final producer command's owning summary reports pass and its native outer exit was independently observed as 0.
+
+| Run ID | Exact selection / command (prefix `CARTULARY_TEST_RUN_ID=<run-id>`) | Native session / exit | Purpose / outcome |
+| --- | --- | --- | --- |
+| `reference-i6-s32-finalize-fixed` | `make agent-finalize` | 1934 / 0 | Schema, tier coverage and generated refresh pass; freeze follows review |
+| `reference-i6-s32-final-fixed` | Exact five-row, cache-disabled `make test-slice` command in the qualification portfolio above | 64800 / 0 | All five selected rows pass: source/ledger/CLI, native format, Windows and canonical-artifact lifecycle |
+| `reference-i6-s32-boundary-fixed` | `make lint CHECK=backend-boundary` | 82770 / 0 | Runtime cannot import offline producer; exact fixture test exceptions accepted |
+| `reference-i6-s32-generated-fixed` | `make source-check CHECK=generated` | 58966 / 0 | Authored routing and generated projection agree |
+| `reference-i6-s32-schema-fixed` | `make source-check CHECK=schema` | 31729 / 0 | Machine contracts/routing validate |
+| `reference-i6-s32-build-fixed` | `make reference-pack-producer-build` | 17722 / 0 | Independent two-build byte comparison passes |
+| `reference-i6-s32-audit-20-0-fixed` | `make reference-pack-source ACTION=audit SOURCE_DIR=.cartulary/reference-packs/i6-qualification-20261108/20.0/source SOURCE_LOCK=contracts/reference-pack-producers/attack/source-lock.v20.0.json BUILT_AT=2026-11-06T23:02:00Z` | 77750 / 0 | Current CLI, report v2 and retained exact v20.0 source |
+| `reference-i6-s32-audit-20-1-fixed` | Same public source command with `20.1` in `SOURCE_DIR` and `SOURCE_LOCK` | 49332 / 0 | Current CLI, report v2 and retained exact v20.1 source |
+| `reference-i6-s32-assemble-20-0` | `make reference-pack-package ACTION=assemble INPUT=.cartulary/reference-packs/i6-qualification-20261108/20.0/assemble-final.json` | 34099 / 0 | Current audit-to-assembly path; independent Node byte/native witness passes |
+| `reference-i6-s32-assemble-20-1` | Same public package command with `20.1` in `INPUT` | 12049 / 0 | Same v20.1 qualification |
+| `reference-i6-s32-replay-20-0` | Identical v20.0 package command and inputs | 86432 / 0 | Exact replay; no extra publication allocation or changed output |
+| `reference-i6-s32-replay-20-1` | Identical v20.1 package command and inputs | 91780 / 0 | Exact replay; no extra publication allocation or changed output |
+
+Final builder: `61a8c6a45b75da84611eeab2cc2c73dc097cddcf800994394bac56962d9dab09`, 16,352,487 bytes, `cartulary.reference-pack.producer` / `references-v2`, Go `go1.27.3`. Exact executable, identity and two-build equality evidence are retained under `.cartulary/reference-packs/builders/<builder-digest>/`. The independently reproduced executable is the one used by every final source/package command.
+
+### Final offline qualification evidence
+
+The source roots are isolated byte-validated copies of retained v20.0/v20.1 acquisition, lock, source and metadata evidence. There was no network acquisition. Each version's `assemble-final.json` explicitly points to its own `output-final` and fresh `ledger-final`, uses the exact final builder and retains the historical explicit `built_at` and pack version. No historical assembly input was invoked or rewritten. Reports are under `<version>/source/audits/<audit-digest>.json`; logical packages are under `<version>/output-final/logical/<manifest-digest>/`, relative to `.cartulary/reference-packs/i6-qualification-20261108/`.
+
+| Release | Source audit | Canonical output | Exact identities |
+| --- | --- | --- | --- |
+| v20.0 | 31,765 unique records, 54 collision groups, zero issues | 6,211 objects; 34,604 relationships | Audit `4b7fd0cd79621752bca252f637c06a809ab69e42b97dd8e948515d51cd78a164`; manifest `19572a6b810547b1343c5df2a6148ce6e120377ccbcd327dc2f14fa5157d60d1`; payload `af29e228df3453600b4388969c12c5e4be5f1e5c4f6a45c798207f25cb8e936a` |
+| v20.1 | 31,796 unique records, 54 collision groups, zero issues | 6,221 objects; 34,632 relationships | Audit `57464f1e1b9319930a89c1cb3ac8fbf1d1a55ef9916dd8e4b71905e7ae618e1d`; manifest `1bf0aa33740e37c49a539f0cd2402951e1a7422f73d5e547822d36728c2b02c3`; payload `c1f6ddf1a73e2544bb2b568ac0135a355f975087c6dac37291ebbad15aa18e4e` |
+
+Both object/relationship files and the MITRE notice are byte-identical to retained fixtures `20.0/logical/6e94d63980e3816b0edb6303da63a6f54387dfd90764b5f6d58efa51caec876f` and `20.1/logical/797de8a4133f5bd4b7ff79a26ce57efcdeebc43556033ea3f7ff685004252865`, under `fixtures/reference-packs/attack-native-v2/`. The framed payload identities above are unchanged. Manifest field comparison finds exactly two differences: `builder` and `pack_release_sequence` (historical 6/7 becomes 1 in each isolated fresh ledger). The historical builder has a different ID/version/digest; these differences are explicitly preserved, never forged away. All other manifest fields match, including profile digest, source artifacts, license and canonical file inventory. Current build reports bind the exact v2 audit hash shown above.
+
+The existing public package target's independent Node witness verifies canonical framing, member hashes, original native source, relationships and exact notice bytes. Replay leaves all 24 output/ledger files unchanged, including build reports, manifests, witnesses and publication records. File comparisons are retained in `/tmp/reference-i6-exec-4688lrew/qualification-comparison.json`, `qualification-before-replay.json` and `qualification-replay.json`; audit inspection is in `final-audits.json`. This is isolated producer qualification, not signature renewal, deployment trust or a release claim. No signed artifact was reissued.
+
+### Final obligation mapping and handoff
+
+| Obligation | Closing evidence |
+| --- | --- |
+| V-36 | E-I6-S28 maps and passes all 13 assertions before retirement; final native/source rows retain those assertions |
+| V-37 | Final Windows row plus private strict-schema/loader/date-time cases pass |
+| V-38 | Final producer and CLI rows reject removed/unbound inputs, test success/failure byte delivery and cancellation; final real CLI audits and reproducible build pass |
+| V-39 | Explicit embed, absent proposal executable symbols/selector, generated/schema checks; immutable input/evidence comparison |
+| V-40 | Five final rows plus both current-source audit/assembly/replay paths, independent package witnesses, byte equality and accounted manifest provenance differences |
+| V-41 | Final boundary/generated/schema checks, preserved offline import prohibition, frozen-source and diff review; final Markdown check completes documentation gate |
+
+F-26–29 are implemented and pass executable qualification. No adopted specification amendment was needed; current owner requirements already justify exact source admission and current-only packaging. The supporting ATT&CK handoff distinguishes its historical sections from the current producer contract. No runtime schema/API/database conversion or deployment change is required. Consumers of the offline report must switch to v2 and the new fields; callers must stop using `--candidate`. Roll back producer command, admission/report changes, tests and routing together if necessary; do not reissue immutable historical artifacts or restore only one half of S-30/31.
+
+Preservation inspection found exactly 23 changed/added/deleted repository paths, all within the approved producer/test/document/routing work plus the explained three-entry boundary repair. Only the topology render index is regenerated; immutable contract JSON, canonical fixtures, dependency locks, source profiles and policies are unchanged. The final target contains 265 Go files (109 tests) in the same eight directories. All 153 retained historical files and their path set are unchanged. Final source path hashes still match the freeze. HEAD and staged entries are unchanged; raw index bytes changed through stat-cache refresh, so byte-identical index preservation is explicitly not claimed. `git diff --cached --exit-code` and `git diff --check` pass. Details: `/tmp/reference-i6-exec-4688lrew/source-review-fixed.json`, `index-comparison.json` and `preservation-final.json`.
+
+Optional finalizer canonical-evidence and scheduler-drift maintenance report `results-dir-not-provided`; no compatible full warm-check root existed and no broad run was created solely for maintenance. No required scoped executable check is skipped. Full-owner/CI, UI/browser, source acquisition, signing and release certification were outside this bounded effort. All failures, repairs and superseded source evidence remain recorded above. Remaining S-32 work is Markdown validation and the completion checkpoint.
+
+
+I6-11 / S-32 validation and handoff COMPLETE (E-I6-S32): `CARTULARY_TEST_RUN_ID=reference-i6-s32-handoff make lint-markdown` passed, native outer exit 0 (session 27027), with summary `.cartulary/test-results/reference-i6-s32-handoff/adhoc/lint-markdown/tool-run-summary.json`. V-36–41 are closed on the final source and qualification evidence above. F-26–29 and RB-004 are resolved; T-029–033 / S-28–32 are DONE. Every workstream has its completion checkpoint before the next began. The boundary and compilation failures were diagnosed, repaired and requalified; none remains unresolved. No required scoped check is outstanding.
+
+The I6 final completion transcription used `CARTULARY_TEST_RUN_ID=reference-i6-s32-handoff-final make lint-markdown`; its result is retained at `.cartulary/test-results/reference-i6-s32-handoff-final/adhoc/lint-markdown/tool-run-summary.json`. Final source/index-entry/immutable-evidence and whitespace comparisons are retained in `/tmp/reference-i6-exec-4688lrew/final-checks.json`. Within I6, no implementation edit followed the final source freeze, and no repository edit followed the successful transcription check. I7 below supplements that completed work. Historical proposal artifacts confer no executable compatibility requirement.
+
+## 21. I7 validation-gap remediation and handoff
+
+### Authority, baseline and scope
+
+I7-00 / S-33 IN_PROGRESS (2026-11-08 UTC): the user authorized implementation of the complete supplemental plan. RP-REQ-149–152 and RP-REQ-265–269 already govern provenance, exact source preservation and native field validation; no normative amendment, projection change or new source profile is required. Review found two validation gaps and one handoff inconsistency, with no confirmed production-behavior regression. I6's original passes and completion checkpoints remain historical evidence for their stated coverage; V-38's stronger failure-path claims require the new witnesses below before supplemental closure.
+
+The dirty-tree baseline is `main` at `a8f2fe2d84eecf88ced265b34327e0a8c7d4c8df`. `/tmp/reference-i7-exec-otf0_hif/` contains `baseline.json` (8,942 tracked/nonignored regular-file hashes), `status-before`, `head-before`, `staged-before`, `tracker-before.md` and `immutable-baseline.json` (364 historical evidence files, including all 153 previously preserved files, I6 qualification and existing producer builds). Preserve existing work and staged entries. Root/backend/tooling instructions and test-operations guidance were read; `make task-guide OWNER=module.reference_data` and `make help ALL=1` passed (native session 68564, exit 0). On this date the authored catalog `tools/test_families/module.reference_data.json` contains 93 rows, including 43 unit-family rows; the catalog, not repeated prose counts, remains the inventory authority.
+
+### Findings and durable remediation
+
+| Finding / areas | Remediation and rationale / long-term benefit | Compatibility and unresolved risk | Completion gate / status |
+| --- | --- | --- | --- |
+| F-30 / tests, documentation | Add valid/invalid `created` and 64/65-contributor fixtures on the enterprise-only tool before hashes/acquisition. Audit through `auditATTACKSources`, with otherwise identical identity/version/reference fields. Isolates the audit's native-schema guard from field-policy and semantic checks, protecting the connection rather than only the validator. | No adopted input/schema/report change. Without this, native validation can be bypassed while unrelated negative fixtures still pass. | V-42 / PASS on final source |
+| F-31 / implementation, tests, documentation | Make owner-local `RunCommand` return exit status; private dispatcher takes one explicit audit function and public entry always binds real `Audit`. Executable only calls `os.Exit`. Test-only child mode runs real synthetic audits through shared dispatch/delivery/status policy, with bounded joined subprocesses and parent-owned directories. One command owner prevents duplicated exit policy and helper-only false assurance. | Atomically migrate the internal Go return type from `error` to `int`; no alias, external flag/output/report/exit change, public injection option or mutable override. Without this, early audit-error returns can silently discard failed reports or return success. | V-43 / PASS on final source |
+| F-32 / documentation | Reconcile §1/§8 and qualify historical I6 summaries; retain all commands, failures and hashes. Record this iteration's dependencies and evidence separately. Consistent current instructions make future selection and handoff reliable. | No runtime impact or executable prose dependency. Leaving stale future-work/count/completeness statements invites repeated work or unsupported claims. | V-44 / PASS; E-I7-S36 |
+
+### Workstreams, gates and sequencing
+
+| Slice / dependency | Work, principal risk and rollback boundary | Exit criterion / status |
+| --- | --- | --- |
+| S-33 / current checkout | Baseline preservation, authority reconciliation and F-32 plan. Risk: overwrite history or overstate evidence. | Updated tracker, explicit gates and Markdown pass / DONE, E-I7-S33 |
+| S-34 / S-33 | F-30 audit regressions. Risk: independent rejection masks the native guard. | V-42 focused source row passes; checkpoint before S-35 / DONE, E-I7-S34 |
+| S-35 / S-34 | F-31 dispatcher/status and subprocess witnesses. Risk: injection escapes test code or duplicates production logic. Roll back command and callers together. | V-43 focused CLI row passes; checkpoint before S-36 / DONE, E-I7-S35 |
+| S-36 / S-35 | Finalize, inspect, freeze, qualify both real releases and hand off. Risk: incompatible-source evidence or historical artifact rewrites. | V-42–45 closed, preservation and final transcription pass / DONE, E-I7-S36 |
+
+| Gate | Required evidence |
+| --- | --- |
+| V-42 | Valid timestamp and 64 contributors pass without issues; invalid timestamp and 65 contributors error with `source_audit_failed` and only the exact tool/enterprise `/objects/2` `native_source_invalid` issue. Repeated canonical report bytes match. Existing source-contract row includes all cases; public admission remains strict. |
+| V-43 | Shared dispatcher child exits 0 on valid input, 1 on native-invalid input; retained/requested canonical reports match with expected provenance. Failed replay retains identical identity/bytes. Invalid destination still retains the audit and fails. Public synthetic/unbound locks create no report; removed flags fail and help succeeds. All under the existing CLI row. Test-only controls are absent from production. Controlled process failure evidence is distinct from fixed-auditor real executable qualification. |
+| V-44 | Current summaries/statuses/row accounting/evidence agree; historical statements are identified; Markdown passes. No product test or generator consumes this prose. |
+| V-45 | Final evidence binds the frozen source after `make agent-finalize`: fresh `reference-i7-final`, cache off, the exact five rows from §20; backend-boundary lint, generated/schema checks, reproducible producer build; isolated v20.0/v20.1 audit/assembly/replay with new builder and fresh fixture ledgers; payload/notice equality, only accounted manifest builder/sequence differences; historical bytes and staged state preserved; cleanup/secret scans, native exits, final Markdown/whitespace/transcription checks recorded. |
+
+Focused checks follow each implementation workstream; diagnose any failure before retrying. Final qualification uses public Make targets and retained sources only, with no acquisition or signing. Full CI/full-owner suites, UI/browser, deployment and runtime/data migration are outside scope. Optional retained-run maintenance is skipped with an explicit reason when no compatible full warm-check root exists; no broad run is created just to obtain one. Update this tracker after each completed workstream before starting its successor. No supplemental gate is closed by I6 evidence alone.
+
+I7-01 / S-33 COMPLETE (E-I7-S33): the current scope and §8 now distinguish completed I6 execution from historical planning and supplemental acceptance. F-32's stale wording is reconciled; V-44 remains subject to final handoff consistency. `CARTULARY_TEST_RUN_ID=reference-i7-s33-markdown make lint-markdown` passed, native exit 0 (session 29441), summary `.cartulary/test-results/reference-i7-s33-markdown/adhoc/lint-markdown/tool-run-summary.json`. Baseline preservation and owner reconciliation above are complete. S-34 starts after this checkpoint.
+
+I7-02 / S-34 COMPLETE (E-I7-S34): all four native-boundary cases now run under `TestATTACKSourceContractClosure/native_audit_enforcement`. The enterprise-only tool is mutated before acquisition hashing; unrelated identity/version/reference fields are unchanged. Three audits per case assert canonical byte equality; valid controls have no issues, invalid controls have exactly `native_source_invalid:tool--22222222-2222-4222-8222-222222222222:enterprise-attack.json:/objects/2` and fail. `reference-i7-s34-format` (`make format`, session 51876) and `CARTULARY_TEST_RUN_ID=reference-i7-s34-source CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c` (session 55282) passed, native exits 0. Evidence root `.cartulary/test-results/reference-i7-s34-source` has a passing run summary, one passing row, completed cleanup and passing retained-secret scan. F-30 / V-42 passes focused validation, subject to final-source confirmation. S-35 starts after this checkpoint.
+
+I7-03 / S-35 COMPLETE (E-I7-S35): `RunCommand` now returns an integer and owns diagnostics/exit mapping; the thin executable calls `os.Exit`. Public dispatch always binds `Audit`; only a private typed function parameter enables package tests. The test-only `TestMain` runs bounded joined children with actual synthetic audits, proving successful/failed delivery, canonical retained/requested bytes, repeat identity, public synthetic/unbound rejection, removed-flag rejection and successful help. Destination failures use fresh retained roots for both successful and failed audits, proving retention happens before the write error and preserving the original audit diagnostic. All child controls and synthetic admission remain in `_test.go`. `reference-i7-s35-format` (`make format`, session 8418) and `CARTULARY_TEST_RUN_ID=reference-i7-s35-cli CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a` (session 84205) passed, native exits 0. `.cartulary/test-results/reference-i7-s35-cli` contains the passing row/run summary, completed cleanup and passing retained-secret scan. F-31 / V-43 passes focused validation, subject to final-source confirmation. No routing or boundary exception changed. Additional historical summary labels in §§2/4/6/7/9/10/11/12 were reconciled under F-32. S-36 starts after this checkpoint.
+
+### Final source and validation evidence
+
+I7-04 / S-36 executable qualification PASS; final documentation gate pending. `make agent-finalize` passed with no unexpected generated changes. The I7 diff from its dirty-tree baseline contains exactly six paths: this tracker, `producer/audit_report_test.go`, `producer/command.go`, `producer/command_test.go`, `producer/source_test.go` and `tools/reference-packs/main.go` (producer paths under the target). All earlier work remains intact; no authored routing, boundary exception, normative specification, frozen input, schema projection or dependency lock changed during I7. The final source freeze is harness digest `sha256:73e284201f7e19b768cdd496e940f2794789edba88e1ca14b6f3babc826086e0`. `/tmp/reference-i7-exec-otf0_hif/final-source.json` records 8,559 non-Markdown/non-doc source hashes; its separate inspection aggregate is `54d07296e6caa79f40dd70e4ddcc00a4f6bf1af68cb4027b130a7ef114bab24d`. This is preservation inspection, not a replacement harness identity or an executable dependency on prose. Only tracker edits follow the freeze.
+
+All commands below ran from the repository root, with prefix `CARTULARY_TEST_RUN_ID=<run-id>`. Each root is `.cartulary/test-results/<run-id>`. Graph roots retain `run-manifest.json`, `run-summary.json`, exact `rows/` results where selected, `cleanup-results.json` and `retained-secret-scan.json`. All final graph manifests carry the frozen source digest; all summaries pass, all cleanup outcomes are completed with no failures, and all retained-secret scans pass. Standalone producer roots retain `<target>/tool-run-summary.json` and referenced command logs; their native outer exits and summaries agree. No I7 validation command failed or required a repair/rerun.
+
+| Run ID | Command / exact selection | Native session / exit | Result and obligation |
+| --- | --- | --- | --- |
+| `reference-i7-s36-finalize` | `make agent-finalize` | 66690 / 0 | Schema, coverage and generated refresh pass; source freeze follows inspection |
+| `reference-i7-final` | Cache-disabled exact five-row `make test-slice` command below | 54853 / 0 | All five rows passed; five cache bypasses, no hits; V-42/43 and regression portfolio |
+| `reference-i7-s36-boundary` | `make lint CHECK=backend-boundary` | 5613 / 0 | Existing owner/import/filesystem boundaries pass |
+| `reference-i7-s36-generated` | `make source-check CHECK=generated` | 16279 / 0 | Generated projections agree without I7 routing edits |
+| `reference-i7-s36-schema` | `make source-check CHECK=schema` | 30228 / 0 | Machine contracts pass |
+| `reference-i7-s36-build` | `make reference-pack-producer-build` | 91797 / 0 | Two builds are byte identical; test child marker absent from executable |
+| `reference-i7-s36-audit-20-0` | `make reference-pack-source ACTION=audit SOURCE_DIR=.cartulary/reference-packs/i7-qualification-20261108/20.0/source SOURCE_LOCK=contracts/reference-pack-producers/attack/source-lock.v20.0.json BUILT_AT=2026-11-06T23:02:00Z` | 69808 / 0 | Fixed production auditor, retained v20.0 source |
+| `reference-i7-s36-audit-20-1` | Same source command with `20.1` in directory and lock | 49199 / 0 | Fixed production auditor, retained v20.1 source |
+| `reference-i7-s36-assemble-20-0` | `make reference-pack-package ACTION=assemble INPUT=.cartulary/reference-packs/i7-qualification-20261108/20.0/assemble.json` | 42239 / 0 | Assembly and independent Node native/byte witness pass |
+| `reference-i7-s36-assemble-20-1` | Same package command with `20.1` in input | 47300 / 0 | Same v20.1 qualification |
+| `reference-i7-s36-replay-20-0` | Identical v20.0 package command/input | 38904 / 0 | Exact replay preserves bytes and ledger allocation |
+| `reference-i7-s36-replay-20-1` | Identical v20.1 package command/input | 72557 / 0 | Exact replay preserves bytes and ledger allocation |
+
+The exact final portfolio was:
+
+```sh
+CARTULARY_TEST_RUN_ID=reference-i7-final CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c,module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a,module.reference_data.unit.framework_attack_independently_validates_canonic_147df00f1f,module.reference_data.unit.windows_online_producer_preserves_documented_ide_30fc80a930,module.reference_data.integration.attack_producer_artifacts_preserve_independent_a_67e9ef139a
+```
+
+The reproduced builder is `406646707d1310fe6f1dc2830392f550cc871d2bb7725b0fa6d546a1842de94a`, 16,356,788 bytes, ID `cartulary.reference-pack.producer`, version `references-v2`, Go `go1.27.3`. Its executable, identity and reproduction witness are under `.cartulary/reference-packs/builders/<digest>/`; all final offline inputs bind that digest. The compiled production executable does not contain the test child-mode marker. This supplements the source review showing the child controls and synthetic admission exist only in `_test.go`.
+
+### Offline release comparisons and preservation
+
+Qualification root: `.cartulary/reference-packs/i7-qualification-20261108/`, with separate `20.0` and `20.1` source/output/ledger roots. Eighteen source/acquisition/metadata files were copied from retained I6 roots and checked byte-for-byte; no old audits were copied, no acquisition occurred, and no historical ledger was used. Each input uses timestamp `2026-11-06T23:02:00Z`, unchanged pack version `attack-20.0.4` or `attack-20.1.4`, fixture repository `fixture.attack.native.v2`, restricted redistribution and a fresh sequence-1 ledger. No signature was reissued.
+
+| Release | Audit SHA-256 | Manifest SHA-256 | Payload SHA-256 | Counts / status |
+| --- | --- | --- | --- | --- |
+| 20.0 | `1a11c0501191da1f8541721b25915c4f96f198efcaa707658780e10be0c9383a` | `45ea4eff8ca4a7b2667140663798fe0c5dbe8b28f9924d80c185887999c39a9a` | `af29e228df3453600b4388969c12c5e4be5f1e5c4f6a45c798207f25cb8e936a` | 31,765 unique records; 54 collisions; 0 issues; 6,211 objects / 34,604 relationships |
+| 20.1 | `4e6cab489ae2be2075354254048ccd7eaa05fbdf43d4a1d4911138ed1ac6f946` | `baa8400c9d694c3d12d80cb69fed32c815933331b9873d8a496cc0bd269a3afa` | `c1f6ddf1a73e2544bb2b568ac0135a355f975087c6dac37291ebbad15aa18e4e` | 31,796 unique records; 54 collisions; 0 issues; 6,221 objects / 34,632 relationships |
+
+Payload and notice paths/bytes exactly equal the frozen fixtures identified in §20. Manifests differ only in the accounted builder identity and historical sequence 6/7 versus fresh sequence 1. Audit reports differ from I6 only in builder identity. Independent witness digests are `9f78c5432d42e90e60db649875856615109aca071c8bb00f462fb120e80eac10` (20.0) and `bbab8727ecddda49663e88143809500e83eacecaf49d624b7c58738c703b0a16` (20.1). Both identical-input replays preserve all 24 output/ledger files plus both retained audit reports, including their path sets.
+
+Human inspection records in `/tmp/reference-i7-exec-otf0_hif/`: `qualification-source-copies.json`, `builder-review.json`, `qualification-comparison.json`, `qualification-before-replay.json`, `qualification-replay.json`, `standalone-evidence.json`, `source-freeze-review.json` and `preservation-final.json`. All 364 baseline historical evidence files are unchanged; the original 153-file historical path set is also unchanged. Frozen contracts/profiles/policies/locks, canonical fixtures, signed artifacts and dependency locks have no I7 delta. HEAD and staged entries are unchanged. Raw index byte equality is not claimed. `git diff --check` passes; final transcription will repeat source/preservation/whitespace inspection.
+
+### Acceptance limits and handoff
+
+V-42 now isolates native timestamp/array-bound rejection through the audit. V-43 now observes actual process exits and report delivery through the shared command code, including failed replay, destination failures and public admission rejection. These controlled process witnesses use the compiled Go test executable and a private synthetic auditor; they are not black-box failure qualification of the two valid accepted release corpora. The separately reproduced production executable always uses real `Audit` and passed both full offline release paths. No public override was added.
+
+The only interface migration is the internal Go `RunCommand` result from `error` to `int`, with all repository callers migrated atomically. External flags, diagnostics, report v2 and exit behavior are unchanged. No normative specification or runtime/data migration is required. Roll back the command owner, executable caller and command tests together if necessary; preserve immutable historical artifacts.
+
+Optional finalizer `canonical_evidence_validation` and `scheduler_drift_validation` were skipped with `results-dir-not-provided`: no compatible full warm-check root was available, and no broad run was launched only for maintenance. No required scoped executable check is skipped. Full CI/full-owner suites, UI/browser, deployment and release certification remain outside scope. At I7-04 only V-44's Markdown/transcription gate and the S-36 completion checkpoint remained; their completion is recorded below.
+
+I7-05 / S-36 COMPLETE (E-I7-S36): `CARTULARY_TEST_RUN_ID=reference-i7-s36-handoff make lint-markdown` passed, native exit 0 (session 33058), summary `.cartulary/test-results/reference-i7-s36-handoff/adhoc/lint-markdown/tool-run-summary.json`. Current-state summaries and statuses were reconciled with the preserved historical record and final evidence. V-42–45 and F-30–32 are closed; S-33–36 are DONE, with a completion checkpoint after each workstream and before its successor. No required scoped validation or implementation uncertainty remains unresolved.
+
+The final completion-transcription command is `CARTULARY_TEST_RUN_ID=reference-i7-s36-handoff-final make lint-markdown`; its terminal result is retained at `.cartulary/test-results/reference-i7-s36-handoff-final/adhoc/lint-markdown/tool-run-summary.json`. The handoff requires that command's native exit 0 and the final source/immutable-evidence/staged-entry/whitespace comparison in `/tmp/reference-i7-exec-otf0_hif/final-checks.json`. No source edit follows the freeze and no repository edit follows the successful final transcription check. The controlled process witness's limitation, unchanged external contract, internal signature migration, exact qualification roots and optional maintenance skips above are part of this closure.

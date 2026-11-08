@@ -10,6 +10,7 @@ import (
 )
 
 func TestNativeATTACKProjectionAndLocalReferences_Unit(t *testing.T) {
+	t.Run("current source contracts", testATTACKSourceContracts)
 	t.Run("native limits", testNativeATTACKLimits)
 	// Loading a second document must not merge its keywords into its caller.
 	consumer := compileProjection("consumer_item.v2.schema.json")
