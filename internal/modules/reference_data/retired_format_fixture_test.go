@@ -10,41 +10,28 @@ import (
 )
 
 // Retired checksum-labelled formats exist only to prove that no legacy reader
-// can promote their claims to trust. Signed does not mean a cryptographic signature.
-func retiredReferencePackBundle(t testing.TB, options retiredBundleOptions) []byte {
+// can promote their claims to trust. The signed variant is not a cryptographic signature.
+func retiredReferencePackBundle(t testing.TB, signed bool) []byte {
 	t.Helper()
-	if options.ContractVersion == "" {
-		options.ContractVersion = "cartulary.reference_pack.v1"
-	}
-	if options.PayloadPath == "" {
-		options.PayloadPath = "payload/data.json"
-	}
+	const payloadPath = "payload/data.json"
 	payload := []byte(`{"items":[{"key":"host","label":"Host"}]}`)
 	payloadSHABytes := sha256.Sum256(payload)
 	payloadSHA := hex.EncodeToString(payloadSHABytes[:])
-	if options.BadPayloadSHA {
-		payloadSHA = "0000000000000000000000000000000000000000000000000000000000000000"
-	}
-	canonicalPayloadSHA := payloadSHA
 	manifest := map[string]any{
-		"pack_key":              options.PackKey,
-		"pack_kind":             options.PackKind,
-		"pack_version":          options.PackVersion,
-		"pack_contract_version": options.ContractVersion,
-		"source_identifier":     "https://offline.invalid/reference-packs/" + options.PackKey,
+		"pack_key":              "type_registry.host",
+		"pack_kind":             "type_registry",
+		"pack_version":          "1",
+		"pack_contract_version": "cartulary.reference_pack.v1",
+		"source_identifier":     "https://offline.invalid/reference-packs/type_registry.host",
 		"verification_method":   "manifest_sha256_v1",
 		"payloads": []map[string]any{
-			{"path": options.PayloadPath, "sha256": payloadSHA},
+			{"path": payloadPath, "sha256": payloadSHA},
 		},
 	}
-	if options.Signed {
-		signatureSHA := canonicalPayloadSHA
-		if options.BadSignature {
-			signatureSHA = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-		}
+	if signed {
 		manifest["verification_method"] = "signed_manifest_v1"
 		manifest["signer_key_id"] = "fixture-key"
-		manifest["signature"] = map[string]any{"payload_sha256": signatureSHA}
+		manifest["signature"] = map[string]any{"payload_sha256": payloadSHA}
 	}
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
@@ -53,29 +40,11 @@ func retiredReferencePackBundle(t testing.TB, options retiredBundleOptions) []by
 	var buffer bytes.Buffer
 	writer := zip.NewWriter(&buffer)
 	addZipFile(t, writer, "manifest.json", manifestBytes)
-	if !options.OmitPayload {
-		addZipFile(t, writer, options.PayloadPath, payload)
-	}
-	if options.ExtraPath != "" {
-		addZipFile(t, writer, options.ExtraPath, []byte("{}"))
-	}
+	addZipFile(t, writer, payloadPath, payload)
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close zip: %v", err)
 	}
 	return buffer.Bytes()
-}
-
-type retiredBundleOptions struct {
-	PackKey         string
-	PackKind        string
-	PackVersion     string
-	ContractVersion string
-	PayloadPath     string
-	BadPayloadSHA   bool
-	Signed          bool
-	BadSignature    bool
-	ExtraPath       string
-	OmitPayload     bool
 }
 
 func addZipFile(t testing.TB, writer *zip.Writer, name string, data []byte) {

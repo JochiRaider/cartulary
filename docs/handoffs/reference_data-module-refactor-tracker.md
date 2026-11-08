@@ -2,15 +2,25 @@
 
 ## 1. Scope and Source Posture
 
-This is the controlling tracker for the authorized Reference Data remediation. Producer consolidation and proposal retirement, S-28–32, are complete on the evidence in §20. I7 / S-33–36 is complete: §21 records closure of the supplemental audit/command validation gaps and handoff inconsistency identified by review. Earlier implementation passes remain valid for their stated coverage; I7's separate final-source evidence closes its supplemental gates. The earlier planning-only restrictions and document-session results below remain historical. Each slice is a separate sequential workstream; its completion checkpoint must be recorded here before the next slice starts.
+This is the controlling tracker for Reference Data refactoring. The user explicitly authorized implementation of I8's F-33/34 remediation through S-37–40 on 2026-11-08. S-37–40 are DONE and F-33/F-34 are closed by E-I8-S40; sequential execution checkpoints and final qualification are recorded in §22. I6 / S-28–32 and I7 / S-33–36 remain historical completions on §§20–21's evidence; their passes are not current I8 qualification. Execution is sequential, with each completion checkpoint recorded before its successor starts.
 
 - Supplied output and admitted artifact: `/home/jochi/code/cartulary/docs/handoffs/reference_data-module-refactor-tracker.md`; permitted location `docs/handoffs`; no replacement tracker.
 - Target established from this tracker's existing identity: `internal/modules/reference_data`, a directory under canonical repository root `/home/jochi/code/cartulary`; normalized label `reference-data`. Preserve the established underscore filename.
-- Artifact mode: `normal` for bounded producer remediation. Planning completeness does not mean an exhaustive subsystem correctness or dead-code audit. Sections 20–21 contain the design and evidence; §21 controls current supplemental status and gates.
-- Planning baseline I6-00: clean `main`, HEAD `a8f2fe2d84eecf88ced265b34327e0a8c7d4c8df`. Target/output and parent components are not symlinks; the existing output is a single-link regular file with the expected canonical target identity.
-- Current scope: F-30–32 and authorized S-33–36, supplementing completed F-26–29 / S-28–32. Preserve current runtime pack contracts, immutable profile/policy bytes, publication ledger guarantees, fixture signing and live Windows validation. No general module extraction, runtime lifecycle change, schema/data migration, UI work, source acquisition, deployment or release-certification claim.
+- Artifact mode: `normal` for the completed bounded I8 remediation. Completion does not mean an exhaustive subsystem correctness/dead-code audit or whole-subsystem production-readiness certification. Section 22 controls current decisions, evidence and acceptance limits.
+- Planning baseline I8-00: clean `main`, HEAD `e2291271a502033b85c5e2d6aace2609bc8c8210`. Target/output and parent components are not symlinks; the output is a single-link regular file with the expected canonical target identity. E-I8-01 records the content/identity baseline and final comparison locations.
+- Current scope: implement F-33/34 through S-37–40 and V-46–48, with tracker updates at each exit; preserve current release bytes, immutable historical artifacts, producer fixture signing, public HTTP/storage formats and Base readiness. The user chose retirement of the one-shot Base reissue command; a general release builder is deferred until a concrete release requires it. Source acquisition, schema/data migration, deployment and release certification remain outside scope. V-49 belongs to the completed planning-document invocation.
 - Historical S-24–27 completed fatal-finalization remediation (§19); F-21/F-24/F-25 remain closed on that evidence, with F-22/F-23 also closed. S-23's premature closure remains superseded. Earlier execution permissions and test passes are historical, not authorization or qualification for this iteration.
-- Framework `docs/handoffs/cartulary_modular_refactor_planning_framework.md` and the refactor-tracker skill/format remain applicable. The current implementation may change the scoped producer, owner-local validation, tests, authored routing and supporting documentation. Update this tracker after each completed workstream and before the successor begins.
+- Framework `docs/handoffs/cartulary_modular_refactor_planning_framework.md` and the tracker format continue to guide evidence and handoff. The previous planning invocation's tracker-only write boundary remains historical; the user's current explicit implementation request authorizes the named production, tooling and test changes. Test execution follows the test-operations skill.
+
+Implementation baseline I8-03: `main` at `e2291271a502033b85c5e2d6aace2609bc8c8210`, with only this tracker already modified. `/tmp/reference-i8-implementation-xt30lmqv/baseline.json` records content/identity for all 8,942 tracked/nonignored files, the index and 497 immutable Base/producer/fixture artifacts. `tracker-before.md`, `preexisting.diff` and `index-entries.txt` preserve the incoming edits and staged state. The incoming tracker SHA-256 is `2ce9d34c7433dbdea6dbf29ebd31178d85f7bcaff9e21ecaf547c30bc9ee3c5e`. Ignored build/cache/results outputs are managed execution outputs, not part of the immutable preservation claim. The following table retains the earlier document-session baseline.
+
+| Baseline item | I8 starting evidence / identity | Final comparison / outcome | Limits |
+| --- | --- | --- | --- |
+| Branch and commit | Clean `main` at `e2291271a502033b85c5e2d6aace2609bc8c8210`; `/tmp/reference-i8-docs-e5p53yna/baseline.json` | §22 document checkpoint and final preservation comparison | This commit contains the prior I6/I7 implementation; its historical run artifacts were not requalified. |
+| Staged/index state | Clean staged entries; raw index hash and file identity captured in the same baseline | Must match baseline, excluding no staged entry | Read-only Git uses `--no-optional-locks`. |
+| Unstaged/untracked content | Clean; all 8,942 tracked/nonignored entries fingerprinted by content and identity | Only this tracker may differ | No untracked entry existed at baseline. |
+| Relevant ignored outputs | `ignored-baseline.json`: 2,525 entries covering frontend installation/toolchain, Corepack, installed lockfile and existing static cache; workspace lock captured separately | Compare after Markdown validation; all results/new static cache redirected outside the repository | Not a hash of every unrelated ignored run, build or dependency tree. |
+| Tracker identity/content | SHA-256 `ab41f0a7ea4d9e12ad6b71eef088e2eab93aa42940947816ccf90f2c5c899d04`; original text in `tracker-before.md`; device/inode/mode/link count in baseline | Recheck before writing; reconcile rather than overwrite concurrent edits | Retained comparison directory is `/tmp/reference-i8-docs-e5p53yna/`. |
 
 The following table records the earlier document-session baseline. The implementation baseline I6-03 and final preservation comparison are in §20; the tracker was already dirty when implementation began.
 
@@ -52,6 +62,24 @@ Authority order is: adopted subsystem NLSpecs for their named subsystem; Core 00
 Skills used as execution guidance: `/mnt/c/Users/jochi/.codex/skills/refactor-tracker/SKILL.md` and its tracker-format reference; `.agents/skills/cartulary-test-ops/SKILL.md` and command recipes. Historical table layouts and IDs are retained; current planning additions follow the skill's evidence and readiness requirements. No external browsing was needed for repository inspection.
 
 ## 2. Current-State Repository Inventory
+
+### I8 enumeration and bounded inspection
+
+E-I8-01 enumerates all **265 tracked regular Go files, including 109 test files, in eight directories** under `internal/modules/reference_data`; no nonignored untracked, symlink, submodule or generated target entry was found. Directory counts are root 121, `contractadmission` 6, `internal/packformat` 81, `internal/packstate` 2, `producer` 43, `recoverycontribution` 2, `testsupport` 9 and `testsupport/fixturehttp` 1. Ignored caches/build/results, vendor trees and external paths are excluded from the target universe.
+
+S-38 removes only `producer/base.go`: the implementation inventory is now **264 Go files, including 109 test files**, with 42 files under `producer`. All other directory counts remain unchanged. The removed source remains accounted for in the pre-removal inventory and I8-03 baseline. The following inspection table describes the planning baseline; E-I8-S38/39 records its exact implementation delta.
+
+The complete per-path accounting is `/tmp/reference-i8-docs-e5p53yna/target-inventory.json`: **7 directly inspected and 258 metadata-only** entries for this bounded I8 change surface. Direct inspection means relevant bodies/assertions were opened, not that every path in the file was audited. Other earlier exploratory reads do not expand this claim. Historical inventories are preserved below; their inspection depth is not promoted to current evidence.
+
+| Path / kind, relative to target | Disposition / responsibility | Callers, dependencies and tests | Contract / owner / risk / evidence |
+| --- | --- | --- | --- |
+| `producer/base.go` | Directly inspected; authored one-shot previous-release reader and fixed-identity reissue | `producer/command.go`; private format validators, canonical JSON and filesystem; no dedicated reissue test found | C-18; offline Reference Data producer; medium; F-33 / E-I8-03 |
+| `producer/command.go`, `producer/command_test.go` | Directly inspected; authored CLI dispatch and bounded subprocess assertions | Thin tools executable; current assembly/audit implementations; existing CLI row | C-18/19; offline producer/test owner; medium; E-I8-03/05 |
+| `retired_format_fixture_test.go`, `verification_engine_test.go` | Directly inspected; authored predecessor fixture options and live verifier rejection assertions | Only one fixture call site, looping unsigned/signed; `addZipFile` has other callers | C-13/19; owner-local test support; low; F-34 / E-I8-04 |
+| `base_release.go`, `consumer_test.go` | Directly inspected; current release loading and Base-consumer assertions | Generated current release artifact; closed bindings, manifest/content validation and nine indicator types | C-12/15; runtime owner retained; high preservation value; E-I8-02/04 |
+| Every other current target path in `target-inventory.json` | Metadata-only; no new movement or correctness conclusion | Historical responsibility labels remain navigation only | No required I8 movement source is pending; broader audit is not claimed |
+
+Direct expansion outside the target covers `tools/reference-packs/witness.mjs`, `package.sh`, the CLI executable, owner test routing, Make/Markdown invocation files and selected owner clauses. Repository-wide symbol searches found the reissue function, command branch and witness allowlist entry; they do not prove absence of external CLI users. The deliberate removal has no compatibility alias. S-37 revalidated the affected sources/callers and executable baseline. No module-wide audit is claimed.
 
 The original inventory below is the E-00 snapshot: all 240 files, with no exclusions. Paths in its first column are relative to `internal/modules/reference_data/`. Current execution additions are recorded in the following delta table; unchanged historical line counts are not current source locations. Other filenames matching an inventory path use the same target root (including `internal/packformat/...`). Other paths beginning `internal/modules/`, `internal/app/`, `internal/platform/`, `internal/testutil/`, `internal/gen/`, `tools/` or `contracts/` are repository relative.
 
@@ -375,6 +403,10 @@ Caller/test cells marked `lexical` are conservative identifier/import cross-refe
 
 ## 3. Module Boundary Diagnosis
 
+I8 keeps the existing runtime/private-format/offline-producer boundaries. Split obsolete Base cutover execution from maintained producer responsibilities by retiring it, not by moving it into a compatibility package. Keep current release loading and all owner-required Base verification. Simplify the owner-local rejection fixture without creating another fixture framework. A future general Base builder is deferred; no new public facade, package subdivision or platform abstraction is justified by this slice. E-I8-02–04 support F-33/34 and C-13/15/18/19.
+
+Historical I6 diagnosis follows:
+
 I6 retains the subsystem boundary. Split the live producer schema utility from proposal-specific execution, consolidate adopted input admission, and retire the obsolete proposal path. The offline producer remains Reference Data-owned; no platform helper package or generic plugin abstraction is warranted. F-26–29 supersede the earlier blanket no-action conclusion only for the named ATT&CK producer seams. VERIS joins the existing source-specific producer responsibilities; its implementation is not refactored here.
 
 The target is a legitimate subsystem containing an application/mutation coordinator, persistence adapters, a transport-adjacent adapter and private format/state implementations. It is more than a thin service facade, but the inspected responsibilities have coherent Reference Pack semantics. Its size alone does not establish an accidental catch-all. No frontend shell, grid vendor implementation, generic workbook row/view-schema implementation or generic projection-refresh coordinator was found in the target.
@@ -398,6 +430,17 @@ This is an architectural finding, not a decision to preserve every file forever.
 | Generic rows, queries, saved views, view schemas, links, timeline, collaboration and grid vendor | Not implemented by the target; limited downstream effects through registry assignments/Jobs/portability | Existing source owners, workbook/projections, collaboration and grid adapter | defer | O-01 scope exclusions; E-05/06/07; C-21 | No direct target-owned implementation found to move. Do not infer ownership from framework examples or similar labels. Reopen only if a later slice traces an actual affected contract. |
 
 ## 4. Public Contract and Behavior Freeze Map
+
+I8 preserves runtime contracts and implements one separately authorized offline behavior removal in S-38. NLSpec §1 (adopted/current 0.4.0, major 3) excludes compatibility readers and implicit conversion; RP-REQ-059/060 require release-bound Base verification. These clauses do not require the one-shot producer command. Removing it is the user's selected maintenance direction, not a claim that its offline existence violates the owner.
+
+| Contract | Observed behavior / evidence | Owner-required behavior and I8 disposition | Characterization / slice / validation |
+| --- | --- | --- | --- |
+| C-18: offline producer | E-I8-03 records the retired fixed-release operation; E-I8-S38 removes its function/type, dispatch and witness admission | `cartulary.base_registry_reissue_input.v1` now fails unsupported-schema admission with no output or alias/conversion. Other producer inputs and outputs are preserved. | S-37/38; V-46; current CLI assertions plus new removed-input subprocess case |
+| C-12/15: current Base bytes/readiness | Runtime reads embedded `builtins/release.v2.json` independently of the producer; E-I8-02/04 | Preserve canonical bytes, exact bindings, verification before readiness and retained provenance; NLSpec §1, RP-REQ-059/060 | S-37/40; V-48; current Base-consumer row and immutable-file comparison |
+| C-13/19: rejection/test accounting | Live verifier rejects both checksum-labelled fixture variants with `bundle_hint_invalid`; unused helper options are removed; E-I8-04 and E-I8-S39 | Preserve both negative cases, error precedence and useful ZIP callers; no new reader or parallel verifier. Tests consume machine data, not prose. | S-37/39; V-47; existing verifier row |
+| C-01–11, C-14/16/17/20–22 | No I8 change to HTTP, Jobs, consumers, storage/lifecycle, portability, UI or shared authorization | Preserve; no public HTTP/schema/data migration, rendered inspection or cross-owner restructuring | Not applicable to additional I8 checks: these surfaces are outside the bounded edit set |
+
+Historical contract maps and earlier observations follow; their authority and execution claims retain their original scope.
 
 Historical I6 contract delta (all rows retain their original evidence limits; I7 changes only the internal command return type and validation coverage in §21):
 
@@ -440,6 +483,15 @@ All nine operations below are bound by `RegisterRoutes` through generated operat
 
 ## 5. Coupling and Boundary Findings
 
+Current I8 findings are F-33/34. Their removal/simplification is implemented and qualified by E-I8-S38/39/40; both findings are closed. The table retains each finding's baseline diagnosis and required acceptance:
+
+| Finding | Evidence / contracts | Risk / classification | Owner / required action | Slice / validation / completion evidence |
+| --- | --- | --- | --- | --- |
+| F-33: obsolete Base cutover remains executable | E-I8-03; fixed `base-2026-11-06.1`, sequence 2 and release ID; C-18, preserved C-12/15 | medium / must_fix for S-38 retirement acceptance | Offline Reference Data producer; remove function/input type, CLI branch and witness admission together. Defer a general builder until a concrete release needs one. | S-37/38/40; V-46/48; E-I8-S38/40; DONE |
+| F-34: predecessor fixture exposes unused configuration branches | E-I8-04; only `Signed` varies at the sole caller; C-13/19 | low / should_fix | Owner-local tests; keep a signed/unsigned helper and actual rejection assertions; remove unused options and branches while retaining other ZIP callers. | S-37/39/40; V-47/48; E-I8-S39/40; DONE |
+
+I8 explicitly supersedes I2's §16 and I6's blanket decision to retain the producer reissue path, only for `ReissueBase`. Historical rationale/results remain intact. Fixture signing helpers, consumer-result validation, live current-content readers, negative compatibility fixtures and effective-set fallback remain intentional/no_action; a test-only caller or a `v1` schema suffix alone is not evidence of dead code.
+
 I6 findings at baseline, scoped to C-18/C-19 and S-28–32. All four findings are resolved by E-I6-S32; the baseline evidence and remediation rationale remain below:
 
 | Finding | Evidence | Risk / classification | Required action and durable benefit | Slice / validation |
@@ -449,7 +501,7 @@ I6 findings at baseline, scoped to C-18/C-19 and S-28–32. All four findings ar
 | F-28: live Windows schema utility lives in candidate implementation | E-I6-04; two Windows schema loops call `CompileCandidate` | medium / should_fix; required before deleting that file | Keep one private producer-local compiler under a current neutral name, preserving its behavior and Windows callers; no compatibility alias | S-29; V-37; RESOLVED E-I6-S32 |
 | F-29: candidate tests/embedded input closure retain obsolete workflow | E-I6-05; 13 cases, source fixtures, broad JSON embed and catalog selector | medium / must_fix for removal without lost assertions | Migrate useful tests, remove proposal-only executable dependencies and update authored routing; retain immutable artifacts needed by historical provenance | S-28/31; V-36/39; RESOLVED E-I6-S32 |
 
-These were active legacy responsibilities at the I6 baseline, not proven unreachable functions. The bounded lexical scan did not establish further dead runtime functions. Keep fixture signing helpers, consumer-result validation, effective-set fallback, retained-state rejection and current producer reissue paths. F-06/F-07's owner separation remains valid; their earlier blanket no-action wording is narrowed by F-26–29. F-12 remains deferred: file count alone still does not justify package subdivision.
+These were active legacy responsibilities at the I6 baseline, not proven unreachable functions. The bounded lexical scan did not establish further dead runtime functions. I6 retained fixture signing helpers, consumer-result validation, effective-set fallback, retained-state rejection and producer reissue paths; I8 supersedes only the last decision for the named Base cutover command. F-06/F-07's owner separation remains valid; their earlier blanket no-action wording is narrowed by F-26–29 and F-33/34. F-12 remains deferred: file count alone still does not justify package subdivision.
 
 The next-iteration findings F-18–20, their remediation/compatibility decisions and final dispositions are recorded in §16. Earlier findings below retain their original scope and evidence.
 
@@ -486,7 +538,16 @@ F-02/03/05–09/11/13 retain their evidence-backed owner boundaries and safeguar
 
 ## 6. Refactor Workstreams
 
-The I6 table below records the completed producer-retirement prerequisite graph. The later historical table describes completed transport work. The current I7 prerequisite graph is in §21. Implementation is sequential; record each checkpoint before its successor. No sub-agent or parallel execution is prescribed.
+The following is the sole authoritative I8 prerequisite graph. Implementation is explicitly authorized; record each exit checkpoint before its successor. No sub-agent or parallel execution is prescribed.
+
+| Workflow ID / name | Class | Authoritative prerequisites | Goal / likely files | Validation | Handoff checkpoint / binary exit |
+| --- | --- | --- | --- | --- | --- |
+| WF-I8-00: characterization / S-37 | root | Current user implementation authorization and E-I8-S37 revalidation | Recheck callers/assertions; fresh CLI, verifier and Base-consumer baseline; immutable fingerprints | V-46–48 baseline portions | E-I8-S37: three rows pass on the implementation baseline; assertion/preservation map complete |
+| WF-I8-01: retirement / S-38 | chain | WF-I8-00 | `producer/base.go`, CLI branch/test and witness allowlist | V-46 | E-I8-S38: command rejected before release input/output work; executable path absent; checkpoint recorded |
+| WF-I8-02: fixture simplification / S-39 | chain | WF-I8-01 | Retired fixture helper and verifier caller | V-47 | E-I8-S39: unused options absent, both live rejection cases and other ZIP callers preserved |
+| WF-I8-03: qualification / S-40 | chain | WF-I8-02 | Finalization, source review, scoped checks and tracker | V-48; implementation Markdown/whitespace checks | E-I8-S40: compatible final evidence, immutable preservation and complete handoff |
+
+The graph has no conditional peers, cycles or dangling prerequisites. T-034's document update is separate and does not complete S-37. The I6 table below and §21's I7 graph record historical implementation.
 
 | Workflow ID / name | Class | Authoritative prerequisites | Goal / likely files | Validation | Handoff checkpoint / binary exit |
 | --- | --- | --- | --- | --- | --- |
@@ -513,7 +574,16 @@ Historical transport workstreams:
 
 ## 7. Proposed Refactor Slice Plan
 
-Completed I6 slices used §6's dependencies; current I7 slices use §21. Implementation is authorized by the user; entry gates and work status remain distinct.
+Current I8 slices use §6's WF-I8 graph under the user's explicit implementation authorization. Readiness and work status are independent; current execution checkpoints are in §22.
+
+| Slice / kind | Findings / contracts | Intended change | Entry evidence / readiness now | Tests / validation | Rollback / migration | Binary completion / eventual evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| S-37 / characterization | F-33/34; C-12/13/15/18/19 | Confirm caller/assertion map, capture three baseline rows and immutable fingerprints | DONE; E-I8-S37 confirms sources, assertions, routing and passing baseline | V-46–48 pre-move portions | Inspection/test evidence only; no immutable output regeneration | Passing compatible baseline and complete destinations; E-I8-S37 |
+| S-38 / authorized offline behavior removal | F-33; C-18, preserve C-12/15 | Remove `ReissueBase`, `BaseReissueInput`, CLI branch and witness accepted-input entry; add removed-input subprocess assertion | DONE; E-I8-S37 resolved RB-005 and E-I8-S38 records retirement | V-46; existing CLI row, no new selector | Revert function, dispatch, witness and tests together; no data conversion or compatibility alias | Retired schema fails unsupported-schema admission, with no success report or requested output; no executable reissue path; E-I8-S38 |
+| S-39 / structural test simplification | F-34; C-13/19 | Replace options struct with signed/unsigned helper; remove unused branches, preserve ZIP helper callers | DONE; E-I8-S38 preceded edits; E-I8-S39 records preserved assertions | V-47; existing live verifier rejection row | Revert helper and caller together; no fixture artifact rewrite | Both predecessor variants still reject at `bundle_hint_invalid`; unused options absent; E-I8-S39 |
+| S-40 / qualification | F-33/34; C-12/13/15/18/19 | Finalize, review, freeze source and run scoped portfolio; publish checkpoint | DONE; E-I8-S39 preceded finalization; E-I8-S40 records final qualification and preservation | V-48 and documentation checks | Repair invalidates affected qualification; no deployment/reset | Required checks and preservation pass on compatible final source; E-I8-S40 |
+
+Completed I6 slices follow; their authorization and DONE statuses are historical. I7's completed supplemental slices remain in §21.
 
 | Slice / kind | Findings / contracts | Intended change | Entry evidence / readiness | Tests / validation | Rollback / migration | Binary completion / future evidence |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -536,11 +606,13 @@ The following table is the historical transport implementation plan, retained fo
 | S-07 | Document Consumer, constructor and transaction-bound API integrity effects and lifetime. Keep existing service and immediate rollback/invalidation design. | V-02 integrity cases; V-00 | No behavior/signature changes. |
 | S-03 | Finalize, review generated diff, freeze implementation, run targeted Reference Data/shared HTTP/client and source checks; complete tracker and handoff. CI removed by user direction. | V-00–09 selected portfolio | Preserve exact run artifacts and unrelated user work. |
 
-Current readiness is determined by the predecessor exits, not by historical planning DONE rows. The authorized implementation proceeds without another permission gate. Unknown genuine primary-owner contradictions would block only their affected slice.
+I8 readiness is determined by its own predecessor exits, not historical DONE rows or earlier implementation permissions. A genuine primary-owner contradiction, if discovered, blocks only the affected decision; none is established for I8.
 
 ## 8. Validation Plan
 
-The following I6 plan and document-session discovery are historical; completed execution is recorded in §20. I7 supplemental validation is controlled by §21. All commands use repository root `/home/jochi/code/cartulary`. I6 planning discovery found 92 owner rows before the CLI row was added. The authored inventory authority is `tools/test_families/module.reference_data.json`; the dated I7 baseline is recorded once in §21. Counts are routing facts, not passes.
+Current implementation obligations V-46–48 and their exact portfolio/results are in §22. Baseline, post-slice checks, finalization, final three-row portfolio, boundary/generated/schema checks and reproducible producer build pass. S-40 documentation and final preservation checks also pass. V-49 records historical planning-document validation. Scoped qualification does not claim whole-owner or production-release acceptance. All commands use repository root `/home/jochi/code/cartulary` and public Make entrypoints.
+
+The following I6 plan and document-session discovery are historical; completed execution is recorded in §20 and I7 supplemental evidence in §21. I6 planning discovery found 92 owner rows before the CLI row was added. The authored inventory authority remains `tools/test_families/module.reference_data.json`. Counts are routing facts, not passes.
 
 | ID / layer | Findings / slices | Stage / exact public command | Environment / expected evidence | Failure gate |
 | --- | --- | --- | --- | --- |
@@ -599,7 +671,15 @@ Additional-source command discovery inspected `tools/harness/diagnostics/owner-d
 
 ## 9. Top-Level Work Tracker
 
-Completed I6 work is recorded below; current I7 work and status are in §21:
+| ID | Current work item / workflow | Status | Dependencies / trace | Exit condition |
+| --- | --- | --- | --- | --- |
+| T-034 | I8 document update | DONE | E-I8-01–06; user-approved document plan; V-49 | Reconciled tracker, Markdown/whitespace pass and tracker-only preservation; final transcription check recorded in §22 |
+| T-035 | S-37 / WF-I8-00 | DONE | E-I8-S37; F-33/34; C-12/13/15/18/19 | Caller/assertion map and all three baseline rows pass; 497 immutable fingerprints retained |
+| T-036 | S-38 / WF-I8-01 | DONE | E-I8-S38/40; §6; F-33; V-46 | Entire reissue path retired; unsupported-input/no-output assertion and final qualification pass |
+| T-037 | S-39 / WF-I8-02 | DONE | E-I8-S39/40; §6; F-34; V-47 | Minimal helper retains both live rejection cases and other ZIP callers; final qualification passes |
+| T-038 | S-40 / WF-I8-03 | DONE | E-I8-S40; §6; V-48 | Final compatible scoped qualification, documentation and preservation checks pass; handoff complete |
+
+Completed I6 work is recorded below; completed I7 work remains in §21. I8 implementation rows become DONE only through their separate execution checkpoints.
 
 | ID | Work item / workflow | Status | Dependencies / trace | Exit condition |
 | --- | --- | --- | --- | --- |
@@ -630,7 +710,11 @@ Historical T-001–009 completed initial planning; T-010/011/013/014 were supers
 
 ## 10. Session Handoff Log
 
-Historical document session: `reference-i6-docs`, 2026-11-07 in the supplied America/New_York context. I6-00 was the clean `a8f2fe2d…` baseline. That session admitted only tracker writes; §20 records the subsequent implementation handoff and §21 records current I7 execution. The tables below preserve the original `reference-data-planning-2026-11-07` session, when no tracker existed, and its later execution history.
+Current implementation session `reference-i8-implementation-xt30lmqv`, 2026-11-08 America/New_York: S-37–40 are DONE with sequential checkpoints; finalization, executable checks, documentation and preservation pass. F-33/F-34 are closed by E-I8-S40. §22 retains source identities, exact commands, native sessions, summaries and compatibility limits. The initial tracker edits are preserved; the only production change is offline Base-command retirement, accompanied by regression/fixture changes and witness admission removal. No frontend, runtime schema, authorization or lifecycle contract changed.
+
+Historical document session `reference-i8-docs`, 2026-11-08 America/New_York: the user approved implementation of the document-update plan only. E-I8-01–05 and §22 record revalidated source, scope, tests/harness discovery and remaining future gates. Scope/authority and backend changes are planning-only; frontend/rendered review is not applicable because no UI change is planned; contract/codegen changes are not planned; security/rejection guarantees are preserved. Only the tracker is touched. Final documentation/preservation results are recorded at the end of §22.
+
+Historical document session: `reference-i6-docs`, 2026-11-07 in the supplied America/New_York context. I6-00 was the clean `a8f2fe2d…` baseline. That session admitted only tracker writes; §§20–21 record subsequent I6/I7 implementation. The tables below preserve the original `reference-data-planning-2026-11-07` session, when no tracker existed, and its later execution history.
 
 ### Scope and authority
 
@@ -765,7 +849,13 @@ The shared router accepts a complete generated owner family and owner-supplied p
 
 ## 11. Open Questions and Blockers
 
-I6 scope decisions and the original characterization gate are resolved. I7 has no unresolved authority/design question; its supplemental validation obligations are in §21:
+I8 has no unresolved design/authority question. The user chose retirement rather than a new general builder and explicitly authorized implementation. E-I8-S37 resolves the characterization gate; E-I8-S38/39 satisfy the sequential implementation exits in §6:
+
+| ID | Question or blocker | Affected scope | Needed evidence | Status / resolution |
+| --- | --- | --- | --- | --- |
+| RB-005 | Current executable pre-removal characterization | S-38; F-33; C-18 and preserved C-12/15 | S-37 caller/assertion map, three fresh passing baseline rows and immutable fingerprints under V-46–48 | DONE; E-I8-S37 resolves the missing-characterization gate |
+
+S-37–40 are DONE; E-I8-S40 closes the bounded effort. No unresolved I8 blocker remains. Historical I6/I7 blockers and completed validation follow and do not satisfy I8 gates:
 
 | ID | Question or blocker | Affected scope | Needed evidence | Status / resolution |
 | --- | --- | --- | --- | --- |
@@ -781,7 +871,17 @@ Historical blockers below remain closed for their original scopes; RB-001 is not
 
 ## 12. Binary Completion Criteria
 
-The table below preserves I6 acceptance. Current supplemental completion requires V-42–45 / S-36 in §21; the I6 validation row does not close those gates.
+| Outcome | Current I8 statement |
+| --- | --- |
+| Planning completeness | complete for the bounded F-33/34 retirement/simplification design; normal artifact, no pending required source inspection or owner decision; not an exhaustive audit or production-readiness certification |
+| Per-slice readiness | S-37–40 DONE; all predecessor gates and scoped acceptance criteria satisfied |
+| Implementation authorization | Explicit user request to implement the complete F-33/F-34 plan, including S-37–40 and sequential tracker checkpoints |
+| Current validation | V-46/47 focused and final rows pass; V-48 finalization, final portfolio, boundary/generated/schema and producer-build checks pass on the frozen source. S-40 documentation and preservation checks pass. V-49 is historical document-only validation. |
+| Session preservation | E-I8-S40 compares against I8-03: only the six authorized changed files and one deletion differ; all 497 immutable artifacts, historical §§13–21, HEAD, branch, index content/identity and staged entries are preserved. Earlier tracker-only comparisons remain historical. |
+
+Planning criteria are met: canonical target/output admitted; all 265 paths accounted at declared depth; required removal sources directly inspected; owner-required versus observed behavior separated; F-33/34 trace through contracts, slices, V-46–48 and evidence; §6 prerequisites are acyclic; each slice has readiness/exit/rollback terms; offline removal was separate from test simplification; exact validation selectors are discovered; historical passes remain historical. V-49 and content/index/identity preservation passed at E-I8-06; the completion transcription receives the final check specified in §22. The final handoff in §22 closes this bounded effort; future work starts from a newly revalidated baseline.
+
+The table below preserves I6 acceptance. I7's separate completion is recorded in §21; neither historical portfolio closes I8 gates.
 
 | Outcome | I6 statement at completion |
 | --- | --- |
@@ -1621,3 +1721,178 @@ Optional finalizer `canonical_evidence_validation` and `scheduler_drift_validati
 I7-05 / S-36 COMPLETE (E-I7-S36): `CARTULARY_TEST_RUN_ID=reference-i7-s36-handoff make lint-markdown` passed, native exit 0 (session 33058), summary `.cartulary/test-results/reference-i7-s36-handoff/adhoc/lint-markdown/tool-run-summary.json`. Current-state summaries and statuses were reconciled with the preserved historical record and final evidence. V-42–45 and F-30–32 are closed; S-33–36 are DONE, with a completion checkpoint after each workstream and before its successor. No required scoped validation or implementation uncertainty remains unresolved.
 
 The final completion-transcription command is `CARTULARY_TEST_RUN_ID=reference-i7-s36-handoff-final make lint-markdown`; its terminal result is retained at `.cartulary/test-results/reference-i7-s36-handoff-final/adhoc/lint-markdown/tool-run-summary.json`. The handoff requires that command's native exit 0 and the final source/immutable-evidence/staged-entry/whitespace comparison in `/tmp/reference-i7-exec-otf0_hif/final-checks.json`. No source edit follows the freeze and no repository edit follows the successful final transcription check. The controlled process witness's limitation, unchanged external contract, internal signature migration, exact qualification roots and optional maintenance skips above are part of this closure.
+
+## 22. I8 obsolete Base tooling and dead fixture branches
+
+### Current authority, scope and baseline
+
+I8 began as a document-only plan dated 2026-11-08 America/New_York. The user subsequently explicitly requested implementation of S-37–40, including sequential tracker checkpoints and final qualification. The execution record below supersedes planning-only authorization/readiness statements for this current invocation. The goal remains bounded production hardening through removal of obsolete execution and unused test branches, not whole-subsystem certification.
+
+The adopted/current Reference Pack NLSpec is 0.4.0 / major 3. Section 1 admits only current pack contract v2, distinguishes retained predecessor evidence from deployed state, and prohibits compatibility readers, implicit reset and data conversion. RP-REQ-059/060 require exact release bindings and verified Base bytes before readiness. Core 00 records the native ATT&CK/Entra/VERIS cutovers and their owner boundaries. These requirements remain intact; they do not require a reusable historical reissue command. No owner amendment, new schema, HTTP change or migration is needed for the planned retirement. A `v1` suffix on a still-current manifest, source profile or binding does not make it obsolete.
+
+E-I8-01 records clean `main` at `e2291271a502033b85c5e2d6aace2609bc8c8210`, 8,942 tracked/nonignored entries and the 265-file target inventory. The tracker began at SHA-256 `ab41f0a7ea4d9e12ad6b71eef088e2eab93aa42940947816ccf90f2c5c899d04`. Its supplied and canonical identities match; no target/output path component is a symlink and the tracker is a single-link regular file. The framework and applicable root/backend/tooling instructions remain available. The target's historical I6/I7 counts now match the current enumeration, but historical execution artifacts are not requalified here.
+
+### Removal decisions and preservation map
+
+The decision/gate tables below retain the approved plan. Current execution status and completion evidence are in §9 and the implementation checkpoints at the end of this section; V-49 and the planning-document session remain historical.
+
+| Finding / decision | Current evidence and future action | Compatibility / future-state benefit | Acceptance |
+| --- | --- | --- | --- |
+| F-33 / retire one-shot Base cutover | `producer/base.go` reads `previous_release`, fixes pack version `base-2026-11-06.1`, sequence 2 and release ID `cartulary.base_registries.2026-11-06.v2`; `producer/command.go` dispatches its schema and the independent witness admits it. Remove this entire executable path and the input type. | Removes a dated release operation and its prior-release parsing/unchecked shape assertions without extending a compatibility contract. External users of this offline input must stop invoking it; no alias, conversion or replacement builder. | S-38 / V-46: no executable reissue path; existing unsupported-schema diagnostic and status; no requested output or success report |
+| F-34 / simplify obsolete-format fixture | Only the signed/unsigned boolean varies at the sole `retiredReferencePackBundle` call. Replace `retiredBundleOptions` with `retiredReferencePackBundle(t testing.TB, signed bool)`; make the existing identity/payload defaults fixed helper data. Remove unused checksum/signature corruption, alternate paths, omitted-payload and extra-member options. | Keeps the meaningful security regression while shrinking test support and eliminating unexercised configuration branches. This helper stays test-only. | S-39 / V-47: both cases reach the live verifier and still fail with `bundle_hint_invalid`; `addZipFile` and its other callers remain |
+| Current Base release / keep | Runtime `loadBuiltinRelease` reads generated `builtins/release.v2.json`, independently of `ReissueBase`; current consumer tests verify exact bindings and the required registry vocabulary. | Keeps required readiness and exact historical identities without preserving the old producer operation. | C-12/15; V-48: checked-in current release, witness/source-profile and historical artifacts retain exact bytes |
+| Other current producers and meaningful negative evidence / keep | Current ATT&CK/Windows/Entra/VERIS packaging, fixture signing, schema validators, retained readers and fallback retain live callers or owner requirements. | Avoids treating a test-only caller, a version suffix or old fixture date as dead code. | No unrelated producer/package/format/UI/lifecycle change; existing selectors remain |
+
+This decision supersedes only the Base-reissue portion of I2's §16 intentional/no_action conclusion and I6's corresponding retention wording in §5. Their source snapshots, rationale, commands, failures and completion evidence remain historical. The current independent witness lists Base reissue as admitted but has no dedicated witness-producing branch for it; remove that admission entry together with the producer route rather than adding a new witness for the retired operation. Preserve all other witness input schemas and branches.
+
+The source search boundary was tracked/nonignored repository content, including Go declarations/callers and tool schema dispatch. `ReissueBase`, `BaseReissueInput` and `base_registry_reissue_input` lead to the producer file, command branch and witness allowlist. Textual absence is not an external-consumer guarantee. Current release and historical artifact bytes remain evidence, not code scheduled for deletion. No archived command, signed fixture, historical report or original source profile is rewritten to imply it came from the new executable.
+
+### Workstream gates and assertion destinations
+
+Section 6 is the authoritative dependency graph; §7 records per-slice readiness and rollback. No dependency is satisfied by completing this document. Each future workstream records its checkpoint before the successor begins.
+
+| Slice | Required entry / work | Binary exit and evidence |
+| --- | --- | --- |
+| S-37 | Explicit user implementation authorization; revalidate current checkout and E-I8-01–05. Recheck callers/build tags and each fixture option; inspect current selectors; capture immutable current/historical artifact fingerprints. Run the three-row baseline below. | E-I8-S37: baseline rows pass with compatible source, all useful assertions have named destinations, no unresolved caller or ownership question; resolves RB-005 |
+| S-38 | S-37 exit. Remove the producer function/input type, its CLI branch and witness allowlist entry together. Extend the existing CLI test using the real production dispatch child. | E-I8-S38 / V-46: retired input exits 1, reports `unsupported package input schema`, writes no success report and creates no requested release/output parent; CLI row passes and removal search has no executable references |
+| S-39 | S-38 exit. Simplify the helper to its signed boolean; preserve the two live rejection cases and unrelated ZIP-helper callers. | E-I8-S39 / V-47: both variants still reject with `bundle_hint_invalid`; unused options/branches absent; verifier row passes |
+| S-40 | S-39 exit. Run `make agent-finalize`, inspect any generated diff, freeze executable source, qualify the exact scoped portfolio and record final preservation/handoff. | E-I8-S40 / V-48: all required checks pass on compatible final source; immutable bytes and existing selectors retained; findings close only here |
+
+| Assertion / preservation obligation | Destination / constraint |
+| --- | --- |
+| Retired offline input rejected at dispatch | Add a subtest to existing `TestATTACKProducerCLI`, using `runProducerCLIChild` in production mode, parent-owned temporary input/output paths and the existing bounded joined child. Use the retired schema with a nonexistent previous-release canary and absent output directory; require the unsupported-schema diagnostic, native exit 1, empty stdout and unchanged/absent requested output. No public test override or new selector. |
+| Existing CLI help, invalid arguments and audit report delivery | Preserve current `TestATTACKProducerCLI` cases and their real dispatch/status policy; no duplicated command implementation. |
+| Signed and unsigned checksum-labelled formats stay untrusted | Preserve both iterations in `TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit`; the `Signed` flag describes the obsolete checksum label, not a valid cryptographic signature. Keep the existing winning rejection. |
+| ZIP construction used by current malformed/archive-limit cases | Retain `addZipFile`; recheck its callers before simplifying its containing helper file. |
+| Current Base release binding and vocabulary | Preserve `TestCanonicalBaseReleaseBindingsAndConsumerEvaluation_Unit`, including exact current release loading and all nine required indicator types. |
+| Artifact immutability and offline/runtime separation | Compare current built-in contract artifacts, canonical/signed fixtures and explicitly selected retained evidence against S-37 fingerprints; preserve producer import exclusion. Human preservation inspection is not a new executable dependency on specification prose. |
+
+### Validation obligations and exact selections
+
+| ID / layer | Findings, contracts and slices | Stage / command | Environment / expected result | Failure consequence |
+| --- | --- | --- | --- | --- |
+| V-46 / offline retirement | F-33; C-18, preserve C-12/15; S-37/38 | Baseline then post-slice: existing CLI row from the portfolio below; inspect function/dispatch/witness removal | Machine JSON input, no services/network; bounded production-dispatch child; exact unsupported-schema/no-output assertion | Block S-38 completion on a missed route, wrong diagnostic, success status or output effect |
+| V-47 / test preservation | F-34; C-13/19; S-37/39 | Baseline then post-slice: existing verifier row below | Canonical/local fixtures and the two minimal predecessor variants; no live website or prose | Block S-39 if a useful assertion or ZIP caller is lost or rejection precedence changes |
+| V-48 / scoped qualification | F-33/34; C-12/13/15/18/19; S-37/40 | S-37: portfolio baseline. S-40: `make agent-finalize`, source review/freeze, final portfolio, `make lint CHECK=backend-boundary`, `make source-check CHECK=generated`, `make source-check CHECK=schema`, `make reference-pack-producer-build`, `make lint-markdown`, `git diff --check` | Fresh explicit run IDs, cache off for rows, installed pinned tools; no product services needed by selected rows. Retain native exits, owning summaries/manifests, exact source identity and available cleanup/secret-scan results. | Any required failure or immutable change blocks closure; investigate before retrying or broadening |
+| V-49 / current document integrity | T-034; this tracker only | Current session: admitted `make lint-markdown` command below, `git diff --check`, current-section review and content/index/identity comparison | Installed-only prerequisites, network-disabled Corepack, external result/cache paths, `fix:false`; only tracker may change | Document update remains incomplete if lint, consistency or preservation fails |
+
+At the start of a later implementation task, use `make task-guide OWNER=module.reference_data` to revalidate routing. Existing authored rows select `TestATTACKProducerCLI`, the verifier group containing both predecessor assertions, and the Base-consumer group respectively. Their presence is discovery evidence, not a pass. Preserve these selectors; the plan adds no harness framework or routing row. If a later necessary routing change is established, update authored inputs and regenerate through Make; never hand-edit generated projections.
+
+The S-37 baseline and S-40 final portfolio use the following command with distinct fresh run IDs (`reference-i8-baseline` and `reference-i8-final` are proposed names; choose a fresh suffix if already occupied):
+
+```sh
+CARTULARY_TEST_RUN_ID=reference-i8-baseline CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a,module.reference_data.unit.reference_pack_verifier_accepts_disconnected_loc_9a0b2298c2,module.reference_data.unit.canonical_consumers
+```
+
+Post-S-38 uses only the first row; post-S-39 uses only the second. The final portfolio follows finalization and source freeze. The producer build proves reproducibility of the changed executable; it does not reissue existing Base bytes or qualify a new external-data release. Integration, browser/UI, full-owner/full-CI suites, source acquisition, real-corpus assembly/replay, signing, deployment and release certification are not required for this bounded deletion/test-helper change. Broaden only if actual edits or failures expose additional ownership/risk. No full warm-check run is created solely for optional retained-run maintenance.
+
+### I8 planning-document evidence and session handoff
+
+| Evidence ID | Source / exact inspection | Baseline / time | Observation / retained material | Applicability |
+| --- | --- | --- | --- | --- |
+| E-I8-01 | Read-only Git status/HEAD/staged enumeration; file hash/identity and output-path admission | Clean `main`, `e2291271a502033b85c5e2d6aace2609bc8c8210`; 2026-11-08 | `/tmp/reference-i8-docs-e5p53yna/`: `baseline.json`, `ignored-baseline.json`, `target-inventory.json`, `tracker-before.md`, `inspection.py`; 8,942 repository entries, 265 target entries | Preservation/inspection only, not harness conformance or runtime evidence; relevant ignored scope is explicit in §1 |
+| E-I8-02 | Reference Pack NLSpec front matter/§1/RP-REQ-059/060; Core 00 adoption/precedence; domain owner navigation; root/backend/tooling instructions and framework | Same source baseline; planning reads revalidated before update | Current-only pack admission and exact release verification; no requirement for the one-shot builder; target/output identity established | Owner authority separate from implementation success; historical producer retention decision superseded only as stated |
+| E-I8-03 | `producer/base.go`, `producer/command.go`, `producer/command_test.go`; `tools/reference-packs/main.go`, `package.sh`, `witness.mjs`; repository symbol/schema searches | Same baseline | Fixed release identity and sequence, only CLI call path, witness admission, existing subprocess harness and unsupported-schema branch | Sufficient bounded movement/removal evidence; external callers not exhaustively known; no command executed |
+| E-I8-04 | `retired_format_fixture_test.go`, relevant verifier assertions/ZIP callers, `base_release.go`, `consumer_test.go` | Same baseline | One fixture caller with two variants; unused options; runtime current release read independent of producer; Base binding/vocabulary assertions | Supports F-34 and preservation destinations; test presence is not execution |
+| E-I8-05 | Authored Reference Data test-family rows; Make/generated recipes, workspace admission, installed-readiness, step/static-cache and Markdown runners/configuration | Same baseline | Exact three-row future portfolio; Markdown `fix:false`; installed-only readiness, redirected results/cache and existing workspace lock admit the document check | Discovery only; product checks/builds/finalization intentionally skipped in this invocation |
+| E-I8-06 | Admitted `make lint-markdown`, native session 62440 / exit 0; `git diff --check`; historical text and full baseline comparison | Same executable baseline; tracker-only update; 2026-11-08 | Run `/tmp/reference-i8-docs-e5p53yna/results/reference-i8-docs`; `document-review.json` and `preservation-checkpoint.json` in the comparison directory; final transcription artifacts named below | Documentation/preservation pass only; no product check executed; original §§13–21 preserved byte-for-byte |
+
+| Area / session | Current state / files inspected or touched | Revalidated or superseded conclusion | Next action / boundary |
+| --- | --- | --- | --- |
+| Scope and authority / I8-00 | E-I8-01/02; only tracker write admitted | Previous implementation permissions and passes remain historical | Complete V-49; future production work requires later authorization |
+| Backend boundary / I8-01 | E-I8-03/04; producer removal and owner-local test simplification planned | Supersedes the named one-shot reissue no-action decision; keeps current release loader and subsystem boundaries | S-37 caller/assertion/immutable baseline; no general package extraction |
+| Contract/codegen / I8-01 | C-12/13/15/18/19; no authored schema/projection edit | Only offline reissue input is scheduled for removal; no runtime wire/data change | Preserve artifact bytes; future finalization review cannot silently accept an identity rewrite |
+| Tests/harness / I8-01 | E-I8-05; existing three rows and V-46–49 | I6/I7 passes do not satisfy I8 baseline; no test or harness reads this tracker as requirements | Run only V-49 now; future rows use machine fixtures/current production paths |
+| Security/authorization / I8-01 | Exact Base binding and unsigned/signed predecessor rejection assertions inspected | Historical formats remain untrusted; fixture signing and real current validators stay | Preserve winning rejection, no output on retired command and offline producer exclusion |
+| Risks/next session / I8-01 | RB-005; S-38–40 predecessor gates; no unresolved owner decision | Planning complete for bounded scope; implementation incomplete/unexecuted | Revalidate affected evidence and run S-37 after later authorization |
+
+Frontend/rendered review is not applicable: neither the current document edit nor the planned production slices change UI, selectors or browser behavior. No new public HTTP contract or codegen ownership is introduced.
+
+I8-00 baseline and pre-write admission: the last read-only capture before the first tracker patch retained the original tracker contents and identity under E-I8-01. It matched the inspected canonical target and initial SHA-256; no pre-existing repository edit was present. The update preserves stable historical IDs and all original execution records while changing current summaries and adding this plan.
+
+I8-01 / T-034 IN_PROGRESS: §§1–12 now distinguish the document invocation from future implementation; §22 supplies decisions, assertion destinations, validation and evidence. F-33/34, S-37–40, V-46–49 and RB-005 are linked. No production refactor, test edit, artifact regeneration or dependency change has been performed. Markdown validation and final preservation are the remaining current-session gates.
+
+The only admitted managed validation kind for this document session is:
+
+```sh
+CARTULARY_PREPARATION_POLICY=installed_only COREPACK_ENABLE_NETWORK=0 CARTULARY_TEST_RESULTS_DIR=/tmp/reference-i8-docs-e5p53yna/results CARTULARY_STATIC_ANALYSIS_CACHE_DIR=/tmp/reference-i8-docs-e5p53yna/static-cache CARTULARY_TEST_RUN_ID=reference-i8-docs make lint-markdown
+```
+
+The command uses the existing pinned toolchain, cannot install prerequisites under this policy, and has no Markdown fix mode. Make's workspace lock already exists; its identity/content is included in preservation checks. Results and new static-cache material stay under the named external directory. `git diff --check` and full tracked/nonignored content/index/identity comparison complete V-49. Format, generation, `agent-finalize`, product tests, producer build/source/package commands and service operations are skipped because the authorized change is documentation only. Future V-46–48 and historical passes must not be reported as current execution.
+
+I8-02 / T-034 document update COMPLETE (E-I8-06): the exact documentation command above passed with native outer exit 0 (session 62440). Its owning summary at `/tmp/reference-i8-docs-e5p53yna/results/reference-i8-docs/adhoc/lint-markdown/tool-run-summary.json` reports pass, zero failures and 25,170 ms. `git diff --check` passed. `document-review.json` confirms original §§13–21 are unchanged and verifies the exact three future row IDs and their selectors. `preservation-checkpoint.json` confirms that only this tracker differs among all 8,942 baseline entries; there are no added/removed repository entries. HEAD, branch, staged entries, raw index content/identity and all 2,525 inspected ignored entries plus the workspace lock are unchanged. No unexpected concurrent edit was observed.
+
+Planning completeness is complete for the bounded I8 design. S-37 is ready for a later authorized task; S-38 remains blocked by RB-005, and S-39/40 await their §6 predecessors. F-33/34 are not implemented or closed. No production refactor or product verification occurred; the current built-in artifacts, fixture signing and historical evidence are preserved. The remaining operation in this document session is validation of this completion transcription, not implementation of S-37.
+
+The final transcription uses the same admitted environment and `make lint-markdown` with fresh run ID `reference-i8-docs-final`. Its owning summary is `/tmp/reference-i8-docs-e5p53yna/results/reference-i8-docs-final/adhoc/lint-markdown/tool-run-summary.json`; native exit and final review are recorded in `/tmp/reference-i8-docs-e5p53yna/final-checks.json`, with full comparison in `preservation-final.json`. These paths specify the final gate without preclaiming its result. No repository edit follows the successful final check. Ignored-location preservation remains bounded to §1's explicit scope; unrelated ignored dependency and historical-run trees are not claimed as fully fingerprinted.
+
+### I8 implementation checkpoints
+
+**I8-03 / S-37 DONE / E-I8-S37 — 2026-11-08.** The current user explicitly authorized the complete implementation plan. This supersedes the earlier document-only scope for this invocation, without rewriting its evidence. The content/index baseline is `/tmp/reference-i8-implementation-xt30lmqv/baseline.json`; the incoming tracker edit is retained in `tracker-before.md` and `preexisting.diff`. Baseline HEAD is `e2291271a502033b85c5e2d6aace2609bc8c8210`; the index was clean. All 8,942 tracked/nonignored files were fingerprinted, including 497 immutable files under `contracts/reference-packs/builtins`, `contracts/reference-pack-producers` and `fixtures/reference-packs` (including historical, canonical and signed evidence). Ignored execution outputs are outside this preservation inventory.
+
+Revalidated sources: root/backend/tooling instructions; Reference Pack §1 and RP-REQ-059/060; Core 00 and domain owner navigation from the immediately preceding plan; producer function, dispatcher, bounded CLI subprocess helper, witness admission/wrapper; retired helper and all ZIP/fixture callers; current Base loader and its consumer assertions; generated-artifact policy, topology outputs, pin registry and authored three-row routing. There are no additional nested instructions in the affected subtrees. Searches confirm one executable reissue caller and one retired-fixture caller; the latter varies only the signed flag. No normative amendment, compatibility alias, schema migration or replacement builder is required. The current assertion destinations remain those listed above.
+
+`make help ALL=1`, `make task-guide OWNER=module.reference_data` and `make task-guide OWNER=module.reference_data DETAIL=rows JSON=1` all exited 0; detailed routing is retained in `/tmp/reference-i8-implementation-xt30lmqv/task-guide.json`. The exact baseline command was:
+
+```sh
+CARTULARY_TEST_RUN_ID=reference-i8-s37-xt30lmqv CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a,module.reference_data.unit.reference_pack_verifier_accepts_disconnected_loc_9a0b2298c2,module.reference_data.unit.canonical_consumers
+```
+
+Native session `69374` exited 0. Run root `/home/jochi/code/cartulary/.cartulary/test-results/reference-i8-s37-xt30lmqv` contains `run-manifest.json`, owning `run-summary.json`, all three passing row results, cleanup results and retained-secret scan. The summary reports pass, two passed execution units, zero failures/skips, two cache bypasses and 5,634 ms. This is pre-removal characterization, not final qualification. RB-005 is resolved. S-37's checkpoint is recorded before any S-38 implementation edit; S-38 may now begin, while S-39 and S-40 retain their sequential gates.
+
+**I8-04 / S-38 DONE / E-I8-S38 — 2026-11-08.** After the S-37 checkpoint, deleted authored `producer/base.go` (`ReissueBase` and `BaseReissueInput`), its `producer/command.go` dispatch branch and the corresponding `tools/reference-packs/witness.mjs` allowlist entry. Current producer routes and witness branches remain intact. Added a subtest to `TestATTACKProducerCLI` using the existing production-mode bounded/joined child, matching executable identity, valid legacy fields, absent previous-release canary and parent-owned temporary output/report paths. It requires native exit 1, exactly `reference-pack-source: unsupported package input schema` on stderr, empty stdout and absent output parent, release and report. The changed test has no public test hook or new selector.
+
+```sh
+CARTULARY_TEST_RUN_ID=reference-i8-s38-xt30lmqv CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a
+```
+
+Native session `62540` exited 0; `/home/jochi/code/cartulary/.cartulary/test-results/reference-i8-s38-xt30lmqv/run-summary.json` reports pass, one passed unit, zero failures/skips, one cache bypass and 4,006 ms. The selected row, cleanup and retained-secret scan pass. Repository searches find the retired input schema only in its negative CLI assertion outside documentation; no executable function/type/dispatch/witness reference remains. `/tmp/reference-i8-implementation-xt30lmqv/preservation-s38.json` confirms all 497 immutable artifact hashes are unchanged.
+
+Compatibility: offline callers of the retired schema must stop invoking it; no alias, replacement builder, runtime contract change or data migration is introduced. The removal eliminates the dated transition and unchecked predecessor-shape parsing. Rollback would restore the function, dispatch, witness entry and test change together without rewriting artifacts. F-33 remains pending S-40 final qualification. This checkpoint precedes all S-39 edits; S-39 may now begin.
+
+**I8-05 / S-39 DONE / E-I8-S39 — 2026-11-08.** After the S-38 checkpoint, narrowed `retiredReferencePackBundle` to `(testing.TB, bool)` and removed `retiredBundleOptions` plus unused corruption/path/omission/extra-member branches. The helper fixes the same host-registry identity, contract, payload and member path previously supplied/defaulted. The sole verifier caller still loops over both signed/unsigned variants and requires `bundle_hint_invalid`. Its current-format success assertion and unrelated ZIP-helper callers are unchanged. The helper comment explicitly distinguishes the checksum-labelled signed variant from a cryptographic signature. No persisted fixture bytes, runtime code or public contract changed in this slice.
+
+```sh
+CARTULARY_TEST_RUN_ID=reference-i8-s39-xt30lmqv CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.reference_pack_verifier_accepts_disconnected_loc_9a0b2298c2
+```
+
+Native session `73503` exited 0; `/home/jochi/code/cartulary/.cartulary/test-results/reference-i8-s39-xt30lmqv/run-summary.json` reports pass, one passed unit, zero failures/skips, one cache bypass and 20,106 ms. The selected row, cleanup and retained-secret scan pass. `git diff --check` passes; source review confirms the useful fixture behavior and ZIP helper remain while the unused options disappear. Rollback would restore the helper and caller together. F-34 remains pending S-40 qualification. This checkpoint is recorded before S-40 finalization; all predecessor gates for S-40 are now satisfied.
+
+**I8-06 / S-40 IN_PROGRESS — executable qualification.** After E-I8-S39, `make agent-finalize` passed and reported zero generated updates. Executable source was then frozen in `/tmp/reference-i8-implementation-xt30lmqv/source-freeze.json`. All final graph manifests identify source commit `e2291271a502033b85c5e2d6aace2609bc8c8210` plus dirty-source digest `sha256:960d8a14b70c784cda35d19eded9306a0b1ad333887b56384b16be2a2c3354ab`. This is also S-39's source digest; S-37 and S-38 remain separate earlier-source evidence. Only this documentation artifact changes after the freeze.
+
+Each table command ran from `/home/jochi/code/cartulary` with `CARTULARY_TEST_RUN_ID` equal to its listed run ID. All graph commands also used `CARTULARY_HARNESS_CACHE_MODE=off`; the producer build used its normal two-pass reproduction workflow. Native exits were observed independently from summaries. Run roots are `/home/jochi/code/cartulary/.cartulary/test-results/<run-id>`; graph results use the owning `run-summary.json`, `run-manifest.json`, row/unit results, `cleanup-results.json` and `retained-secret-scan.json`.
+
+| Command / acceptance purpose | Run ID / native session | Native exit / result | Owning evidence / limits |
+| --- | --- | --- | --- |
+| `make agent-finalize` / required pre-qualification refresh | `reference-i8-finalize-xt30lmqv` / `13172` | 0 / pass; 30,471 ms | `unit-artifacts/finalize-summary.json`: generated unchanged, zero updated files; retained-run maintenance skipped because no compatible full warm-check root was supplied |
+| Three-row `make test-slice` below / final V-46–48 behavior | `reference-i8-final-xt30lmqv` / `14045` | 0 / pass; 3,319 ms | All three row results passed; two execution units passed, zero failures/skips, two cache bypasses |
+| `make lint CHECK=backend-boundary` / offline producer exclusion and owner boundaries | `reference-i8-boundary-xt30lmqv` / `79277` | 0 / pass; 3,730 ms | Four execution units passed; no boundary-rule change |
+| `make source-check CHECK=generated` / generated projection drift | `reference-i8-generated-xt30lmqv` / `56280` | 0 / pass; 16,358 ms | Five execution units passed; generated output unchanged |
+| `make source-check CHECK=schema` / machine schema integrity | `reference-i8-schema-xt30lmqv` / `53456` | 0 / pass; 8,393 ms | Three execution units passed; no schema edit |
+| `make reference-pack-producer-build` / changed executable reproducibility | `reference-i8-build-xt30lmqv` / `85051` | 0 / pass; 1,710 ms | `reference-pack-producer-build/tool-run-summary.json`; two byte-identical builds; no pack production, signing or release certification |
+
+The exact final behavior command was:
+
+```sh
+CARTULARY_TEST_RUN_ID=reference-i8-final-xt30lmqv CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a,module.reference_data.unit.reference_pack_verifier_accepts_disconnected_loc_9a0b2298c2,module.reference_data.unit.canonical_consumers
+```
+
+Every graph invocation in the table has completed cleanup with zero reported cleanup failures and a passing retained-secret scan. Unit counts describe harness work, not individual test counts. The reproduced producer SHA-256 is `0e3b60629b8624d55bfa0f8cc781788a032071531b23a55712ec75a24b2a7c03`; its immutable executable, identity and reproduction record are under `.cartulary/reference-packs/builders/0e3b60629b8624d55bfa0f8cc781788a032071531b23a55712ec75a24b2a7c03`. Existing release manifests are not rewritten to identify this new builder.
+
+The current three rows preserve the retired-input negative assertion, both predecessor verifier rejections, current-format acceptance and the Base release/three-registry/nine-indicator obligations. Source inspection covers witness admission removal and unchanged shared ZIP callers. These checks close the selected behavioral and boundary obligations; they do not establish complete-owner acceptance or qualify an external-data release. Integration, browser/UI, full-owner/CI, source acquisition, corpus replay, signing, deployment and release certification were not run because this bounded change does not touch those behaviors. No full warm-check was run solely to obtain optional maintenance input.
+
+Remaining S-40 gates: `make lint-markdown`, `git diff --check`, final content/index/immutable comparison, and completion transcription. F-33/F-34 remain open until those gates pass.
+
+**I8-07 / S-40 DONE / E-I8-S40 — 2026-11-08.** All scoped implementation, qualification and handoff gates pass. F-33/F-34 are closed; T-035–038 and S-37–40 are DONE. Each predecessor completion was written to this controlling artifact before the next workstream began. No owner amendment or migration was needed, no compatibility shim or general replacement builder was added, and current Base releases retain their original identities/provenance.
+
+`CARTULARY_TEST_RUN_ID=reference-i8-docs-xt30lmqv make lint-markdown` passed with native session `98828`, exit 0, and owning summary `/home/jochi/code/cartulary/.cartulary/test-results/reference-i8-docs-xt30lmqv/adhoc/lint-markdown/tool-run-summary.json` reporting pass, zero failures and 23,410 ms. `git diff --check` also passed. `/tmp/reference-i8-implementation-xt30lmqv/preservation-s40.json` confirms the exact change set: the tracker, CLI implementation/test, retired helper, verifier caller and witness script changed; only `producer/base.go` was deleted; no tracked/nonignored files were added. The 497 immutable artifact hashes, frozen executable source, original §§13–21, HEAD, branch, raw index content/identity and staged entries are unchanged. There is no unexpected tracked/nonignored change. Incoming tracker content was retained before reconciliation; current summaries were deliberately updated without erasing historical execution records. Ignored cache/build/run output preservation is not claimed.
+
+| Obligation | Final completion evidence |
+| --- | --- |
+| F-33 / C-18 / V-46 | E-I8-S38 removal and exact production-dispatch rejection; final CLI row passes in `reference-i8-final-xt30lmqv` |
+| F-34 / C-13/19 / V-47 | E-I8-S39 minimal helper; both signed/unsigned predecessor cases and current-format acceptance pass in the final verifier row |
+| C-12/15 / V-48 preservation | Final Base-consumer row passes with three registries and nine indicator types; all 497 immutable artifacts retain their original hashes |
+| V-48 source/build boundaries | Final boundary, generated/schema checks and two-pass producer reproduction pass on frozen source; finalization changed no generated output |
+| Tracker integrity and handoff | Markdown/whitespace and content/index/historical-record comparison pass; current statuses, compatibility impact, exact evidence and excluded qualification scopes are reconciled |
+
+Final completion-transcription validation uses `CARTULARY_TEST_RUN_ID=reference-i8-docs-final-xt30lmqv make lint-markdown`, `git diff --check` and the same preservation comparison. Its owning summary is `/home/jochi/code/cartulary/.cartulary/test-results/reference-i8-docs-final-xt30lmqv/adhoc/lint-markdown/tool-run-summary.json`; exact native exit and final results are retained in `/tmp/reference-i8-implementation-xt30lmqv/completion-validation.json`, with final comparison in `preservation-final.json`. No repository edit follows the successful transcription check. No additional implementation work remains in the approved F-33/F-34 scope; a future general Base builder remains intentionally deferred until a concrete release needs it.

@@ -507,7 +507,7 @@ func TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, signed := range []bool{false, true} {
-		storage.container = retiredReferencePackBundle(t, retiredBundleOptions{PackKey: "type_registry.host", PackKind: "type_registry", PackVersion: "1", Signed: signed})
+		storage.container = retiredReferencePackBundle(t, signed)
 		_, err := verifyEngineFixture(storage, attempt)
 		var rejected *ContentRejection
 		if !errors.As(err, &rejected) || rejected.Code != "bundle_hint_invalid" {

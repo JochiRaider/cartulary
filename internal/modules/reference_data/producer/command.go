@@ -79,8 +79,6 @@ func executeCommand(ctx context.Context, args []string, stdout, stderr io.Writer
 				report, err = AssembleVERIS(ctx, b, builder)
 			} else if header.SchemaID == "cartulary.entra_build_input.v2" {
 				report, err = AssembleEntra(ctx, b, builder)
-			} else if header.SchemaID == "cartulary.base_registry_reissue_input.v1" {
-				report, err = ReissueBase(ctx, b, builder)
 			} else if header.SchemaID == "cartulary.attack_package_input.v1" {
 				report, err = Assemble(ctx, b, builder)
 			} else {

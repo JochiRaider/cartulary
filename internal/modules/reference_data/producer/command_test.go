@@ -85,6 +85,39 @@ func TestATTACKProducerCLI(t *testing.T) {
 			}
 		}
 	})
+	t.Run("retired Base reissue input produces no output", func(t *testing.T) {
+		builder, err := BuilderIdentity()
+		if err != nil {
+			t.Fatal(err)
+		}
+		directory := t.TempDir()
+		inputPath := filepath.Join(directory, "input.json")
+		outputDirectory := filepath.Join(directory, "output")
+		outputPath := filepath.Join(outputDirectory, "release.json")
+		reportPath := filepath.Join(directory, "report.json")
+		// The parent and production-dispatch child use the same executable.
+		// Valid legacy fields plus an absent source distinguish dispatch rejection
+		// from a later input-validation or previous-release read failure.
+		input := encoded(t, map[string]any{
+			"schema_id":        "cartulary.base_registry_reissue_input.v1",
+			"previous_release": filepath.Join(directory, "missing-previous-release.json"),
+			"output_file":      outputPath,
+			"built_at":         "2026-11-06T00:00:00Z",
+			"builder_sha256":   builder.SHA256,
+		})
+		if err := os.WriteFile(inputPath, input, 0600); err != nil {
+			t.Fatal(err)
+		}
+		stdout, stderr := runProducerCLIChild(t, "production", []string{"--action", "assemble", "--input", inputPath, "--report-file", reportPath}, 1)
+		if stdout != "" || stderr != "reference-pack-source: unsupported package input schema\n" {
+			t.Fatal("retired Base input reached package execution", stdout, stderr)
+		}
+		for _, path := range []string{outputPath, outputDirectory, reportPath} {
+			if _, err := os.Lstat(path); !os.IsNotExist(err) {
+				t.Fatal("retired Base input created output", path, err)
+			}
+		}
+	})
 	t.Run("help succeeds", func(t *testing.T) {
 		stdout, stderr := runProducerCLIChild(t, "production", []string{"--help"}, 0)
 		if stdout != "" || !strings.Contains(stderr, "Usage of reference-pack-producer:") || strings.Contains(stderr, "reference-pack-source:") {

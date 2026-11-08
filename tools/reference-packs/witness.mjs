@@ -11,7 +11,7 @@ const [action, inputPath, reportPath, sourceRoot] = process.argv.slice(2);
 const input = JSON.parse(fs.readFileSync(inputPath));
 const admittedInputs = {
   'source-audit': ['cartulary.veris_inventory.v1', 'cartulary.attack_source_lock.v1', 'cartulary.windows_event_inventory.v2', 'cartulary.entra_inventory.v2'],
-  assemble: ['cartulary.veris_build_input.v1', 'cartulary.attack_package_input.v1', 'cartulary.windows_event_build_input.v2', 'cartulary.entra_build_input.v2', 'cartulary.base_registry_reissue_input.v1'],
+  assemble: ['cartulary.veris_build_input.v1', 'cartulary.attack_package_input.v1', 'cartulary.windows_event_build_input.v2', 'cartulary.entra_build_input.v2'],
   envelope: ['cartulary.veris_envelope_input.v1', 'cartulary.veris_release_envelope_input.v1', 'cartulary.attack_envelope_input.v1', 'cartulary.windows_event_envelope_input.v2', 'cartulary.windows_event_release_envelope_input.v2', 'cartulary.entra_envelope_input.v2', 'cartulary.entra_release_envelope_input.v2'],
 };
 if (!admittedInputs[action === 'renew' ? 'envelope' : action]?.includes(input.schema_id)) throw new Error('unsupported witness input schema');

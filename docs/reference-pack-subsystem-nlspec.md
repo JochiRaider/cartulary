@@ -2544,14 +2544,12 @@ and metadata version. A new local publisher authority MAY be created when the
 operator requests pack creation. Its public bootstrap MUST accompany the pack;
 creating that authority does not install deployment trust. Private context bytes
 MUST remain outside public output, logical and ledger roots with owner-only access.
-The release path MUST verify the completed container through the runtime archive,
-manifest, content and TUF admission facilities using the actual UTC wall clock
-before atomic publication. Verification receipts stay in local ledger retention.
+Release publication MUST be atomic.
 Fixture adapters retain their existing identities and restrictions. Updates
 create new acquisitions and immutable releases; activation remains explicit.
 
 Windows qualification MUST exercise production behavior: parsing usable inputs,
-safe packaging and verification, import, activation, lookup, presentation and
+safe packaging, import, activation, lookup, presentation and
 retained-release consumption. Provenance-only research tests and duplicate
 source-accounting witnesses MUST NOT run as part of the normal build or test
 cycle. This does not remove runtime integrity or exact-pack-set binding rules.
