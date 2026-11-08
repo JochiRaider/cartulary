@@ -53,6 +53,10 @@ func (rows *contentRows) Append(_ context.Context, row ContentRow) error {
 }
 func fixtureManifest(f contentFixture) Manifest {
 	m := Manifest{Key: f.Key, ProfileID: profiles[f.Key].ID, Artifacts: []SourceArtifact{{Ref: "fixture"}}}
+	if f.Key == "framework.veris" {
+		m.SourceVersion = "fixture-v2"
+		m.Artifacts[0].Ref = "https://example.test/verisc-merged.json"
+	}
 	m.Summary.Kind = profiles[f.Key].Shape
 	for path, value := range f.Members {
 		n := int64(strings.Count(value, "\n"))
@@ -316,9 +320,7 @@ func TestD3FENDProfileContent_Unit(t *testing.T) {
 func TestVERISProfileContent_Unit(t *testing.T) {
 	testCanonicalProfileContent(t, contentFixtureFor(t, "framework.veris"))
 	testProfileSchemaClosure(t, contentFixtureFor(t, "framework.veris"))
-	testNestedContentAdmission(t, contentFixtureFor(t, "framework.veris"))
 	testCanonicalProfileBytes(t, contentFixtureFor(t, "framework.veris"))
-	testFrameworkExternalLookupKeys(t, contentFixtureFor(t, "framework.veris"))
 }
 
 func TestTORProfileContent_Unit(t *testing.T) {

@@ -17,6 +17,7 @@ import (
 func TestAdmissionAlgorithmResultAndDeadline_Unit(t *testing.T) {
 	t.Run("revocable terminal completion", testTerminalCompletionGrace)
 	t.Run("nested cleanup reuses original interruption", func(t *testing.T) {
+		type nestedCleanupKey struct{}
 		ctx, cancel := context.WithCancel(extensiondeadline.WithCancellationTracking(t.Context()))
 		if extensiondeadline.GraceExhausted(ctx) || extensiondeadline.GraceExhausted(t.Context()) {
 			t.Fatal("read manufactured exhaustion")
@@ -28,7 +29,7 @@ func TestAdmissionAlgorithmResultAndDeadline_Unit(t *testing.T) {
 			t.Fatal("missing interruption")
 		}
 		time.Sleep(10 * time.Millisecond)
-		nested := extensiondeadline.ReuseCancellationTracking(context.WithValue(ctx, struct{}{}, "nested"))
+		nested := extensiondeadline.ReuseCancellationTracking(context.WithValue(ctx, nestedCleanupKey{}, "nested"))
 		_, err := extensiondeadline.Complete(nested, p, func(context.Context) (struct{}, error) { return struct{}{}, nil })
 		if !errors.Is(err, extensiondeadline.ErrGraceExhausted) || fatal != 1 || !extensiondeadline.GraceExhausted(nested) || !extensiondeadline.GraceExhausted(ctx) || extensiondeadline.GraceExhausted(t.Context()) {
 			t.Fatal("cleanup obtained fresh grace", err, fatal)

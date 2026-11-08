@@ -21,12 +21,16 @@
     },
     "scenario": {
       "enum": [
-        "snapshot_binding",
-        "portable_destination",
-        "historical_readiness",
-        "windows_online",
         "entra_lifecycle",
-        "recovery"
+        "historical_readiness",
+        "portable_destination",
+        "recovery",
+        "snapshot_binding",
+        "veris_lifecycle",
+        "veris_portability",
+        "veris_recovery",
+        "veris_snapshot_binding",
+        "windows_online"
       ]
     },
     "owner_id": {

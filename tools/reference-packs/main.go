@@ -57,6 +57,8 @@ func run() error {
 			}
 			if header.SchemaID == "cartulary.windows_event_build_input.v2" {
 				report, err = producer.AssembleWindows(context.Background(), b, builder)
+			} else if header.SchemaID == "cartulary.veris_build_input.v1" {
+				report, err = producer.AssembleVERIS(context.Background(), b, builder)
 			} else if header.SchemaID == "cartulary.entra_build_input.v2" {
 				report, err = producer.AssembleEntra(context.Background(), b, builder)
 			} else if header.SchemaID == "cartulary.base_registry_reissue_input.v1" {
@@ -104,6 +106,33 @@ func run() error {
 	}
 	if err = json.Unmarshal(lock, &sourceHeader); err != nil {
 		return err
+	}
+	if sourceHeader.SchemaID == "cartulary.veris_inventory.v1" {
+		var report any
+		switch *action {
+		case "acquire":
+			report, err = producer.VERISAcquire(context.Background(), root, lock, producer.VERISHTTPFetcher{})
+		case "check":
+			report, err = producer.VERISCheck(root, lock)
+		case "audit":
+			report, err = producer.VERISAuditSources(context.Background(), root, lock, builder)
+		default:
+			return errors.New("veris sources require the pinned inventory, not discovery")
+		}
+		if err != nil {
+			return err
+		}
+		b, e := canonicaljson.Marshal(report)
+		if e != nil {
+			return e
+		}
+		if *reportPath != "" {
+			if e = os.WriteFile(*reportPath, b, 0600); e != nil {
+				return e
+			}
+		}
+		fmt.Printf("VERIS %s: report_sha256=%s; source_root=%s\n", *action, producer.Digest(b), *directory)
+		return nil
 	}
 	if sourceHeader.SchemaID == "cartulary.entra_inventory.v2" {
 		var report any

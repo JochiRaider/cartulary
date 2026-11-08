@@ -58,6 +58,13 @@ remains unchanged: Imports owns final commit and recovery, and the target owner
 never ends its borrowed unit transaction. This clarification does not require a
 separate staging representation or allow owner publication before commit.
 
+The adopted VERIS native v2 content-profile replacement is scoped by
+Reference Pack RP-REQ-270–274 and Core 00's 2026-11-07 adoption. It retains
+Reference Pack administrative major 3 and existing Extensions interfaces.
+VERIS v1 is rejected; no compatibility reader, migration, reset, new route or
+workbook contribution is introduced. Local import and explicit activation use
+the current administration and lifecycle owners.
+
 ## 1.1 Current projection and evidence boundary
 
 This revision replaces the former document-provenance, requirement-accounting, clause-traceability, closure-catalog, conformance-manifest, and static registry-accounting design. Those mechanisms do not define product behavior and are not part of the current Extensions contract. In particular:

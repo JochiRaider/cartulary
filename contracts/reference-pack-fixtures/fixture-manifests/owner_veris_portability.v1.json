@@ -1,0 +1,21 @@
+{
+  "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
+  "fixture_id": "rpfx_owner_veris_portability",
+  "fixture_version": 1,
+  "fixture_family": "consumer",
+  "input_refs": [
+    "contracts/reference-pack-fixtures/fixtures/owner_veris_portability.v1.json",
+    "contracts/reference-pack-producers/veris/baseline.v1.json",
+    "contracts/reference-packs/builtins/release.v2.json",
+    "fixtures/veris/release.v1.json"
+  ],
+  "expected_container_sha256": null,
+  "expected_manifest_sha256": null,
+  "expected_payload_sha256": null,
+  "expected_pack_set_sha256": null,
+  "expected_condition": "verified_available",
+  "expected_issues": [],
+  "expected_public_error": null,
+  "expected_side_effects": [],
+  "forbidden_side_effects": []
+}

@@ -115,8 +115,8 @@
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "pack_contract_version": "cartulary.reference_pack_contract.v2",
-      "content_profile_id": "cartulary.reference_pack.framework.veris.v1",
-      "content_profile_version": "1"
+      "content_profile_id": "cartulary.reference_pack.framework.veris.v2",
+      "content_profile_version": "2"
     },
     {
       "pack_key": "type_registry.evidence",
@@ -146,5 +146,5 @@
       "content_profile_version": "1"
     }
   ],
-  "expected_set_id": "rpset_6bfef30e80abcc1dc73f11e041a5f7c7a551a7e67c337e3028edc34af6c504ba"
+  "expected_set_id": "rpset_26bcf6ca405598bfaa7ca4378cfc6d94aff6943bd4836197f3cc7675611056b1"
 }

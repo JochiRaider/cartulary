@@ -17,7 +17,7 @@ producer_status=0
   --editorial "${EDITORIAL:-}" \
   --input "${SOURCE_INPUT:-}" \
   --report-file "$producer_report" || producer_status=$?
-if [[ "${ACTION:-check}" == audit ]]; then
+if [[ "${ACTION:-check}" == audit && -s "$producer_report" ]]; then
   "${NODE_BIN:?}" ./tools/reference-packs/witness.mjs source-audit "${SOURCE_LOCK:?}" "$producer_report" "${SOURCE_DIR:?}"
 fi
 exit "$producer_status"

@@ -17,8 +17,8 @@
       "severity": "error",
       "phase": "content_semantics",
       "code": "content_semantic_invalid",
-      "path": "$.objects[0].source_refs[0].artifact_index",
-      "entry_id": "fixture:1",
+      "path": "$.objects[0].deprecated",
+      "entry_id": "veris-schema-node-1da6d72625eab284507898b0483c5f03358f1f2e1d6a11193ad870393b1f7f4b",
       "safe_details": {
         "limit_id": null,
         "expected_token": null,
@@ -26,7 +26,7 @@
         "related_pack_key": null,
         "related_pack_version": null
       },
-      "issue_id": "rpi_a9ab63c224f59446f060ad367c190d2578f65bd895382b6dccb82c10d4c7049c",
+      "issue_id": "rpi_90f8a7ef8316eea20decb9f5d70e40fa16cae61d851033227bb052ad5dc527f9",
       "reason_code": "content_semantic_invalid"
     }
   ],

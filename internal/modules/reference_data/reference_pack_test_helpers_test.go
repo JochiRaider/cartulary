@@ -183,6 +183,10 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 	}
 	manifest["pack_release_sequence"] = sequence + 1
 	manifest["trust_repository_id"] = "integration.repo"
+	if options.PackKey == "framework.veris" {
+		manifest["source_version"] = "fixture-v2"
+		manifest["source_artifacts"] = []any{map[string]any{"source_ref": "https://example.test/verisc-merged.json", "source_version": "fixture-v2", "sha256": strings.Repeat("a", 64)}}
+	}
 	manifest["source_as_of"] = integrationSigningDay.Format(time.RFC3339)
 	manifest["built_at"] = integrationSigningDay.Format(time.RFC3339)
 	for _, profile := range packformat.Profiles() {

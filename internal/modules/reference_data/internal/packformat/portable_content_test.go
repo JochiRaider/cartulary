@@ -220,7 +220,7 @@ func testPortableContentReachableLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 16801852 || Digest(encoded) != "82d7d8d49af464b8f218268239e28b90c3ae1f92f7e7b88d9c4a5baa09e194bb" {
+	if len(encoded) != 16801852 || Digest(encoded) != "3bf4bf5636878e063f15f5698bfa5ac6b34516587ed1046db1c14904e93d1b40" {
 		t.Fatal("independent catalog changed")
 	}
 	admitted, err := DecodePortableReferences(encoded)
@@ -235,7 +235,7 @@ func testPortableContentReachableLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 5091405 || Digest(encoded) != "58d06bdf9d2f588a56824adfcec10f075986101fd71e5862c86ee6ca5a9d93df" {
+	if len(encoded) != 5091405 || Digest(encoded) != "83f2feb1eb73b8909126aa1bfc3d74ac32efad1c886cca811323ab330ff9d22a" {
 		t.Fatal("independent content changed")
 	}
 	got, err := DecodePortableContent(encoded, admitted)

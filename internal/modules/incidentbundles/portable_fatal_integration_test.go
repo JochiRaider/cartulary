@@ -291,7 +291,7 @@ func testPortableFatalAfterAbort(t *testing.T, phase string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var finalizer incidentbundles.JobSuccessFinalizer = extensionassembly.NewIncidentBundleJobSuccessFinalizer(common, time.Now)
+	finalizer := extensionassembly.NewIncidentBundleJobSuccessFinalizer(common, time.Now)
 	if phase != "after_receipt" {
 		finalizer = portableMutationBarrier{finalizer, barrier}
 	}

@@ -1,0 +1,51 @@
+{
+  "schema_id": "cartulary.veris_source_profile.v1",
+  "source_profile_id": "cartulary.veris.community.native.v1",
+  "status": "adopted_frozen",
+  "inventory_sha256": "ec762619cb6f9ef639971736bd05361f8eb6b4a485e46d21a3ec5a6258fbb089",
+  "schema_keywords": [
+    "$schema",
+    "additionalProperties",
+    "default",
+    "definition",
+    "description",
+    "enum",
+    "items",
+    "maxLength",
+    "maximum",
+    "minItems",
+    "minLength",
+    "minProperties",
+    "minimum",
+    "pattern",
+    "properties",
+    "required",
+    "type",
+    "uniqueItems"
+  ],
+  "mapping": "Flat source nodes preserve keyword presence and parsed values; properties and items hold source-stable child IDs. Enum rows preserve exact contextual values and definitions. Rules are descriptive and never executable.",
+  "source_authority": "Merged schema is the structural authority, independently reconciled with base, enum and labels. Source revision is 1.4.2; the retained schema_version default remains 1.4.0. Guide v3.0 targets 1.4.1 and VCDB examples; it cannot change Community 1.4.2 vocabulary.",
+  "identity": "veris-<kind>-SHA256(JCS([veris-community,kind,pointer])) for nodes; append exact string enum value for enum-value; use stable curated rule_id for semantic-rule.",
+  "normalization": "Native values and optional-member presence are preserved. Display uses decoded HTML text, whitespace normalization and NFC, never truncation. Qualified aliases colliding under NFC/ASCII folding are excluded from every owner.",
+  "relationship": "contains, has-item-schema, allows-value and governed-by-rule; exact source refs and RP-REQ-111 identity; no inferred transitive edges.",
+  "limits": {
+    "source_artifact_bytes": 67108864,
+    "source_json_bytes": 8388608,
+    "structural_depth": 32,
+    "enum_members": 512,
+    "properties": 64,
+    "required_names": 64,
+    "native_string_scalars": 8192,
+    "pointer_scalars": 1024,
+    "line_bytes": 1048576
+  },
+  "network": "Acquisition only. Projection, package publication, runtime and tests are offline.",
+  "licensing": "CC-BY-SA-4.0 with exact license and attribution; distributable assembly requires the explicit project disposition.",
+  "rules_sha256": "b8841ffc28c718eb2701ad91965ed441c764f6b47b8b638fd7a9d2ce4d7887f0",
+  "dispositions_sha256": "6f156e24aa49798691b320afd0aae9ec187b21b0d481aace7933ac9980f5c8db",
+  "adopted_schema_sha256": {
+    "profiles/framework.veris.object.v2.schema.json": "80a9f8b29fb4cc87476e6009d42c86f7336b501f78f616d3962d9a81a8a5459c",
+    "profiles/framework.veris.relationship.v2.schema.json": "29be53907007a07ae7516b10963b5c1aef0ec033122fe600049199a04e7a64ce"
+  },
+  "continuity_sha256": "8a446d7ad17516045b2a0e2406062f0f2857d988fd162932d707bd1c1e8c87ec"
+}

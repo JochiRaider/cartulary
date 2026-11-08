@@ -1335,6 +1335,34 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.reference_data.integration.veris_real_release_import",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestVERISRealReleaseImport_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "explicit_only",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.reference_data.integration.windows_event_ids_producer_artifacts_preserve_in_466944f93e",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.integration",
@@ -2423,7 +2451,8 @@
           "TestEntraCurrentContractAdmission_Unit",
           "TestPendingCurrentContractAdmission_Unit",
           "TestReferenceBindingLoadFailures",
-          "TestRetainedArtifactsClosedAdmission_Unit"
+          "TestRetainedArtifactsClosedAdmission_Unit",
+          "TestVERISCurrentContractAdmission_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -2554,6 +2583,58 @@
         "package": "./internal/modules/reference_data/internal/packformat",
         "tests": [
           "TestIndicatorRegistryProfileContent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.veris_native_content",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestVERISNativeBounds_Unit",
+          "TestVERISNativeCorpus_Unit",
+          "TestVERISNativeRejections_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.veris_source_producer",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/producer",
+        "tests": [
+          "TestVERISSourceAdmission_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -18,7 +18,7 @@
       "phase": "content_schema",
       "code": "content_schema_invalid",
       "path": "$.objects[0].source_refs",
-      "entry_id": "fixture:1",
+      "entry_id": "veris-schema-node-1da6d72625eab284507898b0483c5f03358f1f2e1d6a11193ad870393b1f7f4b",
       "safe_details": {
         "limit_id": null,
         "expected_token": "required",
@@ -26,7 +26,7 @@
         "related_pack_key": null,
         "related_pack_version": null
       },
-      "issue_id": "rpi_6f730b72b8646992d18bf8f2ea621941b70b5b7f5c0a686fedc52cda111c26ff",
+      "issue_id": "rpi_fdd972c57b7e3fe7ff5ffef4ec274431741ac1d5a6da8a59f1dbf99344dda096",
       "reason_code": "content_schema_invalid"
     }
   ],

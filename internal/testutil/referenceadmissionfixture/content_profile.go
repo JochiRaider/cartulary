@@ -13,10 +13,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
-// seedEntra changes only the per-key profile generation in otherwise current
+// seedContentProfile changes only the per-key profile generation in otherwise current
 // shared contracts. Reporting cases retain a compatible set and reject only
 // the stale provenance inside the snapshot/release/composition binding.
-func seedEntra(t testing.TB, db *sql.DB, kind string) {
+func seedContentProfile(t testing.TB, db *sql.DB, kind, key, releasePath, authority string) {
 	t.Helper()
 	encode := func(v any) []byte {
 		t.Helper()
@@ -48,13 +48,13 @@ func seedEntra(t testing.TB, db *sql.DB, kind string) {
 			t.Fatal(kind, e)
 		}
 	}
-	release := decode(read("fixtures/entra-app-ids/release.v2.json"))
+	release := decode(read(releasePath))
 	manifest := decode(read(release["logical_root"].(string) + "/manifest.json"))
 	vector := decode(read("contracts/reference-pack-fixtures/fixtures/complete-set.v1.json"))
 	members := []any{}
 	for _, v := range vector["members"].([]any) {
 		m := v.(map[string]any)
-		if m["pack_key"] == "enrichment.entra_app_ids" || strings.HasPrefix(m["pack_key"].(string), "type_registry.") {
+		if m["pack_key"] == key || strings.HasPrefix(m["pack_key"].(string), "type_registry.") {
 			members = append(members, m)
 		}
 	}
@@ -63,7 +63,7 @@ func seedEntra(t testing.TB, db *sql.DB, kind string) {
 	})
 	reporting := kind == "snapshot" || kind == "render" || kind == "composition"
 	if !reporting {
-		members[0].(map[string]any)["content_profile_id"] = "cartulary.reference_pack.enrichment.entra_app_ids.v1"
+		members[0].(map[string]any)["content_profile_id"] = "cartulary.reference_pack." + key + ".v1"
 		members[0].(map[string]any)["content_profile_version"] = "1"
 	}
 	set := map[string]any{"schema_id": "cartulary.reference_pack_set.v2", "members": members}
@@ -82,15 +82,15 @@ func seedEntra(t testing.TB, db *sql.DB, kind string) {
 		}
 		pv["distribution_kind"] = "operator_imported"
 		pv["verification_method"] = "tuf_1_0_35_offline_bundle_v1"
-		pv["source_profile_id"] = "fixture.entra.admission"
+		pv["source_profile_id"] = "fixture.current-profile.admission"
 		pv["source_profile_sha256"] = digest
 		versions = append(versions, pv)
 		p["pack_set_id"] = "rpset_" + sum
 		p["authority_class"] = "registry"
-		if m["pack_key"] == "enrichment.entra_app_ids" {
-			p["authority_class"] = "advisory_enrichment"
+		if m["pack_key"] == key {
+			p["authority_class"] = authority
 		}
-		p["source_profile_id"] = "fixture.entra.admission"
+		p["source_profile_id"] = "fixture.current-profile.admission"
 		p["source_profile_sha256"] = digest
 		p["source_identifier"] = "Synthetic retained contract fixture"
 		p["source_version"] = "1"
@@ -104,11 +104,11 @@ func seedEntra(t testing.TB, db *sql.DB, kind string) {
 		anchors = append(anchors, p)
 	}
 	refs := encode(map[string]any{"schema_id": "reference_pack_refs.v2", "sets": []any{set}, "versions": versions})
-	manifest["content_profile_id"] = "cartulary.reference_pack.enrichment.entra_app_ids.v1"
+	manifest["content_profile_id"] = "cartulary.reference_pack." + key + ".v1"
 	manifest["content_profile_version"] = "1"
 	overrides := map[string][]byte{"manifest": encode(manifest), "set": encode(set), "references": refs}
 	if reporting {
-		anchors[0].(map[string]any)["content_profile_id"] = "cartulary.reference_pack.enrichment.entra_app_ids.v1"
+		anchors[0].(map[string]any)["content_profile_id"] = "cartulary.reference_pack." + key + ".v1"
 		anchors[0].(map[string]any)["content_profile_version"] = "1"
 		overrides["binding"] = encode(map[string]any{"pack_set_id": "rpset_" + sum, "pack_set_sha256": sum, "provenance": anchors})
 	}

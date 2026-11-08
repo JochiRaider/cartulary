@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.reference_pack_owner_fixture.v1",
+  "fixture_id": "rpfx_owner_veris_snapshot_binding",
+  "scenario": "snapshot_binding",
+  "owner_id": "module.reporting",
+  "row_id": "module.reporting.integration.veris_snapshot_binding",
+  "test_name": "TestVERISSnapshotAdmissionRetainsProducedSet_Integration"
+}

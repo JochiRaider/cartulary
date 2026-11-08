@@ -55,7 +55,15 @@ func run() error {
 		return err
 	}
 	defer objects.Close()
-	packs, err := referenceassembly.NewRecoveryStorage(cfg.Roots.TemporaryWork.Path, cfg.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits())
+	lifetime, err := reference_data.NewVerificationLifetime(time.Duration(cfg.Timeouts.Extensions.CancellationGraceSeconds)*time.Second, func(error) {
+		_, _ = fmt.Fprintln(os.Stderr, `{"code":"extension_integrity_failure","reason_code":"operation_cancellation_grace_exhausted"}`)
+		// An active cleanup must not return through the ordinary fixture error path.
+		os.Exit(70)
+	})
+	if err != nil {
+		return err
+	}
+	packs, err := referenceassembly.NewRecoveryStorage(cfg.Roots.TemporaryWork.Path, cfg.Roots.ReferencePackStorage.Path, reference_data.DefaultLimits(), lifetime)
 	if err != nil {
 		return err
 	}

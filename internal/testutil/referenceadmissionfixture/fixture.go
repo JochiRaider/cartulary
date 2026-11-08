@@ -17,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var Cases = []string{"current manifest extra", "current manifest missing", "current set unordered", "current set noncanonical", "current set identity", "entra manifest", "entra set", "entra portable catalog", "entra portable preparation", "entra snapshot", "entra render", "entra composition", "manifest", "set", "portable catalog", "portable preparation", "pending", "prepared", "snapshot", "render", "composition"}
+var Cases = []string{"current manifest extra", "current manifest missing", "current set unordered", "current set noncanonical", "current set identity", "entra manifest", "entra set", "entra portable catalog", "entra portable preparation", "entra snapshot", "entra render", "entra composition", "veris manifest", "veris set", "veris portable catalog", "veris portable preparation", "veris snapshot", "veris render", "veris composition", "manifest", "set", "portable catalog", "portable preparation", "pending", "prepared", "snapshot", "render", "composition"}
 
 const identity = "00000000-0000-4000-8000-000000000001"
 
@@ -30,7 +30,11 @@ func Seed(t testing.TB, db *sql.DB, kind string) {
 		return
 	}
 	if strings.HasPrefix(kind, "entra ") {
-		seedEntra(t, db, strings.TrimPrefix(kind, "entra "))
+		seedContentProfile(t, db, strings.TrimPrefix(kind, "entra "), "enrichment.entra_app_ids", "fixtures/entra-app-ids/release.v2.json", "advisory_enrichment")
+		return
+	}
+	if strings.HasPrefix(kind, "veris ") {
+		seedContentProfile(t, db, strings.TrimPrefix(kind, "veris "), "framework.veris", "fixtures/veris/release.v1.json", "framework_reference")
 		return
 	}
 	seed(t, db, kind, nil)

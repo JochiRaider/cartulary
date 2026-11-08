@@ -70,6 +70,19 @@ Graph Projection NLSpec 2.2.0 owns the distinct catalog-resolved Graph restore p
 Profiles: base
 Verified by: AC-469
 
+### VERIS reference pack v2 adoption — 2026-11-07
+
+The maintainer's explicit implementation instruction adopts the native VERIS
+amendment RP-REQ-270 through RP-REQ-274. This scoped pre-deployment content-profile
+replacement is permitted without changing shared pack contract v2,
+administrative major 3, manifest v1, reference catalog v2 or incident-bundle 7.
+It replaces only VERIS v1, with strict predecessor rejection and no dual reader,
+conversion, migration or reset. Unrelated pack identities are retained.
+The existing offline upstream-data exception applies to pinned VERIS research
+inputs; runtime and product/release verification consume canonical artifacts
+and machine-readable expectations. Adoption does not establish implementation,
+license disposition, publisher trust or completed local installation.
+
 ### Entra reference pack v2 adoption — 2026-11-07
 
 The maintainer authorized a clean Entra content/profile v2 schema cutover.

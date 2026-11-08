@@ -8,6 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -34,6 +35,7 @@ func TestReferencePackAdministrationConstruction_Unit(t *testing.T) {
 		Postgres: &pgxpool.Pool{}, Storage: constructionStorage{}, Limits: reference_data.DefaultLimits(),
 		JobAdmission: &jobs.TransactionService{}, JobOperations: &jobs.Manager{}, JobExecutionGuard: &jobs.TransactionService{},
 		RegistryUsage: referenceassembly.RegistryUsage{}, JobFinalizer: constructionFinalizer{}, Now: time.Now,
+		Lifetime: verificationtest.Lifetime(t),
 	}
 	missing := []struct {
 		name string
@@ -47,6 +49,7 @@ func TestReferencePackAdministrationConstruction_Unit(t *testing.T) {
 		{"finalizer", func(o *reference_data.CoordinatorOptions) { o.JobFinalizer = nil }},
 		{"registry usage", func(o *reference_data.CoordinatorOptions) { o.RegistryUsage = nil }},
 		{"clock", func(o *reference_data.CoordinatorOptions) { o.Now = nil }},
+		{"verification lifetime", func(o *reference_data.CoordinatorOptions) { o.Lifetime = nil }},
 		{"limits", func(o *reference_data.CoordinatorOptions) { o.Limits.ReferencePacks.MaxVerificationSeconds = 0 }},
 	}
 	for _, test := range missing {
@@ -69,7 +72,12 @@ func TestReferencePackAdministrationConstruction_Unit(t *testing.T) {
 	if app, err := referenceassembly.NewAdministration(valid, runner); err == nil || app != nil {
 		t.Fatal("duplicate registration admitted", err)
 	}
-	if admission, err := reference_data.NewImportAdmission(reference_data.ImportAdmissionOptions{Postgres: valid.Postgres, Storage: valid.Storage, Limits: valid.Limits, JobAdmission: valid.JobAdmission, Now: valid.Now}); err != nil || admission == nil {
+	admissionOptions := reference_data.ImportAdmissionOptions{Postgres: valid.Postgres, Storage: valid.Storage, Limits: valid.Limits, JobAdmission: valid.JobAdmission, Now: valid.Now, Lifetime: valid.Lifetime}
+	if admission, err := reference_data.NewImportAdmission(admissionOptions); err != nil || admission == nil {
 		t.Fatal("admission-only construction requires executor", err)
+	}
+	admissionOptions.Lifetime = nil
+	if admission, err := reference_data.NewImportAdmission(admissionOptions); err == nil || admission != nil {
+		t.Fatal("admission-only construction accepted missing verification lifetime", err)
 	}
 }

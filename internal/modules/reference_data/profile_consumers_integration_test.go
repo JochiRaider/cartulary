@@ -40,7 +40,7 @@ func TestD3FENDProfileConsumer_Integration(t *testing.T) {
 }
 
 func TestVERISProfileConsumer_Integration(t *testing.T) {
-	runCanonicalProfileConsumer(t, "framework.veris")
+	runVERISLifecycle(t, false)
 }
 
 func TestTORProfileConsumer_Integration(t *testing.T) {

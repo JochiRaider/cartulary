@@ -11,6 +11,12 @@ import (
 )
 
 func TestEntraCurrentContractAdmission_Unit(t *testing.T) {
+	testCurrentContentProfileAdmission(t, "enrichment.entra_app_ids", "fixtures/entra-app-ids/release.v2.json")
+}
+func TestVERISCurrentContractAdmission_Unit(t *testing.T) {
+	testCurrentContentProfileAdmission(t, "framework.veris", "fixtures/veris/release.v1.json")
+}
+func testCurrentContentProfileAdmission(t *testing.T, key, releasePath string) {
 	read := func(path string) []byte {
 		t.Helper()
 		b, e := os.ReadFile("../../../../" + path)
@@ -30,7 +36,7 @@ func TestEntraCurrentContractAdmission_Unit(t *testing.T) {
 	var release struct {
 		LogicalRoot string `json:"logical_root"`
 	}
-	if err := json.Unmarshal(read("fixtures/entra-app-ids/release.v2.json"), &release); err != nil {
+	if err := json.Unmarshal(read(releasePath), &release); err != nil {
 		t.Fatal(err)
 	}
 	manifest := read(release.LogicalRoot + "/manifest.json")
@@ -46,7 +52,7 @@ func TestEntraCurrentContractAdmission_Unit(t *testing.T) {
 	}
 	versions := []packformat.PortableVersion{}
 	for _, m := range set.Members {
-		versions = append(versions, packformat.PortableVersion{SetMember: m, DistributionKind: "operator_imported", VerificationMethod: "tuf_1_0_35_offline_bundle_v1", SourceProfileID: "fixture.entra.admission", SourceProfileSHA256: m.ManifestSHA256})
+		versions = append(versions, packformat.PortableVersion{SetMember: m, DistributionKind: "operator_imported", VerificationMethod: "tuf_1_0_35_offline_bundle_v1", SourceProfileID: "fixture.current-profile.admission", SourceProfileSHA256: m.ManifestSHA256})
 	}
 	refs, err := packformat.EncodePortableReferences([]packformat.Set{set}, versions)
 	if err != nil {
@@ -62,17 +68,17 @@ func TestEntraCurrentContractAdmission_Unit(t *testing.T) {
 			if err := validate(tc.kind, tc.current); err != nil {
 				t.Fatal("current retained state rejected", err)
 			}
-			old := bytes.ReplaceAll(tc.current, []byte("cartulary.reference_pack.enrichment.entra_app_ids.v2"), []byte("cartulary.reference_pack.enrichment.entra_app_ids.v1"))
+			old := bytes.ReplaceAll(tc.current, []byte("cartulary.reference_pack."+key+".v2"), []byte("cartulary.reference_pack."+key+".v1"))
 			if bytes.Equal(old, tc.current) {
 				t.Fatal("missing profile binding")
 			}
 			if err := validate(tc.kind, old); !IsIncompatible(err) {
-				t.Fatal("unsupported Entra profile admitted", err)
+				t.Fatal("unsupported predecessor profile admitted", err)
 			}
 		})
 	}
 	for i := range vector.Members {
-		if vector.Members[i].Key == "enrichment.entra_app_ids" {
+		if vector.Members[i].Key == key {
 			vector.Members[i].ProfileVersion = "1"
 		}
 	}

@@ -1,0 +1,730 @@
+{
+  "schema_id": "cartulary.veris_rules.v1",
+  "rules": [
+    {
+      "rule_id": "checkAgenticActors",
+      "category": "validation",
+      "statement": "Within each External or Internal actor branch, Agentic system must accompany at least one distinct additional actor variety.",
+      "applies_to": [
+        "/properties/actor/properties/external",
+        "/properties/actor/properties/internal"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:276-285",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkDataTotal",
+      "category": "validation",
+      "statement": "The confidentiality data total must be at least the maximum individual data amount, not their sum; absent amounts are treated as zero by this upstream check.",
+      "applies_to": [
+        "/properties/attribute/properties/confidentiality"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:138-143",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkDefacementInterruption",
+      "category": "recommendation",
+      "statement": "Defacement suggests an Availability Interruption. The upstream implementation checks membership directly on the availability object rather than its variety array; preserve this implementation discrepancy rather than claiming equivalent incident validation.",
+      "applies_to": [
+        "/properties/attribute/properties/availability",
+        "/properties/attribute/properties/integrity"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:268-273",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkImpactTotal",
+      "category": "validation",
+      "statement": "The overall impact amount must be at least the sum of individual loss amounts; absent amounts are treated as zero by this upstream check.",
+      "applies_to": [
+        "/properties/impact"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:128-133",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkInadequateContainment",
+      "category": "validation",
+      "statement": "Inadequate containment requires Agentic system in either the External or Internal actor variety.",
+      "applies_to": [
+        "/properties/action/properties/error",
+        "/properties/actor/properties/external",
+        "/properties/actor/properties/internal"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:300-306",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkLossTheftAvailability",
+      "category": "validation",
+      "statement": "Physical Theft or Error Loss requires the Loss availability variety.",
+      "applies_to": [
+        "/properties/action/properties/error",
+        "/properties/action/properties/physical",
+        "/properties/attribute/properties/availability"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:59-67",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkMalwareIntegrity",
+      "category": "validation",
+      "statement": "Malware actions require the Software installation integrity variety.",
+      "applies_to": [
+        "/properties/action/properties/malware",
+        "/properties/attribute/properties/integrity"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:33-36",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkMisalignmentAgenticSystem",
+      "category": "validation",
+      "statement": "Misalignment in an External or Internal motive requires Agentic system in that same actor branch.",
+      "applies_to": [
+        "/properties/actor/properties/external",
+        "/properties/actor/properties/internal"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:288-297",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkMisuseActor",
+      "category": "validation",
+      "statement": "A Misuse action requires an Internal or Partner actor. The preceding upstream comment incorrectly names External; the executable condition and diagnostic agree on Internal or Partner.",
+      "applies_to": [
+        "/properties/action/properties/misuse",
+        "/properties/actor"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:147-149",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkPlusAttributeConsistency",
+      "category": "validation",
+      "statement": "A plus confidentiality section requires a confidentiality attribute section.",
+      "applies_to": [
+        "/properties/attribute/properties/confidentiality",
+        "/properties/plus/properties/attribute/properties/confidentiality"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:69-72",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkRegion",
+      "category": "validation",
+      "statement": "Victim regions are six-character strings. Permitted super-region/sub-region pairs are 002:011,014,017,018,015,000; 010:000; 019:021,005,013,029,419,000; 419:005,013,029; 142:030,034,035,143,145,000; 150:039,151,154,830,155,000; 009:053,054,057,061,000; 000:000. The script recommends super-region replacements 001 to 000, 020 to 002, and 003 to 019.",
+      "applies_to": [
+        "/properties/victim/properties/region"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:154-187",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkSQLiRepurpose",
+      "category": "validation",
+      "statement": "SQLi hacking requires the Repurpose integrity variety.",
+      "applies_to": [
+        "/properties/action/properties/hacking",
+        "/properties/attribute/properties/integrity"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:45-48",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkSecondaryVictimAmount",
+      "category": "validation",
+      "statement": "The secondary-victim amount must be at least the number of listed secondary victims; it may include additional unknown victims.",
+      "applies_to": [
+        "/properties/victim/properties/secondary"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:192-196",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkSecurityIncident",
+      "category": "validation",
+      "statement": "security_incident must be present; Confirmed requires an attribute section.",
+      "applies_to": [
+        "/properties/attribute",
+        "/properties/security_incident"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:51-56",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkSocialIntegrity",
+      "category": "validation",
+      "statement": "Social actions require the Alter behavior integrity variety.",
+      "applies_to": [
+        "/properties/action/properties/social",
+        "/properties/attribute/properties/integrity"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:39-42",
+      "qualification": null
+    },
+    {
+      "rule_id": "checkValueChain",
+      "category": "recommendation",
+      "statement": "The upstream check associates Phishing with Email development and Email addresses targeting, malware vector C2 with C2 services, Ransomware with Cryptocurrency cash-out, and social Email vector with Email distribution. Recommendations additionally suggest Ransomware/Trojan development, Persona development for Pretexting, stolen-credential targeting only when credentials precede the attack, Vulnerabilities targeting and Exploit development for Exploit vuln, Loader distribution for Downloader, Misconfigurations targeting for Exploit misconfig, and Website development for Web application vectors. Malware without development data may use Unknown. These recommendations may be inapplicable when resources are free, obtained during the incident, or do not involve constructing a full website.",
+      "applies_to": [
+        "/properties/action",
+        "/properties/value_chain"
+      ],
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:201-265",
+      "qualification": null
+    },
+    {
+      "rule_id": "display-capitalization",
+      "category": "guidance",
+      "statement": "The short style guide uses sentence case for figures, capitalizes named industry nouns in chart titles and enumerations in statistics, and distinguishes direct references to Actor, Action, Asset and Attribute types from ordinary prose. This display guidance never changes raw enum spellings.",
+      "applies_to": [
+        ""
+      ],
+      "source_path": "veris_style_guide.md",
+      "locator": "lines:1-9",
+      "qualification": null
+    },
+    {
+      "rule_id": "enrichment-authentication",
+      "category": "enrichment",
+      "statement": "The script infers Modify authentication from Register MFA device or Created account; its Created account spelling differs from the pinned Create account vocabulary.",
+      "applies_to": [
+        "/properties/attribute/properties/integrity"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:364-370",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-backdoor-c2",
+      "category": "enrichment",
+      "statement": "Backdoor or C2 individually implies the broader Backdoor or C2 label for versions at least 1.3.6.",
+      "applies_to": [
+        "/properties/action/properties/malware"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:664-674",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-country-normalization",
+      "category": "enrichment",
+      "statement": "The enrichment script rewrites victim QM/QZ to US, infers regions from an external country table for victim and external/partner actors, and removes unknown region when another is available. The external table and these mutations are excluded from the corpus.",
+      "applies_to": [
+        "/properties/actor",
+        "/properties/victim"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:590-633",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-credentials",
+      "category": "enrichment",
+      "statement": "API key, Digital certificate, Multi-factor credential or Session key implies Credentials.",
+      "applies_to": [
+        "/properties/attribute/properties/confidentiality"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:385-391",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-data-state",
+      "category": "enrichment",
+      "statement": "The script attempts to infer Stored or Transmitted from their encrypted/unencrypted variants under confidentiality.variety, although the schema places these terms under data state. This mismatch is retained as a discrepancy.",
+      "applies_to": [
+        "/properties/attribute/properties/confidentiality"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:217-230",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-desktop-laptop",
+      "category": "enrichment",
+      "statement": "U - Desktop or U - Laptop implies U - Desktop or laptop in asset varieties for versions at least 1.3.4.",
+      "applies_to": [
+        "/properties/asset"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:290-301",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-email-hierarchy",
+      "category": "enrichment",
+      "statement": "The script describes Email attachment, Email autoexecute, Email link, Email other and Email unknown as children of Email, but operates on malware.variety rather than the schema vector field. Preserve the discrepancy without executing it.",
+      "applies_to": [
+        "/properties/action/properties/malware"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:302-316",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-exploit-hierarchy",
+      "category": "enrichment",
+      "statement": "The script maps its listed specific hacking exploit varieties to Exploit vuln for versions at least 1.3.3, and maps Remote injection or Web application - Web drive-by malware varieties to Exploit vuln. Several source spellings are stale relative to the pinned schema; these lists are not added to allowed vocabulary.",
+      "applies_to": [
+        "/properties/action/properties/hacking",
+        "/properties/action/properties/malware"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:249-289",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-malware-mining",
+      "category": "enrichment",
+      "statement": "Click fraud or Cryptocurrency mining implies the broader Click fraud and cryptocurrency mining label for schema versions at least 1.3.3.",
+      "applies_to": [
+        "/properties/action/properties/malware"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:231-239",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-malware-web",
+      "category": "enrichment",
+      "statement": "Web application - download or Web application - drive-by implies Web application in malware vectors for versions at least 1.3.5.",
+      "applies_to": [
+        "/properties/action/properties/malware"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:240-248",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-personal-data",
+      "category": "enrichment",
+      "statement": "Medical, Sensitive Personal, Bank or Payment data implies Personal in the enrichment script. This is descriptive hierarchy guidance, not an automatic addition.",
+      "applies_to": [
+        "/properties/attribute/properties/confidentiality"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:347-363",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-rat-hierarchy",
+      "category": "enrichment",
+      "statement": "For versions at least 1.3.4, Backdoor together with Trojan implies RAT, and RAT implies both Backdoor and Trojan.",
+      "applies_to": [
+        "/properties/action/properties/malware"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:317-334",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-secondary-count",
+      "category": "enrichment",
+      "statement": "The script raises secondary victim amount to at least the number of listed victims; the negative-value branch contains equality expressions rather than assignments.",
+      "applies_to": [
+        "/properties/victim/properties/secondary"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:675-685",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-secondary-motive",
+      "category": "enrichment",
+      "statement": "For schema versions at least 1.3.6, malware DoS infers Secondary motive, selecting External before Partner before Internal, possibly replacing a sole Unknown and appending notes. This inference is not an assertion about an incident.",
+      "applies_to": [
+        "/properties/action/properties/malware",
+        "/properties/actor"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:639-663",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-social-integrity-assets",
+      "category": "enrichment",
+      "statement": "Social actions imply Alter behavior and add person assets based on targets; asset details are deduplicated by the script. This pack describes the implication without generating incident assets.",
+      "applies_to": [
+        "/properties/action/properties/social",
+        "/properties/asset",
+        "/properties/attribute/properties/integrity"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:410-467",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-social-target",
+      "category": "enrichment",
+      "statement": "End-user or Other employee implies End-user or employee for versions at least 1.3.4.",
+      "applies_to": [
+        "/properties/action/properties/social"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:335-346",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-sqli-loss",
+      "category": "enrichment",
+      "statement": "SQLi implies Repurpose; physical Theft or Error Loss implies Availability Loss.",
+      "applies_to": [
+        "/properties/action",
+        "/properties/attribute"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:468-499",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-totals",
+      "category": "enrichment",
+      "statement": "The script raises impact overall amount to the sum of losses and confidentiality data total to the largest individual amount. Cartulary does not perform these incident mutations.",
+      "applies_to": [
+        "/properties/attribute/properties/confidentiality",
+        "/properties/impact"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:392-409",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-value-chain",
+      "category": "enrichment",
+      "statement": "The script adds value-chain categories implied by phishing, malware C2, ransomware and social email. Recommendation-only suggestions remain separate in checkValidity; no enrichment is executed.",
+      "applies_to": [
+        "/properties/action",
+        "/properties/value_chain"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:686-806",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "enrichment-web-asset",
+      "category": "enrichment",
+      "statement": "A hacking Web application vector implies an S - Web application asset.",
+      "applies_to": [
+        "/properties/action/properties/hacking",
+        "/properties/asset"
+      ],
+      "source_path": "bin/rules.py",
+      "locator": "lines:578-589",
+      "qualification": "Describes pinned upstream enrichment only; not incident validation or execution."
+    },
+    {
+      "rule_id": "guide-actor-relationship",
+      "category": "guidance",
+      "statement": "Actor classification follows the actor relationship to the victim, not the location or custody of data. Individual embedded contractors are Internal; staff of a contracted business may be Partner; an outsider attacking that business is External.",
+      "applies_to": [
+        "/properties/actor"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:8-10",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-asset-totals",
+      "category": "guidance",
+      "statement": "The total asset count is recorded separately and may differ from the sum of detailed counts because some quantities are unknown.",
+      "applies_to": [
+        "/properties/asset"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:34-35",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-broadest-supported-value",
+      "category": "guidance",
+      "statement": "When evidence does not distinguish a desktop from a laptop, use the supported parent variety rather than inventing a more specific device.",
+      "applies_to": [
+        "/properties/asset"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:147-148",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-cia-attributes",
+      "category": "guidance",
+      "statement": "Record supported Confidentiality, Integrity and Availability effects separately. Unauthorized data viewing establishes disclosure; installation of malware, behavior alteration, tampering, fraudulent transactions and impersonation are integrity effects. Lost access, encryption and service interruption affect availability.",
+      "applies_to": [
+        "/properties/attribute"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:14-16",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-direct-actors",
+      "category": "guidance",
+      "statement": "Record actors who directly cause the event. A person deceived by phishing is a victim asset, not automatically a colluding internal actor; failure to apply every preventive control is not itself an additional Error action.",
+      "applies_to": [
+        "/properties/action",
+        "/properties/actor"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:6-10",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-disclosure-evidence",
+      "category": "guidance",
+      "statement": "Loss or theft of an unencrypted electronic device can establish potential disclosure without confirming data access. Paper found and read may establish disclosure, while destroyed unreadable paper may remain only potentially disclosed. Encryption and retained keys affect the assessment.",
+      "applies_to": [
+        "/properties/action/properties/error",
+        "/properties/action/properties/physical",
+        "/properties/attribute/properties/confidentiality"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:110-125",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-discovery",
+      "category": "guidance",
+      "statement": "External, Internal and Partner describe who discovered the event. Unknown discovery differs from Other, which permits explanatory notes. Multiple discovery methods can coexist.",
+      "applies_to": [
+        "/properties/discovery_method",
+        "/properties/discovery_notes"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:39-42",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-disposal-loss",
+      "category": "guidance",
+      "statement": "Disposal and Loss have distinct availability implications: intended disposal may assume preserved copies, while accidental loss removes access to the asset.",
+      "applies_to": [
+        "/properties/action/properties/error",
+        "/properties/attribute/properties/availability"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:52-55",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-evidence-summary",
+      "category": "guidance",
+      "statement": "The incident summary should explain the recorded classification without relying on external links remaining available. Avoid guessing unsupported attack steps.",
+      "applies_to": [
+        "/properties/action",
+        "/properties/reference",
+        "/properties/summary"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:22-32",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-impact",
+      "category": "guidance",
+      "statement": "Impact ratings and monetary costs may be learned after the incident; capture supported information without manufacturing estimates.",
+      "applies_to": [
+        "/properties/impact"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:43-44",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-misuse-trust",
+      "category": "guidance",
+      "statement": "Misuse concerns access granted to Internal or Partner actors. Multiple actors can collude; victim geography does not change their trust relationship.",
+      "applies_to": [
+        "/properties/action/properties/misuse",
+        "/properties/actor"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:86-89",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-multiple-selections",
+      "category": "guidance",
+      "statement": "Actors, actions, assets, attributes and discovery mechanisms are nonexclusive; record multiple supported selections.",
+      "applies_to": [
+        "/properties/action",
+        "/properties/actor",
+        "/properties/asset",
+        "/properties/attribute",
+        "/properties/discovery_method"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:7-16",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-organized-crime",
+      "category": "guidance",
+      "statement": "Organized crime describes criminals operating with a repeatable process; the label does not require affiliation with a traditional mafia organization.",
+      "applies_to": [
+        "/properties/actor/properties/external"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:145-153",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-phishing-pretexting",
+      "category": "guidance",
+      "statement": "Phishing and Pretexting are separate source categories. Pretexting supplies a fabricated scenario or identity; compound incidents can include social actions followed by credential use and malware.",
+      "applies_to": [
+        "/properties/action/properties/hacking",
+        "/properties/action/properties/malware",
+        "/properties/action/properties/social"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:95-99",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-physical-tampering",
+      "category": "guidance",
+      "statement": "Skimming equipment adds an integrity tampering effect independently of any confidentiality effect.",
+      "applies_to": [
+        "/properties/action/properties/physical",
+        "/properties/attribute"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:144-146",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-publishing-misconfiguration",
+      "category": "guidance",
+      "statement": "Publishing exposes the wrong data on an intentionally public surface; Misconfiguration exposes data through incorrect access or system configuration.",
+      "applies_to": [
+        "/properties/action/properties/error"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:56-59",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-ransomware-disclosure",
+      "category": "guidance",
+      "statement": "Ransomware alone does not establish confirmed data exfiltration. Distinguish potential disclosure from confirmed theft, while recording supported installation and availability effects.",
+      "applies_to": [
+        "/properties/action/properties/malware",
+        "/properties/attribute"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:135-138",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-repurpose",
+      "category": "guidance",
+      "statement": "Repurpose describes using an asset for an unauthorized purpose, such as cryptocurrency mining. Do not infer availability degradation without evidence.",
+      "applies_to": [
+        "/properties/attribute/properties/availability",
+        "/properties/attribute/properties/integrity"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:138-141",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-secondary-victims",
+      "category": "guidance",
+      "statement": "For a single provider compromise affecting multiple customers, the guide codes the primary provider incident and lists affected organizations as secondary victims to avoid multiplying the same breach. Secondary entries may append a NAICS code after a semicolon.",
+      "applies_to": [
+        "/properties/victim/properties/secondary"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:166-170",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-social-assets",
+      "category": "guidance",
+      "statement": "Social attacks affect a Person asset; additional devices and systems affected during subsequent actions should also be recorded when supported.",
+      "applies_to": [
+        "/properties/action/properties/social",
+        "/properties/asset"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:12-13",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-supply-chain",
+      "category": "guidance",
+      "statement": "The guide distinguishes third-party data compromise from supply-chain compromise that includes downstream infrastructure and subsequent actions. This does not turn an External attacker into a Partner actor.",
+      "applies_to": [
+        "/properties/action",
+        "/properties/actor",
+        "/properties/victim/properties/secondary"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:166-172",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "guide-targeting",
+      "category": "guidance",
+      "statement": "Targeting means the victim was selected before the attack; opportunity means the attacker sought a victim for an available technique. Accidental events are not targeted malicious attacks. Unknown remains distinct.",
+      "applies_to": [
+        "/properties/targeted"
+      ],
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "pages:38-38",
+      "qualification": "Guide v3.0 uses VCDB examples and names schema 1.4.1; Community 1.4.2 schema remains authoritative. Case records, screenshots and third-party quotations are excluded."
+    },
+    {
+      "rule_id": "region-other-discrepancy",
+      "category": "guidance",
+      "statement": "The schema description permits 000001 for Other, but checkRegion permits only 000000 under super-region 000. Neither source is silently repaired.",
+      "applies_to": [
+        "/properties/victim/properties/region"
+      ],
+      "source_path": "verisc.json",
+      "locator": "/properties/victim/properties/region",
+      "qualification": null
+    },
+    {
+      "rule_id": "schema-version-default",
+      "category": "guidance",
+      "statement": "The schema heading and changelog identify 1.4.2, while schema_version retains a default and description naming 1.4.0. The source revision is 1.4.2; the original default is not rewritten.",
+      "applies_to": [
+        "/properties/schema_version"
+      ],
+      "source_path": "verisc-merged.json",
+      "locator": "/properties/schema_version",
+      "qualification": null
+    },
+    {
+      "rule_id": "unknown-actor-notes",
+      "category": "guidance",
+      "statement": "The unknown-actor description asks for notes, but its schema has no required array enforcing notes. Preserve both facts; reference lookup does not validate an incident.",
+      "applies_to": [
+        "/properties/actor/properties/unknown"
+      ],
+      "source_path": "verisc.json",
+      "locator": "/properties/actor/properties/unknown",
+      "qualification": null
+    }
+  ]
+}

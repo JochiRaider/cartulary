@@ -18,7 +18,7 @@
       "$ref": "profiles/framework.d3fend.object.v1.schema.json"
     },
     {
-      "$ref": "profiles/framework.veris.object.v1.schema.json"
+      "$ref": "profiles/framework.veris.object.v2.schema.json"
     },
     {
       "$ref": "profiles/enrichment.tor.entry.v1.schema.json"

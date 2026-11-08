@@ -58,6 +58,7 @@ func loadContentShapes() map[string]*shape {
 type contentState struct {
 	manifest     Manifest
 	attack       *attackState
+	veris        *verisState
 	ids          map[string]bool
 	aliases      map[string]bool
 	replacements map[string]string
@@ -120,6 +121,9 @@ func validateContentPhase(ctx context.Context, m Manifest, source ContentSource,
 	if m.Key == "framework.attack" && phase == contentSemantics {
 		state.attack = newAttackState()
 	}
+	if m.Key == "framework.veris" && phase == contentSemantics {
+		state.veris = newVERISState(m)
+	}
 	if p.Shape == "objects_relationships" {
 		kinds = []string{"object", "relationship"}
 	}
@@ -173,6 +177,22 @@ func validateContentPhase(ctx context.Context, m Manifest, source ContentSource,
 		if phase == contentSemantics && kind != "relationship" {
 			if err := state.validateReplacements(); err != nil {
 				return err
+			}
+		}
+		if state.veris != nil {
+			var err error
+			if kind == "object" {
+				err = state.veris.finishObjects()
+			} else {
+				err = state.veris.finish()
+			}
+			if err != nil {
+				if emit == nil {
+					return err
+				}
+				if err = emit(Finding{Path: "$." + kind + "s"}); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -390,6 +410,9 @@ func (s *contentState) row(m map[string]any, kind string, c *semanticChecks) (Co
 		row.Keys = append(row.Keys, LookupKey{"alias", key, id})
 	}
 	if kind == "object" {
+		if s.veris != nil {
+			s.veris.object(m, c)
+		}
 		if s.attack != nil {
 			s.attack.object(m, c)
 		}
@@ -477,6 +500,9 @@ func (s *contentState) relationship(m map[string]any, c *semanticChecks) (Conten
 	}
 	if s.attack != nil {
 		s.attack.relationship(m, c)
+	}
+	if s.veris != nil {
+		s.veris.relationship(m, c)
 	}
 	order := typ + "\x00" + source + "\x00" + target + "\x00" + id
 	c.require(id == expected, ".relationship_id")

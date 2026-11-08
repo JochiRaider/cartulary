@@ -1,0 +1,9 @@
+{
+  "schema_id": "cartulary.veris_release_fixture.v1",
+  "logical_root": "fixtures/veris/1.4.2-20261107.3/logical/6c0091603e7fb0144ce0ae4a4984250f00c989f129d1d0cf641363baab514876",
+  "envelope_root": "fixtures/veris/1.4.2-20261107.3/envelopes/ae2a3c6f4a8dba62016829723e5da17c97fcc6d1682cb48b45de5baa4729518e",
+  "manifest_sha256": "6c0091603e7fb0144ce0ae4a4984250f00c989f129d1d0cf641363baab514876",
+  "payload_sha256": "7350c4ef1329e40060a79cb1ae05f63513c11406309de22a109cdda2ae2386d9",
+  "container_sha256": "ae2a3c6f4a8dba62016829723e5da17c97fcc6d1682cb48b45de5baa4729518e",
+  "bootstrap_sha256": "16c8d7bd756eb863ab6eddf2c70e884ae8da9d64cb5b434832b9fbb870e52065"
+}

@@ -1233,3 +1233,14 @@ Declared scope: known future-only topics that appear in the current document set
 | Cross-incident analytics | Reserved for future specification work. | Reject current-profile cross-incident query or analytics claims. | Roadmap, research, or non-normative product strategy text. | Define cross-incident data model, privacy boundary, query surface, and conformance criteria. |
 | Local-account WebAuthn/passkeys | Not current-profile behavior. | Reject current-profile auth route, registration, assertion, credential enumeration, or recovery semantics. | Security roadmap text labeled future-only. | Define a later auth NLSpec or Core 04 revision. |
 | Durable local draft persistence | Not current-profile behavior unless an owner spec adds it. | Reject claims that pending browser edits survive reload, cross-tab transfer, or offline multi-master operation. | Implementation-support rationale labeled future-only. | Define local draft storage, replay, conflict, security, and cleanup semantics. |
+
+### Native VERIS reference vocabulary
+
+The current VERIS Community reference pack uses flat schema-root/schema-node,
+contextual enum-value and inert semantic-rule records. A schema node preserves
+source constraints; it does not validate an incident. Context is part of enum
+identity: Unknown, Other and NA in different fields are distinct values.
+A semantic rule describes source guidance or checks and performs no automatic
+classification or enrichment. Requiredness, explicit unknown and missing data
+are separate concepts. Reference Pack RP-REQ-270–274 owns this vocabulary and
+its v2 content profile; no taxonomy browser or workbook surface is implied.

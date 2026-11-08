@@ -76,10 +76,12 @@ var attackFixturePolicy = publicationPolicy{FixtureRepository, "framework.attack
 var windowsFixturePolicy = publicationPolicy{WindowsFixtureRepository, WindowsKey, "cartulary.windows_event", "v2", true}
 var entraFixturePolicy = publicationPolicy{EntraFixtureRepository, EntraKey, "cartulary.entra", "v2", true}
 var windowsReleasePolicy = publicationPolicy{WindowsReleaseRepository, WindowsKey, "cartulary.windows_event_release", "v2", false}
+var verisFixturePolicy = publicationPolicy{VERISFixtureRepository, VERISKey, "cartulary.veris", "v1", true}
+var verisReleasePolicy = publicationPolicy{VERISRepository, VERISKey, "cartulary.veris_release", "v1", false}
 var entraReleasePolicy = publicationPolicy{EntraRepository, EntraKey, "cartulary.entra_release", "v2", false}
 
 func fixturePolicyForRepository(repository string) (publicationPolicy, error) {
-	for _, p := range []publicationPolicy{attackFixturePolicy, windowsFixturePolicy, entraFixturePolicy} {
+	for _, p := range []publicationPolicy{attackFixturePolicy, windowsFixturePolicy, entraFixturePolicy, verisFixturePolicy} {
 		if p.Repository == repository {
 			return p, nil
 		}
@@ -101,6 +103,11 @@ func NewWindowsFixtureSigningContext() (SigningContext, error) {
 // NewEntraFixtureSigningContext creates isolated authority for canonical corpus tests.
 func NewEntraFixtureSigningContext() (SigningContext, error) {
 	return newSigningContext(entraFixturePolicy)
+}
+
+// NewVERISFixtureSigningContext creates isolated test authority.
+func NewVERISFixtureSigningContext() (SigningContext, error) {
+	return newSigningContext(verisFixturePolicy)
 }
 
 func newSigningContext(policy publicationPolicy) (SigningContext, error) {
@@ -289,7 +296,11 @@ func Envelope(ctx context.Context, inputBytes []byte, renew bool) (EnvelopeRepor
 		return EnvelopeReport{}, err
 	}
 	policy := attackFixturePolicy
-	if in.SchemaID == "cartulary.entra_envelope_input.v2" {
+	if in.SchemaID == "cartulary.veris_envelope_input.v1" {
+		policy = verisFixturePolicy
+	} else if in.SchemaID == "cartulary.veris_release_envelope_input.v1" {
+		policy = verisReleasePolicy
+	} else if in.SchemaID == "cartulary.entra_envelope_input.v2" {
 		policy = entraFixturePolicy
 	} else if in.SchemaID == "cartulary.entra_release_envelope_input.v2" {
 		policy = entraReleasePolicy

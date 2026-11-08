@@ -639,6 +639,34 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.recovery.integration.veris_recovery",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestVERISProducedPackRestoresExactProvenance_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.recovery.integration.windows_event_ids_recovery_restores_independentl_0983448cb7",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.integration",

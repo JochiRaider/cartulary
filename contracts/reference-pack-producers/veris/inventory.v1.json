@@ -1,0 +1,96 @@
+{
+  "schema_id": "cartulary.veris_inventory.v1",
+  "commit": "dba30b035039f3d002c6eb06dc149dbed7476059",
+  "source_version": "1.4.2",
+  "source_as_of": "2026-10-14T19:34:35Z",
+  "sources": [
+    {
+      "path": "LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/LICENSE.txt",
+      "sha256": "55c550adb50e82c87f8aeb6706b6b778e8657cf49593167c9d2bfbc270323182",
+      "size_bytes": 14107,
+      "media_type": "text/plain",
+      "role": "license"
+    },
+    {
+      "path": "bin/checkValidity.py",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/bin/checkValidity.py",
+      "sha256": "5b2f0c731eeccc7068ce517c2a0d8e60b76380722901390d837b449a04253514",
+      "size_bytes": 33891,
+      "media_type": "text/plain",
+      "role": "semantic_rules"
+    },
+    {
+      "path": "bin/mergeSchema.py",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/bin/mergeSchema.py",
+      "sha256": "376d51079298a1464346bfdb870e96b370d569f1bf90cc455119030fed15140b",
+      "size_bytes": 7728,
+      "media_type": "text/plain",
+      "role": "merge_evidence"
+    },
+    {
+      "path": "bin/rules.py",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/bin/rules.py",
+      "sha256": "bc14963a8b885da860997e1b5bd3bb2ab6312a0c4e4f465ddbc1b7e09d7d7c8a",
+      "size_bytes": 79575,
+      "media_type": "text/plain",
+      "role": "enrichment_guidance"
+    },
+    {
+      "path": "changelog",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/changelog",
+      "sha256": "b87189b215b022d15f6d1d5ee227ad167af2b284b6e661ed8ebb15262550f065",
+      "size_bytes": 21911,
+      "media_type": "text/plain",
+      "role": "version_evidence"
+    },
+    {
+      "path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/style_guide/VERIS%20Coding%20Style%20Guide%20v3.0.pdf",
+      "sha256": "120759720f524dd5e356a20ecdd4d9d85ba8da36882539ac788774e6c0a77846",
+      "size_bytes": 23126309,
+      "media_type": "application/octet-stream",
+      "role": "coding_guidance"
+    },
+    {
+      "path": "veris_style_guide.md",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/veris_style_guide.md",
+      "sha256": "704a049ae3079ff6e5b651b01445b9d7d307b2aa525cc20145a2cd964d9f5e8c",
+      "size_bytes": 1137,
+      "media_type": "text/plain",
+      "role": "display_guidance"
+    },
+    {
+      "path": "verisc-enum.json",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/verisc-enum.json",
+      "sha256": "6f227ee1dfa2b9f2ec56407510d702cf61271a8ad6f0ff06115eae4e0a54b3e6",
+      "size_bytes": 39160,
+      "media_type": "text/plain",
+      "role": "enumerations"
+    },
+    {
+      "path": "verisc-labels.json",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/verisc-labels.json",
+      "sha256": "2ee3adb91c28133f5be2dc8d57106302a9f4d1d235df73e9dfeb4b4c57337eb8",
+      "size_bytes": 99727,
+      "media_type": "text/plain",
+      "role": "definitions"
+    },
+    {
+      "path": "verisc-merged.json",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/verisc-merged.json",
+      "sha256": "e43fbc1c3c1d7dc93a9e839b7d139a3167f0c38d33785fb4790bc630e6d23bd5",
+      "size_bytes": 104764,
+      "media_type": "text/plain",
+      "role": "merged_schema"
+    },
+    {
+      "path": "verisc.json",
+      "url": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/verisc.json",
+      "sha256": "5be44261687234270cdb5974d5a362a4d5e4099635699d59960d503658612a9d",
+      "size_bytes": 46323,
+      "media_type": "text/plain",
+      "role": "base_schema"
+    }
+  ]
+}

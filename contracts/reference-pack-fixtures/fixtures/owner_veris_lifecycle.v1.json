@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.reference_pack_owner_fixture.v1",
+  "fixture_id": "rpfx_owner_veris_lifecycle",
+  "scenario": "veris_lifecycle",
+  "owner_id": "module.reference_data",
+  "row_id": "module.reference_data.integration.framework_veris_independently_imports_activates_8ed7f795eb",
+  "test_name": "TestVERISProfileConsumer_Integration"
+}

@@ -2,7 +2,7 @@
 title: Cartulary Reference Pack Subsystem NLSpec
 status: adopted/current
 document_class: nlspec
-document_version: 0.3.0
+document_version: 0.4.0
 contract_major: 3
 profile_id: reference_pack
 schema_id: cartulary.reference_pack_subsystem_nlspec.v1
@@ -12,7 +12,7 @@ schema_id: cartulary.reference_pack_subsystem_nlspec.v1
 
 This NLSpec defines the Cartulary Reference Pack subsystem. It specializes the existing `reference_pack` extension profile and defines the limited Base Profile contract for immutable built-in type registries. It does not create a second extension identity.[^7]
 
-Contract major 3 adopts the native ATT&CK profile and the v2 pack contract. Only `cartulary.reference_pack_contract.v2` is admitted. ATT&CK, Windows Event IDs and Entra Application IDs content/profile schemas are v2; unchanged profile schemas, manifest shape, TUF method, application compatibility major and HTTP namespace retain their identifiers. Closed predecessor schemas remain design and test evidence, never admission paths. Incident-bundle format 7 carries only the current `reference_pack_refs.v2` catalog. Before any runtime reconciliation write, worker admission or readiness, incompatible retained pack versions, immutable sets, pending operations and dependent artifacts MUST fail closed. No historical byte rewrite, compatibility reader, implicit reset or data conversion is permitted. Validation uses isolated fresh state. Required Base registries retain their content and receive new release-bound v2 manifest identities.
+Contract major 3 adopts the native ATT&CK profile and the v2 pack contract. Only `cartulary.reference_pack_contract.v2` is admitted. ATT&CK, VERIS, Windows Event IDs and Entra Application IDs content/profile schemas are v2; unchanged profile schemas, manifest shape, TUF method, application compatibility major and HTTP namespace retain their identifiers. Closed predecessor schemas remain design and test evidence, never admission paths. Incident-bundle format 7 carries only the current `reference_pack_refs.v2` catalog. Before any runtime reconciliation write, worker admission or readiness, incompatible retained pack versions, immutable sets, pending operations and dependent artifacts MUST fail closed. No historical byte rewrite, compatibility reader, implicit reset or data conversion is permitted. Validation uses isolated fresh state. Required Base registries retain their content and receive new release-bound v2 manifest identities.
 
 No v1 Reference Pack deployment exists or has ever existed. The only existing
 reference-pack artifacts are those currently retained under `fixtures/`.
@@ -212,6 +212,15 @@ The current pack contract identifier MUST be `cartulary.reference_pack_contract.
 
 **RP-REQ-019**
 Editorial corrections that do not change observable behavior MAY increment only the patch component of `document_version`. Additive content-profile registrations MAY increment the minor component only when existing canonical bytes, defaults, errors, and consumers remain unchanged.
+
+The explicitly adopted pre-deployment Entra and VERIS content-profile v2
+replacements are scoped exceptions to RP-REQ-018 and the additive-only rule
+above. They replace only the named profile's canonical records and the matching
+consumer union arm. Shared envelope, identity algorithms, trust, lifecycle,
+pack-set and reference-catalog shapes, transport, and other content profiles
+remain unchanged. They retain shared pack contract v2 and contract major 3.
+Predecessor inputs fail current admission; there is no dual reader, migration,
+conversion, implicit reset, or reissue of unrelated pack content.
 
 **RP-REQ-020**
 The dependencies in Table 4-B identify the imported owners and external contract versions. A newer external contract version MUST NOT be substituted without revising this NLSpec or its named owner. Coordinated owner amendments are reviewed and adopted through the existing repository document-status process. Repository history records the reviewed changes; companion-document hashes, repeated revision bindings and separate signoff dossiers are not required. Tests, generators of product contracts, runtime metadata and release evidence MUST NOT read, stat or hash Markdown files. Offline source producers MAY acquire, hash and parse explicitly pinned upstream Markdown datasets under an immutable source profile, as adopted in Core 00. These inert data inputs MUST NOT be product-test expectations, runtime dependencies or a route to consuming Cartulary owner prose.
@@ -1071,7 +1080,7 @@ A pack is content-compatible only when the exact pair `(pack_key, content_profil
 | `type_registry.indicator` | `type_registry` | `cartulary.reference_pack.type_registry.indicator.v1` | `1` | entries | `registry` |
 | `framework.attack` | `framework` | `cartulary.reference_pack.framework.attack.v2` | `2` | objects and relationships | `framework_reference` |
 | `framework.d3fend` | `framework` | `cartulary.reference_pack.framework.d3fend.v1` | `1` | objects and relationships | `framework_reference` |
-| `framework.veris` | `framework` | `cartulary.reference_pack.framework.veris.v1` | `1` | objects and relationships | `framework_reference` |
+| `framework.veris` | `framework` | `cartulary.reference_pack.framework.veris.v2` | `2` | objects and relationships | `framework_reference` |
 | `enrichment.tor` | `enrichment` | `cartulary.reference_pack.enrichment.tor.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.cisa_kev` | `enrichment` | `cartulary.reference_pack.enrichment.cisa_kev.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.ms_portals` | `enrichment` | `cartulary.reference_pack.enrichment.ms_portals.v1` | `1` | entries | `advisory_enrichment` |
@@ -1418,7 +1427,7 @@ The three framework profiles use the common object and relationship contracts wi
 | --- | --- | --- |
 | `framework.attack` | `cartulary.reference_pack.framework.attack.object.v2` | `cartulary.reference_pack.framework.attack.relationship.v2` |
 | `framework.d3fend` | `cartulary.reference_pack.framework.d3fend.object.v1` | `cartulary.reference_pack.framework.d3fend.relationship.v1` |
-| `framework.veris` | `cartulary.reference_pack.framework.veris.object.v1` | `cartulary.reference_pack.framework.veris.relationship.v1` |
+| `framework.veris` | `cartulary.reference_pack.framework.veris.object.v2` | `cartulary.reference_pack.framework.veris.relationship.v2` |
 
 **RP-REQ-133**
 Framework object IDs, object types, relationship types, and external references are source-stable data. Consumers MUST treat unrecognized object or relationship types as generic reference data rather than executing type-specific behavior. Display labels MUST NOT define identity.
@@ -2158,6 +2167,119 @@ Each embedded mapping requires the declared native source and target types: `x-m
 | `source.x_mitre_modified_by_ref` | optional | string | `pattern="^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"`; maxLength=8192 |
 | `source.x_mitre_shortname` | required | string | maxLength=8192 |
 | `source.x_mitre_version` | optional | string | maxLength=8192 |
+
+## 15.2 Native VERIS v2 amendment — 2026-11-07
+
+**RP-REQ-270** The current VERIS profile is
+`cartulary.reference_pack.framework.veris.v2`, profile version `"2"`, with
+object and relationship schema v2. It replaces v1 registration and consumer
+membership. V1 inputs fail incoming, retained, portability and recovery admission.
+No compatibility reader, conversion, migration or reset is introduced. This
+scoped pre-deployment replacement retains shared contract v2, administrative
+major 3, manifest v1, immutable-set/reference catalog v2 and incident-bundle 7.
+Unrelated pack identities remain unchanged. The maintainer's implementation
+instruction adopts this concrete amendment; research proposals remain evidence.
+
+**RP-REQ-271** VERIS objects add required closed `source`, discriminated by
+`kind`, which equals `object_type`. Every source has required `schema_version`
+(the upstream revision, not the possibly stale schema-version default).
+The four kinds and their additional required members are:
+
+| Kind | Native members |
+| --- | --- |
+| `schema-root` | `pointer` exactly empty; `keywords` |
+| `schema-node` | Nonempty RFC 6901 `pointer`; `keywords` |
+| `enum-value` | Owning schema `pointer`; exact string `value`; exact string `definition` |
+| `semantic-rule` | Stable `rule_id`; `category`; `statement`; unique `applies_to` pointers; nullable `qualification` |
+
+`keywords` preserves exact parsed values and optional-member absence, except
+`properties` maps original property names to child object IDs and `items` holds
+its child ID. The closed keyword vocabulary is `$schema`, `additionalProperties`,
+`default`, `definition`, `description`, `enum`, `items`, `maxLength`, `maximum`,
+`minItems`, `minLength`, `minProperties`, `minimum`, `pattern`, `properties`,
+`required`, `type`, and `uniqueItems`. The pinned corpus has **18**, correcting
+the research plan's count of 19. `type` is required. Its values are `object`,
+`array`, `string`, `integer`, `number`, `boolean`. Bounds are integers; defaults
+and enum members are strings in this source profile. This is a closed native
+vocabulary, not an incident validator or a recursive JSON Schema engine.
+Unknown keywords and unsupported value shapes fail source admission.
+
+Native strings have an 8,192 Unicode-scalar ceiling; pointers 1,024; enum arrays
+512; properties and required-name arrays 64; structural depth 32, counting root
+as zero. The existing 1 MiB row and stricter common-field limits apply. Overflow
+fails without truncation. Preserve raw enum order, requiredness, openness,
+defaults, patterns, and the nonstandard `definition` annotation. Replacing child
+IDs with their native nodes MUST reproduce the upstream parsed merged schema
+exactly. Every enum occurrence has one contextual definition object.
+
+**RP-REQ-272** IDs are `veris-<kind>-` followed by lowercase SHA-256 of the JCS
+array `["veris-community", kind, pointer]`; enum keys append the exact typed raw
+value. Semantic-rule keys replace pointer with the curated stable `rule_id`.
+Labels and releases never participate. Producers record continuity decisions
+before any incompatible change in meaning; changing the subject requires a new
+semantic key. Repeated `Unknown`, `Other`, and `NA` remain context-specific.
+Missing data never becomes an explicit unknown value.
+
+Common display uses HTML text (tags removed, entities decoded), whitespace
+collapsed to single spaces and NFC, without truncation. A schema root is labeled
+`VERIS Community schema`; a node uses its property path (`.` separators and
+`[]` for items); an enum uses that path plus `: ` and its raw value; a rule uses
+`VERIS rule: ` plus its stable ID. Descriptions use native description, enum
+definition, or rule statement respectively, becoming null only if absent or
+empty. Native text is preserved independently and MUST be rendered as inert
+text. Common deprecated is false, replacement null, and external references
+empty. Each display label is the qualified alias candidate; exclude every
+candidate colliding under NFC/ASCII folding from all affected objects, sort the
+remaining aliases under that same comparison. Exact IDs remain available.
+
+**RP-REQ-273** Relations are exactly parent-to-property `contains`,
+array-to-item `has-item-schema`, schema-to-enum `allows-value`, and
+constrained-node-to-rule `governed-by-rule`. Use RP-REQ-111 identities and common
+ordering. Structural edges cite the child's merged-schema pointer; enum edges
+carry the enum object's complete source refs; rule edges carry the rule object's
+complete source refs. Node refs cite `#` plus its pointer in the merged schema.
+Enum refs cite the original enum ordinal and the corresponding escaped label
+pointer. Rule refs cite the reviewed source statement's location. Artifact
+indexes are assigned only after canonical artifact ordering. No inferred
+transitive, ATT&CK-equivalence or incident assertions are admitted.
+
+Runtime validation enforces source-derived IDs and common projections, exactly
+one root, exact property/item child pointers and roles, bounded root reachability,
+acyclicity, required-name membership, contextual enum completeness, existing
+rule applicability targets and exact edge/provenance agreement with native
+records. It validates the reusable profile without pinning one release's counts
+or upstream commit. Generic indexing, archive verification, TUF, lifecycle,
+lookup, reporting bindings, portability and recovery remain their current owners.
+
+**RP-REQ-274** The first source profile is
+`cartulary.veris.community.native.v1`, pinning VERIS Community 1.4.2 commit
+`dba30b035039f3d002c6eb06dc149dbed7476059`. Retain base, enumerations, labels,
+merged schema, changelog, license, checkValidity, mergeSchema, enrichment rules,
+short guidance and the full coding guide as separate source evidence. The
+projection contains 261 schema nodes, 68 enum locations and 2,168 contextual
+values, plus source-backed categorized rules. Base/merged reconstruction,
+exact enum/definition sets and complete source-unit dispositions are publication
+gates. A separate canonical-artifact witness compares machine-readable
+expectations; tests and release witnesses never consume upstream Markdown or
+Cartulary prose. Acquisition alone has network access. Projection and packaging
+are offline and deterministic; validation precedes publication sequence allocation.
+
+The schema-version default/description naming 1.4.0 remains unchanged while
+release provenance names 1.4.2. Unknown-actor prose is not machine-requiredness.
+Coding guide v3.0 targets schema 1.4.1 and uses VCDB examples; it cannot override
+Community 1.4.2 vocabulary. Rules use `validation`, `recommendation`, `guidance`
+or `enrichment` categories and remain inert. Source conflicts and editorial
+qualifications stay visible. Incident validation/classification, enrichment
+execution, VCDB incident import, taxonomy browsing and new workbook surfaces
+are excluded.
+
+Distributable content requires an explicit project license disposition under
+CC BY-SA 4.0, exact license text, attribution and adaptation notices. It MUST NOT
+inherit Entra's Apache output policy. Unresolved disposition blocks publication
+and portable embedding. Dedicated production and isolated fixture authorities
+remain separate. Import remains staged-only and activation explicit. A package
+is not installation evidence: local delivery requires catalog visibility,
+activation, current lookup/provenance and restart persistence.
 
 # 16. Enrichment content profiles
 
