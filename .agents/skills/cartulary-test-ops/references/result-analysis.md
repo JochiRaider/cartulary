@@ -13,7 +13,8 @@ boundary; never read private staging or write another reducer.
 Record reported outcome, evidence completeness, source compatibility, selection
 scope and cleanup separately. Missing, malformed, mismatched or unsupported
 evidence cannot establish verified success. Historical results do not establish
-current closure through recency alone. An explicit subset pass is not a full
+current closure through recency alone. A passing targeted selection can complete
+ordinary change verification; report its selected scope without claiming a full
 owner/check/release pass. A cache hit is not fresh execution or a timing sample.
 
 Before treating an apparently missing projection as missing execution, inspect
@@ -63,11 +64,12 @@ export require applicable task authorization rather than a diagnostic hypothesis
 For an authorized reproduction, preserve both result roots and use fresh identity.
 A later pass alone neither establishes flakiness nor erases the earlier failure.
 
-For an authorized source repair, name the invalidated obligations and choose
-their necessary requalification. Retain unaffected evidence only where the
-existing compatibility rules accept it. Source changes can invalidate more than
-the focused selection; a narrow pass does not silently restore a full-source
-acceptance claim. Recompute the final coverage union before closing the task.
+For an authorized source repair, choose checks for the repaired behavior and
+directly affected dependencies, and stop when they pass. Retain earlier evidence
+only where existing compatibility rules accept it. Evidence incompatibility
+limits the claims that can be made; it does not by itself require rerunning a
+broader suite. Recompute full acceptance coverage only when that scope is
+requested or required by the actual changes.
 
 ## Timing and resource interpretation
 

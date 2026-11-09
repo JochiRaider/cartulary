@@ -9,7 +9,7 @@ as quoted arguments, without shell command substitution.
 
 ```sh
 make task-guide OWNER=<discovered-owner>
-make task-guide DETAIL=coverage OWNER=<discovered-owner> JSON=1
+make task-guide DETAIL=rows OWNER=<discovered-owner> JSON=1
 make target-plan TARGET=<target> DETAIL=rows JSON=1
 make target-plan TARGET=<target> INPUTS=<selection-json-file> DETAIL=rows JSON=1
 make target-plan JSON=1 TARGET=<target>
@@ -19,21 +19,23 @@ For `target-plan`, put the planned target's selection in an `INPUTS` JSON object
 for example `{"SUITE":"visual"}` or `{"OWNER":"harness.browser","ROWS":"<row-id>"}`.
 Do not pass the planned target's `SUITE`, `OWNER` or `ROWS` directly to
 `target-plan`; its own input contract rejects them. Owner/row IDs
-come from the current catalog. Omitted rows select the owner scope excluding `explicit_only` rows; exact
-rows authorize that subset, including explicit-only work. A service-backed slice closes only its
+come from the current catalog. Omitted rows select the owner scope excluding
+`explicit_only` rows, so supply exact rows for targeted changes. Inspect their
+expanded work before choosing a large bundle. Exact rows authorize that subset,
+including explicit-only work. A service-backed slice closes only its
 service-backed dependency scope.
 
 Graph-backed plans include every execution child projection under the same
 inputs and capacity. For example, `browser-e2e` with `SUITE=visual` includes the
 `browser-e2e-visual` child used by partition audits. Planning launches no fixture
-or service work. A successful plan is selection evidence only; verify retained
-run validity and then audit the complete owner union separately.
+or service work. A successful plan is selection evidence only. Complete-owner
+audits apply only when that acceptance scope is requested or required by the
+change; they are not a prerequisite for reporting targeted checks as passed.
 
 Product visual validation is explicit-only even for releases:
 
 ```sh
 make browser-e2e SUITE=visual
-make ci BROWSER_LANES=6
 ```
 
 UI-Review is optional agent-skill tooling. `make harness-contract SUITE=ui-review`
@@ -46,24 +48,27 @@ host admission. Each group uses one worker. `PLAYWRIGHT_WORKERS` and browser
 `SUITE=all` are retired without aliases. Snapshot update selects only screenshot
 rows and requires its existing authorization.
 
-## Final validation portfolio
+## Stop or expand verification
 
-Compare current target plans by exact selected rows/cases, runtime and fixture
-profiles, and required non-row obligations. CI already contains its check policy;
-do not automatically run check, CI, every browser suite and complete owners.
-Visual, release-only product measurements and independent order or
-process witnesses can add obligations that CI omits. Record the missing coverage
-or distinct purpose before each additional invocation. A reporting-suite label
-alone does not justify repeating compatible execution.
+Stop after the smallest relevant selection passes. A broader command suggested
+by `task-guide` is not a required next step. Before adding an invocation, identify
+the changed behavior or dependency that remains uncovered. Broader suites are
+appropriate only when that risk cannot be checked narrowly or the user requests
+broader acceptance. For that scope, compare exact rows/cases, runtime and fixture
+profiles, and required non-row checks to avoid duplicate execution. CI already
+contains its check policy.
 
-After focused checks, run repository-required `make agent-finalize`, review its
-changes, then freeze source and execute the necessary portfolio. Pass
-`RESULTS_DIR` only for a compatible successful full warm-check root; otherwise
-report retained maintenance skipped. Do not launch a redundant check to obtain
-such a root. Evidence audits use explicit compatible roots and do not execute
-missing tests. After a repair, select the affected obligations and re-evaluate
-evidence compatibility; do not invent partial-source equivalence or repeat the
-whole historical portfolio by habit.
+Run generation only for affected generated outputs. Run `make agent-finalize`
+only when its refresh/validation actions are needed for the actual changes or
+retained-run maintenance is requested. Review its changes before further checks;
+reuse compatible validation it already performed. Neither finalization nor a
+second testing stage is required merely because targeted tests passed.
+
+For requested retained-run maintenance, pass `RESULTS_DIR` only for a compatible
+successful full warm-check root; otherwise report that maintenance skipped.
+Do not launch a broad check to obtain such a root. Evidence audits use explicit
+compatible roots and do not execute missing tests. After a repair, reselect the
+affected checks without repeating the historical portfolio by habit.
 
 ## Execution
 

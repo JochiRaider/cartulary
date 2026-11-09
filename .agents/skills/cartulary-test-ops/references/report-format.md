@@ -3,6 +3,11 @@
 Use only fields relevant to the task; do not generate a tracker or empty template.
 Unknown, zero, passed and not applicable are different facts.
 
+For an ordinary successful targeted run, report the command, selected behavior,
+result and relevant limitations, then stop. Broader suites outside the required
+scope are not missing verification. Use the detailed fields below when failures,
+ongoing execution or a requested acceptance audit need them.
+
 For a live update, identify the exact root/run/target and selection, native-session
 observation, snapshot revision and progress cursor, known work-unit activity,
 explicit waits, observed failures, and finalization state. Name limitations such

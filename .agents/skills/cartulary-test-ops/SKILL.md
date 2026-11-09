@@ -16,21 +16,34 @@ task's authorization and verification scope. Authorized test execution includes
 its ordinary declared setup and cleanup. Observing or explaining a run does not
 authorize another run, service control, source repair, or environment changes.
 
-Discover current public commands, owners and rows through Make. Prefer an owner
-slice or discovered exact rows when sufficient. Reuse a compatible invocation
-already running for this task. Read [command recipes](references/command-recipes.md)
-when selecting, launching, or observing work.
+Start with the changed behavior and directly affected dependencies. Discover
+public commands, owners and exact rows through Make, then choose the smallest
+selection that covers those changes. Inspect what a row or owner selection
+actually executes; a narrow name can expand into unrelated suites. Use a whole
+owner only when the affected scope requires it. Discovery's broader suggestions
+are options, not additional obligations. Reuse a compatible invocation already
+running for this task. Read [command recipes](references/command-recipes.md) when
+selecting, launching, or observing work.
 
-Select a coverage portfolio, not a sequence of suite names. After focused checks,
-finalize and freeze source before broad validation. Add another invocation only
-for missing obligations or a distinct qualification purpose. Recompute that
-scope after a repair; preserve the harness's strict evidence compatibility.
+Stop when the relevant targeted tests and checks pass and their owning commands
+finish successfully, including declared cleanup. This completes ordinary change
+verification. Add broader checks only for a concrete risk introduced by the
+changes that the targeted selection cannot cover, or an explicit request for
+broader acceptance. State the uncovered behavior before launching more work.
+After a repair, select the affected checks again; preserve strict evidence
+compatibility without automatically repeating the previous portfolio.
+
+Generation and `agent-finalize` are conditional on the actual changes. Regenerate
+affected outputs from changed authored inputs. Use finalization only when its
+refresh/validation actions are needed or retained-run maintenance is requested;
+an implementation edit or passing targeted run alone does not require it. Review
+any resulting source changes and reuse compatible completed checks.
 
 Planning success, retained-run validity and complete-owner acceptance are separate
-claims. Graph-backed `target-plan` uses the execution/replay composition, including
-child projections. A plan can identify eligible coverage but supplies no passing
-evidence. Audit exact compatible roots against the complete required owner union;
-keep historical unperformed audits unperformed when correcting an old diagnosis.
+claims. A plan identifies coverage but supplies no passing evidence. Audit the
+complete owner union only when that acceptance scope is requested or required by
+the change. Ordinary targeted verification does not require full-owner or release
+acceptance. Keep historical unperformed audits unperformed.
 
 ## Bind and observe
 
@@ -76,9 +89,9 @@ audit, full-owner completion, or release acceptance.
 Use [the report format](references/report-format.md) for a concise handoff.
 Do not retry, widen testing, increase deadlines, refresh goldens/baselines,
 reset services, export telemetry, or repair prerequisites merely to diagnose.
-Existing parent-task authorization continues to apply. Repository-required
-`agent-finalize` still applies to implementation tasks; diagnosis alone does
-not trigger finalization or its mutations.
+Existing parent-task authorization and the targeted-check stopping rule continue
+to apply. Diagnosis alone does not trigger generation, finalization or broader
+verification.
 
 Keep these instructions outside executable harness inputs. Consult relevant
 clauses of the adopted Testing Harness NLSpec when semantics are uncertain;
