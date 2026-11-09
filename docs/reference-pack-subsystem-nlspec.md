@@ -10,7 +10,7 @@ schema_id: cartulary.reference_pack_subsystem_nlspec.v1
 
 # 1. Status, scope, authority, and promotion conditions
 
-This NLSpec defines the Cartulary Reference Pack subsystem. It specializes the existing `reference_pack` extension profile and defines the limited Base Profile contract for immutable built-in type registries. It does not create a second extension identity.[^7]
+This NLSpec defines the Cartulary Reference Pack subsystem. It specializes the existing `reference_pack` extension profile and defines the limited Base Profile contract for immutable built-in type registries. It does not create a second extension identity.
 
 Contract major 4 adopts pack contract v3 and generic dataset profile v1 for
 ATT&CK, VERIS, Windows Event IDs and Entra Application IDs. Only
@@ -25,15 +25,6 @@ retained state fails before reconciliation writes, worker admission or readiness
 No historical rewrite, compatibility reader, implicit reset or conversion is
 permitted; validation uses fresh isolated state. §§13.4 and 21 define the complete
 generic boundary and consumer contracts.
-
-No v1 Reference Pack deployment exists or has ever existed. The only existing
-reference-pack artifacts are those currently retained under `fixtures/`.
-Predecessor schema files, including `fixtures/reference-packs/historical-v1/`,
-and synthetic incompatible-state tests do not establish a deployed pack or an
-installed user base. This is a pre-deployment schema cutover with no v1 data to
-migrate and no migration or environment-reset prerequisite. Profile definitions
-describe supported formats; they do not establish that a corresponding pack
-has been produced or deployed.
 
 Current admission MUST validate the declared current artifact structure rather
 than recursively blacklist predecessor schema identifiers inside arbitrary JSON.
@@ -172,7 +163,7 @@ Every set-like array MUST define duplicate handling and canonical ordering. Ever
 A requirement or table MUST NOT delegate observable behavior through phrases such as `when available`, `as appropriate`, `equivalent`, `latest`, `implementation-defined`, or `trusted source` unless the same requirement names the exact owner, schema, algorithm, comparison rule, or future-only omission behavior that makes the statement decidable.
 
 **RP-REQ-013**
-An acceptance criterion MUST verify behavior already defined by a requirement. An acceptance criterion MUST NOT introduce a new default, interface member, state transition, or algorithm. This document applies the NLSpec completeness, interface, default, mapping, and binary-acceptance discipline defined by the repository's NLSpec grounding artifact.[^8]
+An acceptance criterion MUST verify behavior already defined by a requirement. An acceptance criterion MUST NOT introduce a new default, interface member, state transition, or algorithm. This document applies the NLSpec completeness, interface, default, mapping, and binary-acceptance discipline defined by the repository's NLSpec grounding artifact.
 
 # 3. Purpose and non-goals
 
@@ -180,10 +171,10 @@ An acceptance criterion MUST verify behavior already defined by a requirement. A
 The Reference Pack subsystem MUST provide deterministic, locally verifiable, versioned registry, framework, and enrichment data without requiring internet access and without changing incident source authority.
 
 **RP-REQ-015**
-Reference-pack administration MUST remain outside the workbook capture hot path. Import, verification, reverify, and refresh MUST execute as background jobs. Their UI state MUST distinguish staged, verified, active, disabled, failed, and missing conditions without blocking timeline capture, entity resolution, evidence attachment, or core editing.[^1]
+Reference-pack administration MUST remain outside the workbook capture hot path. Import, verification, reverify, and refresh MUST execute as background jobs. Their UI state MUST distinguish staged, verified, active, disabled, failed, and missing conditions without blocking timeline capture, entity resolution, evidence attachment, or core editing.
 
 **RP-REQ-016**
-Framework and enrichment data MUST be advisory or reference-only. It MUST NOT create, update, delete, merge, supersede, or change lifecycle state on incident records automatically.[^9]
+Framework and enrichment data MUST be advisory or reference-only. It MUST NOT create, update, delete, merge, supersede, or change lifecycle state on incident records automatically.
 
 **Table 3-A. Non-goals and required omission behavior**
 
@@ -249,10 +240,10 @@ The dependencies in Table 4-B identify the imported owners and external contract
 | Core 01/Core 04 recovery owners | Current recovery catalog and historical integrity | Coordinated backup/restore companion amendments under `RP-GATE-015`. |
 | OpenTelemetry NLSpec | Telemetry mechanics | Current adopted OpenTelemetry NLSpec after `RP-GATE-007`. |
 | Testing Harness NLSpec | Fixture and generated-artifact mechanics | Current adopted Testing Harness NLSpec after `RP-GATE-008`. |
-| JSON Schema | Structural schema dialect | Draft 2020-12, published 16 June 2022.[^2] |
-| RFC 8785 | JSON canonicalization | RFC 8785, June 2020.[^3] |
-| TUF | Offline trust and metadata workflow | TUF Specification 1.0.35, last modified 15 July 2026.[^4] |
-| SPDX | License expression model | SPDX Specification 3.0.1 and SPDX License List 3.28.0.[^5] |
+| JSON Schema | Structural schema dialect | Draft 2020-12, published 16 June 2022. |
+| RFC 8785 | JSON canonicalization | RFC 8785, June 2020. |
+| TUF | Offline trust and metadata workflow | TUF Specification 1.0.35, last modified 15 July 2026. |
+| SPDX | License expression model | SPDX Specification 3.0.1 and SPDX License List 3.28.0. |
 
 
 **RP-REQ-021**
@@ -316,7 +307,7 @@ A `pack_release_sequence` already accepted for the same `(trust_repository_id, p
 Every JSON document and NDJSON line governed by this NLSpec MUST be UTF-8 without BOM. The maximum nesting depth is 10000 open object or array containers, counting the top-level object or array as depth 1 and counting no additional depth for a scalar. Equality is valid; opening the 10001st container fails original JSON admission before schema or canonical-byte checks, using the existing JSON-admission reason for that file family. This bound includes otherwise permitted TUF signed-extension values and applies to a complete bootstrap document including its enclosing objects. Invalid UTF-8, duplicate object members at any depth, invalid JSON syntax, unpaired surrogates, and a top-level value of the wrong JSON type MUST fail before semantic validation.
 
 **RP-REQ-030**
-Every canonical JSON document and NDJSON line MUST be byte-for-byte equal to its RFC 8785 representation. Whitespace outside strings is therefore absent, object members use RFC 8785 order, and invalid Unicode terminates validation.[^3]
+Every canonical JSON document and NDJSON line MUST be byte-for-byte equal to its RFC 8785 representation. Whitespace outside strings is therefore absent, object members use RFC 8785 order, and invalid Unicode terminates validation.
 
 **RP-REQ-031**
 Canonical signed and digest-bearing JSON objects MUST use only:
@@ -686,7 +677,7 @@ The bootstrap file is deployment configuration, not a secret, not incident porta
 ## 10.4 TUF POUF
 
 **RP-REQ-064**
-`tuf_1_0_35_offline_bundle_v1` MUST implement the closed POUF in Table 10-A. TUF supplies the update-security workflow, but interoperability requires this application-specific format profile.[^4]
+`tuf_1_0_35_offline_bundle_v1` MUST implement the closed POUF in Table 10-A. TUF supplies the update-security workflow, but interoperability requires this application-specific format profile.
 
 **Table 10-A. Cartulary offline TUF POUF**
 
@@ -1113,7 +1104,7 @@ non-generic profile requires an adopted engine contract.
 | `enrichment.hijacklibs` | `enrichment` | `cartulary.reference_pack.enrichment.hijacklibs.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.windows_sids` | `enrichment` | `cartulary.reference_pack.enrichment.windows_sids.v1` | `1` | entries | `advisory_enrichment` |
 
-The registry reflects the current Core pack keys and the locally staged dataset families observed in the Kanvas research. That research also identifies missing checksum and signature verification as a supply-chain weakness, which this NLSpec closes through mandatory verification.[^6]
+The registry reflects the current Core pack keys and the locally staged dataset families observed in the Kanvas research. That research also identifies missing checksum and signature verification as a supply-chain weakness, which this NLSpec closes through mandatory verification.
 
 **RP-REQ-100**
 A profile's `pack_kind` MUST equal the exact value in Table 13-A. The public Core resource may continue to serialize `pack_kind` as an open string, but advisory generic keys follow the explicit RP-REQ-099 extension rule.
@@ -3846,7 +3837,7 @@ Physical table names, index types, object-store key layouts, database extensions
 # 25. Security, privacy, and hostile-content boundary
 
 **RP-REQ-236**
-Pack verification and consumption MUST perform no outbound network request. This prohibition applies to HTTP, DNS, package resolution, schema resolution, URL dereference, external font or script loading, and any other remote access.[^10]
+Pack verification and consumption MUST perform no outbound network request. This prohibition applies to HTTP, DNS, package resolution, schema resolution, URL dereference, external font or script loading, and any other remote access.
 
 **RP-REQ-237**
 Reference packs MUST NOT contain credentials, secret references, access tokens, or private keys. Their logical member roles and media types MUST NOT declare scripts, executable binaries, native libraries, active HTML, SVG, JavaScript, CSS, macros, installer hooks, runtime templates, executable regular-expression programs, dynamic query programs, symbolic links, or hard links. Every admitted string is inert data. A UI MUST contextually escape it; the pack subsystem MUST never execute, shell-expand, import as code, render as active markup, or pass it to an interpreter. Command and query examples remain inert text.
@@ -4296,22 +4287,10 @@ Implementation acceptance requires the following behavioral evidence. Coordinate
 
 ## Sources
 
-[^1]: `R05-responsive-interface-design-report.cr.md`, thesis and staged-interface findings, lines 5-19 and 133-147. Source limit: research supports nonblocking semantic progress presentation but does not define Reference Pack runtime contracts.
+JSON Schema, `Draft 2020-12`, published 16 June 2022, https://json-schema.org/draft/2020-12. Accessed 16 July 2026.
 
-[^2]: JSON Schema, `Draft 2020-12`, published 16 June 2022, https://json-schema.org/draft/2020-12. Accessed 16 July 2026.
+RFC 8785, *JSON Canonicalization Scheme (JCS)*, especially canonical representation, deterministic property sorting, UTF-8 generation, and invalid-Unicode failure, https://www.rfc-editor.org/rfc/rfc8785.html.
 
-[^3]: RFC 8785, *JSON Canonicalization Scheme (JCS)*, especially canonical representation, deterministic property sorting, UTF-8 generation, and invalid-Unicode failure, https://www.rfc-editor.org/rfc/rfc8785.html.
+The Update Framework Specification 1.0.35, last modified 15 July 2026, especially §§1.5, 2.1, 2.3, 4, and 5, https://theupdateframework.github.io/specification/v1.0.35/.
 
-[^4]: The Update Framework Specification 1.0.35, last modified 15 July 2026, especially §§1.5, 2.1, 2.3, 4, and 5, https://theupdateframework.github.io/specification/v1.0.35/.
-
-[^5]: SPDX Specification 3.0.1, https://spdx.github.io/spdx-spec/v3.0.1/; SPDX License List 3.28.0, dated 20 February 2026, https://spdx.org/licenses. Accessed 16 July 2026.
-
-[^6]: `R03-Kanvas_technical_research_report.md`, locally downloaded reference-data families and missing signature/checksum verification, lines 911-915 and 1036-1040.
-
-[^7]: `00_document_set_status_and_precedence.md`, §§4.2 and 5.1, lines 77-109 and 146-193; `01_architecture_storage_and_view_contracts.md`, §11 and §17.4, lines 5790-6012 and 7347-7497; `02_domain_model_schema_and_history.md`, §11 and §14.1, lines 1484-1499 and 1987-2026; `03_workbook_interaction_collaboration_and_workflows.md`, §2; `04_security_deployment_and_conformance.md`, §4.1, §9.4, and §12.3.1, lines 470-490, 1130-1150, and 2072-2135. Source limit: these files define the current outer profile and owner boundaries.
-
-[^8]: `nlspec-spec.md`, “Behavioral Completeness,” “Unambiguous Interfaces,” “Explicit Defaults and Boundaries,” “Mapping Tables for Translation,” “Testable Acceptance Criteria,” and “Spec Economy,” lines 11-122 and 142-216.
-
-[^9]: `R06-spreadsheet_of_doom_dfir_research_report.md`, reference-vocabulary separation and optional nonblocking enrichment, lines 454-463 and 490-500. Source limit: research evidence supports the product boundary but does not define runtime pack semantics.
-
-[^10]: `R01-aurora_incident_response_report.md`, direct renderer-side external integrations, remote runtime dependency, global invalid-certificate acceptance, and the resulting expanded trust boundary, lines 94-98 and 1243-1274. Source limit: the report supports the no-egress and strict trust-boundary rationale; it does not define this subsystem's protocol.
+SPDX Specification 3.0.1, https://spdx.github.io/spdx-spec/v3.0.1/; SPDX License List 3.28.0, dated 20 February 2026, https://spdx.org/licenses. Accessed 16 July 2026.
