@@ -148,7 +148,11 @@ func testSnapshotBuildAdmission(t *testing.T) {
 		"failed build":         func(b *BuildArtifact) { b.State = "failed" },
 		"wrong builder":        func(b *BuildArtifact) { b.BuilderUnitID += "wrong" },
 		"missing contribution": func(b *BuildArtifact) { b.ContributionReceipts = nil },
-		"missing validation":   func(b *BuildArtifact) { b.Validation.Counts = nil },
+		"incompatible contribution version": func(b *BuildArtifact) {
+			b.ContributionReceipts = append([]BuildReceipt{}, b.ContributionReceipts...)
+			b.ContributionReceipts[0].Version += ".retired"
+		},
+		"missing validation": func(b *BuildArtifact) { b.Validation.Counts = nil },
 	} {
 		t.Run(name, func(t *testing.T) {
 			candidate := build

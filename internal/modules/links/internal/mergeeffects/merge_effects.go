@@ -75,8 +75,8 @@ type mergeLinkRecord struct {
 }
 
 type LinkDependencies struct {
-	Validate  func(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, vocabulary.LinkType, vocabulary.LinkProvenance, *int) error
-	Tombstone func(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (*time.Time, error)
+	ValidateEndpoints func(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID) error
+	Tombstone         func(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (*time.Time, error)
 }
 
 func RepointLinksTx(ctx context.Context, tx pgx.Tx, command RepointLinksCommand, dependencies LinkDependencies) (RepointLinksResult, error) {
@@ -130,6 +130,11 @@ SELECT
 			continue
 		}
 		before := buildMergeLinkValue(record)
+		// Transform admitted retained state; ordinary command provenance admission
+		// is intentionally narrower than this canonical retained-value contract.
+		if _, err := valuecodec.DecodeRecordLinkMutationValue(before); err != nil {
+			return RepointLinksResult{}, fmt.Errorf("invalid retained merge link: %w", err)
+		}
 		nextSrc := record.SrcRecordID
 		nextDst := record.DstRecordID
 		if nextSrc == command.LoserRecordID {
@@ -155,6 +160,9 @@ SELECT
 			result.DedupedCount++
 			continue
 		}
+		if err := dependencies.ValidateEndpoints(ctx, tx, command.IncidentID, nextSrc, nextDst); err != nil {
+			return RepointLinksResult{}, err
+		}
 		exists, err := activeMergeLinkExistsTx(ctx, tx, command.IncidentID, nextSrc, nextDst, record.LinkType, record.FieldKey)
 		switch {
 		case err == nil && !exists:
@@ -167,7 +175,7 @@ SELECT
 			if err := appendMutation(&result.Mutations, mutationvalue.TargetRecordLink, record.RecordLinkID.String(), mutationvalue.OperationDelete, before, buildMergeLinkValue(record)); err != nil {
 				return RepointLinksResult{}, err
 			}
-			created, err := insertRepointedMergeLinkTx(ctx, tx, record, nextSrc, nextDst, dependencies.Validate)
+			created, err := insertRepointedMergeLinkTx(ctx, tx, record, nextSrc, nextDst)
 			if err != nil {
 				return RepointLinksResult{}, fmt.Errorf("create repointed merged link: %w", err)
 			}
@@ -222,11 +230,7 @@ func insertRepointedMergeLinkTx(
 	record mergeLinkRecord,
 	src uuid.UUID,
 	dst uuid.UUID,
-	validate func(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, vocabulary.LinkType, vocabulary.LinkProvenance, *int) error,
 ) (mergeLinkRecord, error) {
-	if err := validate(ctx, tx, record.IncidentID, src, dst, record.LinkType, record.Provenance, record.Confidence); err != nil {
-		return mergeLinkRecord{}, err
-	}
 	row := tx.QueryRow(ctx, `
 INSERT INTO record_links (
     incident_id,
@@ -241,7 +245,7 @@ INSERT INTO record_links (
     decided_at,
     created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING
     record_link_id,
     incident_id,
@@ -257,7 +261,7 @@ RETURNING
     created_at,
     deleted_at,
     deleted_by_user_id
-`, record.IncidentID, src, dst, record.LinkType.String(), record.FieldKey, record.Provenance.String(), record.Confidence, record.OwnerUserID, record.DecidedAt)
+`, record.IncidentID, src, dst, record.LinkType.String(), record.FieldKey, record.Provenance.String(), record.Confidence, record.OwnerUserID, record.CreatedByUserID, record.DecidedAt, record.CreatedAt)
 	created, err := scanMergeLinkRecord(row)
 	if err != nil {
 		return mergeLinkRecord{}, err

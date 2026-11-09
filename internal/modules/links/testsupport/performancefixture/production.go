@@ -36,11 +36,6 @@ func (a *ProductionApplication) ValidateFixtureAssociations(ctx context.Context,
 			want:  expected.Links,
 		},
 		{
-			name:  "mentions",
-			query: `SELECT COUNT(*) FROM entity_mentions m JOIN records r ON r.record_id = m.source_record_id WHERE r.incident_id = $1 AND m.source_field_key = 'timeline.identity_refs'`,
-			want:  expected.Mentions,
-		},
-		{
 			name:  "tags",
 			query: `SELECT COUNT(*) FROM record_tags WHERE incident_id = $1 AND normalized_tag_name LIKE 'perf-tag-%' AND deleted_at IS NULL`,
 			want:  expected.Tags,

@@ -606,6 +606,9 @@ existing materialization and render error vocabulary.
 **REQ-RPT-026d**
 The Links support-reference adapter MUST consider exactly active links whose
 `link_type` is `supported_by`, `references_record`, or `attached_evidence`.
+Recognized Host/Identity Party-assignment fields do not exclude an otherwise
+eligible link. Their assignment source facts remain a separate contribution;
+support collection does not itself grant disclosure or live-record access.
 Eligible facts MUST be processed by `src_record_id` ascending and then
 `dst_record_id` ascending. For each fact, its target path MUST be the non-empty
 logical target path contributed for `dst_record_id`; a missing, nil, or empty

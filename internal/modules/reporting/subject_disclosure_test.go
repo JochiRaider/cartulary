@@ -19,7 +19,7 @@ func testSubjectAssignmentPermissions(t *testing.T) {
 	second := uuid.MustParse("00000000-0000-0000-0000-000000006004")
 	source := fixtureSnapshotSource([]ExportField{
 		{SourceRecordID: host.String(), SourceRecordType: "host", SourceFamily: "record_envelope", Path: "/opaque/envelope", ContentClass: ContentClassDerivedAnalytic, Value: map[string]any{"record_type": "host", "value": "subject metadata"}, DisclosurePartitionRefs: []string{"public"}},
-		{SourceRecordID: host.String(), SourceRecordType: "host", SourceFamily: "host", Path: "/opaque/subject", ContentClass: ContentClassSourceEvidence, Value: "private host", DisclosurePartitionRefs: []string{"public"}},
+		{SourceRecordID: host.String(), SourceRecordType: "host", SourceFamily: "host", Path: "/opaque/subject", ContentClass: ContentClassSourceEvidence, Value: "private host", DisclosurePartitionRefs: []string{"public"}, SupportRefs: []string{"/parties/" + first.String(), "/parties/" + second.String()}},
 		{SourceRecordID: first.String(), SourceRecordType: "party", SourceFamily: "party", Path: "/opaque/first", ContentClass: ContentClassSourceEvidence, Value: "first private party"},
 		{SourceRecordID: second.String(), SourceRecordType: "party", SourceFamily: "party", Path: "/opaque/second", ContentClass: ContentClassSourceEvidence, Value: "second private party"},
 		{SourceRecordID: "00000000-0000-0000-0000-000000006009", SourceRecordType: "evidence", SourceFamily: "evidence", Path: "/opaque/citation", ContentClass: ContentClassSourceEvidence, Value: "cites the subject", SupportRefs: []string{"/hosts/" + host.String()}},
@@ -89,7 +89,7 @@ func testSubjectAssignmentPermissions(t *testing.T) {
 			if scope == ReleaseScopeExternal {
 				want = "blocked"
 			}
-			if err != nil || !reflect.DeepEqual(partitions(projected, "/opaque/subject"), []string{"public", want}) {
+			if err != nil || !reflect.DeepEqual(partitions(projected, "/opaque/subject"), []string{"public", "party:" + first.String(), "party:" + second.String(), want}) {
 				t.Fatal("non-subject relation granted permission", role, scope, err)
 			}
 			if !reflect.DeepEqual(partitions(projected, "/opaque/envelope/value"), []string{"public", want}) {
@@ -115,6 +115,22 @@ func testSubjectAssignmentPermissions(t *testing.T) {
 	result, err := RedactExportModel(render, snapshot.SourceFacts, profile, profileDigest, sourceDigest, ReleaseScopeExternal, recipients)
 	if err != nil || len(result.Model.Fields) != 6 {
 		t.Fatal("assigned subject could not be released to every required Party", err)
+	}
+	// Assignment support carries both target restrictions and cannot grant a
+	// recipient access by itself, even if only one Party is selected.
+	narrowRecipients := recipients[:1]
+	narrowProfile, narrowDigest, err := ResolveRedactionProfile(ExternalRedactionProfileID, DefaultRedactionProfileVersion, narrowRecipients, snapshot.SnapshotContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	narrowRender, narrowSourceDigest, err := bindRenderModel(snapshot, fixtureRenderIdentity(), ReleaseScopeExternal, narrowRecipients)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deniedResult, err := RedactExportModel(narrowRender, snapshot.SourceFacts, narrowProfile, narrowDigest, narrowSourceDigest, ReleaseScopeExternal, narrowRecipients)
+	var missingRecipient *renderValidationError
+	if !errors.As(err, &missingRecipient) || missingRecipient.ReasonCode != "disclosure_partition_unresolved" || len(deniedResult.Model.Fields) != 0 {
+		t.Fatal("assignment support bypassed recipient restrictions", err)
 	}
 	foundSubject := false
 	for _, entry := range result.Manifest.Entries {

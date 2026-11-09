@@ -268,9 +268,6 @@
       },
       {
         "row_id": "harness.browser.unit.fixture_broker_smoke"
-      },
-      {
-        "row_id": "harness.command_surface.behavior.markdown_lint_uses_biome_with_isolated_scope_and_067b41999b"
       }
     ],
     "harness.contract_runtime": [

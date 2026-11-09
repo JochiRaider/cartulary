@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_owner_portable_destination",
-  "fixture_version": 3,
+  "fixture_version": 4,
   "fixture_family": "portability",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/owner_portable_destination.v1.json",
@@ -10,7 +10,7 @@
     "contracts/reference-packs/builtins/release.v3.json"
   ],
   "expected_container_sha256": null,
-  "expected_manifest_sha256": "bdfa6425c596023743e3e437de16f2933d9b9dc8ea6cc986042a581d234dc01b",
+  "expected_manifest_sha256": "5ecf0c0088f3ee0d7a221b397f919b673d547436f78ac1a3c6cc67e7fa9ddc8a",
   "expected_payload_sha256": "afaae18a960bf0d7f75365494966403333706ee4b7f680ca789c5cad8a237b8f",
   "expected_pack_set_sha256": "c0a752817ee49beb7fdc8053cb1a23614be39d9df931fbf9515694fe95d29b61",
   "expected_condition": "verified_available",

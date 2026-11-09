@@ -4,7 +4,7 @@ const queryStarts = new Set(['select', 'with', 'insert', 'update', 'delete', 'va
 const reserved = new Set(('where group order having limit offset returning union except intersect window for join left right full inner outer cross natural on using set values conflict do into from as tablesample repeatable').split(' '));
 
 function sqlSegments(source) {
-  if (!/^\s*package\s+\w+/mu.test(source)) return [source];
+  if (!/^\s*package\s+\w+/mu.test(source)) return [{ text: source, dynamic: false }];
   // Read Go string expressions, including constant composition. Scanning each
   // literal independently loses both balanced query structure and relation names.
   const lexemes = [...source.matchAll(/\/\/[^\n]*|\/\*[\s\S]*?\*\/|`[^`]*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[a-z_][a-z_0-9]*|[^\s]/giu)]
@@ -25,14 +25,15 @@ function sqlSegments(source) {
     }
   }
   function expression(start, seen = new Set()) {
-    let text = ''; let end = start;
+    let text = ''; let end = start; let dynamic = lexemes[start - 1] === '+';
     do {
       const part = lexemes[end++];
       if (isLiteral(part)) text += decode(part);
       else if (definitions.has(part) && !seen.has(part)) {
-        text += expression(definitions.get(part), new Set([...seen, part])).text;
+        const resolved = expression(definitions.get(part), new Set([...seen, part]));
+        text += resolved.text; dynamic ||= resolved.dynamic;
       } else {
-        text += '%s';
+        text += '%s'; dynamic = true;
         const closingFor = { '(': ')', '[': ']', '{': '}' };
         while (lexemes[end] === '.' || Object.hasOwn(closingFor, lexemes[end])) {
           if (lexemes[end] === '.') { end += 2; continue; }
@@ -53,14 +54,19 @@ function sqlSegments(source) {
       if (lexemes[end] !== '+') break;
       end++;
     } while (end < lexemes.length);
-    return { text, end };
+    return { text, end, dynamic };
   }
   const result = [];
   for (let i = 0; i < lexemes.length; i++) {
     if (!isLiteral(lexemes[i])) continue;
-    const parsed = expression(i); result.push(parsed.text); i = parsed.end - 1;
+    const parsed = expression(i);
+    // A literal assigned to a binding is no longer an exact template if the
+    // binding subsequently participates in dynamic composition or mutation.
+    const binding = lexemes[i - 1] === '=' ? lexemes[i - 2] === ':' ? lexemes[i - 3] : lexemes[i - 2] : null;
+    if (binding && lexemes.some((token, at) => token === binding && (lexemes[at + 1] === '+' || lexemes[at - 1] === '+'))) parsed.dynamic = true;
+    result.push(parsed); i = parsed.end - 1;
   }
-  return result.filter(isSQLSegment);
+  return result.filter((segment) => isSQLSegment(segment.text));
 }
 
 function isSQLSegment(text) {
@@ -102,10 +108,10 @@ function tokenize(source, allowCommentOnly = false) {
     if (dollar) {
       const end = source.indexOf(dollar, i + dollar.length);
       if (end < 0) throw new Error('unterminated SQL dollar string');
-      tokens.push({ kind: 'literal', value: '' }); i = end + dollar.length; continue;
+      tokens.push({ kind: 'literal', value: source.slice(i, end + dollar.length) }); i = end + dollar.length; continue;
     }
     if (source[i] === "'" || source[i] === '"') {
-      const quote = source[i++]; let value = ''; let closed = false;
+      const start = i; const quote = source[i++]; let value = ''; let closed = false;
       while (i < source.length) {
         if (source[i] === quote) {
           if (source[i + 1] === quote) { value += quote; i += 2; continue; }
@@ -115,10 +121,16 @@ function tokenize(source, allowCommentOnly = false) {
         value += source[i++];
       }
       if (!closed) throw new Error('unterminated SQL quoted token');
-      tokens.push({ kind: quote === '"' ? 'identifier' : 'literal', value }); continue;
+      tokens.push({ kind: quote === '"' ? 'identifier' : 'literal', value: quote === '"' ? value : source.slice(start, i) }); continue;
     }
     const word = rest.match(/^[a-z_][a-z_0-9$]*/iu)?.[0];
     if (word) { tokens.push({ kind: 'word', value: word.toLowerCase() }); i += word.length; continue; }
+    const parameter = rest.match(/^\$[0-9]+/u)?.[0];
+    if (parameter) { tokens.push({ kind: 'parameter', value: parameter }); i += parameter.length; continue; }
+    const number = rest.match(/^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:e[+-]?[0-9]+)?/iu)?.[0];
+    if (number) { tokens.push({ kind: 'number', value: number }); i += number.length; continue; }
+    const operator = rest.match(/^(?:::|->>|->|#>>|#>|<=|>=|<>|!=|\|\||&&|@>|<@|:=)/u)?.[0];
+    if (operator) { tokens.push({ kind: 'symbol', value: operator }); i += operator.length; continue; }
     tokens.push({ kind: 'symbol', value: source[i++] });
   }
   return tokens;
@@ -259,9 +271,21 @@ function classify(source) {
   return accesses;
 }
 
-export function sqlRelationAccesses(source) {
-  return sqlSegments(source).flatMap((segment) => {
-    try { return classify(segment); }
-    catch (error) { throw new Error(`${error.message}; SQL: ${segment.slice(0, 500)}`, { cause: error }); }
+// Keys preserve SQL semantics; only whitespace, comments and unquoted case fold.
+// Statement separators remain tokens, so adding another statement changes the key.
+export function sqlStatements(source) {
+  return sqlSegments(source).map(({ text, dynamic }) => {
+    try {
+      const tokens = tokenize(text);
+      return {
+        key: JSON.stringify(tokens),
+        dynamic: dynamic || tokens.some((token, index) => token.value === '%' && tokens[index + 1]?.value === 's'),
+        accesses: classify(text),
+      };
+    } catch (error) { throw new Error(`${error.message}; SQL: ${text.slice(0, 500)}`, { cause: error }); }
   });
+}
+
+export function sqlRelationAccesses(source) {
+  return sqlStatements(source).flatMap((statement) => statement.accesses);
 }

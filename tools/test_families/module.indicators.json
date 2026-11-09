@@ -1125,7 +1125,6 @@
       "selector": {
         "package": "./internal/modules/indicators/internal/providers/rollback",
         "tests": [
-          "TestChildChangedFieldsCoverSourceAndCanonicalIndicators",
           "TestIndicatorRollbackSourcePatchIsClosedAndPresenceAware",
           "TestParseObservationResolveRejectsIdentityDrift",
           "TestParseObservationTargetTreatsMissingTombstonesAsActive",

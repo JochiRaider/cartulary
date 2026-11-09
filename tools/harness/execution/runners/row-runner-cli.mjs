@@ -4,14 +4,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { goRunnerBuildContext, loadSelectedTestRows, targetForCatalogRow } from "../../test-catalog/index.mjs";
+import { goRunnerBuildContext, loadSelectedTestRows, targetForCatalogRow, validateIndependentGoModule } from "../../test-catalog/index.mjs";
 import { primaryPublicFailure, publicExitCodeForFailure, publicExitCodeForFailures, redactString, validateSchemaSync } from "../../contract/index.mjs";
 import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { beginActivity } from "../../runtime/local-activity.mjs";
 import { createCommandFailureContext, reportCommandFailure } from "../../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
 import { adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment } from "./go.mjs";
-import { validateIndependentGoModule } from "../../test-catalog/go-modules.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
 import { publishRowResult } from "./row-results.mjs";
 import { readUnitSelection } from "./unit-selection.mjs";

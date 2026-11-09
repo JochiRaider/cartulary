@@ -743,6 +743,24 @@ When two entities are merged:
 - for loser-side `provenance_only` values, the historical loser row MUST preserve them; an optional copy to survivor provenance MAY occur only when it cannot affect matching, reuse, suggestions, or merge preconditions,
 - no value capable of affecting future exact-match reuse may be silently dropped; each `exact_match_reuse` value MUST be promoted, carried as an active secondary reusable value, treated as a duplicate no-op, or rejected through fail-closed merge-precondition failure.
 
+Merge transforms admitted retained relationship state; it MUST NOT apply the
+narrower ordinary-create provenance admission to that transformation. Every valid
+retained provenance in §18 MUST remain eligible, subject to the canonical
+provenance/confidence rules and valid resulting same-incident active endpoints.
+Ordinary command admission remains restricted to manual links and the permitted
+automatic entity-observation matches; merge MUST NOT broaden that capability.
+
+When a link is tombstoned and recreated to change its endpoint, the recreated
+link MUST preserve `field_key`, `provenance`, `confidence`, `owner_user_id`,
+`created_by_user_id`, `decided_at`, and `created_at` independently. The new link
+identity and repointed endpoint identify the replacement; its deletion members
+are null. The merge change set records the merge actor and time. Ownership MUST
+NOT substitute for creation attribution, and decision time MUST NOT substitute
+for creation time. Self-links produced by repointing are tombstoned; collisions
+are deduplicated by the complete field-aware active identity without losing
+retained history. These rules do not rewrite pre-existing history or expand the
+canonical link-patch identity grammar.
+
 Within each exact-match class, merge candidates MUST be evaluated with the
 loser's populated canonical value first, followed by its active secondary
 `exact_match_reuse` values in ascending normalized-value order. Comparison for

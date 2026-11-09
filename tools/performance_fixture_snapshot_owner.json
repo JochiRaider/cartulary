@@ -455,9 +455,9 @@
           ]
         },
         {
-          "contribution_id": "links.timeline_associations.v1",
+          "contribution_id": "links.timeline_associations.v2",
           "owner_id": "module.links",
-          "version": "links.timeline_associations.v1",
+          "version": "links.timeline_associations.v2",
           "dependencies": [
             "timeline.large_grid.v1"
           ],
@@ -467,10 +467,6 @@
           "expected_receipt_counts": [
             {
               "count_id": "links",
-              "exact": 1000
-            },
-            {
-              "count_id": "mentions",
               "exact": 1000
             },
             {
@@ -484,7 +480,7 @@
           "owner_id": "module.projections",
           "version": "projections.timeline_entities.v1",
           "dependencies": [
-            "links.timeline_associations.v1"
+            "links.timeline_associations.v2"
           ],
           "source_contract_ids": [
             "cartulary.projection_provider_manifest.v4",
@@ -748,9 +744,9 @@
           ]
         },
         {
-          "contribution_id": "links.timeline_associations.v1",
+          "contribution_id": "links.timeline_associations.v2",
           "owner_id": "module.links",
-          "version": "links.timeline_associations.v1",
+          "version": "links.timeline_associations.v2",
           "dependencies": [
             "timeline.large_grid.v1"
           ],
@@ -760,10 +756,6 @@
           "expected_receipt_counts": [
             {
               "count_id": "links",
-              "exact": 1000
-            },
-            {
-              "count_id": "mentions",
               "exact": 1000
             },
             {
@@ -777,7 +769,7 @@
           "owner_id": "module.projections",
           "version": "projections.timeline_entities.v1",
           "dependencies": [
-            "links.timeline_associations.v1"
+            "links.timeline_associations.v2"
           ],
           "source_contract_ids": [
             "cartulary.projection_provider_manifest.v4",
@@ -1147,9 +1139,9 @@
           ]
         },
         {
-          "contribution_id": "links.timeline_associations.v1",
+          "contribution_id": "links.timeline_associations.v2",
           "owner_id": "module.links",
-          "version": "links.timeline_associations.v1",
+          "version": "links.timeline_associations.v2",
           "dependencies": [
             "timeline.large_grid.v1"
           ],
@@ -1159,10 +1151,6 @@
           "expected_receipt_counts": [
             {
               "count_id": "links",
-              "exact": 1000
-            },
-            {
-              "count_id": "mentions",
               "exact": 1000
             },
             {
@@ -1176,7 +1164,7 @@
           "owner_id": "module.projections",
           "version": "projections.timeline_entities.v1",
           "dependencies": [
-            "links.timeline_associations.v1"
+            "links.timeline_associations.v2"
           ],
           "source_contract_ids": [
             "cartulary.projection_provider_manifest.v4",

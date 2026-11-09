@@ -2,6 +2,7 @@ package links_test
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
@@ -150,6 +152,9 @@ func TestRecordLinkOwnerValidation(t *testing.T) {
 		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
 	}
 	entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, host, "Validation Host", "validation-host", "", "")
+	foreignIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-links-foreign", "IR-LINK-FOREIGN", "Foreign endpoint")
+	foreign := uuid.New()
+	timelinetest.SeedTimelineRecord(t, harness.DB, foreignIncident.ID, actor.ID, foreign)
 
 	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
@@ -257,7 +262,92 @@ func TestRecordLinkOwnerValidation(t *testing.T) {
 	}); err == nil {
 		t.Fatalf("deleted endpoint should be rejected, got %v", err)
 	}
+
+	ctx := context.Background()
+	for _, target := range []uuid.UUID{uuid.New(), foreign, dst} {
+		if _, err := store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+			IncidentID: incident.ID, SrcRecordID: src, DstRecordID: target,
+			LinkType: links.LinkTypeReferencesRecord, Provenance: links.LinkProvenanceManual,
+			OwnerUserID: actor.ID, Now: time.Now().UTC(),
+		}); err == nil {
+			t.Fatalf("invalid endpoint %s admitted", target)
+		}
+		for _, expectedType := range []string{"", "timeline_event"} {
+			err := store.ValidateRecordRefCollectionTx(ctx, tx, links.RecordRefCollectionValidation{
+				IncidentID: incident.ID, FieldKey: "fixture.targets", LinkType: links.LinkTypeReferencesRecord,
+				ExpectedTargetType: expectedType, AddRecordIDs: []uuid.UUID{target},
+			})
+			var invalid *links.CollectionValidationError
+			if !errors.As(err, &invalid) || invalid.Field != "fixture.targets" || invalid.ReasonCode != "invalid_value" {
+				t.Fatalf("invalid collection endpoint: %v", err)
+			}
+		}
+	}
+	if err := store.ValidateRecordRefCollectionTx(ctx, tx, links.RecordRefCollectionValidation{
+		IncidentID: incident.ID, FieldKey: "fixture.targets", LinkType: links.LinkTypeReferencesRecord,
+		ExpectedTargetType: "party", AddRecordIDs: []uuid.UUID{host},
+	}); err == nil {
+		t.Fatal("wrong collection endpoint type admitted")
+	}
+	for _, provenance := range []links.LinkProvenance{links.LinkProvenanceImport, links.LinkProvenanceSystem, links.LinkProvenanceRollback} {
+		if _, err := store.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+			IncidentID: incident.ID, SrcRecordID: src, DstRecordID: host,
+			LinkType: links.LinkTypeReferencesRecord, Provenance: provenance,
+			OwnerUserID: actor.ID, Now: time.Now().UTC(),
+		}); err == nil {
+			t.Fatalf("ordinary write admitted retained provenance %s", provenance)
+		}
+	}
+	// A retained inverse needs existing same-incident envelopes, including deleted ones.
+	provider := links.RevisionProviderContribution().NonRowTargets[0].RollbackProvider
+	target := rollbackcontract.NonRowTarget{
+		IncidentID: incident.ID, TargetKind: "record_link", TargetID: supersedesMutation.TargetID(),
+		OperationKind: "create", AfterValue: mutationMap(t, supersedesMutation.AfterValue()),
+	}
+	if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at=now(), deleted_by_user_id=$2 WHERE record_id=$1`, superseded, actor.ID); err != nil {
+		t.Fatal(err)
+	}
+	if descriptor, err := provider.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{Target: target}); err != nil || len(descriptor.AffectedRecordIDs) != 2 {
+		t.Fatalf("deleted retained endpoint rejected: %#v %v", descriptor, err)
+	}
+	for _, invalidID := range []uuid.UUID{foreign, uuid.New()} {
+		invalid := target
+		invalid.AfterValue = mutationMap(t, supersedesMutation.AfterValue())
+		invalid.AfterValue["dst_record_id"] = invalidID.String()
+		if _, err := provider.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{Target: invalid}); !errors.Is(err, rollbackcontract.ErrTargetNotFound) {
+			t.Fatalf("foreign/missing retained endpoint error: %v", err)
+		}
+	}
+	failure := errors.New("injected envelope read failure")
+	failingTx := linksReadFailureTx{Tx: tx, err: failure}
+	if _, err := store.UpsertLinkCommandTx(ctx, failingTx, links.UpsertLinkCommand{
+		IncidentID: incident.ID, SrcRecordID: src, DstRecordID: host,
+		LinkType: links.LinkTypeReferencesRecord, Provenance: links.LinkProvenanceManual,
+		OwnerUserID: actor.ID, Now: time.Now().UTC(),
+	}); !errors.Is(err, failure) {
+		t.Fatalf("ordinary read failure lost: %v", err)
+	}
+	if _, err := provider.DescribeTx(ctx, failingTx, rollbackcontract.DescribeRequest{Target: target}); !errors.Is(err, failure) {
+		t.Fatalf("inverse read failure lost: %v", err)
+	}
 }
+
+type linksReadFailureTx struct {
+	pgx.Tx
+	err error
+}
+
+func (tx linksReadFailureTx) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, tx.err
+}
+
+func (tx linksReadFailureTx) QueryRow(context.Context, string, ...any) pgx.Row {
+	return linksReadFailureRow{err: tx.err}
+}
+
+type linksReadFailureRow struct{ err error }
+
+func (row linksReadFailureRow) Scan(...any) error { return row.err }
 
 func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 	harness := appsupport.StartStore(t, "links-field-aware-characterization")

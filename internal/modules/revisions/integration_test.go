@@ -462,18 +462,19 @@ func TestMergeChangeSetRollback_Integration(t *testing.T) {
 	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, timeline)
 	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, outgoingTarget)
 	entitytest.SeedResolvedMention(t, harness.DB, actorID, mentionID, timeline, loser, "timeline.host_refs", "host", "loser-host")
-	linktest.SeedRecordLink(t, harness.DB, incidentID, actorID, linkID, timeline, loser, "observed_on_host", "manual", nil)
-	linktest.SeedRecordLink(t, harness.DB, incidentID, actorID, outgoingLinkID, loser, outgoingTarget, "references_record", "manual", nil)
+	linktest.SeedRecordLink(t, harness.DB, incidentID, actorID, linkID, timeline, loser, "observed_on_host", "system", nil)
+	linktest.SeedRecordLink(t, harness.DB, incidentID, actorID, outgoingLinkID, loser, outgoingTarget, "references_record", "rollback", nil)
 	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, survivorTag, survivor, "duplicate-merge-tag")
 	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, loserTag, loser, "duplicate-merge-tag")
 	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, uniqueLoserTag, loser, "unique-merge-tag")
 	mergeFixtureCreatedAt := time.Date(2026, 5, 10, 18, 0, 0, 0, time.UTC)
-	if _, err := harness.DB.Exec(`UPDATE record_links SET decided_at = $1, created_at = $1 WHERE record_link_id IN ($2, $3)`, mergeFixtureCreatedAt, linkID, outgoingLinkID); err != nil {
+	if _, err := harness.DB.Exec(`UPDATE record_links SET decided_at = $1::timestamptz + interval '1 minute', created_at = $1 WHERE record_link_id IN ($2, $3)`, mergeFixtureCreatedAt, linkID, outgoingLinkID); err != nil {
 		t.Fatalf("normalize merge link fixture timestamps: %v", err)
 	}
 	if _, err := harness.DB.Exec(`UPDATE record_tags SET created_at = $1, updated_at = $1 WHERE record_tag_id IN ($2, $3, $4)`, mergeFixtureCreatedAt, survivorTag, loserTag, uniqueLoserTag); err != nil {
 		t.Fatalf("normalize merge tag fixture timestamps: %v", err)
 	}
+	originalLinks := stringScalar(t, harness.DB, `SELECT jsonb_agg(to_jsonb(l) ORDER BY record_link_id)::text FROM record_links l WHERE record_link_id IN ($1,$2)`, linkID, outgoingLinkID)
 	var uniqueTagCreatedAt, uniqueTagUpdatedAt time.Time
 	if err := harness.DB.QueryRow(`SELECT created_at, updated_at FROM record_tags WHERE record_tag_id = $1`, uniqueLoserTag).Scan(&uniqueTagCreatedAt, &uniqueTagUpdatedAt); err != nil {
 		t.Fatalf("load unique loser tag timestamps: %v", err)
@@ -580,6 +581,9 @@ SELECT COUNT(*)
 	}
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND src_record_id = $2 AND dst_record_id = $3 AND deleted_at IS NULL`, outgoingLinkID, loser, outgoingTarget) != 1 {
 		t.Fatalf("merge rollback did not restore original loser-sourced active link")
+	}
+	if restored := stringScalar(t, harness.DB, `SELECT jsonb_agg(to_jsonb(l) ORDER BY record_link_id)::text FROM record_links l WHERE record_link_id IN ($1,$2)`, linkID, outgoingLinkID); restored != originalLinks {
+		t.Fatal("merge inverse did not restore exact retained link metadata")
 	}
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id IN ($1, $2, $3) AND deleted_at IS NULL`, survivorTag, loserTag, uniqueLoserTag) != 3 {
 		t.Fatalf("merge rollback did not restore all retained tags")

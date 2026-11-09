@@ -559,6 +559,28 @@
         },
         "lock_allowed_paths": {
           "$ref": "#/$defs/stringArray"
+        },
+        "read_allowed_statements": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sql"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sql": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
         }
       }
     },

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
@@ -76,6 +77,24 @@ func TestClosedAssemblerProducesExactDeterministicRedactedSemantics(t *testing.T
 	if firstApplications.sessions != 0 || firstApplications.memberships != 24 || firstApplications.accounts != 24 {
 		t.Fatalf("unexpected Auth/Incidents state: %#v", firstApplications)
 	}
+	for _, receipt := range first.Receipts {
+		if receipt.OwnerID == "module.links" && !reflect.DeepEqual(receipt.Counts, map[string]int{"links": firstApplications.links, "tags": firstApplications.tags}) {
+			t.Fatal("Links receipt contains foreign counts", receipt)
+		}
+	}
+	t.Run("aggregate rejects incorrect mention count after owner checks", func(t *testing.T) {
+		profile := profileForTest(t)
+		applications := &fakeApplications{mentionCountDelta: -1}
+		assembler, err := New(profile, Dependencies{Auth: applications, Incidents: applications, Entities: applications, Timeline: applications, Links: applications, Projections: applications, Validation: applications})
+		if err != nil {
+			t.Fatal(err)
+		}
+		state := &fixture.BuildState{FixtureProfileID: profile.FixtureProfileID, SnapshotKey: fixtureKey, Seed: profile.Seed, RuntimeBundle: runtimeBundle("wrong-mentions", profile)}
+		result, err := assembler.Assemble(context.Background(), state)
+		if err == nil || !strings.Contains(err.Error(), "mention_assignments") || applications.projectionSets != 3 || result.SemanticValidationDigest != "" {
+			t.Fatal("aggregate mention error was lost or rejected by an unrelated owner", err)
+		}
+	})
 	if err := fixture.ValidateReceiptRedaction(first, firstState); err != nil {
 		t.Fatal(err)
 	}
@@ -113,6 +132,20 @@ func TestClosedAssemblerConsumesGeneratedDescriptor(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("generated descriptor did not admit the owner-local providers: %v", err)
 	}
+	for _, descriptor := range profile.Contributions {
+		if descriptor.OwnerID != "module.links" {
+			continue
+		}
+		counts := map[string]int{}
+		for _, count := range descriptor.ExpectedReceiptCounts {
+			counts[count.CountID] = count.Exact
+		}
+		counts["mentions"] = 1000
+		if _, err := linksfixture.New(applications, fixture.Descriptor{ContributionID: descriptor.ContributionID, Version: descriptor.Version, OwnerID: descriptor.OwnerID, ExpectedCounts: counts}, 20); err == nil {
+			t.Fatal("obsolete Links mention receipt shape admitted")
+		}
+	}
+
 }
 
 const fixtureKey = "85a9ceb4cc34f66356baa07b68bf7f3636844beef90aa51ad8b1751d4b046c72"
@@ -138,17 +171,18 @@ func runtimeBundle(marker string, profile performancefixtureprofile.Profile) fix
 }
 
 type fakeApplications struct {
-	failureAt      string
-	accounts       int
-	sessions       int
-	memberships    int
-	hosts          int
-	identities     int
-	timelineRows   int
-	links          int
-	mentions       int
-	tags           int
-	projectionSets int
+	mentionCountDelta int
+	failureAt         string
+	accounts          int
+	sessions          int
+	memberships       int
+	hosts             int
+	identities        int
+	timelineRows      int
+	links             int
+	mentions          int
+	tags              int
+	projectionSets    int
 }
 
 func (f *fakeApplications) CreateFixtureAnalyst(_ context.Context, request authfixture.CreateFixtureAnalystRequest) (authfixture.Account, error) {
@@ -222,7 +256,7 @@ func (f *fakeApplications) ValidateFixtureAssociations(_ context.Context, incide
 	if f.failureAt == "links" {
 		return errors.New("injected Links failure")
 	}
-	if incidentID == "" || expected.Links != f.links || expected.Mentions != f.mentions || expected.Tags != f.tags || expected.Stride != 20 {
+	if incidentID == "" || expected.Links != f.links || expected.Tags != f.tags || expected.Stride != 20 {
 		return errors.New("fixture association validation failed")
 	}
 	return nil
@@ -258,7 +292,7 @@ func (f *fakeApplications) ValidateFixtureSemantics(_ context.Context, incidentI
 			"host_rows":           f.hosts,
 			"identity_rows":       f.identities,
 			"link_assignments":    f.links,
-			"mention_assignments": f.mentions,
+			"mention_assignments": f.mentions + f.mentionCountDelta,
 			"tag_assignments":     f.tags,
 			"timeline_rows":       f.timelineRows,
 		},

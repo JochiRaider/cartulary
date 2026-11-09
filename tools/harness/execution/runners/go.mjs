@@ -3,7 +3,7 @@ import { createInterface } from "node:readline";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
 import { resolveMachineStatePaths } from "../../contract/harness-contract.mjs";
-import { goModuleSelection } from "../../test-catalog/go-modules.mjs";
+import { goModuleSelection } from "../../test-catalog/index.mjs";
 
 // Machine paths belong to execution, not static Go selector discovery.
 export function goExecutionEnvironment(root, environment = process.env) {

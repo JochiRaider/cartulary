@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
 type RecordRefCollectionValidation struct {
@@ -150,32 +152,12 @@ func validateTagCollectionPolicy(fieldKey string) error {
 }
 
 func validateCollectionTargetRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, expectedType string, field string) error {
-	var exists bool
-	if expectedType == "" {
-		if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM records
-     WHERE incident_id = $1
-       AND record_id = $2
-       AND deleted_at IS NULL
-)
-`, incidentID, recordID).Scan(&exists); err != nil {
-			return fmt.Errorf("validate collection target: %w", err)
-		}
-	} else if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM records
-     WHERE incident_id = $1
-       AND record_id = $2
-       AND record_type = $3
-       AND deleted_at IS NULL
-)
-`, incidentID, recordID, expectedType).Scan(&exists); err != nil {
+	envelopes, err := records.NewStore().LoadEnvelopesTx(ctx, tx, []uuid.UUID{recordID}, false)
+	if err != nil {
 		return fmt.Errorf("validate collection target: %w", err)
 	}
-	if !exists {
+	envelope := envelopes[recordID]
+	if !activeIncidentEnvelope(envelope, incidentID) || (expectedType != "" && envelope.RecordType != expectedType) {
 		return collectionValidationError(field)
 	}
 	return nil

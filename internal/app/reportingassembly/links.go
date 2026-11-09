@@ -75,11 +75,12 @@ func (provider LinksProvider) CollectSupportRefsTx(
 	if err != nil {
 		return nil, err
 	}
+	return supportRefsForLinks(facts.RecordLinks, targets), nil
+}
+
+func supportRefsForLinks(facts []links.RecordLinkFact, targets map[string]string) map[string][]string {
 	result := map[string][]string{}
-	for _, fact := range facts.RecordLinks {
-		if fact.FieldKey != nil && links.IsPartyAssignmentField(*fact.FieldKey) {
-			continue
-		}
+	for _, fact := range facts {
 		switch fact.LinkType {
 		case links.LinkTypeSupportedBy, links.LinkTypeReferencesRecord, links.LinkTypeAttachedEvidence:
 		default:
@@ -92,7 +93,7 @@ func (provider LinksProvider) CollectSupportRefsTx(
 		sourceID := fact.SrcRecordID.String()
 		result[sourceID] = append(result[sourceID], target)
 	}
-	return result, nil
+	return result
 }
 
 func (provider LinksProvider) collectLogicalSupportTargetsTx(

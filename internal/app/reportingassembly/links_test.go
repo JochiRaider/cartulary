@@ -7,12 +7,35 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 func TestLogicalSupportTargetComposition(t *testing.T) {
 	t.Parallel()
+	t.Run("eligible links preserve assignment fields order and repeated targets", func(t *testing.T) {
+		source, party, evidence, fallback := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+		facts := []links.RecordLinkFact{}
+		want := []string{}
+		for _, field := range []string{"host.subject_party_ids", "host.responsible_party_ids", "host.observer_party_ids", "identity.subject_party_ids", "identity.responsible_party_ids", "identity.observer_party_ids"} {
+			facts = append(facts, links.RecordLinkFact{SrcRecordID: source, DstRecordID: party, LinkType: links.LinkTypeReferencesRecord, FieldKey: &field})
+			want = append(want, "/record_envelopes/"+party.String())
+		}
+		facts = append(facts,
+			links.RecordLinkFact{SrcRecordID: source, DstRecordID: evidence, LinkType: links.LinkTypeSupportedBy},
+			links.RecordLinkFact{SrcRecordID: source, DstRecordID: fallback, LinkType: links.LinkTypeReferencesRecord},
+			links.RecordLinkFact{SrcRecordID: source, DstRecordID: evidence, LinkType: links.LinkTypeAttachedEvidence},
+			links.RecordLinkFact{SrcRecordID: source, DstRecordID: party, LinkType: links.LinkTypeObservedOnHost})
+		want = append(want, "/evidence/"+evidence.String(), "/record_envelopes/"+fallback.String(), "/evidence/"+evidence.String())
+		got := supportRefsForLinks(facts, map[string]string{evidence.String(): "/evidence/" + evidence.String(), fallback.String(): ""})
+		if !reflect.DeepEqual(got, map[string][]string{source.String(): want}) {
+			t.Fatalf("support refs=%#v", got)
+		}
+		if got := supportRefsForLinks(nil, nil); got == nil || len(got) != 0 {
+			t.Fatal("empty output must be a non-null map")
+		}
+	})
 	incidentID := uuid.New()
 	var order []string
 	provider, err := NewLinksProvider(
@@ -70,7 +93,7 @@ func TestLogicalSupportTargetCompositionRejectsConflictsAndWrapsProviderFailures
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := provider.collectLogicalSupportTargetsTx(context.Background(), nil, uuid.New()); !errors.Is(err, sentinel) || !strings.Contains(err.Error(), "evidence") {
+	if got, err := provider.CollectSupportRefsTx(context.Background(), nil, uuid.New()); got != nil || !errors.Is(err, sentinel) || !strings.Contains(err.Error(), "evidence") {
 		t.Fatalf("provider failure = %v", err)
 	}
 }

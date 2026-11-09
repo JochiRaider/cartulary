@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"sort"
 	"strings"
 	"time"
 
@@ -119,26 +118,11 @@ UPDATE entity_mentions
 	if err != nil {
 		return rollbackcontract.ApplyInverseResult{}, err
 	}
-	var sourceType string
-	if err := tx.QueryRow(ctx, `SELECT record_type FROM records WHERE record_id = $1`, identity.sourceRecordID).Scan(&sourceType); err != nil {
-		return rollbackcontract.ApplyInverseResult{}, err
-	}
-	keys := mentionChangedFieldKeys(sourceType, identity.sourceFieldKey)
 	return rollbackcontract.ApplyInverseResult{
 		AffectedRecordIDs: descriptor.AffectedRecordIDs,
 		BeforeValue:       before,
 		AfterValue:        after,
-		ChangedFieldKeys:  map[uuid.UUID][]string{identity.sourceRecordID: keys},
 	}, nil
-}
-
-func mentionChangedFieldKeys(sourceType string, sourceFieldKey string) []string {
-	keys := []string{sourceFieldKey}
-	if sourceType == "timeline_event" {
-		keys = append(keys, "timeline.has_unresolved_mentions")
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 func parseMentionTarget(target rollbackcontract.NonRowTarget) (mentionIdentity, error) {

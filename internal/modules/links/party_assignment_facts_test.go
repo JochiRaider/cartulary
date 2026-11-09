@@ -3,10 +3,12 @@ package links_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/app/reportingassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -112,6 +114,25 @@ func testPartyAssignmentFacts(t *testing.T, db postgres.DB, incident, actor uuid
 	if err := frozen.QueryRow(ctx, "SHOW transaction_isolation").Scan(&isolation); err != nil || isolation != "repeatable read" {
 		t.Fatal("assignment snapshot requires a real repeatable-read transaction", isolation, err)
 	}
+	provider, err := reportingassembly.NewLinksProvider()
+	if err != nil {
+		t.Fatal(err)
+	}
+	supports, err := provider.CollectSupportRefsTx(ctx, frozen, incident)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, subject := range []uuid.UUID{host, identity} {
+		refs := supports[subject.String()]
+		if len(refs) != 3 {
+			t.Errorf("assignment support count=%d want=3 for %s", len(refs), subject)
+		}
+		for _, ref := range refs {
+			if ref != "/record_envelopes/"+party.RecordID.String() {
+				t.Errorf("assignment support fallback=%s", ref)
+			}
+		}
+	}
 	facts, err := reader.LoadPartyAssignmentsTx(ctx, frozen, incident)
 	if err != nil || len(facts) != 6 {
 		t.Fatal("assignment inventory did not close", len(facts), err)
@@ -168,6 +189,22 @@ func testPartyAssignmentFacts(t *testing.T, db postgres.DB, incident, actor uuid
 	got, err := readCurrent()
 	if err != nil || len(got) != 0 {
 		t.Fatal("deleted Party contributed an active assignment", err)
+	}
+	retained, err := provider.CollectSupportRefsTx(ctx, frozen, incident)
+	if err != nil || !reflect.DeepEqual(retained, supports) {
+		t.Fatal("support refs escaped the caller snapshot", err)
+	}
+	current, err := db.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		t.Fatal(err)
+	}
+	empty, err := provider.CollectSupportRefsTx(ctx, current, incident)
+	if err != nil || empty == nil || len(empty) != 0 {
+		t.Fatal("deleted endpoint contributed support", err)
+	}
+	_ = current.Rollback(ctx)
+	if got, err := provider.CollectSupportRefsTx(ctx, current, incident); err == nil || got != nil {
+		t.Fatal("failed support read published partial output")
 	}
 }
 

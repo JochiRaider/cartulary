@@ -384,7 +384,7 @@ func lifecycleTestProfile(t *testing.T) performancefixtureprofile.Profile {
 				"accounts": 2, "sessions": 0,
 				"incidents": 1, "memberships": 2, "workspaces": 1,
 				"hosts": 2, "identities": 2, "timeline_rows": 40,
-				"links": 2, "mentions": 2, "tags": 2, "projection_sets": 3,
+				"links": 2, "tags": 2, "projection_sets": 3,
 			}
 			for contributionIndex := range profile.Contributions {
 				for countIndex := range profile.Contributions[contributionIndex].ExpectedReceiptCounts {

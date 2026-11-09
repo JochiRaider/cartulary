@@ -58,12 +58,7 @@ func (s *Store) RepointMergedLinksTx(
 	command RepointMergedLinksCommand,
 ) (RepointMergedLinksResult, error) {
 	result, err := mergeeffects.RepointLinksTx(ctx, tx, mergeeffects.RepointLinksCommand(command), mergeeffects.LinkDependencies{
-		Validate: func(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType LinkType, provenance LinkProvenance, confidence *int) error {
-			if err := validateRecordLinkCommand(linkType, provenance, confidence, srcRecordID, dstRecordID); err != nil {
-				return err
-			}
-			return validateActiveLinkEndpointsTx(ctx, tx, incidentID, srcRecordID, dstRecordID)
-		},
+		ValidateEndpoints: validateActiveLinkEndpointsTx,
 		Tombstone: func(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID, actorUserID uuid.UUID, now time.Time) (*time.Time, error) {
 			state, err := tombstoneRecordLinkStateTx(ctx, tx, recordLinkID, actorUserID, now)
 			return state.deletedAt, err

@@ -71,6 +71,14 @@ Profiles: base
 Verified by: AC-469
 
 
+The maintainer's 2026-11-09 instruction to implement the Links remediation plan
+adopts the Core 02 REQ-02-066 clarification separating retained-link merge
+validation from ordinary command admission and preserving independent relationship
+attribution. It also confirms REQ-RPT-026d includes recognized Host/Identity Party
+assignment links. These changes introduce no history-format, bundle-version,
+public-route, or migration compatibility layer. Implementation and validation
+completion are separate from this adoption.
+
 ## 2. Precedence
 
 The order of authority is:

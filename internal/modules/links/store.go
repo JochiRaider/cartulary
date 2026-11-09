@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/vocabulary"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
 type Store struct {
@@ -109,41 +110,30 @@ func validateRecordLinkCommand(linkType LinkType, provenance LinkProvenance, con
 }
 
 func validateActiveLinkEndpointsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID) error {
-	var count int
-	if err := tx.QueryRow(ctx, `
-SELECT count(*)
-  FROM records
- WHERE incident_id = $1
-   AND record_id IN ($2, $3)
-   AND deleted_at IS NULL
-`, incidentID, srcRecordID, dstRecordID).Scan(&count); err != nil {
+	envelopes, err := records.NewStore().LoadEnvelopesTx(ctx, tx, []uuid.UUID{srcRecordID, dstRecordID}, false)
+	if err != nil {
 		return fmt.Errorf("validate link endpoints: %w", err)
 	}
-	if count != 2 {
+	if len(envelopes) != 2 || !activeIncidentEnvelope(envelopes[srcRecordID], incidentID) || !activeIncidentEnvelope(envelopes[dstRecordID], incidentID) {
 		return fmt.Errorf("%w: endpoints must be active same-incident records", errInvalidRecordLink)
 	}
 	return nil
 }
 
+func activeIncidentEnvelope(envelope records.Envelope, incidentID uuid.UUID) bool {
+	return envelope.RecordID != uuid.Nil && envelope.IncidentID == incidentID && envelope.DeletedAt == nil
+}
+
 func validateSupersedesEndpointsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, replacementRecordID uuid.UUID, supersededRecordID uuid.UUID) error {
-	var srcType, dstType string
-	if err := tx.QueryRow(ctx, `
-SELECT src.record_type, dst.record_type
-  FROM records src
-  JOIN records dst
-    ON dst.incident_id = src.incident_id
-   AND dst.record_id = $3
-   AND dst.deleted_at IS NULL
- WHERE src.incident_id = $1
-   AND src.record_id = $2
-   AND src.deleted_at IS NULL
-`, incidentID, replacementRecordID, supersededRecordID).Scan(&srcType, &dstType); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("%w: supersedes endpoints must be active same-incident records", errInvalidRecordLink)
-		}
+	envelopes, err := records.NewStore().LoadEnvelopesTx(ctx, tx, []uuid.UUID{replacementRecordID, supersededRecordID}, false)
+	if err != nil {
 		return fmt.Errorf("validate supersedes endpoints: %w", err)
 	}
-	if srcType != dstType || (srcType != "timeline_event" && srcType != "decision") {
+	src, dst := envelopes[replacementRecordID], envelopes[supersededRecordID]
+	if !activeIncidentEnvelope(src, incidentID) || !activeIncidentEnvelope(dst, incidentID) {
+		return fmt.Errorf("%w: supersedes endpoints must be active same-incident records", errInvalidRecordLink)
+	}
+	if src.RecordType != dst.RecordType || (src.RecordType != "timeline_event" && src.RecordType != "decision") {
 		return fmt.Errorf("%w: supersedes endpoints must both be timeline events or both be decisions", errInvalidRecordLink)
 	}
 	return nil

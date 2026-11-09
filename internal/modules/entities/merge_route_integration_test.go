@@ -147,24 +147,60 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		seedEntityAlias(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "host", "Workstation 23")
 		seedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
 		seedResolvedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, entitytest.DuplicateHostRecordID, timelinetest.FieldHostRefs, "WS-023")
-		seedRecordLink(t, harness.DB, incidentID, adminUserID, linktest.DuplicateLinkID, timelinetest.RecordID, entitytest.DuplicateHostRecordID, "observed_on_host", "manual", nil)
+		seedRecordLink(t, harness.DB, incidentID, adminUserID, linktest.DuplicateLinkID, timelinetest.RecordID, entitytest.DuplicateHostRecordID, "observed_on_host", "import", nil)
 		seedRecordTag(t, harness.DB, incidentID, adminUserID, linktest.TagIDSurvivor, entitytest.CanonicalHostRecordID, "critical-host")
 		seedRecordTag(t, harness.DB, incidentID, adminUserID, linktest.TagIDLoser, entitytest.DuplicateHostRecordID, "critical-host")
 		seedAssessment(t, harness.DB, incidentID, adminUserID, assessmenttest.HostAssessmentID, entitytest.DuplicateHostRecordID, "host", "confirmed")
 
-		mergeResp := httptestx.DoJSON(t, http.DefaultClient,
-			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
-			map[string]any{
-				"loser_record_id":           entitytest.DuplicateHostRecordID.String(),
-				"survivor_base_row_version": 1,
-				"loser_base_row_version":    1,
-				"client_txn_id":             "txn-entity_linking-i-4-03-merge",
-				"reason":                    "  merge duplicate host  ",
-			},
-			httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
-		)
+		mergeCall := func() *http.Response {
+			return httptestx.DoJSON(t, http.DefaultClient,
+				http.MethodPost,
+				harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
+				map[string]any{
+					"loser_record_id":           entitytest.DuplicateHostRecordID.String(),
+					"survivor_base_row_version": 1,
+					"loser_base_row_version":    1,
+					"client_txn_id":             "txn-entity_linking-i-4-03-merge",
+					"reason":                    "  merge duplicate host  ",
+				},
+				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
+			)
+		}
+		// Fail after the old relationship has been tombstoned. The route owns
+		// rollback of every source, projection, history and idempotency effect.
+		state := func() string {
+			t.Helper()
+			var value string
+			if err := harness.DB.QueryRow(`SELECT jsonb_build_object(
+ 'records',(SELECT jsonb_agg(to_jsonb(r) ORDER BY record_id) FROM records r WHERE incident_id=$1),
+ 'links',(SELECT jsonb_agg(to_jsonb(l) ORDER BY record_link_id) FROM record_links l WHERE incident_id=$1),
+ 'mentions',(SELECT jsonb_agg(to_jsonb(m) ORDER BY entity_mention_id) FROM entity_mentions m JOIN records r ON r.record_id=m.source_record_id WHERE r.incident_id=$1),
+ 'history',(SELECT count(*) FROM change_sets WHERE incident_id=$1),
+ 'hosts',(SELECT jsonb_agg(to_jsonb(h) ORDER BY record_id) FROM host_grid_projection h WHERE incident_id=$1),
+ 'timeline',(SELECT jsonb_agg(to_jsonb(e) ORDER BY record_id) FROM timeline_grid_projection e WHERE incident_id=$1)
+)::text`, incidentID).Scan(&value); err != nil {
+				t.Fatal(err)
+			}
+			return value
+		}
+		beforeFailure := state()
+		if _, err := harness.DB.Exec(`CREATE FUNCTION fail_merge_link_recreation() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected merge recreation failure'; END $$;
+CREATE TRIGGER fail_merge_link_recreation BEFORE INSERT ON record_links FOR EACH ROW EXECUTE FUNCTION fail_merge_link_recreation()`); err != nil {
+			t.Fatal(err)
+		}
+		failure := mergeCall()
+		if failure.StatusCode != http.StatusInternalServerError {
+			t.Fatalf("merge failure status=%d", failure.StatusCode)
+		}
+		_ = failure.Body.Close()
+		if after := state(); after != beforeFailure {
+			t.Fatal("failed merge left partial source, projection, version or history state")
+		}
+		if _, err := harness.DB.Exec(`DROP TRIGGER fail_merge_link_recreation ON record_links; DROP FUNCTION fail_merge_link_recreation()`); err != nil {
+			t.Fatal(err)
+		}
+		mergeResp := mergeCall()
 		if mergeResp.StatusCode != http.StatusOK {
 			t.Fatalf("unexpected status: got %d want %d body=%#v", mergeResp.StatusCode, http.StatusOK, httptestx.ReadJSONBody(t, mergeResp))
 		}
@@ -243,7 +279,7 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		}
 
 		link := lookupActiveLink(t, harness.DB, incidentID, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host")
-		linktest.RequireActiveLink(t, link, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host", "manual", nil)
+		linktest.RequireActiveLink(t, link, timelinetest.RecordID, entitytest.CanonicalHostRecordID, "observed_on_host", "import", nil)
 		if got := queryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links

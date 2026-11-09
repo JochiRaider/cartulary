@@ -69,16 +69,8 @@ func TestParseCollectionTargetAcceptsPhysicalAliasDeleteIdentity(t *testing.T) {
 	}
 }
 
-func TestCollectionChangedFieldsRemainOwnerDefined(t *testing.T) {
+func TestCollectionClaimPreparationNomination(t *testing.T) {
 	t.Parallel()
-	alias := collectionIdentity{targetKind: "entity_alias", entityType: "identity"}
-	if got := collectionChangedFieldKeys(alias); len(got) != 1 || got[0] != "identity.aliases" {
-		t.Fatalf("alias changed keys = %v", got)
-	}
-	preserved := collectionIdentity{targetKind: "entity_preserved_identifier", entityType: "host", classification: "exact_match_reuse"}
-	if got := collectionChangedFieldKeys(preserved); len(got) != 1 || got[0] != "host.reusable_identifiers" {
-		t.Fatalf("identifier changed keys = %v", got)
-	}
 	t.Run("only exact preserved identifiers nominate claim preparation", testCollectionClaimPreparationNomination)
 }
 

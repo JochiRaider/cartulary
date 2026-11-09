@@ -49,13 +49,3 @@ func TestParseObservationResolveRejectsIdentityDrift(t *testing.T) {
 		t.Fatalf("identity drift error = %v", err)
 	}
 }
-
-func TestChildChangedFieldsCoverSourceAndCanonicalIndicators(t *testing.T) {
-	t.Parallel()
-	sourceID, oldID, newID := uuid.New(), uuid.New(), uuid.New()
-	identity := childIdentity{targetKind: "indicator_observation", sourceRecordID: sourceID, sourceFieldKey: "timeline.raw_activity_text"}
-	changed := childChangedFieldKeys(identity, childIdentity{resolvedIDs: []uuid.UUID{oldID}}, childIdentity{resolvedIDs: []uuid.UUID{newID}})
-	if len(changed[sourceID]) != 1 || changed[sourceID][0] != "timeline.raw_activity_text" || len(changed[oldID]) != 3 || len(changed[newID]) != 3 {
-		t.Fatalf("changed fields = %#v", changed)
-	}
-}

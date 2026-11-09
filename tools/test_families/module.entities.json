@@ -1310,7 +1310,7 @@
       "selector": {
         "package": "./internal/modules/entities/hostidentity/rollbackprovider",
         "tests": [
-          "TestCollectionChangedFieldsRemainOwnerDefined",
+          "TestCollectionClaimPreparationNomination",
           "TestHostSourceForRollbackValue",
           "TestIdentityProviderRejectsMalformedStateAndMergeID",
           "TestIdentitySourceForRollbackValuePreservesNullableIdentifiers",
@@ -1343,7 +1343,6 @@
       "selector": {
         "package": "./internal/modules/entities/mentions/rollbackprovider",
         "tests": [
-          "TestMentionChangedKeysAreOwnerDefined",
           "TestParseMentionTargetAcceptsRetainedMention",
           "TestParseMentionTargetRejectsMalformedIdentity"
         ]

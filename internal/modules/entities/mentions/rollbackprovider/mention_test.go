@@ -38,18 +38,3 @@ func TestParseMentionTargetAcceptsRetainedMention(t *testing.T) {
 		t.Fatalf("parseMentionTarget = %#v, %v", identity, err)
 	}
 }
-
-func TestMentionChangedKeysAreOwnerDefined(t *testing.T) {
-	t.Parallel()
-
-	keys := mentionChangedFieldKeys("timeline_event", "timeline.host_refs")
-	want := []string{"timeline.has_unresolved_mentions", "timeline.host_refs"}
-	if len(keys) != len(want) || keys[0] != want[0] || keys[1] != want[1] {
-		t.Fatalf("mention changed keys = %v, want %v", keys, want)
-	}
-
-	keys = mentionChangedFieldKeys("host", "host.aliases")
-	if len(keys) != 1 || keys[0] != "host.aliases" {
-		t.Fatalf("host mention changed keys = %v", keys)
-	}
-}

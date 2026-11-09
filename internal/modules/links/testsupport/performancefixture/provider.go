@@ -11,10 +11,9 @@ import (
 )
 
 type Expectations struct {
-	Links    int
-	Mentions int
-	Tags     int
-	Stride   int
+	Links  int
+	Tags   int
+	Stride int
 }
 
 type Application interface {
@@ -31,7 +30,7 @@ func New(application Application, descriptor fixture.Descriptor, stride int) (*P
 	if application == nil {
 		return nil, errors.New("links performance fixture application is required")
 	}
-	if descriptor.ExpectedCounts["links"] < 1 || descriptor.ExpectedCounts["mentions"] < 1 || descriptor.ExpectedCounts["tags"] < 1 || stride < 1 {
+	if len(descriptor.ExpectedCounts) != 2 || descriptor.ExpectedCounts["links"] < 1 || descriptor.ExpectedCounts["tags"] < 1 || stride < 1 {
 		return nil, errors.New("links performance fixture descriptor is incompatible")
 	}
 	descriptor.Dependencies = slices.Clone(descriptor.Dependencies)
@@ -51,8 +50,8 @@ func (p *Provider) Apply(ctx context.Context, state *fixture.BuildState) (fixtur
 		return fixture.Receipt{}, errors.New("links performance fixture requires an Incidents workspace")
 	}
 	expected := Expectations{
-		Links: p.descriptor.ExpectedCounts["links"], Mentions: p.descriptor.ExpectedCounts["mentions"],
-		Tags: p.descriptor.ExpectedCounts["tags"], Stride: p.stride,
+		Links: p.descriptor.ExpectedCounts["links"],
+		Tags:  p.descriptor.ExpectedCounts["tags"], Stride: p.stride,
 	}
 	if err := p.application.ValidateFixtureAssociations(ctx, state.IncidentID, expected); err != nil {
 		return fixture.Receipt{}, fmt.Errorf("validate fixture associations: %w", err)

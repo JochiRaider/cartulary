@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspect, repositoryPolicy } from "./backend-boundary-fixtures.mjs";
+import { emptyPolicy, inspect, repositoryPolicy } from "./backend-boundary-fixtures.mjs";
 
 const checkSQLTableAccess = (files, rules, scope) => scope === "test_fixture"
   ? inspect([], { sqlTableAccess: rules }, { testSupportFiles: files }) : inspect(files, { sqlTableAccess: rules });
@@ -9,7 +9,60 @@ const checkForbiddenGoImports = (files, rules) => inspect(files, { forbiddenGoIm
 const checkOwnerPortOnlyImports = (files, rules) => inspect(files, { ownerPortOnlyImports: rules });
 const checkGoImportAllowlists = (files, rules) => inspect(files, { goImportAllowlists: rules });
 
+import { prepareBoundaryPolicy } from "../backend-module-boundary-check.mjs";
+import { sqlStatements } from "../sql-relations.mjs";
+
 export function registerBoundariesTests() {
+  test("backend policy: Links Records grants constrain exact SQL shapes", () => {
+    const rule = repositoryPolicy().sqlTableAccess.find((entry) => entry.id === "records-current-envelope-access");
+    assert.equal(rule.readAllowedStatements.length, 3);
+    assert.ok(!rule.readAllowedPaths.some((entry) => entry.startsWith("internal/modules/links/")));
+    const rawRule = {
+      id: "exact-records", table: "records", scan_paths: ["internal/modules/links/**"],
+      read_allowed_paths: [], write_allowed_paths: [],
+      read_allowed_statements: [{ path: "internal/modules/links/field_refs.go", sql: "UPDATE record_links SET deleted_at = $2 WHERE EXISTS (SELECT 1 FROM public.\"records\" r WHERE r.record_id = $1 AND r.record_type = 'party')" }],
+    };
+    const prepare = (value) => prepareBoundaryPolicy(emptyPolicy({ sql_table_access: [value] })).sqlTableAccess;
+    const rules = prepare(rawRule);
+    const query = rawRule.read_allowed_statements[0].sql;
+    const evaluate = (content, relative = rawRule.read_allowed_statements[0].path) => inspect([{ relative, content }], { sqlTableAccess: rules });
+    const go = (sql) => `package fixture\nconst query = ${JSON.stringify(sql)}`;
+    assert.deepEqual(evaluate(go(query.replace('SELECT 1', 'select /* reviewed */ 1').replace('WHERE EXISTS', 'WHERE\n EXISTS'))), []);
+    for (const sql of [
+      query.replace("'party'", "'host'"), query.replace('$1', '$3'), query.replace(' = $1', ' <> $1'),
+      query.replace('record_id = $1', 'incident_id = $1'), query.replace('SELECT 1', 'SELECT 10'),
+      query + '; SELECT * FROM records', query.replace("'party')", "'party' FOR UPDATE OF r)"),
+      'SELECT * FROM public."records"', 'UPDATE records SET row_version = 1',
+      query.replace('SELECT 1', 'SELECT (SELECT count(*) FROM records)'),
+    ]) assert.ok(evaluate(go(sql)).length > 0, sql);
+    assert.ok(evaluate(go(query), 'internal/modules/links/renamed.go').some((entry) => entry.code === 'sql_table_read_access'));
+    for (const content of [
+      `package fixture\nconst query = ${JSON.stringify(query)} + fragment`,
+      `package fixture\nconst query = fragment + ${JSON.stringify(query)}`,
+      `package fixture\nvar query = ${JSON.stringify(query)}\nquery += fragment`,
+      `package fixture\nconst template = ${JSON.stringify(query)}\nvar query = template + fragment`,
+      `package fixture\nconst query = ${JSON.stringify(query.replace('SELECT 1', 'SELECT %s'))}`,
+    ]) assert.ok(evaluate(content).some((entry) => entry.code === 'sql_statement_grant_stale'), content);
+    assert.ok(evaluate('package fixture').some((entry) => entry.code === 'sql_statement_grant_stale'));
+    assert.ok(inspect([], { sqlTableAccess: rules }, { completeSourceSet: true }).some((entry) => entry.code === 'sql_statement_grant_stale'));
+    assert.ok(evaluate(go(query.replace("'party')", "'party' FOR UPDATE OF r)"))).some((entry) => entry.code === 'sql_table_lock_access'));
+    for (const sql of ['SELECT * FROM records FOR UPDATE', 'UPDATE records SET row_version = 1', 'SELECT * FROM %s']) {
+      assert.throws(() => prepare({ ...rawRule, read_allowed_statements: [{ path: rawRule.read_allowed_statements[0].path, sql }] }));
+    }
+    assert.throws(() => prepare({ ...rawRule, read_allowed_paths: ['internal/modules/links/**'] }));
+    assert.throws(() => prepare({ ...rawRule, read_allowed_statements: [rawRule.read_allowed_statements[0], rawRule.read_allowed_statements[0]] }));
+    assert.throws(() => prepare({ ...rawRule, read_allowed_statements: [{ path: 'internal/modules/links/**', sql: query }] }));
+  });
+  test("backend policy: normalized SQL preserves literals, parameters and boundaries", () => {
+    const key = (sql) => sqlStatements(sql)[0].key;
+    const base = "SELECT $1, 'Case', $$body$$, 10, a->>'b' FROM public.\"records\"";
+    assert.equal(key(base), key(base.replace('SELECT', 'select /* nested /* comment */ fine */')));
+    for (const changed of [base.replace('Case','case'), base.replace('body','BODY'), base.replace('10','1 0'), base.replace('$1','$ 1'), base.replace('->>','- >>'), base + ';', base.replace('records','Records')]) {
+      assert.notEqual(key(base), key(changed));
+    }
+    assert.notEqual(key("SELECT E'foo\\n' FROM records"), key("SELECT E'foo\\t' FROM records"));
+  });
+
   test("backend policy: module relation ownership is closed and external grants are read only", () => {
     const manifest = repositoryPolicy();
     const rules = manifest.sqlTableAllowlists.filter((rule) => ["entities-merge-relation-ownership", "reporting-root-relation-ownership", "revisions-history-and-envelope-tables-only"].includes(rule.id));

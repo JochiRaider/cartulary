@@ -98,7 +98,6 @@ func (p ChildProvider) ApplyInverseTx(ctx context.Context, tx pgx.Tx, request ro
 		AffectedRecordIDs: descriptor.AffectedRecordIDs,
 		BeforeValue:       currentValue,
 		AfterValue:        afterValue,
-		ChangedFieldKeys:  childChangedFieldKeys(identity, beforeState, afterState),
 	}, nil
 }
 
@@ -431,40 +430,6 @@ func sameCurrentChildState(current childIdentity, expected childIdentity) bool {
 		return false
 	}
 	return equalUUIDPointers(current.resolvedID, expected.resolvedID) && equalUUIDPointers(current.resolvedBy, expected.resolvedBy) && equalTimePointers(current.resolvedAt, expected.resolvedAt) && equalStringPointers(current.resolutionMethod, expected.resolutionMethod)
-}
-
-func childChangedFieldKeys(identity childIdentity, before childIdentity, after childIdentity) map[uuid.UUID][]string {
-	changed := map[uuid.UUID][]string{}
-	add := func(recordID uuid.UUID, keys ...string) {
-		changed[recordID] = append(changed[recordID], keys...)
-	}
-	if identity.sourceRecordID != uuid.Nil {
-		add(identity.sourceRecordID, identity.sourceFieldKey)
-	}
-	if identity.indicatorID != uuid.Nil {
-		add(identity.indicatorID, "indicator.lifecycle_summary")
-	}
-	for _, indicatorID := range append(append([]uuid.UUID(nil), before.resolvedIDs...), after.resolvedIDs...) {
-		add(indicatorID, "indicator.first_observed_at", "indicator.last_observed_at", "indicator.observation_count")
-	}
-	for recordID := range changed {
-		sort.Strings(changed[recordID])
-		changed[recordID] = compactStrings(changed[recordID])
-	}
-	return changed
-}
-
-func compactStrings(values []string) []string {
-	if len(values) < 2 {
-		return values
-	}
-	result := values[:1]
-	for _, value := range values[1:] {
-		if value != result[len(result)-1] {
-			result = append(result, value)
-		}
-	}
-	return result
 }
 
 func validChildSupportRefs(raw any) bool {

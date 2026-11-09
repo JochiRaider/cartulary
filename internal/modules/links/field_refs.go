@@ -106,12 +106,6 @@ SELECT
 }
 
 func tombstoneFieldReferenceStateTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID, expectedTargetType string, actorUserID uuid.UUID, now time.Time) (recordLinkState, error) {
-	targetTypePredicate := ""
-	args := []any{recordLinkID, actorUserID, now.UTC()}
-	if expectedTargetType != "" {
-		targetTypePredicate = "AND dst.record_type = $4"
-		args = append(args, expectedTargetType)
-	}
 	row := tx.QueryRow(ctx, `
 UPDATE record_links
    SET deleted_at = $3,
@@ -125,13 +119,13 @@ UPDATE record_links
         WHERE dst.incident_id = record_links.incident_id
           AND dst.record_id = record_links.dst_record_id
           AND dst.deleted_at IS NULL
-          `+targetTypePredicate+`
+          AND ($4::text = '' OR dst.record_type = $4)
    )
 RETURNING
     record_link_id, incident_id, src_record_id, dst_record_id, link_type,
     field_key, provenance, confidence, owner_user_id, created_by_user_id,
     decided_at, created_at, deleted_at, deleted_by_user_id
-`, args...)
+`, recordLinkID, actorUserID, now.UTC(), expectedTargetType)
 	state, err := scanRecordLinkState(row)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return recordLinkState{}, errFieldReferenceNotFound

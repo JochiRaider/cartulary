@@ -121,9 +121,6 @@ func (p CollectionProvider) ApplyInverseTx(ctx context.Context, tx pgx.Tx, reque
 		AffectedRecordIDs: descriptor.AffectedRecordIDs,
 		BeforeValue:       before,
 		AfterValue:        after,
-		ChangedFieldKeys: map[uuid.UUID][]string{
-			identity.recordID: collectionChangedFieldKeys(identity),
-		},
 	}, nil
 }
 
@@ -405,18 +402,6 @@ SELECT jsonb_build_object(
 		return nil, err
 	}
 	return value, nil
-}
-
-func collectionChangedFieldKeys(identity collectionIdentity) []string {
-	switch identity.targetKind {
-	case "entity_alias":
-		return []string{identity.entityType + ".aliases"}
-	case "entity_preserved_identifier":
-		if identity.classification == "exact_match_reuse" {
-			return []string{identity.entityType + ".reusable_identifiers"}
-		}
-	}
-	return nil
 }
 
 func collectionTargetID(identity collectionIdentity) string {

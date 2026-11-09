@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:b4139bdf15b14909d2b59527fef49a751f4710c3daacd9f84374daa28756a8e0",
+  "input_digest": "sha256:6dc76bd8a24bc44fddb5a3ba240cc1c36edbca0dafd8c510863ab2bf53b65fc5",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -912,7 +912,7 @@
     {
       "path": "tools/harness/execution/runners/go.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7a80600b373962a88beff3bb6ee3b025fef3558ef983acddc855880859ae1f81"
+      "hash": "sha256:234e7312bf06d90022a3a7f1d15fd098474090a030df663c9a15d04f26cfa688"
     },
     {
       "path": "tools/harness/execution/runners/playwright.mjs",
@@ -927,7 +927,7 @@
     {
       "path": "tools/harness/execution/runners/row-runner-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:0aff596ab2368cf76239bde95d6e256cd8f0d2bc1bd206c0dad6ba166cc30f38"
+      "hash": "sha256:91e9a53ccd99ea7680fcb60209418ebc08072487d13f8f868c3f25d1631b916b"
     },
     {
       "path": "tools/harness/execution/runners/shell.mjs",
@@ -1282,7 +1282,7 @@
     {
       "path": "tools/harness/test-catalog/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:215d1857109d17174131d384179c08d0c1e2c8a00c9890285fd2b072082f3c51"
+      "hash": "sha256:60c9cdb72199e183522f818aeb2820e67388af8131c3f2c6b14f3e4d8155a223"
     },
     {
       "path": "tools/harness/test-catalog/postgres-fixture-policy.mjs",
@@ -1357,7 +1357,7 @@
     {
       "path": "tools/performance_fixture_snapshot_owner.json",
       "role": "performance_fixture_snapshot_owner",
-      "hash": "sha256:fc62517c4a0515c2629bfd8c2d5b419f4b251a322a2e93c1c8f20a09e5ef66c4"
+      "hash": "sha256:400b0d3e3be66c72c2da7f1acb49e32b0b69644bfdbd170eb071fd099295453d"
     },
     {
       "path": "tools/postgres_fixture_policy_registry.json",
@@ -1457,7 +1457,7 @@
     {
       "path": "tools/test_families/module.entities.json",
       "role": "test_family_manifest",
-      "hash": "sha256:18f7d5a31f4af37a4a0a2fd6cd5adc20435f001b43387ec1e0ae880b9bff48e5"
+      "hash": "sha256:f92aa9a703a146b000749fbcae83410e2e2cf08072e465c2182dd4434aaa35f9"
     },
     {
       "path": "tools/test_families/module.evidence.json",
@@ -1492,7 +1492,7 @@
     {
       "path": "tools/test_families/module.indicators.json",
       "role": "test_family_manifest",
-      "hash": "sha256:c7b36bebb934b1bb49d149715a1b8d777fc7f1acd17d1e9adf53570e83c375f4"
+      "hash": "sha256:7eeef7e3c1d24b88049ad012946d025a02dbd9d563d82d66af402c7039d2797b"
     },
     {
       "path": "tools/test_families/module.jobapi.json",

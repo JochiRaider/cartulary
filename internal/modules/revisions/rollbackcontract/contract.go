@@ -69,7 +69,6 @@ type ApplyInverseResult struct {
 	AffectedRecordIDs []uuid.UUID
 	BeforeValue       map[string]any
 	AfterValue        map[string]any
-	ChangedFieldKeys  map[uuid.UUID][]string
 }
 
 type NonRowTargetProvider interface {

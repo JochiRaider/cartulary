@@ -407,6 +407,7 @@
         "internal/modules/indicators/portability_invariants_test.go",
         "internal/modules/links/incident_bundle_source_port.go",
         "internal/modules/links/internal/sourcestate/**",
+        "internal/modules/links/merge_test.go",
         "internal/modules/links/portability_test.go",
         "internal/modules/links/source_state_portability_integration_test.go",
         "internal/modules/networkflow/application_composition_test.go",
@@ -2578,11 +2579,6 @@
         "internal/modules/indicators/network_flow_participant.go",
         "internal/modules/indicators/observation_repository.go",
         "internal/modules/indicators/source_repository.go",
-        "internal/modules/links/collection_actions.go",
-        "internal/modules/links/field_refs.go",
-        "internal/modules/links/internal/revisionprovider/provider.go",
-        "internal/modules/links/internal/sourcestate/**",
-        "internal/modules/links/store.go",
         "internal/modules/parties/cutover.go",
         "internal/modules/parties/internal/providers/deleterestore/provider.go",
         "internal/modules/parties/internal/providers/incidentbundle/portability.go",
@@ -2612,6 +2608,20 @@
       ],
       "write_allowed_paths": [
         "internal/modules/records/**"
+      ],
+      "read_allowed_statements": [
+        {
+          "path": "internal/modules/links/field_refs.go",
+          "sql": "UPDATE record_links\n   SET deleted_at = $3,\n       deleted_by_user_id = $2\n WHERE record_link_id = $1\n   AND deleted_at IS NULL\n   AND field_key IS NOT NULL\n   AND EXISTS (\n       SELECT 1\n         FROM records dst\n        WHERE dst.incident_id = record_links.incident_id\n          AND dst.record_id = record_links.dst_record_id\n          AND dst.deleted_at IS NULL\n          AND ($4::text = '' OR dst.record_type = $4)\n   )\nRETURNING\n    record_link_id, incident_id, src_record_id, dst_record_id, link_type,\n    field_key, provenance, confidence, owner_user_id, created_by_user_id,\n    decided_at, created_at, deleted_at, deleted_by_user_id"
+        },
+        {
+          "path": "internal/modules/links/internal/sourcestate/port.go",
+          "sql": "SELECT\n   EXISTS (SELECT 1 FROM public.links_bundle_validation_links l\n    LEFT JOIN public.records src ON src.record_id = l.src_record_id AND src.incident_id = $1\n    LEFT JOIN public.records dst ON dst.record_id = l.dst_record_id AND dst.incident_id = $1\n    WHERE l.incident_id <> $1 OR src.record_id IS NULL OR dst.record_id IS NULL)\n   OR EXISTS (SELECT 1 FROM public.links_bundle_validation_tags t\n    LEFT JOIN public.records r ON r.record_id = t.record_id AND r.incident_id = $1\n    WHERE t.incident_id <> $1 OR r.record_id IS NULL)"
+        },
+        {
+          "path": "internal/modules/links/internal/sourcestate/port.go",
+          "sql": "SELECT\n    EXISTS (\n        SELECT 1 FROM record_links link\n        LEFT JOIN records source\n          ON source.incident_id = link.incident_id AND source.record_id = link.src_record_id\n        LEFT JOIN records target\n          ON target.incident_id = link.incident_id AND target.record_id = link.dst_record_id\n        WHERE link.incident_id = $1\n          AND (source.record_id IS NULL OR target.record_id IS NULL)\n    )\n    OR EXISTS (\n        SELECT 1 FROM record_tags tag\n        LEFT JOIN records record\n          ON record.incident_id = tag.incident_id AND record.record_id = tag.record_id\n        WHERE tag.incident_id = $1\n          AND record.record_id IS NULL\n    )"
+        }
       ]
     },
     {

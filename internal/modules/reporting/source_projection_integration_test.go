@@ -87,9 +87,18 @@ func requireFrozenDisclosureFacts(t testing.TB, db *sql.DB, model map[string]any
 	if identity.SubjectRecordType != "identity" || identity.SubjectRecordID.String() != ids["identity"] || identity.AssignmentKind != "subject_party" || identity.PartyID.String() != ids["party"] {
 		t.Fatal("Identity disclosure assignment was not retained")
 	}
+	readCapturedFields := func() string {
+		t.Helper()
+		var fields string
+		if err := db.QueryRow(`SELECT (p.request_json->'source_capture'->'fields')::text FROM reporting_snapshots s JOIN reporting_job_payloads p ON p.job_id=s.create_job_id WHERE s.snapshot_id=$1`, snapshot).Scan(&fields); err != nil {
+			t.Fatal(err)
+		}
+		return fields
+	}
+	capturedFields := readCapturedFields()
 	// A source change after snapshot admission must not alter the retained
 	// disclosure input used by release creation, replay or recovery.
-	if _, err := db.Exec(`UPDATE record_links SET provenance='import', field_key='host.observer_party_ids' WHERE record_link_id=$1`, assignment); err != nil {
+	if _, err := db.Exec(`UPDATE record_links SET provenance='import', field_key='host.observer_party_ids', deleted_at='2026-06-01T00:00:00Z', deleted_by_user_id=created_by_user_id WHERE record_link_id=$1`, assignment); err != nil {
 		t.Fatal(err)
 	}
 	var retained []byte
@@ -107,13 +116,42 @@ func requireFrozenDisclosureFacts(t testing.TB, db *sql.DB, model map[string]any
 			t.Fatal("retained disclosure facts followed mutable source")
 		}
 	}
+	if readCapturedFields() != capturedFields {
+		t.Fatal("retained support references followed live assignment deletion")
+	}
+	var supportID string
+	for _, value := range model["support_index"].([]any) {
+		entry := value.(map[string]any)
+		if entry["support_target_ref"] == "record:record_envelope:"+ids["party"] {
+			if supportID != "" {
+				t.Fatal("assignment target was not deduplicated in support index")
+			}
+			supportID = entry["support_ref_id"].(string)
+		}
+	}
+	if supportID == "" {
+		t.Fatal("assignment support target missing from snapshot")
+	}
+	seen := map[string]bool{}
 	for path, field := range exportModelFieldsByPath(t, model) {
-		if strings.HasPrefix(path, "/hosts/"+ids["host"]+"/") {
-			if refs, ok := field["support_refs"].([]any); ok && len(refs) > 0 {
-				t.Fatal("Party assignment was misclassified as evidentiary support")
+		for _, kind := range []string{"host", "identity"} {
+			prefix := "/hosts/"
+			if kind == "identity" {
+				prefix = "/identities/"
+			}
+			if strings.HasPrefix(path, prefix+ids[kind]+"/") {
+				refs, ok := field["support_refs"].([]any)
+				if !ok || len(refs) != 1 || refs[0] != supportID {
+					t.Fatal("assignment support was not retained", path, refs)
+				}
+				seen[kind] = true
 			}
 		}
 	}
+	if !seen["host"] || !seen["identity"] {
+		t.Fatal("assignment support fields were not exercised")
+	}
+
 }
 
 // Only the dedicated test database is changed. A future migration must not

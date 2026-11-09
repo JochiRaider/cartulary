@@ -177,7 +177,7 @@ func testEmbeddedReferenceDestinationVerification(t *testing.T, runtime *appsupp
 	}
 	var manifestDigest, payloadDigest string
 	if err := target.DB.QueryRow(`SELECT manifest_sha256,payload_sha256 FROM reference_pack_versions WHERE pack_key=$1 AND pack_version=$2`, fixture.Key, fixture.Version).Scan(&manifestDigest, &payloadDigest); err != nil || manifestDigest != *expected.Manifest || payloadDigest != *expected.Payload || health != *expected.Condition {
-		t.Fatal("canonical destination expectation differs", err)
+		t.Fatalf("canonical destination expectation differs: manifest=%s want=%s payload=%s want=%s health=%s want=%s err=%v", manifestDigest, *expected.Manifest, payloadDigest, *expected.Payload, health, *expected.Condition, err)
 	}
 	var attestations, indexRows int
 	if err := target.DB.QueryRow(`SELECT (SELECT count(*) FROM reference_pack_events WHERE pack_key=$1 AND pack_version=$2),(SELECT count(*) FROM reference_pack_indexes i JOIN reference_pack_candidates c ON c.current_index_id=i.index_id WHERE c.pack_key=$1 AND c.pack_version=$2)`, fixture.Key, fixture.Version).Scan(&attestations, &indexRows); err != nil || attestations == 0 || indexRows == 0 {
