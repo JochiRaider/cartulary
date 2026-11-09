@@ -174,7 +174,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make otel-conformance               run OpenTelemetry source, boundary, and golden-path conformance checks' \
 	'  make lint                           run backend, frontend, script, and shell lint/type checks' \
 	'  make frontend-fallow-static         run Fallow static analysis with bounded web and package gates' \
-	'  make lint-markdown                  run structural Markdown lint over authored docs' \
+	'  make lint-markdown                  lint authored Markdown and apply safe fixes' \
 	'  make go-vulncheck                   run Go vulnerability scanning over authored package roots' \
 	'  make go-gosec-targeted              run targeted Go security static analysis' \
 	'  make go-gosec-audit                 run advisory Go security audit profiles' \
@@ -259,7 +259,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'lint inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=standard|go|types|frontend|scripts|shell|frontend-boundary|backend-boundary|protocol (default standard)' \
 	'  side effects: retained_artifacts' \
 	'lint-markdown inputs: none' \
-	'  side effects: retained_artifacts' \
+	'  side effects: authored_source_write' \
 	'source-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=generated|schema|catalog|surface|identity|toolchain|migration-input|all (default all)' \
 	'  side effects: retained_artifacts' \
 	'migration-drift inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
@@ -462,12 +462,8 @@ lint:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,CHECK) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CHECK \
 	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target lint
 
-lint-markdown: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 lint-markdown:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-markdown)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)CARTULARY_STEP_FAILURE_NOTE="inspect Markdown lint diagnostics; do not run broad prose reflow" $(RUN_STEP_SCRIPT) "lint markdown" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/static-analysis/markdown-biome.sh
+	$(Q)"$(NODE_BIN)" node_modules/@biomejs/biome/bin/biome lint --config-path=biome.markdown.json --write --error-on-warnings .
 
 source-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 source-check: export CARTULARY_TEST_TARGET ?= source-check

@@ -3165,7 +3165,7 @@ database evidence retain separate unit, resource, lease, and artifact identities
 | `harness-observability-check` | `cartulary.harness.command.harness_observability_check.v3` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `none` | `public_active` | Read-only exact retained evidence; `CHECK=all` or a scoped events/timing/evidence/diagnostics view. |
 | `harness-otel-export` | `cartulary.harness.command.harness_otel_export.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `external_network` | `public_active` | Explicit post-run OTLP export; ordinary harness commands never invoke it. |
 | `frontend-fallow-static` | `cartulary.harness.command.frontend_fallow_static.v2` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Direct global Fallow static gate. Emits `cartulary.fallow_static_summary.v2`; Fallow Runtime and Fallow security scans are not selected. |
-| `lint-markdown` | `cartulary.harness.command.lint_markdown.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` | Structural Markdown lint over authored active docs; generated ledgers remain generator-owned. |
+| `lint-markdown` | `cartulary.harness.command.lint_markdown.v2` | `static_analysis_security` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `authored_source_write` | `public_active` | Direct Biome Markdown lint with safe automatic fixes; generated ledgers remain generator-owned. |
 | `harness-contract` | `cartulary.harness.command.harness_contract.v4` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Default `SUITE=contract`; exact named presets under REQ-082; CI uses the default contract union. |
 | `format` | `cartulary.harness.command.format.v2` | `formatting` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write` | `public_active` |  |
 | `browser-e2e` | `cartulary.harness.command.browser_e2e.v4` | `browser_e2e` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Requires explicit `SUITE`; direct suites are complete and never aggregate-tier filtered. |
@@ -10215,6 +10215,14 @@ Boundary tests use neutral synthetic root names and files. Standalone
 documentation maintenance may read documentation only through the explicitly
 classified `lint-markdown` command, which is excluded from product, CI,
 conformance, release, performance, and claim-publication aggregates.
+The command invokes the installed Biome CLI directly with `--write`, using
+`biome.markdown.json` for scope and rules. It applies available safe fixes and
+returns failure for remaining diagnostics. This standalone maintenance command
+does not use harness preflight, tool preparation, file hashing, lint-result
+caches, success stamps, or retained reports. Biome output and exit status pass
+through Make directly; harness input, output-mode, evidence and failure
+normalization contracts do not apply to it. Install its dependencies explicitly
+with `make bootstrap PART=frontend` when needed.
 Verified by: TH-HARNESS-AC-067
 
 **TH-HARNESS-REQ-609**

@@ -526,7 +526,7 @@
         },
         {
           "target": "lint-markdown",
-          "description": "run structural Markdown lint over authored docs"
+          "description": "lint authored Markdown and apply safe fixes"
         },
         {
           "target": "go-vulncheck",
@@ -3042,12 +3042,10 @@
     },
     {
       "name": "lint-markdown",
-      "backing_scripts": [
-        "tools/harness/static-analysis/markdown-biome.sh"
-      ],
+      "backing_scripts": [],
       "output_policy": {
-        "output_class": "summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
+        "output_class": "human_summary",
+        "artifact_policy": "none",
         "success_budget": {
           "stdout_lines": 2,
           "stdout_bytes": 600,
@@ -3060,31 +3058,29 @@
           "excerpt_lines": 25,
           "excerpt_bytes": 4096
         },
-        "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v5"
+        "raw_stream_policy": "human_visible_actions",
+        "summary_schema": null
       },
       "command_id": "cartulary.harness.command.lint_markdown.v2",
       "semantic_behaviors": [
         {
-          "behavior": "evidence_normalization",
-          "owner_section": "Section 8"
-        },
-        {
-          "behavior": "failure_normalization",
-          "owner_section": "Section 9"
+          "behavior": "diagnostic_synthesis",
+          "owner_section": "Section 4"
         }
       ],
       "target_class": "public",
       "default_inclusion_sets": [
-        "check"
+        "helper_only"
       ],
       "lifecycle_state": "public_active",
       "family_id": "static_analysis_security",
       "side_effects": [
         {
-          "class": "retained_artifacts",
-          "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
+          "class": "authored_source_write",
+          "owner_section": "Section 4",
+          "paths": [
+            "authored Markdown selected by biome.markdown.json"
+          ]
         }
       ],
       "input_contract": {

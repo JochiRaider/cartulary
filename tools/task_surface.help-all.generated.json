@@ -1614,8 +1614,8 @@
         "inputs": []
       },
       "output_policy": {
-        "output_class": "summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
+        "output_class": "human_summary",
+        "artifact_policy": "none",
         "success_budget": {
           "stdout_lines": 2,
           "stdout_bytes": 600,
@@ -1628,14 +1628,16 @@
           "excerpt_lines": 25,
           "excerpt_bytes": 4096
         },
-        "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v5"
+        "raw_stream_policy": "human_visible_actions",
+        "summary_schema": null
       },
       "side_effects": [
         {
-          "class": "retained_artifacts",
-          "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
+          "class": "authored_source_write",
+          "owner_section": "Section 4",
+          "paths": [
+            "authored Markdown selected by biome.markdown.json"
+          ]
         }
       ]
     },

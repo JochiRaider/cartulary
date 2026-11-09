@@ -16,7 +16,7 @@ const commandIDPattern = /^cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v[1-9][
 const ownerSectionPattern = /^Section (?:[1-9]|1[0-9])(?:\.[0-9]+)?$/;
 const makePrerequisitePattern = /^[A-Za-z0-9_.$()/:,/-]+$/;
 const makeValuePattern = /^[A-Za-z0-9_.$()/:,;="' -]+$/;
-const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./ -]+$/;
+const makeTokenPattern = /^[A-Za-z0-9_.$()/:,@="./ -]+$/;
 const ownerCommandTargets = new Set([
   "task-guide",
   "test-evidence-audit",

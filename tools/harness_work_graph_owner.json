@@ -3157,18 +3157,18 @@
     "harness.lint_markdown": {
       "report_key": "lint-markdown",
       "execution": {
-        "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
-          "$(NODE_BIN)"
-        ],
+        "prerequisites": [],
         "type": "step_command",
-        "mode": "run_step",
-        "step_label": "lint markdown",
+        "mode": "command",
         "command": [
-          "bash",
-          "./tools/harness/static-analysis/markdown-biome.sh"
-        ],
-        "failure_note": "inspect Markdown lint diagnostics; do not run broad prose reflow"
+          "\"$(NODE_BIN)\"",
+          "node_modules/@biomejs/biome/bin/biome",
+          "lint",
+          "--config-path=biome.markdown.json",
+          "--write",
+          "--error-on-warnings",
+          "."
+        ]
       },
       "kind": "policy"
     },

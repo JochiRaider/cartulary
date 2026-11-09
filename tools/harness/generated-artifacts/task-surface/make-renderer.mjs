@@ -228,6 +228,11 @@ function renderMakeRecipe(recipe, manifest) {
     ];
   }
   const entry = targetEntryMap(manifest).get(recipe.target);
+  // Documentation maintenance uses the installed linter directly, outside the
+  // harness's preparation, input hashing, and retained-evidence machinery.
+  if (recipe.target === "lint-markdown") {
+    return [`${recipe.target}:`, `\t$(Q)${recipe.command.join(" ")}`];
+  }
   if (recipe.type === "bootstrap") {
     const binding = entry.selection_binding;
     const names = [...entry.input_contract.inputs.map((input) => input.name), ...globalInputEntries(manifest).map((input) => input.name)];

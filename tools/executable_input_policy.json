@@ -4,8 +4,7 @@
     "docs"
   ],
   "documentation_only_sources": [
-    "tools/harness/static-analysis/markdown-biome-runner.sh",
-    "tools/harness/static-analysis/markdown-biome.sh"
+    "biome.markdown.json"
   ],
   "machine_evidence_roots": [
     "contracts",
