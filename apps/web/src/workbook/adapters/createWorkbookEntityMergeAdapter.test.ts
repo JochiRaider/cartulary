@@ -63,7 +63,9 @@ describe("Entity merge captured transport", () => {
         attempt.body,
         attempt.body,
       ]);
-      expect((calls[1]?.[1].headers as Headers).get("X-CSRF-Token")).toBe(
+      const retry = calls[1];
+      if (!retry) throw new Error("Missing retried merge request");
+      expect((retry[1].headers as Headers).get("X-CSRF-Token")).toBe(
         "recovered",
       );
       expect(attempt.body).toBe(

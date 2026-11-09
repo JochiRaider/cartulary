@@ -33,8 +33,7 @@ export function createWorkbookReferenceMemberReader(options: {
       const { memberships } = outcome.value.data;
       const paging = outcome.value.meta.paging;
       if (
-        !paging ||
-        paging.limit !== 100 ||
+        paging?.limit !== 100 ||
         memberships.length > 100 ||
         paging.has_more !== (paging.next_cursor !== null) ||
         (paging.next_cursor !== null &&

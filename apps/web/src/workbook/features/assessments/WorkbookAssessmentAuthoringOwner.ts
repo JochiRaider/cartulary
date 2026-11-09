@@ -514,8 +514,7 @@ export class WorkbookAssessmentAuthoringOwner {
   async replay(id: string) {
     const entry = this.entries.get(id);
     if (
-      !entry ||
-      entry.phase !== "uncertain" ||
+      entry?.phase !== "uncertain" ||
       entry.transportPending ||
       this.preparing ||
       !this.canReplay()

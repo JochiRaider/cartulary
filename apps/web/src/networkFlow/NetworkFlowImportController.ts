@@ -1071,8 +1071,7 @@ export class NetworkFlowImportController {
     if (!this.canContinue() || !this.binding) return;
     const persisted = this.state.selection;
     if (
-      !persisted ||
-      persisted.session_status !== "ready_to_apply" ||
+      persisted?.session_status !== "ready_to_apply" ||
       persisted.selected_unit_ids.length !== 1 ||
       persisted.selected_unit_ids[0] !== discovery.unit.import_unit_id ||
       persisted.unit.unit_status !== "ready" ||

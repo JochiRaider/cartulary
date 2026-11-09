@@ -208,7 +208,7 @@ export class OwnedBrowserScope {
     if (!this.#contexts.has(context))
       throw new Error("Cannot close an unowned context");
     const existing = this.#closing.get(context);
-    if (existing) return existing;
+    if (existing !== undefined) return existing;
     if (this.#completion !== undefined) return this.#completion;
     for (const [barrier, owner] of this.#barriers) {
       if (owner === context) barrier.cancel();

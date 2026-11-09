@@ -878,8 +878,7 @@ export class WorkbookCoordinationCreateOwner {
     const entry = this.entries.get(id),
       lifetime = this.lifetime;
     if (
-      !entry ||
-      entry.phase !== "uncertain" ||
+      entry?.phase !== "uncertain" ||
       entry.transportPending ||
       this.preparing ||
       !this.canReplay()

@@ -2052,7 +2052,6 @@ function SemanticDataGridInner<Row>(
   props: SemanticDataGridProps<Row>,
   ref: ForwardedRef<GridHandle>,
 ) {
-  // biome-ignore lint/correctness/useHookAtTopLevel: this generic function is passed directly to React.forwardRef below.
   return useSemanticDataGridTestSupport(props, ref);
 }
 

@@ -1695,52 +1695,55 @@ describe("Incident landing", () => {
         ],
       },
     },
-  ])("keeps reference-pack deployment administration hidden when $caseName", async ({
-    extensions,
-  }) => {
-    window.history.replaceState({}, "", "/deployment-administration");
-    installLandingShellFetch(fetchMock, {
-      session: sessionResource({
-        display_name: "Deployment Admin",
-        is_deployment_admin: true,
-      }),
-      extensions,
-      extraRoutes: [
-        {
-          method: "GET",
-          url: "/api/v1/users?limit=100",
-          handler: () =>
-            jsonResponse({
-              data: { users: [] },
-              meta: {
-                request_id: "request-test",
-                paging: {
-                  limit: 100,
-                  has_more: false,
-                  next_cursor: null,
+  ])(
+    "keeps reference-pack deployment administration hidden when $caseName",
+    async ({ extensions }) => {
+      window.history.replaceState({}, "", "/deployment-administration");
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource({
+          display_name: "Deployment Admin",
+          is_deployment_admin: true,
+        }),
+        extensions,
+        extraRoutes: [
+          {
+            method: "GET",
+            url: "/api/v1/users?limit=100",
+            handler: () =>
+              jsonResponse({
+                data: { users: [] },
+                meta: {
+                  request_id: "request-test",
+                  paging: {
+                    limit: 100,
+                    has_more: false,
+                    next_cursor: null,
+                  },
                 },
-              },
-            }),
-        },
-      ],
-    });
+              }),
+          },
+        ],
+      });
 
-    renderApp();
+      renderApp();
 
-    expect(
-      await screen.findByTestId(landingAdminMenuItemTestId("deployment-users")),
-    ).toBeTruthy();
-    expect(
-      screen.queryByTestId(landingAdminMenuItemTestId("reference-packs")),
-    ).toBe(null);
-    expect(
-      screen.queryByTestId(landingAdminPanelTestId("reference-packs")),
-    ).toBe(null);
-    expect(screen.queryByTestId(referencePackAdminPanelTestId())).toBe(null);
-    expect(
-      findFetchCallsByPath(fetchMock, "/api/v1/reference-packs", "GET"),
-    ).toHaveLength(0);
-  });
+      expect(
+        await screen.findByTestId(
+          landingAdminMenuItemTestId("deployment-users"),
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.queryByTestId(landingAdminMenuItemTestId("reference-packs")),
+      ).toBe(null);
+      expect(
+        screen.queryByTestId(landingAdminPanelTestId("reference-packs")),
+      ).toBe(null);
+      expect(screen.queryByTestId(referencePackAdminPanelTestId())).toBe(null);
+      expect(
+        findFetchCallsByPath(fetchMock, "/api/v1/reference-packs", "GET"),
+      ).toHaveLength(0);
+    },
+  );
 
   it("returns non-admin direct deployment administration navigation to the incident directory", async () => {
     window.history.replaceState({}, "", "/deployment-administration");

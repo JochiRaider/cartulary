@@ -655,8 +655,7 @@ export function useTimelineMentionActions(input: Input) {
       const retained = owner.getSnapshot();
       const entry = retained.entries.find((item) => item.key === key);
       if (
-        !entry ||
-        entry.phase !== "uncertain" ||
+        entry?.phase !== "uncertain" ||
         !matchesUndoDisclosure(entry, notice) ||
         !owner.canSubmit("revert_to_unresolved") ||
         !owner

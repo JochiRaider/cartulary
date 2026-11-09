@@ -946,8 +946,7 @@ export class WorkbookTimelineRelatedEvidenceOwner {
     const generation = this.generation,
       lifetime = this.lifetime;
     if (
-      !entry ||
-      entry.phase !== "uncertain" ||
+      entry?.phase !== "uncertain" ||
       entry.transportPending ||
       this.preparing ||
       !this.canReplay() ||
@@ -1004,8 +1003,7 @@ export class WorkbookTimelineRelatedEvidenceOwner {
   reviewNewRequestId(id: string, txn: string) {
     const entry = this.stage(id, txn);
     if (
-      !entry ||
-      entry.phase !== "rejected" ||
+      entry?.phase !== "rejected" ||
       entry.failure?.kind !== "client_txn_conflict" ||
       this.busy
     )

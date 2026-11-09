@@ -287,67 +287,67 @@ describe("Timeline workbook autosave coverage", () => {
     });
   });
 
-  it.each([
-    "Enter",
-    "Tab",
-  ] as const)("commits %s from the current editor value when row state is stale", async (key) => {
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "10000000-0000-4000-8000-000000000001",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "20000000-0000-4000-8000-000000000001",
-            rowVersion: 1,
-            summary: "Alpha",
-            captureState: "rough",
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "30000000-0000-4000-8000-000000000001",
-        row: timelineRow({
-          recordId: "20000000-0000-4000-8000-000000000001",
-          rowVersion: 2,
-          summary: `Stale-proof ${key}`,
-          captureState: "enriched",
+  it.each(["Enter", "Tab"] as const)(
+    "commits %s from the current editor value when row state is stale",
+    async (key) => {
+      fetchMock.mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "10000000-0000-4000-8000-000000000001",
+          view_schema_id: timelineViewSchemaId,
+          rows: [
+            timelineRow({
+              recordId: "20000000-0000-4000-8000-000000000001",
+              rowVersion: 1,
+              summary: "Alpha",
+              captureState: "rough",
+            }),
+          ],
         }),
-      }),
-    );
+      );
+      fetchMock.mockResolvedValueOnce(
+        successEnvelope({
+          view_schema_id: timelineViewSchemaId,
+          change_set_id: "30000000-0000-4000-8000-000000000001",
+          row: timelineRow({
+            recordId: "20000000-0000-4000-8000-000000000001",
+            rowVersion: 2,
+            summary: `Stale-proof ${key}`,
+            captureState: "enriched",
+          }),
+        }),
+      );
 
-    renderTimelineWorkbook();
+      renderTimelineWorkbook();
 
-    await screen.findByTestId(saveStateTestId());
-    const summaryInput = (await findWorkbookCell(
-      document.body,
-      timelineViewSchemaId,
-      "20000000-0000-4000-8000-000000000001",
-      "timeline.activity_synopsis_text",
-    )) as HTMLInputElement;
+      await screen.findByTestId(saveStateTestId());
+      const summaryInput = (await findWorkbookCell(
+        document.body,
+        timelineViewSchemaId,
+        "20000000-0000-4000-8000-000000000001",
+        "timeline.activity_synopsis_text",
+      )) as HTMLInputElement;
 
-    setInputValueWithoutEvent(summaryInput, `Stale-proof ${key}`);
-    fireEvent.input(summaryInput);
-    fireEvent.keyDown(summaryInput, { key });
+      setInputValueWithoutEvent(summaryInput, `Stale-proof ${key}`);
+      fireEvent.input(summaryInput);
+      fireEvent.keyDown(summaryInput, { key });
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-    });
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
-      "/api/v1/records/20000000-0000-4000-8000-000000000001",
-    );
-    expect(extractTimelinePatchBody(fetchMock, 1)).toMatchObject({
-      base_row_version: 1,
-      changes: [
-        {
-          field_key: "timeline.activity_synopsis_text",
-          value: `Stale-proof ${key}`,
-        },
-      ],
-    });
-  });
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+      });
+      expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
+        "/api/v1/records/20000000-0000-4000-8000-000000000001",
+      );
+      expect(extractTimelinePatchBody(fetchMock, 1)).toMatchObject({
+        base_row_version: 1,
+        changes: [
+          {
+            field_key: "timeline.activity_synopsis_text",
+            value: `Stale-proof ${key}`,
+          },
+        ],
+      });
+    },
+  );
 
   it("commits paste completion from the current editor value when row state is stale", async () => {
     fetchMock.mockResolvedValueOnce(

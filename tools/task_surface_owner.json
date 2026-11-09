@@ -3043,7 +3043,7 @@
     {
       "name": "lint-markdown",
       "backing_scripts": [
-        "tools/harness/static-analysis/markdownlint.sh"
+        "tools/harness/static-analysis/markdown-biome.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",

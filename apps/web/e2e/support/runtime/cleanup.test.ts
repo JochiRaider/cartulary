@@ -806,25 +806,25 @@ describe("owned page observations", () => {
     }
   });
 
-  it.each([
-    "request",
-    "pageerror",
-  ])("retains %s failure while disposing every listener and context", async (event) => {
-    const { scope, context, resource } = fixture();
-    await scope.newContext();
-    const events = new EventEmitter();
-    const page = Object.assign(events, {
-      context: () => context,
-    }) as unknown as Page;
-    const stop = observePageRequests(page, () => {
-      throw new Error("private request");
-    });
-    rejectUnexpectedPageErrors(page);
-    expect(() => events.emit(event, new Error("private page"))).not.toThrow();
-    stop();
-    await expect(scope.dispose()).rejects.toThrow("feature.settle");
-    expect(events.listenerCount("request")).toBe(0);
-    expect(events.listenerCount("pageerror")).toBe(0);
-    expect(resource.close).toHaveBeenCalledOnce();
-  });
+  it.each(["request", "pageerror"])(
+    "retains %s failure while disposing every listener and context",
+    async (event) => {
+      const { scope, context, resource } = fixture();
+      await scope.newContext();
+      const events = new EventEmitter();
+      const page = Object.assign(events, {
+        context: () => context,
+      }) as unknown as Page;
+      const stop = observePageRequests(page, () => {
+        throw new Error("private request");
+      });
+      rejectUnexpectedPageErrors(page);
+      expect(() => events.emit(event, new Error("private page"))).not.toThrow();
+      stop();
+      await expect(scope.dispose()).rejects.toThrow("feature.settle");
+      expect(events.listenerCount("request")).toBe(0);
+      expect(events.listenerCount("pageerror")).toBe(0);
+      expect(resource.close).toHaveBeenCalledOnce();
+    },
+  );
 });

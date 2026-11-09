@@ -122,7 +122,7 @@ describe("Workbook query browsing", () => {
     const first = browser.reconcile(read);
     await Promise.resolve();
     const queued = browser.reconcile(read);
-    for (let count = 0; count < 20; count++) browser.reconcile(read);
+    for (let count = 0; count < 20; count++) void browser.reconcile(read);
     expect(query).toHaveBeenCalledTimes(4);
     expect(browser.getSnapshot().accepted).toBe(original);
     const pendingRead = query.mock.calls[3]?.[0];

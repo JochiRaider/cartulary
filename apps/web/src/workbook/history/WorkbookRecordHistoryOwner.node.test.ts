@@ -212,61 +212,67 @@ describe("Workbook history operation owner", () => {
     "history_entry",
     "change_set",
     "row_restore",
-  ] as const)("retains exact identity and acknowledgement for %s", async (kind) => {
-    const pending: WorkbookRecordHistoryPendingAction =
-      kind === "delete" || kind === "restore"
-        ? {
-            kind: "destructive",
-            operation: kind,
-            recordId: "record",
-            rowVersion: 4,
-          }
-        : {
-            kind: "rollback",
-            action: kind,
-            historyItemRef: "item",
-            recordId: "record",
-            rowVersion: 4,
-            target:
-              kind === "history_entry"
-                ? { kind, history_entry_ref: "opaque-selector" }
-                : kind === "change_set"
-                  ? { kind, change_set_id: "change" }
-                  : { kind, restore_to_revision_no: 2 },
-          };
-    const t = setup(pending);
-    const mark = vi.spyOn(performance, "mark");
-    mark.mockClear();
-    t.send.mockResolvedValueOnce({ kind: "uncertain" });
-    const attempt = t.owner.admit(t.intent, t.binding);
-    expect(attempt).not.toBeNull();
-    if (!attempt) return;
-    expect(t.owner.admit(t.intent, t.binding)).toBeNull();
-    await t.owner.execute(attempt);
-    await vi.waitFor(() =>
-      expect(t.owner.getSnapshot()[0]?.transportPending).toBe(false),
-    );
-    expect(t.owner.getSnapshot()[0]?.phase).toBe("uncertain");
-    await Promise.all([t.owner.replay(attempt.id), t.owner.replay(attempt.id)]);
-    await vi.waitFor(() =>
-      expect(t.owner.getSnapshot()[0]?.phase).toBe("acknowledged"),
-    );
-    expect(t.send).toHaveBeenCalledTimes(2);
-    expect(t.ids.create).toHaveBeenCalledTimes(1);
-    expect(t.send.mock.calls[0]?.[0]).toBe(t.send.mock.calls[1]?.[0]);
-    expect(t.owner.getSnapshot()[0]?.receipt).toEqual(t.receipt);
-    const accepted = mark.mock.calls.filter(
-      ([name]) => name === "cartulary.workbook.history_action_accepted",
-    );
-    expect(accepted).toHaveLength(pending.kind === "rollback" ? 1 : 0);
-    if (pending.kind === "rollback")
-      expect(accepted[0]?.[1]?.detail).toEqual({
-        recordId: "record",
-        rowVersion: 4,
-        action: pending.action,
-        viewSchemaId: "cartulary.view.timeline.v2",
-      });
-  });
+  ] as const)(
+    "retains exact identity and acknowledgement for %s",
+    async (kind) => {
+      const pending: WorkbookRecordHistoryPendingAction =
+        kind === "delete" || kind === "restore"
+          ? {
+              kind: "destructive",
+              operation: kind,
+              recordId: "record",
+              rowVersion: 4,
+            }
+          : {
+              kind: "rollback",
+              action: kind,
+              historyItemRef: "item",
+              recordId: "record",
+              rowVersion: 4,
+              target:
+                kind === "history_entry"
+                  ? { kind, history_entry_ref: "opaque-selector" }
+                  : kind === "change_set"
+                    ? { kind, change_set_id: "change" }
+                    : { kind, restore_to_revision_no: 2 },
+            };
+      const t = setup(pending);
+      const mark = vi.spyOn(performance, "mark");
+      mark.mockClear();
+      t.send.mockResolvedValueOnce({ kind: "uncertain" });
+      const attempt = t.owner.admit(t.intent, t.binding);
+      expect(attempt).not.toBeNull();
+      if (!attempt) return;
+      expect(t.owner.admit(t.intent, t.binding)).toBeNull();
+      await t.owner.execute(attempt);
+      await vi.waitFor(() =>
+        expect(t.owner.getSnapshot()[0]?.transportPending).toBe(false),
+      );
+      expect(t.owner.getSnapshot()[0]?.phase).toBe("uncertain");
+      await Promise.all([
+        t.owner.replay(attempt.id),
+        t.owner.replay(attempt.id),
+      ]);
+      await vi.waitFor(() =>
+        expect(t.owner.getSnapshot()[0]?.phase).toBe("acknowledged"),
+      );
+      expect(t.send).toHaveBeenCalledTimes(2);
+      expect(t.ids.create).toHaveBeenCalledTimes(1);
+      expect(t.send.mock.calls[0]?.[0]).toBe(t.send.mock.calls[1]?.[0]);
+      expect(t.owner.getSnapshot()[0]?.receipt).toEqual(t.receipt);
+      const accepted = mark.mock.calls.filter(
+        ([name]) => name === "cartulary.workbook.history_action_accepted",
+      );
+      expect(accepted).toHaveLength(pending.kind === "rollback" ? 1 : 0);
+      if (pending.kind === "rollback")
+        expect(accepted[0]?.[1]?.detail).toEqual({
+          recordId: "record",
+          rowVersion: 4,
+          action: pending.action,
+          viewSchemaId: "cartulary.view.timeline.v2",
+        });
+    },
+  );
   it("invalidates confirmed versions and selectors instead of rebasing", async () => {
     const t = setup();
     const attempt = t.owner.admit(t.intent, t.binding);

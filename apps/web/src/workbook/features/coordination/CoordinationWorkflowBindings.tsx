@@ -48,8 +48,7 @@ export function CoordinationWorkflowBindings(props: {
     "task.status.transition",
   );
   if (
-    !feature ||
-    feature.panelId !== "workflow" ||
+    feature?.panelId !== "workflow" ||
     feature.routeBinding.kind !== "record_patch" ||
     feature.routeBinding.owner !== "record_patch_route" ||
     feature.requiresConfirmation

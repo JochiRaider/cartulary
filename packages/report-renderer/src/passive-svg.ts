@@ -215,7 +215,7 @@ export function materializePassiveSVG(selector: string): string {
             ["dx", source.dx],
             ["dy", source.dy],
           ]).get(attribute.name)?.baseVal;
-          if (!lengths || lengths.numberOfItems !== 1)
+          if (lengths?.numberOfItems !== 1)
             throw new Error("unsupported_svg_text_position");
           output.setAttribute(attribute.name, finite(lengths.getItem(0).value));
         } else output.setAttribute(attribute.name, attribute.value);

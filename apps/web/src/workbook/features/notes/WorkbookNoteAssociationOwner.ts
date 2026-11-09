@@ -596,8 +596,7 @@ export class WorkbookNoteAssociationOwner {
     const entry = this.entries.get(id),
       lifetime = this.lifetime;
     if (
-      !entry ||
-      entry.phase !== "uncertain" ||
+      entry?.phase !== "uncertain" ||
       entry.transportPending ||
       !this.canReplay() ||
       this.preparing.has(entry.attempt.review.row.record_id)

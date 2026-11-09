@@ -69,8 +69,7 @@ export function planTimelineClear(input: {
     for (const [columnIndex, fieldKey] of fields.entries()) {
       const target = targets[rowIndex * fields.length + columnIndex];
       if (
-        !target ||
-        target.surface.kind !== "view_schema" ||
+        target?.surface.kind !== "view_schema" ||
         target.surface.viewSchemaId !== input.contract.viewSchemaId ||
         target.fieldKey !== fieldKey ||
         target.rowIdentity.kind !== "core_record" ||

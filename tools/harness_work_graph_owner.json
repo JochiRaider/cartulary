@@ -268,6 +268,9 @@
       },
       {
         "row_id": "harness.browser.unit.fixture_broker_smoke"
+      },
+      {
+        "row_id": "harness.command_surface.behavior.markdown_lint_uses_biome_with_isolated_scope_and_067b41999b"
       }
     ],
     "harness.contract_runtime": [
@@ -371,7 +374,8 @@
       "harness.assurance_fallow_static",
       {
         "row_id": "harness.browser.unit.fixture_broker_smoke"
-      }
+      },
+      "harness.assurance_markdown_biome"
     ],
     "harness.contract_execution": [
       "harness.assurance_run_step",
@@ -1817,6 +1821,16 @@
       "resource_profile_id": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    "harness.assurance_markdown_biome": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   },
   "evidence_estimates_ms": {
@@ -3155,7 +3169,7 @@
         "step_label": "lint markdown",
         "command": [
           "bash",
-          "./tools/harness/static-analysis/markdownlint.sh"
+          "./tools/harness/static-analysis/markdown-biome.sh"
         ],
         "failure_note": "inspect Markdown lint diagnostics; do not run broad prose reflow"
       },
@@ -5972,6 +5986,26 @@
           "REFERENCE_PACK_GENERATION_PROFILE": "tools/reference-pack-modules/product-generation.json"
         }
       }
+    },
+    "harness.assurance_markdown_biome": {
+      "report_key": "harness-markdown-biome",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-markdown-biome",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "tools/harness/static-analysis/tests/test-markdown-biome.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
     }
   },
   "row_execution_contexts": {

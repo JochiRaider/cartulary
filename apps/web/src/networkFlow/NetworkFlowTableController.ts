@@ -669,8 +669,7 @@ export class NetworkFlowTableController {
   readonly replay = async (): Promise<void> => {
     const operation = this.state.operation;
     if (
-      !operation ||
-      operation.status !== "uncertain" ||
+      operation?.status !== "uncertain" ||
       !this.writable(operation.attempt.action) ||
       this.write
     )

@@ -39,7 +39,7 @@ export function createTimelineRowMutationEditorAdapter({
       });
     },
     focus: ({ fieldKey, recordId }) => {
-      continuityPort.focus({
+      void continuityPort.focus({
         fieldKey,
         recordId,
         viewSchemaId: timelineViewSchemaId,

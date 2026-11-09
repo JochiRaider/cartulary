@@ -1507,29 +1507,29 @@ describe("Workbook Inspector presentation", () => {
     ],
     ["party_text_unavailable", "No party reference text is available to link."],
     ["pivot_target_unavailable", "No matching destination is available."],
-  ] satisfies readonly (readonly [
-    InspectorDisabledCondition,
-    string,
-  ])[])("presents deterministic copy for %s", (token, expected) => {
-    const template = hosts.inspectorConfig.featureGroups.find(
-      (feature) => feature.featureGroupKey === "entity.merge",
-    );
-    expect(template).toBeDefined();
-    if (!template) return;
-    const featureGroup = {
-      ...template,
-      disabledWhen: [token],
-      minimumIncidentRole: null,
-    } satisfies InspectorFeatureGroup;
-    const reason = workbookInspectorDisabledReason({
-      currentIncidentRole: "admin",
-      featureGroup,
-      stateTokens: new Set([token]),
-    });
-    expect(reason).not.toBeNull();
-    if (reason)
-      expect(workbookInspectorDisabledReasonText(reason)).toBe(expected);
-  });
+  ] satisfies readonly (readonly [InspectorDisabledCondition, string])[])(
+    "presents deterministic copy for %s",
+    (token, expected) => {
+      const template = hosts.inspectorConfig.featureGroups.find(
+        (feature) => feature.featureGroupKey === "entity.merge",
+      );
+      expect(template).toBeDefined();
+      if (!template) return;
+      const featureGroup = {
+        ...template,
+        disabledWhen: [token],
+        minimumIncidentRole: null,
+      } satisfies InspectorFeatureGroup;
+      const reason = workbookInspectorDisabledReason({
+        currentIncidentRole: "admin",
+        featureGroup,
+        stateTokens: new Set([token]),
+      });
+      expect(reason).not.toBeNull();
+      if (reason)
+        expect(workbookInspectorDisabledReasonText(reason)).toBe(expected);
+    },
+  );
 
   it("keeps a safe public code available in technical details", () => {
     render(

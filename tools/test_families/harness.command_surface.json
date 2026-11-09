@@ -25,6 +25,28 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.command_surface.behavior.markdown_lint_uses_biome_with_isolated_scope_and_067b41999b",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.markdown_provider"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_markdown_biome"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.command_surface.behavior.owner_boundaries",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.behavior",
@@ -35,6 +57,28 @@
       "runner": "shell",
       "selector": {
         "operation_id": "harness.harness_boundary_contract"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.pinned_tool_versions_reject_dependency_and_boots_f5d64ef606",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.toolchain_pins"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_toolchain_pins"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",

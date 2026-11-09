@@ -111,7 +111,7 @@ export class WorkbookSurfaceRegistry {
   private async reconcile(viewSchemaId: string): Promise<void> {
     if (this.#disposed) throw new Error("The surface registry is retired.");
     const pending = this.#refreshing.get(viewSchemaId);
-    if (pending) {
+    if (pending !== undefined) {
       await pending.catch(() => {
         /* This caller retries the retained read debt. */
       });

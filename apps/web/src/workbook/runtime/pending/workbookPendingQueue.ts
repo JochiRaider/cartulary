@@ -1438,7 +1438,7 @@ class WorkbookPendingQueueState {
 
   haltBeforeDispatch(unitId: string, message: string): boolean {
     const unit = this.units.find((candidate) => candidate.id === unitId);
-    if (!unit || unit.status !== "queued" || this.dispatchedUnits.has(unit))
+    if (unit?.status !== "queued" || this.dispatchedUnits.has(unit))
       return false;
     this.halted = {
       unit_id: unit.id,

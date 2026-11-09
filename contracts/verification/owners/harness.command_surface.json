@@ -39,6 +39,16 @@
       ]
     },
     {
+      "verification_id": "harness.command_surface.verification.markdown_provider",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
       "verification_id": "harness.command_surface.verification.native_runtime",
       "behavior_class": "harness",
       "profile": "support",
@@ -80,6 +90,16 @@
       "evidence_kinds": [
         "go_test"
       ]
+    },
+    {
+      "verification_id": "harness.command_surface.verification.toolchain_pins",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
     }
   ]
 }

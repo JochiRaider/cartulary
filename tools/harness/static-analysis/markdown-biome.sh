@@ -18,17 +18,19 @@ fi
 
 status=0
 markdown_inputs=(
-  "$ROOT_DIR/.markdownlint-cli2.jsonc"
+  "$ROOT_DIR/biome.markdown.json"
+  "$ROOT_DIR/biome.json"
   "$ROOT_DIR/package.json"
   "$ROOT_DIR/pnpm-lock.yaml"
-  "$ROOT_DIR/tools/harness/static-analysis/markdownlint.sh"
-  "$ROOT_DIR/tools/harness/static-analysis/markdownlint-runner.sh"
-  "$ROOT_DIR/tools/harness/static-analysis/requirement-declarations.cjs"
+  "$ROOT_DIR/.gitignore"
+  "$ROOT_DIR/.git/info/exclude"
+  "$ROOT_DIR/tools/harness/static-analysis/markdown-biome.sh"
+  "$ROOT_DIR/tools/harness/static-analysis/markdown-biome-runner.sh"
   "$ROOT_DIR/tools/harness/readiness/cache-artifact.sh"
 )
 while IFS= read -r -d '' rel; do
   markdown_inputs+=("$ROOT_DIR/$rel")
-done < <(git -C "$ROOT_DIR" ls-files -z --cached --others --exclude-standard -- '*.md' '*.markdown')
+done < <(git -C "$ROOT_DIR" ls-files -z --cached --others --exclude-standard -- '*.md' '*.markdown' '**/.gitignore')
 
 cache_args=(
   --scope static-analysis
@@ -55,6 +57,6 @@ env \
   CARTULARY_STATIC_CACHE_STAMP="$CACHE_STAMP" \
   PATH="$NODE_RUNTIME_DIR/bin:$PATH" \
   COREPACK_HOME="${COREPACK_HOME:-$NODE_RUNTIME_DIR/corepack}" \
-  "$CACHE_ARTIFACT_SCRIPT" "${cache_args[@]}" -- "$ROOT_DIR/tools/harness/static-analysis/markdownlint-runner.sh" "$@" || status=$?
+  "$CACHE_ARTIFACT_SCRIPT" "${cache_args[@]}" -- "$ROOT_DIR/tools/harness/static-analysis/markdown-biome-runner.sh" "$@" || status=$?
 
 exit "$status"

@@ -214,7 +214,7 @@ function WorkbookShell(
         createWorkflowAttachment<WorkbookImportSurfaceBinding>(
           () => () => true,
           (binding) => {
-            if (!binding || binding.readiness !== "available") {
+            if (binding?.readiness !== "available") {
               importController.pause();
               return;
             }
@@ -1581,8 +1581,11 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.change(input, { target: { value: "A distinct next draft" } });
     fireEvent.click(recovery);
     await waitFor(() => expect(ordinaryWrites()).toHaveLength(2));
-    expect((ordinaryWrites()[1]?.[1] as RequestInit).body).toBe(
-      (ordinaryWrites()[0]?.[1] as RequestInit).body,
+    const [originalWrite, recoveredWrite] = ordinaryWrites();
+    if (!originalWrite || !recoveredWrite)
+      throw new Error("Missing original or recovered request");
+    expect((recoveredWrite[1] as RequestInit).body).toBe(
+      (originalWrite[1] as RequestInit).body,
     );
     await flushWorkbookAsync();
     expect(
@@ -4907,22 +4910,24 @@ describe("WorkbookShell surface selection", () => {
       String(input).endsWith("/api/v1/object-blobs"),
     );
     expect(createBlobCall).toBeDefined();
-    expect(
-      JSON.parse(String((createBlobCall?.[1] as RequestInit).body)),
-    ).toEqual({
-      incident_id: "10000000-0000-4000-8000-000000000001",
-      client_txn_id: expect.stringMatching(/^evidence-slot-/u),
-      byte_size: 18,
-      filename_hint: "safe-evidence.txt",
-      content_type_hint: "text/plain",
-    });
+    if (!createBlobCall) throw new Error("Missing blob create request");
+    expect(JSON.parse(String((createBlobCall[1] as RequestInit).body))).toEqual(
+      {
+        incident_id: "10000000-0000-4000-8000-000000000001",
+        client_txn_id: expect.stringMatching(/^evidence-slot-/u),
+        byte_size: 18,
+        filename_hint: "safe-evidence.txt",
+        content_type_hint: "text/plain",
+      },
+    );
     const attachCall = fetchMock.mock.calls.find(([input]) =>
       String(input).endsWith(
         "/api/v1/evidence-records/00000000-0000-4000-8000-000000004010/attach-blob",
       ),
     );
     expect(attachCall).toBeDefined();
-    expect(JSON.parse(String((attachCall?.[1] as RequestInit).body))).toEqual({
+    if (!attachCall) throw new Error("Missing blob attachment request");
+    expect(JSON.parse(String((attachCall[1] as RequestInit).body))).toEqual({
       object_blob_id: "00000000-0000-4000-8000-000000003001",
       base_row_version: 4,
       client_txn_id: expect.stringMatching(/^evidence-attach-/u),
@@ -5081,8 +5086,9 @@ describe("WorkbookShell surface selection", () => {
         (init as RequestInit).method === "POST",
     );
     expect(evidenceCreateCall).toBeDefined();
+    if (!evidenceCreateCall) throw new Error("Missing evidence create request");
     expect(
-      JSON.parse(String((evidenceCreateCall?.[1] as RequestInit).body)),
+      JSON.parse(String((evidenceCreateCall[1] as RequestInit).body)),
     ).toEqual({
       client_txn_id: expect.any(String),
       "evidence.title": "screenshot.txt",

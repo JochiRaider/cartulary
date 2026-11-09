@@ -48,8 +48,16 @@ describe("Workbook column sizing", () => {
     const { owner } = harness();
     owner.move(id, field, "earlier");
     owner.hide(id, other, true);
-    owner.onIntent(id, { kind: "set_width", fieldKey: other, widthPx: 4096 });
-    owner.onIntent(id, { kind: "set_width", fieldKey: field, widthPx: 300 });
+    void owner.onIntent(id, {
+      kind: "set_width",
+      fieldKey: other,
+      widthPx: 4096,
+    });
+    void owner.onIntent(id, {
+      kind: "set_width",
+      fieldKey: field,
+      widthPx: 300,
+    });
     expect(owner.read(id, field).overridden).toBe(true);
     const before = owner.currentLayoutStateForSurface(id);
     for (const widthPx of [
@@ -59,14 +67,18 @@ describe("Workbook column sizing", () => {
       Number.NaN,
       Number.POSITIVE_INFINITY,
     ])
-      owner.onIntent(id, { kind: "set_width", fieldKey: field, widthPx });
+      void owner.onIntent(id, { kind: "set_width", fieldKey: field, widthPx });
     expect(owner.currentLayoutStateForSurface(id)).toEqual(before);
     owner.restoreDefault(id, field);
     expect(owner.currentLayoutStateForSurface(id)).toEqual({
       ...before,
       columnWidths: { [other]: 4096 },
     });
-    owner.onIntent(id, { kind: "set_width", fieldKey: field, widthPx: 40 });
+    void owner.onIntent(id, {
+      kind: "set_width",
+      fieldKey: field,
+      widthPx: 40,
+    });
     const columns = applyWorkbookLayoutToColumns(
       contract,
       [
@@ -221,7 +233,7 @@ describe("Workbook column sizing", () => {
     expect(h.owner.getSnapshot().notice).toBe("Fonts are loading.");
     h.owner.hide(id, field, true);
     const measure = vi.spyOn(h.port, "measureVisibleContent");
-    h.fit();
+    await h.fit();
     expect(measure).not.toHaveBeenCalled();
   });
   it("returns applied and restored widths with one owner notice", () => {
@@ -238,7 +250,11 @@ describe("Workbook column sizing", () => {
     });
     expect(h.owner.read(id, field).overridden).toBe(false);
     expect(h.owner.getSnapshot().notice).toContain("default width restored");
-    h.owner.onIntent(id, { kind: "set_width", fieldKey: field, widthPx: 440 });
+    void h.owner.onIntent(id, {
+      kind: "set_width",
+      fieldKey: field,
+      widthPx: 440,
+    });
     expect(h.owner.getSnapshot().notice).toBeNull();
     expect(h.owner.applyWidth(id, field, 39)).toEqual({
       kind: "unavailable",
@@ -269,7 +285,11 @@ it("Workbook frozen layout preserves semantic boundaries through hidden reorder 
   expect(workbookFrozenDataColumnPrefix(read())).toEqual([]);
   owner.hide(id, second, false);
   expect(workbookFrozenDataColumnPrefix(read())).toEqual([second]);
-  owner.onIntent(id, { kind: "set_width", fieldKey: second, widthPx: 4096 });
+  void owner.onIntent(id, {
+    kind: "set_width",
+    fieldKey: second,
+    widthPx: 4096,
+  });
   expect(read().frozenThroughFieldKey).toBe(second);
   owner.freeze(id, "unknown.field");
   expect(read().frozenThroughFieldKey).toBe(second);

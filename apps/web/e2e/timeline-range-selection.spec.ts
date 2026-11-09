@@ -1609,7 +1609,7 @@ test("Timeline clear captures offscreen loaded membership and orders later overl
     await page.keyboard.press("Delete");
     await held.waitForHit;
     expect(
-      (writes[0]?.body.targets as { record_id: string }[]).map(
+      (required(writes[0]).body.targets as { record_id: string }[]).map(
         (target) => target.record_id,
       ),
     ).toEqual(f.ids.slice(0, 100));

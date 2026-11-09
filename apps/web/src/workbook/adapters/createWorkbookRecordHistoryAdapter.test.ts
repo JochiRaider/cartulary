@@ -199,102 +199,109 @@ describe("History captured transport", () => {
     expect(init.body).toBe(attempt.body);
     expect((init.headers as Headers).get("X-CSRF-Token")).toBe("current-csrf");
   });
-  it.each([
-    "restore",
-    "history_entry",
-    "change_set",
-    "row_restore",
-  ] as const)("retains the complete receipt and exact selector for %s", async (kind) => {
-    const target =
-      kind === "history_entry"
-        ? { kind, history_entry_ref: "opaque-selector" }
-        : kind === "change_set"
-          ? { kind, change_set_id: changeSetId }
-          : { kind: "row_restore" as const, restore_to_revision_no: 2 };
-    const pending: HistoryAttempt["pending"] =
-      kind === "restore"
-        ? { kind: "destructive", operation: "restore", recordId, rowVersion: 4 }
-        : {
-            kind: "rollback",
-            action: kind,
-            recordId,
-            rowVersion: 4,
-            historyItemRef: "exact-item",
-            target,
-          };
-    const captured: HistoryAttempt = {
-      ...attempt,
-      operation: kind === "restore" ? "restore" : "rollback",
-      pending,
-      body: JSON.stringify({
-        base_row_version: 4,
-        client_txn_id: attempt.id,
-        reason: "Reviewed action",
-        ...(kind === "restore" ? {} : { target }),
-      }),
-    };
-    const data =
-      kind === "restore"
-        ? {
-            ...receipt,
-            deleted: false,
-            deleted_at: null,
-            deleted_by_user_id: null,
-          }
-        : {
-            incident_id: incidentId,
-            record_id: recordId,
-            row_version: 5,
-            target,
-            target_change_set_id: changeSetId,
-            rollback_change_set_id: changeSetId,
-            affected_record_ids: [recordId, actorId],
-          };
-    const fetch = vi.fn().mockResolvedValue(response(data));
-    vi.stubGlobal("fetch", fetch);
-    const port = createWorkbookRecordHistoryAdapter({
-      apiBase: undefined,
-      incidentId,
-    });
-    const result = await port.send(captured, new AbortController().signal);
-    expect(result).toMatchObject({
-      kind: "acknowledged",
-      receipt:
+  it.each(["restore", "history_entry", "change_set", "row_restore"] as const)(
+    "retains the complete receipt and exact selector for %s",
+    async (kind) => {
+      const target =
+        kind === "history_entry"
+          ? { kind, history_entry_ref: "opaque-selector" }
+          : kind === "change_set"
+            ? { kind, change_set_id: changeSetId }
+            : { kind: "row_restore" as const, restore_to_revision_no: 2 };
+      const pending: HistoryAttempt["pending"] =
         kind === "restore"
           ? {
-              kind,
-              deleted: false,
-              deletedAt: null,
-              deletedByUserId: null,
-              changeSetId,
+              kind: "destructive",
+              operation: "restore",
+              recordId,
+              rowVersion: 4,
             }
           : {
               kind: "rollback",
+              action: kind,
+              recordId,
+              rowVersion: 4,
+              historyItemRef: "exact-item",
               target,
-              targetChangeSetId: changeSetId,
-              changeSetId,
-              affectedRecordIds: [recordId, actorId],
-            },
-    });
-    expect(fetch.mock.calls[0]?.[1].body).toBe(captured.body);
-    if (kind !== "restore") {
-      fetch.mockResolvedValueOnce(
-        response({ ...data, affected_record_ids: [actorId, recordId] }),
-      );
-      expect(await port.send(captured, new AbortController().signal)).toEqual({
-        kind: "uncertain",
-      });
-      fetch.mockResolvedValueOnce(
-        response({
-          ...data,
-          target: { kind: "row_restore", restore_to_revision_no: 99 },
+            };
+      const captured: HistoryAttempt = {
+        ...attempt,
+        operation: kind === "restore" ? "restore" : "rollback",
+        pending,
+        body: JSON.stringify({
+          base_row_version: 4,
+          client_txn_id: attempt.id,
+          reason: "Reviewed action",
+          ...(kind === "restore" ? {} : { target }),
         }),
-      );
-      expect(await port.send(captured, new AbortController().signal)).toEqual({
-        kind: "uncertain",
+      };
+      const data =
+        kind === "restore"
+          ? {
+              ...receipt,
+              deleted: false,
+              deleted_at: null,
+              deleted_by_user_id: null,
+            }
+          : {
+              incident_id: incidentId,
+              record_id: recordId,
+              row_version: 5,
+              target,
+              target_change_set_id: changeSetId,
+              rollback_change_set_id: changeSetId,
+              affected_record_ids: [recordId, actorId],
+            };
+      const fetch = vi.fn().mockResolvedValue(response(data));
+      vi.stubGlobal("fetch", fetch);
+      const port = createWorkbookRecordHistoryAdapter({
+        apiBase: undefined,
+        incidentId,
       });
-    }
-  });
+      const result = await port.send(captured, new AbortController().signal);
+      expect(result).toMatchObject({
+        kind: "acknowledged",
+        receipt:
+          kind === "restore"
+            ? {
+                kind,
+                deleted: false,
+                deletedAt: null,
+                deletedByUserId: null,
+                changeSetId,
+              }
+            : {
+                kind: "rollback",
+                target,
+                targetChangeSetId: changeSetId,
+                changeSetId,
+                affectedRecordIds: [recordId, actorId],
+              },
+      });
+      expect(fetch.mock.calls[0]?.[1].body).toBe(captured.body);
+      if (kind !== "restore") {
+        fetch.mockResolvedValueOnce(
+          response({ ...data, affected_record_ids: [actorId, recordId] }),
+        );
+        expect(await port.send(captured, new AbortController().signal)).toEqual(
+          {
+            kind: "uncertain",
+          },
+        );
+        fetch.mockResolvedValueOnce(
+          response({
+            ...data,
+            target: { kind: "row_restore", restore_to_revision_no: 99 },
+          }),
+        );
+        expect(await port.send(captured, new AbortController().signal)).toEqual(
+          {
+            kind: "uncertain",
+          },
+        );
+      }
+    },
+  );
   it("keeps malformed success transport loss and server failure uncertain", async () => {
     const fetch = vi
       .fn()

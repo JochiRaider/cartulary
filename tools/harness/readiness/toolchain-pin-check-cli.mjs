@@ -66,6 +66,7 @@ function loadExpected(root) {
     goToolchain: requireString(pins, "go_toolchain", file),
     nodeVersion: requireString(pins, "node_version", file),
     pnpmVersion: requireString(pins, "pnpm_version", file),
+    biomeVersion: requireString(pins, "biome_version", file),
     sqlcTool: requireString(tools, "sqlc", file),
     gooseTool: requireString(tools, "goose", file),
     staticcheckTool: requireString(tools, "staticcheck", file),
@@ -205,6 +206,7 @@ function checkPackageJson(root, mismatches, expected) {
   const file = "package.json";
   const packageJson = JSON.parse(readRepoFile(root, file));
   const web = JSON.parse(readRepoFile(root, "apps/web/package.json"));
+  checkEqual(mismatches, file, "devDependencies.@biomejs/biome", expected.biomeVersion, packageJson.devDependencies?.["@biomejs/biome"]);
   checkEqual(mismatches, "apps/web/package.json", "devDependencies.@playwright/test", expected.uiReview.playwright, web.devDependencies?.["@playwright/test"]);
   for (const [name, version] of Object.entries(expected.uiReview)) {
     // The adapter's transitive axe engine is checked by installed readiness.
@@ -296,6 +298,10 @@ function main() {
   const expected = loadExpected(root);
   browserTrustTool(root);
   const mismatches = [];
+
+  if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(expected.biomeVersion)) {
+    throw new Error("tools/toolchain_pins.json: biome_version requires an exact version");
+  }
 
   if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(expected.bubblewrapVersion)) {
     throw new Error("tools/toolchain_pins.json: bubblewrap_version requires an exact version");

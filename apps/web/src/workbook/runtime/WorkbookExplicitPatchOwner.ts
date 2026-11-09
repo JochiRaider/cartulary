@@ -671,8 +671,7 @@ export class WorkbookExplicitPatchOwner {
   async replay(id: string) {
     const entry = this.entries.get(id);
     if (
-      !entry ||
-      entry.phase !== "uncertain" ||
+      entry?.phase !== "uncertain" ||
       !this.canSubmit() ||
       this.running.has(id)
     )

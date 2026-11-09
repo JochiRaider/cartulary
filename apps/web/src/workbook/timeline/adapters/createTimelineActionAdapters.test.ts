@@ -424,9 +424,9 @@ function jsonResponse(payload: unknown, status = 200): Response {
 }
 
 function requestBody(fetchMock: ReturnType<typeof vi.fn>, index: number) {
-  return JSON.parse(
-    String((fetchMock.mock.calls[index]?.[1] as RequestInit).body),
-  );
+  const call = fetchMock.mock.calls[index];
+  if (!call) throw new Error("Missing mutation request");
+  return JSON.parse(String((call[1] as RequestInit).body));
 }
 
 function historyAttempt(operation: "delete" | "rollback"): HistoryAttempt {

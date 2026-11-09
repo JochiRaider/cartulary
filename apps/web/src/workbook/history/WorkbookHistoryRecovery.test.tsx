@@ -264,79 +264,84 @@ describe("History recovery surfaces", () => {
     ["Assessment", "history_entry"],
     ["Assessment", "change_set"],
     ["Assessment", "row_restore"],
-  ] as const)("retains exact %s %s recovery after inspector closure", async (surface, operation) => {
-    const t = setup(surface, operation);
-    const { rerender } = render(t.view(true));
-    await confirm(operation);
-    await waitFor(() =>
-      expect(t.owner.getSnapshot()[0]?.phase).toBe("uncertain"),
-    );
-    expect(t.runtime.getSnapshot().primaryLabel).toBe("Syncing");
-    expect(t.runtime.pendingQueue().model.snapshot().units).toEqual([]);
-    expect(t.runtime.getSnapshot().explicitInFlightCount).toBe(1);
-    expect(t.send).toHaveBeenCalledTimes(1);
-    const newer = screen.getByRole("textbox", { name: "Newer interaction" });
-    newer.focus();
-    rerender(t.view(false));
-    expect(document.activeElement).toBe(newer);
-    openHistoryRecovery();
-    expect(document.activeElement).toBe(
-      screen.getByRole("heading", {
-        level: 2,
-        name: /Soft-delete row|Restore deleted row|Restore row fields|Reverse history entry|Reverse change set/,
-      }),
-    );
-    if (surface === "Timeline" && operation === "history_entry") {
-      const read = vi.spyOn(t.port, "load");
-      for (let page = 1; page <= 3; page++)
-        read.mockImplementationOnce(async () => ({
-          kind: "accepted",
-          value: {
-            record_id: "record",
-            incident_id: "incident",
-            row_version: 5,
-            deleted: false,
-            representation_generation: "cartulary.history.1",
-            items: [],
-            paging: {
-              limit: 100,
-              has_more: true,
-              next_cursor: `review-${page}`,
-            },
-          },
-        }));
-      fireEvent.click(
-        screen.getByRole("button", { name: "Review current history" }),
+  ] as const)(
+    "retains exact %s %s recovery after inspector closure",
+    async (surface, operation) => {
+      const t = setup(surface, operation);
+      const { rerender } = render(t.view(true));
+      await confirm(operation);
+      await waitFor(() =>
+        expect(t.owner.getSnapshot()[0]?.phase).toBe("uncertain"),
       );
-      await screen.findByRole("button", { name: "Continue checking" });
+      expect(t.runtime.getSnapshot().primaryLabel).toBe("Syncing");
+      expect(t.runtime.pendingQueue().model.snapshot().units).toEqual([]);
+      expect(t.runtime.getSnapshot().explicitInFlightCount).toBe(1);
+      expect(t.send).toHaveBeenCalledTimes(1);
+      const newer = screen.getByRole("textbox", { name: "Newer interaction" });
+      newer.focus();
+      rerender(t.view(false));
+      expect(document.activeElement).toBe(newer);
+      openHistoryRecovery();
+      expect(document.activeElement).toBe(
+        screen.getByRole("heading", {
+          level: 2,
+          name: /Soft-delete row|Restore deleted row|Restore row fields|Reverse history entry|Reverse change set/,
+        }),
+      );
+      if (surface === "Timeline" && operation === "history_entry") {
+        const read = vi.spyOn(t.port, "load");
+        for (let page = 1; page <= 3; page++)
+          read.mockImplementationOnce(async () => ({
+            kind: "accepted",
+            value: {
+              record_id: "record",
+              incident_id: "incident",
+              row_version: 5,
+              deleted: false,
+              representation_generation: "cartulary.history.1",
+              items: [],
+              paging: {
+                limit: 100,
+                has_more: true,
+                next_cursor: `review-${page}`,
+              },
+            },
+          }));
+        fireEvent.click(
+          screen.getByRole("button", { name: "Review current history" }),
+        );
+        await screen.findByRole("button", { name: "Continue checking" });
+        expect(
+          screen.getByRole("region", { name: "History action recovery" })
+            .textContent,
+        ).toContain("Outcome unknown");
+        expect(screen.queryByText(/has not been sent/)).toBeNull();
+        expect(t.owner.getSnapshot()[0]?.phase).toBe("uncertain");
+        expect(t.send).toHaveBeenCalledOnce();
+        fireEvent.click(
+          screen.getByRole("button", { name: "Cancel checking" }),
+        );
+        read.mockRestore();
+      }
+      fireEvent.click(
+        screen.getByRole("button", { name: "Replay exact action" }),
+      );
+      await waitFor(() =>
+        expect(t.owner.getSnapshot()[0]?.reconciliation).toBe("complete"),
+      );
+      expect(t.send).toHaveBeenCalledTimes(2);
+      expect(t.send.mock.calls[1]?.[0]).toBe(t.send.mock.calls[0]?.[0]);
+      expect(t.counts).toEqual({ mutations: 1, changeSets: 1, revisions: 1 });
+      expect(t.runtime.getSnapshot().primaryLabel).toBe("Saved");
+      expect(t.effects.deleteAccepted).not.toHaveBeenCalled();
+      expect(t.effects.restoreAccepted).not.toHaveBeenCalled();
+      expect(t.effects.rollbackAccepted).not.toHaveBeenCalled();
       expect(
         screen.getByRole("region", { name: "History action recovery" })
           .textContent,
-      ).toContain("Outcome unknown");
-      expect(screen.queryByText(/has not been sent/)).toBeNull();
-      expect(t.owner.getSnapshot()[0]?.phase).toBe("uncertain");
-      expect(t.send).toHaveBeenCalledOnce();
-      fireEvent.click(screen.getByRole("button", { name: "Cancel checking" }));
-      read.mockRestore();
-    }
-    fireEvent.click(
-      screen.getByRole("button", { name: "Replay exact action" }),
-    );
-    await waitFor(() =>
-      expect(t.owner.getSnapshot()[0]?.reconciliation).toBe("complete"),
-    );
-    expect(t.send).toHaveBeenCalledTimes(2);
-    expect(t.send.mock.calls[1]?.[0]).toBe(t.send.mock.calls[0]?.[0]);
-    expect(t.counts).toEqual({ mutations: 1, changeSets: 1, revisions: 1 });
-    expect(t.runtime.getSnapshot().primaryLabel).toBe("Saved");
-    expect(t.effects.deleteAccepted).not.toHaveBeenCalled();
-    expect(t.effects.restoreAccepted).not.toHaveBeenCalled();
-    expect(t.effects.rollbackAccepted).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("region", { name: "History action recovery" })
-        .textContent,
-    ).not.toContain(t.send.mock.calls[0]?.[0].id);
-  });
+      ).not.toContain(t.send.mock.calls[0]?.[0].id);
+    },
+  );
 
   it("keeps acknowledgement through refresh failure and retries reads only", async () => {
     const t = setup("Generic");

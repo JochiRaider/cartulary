@@ -479,7 +479,7 @@ it("Batch recovery withdraws protected controls on authority loss without reopen
 
 it("Batch recovery does not reclaim focus after selecting another batch", async () => {
   const scenario = cases[0];
-  if (!scenario || scenario.plan.operation !== "pasteWorkbookClipboard")
+  if (scenario?.plan.operation !== "pasteWorkbookClipboard")
     throw new Error("Missing paste fixture");
   const user = userEvent.setup();
   const t = fixture(scenario.plan);

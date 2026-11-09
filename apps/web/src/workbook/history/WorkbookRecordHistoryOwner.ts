@@ -666,8 +666,7 @@ export class WorkbookRecordHistoryOwner {
   async replay(id: string) {
     const entry = this.entry(id);
     if (
-      !entry ||
-      entry.phase !== "uncertain" ||
+      entry?.phase !== "uncertain" ||
       !this.canAdmitRecord(entry.attempt.subject.recordId) ||
       entry.transportPending ||
       !this.authorized(entry.attempt)
@@ -744,8 +743,7 @@ export class WorkbookRecordHistoryOwner {
     const entry = this.entry(id);
     const binding = this.bindings.get(id);
     if (
-      !entry ||
-      entry.phase !== "rejected" ||
+      entry?.phase !== "rejected" ||
       entry.failure?.kind !== "client_txn_conflict" ||
       entry.transportPending ||
       !this.canReplace(id) ||

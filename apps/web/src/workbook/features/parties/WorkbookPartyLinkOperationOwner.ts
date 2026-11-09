@@ -436,8 +436,7 @@ export class WorkbookPartyLinkOperationOwner {
   async replayCreation(id: string) {
     const entry = this.creations.get(id);
     if (
-      !entry ||
-      entry.phase !== "uncertain" ||
+      entry?.phase !== "uncertain" ||
       !this.canSubmit() ||
       this.running.has(id)
     )

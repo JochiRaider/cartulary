@@ -38,8 +38,7 @@ export function createNoteAssociationReader(
         (feature) => feature.feature_group_key === expected.featureGroupKey,
       );
       if (
-        !actual ||
-        actual.route_binding.kind !== "note_associations" ||
+        actual?.route_binding.kind !== "note_associations" ||
         actual.route_binding.owner !== "note_associations_route" ||
         actual.route_binding.action_key !== kind ||
         actual.route_binding.target_view_schema_id !== undefined ||

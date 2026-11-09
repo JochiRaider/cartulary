@@ -794,8 +794,7 @@ export class WorkbookContextualTaskDecisionCreateOwner {
       lifetime = this.lifetime,
       generation = this.generation;
     if (
-      !entry ||
-      entry.phase !== "uncertain" ||
+      entry?.phase !== "uncertain" ||
       entry.transportPending ||
       this.preparing ||
       !this.canReplay() ||

@@ -36,7 +36,12 @@
       "!test-results/**",
       "!dist/**",
       "!build/**",
-      "!out/**"
+      "!out/**",
+      "!!docs",
+      "!!**/*.{m,M}{d,D}",
+      "!!**/*.{m,M}{a,A}{r,R}{k,K}{d,D}{o,O}{w,W}{n,N}",
+      "!!**/{r,R}{e,E}{a,A}{d,D}{m,M}{e,E}",
+      "!!**/{r,R}{e,E}{a,A}{d,D}{m,M}{e,E}.*"
     ]
   },
   "formatter": {
@@ -46,11 +51,16 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "a11y": {
         "useButtonType": "error"
       },
+      "complexity": {
+        "useMathMinMax": "off"
+      },
       "correctness": {
+        "noComponentHookFactories": "off",
+        "noPlaywrightMissingAwait": "off",
         "noUndeclaredDependencies": "error",
         "useExhaustiveDependencies": "error",
         "useHookAtTopLevel": "error",
@@ -59,6 +69,9 @@
       "nursery": {
         "noFloatingPromises": "error",
         "noMisusedPromises": "error"
+      },
+      "performance": {
+        "useDomNodeTextContent": "off"
       },
       "security": {
         "noDangerouslySetInnerHtml": "error",

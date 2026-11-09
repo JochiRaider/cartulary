@@ -77,7 +77,7 @@ test("IR shared host and identity aliases require explicit selection and retain 
     ],
   ] as const) {
     const names = expected.ambiguous_aliases[alias];
-    if (!names || names.length !== 2)
+    if (names?.length !== 2)
       throw new Error("Missing independent ambiguous alias expectation");
     const chosenName = names[1];
     if (!chosenName) throw new Error("Missing second alias candidate");

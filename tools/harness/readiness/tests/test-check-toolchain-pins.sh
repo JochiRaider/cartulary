@@ -242,6 +242,8 @@ node_version="$(pin_value node_version)"
 node_version_alt="$(bump_dotted_version "$node_version")"
 pnpm_version="$(pin_value pnpm_version)"
 pnpm_version_alt="$(bump_dotted_version "$pnpm_version")"
+biome_version="$(pin_value biome_version)"
+biome_version_alt="$(bump_dotted_version "$biome_version")"
 go_toolchain="$(pin_value go_toolchain)"
 go_toolchain_alt="$(bump_dotted_version "$go_toolchain")"
 testcontainers_go_version="$(pin_value testcontainers_go_version)"
@@ -261,6 +263,26 @@ mutate_package_node() {
 
 mutate_package_manager() {
   replace_text "$1/package.json" '"packageManager": "pnpm@'"$pnpm_version"'"' '"packageManager": "pnpm@'"$pnpm_version_alt"'"'
+}
+
+mutate_biome_version() {
+  replace_text "$1/package.json" "\"@biomejs/biome\": \"$biome_version\"" "\"@biomejs/biome\": \"$biome_version_alt\""
+}
+
+mutate_biome_pin() {
+  replace_text "$1/tools/toolchain_pins.json" "\"biome_version\": \"$biome_version\"" "\"biome_version\": \"^$biome_version\""
+}
+
+mutate_missing_biome_pin() {
+  replace_text "$1/tools/toolchain_pins.json" "\"biome_version\": \"$biome_version\"," ""
+}
+
+mutate_missing_biome_dependency() {
+  replace_text "$1/package.json" "\"@biomejs/biome\": \"$biome_version\"," ""
+}
+
+mutate_inexact_biome_dependency() {
+  replace_text "$1/package.json" "\"@biomejs/biome\": \"$biome_version\"" "\"@biomejs/biome\": \"^$biome_version\""
 }
 
 mutate_go_toolchain() {
@@ -343,6 +365,26 @@ expect_drift "node-engine" \
 expect_drift "package-manager" \
   "package.json: packageManager mismatch: expected pnpm@$pnpm_version, got pnpm@$pnpm_version_alt" \
   mutate_package_manager
+
+expect_drift "biome-version" \
+  "package.json: devDependencies.@biomejs/biome mismatch: expected $biome_version, got $biome_version_alt" \
+  mutate_biome_version
+
+expect_drift "biome-pin" \
+  "tools/toolchain_pins.json: biome_version requires an exact version" \
+  mutate_biome_pin
+
+expect_drift "missing-biome-pin" \
+  "tools/toolchain_pins.json: biome_version must be a non-empty string" \
+  mutate_missing_biome_pin
+
+expect_drift "missing-biome-dependency" \
+  "package.json: devDependencies.@biomejs/biome mismatch: expected $biome_version, got (missing)" \
+  mutate_missing_biome_dependency
+
+expect_drift "inexact-biome-dependency" \
+  "package.json: devDependencies.@biomejs/biome mismatch: expected $biome_version, got ^$biome_version" \
+  mutate_inexact_biome_dependency
 
 expect_drift "go-toolchain" \
   "go.mod: toolchain mismatch: expected $go_toolchain, got $go_toolchain_alt" \

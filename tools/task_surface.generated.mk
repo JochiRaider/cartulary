@@ -467,7 +467,7 @@ lint-markdown:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-markdown)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)CARTULARY_STEP_FAILURE_NOTE="inspect Markdown lint diagnostics; do not run broad prose reflow" $(RUN_STEP_SCRIPT) "lint markdown" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/static-analysis/markdownlint.sh
+	$(Q)CARTULARY_STEP_FAILURE_NOTE="inspect Markdown lint diagnostics; do not run broad prose reflow" $(RUN_STEP_SCRIPT) "lint markdown" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/static-analysis/markdown-biome.sh
 
 source-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 source-check: export CARTULARY_TEST_TARGET ?= source-check
