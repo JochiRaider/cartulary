@@ -1,0 +1,14 @@
+{
+  "pack_key": "framework.veris",
+  "pack_kind": "framework",
+  "content_profile_id": "cartulary.reference_pack.framework.veris.v2",
+  "content_profile_version": "2",
+  "payload_shape": "objects_relationships",
+  "authority_class": "framework_reference",
+  "required_base": false,
+  "schemas": {
+    "object": "profiles/framework.veris.object.v2.schema.json",
+    "relationship": "profiles/framework.veris.relationship.v2.schema.json"
+  },
+  "max_line_bytes": 1048576
+}

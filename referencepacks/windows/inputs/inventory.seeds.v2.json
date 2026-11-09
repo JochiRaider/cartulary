@@ -1,0 +1,19 @@
+{
+  "schema_id": "cartulary.windows_event_inventory.v2",
+  "purpose": "real",
+  "sources": [
+    {"id":"appendix-l-events-to-monitor","url":"https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/plan/appendix-l--events-to-monitor","kind":"provider_article","revision":null,"expected_sha256":null},
+    {"id":"audit-index","url":"https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/advanced-security-audit-policy-settings","kind":"audit_index","revision":null,"expected_sha256":null},
+    {"id":"event-1102","url":"https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-1102","kind":"event_document","revision":null,"expected_sha256":null},
+    {"id":"learn-terms","url":"https://learn.microsoft.com/en-us/legal/termsofuse","kind":"license","revision":null,"expected_sha256":null},
+    {"id":"powershell-5-logging","url":"https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_logging?view=powershell-5.1","kind":"provider_article","revision":null,"expected_sha256":null},
+    {"id":"powershell-core-license","url":"https://raw.githubusercontent.com/PowerShell/PowerShell/bf5fc434120666e5f1a8d1dfd6ecac7efc17a4be/LICENSE.txt","kind":"license","revision":"bf5fc434120666e5f1a8d1dfd6ecac7efc17a4be","expected_sha256":null},
+    {"id":"powershell-core-logging","url":"https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_logging_windows?view=powershell-7.6","kind":"provider_article","revision":null,"expected_sha256":null},
+    {"id":"powershell-core-manifest","url":"https://raw.githubusercontent.com/PowerShell/PowerShell/bf5fc434120666e5f1a8d1dfd6ecac7efc17a4be/src/PowerShell.Core.Instrumentation/PowerShell.Core.Instrumentation.man","kind":"powershell_manifest","revision":"bf5fc434120666e5f1a8d1dfd6ecac7efc17a4be","expected_sha256":null},
+    {"id":"powershell-core-release","url":"https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v7.6.9","kind":"release_metadata","revision":"bf5fc434120666e5f1a8d1dfd6ecac7efc17a4be","expected_sha256":null},
+    {"id":"powershell-core-tag","url":"https://api.github.com/repos/PowerShell/PowerShell/git/tags/a0edd6969993766081edc6bf0306696d1adef88a","kind":"release_metadata","revision":"bf5fc434120666e5f1a8d1dfd6ecac7efc17a4be","expected_sha256":null},
+    {"id":"task-scheduler-quotas","url":"https://learn.microsoft.com/en-us/troubleshoot/windows-client/system-management-components/0x80041323-running-scheduled-tasks","kind":"provider_article","revision":null,"expected_sha256":null},
+    {"id":"wmi-activity","url":"https://learn.microsoft.com/en-us/troubleshoot/windows-server/system-management-components/troubleshoot-wmi-high-cpu-issues","kind":"provider_article","revision":null,"expected_sha256":null}
+  ],
+  "discovery": []
+}

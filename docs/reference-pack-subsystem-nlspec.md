@@ -2,8 +2,8 @@
 title: Cartulary Reference Pack Subsystem NLSpec
 status: adopted/current
 document_class: nlspec
-document_version: 0.4.0
-contract_major: 3
+document_version: 0.5.0
+contract_major: 4
 profile_id: reference_pack
 schema_id: cartulary.reference_pack_subsystem_nlspec.v1
 ---
@@ -12,7 +12,19 @@ schema_id: cartulary.reference_pack_subsystem_nlspec.v1
 
 This NLSpec defines the Cartulary Reference Pack subsystem. It specializes the existing `reference_pack` extension profile and defines the limited Base Profile contract for immutable built-in type registries. It does not create a second extension identity.[^7]
 
-Contract major 3 adopts the native ATT&CK profile and the v2 pack contract. Only `cartulary.reference_pack_contract.v2` is admitted. ATT&CK, VERIS, Windows Event IDs and Entra Application IDs content/profile schemas are v2; unchanged profile schemas, manifest shape, TUF method, application compatibility major and HTTP namespace retain their identifiers. Closed predecessor schemas remain design and test evidence, never admission paths. Incident-bundle format 7 carries only the current `reference_pack_refs.v2` catalog. Before any runtime reconciliation write, worker admission or readiness, incompatible retained pack versions, immutable sets, pending operations and dependent artifacts MUST fail closed. No historical byte rewrite, compatibility reader, implicit reset or data conversion is permitted. Validation uses isolated fresh state. Required Base registries retain their content and receive new release-bound v2 manifest identities.
+Contract major 4 adopts pack contract v3 and generic dataset profile v1 for
+ATT&CK, VERIS, Windows Event IDs and Entra Application IDs. Only
+`cartulary.reference_pack_contract.v3` is admitted. Manifest v2, immutable sets
+and reference catalogs v3, consumer item/results v3, lookup request v2 and
+incident-bundle format 8 form one coordinated cutover. Source-specific correctness
+belongs to independently buildable producers; runtime enforces trust, structural
+integrity, local references, resource limits and declared lookup semantics.
+Required Base content and algorithms remain unchanged under new release-bound v3
+manifests. Other optional profile behavior remains unchanged. Incompatible
+retained state fails before reconciliation writes, worker admission or readiness.
+No historical rewrite, compatibility reader, implicit reset or conversion is
+permitted; validation uses fresh isolated state. §§13.4 and 21 define the complete
+generic boundary and consumer contracts.
 
 No v1 Reference Pack deployment exists or has ever existed. The only existing
 reference-pack artifacts are those currently retained under `fixtures/`.
@@ -37,14 +49,15 @@ A portable-only binding MUST be resolved from the validated retained
 catalog, not from a database-reserialized approximation of canonical set bytes.
 Pending operations use only the closed operation-input and portability-input
 contracts; they contain no embedded profile or entry compatibility bindings.
-The current `cartulary.reference_pack_reconciliation.v1` input describes a
-terminal synchronous reconciliation receipt, never a committed pending operation.
-Its suffix does not identify a v1 pack or deployment.
+RP-REQ-283 defines the current retained operation-input contracts, including
+terminal Base reconciliation and root-bootstrap receipts. A completed synchronous
+receipt is never a committed pending operation; its schema suffix does not
+identify a pack contract or deployment version.
 Superseded schemas are inert design fixtures outside the runtime contract bundle.
 Database migration MUST NOT add a Reference Pack v1 migration, conversion, or
-pre-migration content scan. The current Entra profile and entry schema remain v2
-only; startup, operator import, consumers and recovery retain their current
-contract and integrity validation. Required current tables MUST be present;
+pre-migration content scan. The four generic producers retain their native source schemas only as producer
+contracts; startup, operator import, consumers and recovery admit current generic
+contracts and retain integrity validation. Required current tables MUST be present;
 admission MUST propagate database failures without treating an absent table as
 an empty compatible catalog.
 
@@ -112,8 +125,8 @@ The Reference Pack Extension Profile MUST remain a deployment-scoped administrat
 | `RP-GATE-010` | Security authority | The security authority confirms that the Ed25519-only v1 profile is permitted for the target compliance posture. |
 | `RP-GATE-011` | Licensing authority | Every project-distributed external-data pack has an approved redistribution classification and required notices. |
 | `RP-GATE-012` | Corpus maintenance | Required behavioral families and every supported profile have executed fixture coverage under §29; ordinary owner review resolves normative placeholders and contradictions. Counts and identifier mappings do not establish completeness. |
-| `RP-GATE-013` | Extensions Subsystem NLSpec | Profile major 3, unchanged configuration v2 and lifecycle Jobs v2 are adopted with shared transaction/deadline finalization and empty capability arrays. |
-| `RP-GATE-014` | Core 01 incident portability owner | Incident-bundle format 7, exact references, destination trust, inactive import, required-member failure and licensing rules are adopted together. |
+| `RP-GATE-013` | Extensions Subsystem NLSpec | Profile major 4, unchanged configuration v2 and lifecycle Jobs v2 are adopted with shared transaction/deadline finalization and empty capability arrays. |
+| `RP-GATE-014` | Core 01 incident portability owner | Incident-bundle format 8, exact references, destination trust, inactive import, required-member failure and licensing rules are adopted together. |
 | `RP-GATE-015` | Core 01/Core 04 recovery owners | Current recovery contributions retain content, envelopes, trust history, immutable provenance and pins; historical-time verification and required-loss readiness are adopted. |
 | `RP-GATE-016` | Core 01 Jobs and Extensions owners | Local operator admission has an explicit non-user actor and operation identity in the common Job, durable admission evidence, terminal finalization and recovery contracts; no fabricated user or second verification pipeline is permitted. The operator waits on the same admitted lifecycle Job without creating a listener. |
 
@@ -147,7 +160,7 @@ Object member names, schema identifiers, algorithm identifiers, profile identifi
 **RP-REQ-009**
 A canonical or public object MUST reject unknown members unless this NLSpec explicitly admits them in the TUF `signed` extension policy in Table 10-A. The presence of an `extensions` member does not permit undeclared members inside it.
 
-Unless a member table explicitly says otherwise, every named member at every nesting level is required and non-null. A required nullable member MUST be present and use explicit `null` when absent semantically. Producer defaults MUST be materialized before signing; consumers MUST NOT repair omitted signed members. The TUF `signed` extension policy in Table 10-A is the only unknown-member exception.
+Unless a member table explicitly says otherwise, every named member at every nesting level is required and non-null. A required nullable member MUST be present and use explicit `null` when absent semantically. Producer defaults MUST be materialized before signing; consumers MUST NOT repair omitted signed members. The TUF `signed` extension policy and generic inert `data` objects are the only open-member exceptions. Descriptor-defined `lookup_values` names are checked against the retained descriptor.
 
 **RP-REQ-010**
 For every optional member, this NLSpec MUST define omission behavior and explicit JSON `null` behavior separately. An omitted member and an explicit `null` MUST NOT be treated as equivalent unless the owning requirement says so.
@@ -208,19 +221,14 @@ This document uses semantic document versioning only for the NLSpec artifact. `d
 | `pack_release_sequence` | Per-repository, per-pack-key rollback-protection counter | Integer ordering only for import admission. |
 
 **RP-REQ-018**
-The current pack contract identifier MUST be `cartulary.reference_pack_contract.v2`. A change to canonical bytes, identity, digest, trust, dependency, activation, pack-set, or consumer semantics MUST use a new pack contract identifier and a new `contract_major`.
+The current pack contract identifier MUST be `cartulary.reference_pack_contract.v3`. A change to canonical bytes, identity, digest, trust, dependency, activation, pack-set, or consumer semantics MUST use a new pack contract identifier and a new `contract_major`.
 
 **RP-REQ-019**
 Editorial corrections that do not change observable behavior MAY increment only the patch component of `document_version`. Additive content-profile registrations MAY increment the minor component only when existing canonical bytes, defaults, errors, and consumers remain unchanged.
 
-The explicitly adopted pre-deployment Entra and VERIS content-profile v2
-replacements are scoped exceptions to RP-REQ-018 and the additive-only rule
-above. They replace only the named profile's canonical records and the matching
-consumer union arm. Shared envelope, identity algorithms, trust, lifecycle,
-pack-set and reference-catalog shapes, transport, and other content profiles
-remain unchanged. They retain shared pack contract v2 and contract major 3.
-Predecessor inputs fail current admission; there is no dual reader, migration,
-conversion, implicit reset, or reissue of unrelated pack content.
+The historical pre-deployment Entra and VERIS v2 exceptions do not apply to
+this generic cutover. Its changed bytes and consumer/runtime assurance require
+the new shared contract identifier and subsystem major under RP-REQ-018.
 
 **RP-REQ-020**
 The dependencies in Table 4-B identify the imported owners and external contract versions. A newer external contract version MUST NOT be substituted without revising this NLSpec or its named owner. Coordinated owner amendments are reviewed and adopted through the existing repository document-status process. Repository history records the reviewed changes; companion-document hashes, repeated revision bindings and separate signoff dossiers are not required. Tests, generators of product contracts, runtime metadata and release evidence MUST NOT read, stat or hash Markdown files. Offline source producers MAY acquire, hash and parse explicitly pinned upstream Markdown datasets under an immutable source profile, as adopted in Core 00. These inert data inputs MUST NOT be product-test expectations, runtime dependencies or a route to consuming Cartulary owner prose.
@@ -237,7 +245,7 @@ The dependencies in Table 4-B identify the imported owners and external contract
 | Reporting Subsystem NLSpec | Pack-sensitive reporting consumer boundary | Reporting 1.4.0 companion amendment after `RP-GATE-006`. |
 | Report Composition Subsystem NLSpec | Exact admitted preview identity and time | Report Composition 1.3.0 companion amendment after `RP-GATE-006`. |
 | Extensions Subsystem NLSpec | Profile/configuration/Job version selection; transaction and deadline protocol | Coordinated companion amendment under `RP-GATE-013`. |
-| Core 01 incident portability owner | Format 7 references, embedding and destination reuse | Coordinated §12.3 companion amendment under `RP-GATE-014`. |
+| Core 01 incident portability owner | Format 8 references, embedding and destination reuse | Coordinated §12.3 companion amendment under `RP-GATE-014`. |
 | Core 01/Core 04 recovery owners | Current recovery catalog and historical integrity | Coordinated backup/restore companion amendments under `RP-GATE-015`. |
 | OpenTelemetry NLSpec | Telemetry mechanics | Current adopted OpenTelemetry NLSpec after `RP-GATE-007`. |
 | Testing Harness NLSpec | Fixture and generated-artifact mechanics | Current adopted Testing Harness NLSpec after `RP-GATE-008`. |
@@ -413,7 +421,7 @@ payload/objects.ndjson
 payload/relationships.ndjson
 ```
 
-A pack containing both shapes, neither shape, or an additional payload member fails unless the registered content profile explicitly declares the additional member. No current profile declares an additional payload member.
+A pack containing both shapes, neither shape, or an additional payload member fails unless the registered content profile explicitly declares the additional member. Generic dataset v1 additionally requires `payload/descriptor.json` under RP-REQ-276.
 
 **RP-REQ-044**
 `notices/` MAY contain one or more UTF-8 text files whose paths are declared in the manifest. A notice file MUST use media type `text/plain`, UTF-8 without BOM, Unicode NFC, LF line endings, no NUL, and no C0 or C1 control except LF and horizontal tab. It MUST be non-empty and MUST end in exactly one LF. An omitted `notices/` directory means no notice file is present.
@@ -471,14 +479,14 @@ For an operator-imported container, the implementation MUST use the untrusted `t
 ## 8.2 Manifest
 
 **RP-REQ-050**
-`manifest.json` MUST be a closed canonical object conforming to `cartulary.reference_pack_manifest.v1`. Every top-level member in Table 8-A is required. An empty collection MUST be serialized as `[]`; `extensions` MUST be `{}`.
+`manifest.json` MUST be a closed canonical object conforming to `cartulary.reference_pack_manifest.v2`. Every top-level member in Table 8-A is required. An empty collection MUST be serialized as `[]`; `extensions` MUST be `{}`.
 
 **Table 8-A. Manifest top-level members**
 
 | Member | Type | Null allowed | Rule |
 | --- | --- | ---: | --- |
-| `schema_id` | string | No | Exactly `cartulary.reference_pack_manifest.v1`. |
-| `pack_contract_version` | string | No | Exactly `cartulary.reference_pack_contract.v2`. |
+| `schema_id` | string | No | Exactly `cartulary.reference_pack_manifest.v2`. |
+| `pack_contract_version` | string | No | Exactly `cartulary.reference_pack_contract.v3`. |
 | `pack_key` | string | No | RP-REQ-022. |
 | `pack_kind` | string | No | Exact registered value for the selected content profile. |
 | `pack_version` | string | No | RP-REQ-023. |
@@ -497,7 +505,7 @@ For an operator-imported container, the implementation MUST use the untrusted `t
 | `compatibility` | object | No | Table 8-D. |
 | `dependencies` | array | No | Table 8-E; `0..64` items. |
 | `conflicts` | array | No | Table 8-F; `0..64` items. |
-| `files` | array | No | Table 8-G; exactly one or two payload items plus `0..64` notice items, for a total of `1..66`. |
+| `files` | array | No | Table 8-G; exactly one, two or three profile-declared payload items plus `0..64` notices, with total files at most `66`. |
 | `content_summary` | object | No | Table 8-H. |
 | `license` | object | No | Table 8-I. |
 | `extensions` | object | No | RP-REQ-038. |
@@ -554,7 +562,7 @@ Conflicts MUST sort by `pack_key`, then `pack_version`, with `null` before strin
 | --- | --- | --- |
 | `path` | string | Exact payload or notice path under RP-REQ-036. |
 | `role` | string | Exactly `payload` or `notice`. |
-| `media_type` | string | Exactly `application/x-ndjson` for payload and `text/plain` for notice. |
+| `media_type` | string | Exactly `application/json` for the generic descriptor, `application/x-ndjson` for payload streams and `text/plain` for notice. |
 | `size_bytes` | integer | `0..268435456`; equality at the maximum is valid. |
 | `sha256` | string | SHA-256 of exact raw file bytes. |
 
@@ -763,7 +771,7 @@ Missing binding data and mismatches between structurally admitted binding values
 Threshold satisfaction MUST count only distinct valid signatures from key IDs authorized for the applicable role in the currently trusted root, except for the explicitly defined old/new root authorization union in RP-REQ-067. An untrusted signer, invalid signature, duplicate signer, or insufficient distinct threshold fails with `signature_threshold_not_met`, or `tuf_root_rotation_invalid` when evaluating a root update. Verification MUST examine every supplied signature and MUST NOT stop after reaching a threshold.
 
 **RP-REQ-074**
-The successful verification attestation MUST retain the complete sorted set of valid authorized supplied signer key IDs for each role, not an implementation-selected threshold subset. Root transitions retain predecessor-authorized and successor-authorized signer sets separately. Profile major 3 preserves the complete targets-role set through `verified_signer_key_ids[]` under RP-REQ-215; the retired scalar `signer_key_id` is not an alternate projection. Coordinated adoption of that Core amendment remains required before a Reference Pack conformance claim.
+The successful verification attestation MUST retain the complete sorted set of valid authorized supplied signer key IDs for each role, not an implementation-selected threshold subset. Root transitions retain predecessor-authorized and successor-authorized signer sets separately. Profile major 4 preserves the complete targets-role set through `verified_signer_key_ids[]` under RP-REQ-215; the retired scalar `signer_key_id` is not an alternate projection. Coordinated adoption of that Core amendment remains required before a Reference Pack conformance claim.
 
 ## 10.5 Expiry and historical use
 
@@ -967,7 +975,7 @@ The typed registry MUST declare one applicability token per check. `attempt_byte
 
 If `manifest.json` is absent, manifest-dependent ranks 28–35 are inapplicable and `member_missing` reports its fixed logical path, unless an earlier trust or inventory check fails. In particular, a declared TUF target with absent bytes still fails `target_extra` first. A manifest exceeding its byte ceiling is never decoded: ranks 28–30 are inapplicable and `manifest_schema` reports the byte guard. A bounded present manifest's raw UTF-8, BOM and escaped-surrogate checks belong to `manifest_encoding`. Its whole-document JSON syntax and top-level object requirement belong to `manifest_json`, before any duplicate verdict. No partial or repaired typed manifest is constructed.
 
-For the current sixteen closed data profiles, active role/media declarations are already excluded by manifest schema and unrecognized logical members by inventory admission. Therefore a complete admitted container cannot first fail `disallowed_content` in this release. The check MUST still assert the complete data-only role/media allowlist: payload `application/x-ndjson` and notice `text/plain`. Inert command/query examples, literal markup, and other profile text are never interpreted or guessed to be executable programs. A future profile adding another media role must amend this applicability argument, the typed allowlist and its acceptance evidence together. Producer prohibitions on actual secrets remain distinct from guessed content classification.
+For current closed envelopes and the finite generic descriptor, active role/media declarations are already excluded by manifest schema and unrecognized logical members by inventory admission. Therefore a complete admitted container cannot first fail `disallowed_content` in this release. The check MUST still assert the complete data-only role/media allowlist: payload streams `application/x-ndjson`, generic descriptor `application/json`, and notice `text/plain`. Inert command/query examples, literal markup, and other profile text are never interpreted or guessed to be executable programs. A future profile adding another media role must amend this applicability argument, the typed allowlist and its acceptance evidence together. Producer prohibitions on actual secrets remain distinct from guessed content classification.
 
 
 | Rank | Check ID | Phase | Code |
@@ -1044,7 +1052,7 @@ A validation summary MUST conform to closed `cartulary.reference_pack_validation
 
 Retained summaries use canonical JSON without a trailing line feed and are bounded to 16,777,216 bytes. Their reference is `rpvs_` followed by lowercase SHA-256 of those canonical bytes. An attempt binds the exact summary to its verdict before semantic finalization; only a committed content verdict is publicly readable. The successful prefix and exact deduplicated count MUST be independent of finding traversal order. Implementations MUST bound memory while counting all enumerable findings; any scratch storage remains private to the attempt and is removed on completion or abort. A scratch read, write, close or cleanup failure is an execution failure, not evidence that content is invalid. Cooperative teardown after cancellation and recovery after a physical cleanup failure follow RP-REQ-238/239.
 
-Diagnostic member names come only from declared schemas and the virtual collection members `archive_members`, `entries`, `metadata`, `objects`, and `relationships`. Limit IDs come from the typed limit registry. Non-numeric detail tokens come from the closed diagnostic vocabulary projection; count and byte-measurement tokens use unsigned 64-bit decimal strings (`0..18446744073709551615`), without leading zeroes. These strings do not widen the JSON-number or diagnostic-path-index safe-integer domain. Entry identifiers are limited to 512 UTF-8 bytes and must satisfy the profile's identifier grammar before attribution. Unknown names coalesce at the fixed unknown-member segment when their resulting issue objects are identical.
+Diagnostic member names come only from declared schemas and the virtual collection members `archive_members`, `descriptor`, `entries`, `metadata`, `objects`, and `relationships`. Limit IDs come from the typed limit registry. Non-numeric detail tokens come from the closed diagnostic vocabulary projection; count and byte-measurement tokens use unsigned 64-bit decimal strings (`0..18446744073709551615`), without leading zeroes. These strings do not widen the JSON-number or diagnostic-path-index safe-integer domain. Entry identifiers are limited to 512 UTF-8 bytes and must satisfy the profile's identifier grammar before attribution. Unknown names coalesce at the fixed unknown-member segment when their resulting issue objects are identical.
 
 **RP-REQ-095**
 Before issue counts are calculated, byte-identical issue objects MUST coalesce. `issue_id` is unique only within one validation summary and MUST equal:
@@ -1069,7 +1077,20 @@ Verification timeout MUST use `limits.reference_packs.max_verification_seconds`.
 # 13. Content-profile registry and common payload contracts
 
 **RP-REQ-099**
-A pack is content-compatible only when the exact pair `(pack_key, content_profile_id)` appears in Table 13-A and `content_profile_version` equals the registered value. A later adopted NLSpec revision MAY add rows without changing the pack contract major only when existing rows, bytes, algorithms, and consumer behavior remain unchanged. Omission behavior: an unregistered pair fails with `contract_incompatible`.
+A standardized key in Table 13-A MUST use its exact registered profile/version.
+Any other canonical key outside the reserved `type_registry.*` namespace MAY
+use generic dataset v1, version `"1"`, with kind `framework` or `enrichment` and
+corresponding authority `framework_reference` or `advisory_enrichment`.
+For an unregistered key, authority MUST be derived from the admitted manifest
+kind, never a default assigned by content-model resolution. Local provenance
+validation MUST bind the exact manifest to its set member before checking this
+authority. Reference-only portable history may lack that manifest: it retains a
+closed advisory source assertion, grants no destination trust or availability,
+and MUST agree with the exact manifest whenever that manifest is retained.
+Unknown `type_registry.*` keys and incompatible substitution for any standardized
+key fail with `contract_incompatible`. No registry-code change is required for a
+new advisory key using the generic profile. A new normalization algorithm or
+non-generic profile requires an adopted engine contract.
 
 **Table 13-A. Current content-profile registry**
 
@@ -1078,14 +1099,14 @@ A pack is content-compatible only when the exact pair `(pack_key, content_profil
 | `type_registry.host` | `type_registry` | `cartulary.reference_pack.type_registry.host.v1` | `1` | entries | `registry` |
 | `type_registry.evidence` | `type_registry` | `cartulary.reference_pack.type_registry.evidence.v1` | `1` | entries | `registry` |
 | `type_registry.indicator` | `type_registry` | `cartulary.reference_pack.type_registry.indicator.v1` | `1` | entries | `registry` |
-| `framework.attack` | `framework` | `cartulary.reference_pack.framework.attack.v2` | `2` | objects and relationships | `framework_reference` |
+| `framework.attack` | `framework` | `cartulary.reference_pack.dataset.v1` | `1` | descriptor, objects and relationships | `framework_reference` |
 | `framework.d3fend` | `framework` | `cartulary.reference_pack.framework.d3fend.v1` | `1` | objects and relationships | `framework_reference` |
-| `framework.veris` | `framework` | `cartulary.reference_pack.framework.veris.v2` | `2` | objects and relationships | `framework_reference` |
+| `framework.veris` | `framework` | `cartulary.reference_pack.dataset.v1` | `1` | descriptor, objects and relationships | `framework_reference` |
 | `enrichment.tor` | `enrichment` | `cartulary.reference_pack.enrichment.tor.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.cisa_kev` | `enrichment` | `cartulary.reference_pack.enrichment.cisa_kev.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.ms_portals` | `enrichment` | `cartulary.reference_pack.enrichment.ms_portals.v1` | `1` | entries | `advisory_enrichment` |
-| `enrichment.windows_event_ids` | `enrichment` | `cartulary.reference_pack.enrichment.windows_event_ids.v2` | `2` | entries | `advisory_enrichment` |
-| `enrichment.entra_app_ids` | `enrichment` | `cartulary.reference_pack.enrichment.entra_app_ids.v2` | `2` | entries | `advisory_enrichment` |
+| `enrichment.windows_event_ids` | `enrichment` | `cartulary.reference_pack.dataset.v1` | `1` | descriptor, objects and relationships | `advisory_enrichment` |
+| `enrichment.entra_app_ids` | `enrichment` | `cartulary.reference_pack.dataset.v1` | `1` | descriptor, objects and relationships | `advisory_enrichment` |
 | `enrichment.lolbas` | `enrichment` | `cartulary.reference_pack.enrichment.lolbas.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.loldrivers` | `enrichment` | `cartulary.reference_pack.enrichment.loldrivers.v1` | `1` | entries | `advisory_enrichment` |
 | `enrichment.lolesxi` | `enrichment` | `cartulary.reference_pack.enrichment.lolesxi.v1` | `1` | entries | `advisory_enrichment` |
@@ -1095,7 +1116,7 @@ A pack is content-compatible only when the exact pair `(pack_key, content_profil
 The registry reflects the current Core pack keys and the locally staged dataset families observed in the Kanvas research. That research also identifies missing checksum and signature verification as a supply-chain weakness, which this NLSpec closes through mandatory verification.[^6]
 
 **RP-REQ-100**
-A profile's `pack_kind` MUST equal the exact value in Table 13-A. The public Core resource may continue to serialize `pack_kind` as an open string, but the current profile registry is closed for conformant content profiles.
+A profile's `pack_kind` MUST equal the exact value in Table 13-A. The public Core resource may continue to serialize `pack_kind` as an open string, but advisory generic keys follow the explicit RP-REQ-099 extension rule.
 
 ## 13.1 Common NDJSON
 
@@ -1107,14 +1128,14 @@ Every NDJSON file MUST:
 - use LF as the only line separator;
 - terminate every line, including the last, with LF;
 - contain no blank line or comment;
-- contain no line longer than the profile bound including LF: 4194304 bytes for ATT&CK v2, 1048576 for every other profile;
+- contain no line longer than the profile bound including LF: 4194304 bytes for generic dataset v1, 1048576 for every other runtime profile;
 - contain exactly the count declared by `content_summary`.
 
 **RP-REQ-102**
 `entries.ndjson` objects MUST sort by the profile's canonical entry identity as ascending UTF-8 bytes. `objects.ndjson` objects MUST sort by `object_id`. `relationships.ndjson` objects MUST sort by `relationship_type`, `source_object_id`, `target_object_id`, then `relationship_id`.
 
 **RP-REQ-103**
-Duplicate entry IDs, object IDs, or relationship IDs are invalid. Two different IDs that normalize to the same profile lookup identity are also invalid unless the profile explicitly classifies one as a non-identity alias and alias resolution remains unambiguous.
+Duplicate entry IDs, object IDs, or relationship IDs are invalid. Generic lookup duplicates follow the descriptor uniqueness rule in RP-REQ-278. Other profiles retain their declared identity and alias uniqueness rules.
 
 ## 13.2 Common entry members
 
@@ -1154,7 +1175,7 @@ Aliases MUST be sorted by the profile's alias-normalization output, then exact a
 ## 13.3 Common framework object and relationship members
 
 **RP-REQ-108**
-Every framework object MUST contain the following common members. ATT&CK v2 additionally requires the closed native members in §15.1; other profiles contain exactly these members:
+Every non-generic framework object MUST contain the following common members. ATT&CK v2 additionally requires the closed native members in §15.1; other profiles contain exactly these members:
 
 | Member | Type | Null allowed | Rule |
 | --- | --- | ---: | --- |
@@ -1174,7 +1195,7 @@ Every framework object MUST contain the following common members. ATT&CK v2 addi
 A framework `external_refs[]` item contains exactly `source_name`, `external_id`, and nullable `url`. `source_name` and `external_id` are non-empty single-line strings. `url` is either `null` or the canonical output of RP-REQ-124 with scheme `https`, no userinfo, and no fragment. Items sort by `source_name`, then `external_id`, then `url` with `null` first. Duplicates are invalid. Reference uniqueness uses the complete tuple. Different references MAY share an external ID. Derived lookup keys form a set per object and exact `(lookup_kind, lookup_value)`; repeated keys coalesce in canonical first-occurrence order without changing canonical content or provenance. Lookup returns each matching object once, while different objects sharing an external ID remain separate results.
 
 **RP-REQ-110**
-Every framework relationship MUST contain the following common members. ATT&CK v2 additionally requires the closed native members in §15.1; other profiles contain exactly these members:
+Every non-generic framework relationship MUST contain the following common members. ATT&CK v2 additionally requires the closed native members in §15.1; other profiles contain exactly these members:
 
 | Member | Type | Null allowed | Rule |
 | --- | --- | ---: | --- |
@@ -1203,6 +1224,251 @@ Every framework relationship MUST contain the following common members. ATT&CK v
 ```
 
 The declared `relationship_id` must equal the computed value.
+
+## 13.4 Generic dataset v1 and independent production — 2026-11-08
+
+**RP-REQ-275 — responsibility and module boundaries**
+The generic profile is `cartulary.reference_pack.dataset.v1`, version `"1"`.
+It is advisory data. Source interpretation, source-specific schemas, factual
+correspondence, editorial and redistribution policy belong to the producer.
+Runtime admission authenticates a publisher and validates the bounded generic
+contract; a signature does not establish factual truth. The runtime MUST NOT
+interpret native ATT&CK, VERIS, Windows or Entra `data` fields as executable
+schemas or source-specific validation instructions.
+
+The neutral format library and each of the four producers MUST be independently
+buildable modules with separate pinned dependency manifests and binaries. The
+library owns canonical encoding, digest framing, manifests, containers, notices,
+offline trust and generic admission/normalization. Its separate publication
+package owns signing, reservations, renewal and atomic output. Application
+runtime packages MUST NOT depend on publication or producer code. Neither the
+library nor a producer may depend on application internals, platform packages,
+generated application contracts, another producer or its corpus. Database
+transactions, authorization, Jobs, sets, retention, recovery, attestations and
+Base registry policy remain application responsibilities.
+
+Build independence means building an exported module archive with pinned
+read-only dependencies and workspace resolution disabled, without application
+source, local-path replacements or sibling producers. Artifact independence
+means a completed pack has no undeclared or cross-pack content dependency.
+Qualification independence means each pack's exact artifact can be qualified
+without another optional pack, its sources or its test selection. Profile
+extensibility means a new advisory key using this finite generic vocabulary
+requires no runtime code or registry change. Transitive imports, embedded files,
+generator inputs and executable input discovery MUST enforce these boundaries.
+Qualification MUST use an isolated filesystem exposing only declared inputs and
+private outputs. Offline build and producer qualification disable network fallback.
+Application product-generation inputs may include neutral format declarations,
+but not producer source or upstream corpora. Harness catalog discovery of producer
+test metadata is a separate tooling obligation. An unavailable isolation prerequisite
+fails qualification; an unrestricted fallback or automatic host reconfiguration
+is not permitted.
+
+**RP-REQ-276 — payload and envelopes**
+A generic pack MUST contain exactly `payload/descriptor.json`,
+`payload/objects.ndjson` and `payload/relationships.ndjson` as payload members.
+The descriptor media type is `application/json`; the two streams retain the
+NDJSON media type. An empty relationship stream is a zero-byte file and remains
+hash-bound in the manifest. The summary is `objects_relationships`. Descriptor
+bytes are canonical RFC 8785 JSON without a trailing LF. Row bounds include LF.
+Objects sort by ascending UTF-8 object identity; relationships retain RP-REQ-102
+ordering. Empty object streams are valid when the declared count is zero.
+
+The closed object schema `cartulary.reference_pack.dataset.object.v1` requires
+exactly `schema_id`, `object_id`, `object_type`, `display_label`, `description`,
+`deprecated`, `replacement_object_id`, `source_refs`, `data` and `lookup_values`.
+Object identity is a nonempty NFC single-line string of at most 512 UTF-8 bytes.
+Object type uses RP-REQ-110's type-token grammar. Display label and nullable
+description obey RP-REQ-104. Replacement is a nullable object identity, non-null
+only for a deprecated object; its target MUST exist in this pack. Cycles and
+chains longer than 32 objects fail. Source refs obey RP-REQ-105. `data` is a
+required JSON object containing inert source data; its member names and nested
+values have no executable meaning. All numbers retain the exact safe-integer
+domain of RP-REQ-031. Strings retain their parsed values without trimming,
+normalization or truncation. Source-specific schemas are never loaded by runtime.
+
+The closed relationship schema `cartulary.reference_pack.dataset.relationship.v1`
+requires exactly `schema_id`, `relationship_id`, `relationship_type`,
+`source_object_id`, `target_object_id`, `source_refs` and `data`. Identity uses
+the same bounded string rule as object identity; type uses RP-REQ-110. Both
+endpoints MUST exist locally. Self-relationships are structurally valid; source
+correctness belongs to the producer. Source refs and inert `data` use the object
+rules. Identities MUST be unique within each stream. Generic runtime MUST NOT
+recompute a source identity from a display label or from a native type. Producers
+preserve stable source identities, including existing relationship identities.
+
+**RP-REQ-277 — descriptor and finite lookup vocabulary**
+The closed descriptor `cartulary.reference_pack.dataset.descriptor.v1` requires
+exactly `schema_id` and `lookups`. `lookups` contains 0..32 definitions in ascending
+name order with no duplicate names. Each closed definition requires `name`,
+`input_type`, `components`, `unique` and `coverage`. Names match
+`^[a-z][a-z0-9_]{0,63}$`. `input_type` is `scalar` or `composite`. A scalar declares
+one component named `value`; its input is the scalar itself. A composite declares
+1..4 components sorted by name, with no duplicate name; its input is a closed
+object containing exactly those named components, all required and non-null.
+Each component requires exactly `name`, `type` and `normalization`. Type is
+`string` or `integer`; the only admitted combinations are:
+
+| Type | Normalization | Input admission and output |
+| --- | --- | --- |
+| `string` | `exact_nfc` | Nonempty valid Unicode, at most 8192 scalars; NFC output; no trimming. |
+| `string` | `ascii_case_insensitive` | Same string bound; NFC then lowercase only ASCII A–Z; preserve punctuation and all other code points. |
+| `string` | `uuid` | Exactly 36 ASCII bytes in hyphenated 8-4-4-4-12 hexadecimal form; lowercase output; no braces or whitespace. |
+| `integer` | `safe_integer` | Exact JSON integer in −9007199254740991..9007199254740991; no coercion from strings, booleans or fractions. |
+
+String inputs MUST NOT contain NUL, C0/C1 controls or Unicode line separators.
+New normalizers require an adopted engine release. There are no scripts,
+expressions, regex programs, remote schemas, dynamic JSON Schema, SQL fragments,
+filesystem references or optional-component filters in the descriptor.
+
+`unique` is a required boolean. False permits multiple objects per key; true
+requires at most one object per normalized key. The closed `coverage` object
+requires exact nonnegative integers `objects`, `postings` and `distinct_keys`.
+These count, respectively, objects having at least one posting for the lookup,
+normalized object/key pairs, and distinct normalized keys. Zero is a supported
+capability with no coverage; it is not an unsupported lookup.
+
+**RP-REQ-278 — postings, key framing and ordering**
+`lookup_values` is a required object mapping only declared lookup names to arrays
+of inputs. A missing name or empty array means no posting for that lookup. Every
+input is normalized by its declared definition. Its encoded key is RFC 8785 of
+an array of normalized component values in descriptor component order, even for
+a scalar. This framing is injective and does not concatenate unescaped delimiter
+text. Each array MUST be strictly increasing by encoded key bytes; repeated
+normalized keys in one object are invalid. Different lookup names have separate
+key namespaces. Total postings per object are bounded across all lookups.
+
+Runtime MUST compare all coverage counts to actual normalized postings, reject
+uniqueness conflicts, and index supplied values without inferring facts from
+`data`. Every lookup result sorts by ascending object identity. Native source
+order, version or display label MUST NOT change generic result ordering.
+Unsupported name, malformed input, unavailable pack, successful empty result
+and cursor failure retain distinct consumer outcomes. Descriptor-defined scalar
+and composite requests use `lookup_pack_entries_request.v2`; generic items and
+affected results use version 3. Existing exact-set, pagination, confidential
+cursor, 900-second expiry and historical provenance rules remain unchanged.
+
+**RP-REQ-279 — generic resource admission**
+The following inclusive bounds apply in addition to existing archive, trust,
+manifest, count, timeout, source-ref and pagination limits:
+
+| Limit | Maximum |
+| --- | ---: |
+| Descriptor bytes | 65536 |
+| Lookup definitions | 32 |
+| Components per composite key | 4 |
+| Postings per object across all names | 128 |
+| One encoded normalized key | 65536 bytes |
+| Postings per pack | 8000000 |
+| Aggregate encoded key bytes, counting each posting | 268435456 |
+| JSON object/array nesting in descriptor and rows, outer container at depth 1 | 64 |
+| NDJSON row including LF | 4194304 bytes |
+
+Exact equality is admitted. Excess MUST fail with `content_schema_invalid` for
+encoding/shape/depth/size bounds and `content_semantic_invalid` for normalized
+key, posting, coverage or reference bounds. Diagnostics expose fixed limit IDs
+and numeric measurements, never data or arbitrary descriptor member names.
+Depth and row limits MUST be checked before constructing the excess subtree;
+key/posting budgets MUST be checked before excess allocation or index write.
+This includes decoded lookup-input materialization: no more than 128 inputs
+across all lookup names may be retained for one object. Inert `data` may remain
+bounded raw JSON after token validation. Structural admission MUST still inspect
+encoding and shape after a semantic posting excess without materializing the
+excess inputs, so a later structural failure retains precedence. Posting and
+coverage ceilings are semantic obligations, not per-array structural limits.
+Whole-pack checks and private indexing MUST complete before atomic publication.
+Cancellation and cleanup preserve RP-REQ-091/097/238/239.
+
+Stored index rows exclude the required NDJSON LF and admit at most 4194303
+bytes. This storage bound is format-neutral: the database MUST NOT interpret
+an inert schema identifier to select a larger allowance. Admission retains
+the lower row limits of other profiles. A predecessor application cannot
+downgrade this cutover in place or reinterpret accepted v3 state.
+
+**RP-REQ-280 — four producer projections**
+The four producers MUST retain every supported factual field, documentation
+block, qualifier, alias, citation, native lifecycle distinction and relationship.
+For this cutover `data` contains the complete admitted predecessor native record,
+including its inert schema identifier; that identifier is not a compatibility
+reader. Common generic members are projected from that same record. Existing
+Windows and Entra entry identities become object identities unchanged. They use
+object types `windows_event` and `entra_application` and empty relationship streams.
+ATT&CK and VERIS retain their object types and both identity streams. Source
+rules in §§15.1/15.2 and RP-REQ-144/145 are producer validation obligations over
+these native records; their retired profile IDs are not runtime registrations.
+New output-affecting projections require new immutable source-profile identities.
+
+ATT&CK and VERIS declare `object_id` (exact, unique), `alias` (ASCII case-insensitive,
+unique) and `external_id` (exact, multiple). Producers coalesce repeated external
+IDs within one object's citation set before emitting lookup values. Entra declares
+`app_id` (UUID, unique), `alias` (ASCII case-insensitive, unique) and
+`service_principal_name` (ASCII case-insensitive, unique under the current source
+policy). Current real Entra coverage is exactly 139 objects and zero SPN postings.
+No SPN may be inferred from an application ID, label or table membership. Future
+real SPNs require an immutable sourced profile and an explicit shared-SPN policy.
+
+Windows declares `event_id` (safe integer, multiple), `provider_event_id`
+(composite `event_id`, `provider_name`) and `provider_event_version` (composite
+`event_id`, `event_version`, `provider_name`). Provider names use ASCII
+case-insensitive normalization; numbers use safe integer. Both composites permit
+multiple results. Every object contributes the first two lookups; only a non-null
+native version contributes the version-specific lookup. No input component is
+optional; the retired optional-version query is not admitted. Producer native
+bounds remain event ID 0..65535 and version 0..255. Generic query values outside
+those factual ranges are valid safe integers and yield no hit.
+
+**RP-REQ-281 — descriptor consumption**
+`GetPackDescriptor(pack_set_id, pack_key)` follows RP-REQ-205 admission and returns
+exactly `descriptor` and `provenance`. For a generic profile, descriptor is the
+exact retained canonical decoded descriptor; for other profiles it is explicit
+null. Absent key or unavailable required bytes returns `pack_unavailable`.
+The method does not create a public administrative route. Descriptor and all
+item result provenance use the same immutable set anchor. An enabled lookup with
+zero coverage succeeds with an empty result and unchanged provenance.
+
+**RP-REQ-282 — publication authorities and evidence**
+Each producer owns a distinct production authority, explicit release inputs,
+licensing decision and publication ledger. Production ATT&CK uses repository
+`cartulary.attack`; fixture authority cannot satisfy release publication and there
+is no repository-string escape hatch or fallback. A release binds exact source
+lock, source profile, builder, output license decision, pack version and sequence.
+Unresolved redistribution approval blocks distribution of that release. Public
+bootstrap accompanies a release but does not install deployment trust. Private
+key confinement, monotonic reservations, atomic publication and logical-byte
+preserving renewal remain mandatory. Fresh qualification imports the delivered
+signed bytes with the trusted current clock; it MUST NOT silently re-sign them.
+Expired metadata fails visibly. Renewal is a new immutable envelope descriptor.
+
+One publisher ledger root separates logical release reservations from per-manifest
+envelope metadata reservations. Signing or renewal MUST NOT prevent an identical
+logical replay or the next logical release, and neither reservation stream may
+reset the other. An incompatible ledger layout fails closed; it is never treated
+as an empty reservation history.
+
+**RP-REQ-283 — cutover and independent qualification**
+Pack contract v3, subsystem major 4, manifest v2, immutable sets/reference
+catalogs v3 and incident-bundle 8 are a coordinated cutover. Lookup request v2,
+consumer item/result v3 and descriptor consumption replace their affected
+predecessors. Required Base content and algorithms remain byte-identical; their
+release-bound manifests are reissued. Other optional registered profiles retain
+their semantics and refresh only contract bindings. Incompatible packs, sets,
+operations, snapshots and recovery artifacts fail before mutation/readiness.
+All retained operation inputs, including terminal operations, MUST carry a current closed contract. Ordinary operations use `cartulary.reference_pack_operation_input.v4`; portability retention uses `cartulary.reference_pack_portability_input.v3`; Base reconciliation and root bootstrap use `cartulary.reference_pack_reconciliation.v2` and `cartulary.reference_pack_root_bootstrap.v2`. Each binds `pack_contract_version` exactly to v3. Bootstrap retains its repository, root version and digest; reconciliation retains its application release, claim/clock assertions and effective verification limits. A completed bootstrap or reconciliation is not decoded as an ordinary operation. Unknown and predecessor input shapes fail before mutation/readiness.
+
+There is no automatic conversion, compatibility reader or implicit reset.
+Historical releases and qualification records remain unchanged. Rollback after
+v3 state exists requires the older application's preserved compatible environment.
+
+Qualification MUST include independent canonical/trust vectors, exact-bound and
+one-over generic cases, every transferred producer assertion, and each of the four
+exact signed releases separately. Independently reviewed machine expectations
+compare meaningful content, identity, relationships, documentation, lookup values,
+notices and provenance, not counts alone. A fifth unrecognized advisory key MUST
+import and query without runtime or registry changes. Both dependency directions,
+optional-pack absence, Base readiness, Reporting/Composition, portability and
+Recovery require their participating-owner qualification. Neither prose nor live
+upstream sources may become product expectations. Engineering, distribution and
+deployment trust remain distinct recorded dispositions.
 
 # 14. Type-registry content profiles and indicator algorithms
 
@@ -1421,7 +1687,7 @@ Dedupe algorithms MUST produce:
 # 15. Framework content profiles
 
 **RP-REQ-132**
-The three framework profiles use the common object and relationship contracts with these schema IDs:
+D3FEND uses its registered common object/relationship contracts. ATT&CK and VERIS use the generic envelopes; the native schemas below remain producer model contracts stored in inert `data`:
 
 | Pack key | Object schema ID | Relationship schema ID |
 | --- | --- | --- |
@@ -1439,7 +1705,7 @@ Every relationship endpoint MUST resolve to an object in the same pack. Self-rel
 A framework producer MAY remove an object or relationship in a later pack version. It MUST NOT reuse the removed ID for a different subject or relationship meaning. This is a source-publication obligation: the producer reviews continuity against its source history. Runtime consumers identify an object by its exact pack set, member and object ID; they MUST NOT infer cross-version subject equivalence from an unqualified ID. Pinned historical pack sets preserve the old object.
 
 **RP-REQ-136**
-Framework lookup kinds are exactly:
+Non-generic framework lookup kinds are exactly:
 
 ```text
 object_id
@@ -1452,7 +1718,11 @@ external_id
 **RP-REQ-137**
 Framework results have authority class `framework_reference`. They may support report, diagram, suggestion, and analyst-pivot behavior only. They MUST NOT create a Base Profile workbook surface or mutate incident state.
 
-## 15.1 Native ATT&CK v2 amendment — 2026-11-06
+## 15.1 ATT&CK producer native model
+
+These rules govern producer admission and factual projection under RP-REQ-280.
+Runtime admits generic envelopes and treats native records in `data` as inert.
+Native v2 identifiers are source-model identities, not current pack profiles.
 
 **RP-REQ-265** Native ATT&CK objects add required `source` (one closed typed source object below) and `source_domains` (1..3 unique contributing bundle domains, sorted ascending: `enterprise-attack`, `ics-attack`, `mobile-attack`). Object identity/type MUST equal `source.id`/`source.type`. Relationships add required `source_kind` (`stix_sro` or `embedded_reference`) and `source`; source is the closed relationship type for direct SROs and exactly null for embedded assertions. `extensions` remains exactly `{}`. No raw bundle, producer, profile, source lock, audit, fixture manifest or private key is a runtime member.
 
@@ -1471,7 +1741,7 @@ Framework results have authority class `framework_reference`. They may support r
 
 Each embedded mapping requires the declared native source and target types: `x-mitre-matrix` → `x-mitre-tactic`, `attack-pattern` → `x-mitre-tactic`, `x-mitre-detection-strategy` → `x-mitre-analytic`, and `x-mitre-analytic` → `x-mitre-data-component`, respectively. A missing endpoint or incorrect native endpoint type fails with `content_semantic_invalid`; endpoints are not omitted, redirected or coerced. Endpoint retirement alone does not invalidate an edge. Embedded descriptions are null. All referenced objects, including provenance and collection entries, must resolve; collection object versions must agree. Related assets without STIX IDs remain structured metadata, with no invented endpoint. Creator, modifier, marking and collection references are provenance, not threat assertions. ICS sub-techniques and `subtechnique-of` assertions are admitted.
 
-**RP-REQ-269** The following closed native field registry is normative. All object levels reject unknown members. Required members are marked `required`; others preserve absence and admit no default. Strings have a maximum of 8192 Unicode scalars unless a tighter row below applies. Ordinary arrays have at most 64 items, component log sources 512, collection contents 32768. Every complete augmented row, including LF, obeys the 4194304-byte bound. Bundle framing and release metadata remain source-only evidence. Runtime validates canonical native metadata and common projections; it never requires or executes the producer profile or reads upstream bundles. Relationship retrieval remains outside the §21 operation registry.
+**RP-REQ-269** The following closed native field registry is normative for the ATT&CK producer. All object levels reject unknown members. Required members are marked `required`; others preserve absence and admit no default. Strings have a maximum of 8192 Unicode scalars unless a tighter row below applies. Ordinary arrays have at most 64 items, component log sources 512, collection contents 32768. Every complete augmented row, including LF, obeys the 4194304-byte bound. Bundle framing and release metadata remain source-only evidence. The producer validates native metadata and its common projection before generic packaging. Runtime validates only the generic envelope, treating retained native data as inert; it never requires or executes the producer profile or reads upstream bundles. Relationship retrieval remains outside the §21 operation registry.
 
 ### Native `attack-pattern`
 
@@ -2170,15 +2440,9 @@ Each embedded mapping requires the declared native source and target types: `x-m
 
 ## 15.2 Native VERIS v2 amendment — 2026-11-07
 
-**RP-REQ-270** The current VERIS profile is
-`cartulary.reference_pack.framework.veris.v2`, profile version `"2"`, with
-object and relationship schema v2. It replaces v1 registration and consumer
-membership. V1 inputs fail incoming, retained, portability and recovery admission.
-No compatibility reader, conversion, migration or reset is introduced. This
-scoped pre-deployment replacement retains shared contract v2, administrative
-major 3, manifest v1, immutable-set/reference catalog v2 and incident-bundle 7.
-Unrelated pack identities remain unchanged. The maintainer's implementation
-instruction adopts this concrete amendment; research proposals remain evidence.
+**RP-REQ-270** VERIS uses generic dataset v1. The native v2 object and
+relationship schemas below are producer model contracts stored in inert `data`.
+They are not runtime admission paths. RP-REQ-283 owns the coordinated cutover.
 
 **RP-REQ-271** VERIS objects add required closed `source`, discriminated by
 `kind`, which equals `object_type`. Every source has required `schema_version`
@@ -2243,7 +2507,7 @@ pointer. Rule refs cite the reviewed source statement's location. Artifact
 indexes are assigned only after canonical artifact ordering. No inferred
 transitive, ATT&CK-equivalence or incident assertions are admitted.
 
-Runtime validation enforces source-derived IDs and common projections, exactly
+Producer validation enforces source-derived IDs and common projections, exactly
 one root, exact property/item child pointers and roles, bounded root reachability,
 acyclicity, required-name membership, contextual enum completeness, existing
 rule applicability targets and exact edge/provenance agreement with native
@@ -2300,7 +2564,7 @@ A no-hit lookup is successful and returns an empty result array. Pack unavailabl
 | `enrichment.tor` | `cartulary.reference_pack.enrichment.tor.entry.v1` | `network`, `address_family`, nullable `first_observed_at`, nullable `last_observed_at` | `ip_literal`: canonicalize as IPv4 or IPv6 and test membership; `network`: exact canonical CIDR. |
 | `enrichment.cisa_kev` | `cartulary.reference_pack.enrichment.cisa_kev.entry.v1` | `cve_id`, `vendor_project`, `product`, `vulnerability_name`, `date_added`, `short_description`, `required_action`, `due_date`, `known_ransomware_campaign_use`, nullable `notes` | `cve_id`: ASCII uppercase `CVE-YYYY-NNNN...`. |
 | `enrichment.ms_portals` | `cartulary.reference_pack.enrichment.ms_portals.entry.v1` | `service_id`, `portal_urls`, `audiences`, `clouds` | `service_id`: exact; `url_host`: canonical ASCII domain or IP host; `alias`: ASCII case-insensitive. |
-| `enrichment.windows_event_ids` | `cartulary.reference_pack.enrichment.windows_event_ids.entry.v2` | `provider_name`, `event_id`, nullable `event_version`, nullable `level`, nullable `task`, nullable `opcode`, typed `documentation` | `provider_event_id`: ASCII-lower provider name, NUL, decimal event ID; `event_id`: exact integer. |
+| `enrichment.windows_event_ids` | `cartulary.reference_pack.enrichment.windows_event_ids.entry.v2` | `provider_name`, `event_id`, nullable `event_version`, nullable `level`, nullable `task`, nullable `opcode`, typed `documentation` | Generic descriptor under RP-REQ-280: `provider_event_id`, `provider_event_version` and `event_id`. |
 | `enrichment.entra_app_ids` | `cartulary.reference_pack.enrichment.entra_app_ids.entry.v2` | `app_id`, nullable `publisher`, `service_principal_names` | `app_id`: lowercase canonical UUID; `service_principal_name`: ASCII case-insensitive; `alias`: ASCII case-insensitive. |
 | `enrichment.lolbas` | `cartulary.reference_pack.enrichment.lolbas.entry.v1` | `name`, `platforms`, `categories`, `usage_examples`, `references` | `entry_id`: exact; `name`: ASCII case-insensitive; `alias`: ASCII case-insensitive. |
 | `enrichment.loldrivers` | `cartulary.reference_pack.enrichment.loldrivers.entry.v1` | `driver_id`, `filenames`, `hashes`, `signer_names`, `categories`, `references` | `driver_id`: exact; `filename`: ASCII case-insensitive basename; `hash`: lowercase exact by algorithm; `alias`: ASCII case-insensitive. |
@@ -2362,7 +2626,7 @@ An `enrichment.ms_portals` entry contains exactly the common entry members plus:
 `portal_urls` sort by canonical URI bytes. `audiences` and `clouds` sort by exact bytes. `url_host` lookup canonicalizes the supplied domain, IPv4, or IPv6 host and returns matching entries sorted by `service_id`; `service_id` is exact; `alias` uses ASCII case-insensitive comparison.
 
 **RP-REQ-144**
-An `enrichment.windows_event_ids` entry contains exactly the common entry members plus:
+The Windows producer native record contains exactly the common entry members plus:
 
 | Member | Type | Rule |
 | --- | --- | --- |
@@ -2373,13 +2637,9 @@ An `enrichment.windows_event_ids` entry contains exactly the common entry member
 | `task` | string or null | Single-line, maximum 256 scalars. |
 | `opcode` | string or null | Single-line, maximum 128 scalars. |
 
-`entry_id` MUST equal `ascii_lower_v1(provider_name) + ":" + base10(event_id) + ":" + version_token`, where `version_token` is `*` for null or the shortest base-10 event version. Parse the last two colons from the right; provider names may contain colons. The maximum identity length is 266 UTF-8 bytes. `provider_event_id` lookup input is one closed object containing `provider_name`, `event_id`, and optional `event_version`; omitted `event_version` matches every version, explicit numeric version matches only that version and excludes null-version entries, and explicit `null` is invalid. Results sort by `event_version` with `null` first, then `entry_id`. `event_id` lookup returns every matching provider sorted by `ascii_lower_v1(provider_name)`, exact provider bytes, nullable version, then `entry_id`.
-
-Windows entries use content profile and entry schema v2. This is a clean
-pre-deployment schema cutover: inputs declaring the Windows v1 profile MUST fail admission, including retained-state,
-portable-import and recovery admission. No compatibility reader, conversion,
-dual writing or implicit reset is permitted. Other pack profiles, pack contract
-v2 and incident-bundle format 7 are unchanged.
+`entry_id` MUST equal `ascii_lower_v1(provider_name) + ":" + base10(event_id) + ":" + version_token`, where `version_token` is `*` for null or the shortest base-10 event version. Parse the last two colons from the right; provider names may contain colons. The maximum identity length is 266 UTF-8 bytes. Current consumer lookups use the two required-component Windows composites
+and deterministic identity ordering in RP-REQ-280. Native Windows schema v2 is
+producer-owned inert `data`; generic runtime admission uses RP-REQ-276–279.
 
 An entry additionally contains required `documentation`, an ordered array of
 at most 512 closed blocks. Every block has `kind`, `scope`, `source_refs` and typed
@@ -2563,7 +2823,7 @@ receive explicit fixture inputs. The required Base registries remain application
 prerequisites; they do not introduce a dependency between optional packs.
 
 **RP-REQ-145**
-An `enrichment.entra_app_ids` entry contains exactly the common entry members plus:
+The Entra producer native record contains exactly the common entry members plus:
 
 | Member | Type | Rule |
 | --- | --- | --- |
@@ -2573,17 +2833,13 @@ An `enrichment.entra_app_ids` entry contains exactly the common entry members pl
 
 Service-principal names sort by `ascii_lower_v1(value)`, then exact bytes; duplicate normalized values are invalid. `app_id` lookup lowercases ASCII UUID hex before canonical validation. `service_principal_name` and `alias` lookup use ASCII case-insensitive comparison. Results sort by `entry_id`.
 
-Runtime Entra validation MUST enforce the reusable v2 content profile, not a
-fixed catalog size or source snapshot. The pinned producer and independent
-machine-readable corpus expectations MUST enforce the release's factual
-identities, descriptions, historical qualifiers, materialized defaults and exact
-source artifact identities and locators. Product tests MUST NOT derive those
-expectations by rerunning producer extraction or reading upstream Markdown.
-
-Entra entries use content profile and entry schema v2, with profile version
-`"2"`. Inputs declaring the Entra v1 profile MUST fail incoming, retained-state, portable and recovery
-admission before mutation or readiness. No conversion or compatibility reader
-is permitted; unrelated current profiles and complete-set formats are unchanged.
+Producer Entra validation MUST enforce the reusable native model and pinned
+factual correspondence. Independent machine-readable expectations cover identities,
+descriptions, historical qualifiers, defaults and source locators; product tests
+MUST NOT derive expectations by rerunning extraction or reading upstream Markdown.
+Native Entra schema v2 remains producer-owned inert `data`; current runtime uses
+the generic profile and RP-REQ-283 cutover. The real release declares SPN support
+with zero coverage; positive SPN behavior is covered by separate synthetic data.
 
 The source profile `cartulary.entra_app_ids.microsoft_docs.2026_11_06.v2`
 freezes three Microsoft documentation revisions and the 139-entry baseline:
@@ -2781,14 +3037,14 @@ The application MUST maintain one `algorithm_behavior_digest` for every applicat
 # 19. Immutable reference pack set
 
 **RP-REQ-163**
-Every ready Base Profile runtime MUST maintain one current immutable `cartulary.reference_pack_set.v2`, even when the Reference Pack Extension Profile is not claimed. The set MUST contain exactly one effective member for each required Base registry key.
+Every ready Base Profile runtime MUST maintain one current immutable `cartulary.reference_pack_set.v3`, even when the Reference Pack Extension Profile is not claimed. The set MUST contain exactly one effective member for each required Base registry key.
 
 **RP-REQ-164**
-`cartulary.reference_pack_set.v2` is a closed object:
+`cartulary.reference_pack_set.v3` is a closed object:
 
 | Member | Type | Rule |
 | --- | --- | --- |
-| `schema_id` | string | Exactly `cartulary.reference_pack_set.v2`. |
+| `schema_id` | string | Exactly `cartulary.reference_pack_set.v3`. |
 | `pack_set_id` | string | Derived by RP-REQ-167. |
 | `pack_set_sha256` | string | Derived by RP-REQ-166. |
 | `members` | array | `3..64` sorted pack-set members; at most one per `pack_key`. |
@@ -2815,7 +3071,7 @@ Members MUST sort by `pack_key`, then `pack_version`. A duplicate `pack_key` is 
 lowercase_hex(
   SHA256(
     RFC8785_JCS({
-      "schema_id": "cartulary.reference_pack_set.v2",
+      "schema_id": "cartulary.reference_pack_set.v3",
       "members": members
     })
   )
@@ -3105,16 +3361,17 @@ Pack consumers MUST use the operations in Table 21-A. They MUST NOT read extract
 
 | Operation | Request | Result |
 | --- | --- | --- |
-| `ResolveCurrentPackSet` | none | Complete current `cartulary.reference_pack_set.v2`. |
+| `ResolveCurrentPackSet` | none | Complete current `cartulary.reference_pack_set.v3`. |
 | `GetPackEntry` | `pack_set_id`, `pack_key`, `entry_id` | One entry and provenance or `entry_not_found`. |
 | `LookupPackEntries` | `pack_set_id`, `pack_key`, `lookup_kind`, `lookup_value`, optional `limit`, optional `cursor` | Ordered page and provenance. |
 | `EvaluateIndicatorValue` | `pack_set_id`, `indicator_type_id`, `value_kind`, `raw_value` | Canonical indicator evaluation. |
 | `GetPackProvenance` | `pack_set_id`, `pack_key` | Manifest, source, license, and verification summary. |
+| `GetPackDescriptor` | `pack_set_id`, `pack_key` | Exact retained descriptor or explicit null, with immutable provenance under RP-REQ-281. |
 
 **RP-REQ-205**
 Every operation MUST validate its closed request shape and scalar bounds, then resolve the exact retained pack set, then resolve the selected key/profile/type, then validate operation-specific semantics and cursors. Within request validation, fields follow the request table order. `pack_set_id` MUST match `^rpset_[0-9a-f]{64}$`; malformed input fails with `invalid_pack_request`. Unknown or garbage-collected `pack_set_id` fails with `pack_set_not_found`. A pinned historical set may be read from its exact previously verified bytes even when the current version condition is `failed` solely because a later freshness reverify reported `metadata_expired`; missing bytes, digest failure, or content incompatibility still fails with `pack_unavailable`. A set member whose required bytes or index cannot be read triggers RP-REQ-202 when current state has not already recorded the failure.
 
-Consumer request objects are closed: unknown members, omitted required members, explicit nulls and wrong types are invalid. `pack_key` uses the canonical pack-key grammar and at most 128 ASCII bytes. `lookup_kind`, `indicator_type_id` and `value_kind` are non-empty strings of at most 64 UTF-8 bytes; supported-token selection occurs only after set resolution. A supplied cursor is a non-empty string of at most 65536 UTF-8 bytes. The structured lookup union admits exactly `{provider_name,event_id}` with optional non-null `event_version`, or exactly `{algorithm,value}`. Provider names have at most 256 Unicode scalars, event IDs are integers in `0..65535`, versions in `0..255`, algorithm names are non-empty strings of at most 64 scalars, and hash lookup values are non-empty strings of at most 8192 scalars. These are request-shape bounds; profile-specific syntax and supported algorithms remain later checks. `ResolveCurrentPackSet` has no request fields; its empty object projection does not introduce a public route.
+Consumer request objects are closed: unknown members, omitted required members, explicit nulls and wrong types are invalid. `pack_key` uses the canonical pack-key grammar and at most 128 ASCII bytes. `lookup_kind`, `indicator_type_id` and `value_kind` are non-empty strings of at most 64 UTF-8 bytes; supported-token selection occurs only after set resolution. A supplied cursor is a non-empty string of at most 65536 UTF-8 bytes. The v2 lookup request admits a scalar or a bounded closed composite of up to four named scalar values. Generic profiles select components and normalizers from the retained descriptor under RP-REQ-277 after exact-set resolution. Other profiles retain their existing scalar or `{algorithm,value}` hash shape and bounds. There is no optional-version Windows shape. `ResolveCurrentPackSet` has no request fields; its empty object projection does not introduce a public route.
 
 Every serialized consumer result contains exactly required `value` and `error`. Exactly one is non-null. An error contains exactly required `code` and nullable `reason_code`; the latter is `indicator_input_too_long` only with `invalid_pack_request`, and otherwise null. The closed error-code registry is `invalid_pack_request`, `pack_set_not_found`, `pack_unavailable`, `entry_not_found`, `lookup_kind_unsupported`, `cursor_invalid`, `cursor_query_mismatch`, `indicator_type_unsupported`, `indicator_value_kind_unsupported` and `indicator_algorithm_unsupported`.
 
@@ -3124,7 +3381,7 @@ Every consumer returns a discriminated success-or-error result. An error contain
 `GetPackEntry` uses exact `entry_id` or `object_id` comparison. The requested identity MUST be a non-empty string of at most 512 UTF-8 bytes, with the addressed profile's narrower identity syntax and bound enforced after profile resolution. A pack key not present in the set returns `pack_unavailable`. A present pack with no matching entry returns `entry_not_found`. Success returns one closed object containing exactly `item` and `provenance`; `item` is the canonical decoded entry or object and `provenance` satisfies RP-REQ-210.
 
 **RP-REQ-207**
-`LookupPackEntries` requires the profile-declared `lookup_value` type: a non-empty string of at most 8192 Unicode scalar values, an exact JSON integer in the profile domain, or the closed structured lookup object named by the profile. On a first-page request, omitted `limit` resolves to `50`; the minimum is `1` and maximum is `200`. On a continuation request, omitted `limit` resolves to the cursor-bound limit, while an explicit limit MUST equal that bound value or fail with `cursor_query_mismatch`. Omitted cursor means the first page; explicit JSON `null` for `limit` or `cursor` is invalid. Results sort by the profile-specific order, or otherwise by canonical lookup key then canonical entry or object ID. Success returns a closed object containing exactly `items`, `next_cursor`, and `provenance`; `items` is an array of canonical decoded entries or objects, and `next_cursor` is `null` on the final page.
+`LookupPackEntries` requires the profile-declared `lookup_value` type: a non-empty string of at most 8192 Unicode scalar values, an exact JSON integer in the profile domain, or the closed structured lookup object named by the profile. On a first-page request, omitted `limit` resolves to `50`; the minimum is `1` and maximum is `200`. On a continuation request, omitted `limit` resolves to the cursor-bound limit, while an explicit limit MUST equal that bound value or fail with `cursor_query_mismatch`. Omitted cursor means the first page; explicit JSON `null` for `limit` or `cursor` is invalid. Generic results sort by exact object identity. Other profiles retain their declared order, or otherwise sort by canonical lookup key then canonical entry or object ID. Success returns a closed object containing exactly `items`, `next_cursor`, and `provenance`; `items` is an array of canonical decoded entries or objects, and `next_cursor` is `null` on the final page.
 
 **RP-REQ-208**
 A lookup cursor MUST be opaque, confidential, and integrity-protected. It MUST bind to:
@@ -3139,7 +3396,7 @@ A lookup cursor MUST be opaque, confidential, and integrity-protected. It MUST b
 The cursor MUST bind an issuance timestamp and an expiry timestamp exactly 900 seconds later. At continuation admission, `current_time >= expires_at` is expired. Malformed, expired, undecryptable, or tampered cursor input fails with `cursor_invalid`. Reuse with a different bound value fails with `cursor_query_mismatch`. Neither error may disclose cursor plaintext or continuation state. Cursor state is deployment-local and is not portability content.
 
 **RP-REQ-209**
-Type-registry lookup kinds are exactly `entry_id` and `alias`. Framework lookup kinds are defined by RP-REQ-136. Enrichment lookup kinds are defined by Table 16-A. An unsupported lookup kind fails with `lookup_kind_unsupported`.
+Type-registry lookup kinds are exactly `entry_id` and `alias`. Generic lookup kinds are declared by the retained descriptor. Non-generic framework lookup kinds are defined by RP-REQ-136; other enrichment lookup kinds are defined by Table 16-A. An unsupported lookup kind fails with `lookup_kind_unsupported`.
 
 **RP-REQ-210**
 Every successful entry, lookup, and provenance result MUST include one closed provenance object containing:
@@ -3294,7 +3551,7 @@ archive_compression_ratio_exceeded
 archive_member_count_exceeded
 ```
 
-The resulting registry is closed. No other `reference_pack_verification_failed` reason is valid in contract major 3. Table 22-A defines reason meanings, not precedence. The check registry in Table 12-B exclusively owns content-check precedence. Timeout is an execution-abort mapping and never a content-invalidity verdict.
+The resulting registry is closed. No other `reference_pack_verification_failed` reason is valid in contract major 4. Table 22-A defines reason meanings, not precedence. The check registry in Table 12-B exclusively owns content-check precedence. Timeout is an execution-abort mapping and never a content-invalidity verdict.
 
 **Table 22-A. Reference Pack verification reason mapping**
 
@@ -3410,7 +3667,7 @@ Every pack-derived report or snapshot value MUST retain entry-level provenance s
 ## 23.2 Incident portability
 
 **RP-REQ-225**
-`reference_pack_refs.json` MUST be a closed object with required `schema_id='reference_pack_refs.v2'`, `sets`, and `versions`. Both collections are required non-null arrays; no references is exactly `sets=[]` and `versions=[]`. This representation is carried only by incident-bundle format 7. Each `sets` element is the complete RP-REQ-164 pack-set object, with digest and ID recomputed under RP-REQ-166 and RP-REQ-167. Sets sort by `pack_set_id` and reject duplicate IDs. Each version tuple occurs exactly once in `versions`, sorted by `pack_key`, `pack_version`, `manifest_sha256`, then `payload_sha256`. Every set member MUST resolve to exactly one matching version item, and every version item MUST be referenced by a set. A same-key/version digest collision is invalid. Each version item contains exactly:
+`reference_pack_refs.json` MUST be a closed object with required `schema_id='reference_pack_refs.v3'`, `sets`, and `versions`. Both collections are required non-null arrays; no references is exactly `sets=[]` and `versions=[]`. This representation is carried only by incident-bundle format 8. Each `sets` element is the complete RP-REQ-164 pack-set object, with digest and ID recomputed under RP-REQ-166 and RP-REQ-167. Sets sort by `pack_set_id` and reject duplicate IDs. Each version tuple occurs exactly once in `versions`, sorted by `pack_key`, `pack_version`, `manifest_sha256`, then `payload_sha256`. Every set member MUST resolve to exactly one matching version item, and every version item MUST be referenced by a set. A same-key/version digest collision is invalid. Each version item contains exactly:
 
 ```text
 pack_key
@@ -3439,11 +3696,11 @@ Only `redistribution='allowed'` pack payloads may be embedded. Restricted or pro
 
 When an incident bundle embeds operator packs or classifies pack members as required, it MUST include `ext/reference_packs/content.json`. This is a closed `reference_pack_content.v1` object with required non-null `schema_id`, `containers`, and `required_members`. It is bounded to 16777216 UTF-8 bytes before JSON admission, including whitespace. Original JSON MUST pass strict duplicate-member and Unicode admission; producer output is canonical JSON followed by one LF. An absent content manifest means no embedded containers and no required members. A present empty or null document is invalid. Empty collections are explicit arrays.
 
-`containers` contains at most 16384 closed objects, each with required non-null `manifest_sha256`, `container_sha256`, and `size_bytes`. Both digests are lowercase 64-digit hexadecimal; size is an integer in the inclusive range 1–9007199254740991 and is additionally subject to the effective deployment's ordinary pack/container and incident-bundle limits. Rows sort by `manifest_sha256` and reject duplicates. Every row MUST resolve to exactly one `operator_imported` version in `reference_pack_refs.v2`. The only container path for that row is `ext/reference_packs/containers/<manifest_sha256>.pack`; the digest token is the exact row value. No alias, supplied path, archive suffix, duplicate version encoding, unreferenced container, or embedded built-in container is admitted by this format. The container format is detected from its bytes. A catalog row may name unavailable optional bytes; it does not prove their availability or trust.
+`containers` contains at most 16384 closed objects, each with required non-null `manifest_sha256`, `container_sha256`, and `size_bytes`. Both digests are lowercase 64-digit hexadecimal; size is an integer in the inclusive range 1–9007199254740991 and is additionally subject to the effective deployment's ordinary pack/container and incident-bundle limits. Rows sort by `manifest_sha256` and reject duplicates. Every row MUST resolve to exactly one `operator_imported` version in `reference_pack_refs.v3`. The only container path for that row is `ext/reference_packs/containers/<manifest_sha256>.pack`; the digest token is the exact row value. No alias, supplied path, archive suffix, duplicate version encoding, unreferenced container, or embedded built-in container is admitted by this format. The container format is detected from its bytes. A catalog row may name unavailable optional bytes; it does not prove their availability or trust.
 
 `required_members` contains at most 65536 closed objects, each with required non-null `pack_set_id` and `pack_key`. Each pair MUST resolve to the exact member of an admitted reference set. Rows sort by set ID then key, reject duplicates, and never refer to a floating current selection. Requirement of one member does not imply requirement of other members or sets. If several sets select the same version, any required pair selecting it makes that exact version necessary for import. Required membership is meaningful with references-only transport and does not override redistribution restrictions. Source-artifact owners select these exact requirements; no server infers them from the destination's active set.
 
-The 16384-container ceiling is reachable with 1024 sets, sixteen distinct operator-imported profile versions per set, and no version reuse between sets. With the sixteen declared keys, the maximum distinct required pairs is 16384 (1024 × 16). The generic 65536 required-pair ceiling is therefore unreachable in this profile: a sixty-fifth member or an unsupported seventeenth key fails earlier. Acceptance MUST exercise a complete 16384-container/16384-required-pair catalog, the isolated 65536/65537 cardinality guard, and the independently reachable document-byte equality. The JSON safe-integer size ceiling is an isolated schema guard; effective container limits reject that many actual bytes before extraction. No production limit is increased to manufacture a reachable fixture.
+The 16384-container ceiling is reachable with 1024 sets, sixteen distinct operator-imported versions per set, and no version reuse between sets. Generic advisory keys remove the former sixteen-key restriction. The 65536 required-pair ceiling permits 1024 sets of 64 members; versions may be reused across distinct sets while each required pair remains bound to its exact set. Acceptance MUST exercise the reachable container and required-pair ceilings, their one-over guards, and the independently reachable document-byte equality while preserving the 16384-version and byte ceilings. The JSON safe-integer size ceiling remains an isolated schema guard; effective container limits reject that many actual bytes before extraction. No production limit is increased to manufacture a reachable fixture.
 
 Structural or identity failure of a recognized content manifest fails the reference source family's `reference_pack_refs.exact_shape` or `reference_pack_refs.identity_exact` invariant. Unavailable, inadmissible or unsuccessfully verified optional bytes remain unresolved source references. An unresolved required pair fails `reference_pack_refs.degradation_bounded`. Execution failures, untrusted destination clock for new trust work, stale state and indeterminate publication are operational failures, never optional-content absence. Reuse of an already usable exact local version does not require fresh trust work or inspect an optional redundant embedded container.
 
@@ -3451,7 +3708,7 @@ An embedded export selects only exact referenced operator-imported versions with
 
 ### Destination retention of source reference catalogs
 
-The complete `reference_pack_refs.v2` member is limited to 67108864 UTF-8 bytes, including admitted JSON whitespace; admission checks the bound before JSON parsing. It contains at most 1024 sets and 16384 version rows. Equality is admitted; excess is `reference_pack_refs.exact_shape`. These limits bound portability admission independently from a pack container's limits. The producer emits canonical JSON followed by one LF. Consumer admission requires strict original JSON and canonical array ordering, but does not require canonical object-member order or whitespace.
+The complete `reference_pack_refs.v3` member is limited to 67108864 UTF-8 bytes, including admitted JSON whitespace; admission checks the bound before JSON parsing. It contains at most 1024 sets and 16384 version rows. Equality is admitted; excess is `reference_pack_refs.exact_shape`. These limits bound portability admission independently from a pack container's limits. The producer emits canonical JSON followed by one LF. Consumer admission requires strict original JSON and canonical array ordering, but does not require canonical object-member order or whitespace.
 
 The destination MUST retain an admitted source reference catalog as immutable historical evidence, including exact optional tuples that are unavailable locally. Re-export MUST preserve those references; it MUST NOT substitute the current active set or erase unresolved members. Source reference metadata never authorizes local content or replaces local first-success provenance.
 
@@ -3461,7 +3718,7 @@ Reference Data supplies an opaque preparation and a transaction-bound retention 
 
 Reuse leaves current health, administrative disablement, activation, and trust revisions unchanged. Every reusable member receives a destination-envelope pin, including members of an otherwise unavailable set. A complete reusable set is retained with its exact identity and destination first-success provenance and receives a set pin. An incomplete set remains an unresolved exact source reference; no partial member list receives its identity. Removal MUST consider both set pins and individual version pins under the same pack-key guard. Backup includes source catalogs, destination resolution evidence, and both pin forms. Restore validates their identities and linkage before readiness.
 
-The local retention operation uses closed canonical `cartulary.reference_pack_portability_input.v2` with required non-null `schema_id`, `incident_id`, `source_operation_id`, `catalog_sha256`, and `content_manifest`. The latter is the complete admitted `reference_pack_content.v1` object; absence at transport admission materializes its empty object with both arrays present. Required-member classification is retained through re-export even in references-only mode. A retained catalog without that required evidence is incompatible and MUST fail admission; no classification is inferred. UUIDs are nonzero canonical lowercase UUIDs. The digest is SHA-256 of the canonical `reference_pack_refs.v2` object without a trailing LF. Its closed result is `cartulary.reference_pack_portability_resolution.v1`, containing exactly required `schema_id` and `versions`. The array has one item per source version, in the same canonical order. Each item contains exactly required `pack_key`, `pack_version`, `available`, and `reason_code`. `available=true` requires explicit null reason. Otherwise the reason is exactly one of `not_retained` (no retained successful logical version), `removed` (an exact removed version), `not_usable` (unusable health or incomplete index), or `content_unavailable` (missing or invalid retained bytes). Execution failures are not optional-content absence and abort retention. These destination facts do not change the source catalog, confer trust on embedded bytes, or weaken required-artifact behavior under RP-REQ-227.
+The local retention operation uses closed canonical `cartulary.reference_pack_portability_input.v3` with required non-null `schema_id`, `pack_contract_version` exactly `cartulary.reference_pack_contract.v3`, `incident_id`, `source_operation_id`, `catalog_sha256`, and `content_manifest`. The latter is the complete admitted `reference_pack_content.v1` object; absence at transport admission materializes its empty object with both arrays present. Required-member classification is retained through re-export even in references-only mode. A retained catalog without that required evidence is incompatible and MUST fail admission; no classification is inferred. UUIDs are nonzero canonical lowercase UUIDs. The digest is SHA-256 of the canonical `reference_pack_refs.v3` object without a trailing LF. Its closed result is `cartulary.reference_pack_portability_resolution.v1`, containing exactly required `schema_id` and `versions`. The array has one item per source version, in the same canonical order. Each item contains exactly required `pack_key`, `pack_version`, `available`, and `reason_code`. `available=true` requires explicit null reason. Otherwise the reason is exactly one of `not_retained` (no retained successful logical version), `removed` (an exact removed version), `not_usable` (unusable health or incomplete index), or `content_unavailable` (missing or invalid retained bytes). Execution failures are not optional-content absence and abort retention. These destination facts do not change the source catalog, confer trust on embedded bytes, or weaken required-artifact behavior under RP-REQ-227.
 
 The Reference Data retention operation UUID is UUIDv5 with the source operation UUID as namespace and the exact UTF-8 name `reference_pack:incident_retention`. This separates owner operation identities while preserving attribution and idempotent replay. Successful retention becomes terminal when its catalog, resolution, pins, and incident import commit together. Failed preparation becomes terminal with its attributable rejection or operational-abort evidence and the parent failed or canceled Job; it creates no catalog.
 
@@ -3504,6 +3761,8 @@ In every deployment mode, including when the Reference Pack Extension Profile is
 
 **RP-REQ-230**
 Restore MUST verify the integrity and retained-state linkage of every restored pack artifact. An integrity failure in any restored retained artifact fails restore rather than silently discarding that state. For an already verified active or pinned operator pack, restore MUST recheck signatures, metadata linkage, and the recorded invariant `last_verified_at < trust_valid_until` using the retained attestation time; it MUST NOT require the metadata to remain unexpired at the later restore time. Ready state MUST fail when an active or pinned member is absent, its digest differs, its historical trust state cannot be reconstructed, or an active pointer targets `disabled`, `failed`, `missing`, or removed state. Any later activation, reverify, or refresh still applies current-time freshness under RP-REQ-075.
+
+Before committing restored authoritative pack rows, Recovery MUST invoke the Reference Data owner's read-only admission against the restore transaction. It MUST validate exact local manifest/provenance bindings and the presence, size and digest of each non-removed version's retained logical members. A failure rolls back those rows and leaves the target quarantined; it MUST NOT repair historical anchors or reset the target. Historical recorded-time trust verification and derived-index rebuilding remain required before readiness.
 
 **RP-REQ-231**
 Derived search and lookup indexes MAY be omitted from backup. When omitted, restore MUST rebuild them from verified canonical pack bytes before pack-dependent reads are admitted.
@@ -3664,10 +3923,10 @@ The fixed subsystem limits are:
 | ATT&CK data-component `x_mitre_log_sources` | `512` |
 | ATT&CK collection `x_mitre_contents` | `32768` |
 | Pack-set members | `64` |
-| NDJSON line bytes including LF | ATT&CK v2: `4194304`; other profiles: `1048576` |
+| NDJSON line bytes including LF | Generic dataset v1: `4194304`; other runtime profiles: `1048576` |
 | Retained validation issues | `1000` |
 
-Equality at a maximum is valid. A value greater than a maximum is invalid. The current machine projection is `cartulary.reference_pack_limits.v2`. The `max_line_bytes` limit is profile-scoped and obtains its numeric bound exclusively from the current profile registry. Native arrays bind their declared resource limit to the Table 26-C token. A selected native type remains selected when one of its fields is invalid: diagnostics MUST identify that field and its violated bound rather than replacing the finding with an enclosing union type error. Resource excess stops descendant traversal; no alternative branch is guessed to conceal the failure.
+Equality at a maximum is valid. A value greater than a maximum is invalid. The current machine projection is `cartulary.reference_pack_limits.v3`. The `max_line_bytes` limit is profile-scoped and obtains its numeric bound exclusively from the current profile registry. Producer native arrays bind their declared resource limit to the Table 26-C token. Generic runtime additionally enforces RP-REQ-279. A selected native type remains selected when one of its fields is invalid: diagnostics MUST identify that field and its violated bound rather than replacing the finding with an enclosing union type error. Resource excess stops descendant traversal; no alternative branch is guessed to conceal the failure.
 
 **Table 26-C. Exact limit failure mapping**
 

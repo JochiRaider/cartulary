@@ -100,7 +100,7 @@
         "grid_location": "opener",
         "pack_key": "type_registry.host",
         "pack_version": "browser-1",
-        "base_version": "base-2026-10-02.1",
+        "base_version": "base-2026-11-08.1",
         "payload_sha256": "afaae18a960bf0d7f75365494966403333706ee4b7f680ca789c5cad8a237b8f",
         "trust_repository_id": "browser.fixture.repo",
         "activation_policy": "staged_only",

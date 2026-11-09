@@ -1414,3 +1414,13 @@ Both W2 findings are closed by the production changes and passing regressions. R
 Full CI, browser suites, release checks and a complete-owner evidence audit were not run: this correction changes application admission and worker scope, covered by the selected facade/owner regressions, lifecycle paths and routing checks. The earlier consumer workflow runs were preserved rather than presented as fresh executions. `agent-finalize` retained-run maintenance was skipped because no compatible full warm-check root was supplied; no redundant full check was launched to create one. Canonical reassembly and envelope reissuance were unnecessary because the producer, profile, canonical bytes and publication identities are unchanged.
 
 Closing documentation command: `CARTULARY_TEST_RUN_ID=attack-w2-final-markdown-20261106-02 make lint-markdown`. Its owning summary is `.cartulary/test-results/attack-w2-final-markdown-20261106-02/adhoc/lint-markdown/tool-run-summary.json`; the observed result is recorded in the follow-up validation inventory. Run 01 also passed; run 02 checks the final wording distinguishing frozen-input validation before attempt creation from subsequent cohort processing. Final review also uses `git diff --check`. No publishing, deployment, legacy support, deployment-root replacement, database reset, commit or push is part of this follow-up.
+
+## Remediation closure follow-up — 2026-11-08
+
+The [RC closure section](reference_data-module-refactor-tracker.md#rc--remediation-closure-2026-11-08)
+records the corrected authority and resource rules, Linux filesystem-isolation
+prerequisites, final producer pins and scoped application qualification. Assembly
+now retains research under the explicit output root, leaving its pinned source
+corpus read-only. Existing signed release descriptors, notices, distribution
+decisions and signing custody remain unchanged. The new unsigned corpus outputs
+are qualification candidates, not replacement releases.

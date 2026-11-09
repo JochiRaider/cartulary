@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 func TestAttestationIndependentIdentityAndClosedShape_Unit(t *testing.T) {

@@ -38,12 +38,10 @@ func scanAdministrativeVersion(row pgx.Row) (AdministrativeVersion, error) {
 		v.FallbackFromVersion = nil
 	}
 	v.Condition = packstate.Condition(packstate.Version{Health: packstate.Health(v.Health), Disabled: v.AdministrativelyDisabled})
-	for _, p := range packformat.Profiles() {
-		if p.Key == v.PackKey {
-			v.PackKind = p.Kind
-			break
-		}
+	if p, known := packformat.ProfileForKey(v.PackKey); known {
+		v.PackKind = p.Kind
 	}
+
 	if len(envelopeBytes) == 0 {
 		return v, nil
 	}
@@ -55,6 +53,7 @@ func scanAdministrativeVersion(row pgx.Row) (AdministrativeVersion, error) {
 	if err != nil {
 		return v, err
 	}
+	v.PackKind = m.Kind
 	p := provenanceFor("", m, envelope)
 	v.Dependencies = make([]AdministrativeDependency, 0, len(m.Dependencies))
 	for _, dependency := range m.Dependencies {

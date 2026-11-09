@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/referencepacks/format/envelope"
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 func testLimitDiagnostics(t *testing.T) {
@@ -104,7 +105,7 @@ func testLimitDiagnostics(t *testing.T) {
 			if tc.kind == "root" {
 				maxSignatures = 128
 			}
-			_, err := metadataSchemaFindings(data, tc.kind, maxSignatures, "$.metadata[0]", emit)
+			_, err := fixtureMetadataFindings(data, tc.kind, maxSignatures, "$.metadata[0]", emit)
 			var failure *Failure
 			if errors.As(err, &failure) {
 				return nil
@@ -126,7 +127,7 @@ func testLimitDiagnostics(t *testing.T) {
 	}
 	assertLimit(failure.Summary, "max_container_bytes", "1024", "2048")
 	summary, err := CheckSummary(ctx, "archive_structure", nil, func(_ context.Context, emit FindingSink) error {
-		return structuralPathFindings(strings.Repeat("a", 1025), false, "$.archive_members[0]", emit)
+		return envelope.PathFindings(strings.Repeat("a", 1025), false, "$.archive_members[0]", emit)
 	})
 	if err != nil {
 		t.Fatal(err)

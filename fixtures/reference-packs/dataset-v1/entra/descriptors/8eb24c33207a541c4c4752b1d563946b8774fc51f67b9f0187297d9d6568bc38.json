@@ -1,0 +1,24 @@
+{
+  "schema_id": "cartulary.reference_pack_release_descriptor.v3",
+  "pack_key": "enrichment.entra_app_ids",
+  "pack_version": "2026.11.08.dataset.3",
+  "authority_class": "release",
+  "distribution_status": "approved_existing_output_policy",
+  "logical_root": "fixtures/reference-packs/dataset-v1/entra/logical/2093a895e67faa4b187cee76ed6eee3a05baabd83c77c8886f76e0184948a6cc",
+  "envelope_root": "fixtures/reference-packs/dataset-v1/entra/envelopes/8eb24c33207a541c4c4752b1d563946b8774fc51f67b9f0187297d9d6568bc38",
+  "manifest_sha256": "2093a895e67faa4b187cee76ed6eee3a05baabd83c77c8886f76e0184948a6cc",
+  "payload_sha256": "b95a8c50444abb5d4e48b5174c9855ef4a1e91eb3b682162605920dbbb0dbd77",
+  "container_sha256": "8eb24c33207a541c4c4752b1d563946b8774fc51f67b9f0187297d9d6568bc38",
+  "bootstrap_sha256": "8e68b17357fe4126531c03c2fe295a02b04cf3a013d76e0049f4022d9e44384a",
+  "envelope_report_sha256": "39bff16fc6823cc9e70dc365a3c5bf4408add76972453f9a33d7490c147aa04d",
+  "source_profile_id": "cartulary.entra_app_ids.microsoft_docs.2026_11_06.dataset.v1",
+  "source_profile_sha256": "23d1e80e7bc30cc1c7aa22720ff4dbf5d0dace89d3ae93897477066bc1659e40",
+  "source_version": "snapshot-2026-11-06.5cf55e78f58cdb4ed501bb6f4673ccd73d98987dd208ab3a447b6c79a09ced1c",
+  "builder": {
+    "builder_id": "cartulary.reference-pack.entra",
+    "builder_source_sha256": "b6e03aa9117c86cae9d87b8a6dcc9035b1b210461f78a19181889b93b81f4a71",
+    "builder_version": "dataset-v1"
+  },
+  "objects": 139,
+  "relationships": 0
+}

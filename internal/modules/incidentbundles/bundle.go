@@ -22,7 +22,7 @@ import (
 
 const (
 	bundleFormat              = "cartulary.incident_bundle"
-	bundleVersion             = 7
+	bundleVersion             = 8
 	sourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 	tarTypeRegA               = byte(0)
 )

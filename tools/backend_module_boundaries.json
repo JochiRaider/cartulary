@@ -522,6 +522,7 @@
         "internal/modules/recovery/backup_metadata_integration_test.go",
         "internal/modules/recovery/operatortest/operator_process_test.go",
         "internal/modules/recovery/operatortest/portable_restore_process_test.go",
+        "internal/modules/recovery/reference_attack_integration_test.go",
         "internal/modules/recovery/reference_entra_integration_test.go",
         "internal/modules/recovery/reference_veris_integration_test.go",
         "internal/modules/recovery/reference_windows_integration_test.go",
@@ -1733,7 +1734,11 @@
       "id": "production-no-reference-pack-producer",
       "match_kind": "subtree",
       "imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
+        "github.com/JochiRaider/cartulary/referencepacks/attack",
+        "github.com/JochiRaider/cartulary/referencepacks/entra",
+        "github.com/JochiRaider/cartulary/referencepacks/veris",
+        "github.com/JochiRaider/cartulary/referencepacks/windows",
+        "github.com/JochiRaider/cartulary/referencepacks/format/publication"
       ],
       "scan_paths": [
         "cmd/**",
@@ -3570,9 +3575,7 @@
         "internal/modules/recovery/**",
         "internal/platform/objectstore/**"
       ],
-      "allowed_paths": [
-        "internal/modules/reference_data/producer/**"
-      ],
+      "allowed_paths": [],
       "production_only": true,
       "match_kind": "source_text"
     },

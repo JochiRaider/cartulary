@@ -1,15 +1,15 @@
 package reporting_test
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/referencepackfixture"
 	"testing"
 	"time"
 )
 
 func TestVERISSnapshotAdmissionRetainsProducedSet_Integration(t *testing.T) {
 	now := time.Now().UTC()
-	keys, err := producer.NewVERISFixtureSigningContext()
+	keys, err := referencepackfixture.NewSigningContext("fixture.veris.dataset.v1", "framework.veris")
 	if err != nil {
 		t.Fatal(err)
 	}

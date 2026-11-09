@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 var successfulEnvelopeShape = compileProjection("successful_envelope.v1.schema.json")
@@ -32,7 +32,7 @@ func ValidateSuccessfulEnvelope(data []byte) error {
 		return invalid
 	}
 	object := value.(map[string]any)
-	if _, known := profiles[object["pack_key"].(string)]; !known {
+	if _, known := ProfileForKey(object["pack_key"].(string)); !known {
 		return invalid
 	}
 	verified, err := time.Parse(time.RFC3339Nano, object["verified_at"].(string))
@@ -107,9 +107,9 @@ func ValidateSuccessfulEnvelope(data []byte) error {
 			if err != nil {
 				return invalid
 			}
-			admitted, err := decodeMetadataShape(data, role, 64)
+			admitted, err := metadataVersion(data, role)
 			version, ok := integer(metadata["version"], 1, 9007199254740991)
-			if err != nil || !ok || admitted.version != version {
+			if err != nil || !ok || admitted != version {
 				return invalid
 			}
 			canonical, err := canonicaljson.Canonicalize(data)

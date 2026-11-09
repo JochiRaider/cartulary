@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 // The expectations here are independent of the compiled schema: every member
@@ -38,9 +38,6 @@ func testNestedContentAdmission(t *testing.T, fixture contentFixture) {
 					err = ValidateContent(context.Background(), fixtureManifest(fixture), contentMemory(members), &rows)
 					var failure *Failure
 					expectedCode := "content_schema_invalid"
-					if fixture.Key == "framework.attack" && ((location == "/source/name" && mutation == "omitted") || (location == "/source" && mutation == "null" && strings.Contains(path, "relationships"))) {
-						expectedCode = "content_semantic_invalid"
-					}
 					if !errors.As(err, &failure) || failure.Code != expectedCode || len(rows) != 0 {
 						t.Fatalf("malformed content admitted or indexed: %v, rows=%d", err, len(rows))
 					}

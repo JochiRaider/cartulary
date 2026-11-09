@@ -296,7 +296,7 @@ type preparedSavedViewRow struct {
 const savedViewMemberPath = "data/saved_views.ndjson"
 
 func prepareSavedViewImport(ctx context.Context, bundle incidentportability.MemberReader, importContext savedViewImportContext) (preparedSavedViewImport, error) {
-	if importContext.BundleVersion != 7 {
+	if importContext.BundleVersion != 8 {
 		return preparedSavedViewImport{}, savedViewInvariantFailure("saved_views.query_layout_legal")
 	}
 	members, err := incidentportability.BindMembers(bundle, []string{savedViewMemberPath})

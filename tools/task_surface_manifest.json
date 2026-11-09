@@ -314,6 +314,11 @@
         "reason": "Producer-only source preparation; product verification remains in owner-routed tests."
       },
       {
+        "target": "reference-pack-module-check",
+        "owner_section": "Section 4",
+        "reason": "Explicit independent module archive qualification; product verification remains in owner-routed tests."
+      },
+      {
         "target": "reference-pack-source",
         "owner_section": "Section 4",
         "reason": "Producer-only source preparation; product verification remains in owner-routed tests."
@@ -694,6 +699,11 @@
           "description": "reproduce and retain the immutable reference-pack producer executable"
         },
         {
+          "target": "reference-pack-module-check",
+          "description": "qualify an exported reference-pack module without application source",
+          "usage": "MODULE=format"
+        },
+        {
           "target": "reference-pack-source",
           "description": "discover, acquire, check or audit explicit pack source inputs",
           "usage": "ACTION=discover|acquire|check|audit SOURCE_LOCK=<JSON> SOURCE_DIR=<path>"
@@ -753,6 +763,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -828,6 +839,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -906,6 +918,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -981,6 +994,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -1056,6 +1070,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -1131,6 +1146,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -1206,6 +1222,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -1281,6 +1298,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -1356,6 +1374,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -1446,6 +1465,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -1521,6 +1541,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -1770,6 +1791,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -1845,6 +1867,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -2259,6 +2282,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -2446,6 +2470,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -2517,6 +2542,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -2588,6 +2614,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -2659,6 +2686,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -2730,6 +2758,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -2801,6 +2830,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -2872,6 +2902,7 @@
         "LICENSE_REPORT_ARTIFACT",
         "MAKE",
         "MIGRATE_BIN",
+        "MODULE",
         "NODE_BIN",
         "NODE_RUNTIME_DIR",
         "NODE_VERSION",
@@ -3016,6 +3047,28 @@
       ],
       "test_target": "self",
       "operation_id": "harness.reference_pack_package"
+    },
+    "reference-pack-module-check": {
+      "type": "step_command",
+      "mode": "run_step",
+      "step_label": "reference-pack-module-check",
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
+      "env": {
+        "GO": "$(GO)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
+        "NODE_BIN": "$(NODE_BIN)",
+        "MODULE": "$(MODULE)"
+      },
+      "command": [
+        "bash",
+        "./tools/reference-pack-modules/check.sh"
+      ],
+      "test_target": "self",
+      "operation_id": "harness.reference_pack_module_check"
     }
   },
   "targets": [
@@ -7060,7 +7113,17 @@
             "go.mod",
             "go.sum",
             "tools/go-analysis/go.mod",
-            "tools/go-analysis/go.sum"
+            "tools/go-analysis/go.sum",
+            "referencepacks/format/go.mod",
+            "referencepacks/format/go.sum",
+            "referencepacks/attack/go.mod",
+            "referencepacks/attack/go.sum",
+            "referencepacks/veris/go.mod",
+            "referencepacks/veris/go.sum",
+            "referencepacks/windows/go.mod",
+            "referencepacks/windows/go.sum",
+            "referencepacks/entra/go.mod",
+            "referencepacks/entra/go.sum"
           ]
         }
       ],
@@ -11844,7 +11907,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
-      "command_id": "cartulary.harness.command.reference_pack_producer_build.v1",
+      "command_id": "cartulary.harness.command.reference_pack_producer_build.v2",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -11872,17 +11935,42 @@
           "owner_section": "Section 8",
           "output_roots": [
             "build/bin",
-            ".cartulary/reference-packs/builders"
+            ".cartulary/reference-packs/builders",
+            ".cartulary/reference-packs/modules"
           ]
         }
       ],
       "input_contract": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "PRODUCER",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "enum",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "values": [
+              "attack",
+              "veris",
+              "windows",
+              "entra"
+            ]
+          }
+        ]
       },
       "backing_scripts": [
-        "tools/reference-packs/build.sh"
+        "tools/reference-packs/build.sh",
+        "tools/reference-pack-modules/isolation.mjs",
+        "tools/reference-pack-modules/isolated-go.mjs"
       ]
     },
     {
@@ -11905,7 +11993,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
-      "command_id": "cartulary.harness.command.reference_pack_source.v1",
+      "command_id": "cartulary.harness.command.reference_pack_source.v2",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -11933,6 +12021,27 @@
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": [
+          {
+            "name": "PRODUCER",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "enum",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "values": [
+              "attack",
+              "veris",
+              "windows",
+              "entra"
+            ]
+          },
           {
             "name": "ACTION",
             "binding": "make_variable",
@@ -12063,7 +12172,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
-      "command_id": "cartulary.harness.command.reference_pack_package.v1",
+      "command_id": "cartulary.harness.command.reference_pack_package.v2",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -12092,6 +12201,27 @@
         "undeclared_inherited_env": "ignore",
         "inputs": [
           {
+            "name": "PRODUCER",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "enum",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "values": [
+              "attack",
+              "veris",
+              "windows",
+              "entra"
+            ]
+          },
+          {
             "name": "ACTION",
             "binding": "make_variable",
             "allowed_sources": [
@@ -12109,7 +12239,10 @@
             "values": [
               "assemble",
               "envelope",
-              "renew"
+              "renew",
+              "assemble-fixture",
+              "envelope-fixture",
+              "renew-fixture"
             ],
             "default": null
           },
@@ -12133,7 +12266,99 @@
         ]
       },
       "backing_scripts": [
-        "tools/reference-packs/package.sh"
+        "tools/reference-packs/package.sh",
+        "tools/reference-packs/explicit-input.mjs",
+        "tools/reference-packs/dataset-witness.mjs",
+        "tools/reference-pack-modules/isolation.mjs",
+        "tools/reference-packs/isolated-package.mjs"
+      ]
+    },
+    {
+      "name": "reference-pack-module-check",
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.reference_pack_module_check.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            ".cartulary/reference-packs/modules"
+          ]
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "MODULE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "enum",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "values": [
+              "format",
+              "attack",
+              "veris",
+              "windows",
+              "entra"
+            ]
+          }
+        ]
+      },
+      "backing_scripts": [
+        "tools/reference-pack-modules/check.sh",
+        "tools/reference-pack-modules/main.go",
+        "tools/reference-pack-modules/closure.mjs",
+        "tools/reference-pack-modules/qualify.mjs",
+        "tools/reference-pack-modules/isolation.mjs",
+        "tools/reference-pack-modules/isolated-go.mjs"
       ]
     }
   ],

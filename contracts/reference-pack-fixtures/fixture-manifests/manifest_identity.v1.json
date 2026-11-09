@@ -1,13 +1,13 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_manifest_identity",
-  "fixture_version": 1,
+  "fixture_version": 3,
   "fixture_family": "manifest_identity",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/manifest.v1.json"
   ],
   "expected_container_sha256": null,
-  "expected_manifest_sha256": "77297a9c21169bddea0cf4e1b7a6bd6f7352be31e51200be32f7bf123977641e",
+  "expected_manifest_sha256": "f18b7dbcad0e885ecfa277fa04f58c1baa22f8ae56b9ae2902d472a4e5214bb3",
   "expected_payload_sha256": "e38ff4e85cc452ea298b402bd1003c3ba199db81e9f2fd9a8f3931369965e584",
   "expected_pack_set_sha256": null,
   "expected_condition": null,

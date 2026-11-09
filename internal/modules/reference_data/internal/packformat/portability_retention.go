@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 	"github.com/google/uuid"
 )
 
-var portabilityInputShape = compileProjection("portability_input.v2.schema.json")
+var portabilityInputShape = compileProjection("portability_input.v3.schema.json")
 var portabilityResolutionShape = compileProjection("portability_resolution.v1.schema.json")
 var errPortabilityRetention = errors.New("reference pack: invalid portability retention evidence")
 

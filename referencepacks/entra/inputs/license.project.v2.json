@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.entra_output_policy.v2",
+  "decision_ref": "maintainer-entra-v2-factual-original-output-2026-11-07",
+  "approved_by": "Cartulary repository maintainer",
+  "scope": "Factual application IDs and names, documentation attribution, original summaries and scope notices; excludes upstream descriptive prose and research artifacts.",
+  "license": {
+    "expression": "Apache-2.0",
+    "license_list_version": "3.28.0",
+    "redistribution": "allowed",
+    "notice_paths": [
+      "notices/Apache-2.0.txt",
+      "notices/attribution.txt"
+    ],
+    "license_ref_bindings": []
+  }
+}

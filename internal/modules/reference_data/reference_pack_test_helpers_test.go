@@ -41,6 +41,7 @@ func consumerIntegrityOptions(t testing.TB) reference_data.IntegrityOptions {
 }
 
 type bundleOptions struct {
+	Members           map[string]string
 	PackKey           string
 	PackKind          string
 	PackVersion       string
@@ -141,7 +142,7 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 			Members map[string]string `json:"members"`
 		} `json:"packs"`
 	}
-	b, err := os.ReadFile("../../../contracts/reference-packs/builtins/release.v2.json")
+	b, err := os.ReadFile("../../../contracts/reference-packs/builtins/release.v3.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +164,10 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 		t.Fatal(err)
 	}
 	if !strings.HasPrefix(options.PackKey, "type_registry.") {
-		profile := canonicalProfileFixtureFor(t, options.PackKey)
+		profile := canonicalProfileFixture{Key: options.PackKey, Members: options.Members}
+		if profile.Members == nil {
+			profile = canonicalProfileFixtureFor(t, options.PackKey)
+		}
 		for path := range members {
 			if strings.HasPrefix(path, "payload/") {
 				delete(members, path)
@@ -183,19 +187,23 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 	}
 	manifest["pack_release_sequence"] = sequence + 1
 	manifest["trust_repository_id"] = "integration.repo"
-	if options.PackKey == "framework.veris" {
-		manifest["source_version"] = "fixture-v2"
-		manifest["source_artifacts"] = []any{map[string]any{"source_ref": "https://example.test/verisc-merged.json", "source_version": "fixture-v2", "sha256": strings.Repeat("a", 64)}}
-	}
+
 	manifest["source_as_of"] = integrationSigningDay.Format(time.RFC3339)
 	manifest["built_at"] = integrationSigningDay.Format(time.RFC3339)
-	for _, profile := range packformat.Profiles() {
-		if profile.Key == options.PackKey {
-			manifest["content_profile_id"] = profile.ID
-			manifest["content_profile_version"] = profile.Version
-			break
-		}
+	profile, exists := packformat.ProfileForKey(options.PackKey)
+	if !exists {
+		t.Fatal("unsupported fixture pack key")
 	}
+	manifest["pack_kind"] = profile.Kind
+	if profile.Kind == "" {
+		manifest["pack_kind"] = "enrichment"
+	}
+	if options.PackKind != "" {
+		manifest["pack_kind"] = options.PackKind
+	}
+	manifest["content_profile_id"] = profile.ID
+	manifest["content_profile_version"] = profile.Version
+
 	if options.ContractVersion != "" {
 		manifest["pack_contract_version"] = options.ContractVersion
 	}
@@ -219,12 +227,14 @@ func referencePackBundle(t testing.TB, options bundleOptions) []byte {
 		role, media := "payload", "application/x-ndjson"
 		if strings.HasPrefix(path, "notices/") {
 			role, media = "notice", "text/plain"
+		} else if path == "payload/descriptor.json" {
+			media = "application/json"
 		} else {
 			counts[path] = bytes.Count(data, []byte("\n"))
 		}
 		files = append(files, packformat.File{Path: path, Role: role, MediaType: media, Size: int64(len(data)), SHA256: integrationDigest(data)})
 	}
-	if strings.HasPrefix(options.PackKey, "framework.") {
+	if profile.Shape == "dataset" || profile.Shape == "objects_relationships" {
 		manifest["content_summary"] = map[string]any{"kind": "objects_relationships", "object_count": counts["payload/objects.ndjson"], "relationship_count": counts["payload/relationships.ndjson"]}
 	} else {
 		manifest["content_summary"] = map[string]any{"kind": "entries", "entry_count": counts["payload/entries.ndjson"]}

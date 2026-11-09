@@ -35,7 +35,7 @@ var checks = []check{
 	{"SELECT canonical_references FROM public.reference_pack_portable_catalogs", "references"},
 	{"SELECT canonical_references FROM public.reference_pack_portable_preparations", "references"},
 	{"SELECT canonical_prepared FROM public.reference_pack_attempt_members WHERE canonical_prepared IS NOT NULL", "prepared"},
-	{"SELECT frozen_input FROM public.reference_pack_operations WHERE terminal_at IS NULL", "pending"},
+	{"SELECT frozen_input FROM public.reference_pack_operations", "pending"},
 }
 
 func validate(kind string, b []byte) error {
@@ -50,7 +50,7 @@ func validate(kind string, b []byte) error {
 	case "prepared":
 		err = packformat.ValidatePrepared(b)
 	case "pending":
-		err = packformat.ValidatePendingInput(b)
+		err = packformat.ValidateRetainedOperationInput(b)
 	default:
 		return incompatible{}
 	}
@@ -101,5 +101,5 @@ func Validate(ctx context.Context, db Reader) error {
 			return err
 		}
 	}
-	return nil
+	return validateLocalSets(ctx, db)
 }

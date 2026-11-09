@@ -32,15 +32,10 @@ func TestRetainedArtifactsClosedAdmission_Unit(t *testing.T) {
 			Members map[string]string `json:"members"`
 		} `json:"packs"`
 	}
-	if err := json.Unmarshal(read("contracts/reference-packs/builtins/release.v2.json"), &release); err != nil {
+	if err := json.Unmarshal(read("contracts/reference-packs/builtins/release.v3.json"), &release); err != nil {
 		t.Fatal(err)
 	}
-	var vector struct {
-		Members []packformat.SetMember `json:"members"`
-	}
-	if err := json.Unmarshal(read("contracts/reference-pack-fixtures/fixtures/complete-set.v1.json"), &vector); err != nil {
-		t.Fatal(err)
-	}
+	vector := struct{ Members []packformat.SetMember }{currentBaseMembers(t)}
 	set, err := packformat.BuildSet(vector.Members)
 	if err != nil {
 		t.Fatal(err)
@@ -133,4 +128,34 @@ func TestRetainedArtifactsClosedAdmission_Unit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func currentBaseMembers(t testing.TB) []packformat.SetMember {
+	t.Helper()
+	raw, err := os.ReadFile("../../../../contracts/reference-packs/builtins/release.v3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var release struct {
+		Packs []struct {
+			Members map[string]string `json:"members"`
+		} `json:"packs"`
+	}
+	if err := json.Unmarshal(raw, &release); err != nil {
+		t.Fatal(err)
+	}
+	members := []packformat.SetMember{}
+	for _, p := range release.Packs {
+		raw := []byte(p.Members["manifest.json"])
+		m, err := packformat.DecodeManifest(raw, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		payload, err := packformat.PayloadDigest(m.Files)
+		if err != nil {
+			t.Fatal(err)
+		}
+		members = append(members, packformat.SetMember{Key: m.Key, Version: m.Version, ManifestSHA256: packformat.Digest(raw), PayloadSHA256: payload, Contract: m.Contract, ProfileID: m.ProfileID, ProfileVersion: m.ProfileVersion})
+	}
+	return members
 }

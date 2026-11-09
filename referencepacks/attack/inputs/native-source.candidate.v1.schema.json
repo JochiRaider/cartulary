@@ -1,0 +1,2797 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cartulary.invalid/proposals/attack-native-source.candidate.v1",
+  "$comment": "Producer-only proposal. Never register or admit as a runtime pack schema before coordinated owner adoption. Optional source properties preserve absence; no default insertion. URLs are inert original strings.",
+  "$defs": {
+    "campaign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "first_seen": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^campaign--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "last_seen": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "campaign"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_first_seen_citation": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_last_seen_citation": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "course-of-action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^course-of-action--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "course-of-action"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "intrusion-set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^intrusion-set--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "intrusion-set"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "malware": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^malware--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "is_family": {
+          "type": "boolean"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "malware"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_platforms": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^tool--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "tool"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_platforms": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "attack-pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^attack-pattern--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "kill_chain_phases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kill_chain_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "phase_name": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "kill_chain_name",
+              "phase_name"
+            ]
+          }
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "attack-pattern"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_impact_type": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_is_subtechnique": {
+          "type": "boolean"
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_platforms": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_remote_support": {
+          "type": "boolean"
+        },
+        "x_mitre_tactic_type": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "x-mitre-matrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^x-mitre-matrix--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "tactic_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "type": {
+          "const": "x-mitre-matrix"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "x-mitre-tactic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "x_mitre_shortname"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^x-mitre-tactic--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "x-mitre-tactic"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_shortname": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "x-mitre-analytic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^x-mitre-analytic--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "x-mitre-analytic"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_log_source_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "channel": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "x_mitre_data_component_ref": {
+                "type": "string",
+                "maxLength": 8192,
+                "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              }
+            },
+            "required": [
+              "x_mitre_data_component_ref",
+              "name",
+              "channel"
+            ]
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_mutable_elements": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "field": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "field",
+              "description"
+            ]
+          }
+        },
+        "x_mitre_platforms": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "x-mitre-data-component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^x-mitre-data-component--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "x-mitre-data-component"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_log_sources": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "channel": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "name",
+              "channel"
+            ]
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "x-mitre-data-source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^x-mitre-data-source--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "x-mitre-data-source"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_collection_layers": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_platforms": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "x-mitre-detection-strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^x-mitre-detection-strategy--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "x-mitre-detection-strategy"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_analytic_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "x-mitre-asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^x-mitre-asset--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "x-mitre-asset"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_platforms": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_related_assets": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "related_asset_sectors": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "maxLength": 8192
+                }
+              }
+            },
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "x_mitre_sectors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "x-mitre-collection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "x_mitre_version",
+        "x_mitre_contents"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^x-mitre-collection--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "x-mitre-collection"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contents": {
+          "type": "array",
+          "maxItems": 32768,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "object_modified": {
+                "type": "string",
+                "maxLength": 8192,
+                "format": "date-time"
+              },
+              "object_ref": {
+                "type": "string",
+                "maxLength": 8192,
+                "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              }
+            },
+            "required": [
+              "object_ref",
+              "object_modified"
+            ]
+          }
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^identity--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "identity_class": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "identity"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "marking-definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "definition": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "statement": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          }
+        },
+        "definition_type": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^marking-definition--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "type": {
+          "const": "marking-definition"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "relationship_type",
+        "source_ref",
+        "target_ref"
+      ],
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "created": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "created_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "external_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "external_id": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "source_name": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 8192
+              }
+            },
+            "required": [
+              "source_name"
+            ]
+          }
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^relationship--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "modified": {
+          "type": "string",
+          "maxLength": 8192,
+          "format": "date-time"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192,
+            "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "relationship_type": {
+          "type": "string",
+          "maxLength": 8192,
+          "enum": [
+            "attributed-to",
+            "detects",
+            "mitigates",
+            "revoked-by",
+            "subtechnique-of",
+            "targets",
+            "uses"
+          ]
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "source_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "target_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "type": {
+          "const": "relationship"
+        },
+        "x_mitre_aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_attack_spec_version": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "x_mitre_contributors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_deprecated": {
+          "type": "boolean"
+        },
+        "x_mitre_domains": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "x_mitre_modified_by_ref": {
+          "type": "string",
+          "maxLength": 8192,
+          "pattern": "^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "x_mitre_version": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/attack-pattern"
+    },
+    {
+      "$ref": "#/$defs/campaign"
+    },
+    {
+      "$ref": "#/$defs/course-of-action"
+    },
+    {
+      "$ref": "#/$defs/identity"
+    },
+    {
+      "$ref": "#/$defs/intrusion-set"
+    },
+    {
+      "$ref": "#/$defs/malware"
+    },
+    {
+      "$ref": "#/$defs/marking-definition"
+    },
+    {
+      "$ref": "#/$defs/relationship"
+    },
+    {
+      "$ref": "#/$defs/tool"
+    },
+    {
+      "$ref": "#/$defs/x-mitre-analytic"
+    },
+    {
+      "$ref": "#/$defs/x-mitre-asset"
+    },
+    {
+      "$ref": "#/$defs/x-mitre-collection"
+    },
+    {
+      "$ref": "#/$defs/x-mitre-data-component"
+    },
+    {
+      "$ref": "#/$defs/x-mitre-data-source"
+    },
+    {
+      "$ref": "#/$defs/x-mitre-detection-strategy"
+    },
+    {
+      "$ref": "#/$defs/x-mitre-matrix"
+    },
+    {
+      "$ref": "#/$defs/x-mitre-tactic"
+    }
+  ]
+}

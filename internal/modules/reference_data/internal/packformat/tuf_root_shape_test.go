@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 func TestOfflineTUFRootNestedAdmissionPrecedesCanonicalAndRotation_Unit(t *testing.T) {
@@ -92,7 +92,7 @@ func TestOfflineTUFRootNestedAdmissionPrecedesCanonicalAndRotation_Unit(t *testi
 				object := selectObject(signed)
 				object["hostile-name-must-not-escape"] = "payload-must-not-escape"
 				data, _ := canonicaljson.Marshal(value)
-				_, err := decodeMetadataShape(data, "root", 128)
+				_, err := fixtureMetadataHeader(data, "root")
 				var failure *Failure
 				if !errors.As(err, &failure) || failure.Code != "tuf_metadata_invalid" || strings.Contains(err.Error(), "must-not-escape") {
 					t.Fatalf("closed root boundary: %v", err)

@@ -1,12 +1,12 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_owner_windows_snapshot_binding",
-  "fixture_version": 1,
+  "fixture_version": 3,
   "fixture_family": "snapshot_reporting",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/owner_windows_snapshot_binding.v1.json",
     "contracts/reference-pack-producers/windows-event-ids/fixture-sources.v2.json",
-    "contracts/reference-packs/builtins/release.v2.json"
+    "contracts/reference-packs/builtins/release.v3.json"
   ],
   "expected_container_sha256": null,
   "expected_manifest_sha256": null,

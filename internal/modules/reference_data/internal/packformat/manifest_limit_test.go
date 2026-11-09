@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
-func TestATTACKManifestAndPathLimits_Unit(t *testing.T) {
-	fixture := contentFixtureFor(t, "framework.attack")
+func TestManifestAndPathLimits_Unit(t *testing.T) {
+	fixture := contentFixtureFor(t, "framework.d3fend")
 	m, err := DecodeManifest([]byte(manifestFixture(t).Canonical), true)
 	if err != nil {
 		t.Fatal(err)

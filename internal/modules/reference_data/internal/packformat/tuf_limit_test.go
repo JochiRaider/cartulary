@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 // Fresh deterministic test-only signatures keep this boundary test independent
@@ -75,7 +75,7 @@ func testCompleteTUFByteBoundaries(t *testing.T) {
 	extraKey := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x90}, ed25519.SeedSize))
 	extraPublic := map[string]any{"keytype": "ed25519", "scheme": "ed25519", "keyval": map[string]any{"public": hex.EncodeToString(extraKey.Public().(ed25519.PublicKey))}}
 	extraRoot["keys"].(map[string]any)[Digest(canonical(extraPublic))] = extraPublic
-	if _, err := decodeMetadataShape(sign(extraRoot), "root", 128); err == nil {
+	if _, err := fixtureMetadataHeader(sign(extraRoot), "root"); err == nil {
 		t.Fatal("sixty-fifth root key admitted")
 	}
 	for _, boundary := range []struct {
@@ -96,7 +96,7 @@ func testCompleteTUFByteBoundaries(t *testing.T) {
 			t.Fatal("signature boundary recipe")
 		}
 		envelope["signatures"] = append(signatures, signatures[0])
-		if _, err := decodeMetadataShape(canonical(envelope), boundary.kind, boundary.maximum); err == nil {
+		if _, err := fixtureMetadataHeader(canonical(envelope), boundary.kind); err == nil {
 			t.Fatal("one-over signature count admitted", boundary.kind)
 		}
 	}
@@ -179,7 +179,7 @@ func testCompleteTUFByteBoundaries(t *testing.T) {
 	var limits struct {
 		Fixed map[string]int `json:"fixed"`
 	}
-	if err := json.Unmarshal(projection("limits.v2.json"), &limits); err != nil || limits.Fixed["max_json_nesting_depth"] != 10000 {
+	if err := json.Unmarshal(projection("limits.v3.json"), &limits); err != nil || limits.Fixed["max_json_nesting_depth"] != 10000 {
 		t.Fatal("JSON nesting projection drift", err)
 	}
 	deep := strings.Repeat("[", 9998) + "0" + strings.Repeat("]", 9998)
@@ -218,7 +218,7 @@ func testCompleteTUFByteBoundaries(t *testing.T) {
 	// One byte over a per-file bound is rejected before canonical/signature work.
 	raw := append(bytes.Clone(files["metadata/targets.json"]), ' ')
 	var findings []Finding
-	_, err = metadataSchemaFindings(raw, "targets", 64, "$.metadata[0]", func(f Finding) error { findings = append(findings, f); return nil })
+	_, err = fixtureMetadataFindings(raw, "targets", 64, "$.metadata[0]", func(f Finding) error { findings = append(findings, f); return nil })
 	if err == nil || len(findings) != 1 || findings[0].Details.LimitID == nil || *findings[0].Details.LimitID != "max_metadata_file_bytes" {
 		t.Fatal("individual metadata bound", findings, err)
 	}

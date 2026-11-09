@@ -1,17 +1,15 @@
 {
-  "schema_id": "reference_pack_refs.v2",
+  "schema_id": "reference_pack_refs.v3",
   "sets": [
     {
-      "schema_id": "cartulary.reference_pack_set.v2",
-      "pack_set_id": "rpset_c936674fa61126953193cb8d72e8d93ce597f614d050a92cdd59fdc50d68342d",
-      "pack_set_sha256": "c936674fa61126953193cb8d72e8d93ce597f614d050a92cdd59fdc50d68342d",
+      "schema_id": "cartulary.reference_pack_set.v3",
       "members": [
         {
           "pack_key": "type_registry.evidence",
           "pack_version": "fixture-1",
           "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "pack_contract_version": "cartulary.reference_pack_contract.v2",
+          "pack_contract_version": "cartulary.reference_pack_contract.v3",
           "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
           "content_profile_version": "1"
         },
@@ -20,7 +18,7 @@
           "pack_version": "fixture-1",
           "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "pack_contract_version": "cartulary.reference_pack_contract.v2",
+          "pack_contract_version": "cartulary.reference_pack_contract.v3",
           "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
           "content_profile_version": "1"
         },
@@ -29,11 +27,13 @@
           "pack_version": "fixture-1",
           "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "pack_contract_version": "cartulary.reference_pack_contract.v2",
+          "pack_contract_version": "cartulary.reference_pack_contract.v3",
           "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
           "content_profile_version": "1"
         }
-      ]
+      ],
+      "pack_set_id": "rpset_be8fdd441d4c1fa0ca5796bdac18921075c50552ecb4d3d251381c7ae5a1058f",
+      "pack_set_sha256": "be8fdd441d4c1fa0ca5796bdac18921075c50552ecb4d3d251381c7ae5a1058f"
     }
   ],
   "versions": [
@@ -42,7 +42,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
       "content_profile_version": "1",
       "distribution_kind": "operator_imported",
@@ -55,7 +55,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
       "content_profile_version": "1",
       "distribution_kind": "operator_imported",
@@ -68,7 +68,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
       "content_profile_version": "1",
       "distribution_kind": "operator_imported",

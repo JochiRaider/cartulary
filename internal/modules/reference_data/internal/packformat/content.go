@@ -5,16 +5,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 	"unicode/utf8"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/dataset"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -41,15 +40,15 @@ var contentShapes = loadContentShapes()
 func loadContentShapes() map[string]*shape {
 	result := map[string]*shape{}
 	for _, p := range profiles {
+		if p.Shape == "dataset" {
+			continue
+		}
 		kinds := []string{"entry"}
-		if p.Shape == "objects_relationships" {
+		if p.Shape == "objects_relationships" || p.Shape == "dataset" {
 			kinds = []string{"object", "relationship"}
 		}
 		for _, kind := range kinds {
 			result[p.Key+"/"+kind] = compileProjection(p.Schemas[kind])
-			if p.Key == "framework.attack" && result[p.Key+"/"+kind].properties["source"].oneDispatch == nil {
-				panic("native source schema requires disjoint union dispatch")
-			}
 		}
 	}
 	return result
@@ -57,8 +56,6 @@ func loadContentShapes() map[string]*shape {
 
 type contentState struct {
 	manifest     Manifest
-	attack       *attackState
-	veris        *verisState
 	ids          map[string]bool
 	aliases      map[string]bool
 	replacements map[string]string
@@ -70,6 +67,9 @@ type contentState struct {
 // release assets and restore. Live attempts interleave these checks with the
 // other registry phases before starting any index writes.
 func ValidateContent(ctx context.Context, m Manifest, source ContentSource, sink ContentSink) error {
+	if m.ProfileID == dataset.ProfileID {
+		return validateDataset(ctx, m, source, sink)
+	}
 	if err := ValidateContentSchema(ctx, m, source); err != nil {
 		return err
 	}
@@ -94,10 +94,21 @@ const (
 )
 
 func ValidateContentSchema(ctx context.Context, m Manifest, source ContentSource) error {
+	if m.ProfileID == dataset.ProfileID {
+		expected, err := datasetExpected(m)
+		if err != nil {
+			return err
+		}
+		_, err = dataset.ValidateStructure(ctx, source, expected)
+		return datasetError(err)
+	}
 	return validateContentPhase(ctx, m, source, nil, contentSchema, nil)
 }
 
 func ValidateContentSemantics(ctx context.Context, m Manifest, source ContentSource, sink ContentSink) error {
+	if m.ProfileID == dataset.ProfileID {
+		return validateDataset(ctx, m, source, sink)
+	}
 	return validateContentPhase(ctx, m, source, sink, contentSemantics, nil)
 }
 
@@ -113,18 +124,12 @@ func ValidateRegistryCompatibility(ctx context.Context, m Manifest, source Conte
 // choose between failures belonging to different checks.
 func validateContentPhase(ctx context.Context, m Manifest, source ContentSource, sink ContentSink, phase contentPhase, emit FindingSink) error {
 	p, ok := profiles[m.Key]
-	if !ok {
+	if !ok || p.Shape == "dataset" {
 		return fail("contract_incompatible")
 	}
 	state := contentState{manifest: m, emit: emit, ids: map[string]bool{}, aliases: map[string]bool{}, replacements: map[string]string{}}
 	kinds := []string{"entry"}
-	if m.Key == "framework.attack" && phase == contentSemantics {
-		state.attack = newAttackState()
-	}
-	if m.Key == "framework.veris" && phase == contentSemantics {
-		state.veris = newVERISState(m)
-	}
-	if p.Shape == "objects_relationships" {
+	if p.Shape == "objects_relationships" || p.Shape == "dataset" {
 		kinds = []string{"object", "relationship"}
 	}
 	for _, kind := range kinds {
@@ -154,45 +159,9 @@ func validateContentPhase(ctx context.Context, m Manifest, source ContentSource,
 		if closeErr != nil {
 			return ErrStorage
 		}
-		if state.attack != nil && kind == "object" {
-			if err := state.attack.finishObjects(); err != nil {
-				if emit == nil {
-					return err
-				}
-				if err := emit(Finding{Path: "$.objects"}); err != nil {
-					return err
-				}
-			}
-		}
-		if state.attack != nil && kind == "relationship" {
-			if err := state.attack.finish(); err != nil {
-				if emit == nil {
-					return err
-				}
-				if err := emit(Finding{Path: "$.relationships"}); err != nil {
-					return err
-				}
-			}
-		}
 		if phase == contentSemantics && kind != "relationship" {
 			if err := state.validateReplacements(); err != nil {
 				return err
-			}
-		}
-		if state.veris != nil {
-			var err error
-			if kind == "object" {
-				err = state.veris.finishObjects()
-			} else {
-				err = state.veris.finish()
-			}
-			if err != nil {
-				if emit == nil {
-					return err
-				}
-				if err = emit(Finding{Path: "$." + kind + "s"}); err != nil {
-					return err
-				}
 			}
 		}
 	}
@@ -338,7 +307,7 @@ func aliasNormalizer(key string) func(string) string {
 	return asciiLower
 }
 func profileAllowsAliases(key string) bool {
-	return strings.HasPrefix(key, "framework.") || strings.HasPrefix(key, "type_registry.") || slices.Contains([]string{"enrichment.ms_portals", "enrichment.entra_app_ids", "enrichment.lolbas", "enrichment.loldrivers", "enrichment.lolesxi", "enrichment.windows_sids"}, key)
+	return strings.HasPrefix(key, "framework.") || strings.HasPrefix(key, "type_registry.") || slices.Contains([]string{"enrichment.ms_portals", "enrichment.lolbas", "enrichment.loldrivers", "enrichment.lolesxi", "enrichment.windows_sids"}, key)
 }
 func (s *contentState) row(m map[string]any, kind string, c *semanticChecks) (ContentRow, error) {
 	c.require(nullableText(m["description"], 8192, true), ".description")
@@ -354,24 +323,6 @@ func (s *contentState) row(m map[string]any, kind string, c *semanticChecks) (Co
 		c.require(singleLine(locator, 1024), path+".locator")
 		c.require(order > previousRef, path)
 		previousRef = order
-	}
-	if s.manifest.Key == "enrichment.windows_event_ids" {
-		for i, value := range m["documentation"].([]any) {
-			block := value.(map[string]any)
-			c.require(windowsDocumentationPresentation(block["content"]), fmt.Sprintf(".documentation[%d].content", i))
-			previous := ""
-			for j, v := range block["source_refs"].([]any) {
-				ref := v.(map[string]any)
-				index, ok := integer(ref["artifact_index"], 0, int64(len(s.manifest.Artifacts))-1)
-				loc := ref["locator"].(string)
-				order := strconv.FormatInt(index+100, 10) + "\x00" + loc
-				p := fmt.Sprintf(".documentation[%d].source_refs[%d]", i, j)
-				c.require(ok, p+".artifact_index")
-				c.require(singleLine(loc, 1024), p+".locator")
-				c.require(order > previous, p)
-				previous = order
-			}
-		}
 	}
 	if kind == "relationship" {
 		return s.relationship(m, c)
@@ -410,12 +361,6 @@ func (s *contentState) row(m map[string]any, kind string, c *semanticChecks) (Co
 		row.Keys = append(row.Keys, LookupKey{"alias", key, id})
 	}
 	if kind == "object" {
-		if s.veris != nil {
-			s.veris.object(m, c)
-		}
-		if s.attack != nil {
-			s.attack.object(m, c)
-		}
 		previous := ""
 		row.Keys = append(row.Keys, LookupKey{"object_id", id, id})
 		// Reference tuples preserve source provenance. The external-ID index
@@ -447,25 +392,6 @@ func (s *contentState) row(m map[string]any, kind string, c *semanticChecks) (Co
 	return row, err
 }
 
-func windowsDocumentationPresentation(value any) bool {
-	switch v := value.(type) {
-	case string:
-		return strings.TrimRightFunc(v, unicode.IsSpace) == v
-	case map[string]any:
-		for _, x := range v {
-			if !windowsDocumentationPresentation(x) {
-				return false
-			}
-		}
-	case []any:
-		for _, x := range v {
-			if !windowsDocumentationPresentation(x) {
-				return false
-			}
-		}
-	}
-	return true
-}
 func (s *contentState) validateReplacements() error {
 	path := "$.entries"
 	if profiles[s.manifest.Key].Shape == "objects_relationships" {
@@ -498,12 +424,6 @@ func (s *contentState) relationship(m map[string]any, c *semanticChecks) (Conten
 	if err != nil {
 		return ContentRow{}, err
 	}
-	if s.attack != nil {
-		s.attack.relationship(m, c)
-	}
-	if s.veris != nil {
-		s.veris.relationship(m, c)
-	}
 	order := typ + "\x00" + source + "\x00" + target + "\x00" + id
 	c.require(id == expected, ".relationship_id")
 	c.require(s.ids[source], ".source_object_id")
@@ -513,42 +433,6 @@ func (s *contentState) relationship(m map[string]any, c *semanticChecks) (Conten
 	return ContentRow{ID: id, Shape: "relationship", Keys: []LookupKey{}}, c.finish("content_semantic_invalid")
 }
 
-// EventIdentity includes the nullable version and remains unambiguous even
-// when provider names contain colons.
-func EventIdentity(provider string, event int64, version *int64) string {
-	v := "*"
-	if version != nil {
-		v = strconv.FormatInt(*version, 10)
-	}
-	return asciiLower(provider) + ":" + strconv.FormatInt(event, 10) + ":" + v
-}
-func ParseEventIdentity(id string) (string, int64, *int64, bool) {
-	if len(id) > 266 {
-		return "", 0, nil, false
-	}
-	last := strings.LastIndexByte(id, ':')
-	if last < 0 {
-		return "", 0, nil, false
-	}
-	second := strings.LastIndexByte(id[:last], ':')
-	if second < 0 {
-		return "", 0, nil, false
-	}
-	provider := id[:second]
-	event, err := strconv.ParseInt(id[second+1:last], 10, 64)
-	if err != nil || event < 0 || event > 65535 || strconv.FormatInt(event, 10) != id[second+1:last] || provider != asciiLower(provider) || !isASCII(provider) || !singleLine(provider, 256) {
-		return "", 0, nil, false
-	}
-	var version *int64
-	if id[last+1:] != "*" {
-		n, err := strconv.ParseInt(id[last+1:], 10, 64)
-		if err != nil || n < 0 || n > 255 || strconv.FormatInt(n, 10) != id[last+1:] {
-			return "", 0, nil, false
-		}
-		version = &n
-	}
-	return provider, event, version, true
-}
 func ValidSID(value string) bool {
 	if len(value) > 184 || !strings.HasPrefix(value, "S-1-") {
 		return false
@@ -575,4 +459,17 @@ func WindowsPathLookup(value string) string {
 		v = strings.ReplaceAll(v, `\\`, `\`)
 	}
 	return asciiLower(v)
+}
+
+// contextReader keeps cancellation active during bounded local stream reads.
+type contextReader struct {
+	ctx    context.Context
+	source io.Reader
+}
+
+func (r contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.source.Read(p)
 }

@@ -13,7 +13,7 @@ import (
 
 func prepareEntityImport(ctx context.Context, bundle incidentportability.MemberReader, importContext sourceport.ImportContext) (preparedEntityImport, error) {
 	prepared := preparedEntityImport{binding: entityPortableBinding{operationID: importContext.OperationID, incidentID: importContext.IncidentID, bundleVersion: importContext.BundleVersion, contractMajor: sourceport.ContractMajor}}
-	if bundle == nil || importContext.OperationID == "" || importContext.IncidentID == uuid.Nil || importContext.ActorUserID == uuid.Nil || importContext.BundleVersion != 7 {
+	if bundle == nil || importContext.OperationID == "" || importContext.IncidentID == uuid.Nil || importContext.ActorUserID == uuid.Nil || importContext.BundleVersion != 8 {
 		return preparedEntityImport{}, entitySourceFailure(entitySourceIdentity)
 	}
 	members, err := sourceport.PrepareMembers(ctx, entitySourceDescriptor(), bundle, importContext.BundleVersion)

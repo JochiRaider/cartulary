@@ -1,18 +1,16 @@
 {
   "references": {
-    "schema_id": "reference_pack_refs.v2",
+    "schema_id": "reference_pack_refs.v3",
     "sets": [
       {
-        "schema_id": "cartulary.reference_pack_set.v2",
-        "pack_set_id": "rpset_1f79ac5144c43fec9a6886dd8a9871347caee37cc98cae5b34ce0200738a9721",
-        "pack_set_sha256": "1f79ac5144c43fec9a6886dd8a9871347caee37cc98cae5b34ce0200738a9721",
+        "schema_id": "cartulary.reference_pack_set.v3",
         "members": [
           {
             "pack_key": "type_registry.evidence",
             "pack_version": "fixture-1",
             "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000001",
             "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "pack_contract_version": "cartulary.reference_pack_contract.v2",
+            "pack_contract_version": "cartulary.reference_pack_contract.v3",
             "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
             "content_profile_version": "1"
           },
@@ -21,7 +19,7 @@
             "pack_version": "fixture-1",
             "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000002",
             "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "pack_contract_version": "cartulary.reference_pack_contract.v2",
+            "pack_contract_version": "cartulary.reference_pack_contract.v3",
             "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
             "content_profile_version": "1"
           },
@@ -30,11 +28,13 @@
             "pack_version": "fixture-1",
             "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000003",
             "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "pack_contract_version": "cartulary.reference_pack_contract.v2",
+            "pack_contract_version": "cartulary.reference_pack_contract.v3",
             "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
             "content_profile_version": "1"
           }
-        ]
+        ],
+        "pack_set_id": "rpset_ae52cdc520128010dc51acfda5dc70e42656f08153567f2c20836cdd0b59c108",
+        "pack_set_sha256": "ae52cdc520128010dc51acfda5dc70e42656f08153567f2c20836cdd0b59c108"
       }
     ],
     "versions": [
@@ -43,7 +43,7 @@
         "pack_version": "fixture-1",
         "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000001",
         "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "pack_contract_version": "cartulary.reference_pack_contract.v2",
+        "pack_contract_version": "cartulary.reference_pack_contract.v3",
         "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
         "content_profile_version": "1",
         "distribution_kind": "operator_imported",
@@ -56,7 +56,7 @@
         "pack_version": "fixture-1",
         "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000002",
         "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "pack_contract_version": "cartulary.reference_pack_contract.v2",
+        "pack_contract_version": "cartulary.reference_pack_contract.v3",
         "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
         "content_profile_version": "1",
         "distribution_kind": "packaged_builtin",
@@ -69,7 +69,7 @@
         "pack_version": "fixture-1",
         "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000003",
         "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "pack_contract_version": "cartulary.reference_pack_contract.v2",
+        "pack_contract_version": "cartulary.reference_pack_contract.v3",
         "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
         "content_profile_version": "1",
         "distribution_kind": "packaged_builtin",
@@ -90,7 +90,7 @@
     ],
     "required_members": [
       {
-        "pack_set_id": "rpset_1f79ac5144c43fec9a6886dd8a9871347caee37cc98cae5b34ce0200738a9721",
+        "pack_set_id": "rpset_ae52cdc520128010dc51acfda5dc70e42656f08153567f2c20836cdd0b59c108",
         "pack_key": "type_registry.evidence"
       }
     ]

@@ -1,0 +1,118 @@
+{
+  "schema_id": "cartulary.entra_editorial.v2",
+  "historical_note": "Catalog note: this identity, label, and Microsoft attribution are documented in Microsoft's historical source snapshot of 2025-05-30. This source does not establish the application's current name, ownership, or availability.",
+  "summaries": [
+    {
+      "app_id": "00000003-0000-0ff1-ce00-000000000000",
+      "text": "Identifies Microsoft's own SharePoint and OneDrive application instance.",
+      "source_locators": [
+        "S1:L48"
+      ]
+    },
+    {
+      "app_id": "00000012-0000-0000-c000-000000000000",
+      "text": "Supports rights-management encryption, including encryption associated with Purview labeling.",
+      "source_locators": [
+        "S1:L46"
+      ]
+    },
+    {
+      "app_id": "04687a56-4fc2-4e36-b274-b862fb649733",
+      "text": "Registers an application in a customer tenant for each enrolled network-scanning agent.",
+      "source_locators": [
+        "S1:L45"
+      ]
+    },
+    {
+      "app_id": "06dd8193-75af-46d0-84bb-9b9bcaa89e8b",
+      "text": "Supports third-party Teams message extensions, including polling and survey applications.",
+      "source_locators": [
+        "S1:L52"
+      ]
+    },
+    {
+      "app_id": "0736f41a-0425-4b46-bdb5-1563eff02385",
+      "text": "Supports cloud-based machine-learning development and lifecycle management.",
+      "source_locators": [
+        "S1:L38"
+      ]
+    },
+    {
+      "app_id": "3ab9b3bc-762f-4d62-82f7-7e1d653ce29f",
+      "text": "Supports commerce workflows for Microsoft's transactional volume-licensing agreements.",
+      "source_locators": [
+        "S1:L47"
+      ]
+    },
+    {
+      "app_id": "47ee738b-3f1a-4fc7-ab11-37e4822b007e",
+      "text": "Supports remote access to privately hosted applications through Entra Application Proxy and Private Access workflows.",
+      "source_locators": [
+        "S1:L35"
+      ]
+    },
+    {
+      "app_id": "913c6de4-2a4a-4a61-a9ce-945d2b2ce2e0",
+      "text": "Relates to managed SQL Server capabilities hosted in an isolated cloud network.",
+      "source_locators": [
+        "S1:L40"
+      ]
+    },
+    {
+      "app_id": "98785600-1bb7-4fb9-b9fa-19afe2c8a360",
+      "text": "Provides cloud security monitoring and automated security-response capabilities.",
+      "source_locators": [
+        "S1:L39"
+      ]
+    },
+    {
+      "app_id": "9d4afbbc-06a4-49e0-8005-4e5afd1d4fec",
+      "text": "Supports Global Secure Access administration for evaluating network changes and features before affecting onboarded environments.",
+      "source_locators": [
+        "S1:L53"
+      ]
+    },
+    {
+      "app_id": "a6aa9161-5291-40bb-8c5c-923b567bee3b",
+      "text": "Supports programmatic administration of storage accounts and their keys.",
+      "source_locators": [
+        "S1:L51"
+      ]
+    },
+    {
+      "app_id": "c0be6b4c-212d-4ca9-8a35-fd260fe22342",
+      "text": "Manages identities associated with Fabric workspaces.",
+      "source_locators": [
+        "S1:L44"
+      ]
+    },
+    {
+      "app_id": "c6e44401-4d0a-4542-ab22-ecd4c90d28d7",
+      "text": "Applies application-protection policies that can disable service principals. Its documented role does not require creating application registrations or principals.",
+      "source_locators": [
+        "S1:L34"
+      ]
+    },
+    {
+      "app_id": "c8e14c19-0ae6-4966-bd07-17e5ffa8e4ce",
+      "text": "Manages application objects in specifically permitted Microsoft internal service and infrastructure tenants.",
+      "source_locators": [
+        "S1:L33"
+      ]
+    },
+    {
+      "app_id": "f0ae4899-d877-4d3c-ae25-679e38eea492",
+      "text": "Supports application access management and single sign-on for business applications.",
+      "source_locators": [
+        "S1:L32"
+      ]
+    },
+    {
+      "app_id": "f3723d34-6ff5-4ceb-a148-d99dcd2511fc",
+      "text": "Creates an application registration when requested during Azure Bot Service resource provisioning.",
+      "source_locators": [
+        "S1:L41"
+      ]
+    }
+  ]
+}

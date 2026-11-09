@@ -405,7 +405,7 @@ Profiles: base
 Verified by: AC-124, AC-125, AC-127, AC-131, AC-135, AC-219, AC-220, AC-231, AC-506
 
 Layout/bundle coordinated-upgrade exception. REQ-01-143's closed layout.v2
-representation and REQ-01-635's bundle version 7 are the sole current accepted
+representation and REQ-01-635's bundle version 8 are the sole current accepted
 representations. Retirement of layout.v1 requests/storage reads and bundle version
 3 import is an intentional coordinated pre-production break on the existing
 routes, extending the earlier layout.v2 response transition. It requires a matched
@@ -1969,9 +1969,9 @@ Verified by: AC-532
 `row_version`, creation and update timestamps, creation and update actors, and
 deletion tuple. Indicator source persistence MUST NOT retain an authoritative
 or fallback copy of those fields. Portable Indicator rows retain the admitted
-source-major-`2` shape by joining Indicator subtype state to the Records
+source-major-`3` shape by joining Indicator subtype state to the Records
 envelope; neither storage contraction nor claim rebuild changes valid bundle
-version 7 source row shapes.
+version 8 source row shapes.
 
 `indicator_active_identities` is Indicator-owned rebuildable coordination
 state keyed by `(incident_id, indicator_type, dedupe_key)` and maps one active
@@ -8845,7 +8845,7 @@ Verified by: AC-164, AC-166, AC-236, AC-487, AC-490
 ```json
 {
   "bundle_format": "cartulary.incident_bundle",
-  "bundle_version": 7,
+  "bundle_version": 8,
   "bundle_id": "uuid",
   "incident_id": "uuid",
   "incident_key": "string",
@@ -9066,15 +9066,15 @@ projections and MUST NOT add, remove, or reinterpret a row in these registries.
 
 **REQ-01-635**
 Every newly generated Incident Bundle MUST use
-`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=7`.
-Only version `7` is admitted for import and export. Import MUST parse
+`bundle_format='cartulary.incident_bundle'` and numeric `bundle_version=8`.
+Only version `8` is admitted for import and export. Import MUST parse
 `manifest.bundle_version` before interpreting any source payload and MUST
 select exactly one codec only from that numeric value. Filename presence, file
 order, archive order, prior import history, and caller input MUST NOT select or
 override a codec. Omitted, JSON `null`, or non-integer
 `bundle_version` MUST fail before source preparation with
 `incident_bundle_import_rejected` and `reason_code='malformed_manifest'`.
-Every integer other than `7`, including retired numeric versions `1` through `6`, MUST fail
+Every integer other than `8`, including retired numeric versions `1` through `7`, MUST fail
 at the same boundary with `reason_code='unsupported_bundle_version'`. No
 fallback version exists.
 
@@ -9082,16 +9082,16 @@ The required Timeline path set is exactly:
 
 | Version | Export | Import | Exact Timeline paths |
 | --- | --- | --- | --- |
-| `7` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
+| `8` | Required current output | Required | `data/timeline_time_profiles.ndjson`, `data/timeline_records.ndjson`, `data/timeline_source_provenance.ndjson` |
 
 A retired Timeline path, a mixed retired/current path set, or an incomplete
-current path set under version `7` MUST fail before source preparation with
+current path set under version `8` MUST fail before source preparation with
 `reason_code='malformed_manifest'`. The admitted version has the following
 closed required core path registry; a missing, duplicate, or unknown member
 under `data/` MUST fail closed and every required path MUST have exactly one
 declared consumer or validator:
 
-| Family or special consumer | Version `7` paths |
+| Family or special consumer | Version `8` paths |
 | --- | --- |
 | Incident | `data/incident.json` |
 | Actors | `data/actors.ndjson` |
@@ -9110,7 +9110,7 @@ declared consumer or validator:
 | Saved Views | `data/saved_views.ndjson` |
 | Reference Pack references | `data/reference_pack_refs.json` |
 
-Every participating source and special consumer MUST explicitly admit version 7
+Every participating source and special consumer MUST explicitly admit version 8
 only. Archive integrity MUST be verified against original bytes before source
 preparation. Version selection MUST never depend on row content. Legacy version 3
 archives fail before source preparation, target mutation or publication; no
@@ -9125,7 +9125,7 @@ Profiles: incident_portability
 Verified by: AC-487, AC-489, AC-490, AC-496, AC-506
 
 **REQ-01-636**
-The version `7` Timeline row contracts are the following closed shapes.
+The version `8` Timeline row contracts are the following closed shapes.
 “Required” means the member MUST be present. A member absent from the allowed
 set MUST fail closed. A required member MAY be JSON `null` only when its
 source-owner semantic contract admits null.
@@ -9136,7 +9136,7 @@ source-owner semantic contract admits null.
 | `timeline_records.ndjson` | `record_id` | `record_id`, `incident_id`, `capture_state`, `activity_utc_generated`, `activity_local_generated`, `activity_time_pair_state` | Required members plus `reviewed_by_user_id`, `reviewed_at`, `superseded_by_user_id`, `superseded_at`, `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, `data_source_text` |
 | `timeline_source_provenance.ndjson` | `(record_id, source_row_ordinal, source_column_ordinal, source_identity_sha256)` | `record_id`, `source_identity_sha256`, `source_row_ordinal`, `source_column_ordinal`, `source_kind`, `source_metadata`, `source_header`, `raw_value`, `created_at` | Required members plus `cell_kind` |
 
-The version-7 Timeline record-envelope fields `row_version`, `created_at`,
+The version-8 Timeline record-envelope fields `row_version`, `created_at`,
 `updated_at`, `created_by_user_id`, and `updated_by_user_id` MUST come from the
 same-record row in `data/records.ndjson`; they MUST NOT be duplicated or
 independently resolved from `timeline_records.ndjson`.
@@ -9257,8 +9257,8 @@ archive order, and database error text MUST NOT select it.
 | Family | Required invariant meaning |
 | --- | --- |
 | Records | Every row belongs to the imported incident; record type, row version, timestamps, actor attribution, and deletion tuples are legal; every subtype-required envelope has exactly its admitted owner row. |
-| Timeline | Version `6` has its exact shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. |
-| Parties | Every row has the exact version-7 closed shape; every row has a same-incident party envelope; required identity fields, lifecycle state, and active claims are exact; every string equals the Party field-registry stored representation. |
+| Timeline | Every row has the current registered closed shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. |
+| Parties | Every row has the exact version-8 closed shape; every row has a same-incident party envelope; required identity fields, lifecycle state, and active claims are exact; every string equals the Party field-registry stored representation. |
 | Entities | Mentions remain observations; hosts and identities have the correct envelopes; resolution and merge-lineage tuples are coherent; aliases and preserved identifiers are normalized, classified, unique, and same-incident. |
 | Indicators | Type/value/hash representation and normalization are legal; duplicate identities are rejected; observations and state intervals are same-incident, ordered, and coherent; repeated observations are not silently merged. |
 | Artifacts | Every artifact has the correct envelope and exactly the admitted subtype; subtype lifecycle and required fields are legal; handoff-risk references target handoffs; all references are same-incident. |
@@ -9270,7 +9270,7 @@ archive order, and database error text MUST NOT select it.
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
 **REQ-01-673**
-For Incident Bundle version `7`, source family `incident`, contract major `3`,
+For Incident Bundle version `8`, source family `incident`, contract major `3`,
 `data/incident.json` MUST contain exactly one JSON object with exactly these 16
 members. Every member is required, including members whose value may be JSON
 `null`. Unknown, missing, duplicate, aliased, wrongly typed, noncanonical,
@@ -9311,14 +9311,14 @@ incident, bundle version, and contract major. Apply remaps both actor fields to
 the importing actor while retaining both original attributions, uses explicit
 fixed-column parameterized SQL, and requires one affected row. Validate compares
 all 16 admitted values with transaction state after the actor remap. Export names
-all 16 wire members explicitly and produces the current canonical version-7 bytes;
+all 16 wire members explicitly and produces the current canonical version-8 bytes;
 physical relation column order, `SELECT *`, whole-row `to_jsonb`, and database
 record-population functions are not portable-shape authority.
 Profiles: incident_portability
 Verified by: AC-566
 
 **REQ-01-666**
-For Incident Bundle version `7`, source family `entities`, contract major `3`,
+For Incident Bundle version `8`, source family `entities`, contract major `3`,
 each non-empty row of the five Entities files MUST be one exact JSON object.
 Unknown, missing, duplicate, aliased, wrongly typed, noncanonical, blank-line,
 multivalue, or trailing-content input fails admission. Nullable members remain
@@ -9371,7 +9371,7 @@ order nor raw database text may select or describe the public failure.
 Profiles: incident_portability
 Verified by: AC-559
 
-For Incident Bundle version `7`, source family `indicators`, contract
+For Incident Bundle version `8`, source family `indicators`, contract
 major `3`, each non-empty row of the three Indicator files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
@@ -9476,7 +9476,7 @@ operator output. Selection MUST NOT depend on archive order, NDJSON row order,
 filesystem order, map iteration, unsorted SQL output, constraint-reporting
 order, PostgreSQL error text, or a descriptor-default invariant.
 
-For Incident Bundle version `7`, source family `revisions`, contract
+For Incident Bundle version `8`, source family `revisions`, contract
 major `3`, each non-empty row of the three Revisions files MUST be one exact
 JSON object. Every member listed below is required, including members whose
 value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
@@ -9540,7 +9540,7 @@ consumer port whose providers are constructed by authoritative source owners
 and whose complete immutable catalog is validated by application composition.
 
 **REQ-01-659**
-For Incident Bundle version `7`, the outer exact member sets,
+For Incident Bundle version `8`, the outer exact member sets,
 ordering, contract major, attribution behavior, sequence repair, invariant
 precedence, and no-live-publication behavior of the Revisions source family
 remain unchanged. Every non-null `before_value`, `after_value`, `before_json`,
@@ -9759,9 +9759,9 @@ Verified by: AC-490, AC-499, AC-502, AC-503, AC-507, AC-525
 The adopted compatibility state, closed source catalog, and
 requirement-to-acceptance-to-verification mappings MUST have versioned typed
 machine projections. The source catalog projection is
-`cartulary.incident_bundle_source_catalog.v5`, declares contract major `3`, and
-admits path version `7` for every required source and special consumer.
-Each version-7 logical path MUST have exactly one source and one admitted shape.
+`cartulary.incident_bundle_source_catalog.v6`, declares contract major `3`, and
+admits path version `8` for every required source and special consumer.
+Each version-8 logical path MUST have exactly one source and one admitted shape.
 Retired-version bindings, overlapping bindings, duplicate versions and inconsistent
 identities are invalid. Future format admission requires an explicit owner amendment.
 Each REQ-01-635 through REQ-01-646 requirement MUST map to
@@ -9776,7 +9776,7 @@ Profiles: incident_portability
 Verified by: AC-504, AC-505
 
 **REQ-01-670**
-For admitted Incident Bundle version `7`, source family `parties`, and
+For admitted Incident Bundle version `8`, source family `parties`, and
 source contract major `3`, every nonblank line of `data/parties.ndjson` MUST
 be one closed JSON object with exactly these ten required members:
 `record_id`, `incident_id`, `display_name`, `party_kind`,
@@ -9807,7 +9807,7 @@ Parties assigns every defect to exactly one invariant in this precedence:
 1. `parties.source_identity_admitted`: both identifiers are present,
    canonical, in scope, and unique;
 2. `parties.version_shape_exact`: the line and object have exactly the
-   version-7 member set, types, nullability, and framing;
+   version-8 member set, types, nullability, and framing;
 3. `parties.envelope_type_scope`: exactly one same-incident `party` Records
    envelope exists, with no orphan, wrong type, duplicate subtype, or
    cross-incident binding;
@@ -9838,7 +9838,7 @@ Profiles: incident_portability
 Verified by: AC-563
 
 **REQ-01-644**
-For Incident Bundle version `7`, source family `saved_views`,
+For Incident Bundle version `8`, source family `saved_views`,
 contract major `3`, each non-empty logical row of
 `data/saved_views.ndjson` MUST be one JSON object containing exactly these
 eleven required members:
@@ -9868,7 +9868,7 @@ Verified by: AC-508
 
 **REQ-01-645**
 `data/saved_views.ndjson` MUST be present exactly once for admitted bundle
-version `7`. Export MUST include every incident-owned private, shared,
+version `8`. Export MUST include every incident-owned private, shared,
 and system saved view, order rows by `saved_view_id` ascending, serialize
 lexicographically ordered canonical JSON with exactly one trailing LF per row,
 and emit a zero-byte member when no rows exist. Export MUST select and map the
@@ -9885,7 +9885,7 @@ their canonical values; preparation MUST reject rather than repair
 noncanonical values. Query requires present `sort` and `filters` arrays, no
 inactive `group_by`, at most `8` raw sort items, and at most `16` raw filters.
 Layout requires every member of the closed v2 grammar and widths in `40..4096`.
-The active `saved_views.row.v2` schema defines the version-7 portable row; the
+The active `saved_views.row.v2` schema defines the version-8 portable row; the
 retired v1 row schema is not an active binding. Preparation MUST reject layout.v1,
 empty-object defaults and every other invalid representation rather than convert
 or repair them. Prepared canonical v2 bytes are the authoritative apply and
@@ -12676,7 +12676,7 @@ record of the target's admitted type in the same incident. Duplicate identities,
 invalid UUIDs, missing members and invalid references fail before publication.
 Export, import and backup/restore preserve the exact associations, independently
 of workflow journals. Analytical owners retain their separately owned source
-associations. Bundle version 7 is current; versions 1 through 6 are rejected
+associations. Bundle version 8 is current; versions 1 through 7 are rejected
 before source preparation. There is no historical bundle reader or conversion.
 
 The required `data/committed_sources.ndjson` member has the exact metadata shape
@@ -12706,7 +12706,7 @@ job, export or authentication capability; failed or unpublished exports are not
 readable. Missing descriptors use `incident_bundle_not_found`; storage failures
 use the existing opaque internal-error contract.
 
-**REQ-01-686** Bundle version 7 exports ZIP and accepts ZIP, TAR and TAR.GZ with the
+**REQ-01-686** Bundle version 8 exports ZIP and accepts ZIP, TAR and TAR.GZ with the
 same logical format. All bulk transport and storage boundaries use bounded streams;
 metadata catalogs and prepared descriptors retain their existing 64 MiB per-participant
 and aggregate control limits. Bulk NDJSON and blobs count against archive member,
@@ -12809,6 +12809,17 @@ Fresh initialization and current-state reopening are supported; conversion,
 backfill, dual readers, automatic reset and in-place downgrade are not.
 
 
-## Native Reference Pack coordinated amendment — 2026-11-06
+## Generic Reference Pack coordinated amendment — 2026-11-08
 
-Reference Pack 0.3.0 / profile major 3 governs the clean pack-contract v2 cutover. Only current immutable v2 pack sets and `reference_pack_refs.v2` are admitted; incident-bundle outer version remains 7. Incompatible retained pack state and dependent inputs fail before mutation or readiness. No reset, historical rewrite or compatibility reader is authorized. Required Base registry content is retained under new release-bound manifest identities. Activation remains deployment-scoped and reference-only, with no automatic incident mutation. Current authorization, offline TUF thresholds and trusted wall-clock admission remain unchanged.
+Reference Pack 0.5.0 / profile major 4 governs the generic pack-contract v3
+cutover. Current immutable pack sets and reference catalogs are v3; incident-bundle
+outer version is 8. Manifest v2, consumer item/results v3, lookup request v2 and
+descriptor consumption are owned by Reference Pack RP-REQ-275–283. Incompatible
+packs, sets, pending operations, snapshots and recovery inputs fail before mutation
+or readiness. No reset, historical rewrite, automatic conversion or compatibility
+reader is authorized. Base registry content and algorithms remain unchanged under
+new release-bound manifests. Source-specific correctness belongs to independently
+buildable producers; runtime owns trust, generic structure, references, resource
+bounds and lookups. Authorization, offline TUF, exact-set provenance and the trusted
+wall-clock requirement remain unchanged. Optional data remains advisory and its
+absence never blocks core capture.

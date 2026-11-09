@@ -98,6 +98,7 @@ function commonDependencyPaths(catalog, rows, entries) {
     "tools/task_surface_owner.json",
     "tools/test_catalog_owner.json",
     "tools/toolchain_pins.json",
+    "tools/go_modules.json",
   ]);
   for (const ownerID of selectedOwners) {
     const manifest = ownerManifestByID.get(ownerID);
@@ -198,7 +199,8 @@ function goPackageClosure(root, entries, rows, catalog, resolverCache) {
     },
   );
   const packageEntries = entries.filter((entry) =>
-    selectedDirectories.some((directory) => under(entry.path, directory)),
+    selectedDirectories.some((directory) => under(entry.path, directory)) ||
+    /^referencepacks\/[^/]+\/go\.(?:mod|sum)$/u.test(entry.path) && selectedDirectories.some(directory => under(directory, path.posix.dirname(entry.path))),
   );
   const closure = digestClosure(
     "go_packages",

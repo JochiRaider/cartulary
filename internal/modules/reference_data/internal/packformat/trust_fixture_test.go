@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 func runTrustManifest(t *testing.T, input []byte, expected map[string]any) {
@@ -70,7 +70,7 @@ func runTrustManifest(t *testing.T, input []byte, expected map[string]any) {
 	}
 	assertManifestVerdict(t, expected, verdict)
 	if verdict == nil {
-		root, err := decodeRoot(proposal.Root)
+		root, err := fixtureMetadataHeader(proposal.Root, "root")
 		if err != nil || root.version != fixture.RootVersion || !proposal.ValidUntil.Equal(fixture.ValidUntil) || !reflect.DeepEqual(proposal.Signers, fixture.Signers) || !reflect.DeepEqual(proposal.RootTransitions, fixture.Transitions) {
 			t.Fatalf("trusted result changed: %#v, %v", proposal.RootTransitions, err)
 		}

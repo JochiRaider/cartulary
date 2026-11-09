@@ -45,6 +45,7 @@ exports.foundationSchemaValidators = Object.freeze({
   get "cartulary.frontend_visual_renderer_attestation.v1"() { return require("./schema-validators/validateCartularyFrontendVisualRendererAttestationV1.cjs"); },
   get "cartulary.frontend_visual_renderer_profile.v2"() { return require("./schema-validators/validateCartularyFrontendVisualRendererProfileV2.cjs"); },
   get "cartulary.frontend_visual_timeline_profiles.v1"() { return require("./schema-validators/validateCartularyFrontendVisualTimelineProfilesV1.cjs"); },
+  get "cartulary.go_modules.v1"() { return require("./schema-validators/validateCartularyGoModulesV1.cjs"); },
   get "cartulary.govulncheck_findings.v1"() { return require("./schema-validators/validateCartularyGovulncheckFindingsV1.cjs"); },
   get "cartulary.harness.defs.v1"() { return require("./schema-validators/validateCartularyHarnessDefsV1.cjs"); },
   get "cartulary.harness_allocation_lifecycle.v1"() { return require("./schema-validators/validateCartularyHarnessAllocationLifecycleV1.cjs"); },

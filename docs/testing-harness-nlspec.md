@@ -212,7 +212,7 @@ policy. Catalog rows and the normalized execution contract own these requirement
 Raw Go aggregate selectors and package inventories are unsupported.
 Source completeness MUST be derived from the approved roots in
 `cartulary.test_runner_registry.v3`, independently of selected packages or files.
-The Go roots are `cmd`, `internal`, `tools/contractgen`, `tools/embedwebassets`,
+The Go roots are `cmd`, `internal`, `referencepacks`, `tools/contractgen`, `tools/embedwebassets`,
 `tools/objectstoreprobe`, `tools/openapi-operation-catalog`, and `tools/testservices`.
 The operation-catalog root owns focused explicit-mutation generation tests; it
 does not admit arbitrary tool directories. Every active Go Test function
@@ -1906,7 +1906,7 @@ corrupt, traversing, linked, wrong-mode, wrong-producer, wrong-destination, or
 wrong-input records are misses. Vulnerability, publication, security, drift,
 service, cleanup, browser, measurement, and destructive work remain
 non-cacheable. Go test-dependency discovery MUST use the explicit stable
-repository package roots `cmd`, `db`, `internal`, and `tools`; it MUST NOT use a
+repository package roots `cmd`, `db`, `internal`, `referencepacks`, and `tools`; it MUST NOT use a
 recursive repository-root pattern that can enter runtime, cache, result, or
 test-owned transient directories. Adding a new first-party Go package root
 therefore requires an explicit producer and cache-input update rather than
@@ -3626,9 +3626,9 @@ resolve_harness_config(target, raw_make_vars, raw_env, wrapper_cli_args):
 
 ### 5.3 Per-Target Input Registry
 
-The Reference Pack producer targets are public helper-only operations with retained tool summaries. `reference-pack-producer-build` accepts no target-local inputs and retains two byte-identical executable builds. `reference-pack-source` accepts `ACTION=acquire|check|audit` (default `check`), `SOURCE_DIR` (default `.cartulary/reference-packs/attack/20.1`), `SOURCE_LOCK` (default `contracts/reference-pack-producers/attack/source-lock.v20.1.json`), and optional `BUILT_AT` (required by audit). Only acquire permits network access.
+The Reference Pack producer targets are public helper-only operations with retained tool summaries. `reference-pack-producer-build` requires explicit `PRODUCER=attack|veris|windows|entra` and retains two byte-identical executable builds from the selected exported module. No omnibus dispatcher or default producer remains. `reference-pack-source` requires that selection plus explicit `SOURCE_DIR` and `SOURCE_LOCK`. Its actions are `discover|acquire|check|audit` (default `check`); a producer rejects unsupported actions. Optional `EDITORIAL`, `SOURCE_INPUT`, and `BUILT_AT` supply explicit authored acquisition/audit inputs. Network access is limited to source acquisition and Windows source discovery. No source path is discovered from the application checkout, working directory, environment, or home directory.
 
-`reference-pack-package` requires `ACTION=assemble|envelope|renew` and `INPUT`, the path to a closed typed producer JSON input. It assembles immutable logical packs or creates/renews fixture envelopes offline. Inputs bind exact build times, source/profile identities, executable bytes, publication ledger and signing context; renewal preserves prior artifacts. Private signing material is excluded from pack containers, bootstrap files and public evidence. These commands supply build evidence, not deployment trust or distribution approval. Authored task-surface and execution-topology/work-graph owners project these commands through Make; product coverage remains in owner rows.
+`reference-pack-package` requires explicit `PRODUCER`, `ACTION=assemble|assemble-fixture|envelope|renew|envelope-fixture|renew-fixture`, and `INPUT`, the path to a closed typed producer JSON input. Unsupported producer/action combinations fail. The command resolves only explicitly supplied path fields, copies the qualified binary outside the checkout, and invokes it from an empty directory with an empty environment. Producer input must not depend on application source, sibling producers or ambient checkout discovery. Distinct release and fixture contracts bind exact build times, source/profile identities, executable bytes, publication ledger and signing context; release publication also requires an approved exact-output licensing decision. Renewal preserves logical bytes and prior artifacts. Private signing material is excluded from pack containers, bootstrap files and public evidence. These commands supply build evidence; they do not install deployment trust or grant distribution approval. Authored task-surface and execution-topology/work-graph owners project these commands through Make; product coverage remains in owner rows.
 
 **TH-HARNESS-REQ-112**
 Every public target MUST declare a closed per-target input contract. This NLSpec owns the current public target-local input contract. Authored `tools/task_surface_owner.json` MUST use `cartulary.task_surface_owner.v4`, and generated `tools/task_surface_manifest.json` MUST use `cartulary.task_surface_manifest.v16` or a later adopted projection schema. Both MUST contain `input_contract` for every row with `target_class="public"`; neither may independently widen, narrow, or reinterpret the closed contract below. Execution topology may reference a target name but MUST NOT own or override its input contract.
@@ -11026,3 +11026,45 @@ removal state and the absence of the exact root. A terminal locator makes repeat
 recovery a no-op. Minimal terminal locators remain private control receipts, not
 retained execution evidence. Original failed runs are immutable; each recovery
 invocation produces separate evidence and never changes the original test result.
+
+## Reference-pack independent module qualification — 2026-11-08
+
+The adopted Reference Pack RP-REQ-275–283 requires separate Make-selected producer
+qualification. Each module must be exported and built with `GOWORK=off`, pinned
+read-only dependency resolution and no local-path replacements, without the
+application tree or sibling producers. The task surface and execution topology
+must declare each module input/output closure. Boundary checks include transitive
+imports, embedded resources, generation inputs and executable input discovery;
+negative fixtures exercise both dependency directions. Runtime packages must not
+import publication or producer packages. The finite generic profile is tested with
+an unregistered advisory key and exact-bound/one-over security cases.
+
+Each retained release is selected separately and imported from its exact archive
+and public bootstrap hashes with the trusted current clock. Qualification must not
+re-sign an expiring artifact or load another optional corpus. Synthetic tests
+remain separate and cover positive SPNs, edge cases and controlled expiry. Source
+assertions transferred out of runtime must pass producer qualification before
+legacy validators disappear. Machine expectations remain independent of producer
+execution and owner prose. Release evidence records final executable source,
+native exit, cleanup and retained-secret scan. Historical evidence cannot qualify
+changed source. Licensing approval and deployment trust are separate from a
+passing engineering run.
+
+The public helper `reference-pack-module-check MODULE=<registered-module>` exports
+one selected module and qualifies its source archive using the pinned Go compiler,
+`GOWORK=off`, `-mod=readonly`, and network module resolution disabled. Registered selections are `format`, `attack`, `veris`, `windows`, and `entra`. It reads only the selected module and explicit machine metadata
+for export. Source archive identity uses ordered, length-framed paths and bytes;
+immutable development versions include that source digest. The complete compiler
+closure includes tests and embedded inputs. Application or sibling producer code,
+local replacements, unversioned dependencies, and build inputs outside exported
+source, pinned module cache, or Go toolchain are rejected. Qualifications retain
+source inventory, archive identity, dependency package closure, and native command
+results. Archive admission rejects implicit generation directives, linked inputs,
+and undeclared input types. Production module source must use explicit inputs;
+implicit environment, home, working-directory, executable-location discovery,
+and auxiliary executable/plugin loading are rejected. These checks include
+aliased imports and function values. Runtime dependency qualification separately
+rejects publication packages, producer modules, source corpora and signing inputs
+in the transitive application import/embedding closure. Negative fixtures cover
+both dependency directions and archive input admission. These helper results
+supplement independently selected product tests.

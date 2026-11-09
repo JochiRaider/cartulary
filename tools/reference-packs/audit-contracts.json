@@ -1,0 +1,53 @@
+{
+  "attack": {
+    "schema_id": "cartulary.attack_source_audit.v2",
+    "schema": "referencepacks/attack/inputs/audit-report.schema.json",
+    "fragment": "",
+    "bindings": {
+      "source_profile_sha256": "referencepacks/attack/inputs/dataset-profile.v2.json",
+      "field_policy_sha256": "referencepacks/attack/inputs/field-policy.native.v1.json"
+    }
+  },
+  "veris": {
+    "schema_id": "cartulary.veris_audit.v1",
+    "schema": "referencepacks/veris/inputs/audit-report.schema.json",
+    "fragment": "",
+    "bindings": {
+      "source_profile_sha256": "referencepacks/veris/inputs/dataset-profile.v1.json",
+      "rules_sha256": "referencepacks/veris/inputs/rules.v1.json",
+      "dispositions_sha256": "referencepacks/veris/inputs/dispositions.v1.json"
+    },
+    "retained_lock": {
+      "path": "source-lock.json",
+      "schema_id": "cartulary.veris_source_lock.v1",
+      "encoding": "canonical"
+    }
+  },
+  "windows": {
+    "schema_id": "cartulary.windows_event_reconciliation.v2",
+    "schema": "referencepacks/windows/inputs/contracts.v3.schema.json",
+    "fragment": "#/$defs/reconciliation",
+    "bindings": {
+      "source_profile_sha256": "referencepacks/windows/inputs/dataset-profile.v1.json",
+      "editorial_sha256": "referencepacks/windows/inputs/editorial.v2.json"
+    },
+    "retained_lock": {
+      "path": "source-lock.json",
+      "schema_id": "cartulary.windows_event_source_lock.v2",
+      "encoding": "exact"
+    }
+  },
+  "entra": {
+    "schema_id": "cartulary.entra_reconciliation.v2",
+    "schema": "referencepacks/entra/inputs/audit-report.schema.json",
+    "fragment": "",
+    "bindings": {
+      "source_profile_sha256": "referencepacks/entra/inputs/dataset-profile.v1.json"
+    },
+    "retained_lock": {
+      "path": "source-lock.json",
+      "schema_id": "cartulary.entra_source_lock.v2",
+      "encoding": "exact"
+    }
+  }
+}

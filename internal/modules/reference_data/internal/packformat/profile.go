@@ -16,21 +16,22 @@ var registryToken = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 var stableToken = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$`)
 var cveToken = regexp.MustCompile(`^CVE-[0-9]{4}-[0-9]{4,}$`)
 var serviceToken = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,127}$`)
-var uuidToken = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 func ValidateEntryIdentity(key, id string) error {
+	if p, ok := ProfileForKey(key); ok && p.Shape == "dataset" {
+		if len(id) <= 512 && singleLine(id, 512) {
+			return nil
+		}
+		return fail("invalid_pack_request")
+	}
 	valid := false
 	switch key {
 	case "type_registry.host", "type_registry.evidence", "type_registry.indicator":
 		valid = registryToken.MatchString(id)
-	case "enrichment.windows_event_ids":
-		_, _, _, valid = ParseEventIdentity(id)
 	case "enrichment.windows_sids":
 		valid = ValidSID(id)
 	case "enrichment.cisa_kev":
 		valid = len(id) <= 192 && cveToken.MatchString(id)
-	case "enrichment.entra_app_ids":
-		valid = uuidToken.MatchString(id)
 	case "enrichment.tor":
 		prefix, err := netip.ParsePrefix(id)
 		valid = err == nil && prefix == prefix.Masked() && prefix.String() == id
@@ -154,34 +155,6 @@ func validateProfileEntry(profile string, m map[string]any, c *semanticChecks) (
 				add("url_host", u.Hostname(), id)
 			}
 		}
-	case "enrichment.windows_event_ids":
-		line("provider_name", 256)
-		nullable("level", 128, false)
-		nullable("task", 256, false)
-		nullable("opcode", 128, false)
-		event, _ := integer(m["event_id"], 0, 65535)
-		var version *int64
-		rank := int64(0)
-		if m["event_version"] != nil {
-			n, _ := integer(m["event_version"], 0, 255)
-			version, rank = &n, n+1
-		}
-		c.require(id == EventIdentity(text("provider_name"), event, version), ".entry_id")
-		provider := asciiLower(text("provider_name"))
-		order := fmt.Sprintf("%03d\x00%s", rank, id)
-		add("provider_event_id", provider+"\x00"+strconv.FormatInt(event, 10), order)
-		if version != nil {
-			add("provider_event_version", provider+"\x00"+strconv.FormatInt(event, 10)+"\x00"+strconv.FormatInt(*version, 10), order)
-		}
-		add("event_id", strconv.FormatInt(event, 10), provider+"\x00"+text("provider_name")+"\x00"+order)
-	case "enrichment.entra_app_ids":
-		c.require(id == text("app_id"), ".entry_id")
-		nullable("publisher", 256, false)
-		array("service_principal_names", asciiLower, func(v string) bool { return isASCII(v) && singleLine(v, 1024) })
-		add("app_id", id, id)
-		for _, v := range values("service_principal_names") {
-			add("service_principal_name", asciiLower(v), id)
-		}
 	case "enrichment.lolbas", "enrichment.lolesxi":
 		line("name", 256)
 		array("platforms", asciiLower, commonLine)
@@ -261,43 +234,8 @@ func NormalizeLookup(profile, kind string, input any) (LookupInput, error) {
 	bad := func() (LookupInput, error) { return LookupInput{}, fail("invalid_pack_request") }
 	unsupported := func() (LookupInput, error) { return LookupInput{}, fail("lookup_kind_unsupported") }
 	result := LookupInput{Kind: kind}
-	if _, ok := profiles[profile]; !ok {
+	if p, ok := profiles[profile]; !ok || p.Shape == "dataset" {
 		return unsupported()
-	}
-	if profile == "enrichment.windows_event_ids" {
-		switch kind {
-		case "event_id":
-			n, ok := integer(input, 0, 65535)
-			if !ok {
-				return bad()
-			}
-			result.Value = strconv.FormatInt(n, 10)
-			return result, nil
-		case "provider_event_id":
-			m, ok := object(input)
-			if !ok || (len(m) != 2 && len(m) != 3) {
-				return bad()
-			}
-			provider, ok := m["provider_name"].(string)
-			event, ok2 := integer(m["event_id"], 0, 65535)
-			if !ok || !ok2 || !singleLine(provider, 256) || !isASCII(provider) {
-				return bad()
-			}
-			result.Value = asciiLower(provider) + "\x00" + strconv.FormatInt(event, 10)
-			if v, present := m["event_version"]; present {
-				n, ok := integer(v, 0, 255)
-				if !ok {
-					return bad()
-				}
-				result.Kind = "provider_event_version"
-				result.Value += "\x00" + strconv.FormatInt(n, 10)
-			} else if len(m) != 2 {
-				return bad()
-			}
-			return result, nil
-		default:
-			return unsupported()
-		}
 	}
 	if profile == "enrichment.loldrivers" && kind == "hash" {
 		m, ok := exact(input, "algorithm", "value")
@@ -356,7 +294,7 @@ func NormalizeLookup(profile, kind string, input any) (LookupInput, error) {
 		if !registryToken.MatchString(value) {
 			return bad()
 		}
-	case "framework.attack", "framework.d3fend", "framework.veris":
+	case "framework.d3fend":
 		if kind != "object_id" && kind != "external_id" {
 			return unsupported()
 		}
@@ -404,20 +342,6 @@ func NormalizeLookup(profile, kind string, input any) (LookupInput, error) {
 			if !serviceToken.MatchString(value) {
 				return bad()
 			}
-		} else {
-			return unsupported()
-		}
-	case "enrichment.entra_app_ids":
-		if kind == "app_id" {
-			result.Value = asciiLower(value)
-			if !uuidToken.MatchString(result.Value) {
-				return bad()
-			}
-		} else if kind == "service_principal_name" {
-			if !isASCII(value) || len(value) > 1024 {
-				return bad()
-			}
-			result.Value = asciiLower(value)
 		} else {
 			return unsupported()
 		}

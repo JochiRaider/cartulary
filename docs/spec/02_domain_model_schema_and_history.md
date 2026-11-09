@@ -3031,6 +3031,17 @@ Profiles: base
 Verified by: AC-231, AC-279, AC-280
 
 
-## Native Reference Pack coordinated amendment — 2026-11-06
+## Generic Reference Pack coordinated amendment — 2026-11-08
 
-Reference Pack 0.3.0 / profile major 3 governs the clean pack-contract v2 cutover. Only current immutable v2 pack sets and `reference_pack_refs.v2` are admitted; incident-bundle outer version remains 7. Incompatible retained pack state and dependent inputs fail before mutation or readiness. No reset, historical rewrite or compatibility reader is authorized. Required Base registry content is retained under new release-bound manifest identities. Activation remains deployment-scoped and reference-only, with no automatic incident mutation. Current authorization, offline TUF thresholds and trusted wall-clock admission remain unchanged.
+Reference Pack 0.5.0 / profile major 4 governs the generic pack-contract v3
+cutover. Current immutable pack sets and reference catalogs are v3; incident-bundle
+outer version is 8. Manifest v2, consumer item/results v3, lookup request v2 and
+descriptor consumption are owned by Reference Pack RP-REQ-275–283. Incompatible
+packs, sets, pending operations, snapshots and recovery inputs fail before mutation
+or readiness. No reset, historical rewrite, automatic conversion or compatibility
+reader is authorized. Base registry content and algorithms remain unchanged under
+new release-bound manifests. Source-specific correctness belongs to independently
+buildable producers; runtime owns trust, generic structure, references, resource
+bounds and lookups. Authorization, offline TUF, exact-set provenance and the trusted
+wall-clock requirement remain unchanged. Optional data remains advisory and its
+absence never blocks core capture.

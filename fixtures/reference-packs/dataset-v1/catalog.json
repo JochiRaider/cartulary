@@ -1,0 +1,37 @@
+{
+  "attack/20.0": {
+    "logical_root": "fixtures/reference-packs/dataset-v1/attack/20.0/logical/a2113c494ff49374113613624426faceb3561ee82b328ef9813b419945d6c0c8",
+    "manifest_sha256": "a2113c494ff49374113613624426faceb3561ee82b328ef9813b419945d6c0c8",
+    "payload_sha256": "deca3571c7ca39ddb76f2c1693016036d6b8266eb615253efb5de4ddf4db1dad",
+    "objects": 6211,
+    "relationships": 34604
+  },
+  "attack/20.1": {
+    "logical_root": "fixtures/reference-packs/dataset-v1/attack/20.1/logical/29813a3625c663cb9fc4953661510ad849563d838cb166ccc73553938df8bc8f",
+    "manifest_sha256": "29813a3625c663cb9fc4953661510ad849563d838cb166ccc73553938df8bc8f",
+    "payload_sha256": "7e7a75265d8f8d56ed4d4aa4052e8c0d2a28316e926e7be7eac38f4a41b958e0",
+    "objects": 6221,
+    "relationships": 34632
+  },
+  "veris": {
+    "logical_root": "fixtures/reference-packs/dataset-v1/veris/logical/3e8246f35dbf3779708e568bc348f071c236c827c68466a2f901f8b2f448ce30",
+    "manifest_sha256": "3e8246f35dbf3779708e568bc348f071c236c827c68466a2f901f8b2f448ce30",
+    "payload_sha256": "d78399d23925f56192d636aeed0bf961e24b2a849e876063302e9f17fb5605ca",
+    "objects": 2491,
+    "relationships": 2533
+  },
+  "windows": {
+    "logical_root": "fixtures/reference-packs/dataset-v1/windows/logical/7f4b41bc96ded5a7616faba7f7f3e91f37328642cc17b9a363ef1b37ed9ead2e",
+    "manifest_sha256": "7f4b41bc96ded5a7616faba7f7f3e91f37328642cc17b9a363ef1b37ed9ead2e",
+    "payload_sha256": "29096ea3f0d459afce5375fd9588cc300c8ff91b9bf39209cfbda8dca547d216",
+    "objects": 503,
+    "relationships": 0
+  },
+  "entra": {
+    "logical_root": "fixtures/reference-packs/dataset-v1/entra/logical/059fdfdeb9049e6c2a7ef1b1de398d60df74646914064fe1758e4bc7e380aee2",
+    "manifest_sha256": "059fdfdeb9049e6c2a7ef1b1de398d60df74646914064fe1758e4bc7e380aee2",
+    "payload_sha256": "b95a8c50444abb5d4e48b5174c9855ef4a1e91eb3b682162605920dbbb0dbd77",
+    "objects": 139,
+    "relationships": 0
+  }
+}

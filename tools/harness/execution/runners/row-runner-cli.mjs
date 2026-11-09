@@ -11,6 +11,7 @@ import { beginActivity } from "../../runtime/local-activity.mjs";
 import { createCommandFailureContext, reportCommandFailure } from "../../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
 import { adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment } from "./go.mjs";
+import { validateIndependentGoModule } from "../../test-catalog/go-modules.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
 import { publishRowResult } from "./row-results.mjs";
 import { readUnitSelection } from "./unit-selection.mjs";
@@ -93,11 +94,14 @@ function invocationsForRows(rows) {
   }
   if (runner === "go") {
     return {
-      invocations: buildGoInvocations(rows, workers, process.env.GO || "go", { ...goRunnerBuildContext(root), goRace: process.env.CARTULARY_GO_RACE === "1", goShuffleSeed: process.env.CARTULARY_GO_SHUFFLE_SEED || undefined }).map((invocation) => ({
+      invocations: buildGoInvocations(rows, workers, process.env.GO || "go", { ...goRunnerBuildContext(root), goRace: process.env.CARTULARY_GO_RACE === "1", goShuffleSeed: process.env.CARTULARY_GO_SHUFFLE_SEED || undefined }).map((invocation) => {
+        if (invocation.args[0] === "-C") validateIndependentGoModule(root, invocation.args[1]);
+        return ({
         ...invocation,
         // Explicit test credentials: production key loading has no default.
-        environment: { ...goExecutionEnvironment(root), ...invocation.environment, CARTULARY_AUTH_MASTER_KEY: readFileSync(path.join(root, "internal/testutil/fixtures/auth/master-key.base64"), "utf8").trim() },
-      })),
+        environment: { ...goExecutionEnvironment(root), ...invocation.environment,
+          ...(invocation.args[0] === "-C" ? {} : { CARTULARY_AUTH_MASTER_KEY: readFileSync(path.join(root, "internal/testutil/fixtures/auth/master-key.base64"), "utf8").trim() }) },
+      }); }),
       adapt: adaptGoInvocationFile,
     };
   }

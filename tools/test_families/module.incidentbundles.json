@@ -63,7 +63,8 @@
       ],
       "postgres_isolation": "exclusive",
       "fixture_input_roots": [
-        "fixtures/reference-packs/attack-native-v2"
+        "fixtures/reference-packs/dataset-v1/attack",
+        "fixtures/reference-packs/dataset-v1/catalog.json"
       ]
     },
     {

@@ -14,11 +14,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/referencepackfixture"
 )
 
 func TestEntraCanonicalProductionLifecycle_Integration(t *testing.T) { runEntraLifecycle(t, false) }
@@ -32,13 +32,17 @@ func runEntraLifecycle(t *testing.T, realRelease bool) {
 	}
 	ctx := context.Background()
 	now := time.Now().UTC()
-	keys, err := producer.NewEntraFixtureSigningContext()
-	if err != nil {
-		t.Fatal(err)
-	}
-	a := referencetest.EntraFixture(t, "fixture-a", now, keys, 1)
+	var err error
+	var keys *referencepackfixture.SigningContext
+	var a referencetest.ProducedEntraPack
 	if realRelease {
 		a = referencetest.EntraRelease(t, "../../..")
+	} else {
+		keys, err = referencepackfixture.NewSigningContext("fixture.entra.dataset.v1", "enrichment.entra_app_ids")
+		if err != nil {
+			t.Fatal(err)
+		}
+		a = referencetest.EntraFixture(t, "fixture-a", now, keys, 1)
 	}
 	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
 	if err = os.WriteFile(bootstrap, a.Bootstrap, 0600); err != nil {
@@ -76,6 +80,15 @@ func runEntraLifecycle(t *testing.T, realRelease bool) {
 		httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/"+f.Key+"/"+f.Version+"/activate", txn, ""), http.StatusOK)
 	}
 	upload(a, "entra-import-a")
+	if realRelease {
+		for kind, want := range map[string]int{"object": 139, "relationship": 0} {
+			if got := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_indexes i
+                JOIN reference_pack_candidates c ON c.current_index_id=i.index_id
+                WHERE c.pack_key=$1 AND c.pack_version=$2 AND i.entry_kind=$3`, a.Key, a.Version, kind); got != want {
+				t.Fatalf("retained %s count=%d, want %d", kind, got, want)
+			}
+		}
+	}
 	if staged := consumer.ResolveCurrentPackSet(ctx); staged.Error != nil || staged.Value.ID != before.Value.ID {
 		t.Fatal("staging changed activation")
 	}
@@ -103,7 +116,7 @@ func runEntraLifecycle(t *testing.T, realRelease bool) {
 		ids := []string{}
 		for _, raw := range page.Value.Items {
 			var row struct {
-				ID string `json:"entry_id"`
+				ID string `json:"object_id"`
 			}
 			if err = json.Unmarshal(raw, &row); err != nil {
 				t.Fatal(err)
@@ -115,11 +128,13 @@ func runEntraLifecycle(t *testing.T, realRelease bool) {
 		}
 	}
 	// Every canonical byte and field-level source locator survives the real owner interfaces.
-	for _, line := range strings.Split(strings.TrimSuffix(string(a.Members["payload/entries.ndjson"]), "\n"), "\n") {
+	for _, line := range strings.Split(strings.TrimSuffix(string(a.Members["payload/objects.ndjson"]), "\n"), "\n") {
 		var row struct {
-			ID      string   `json:"entry_id"`
-			Label   string   `json:"display_label"`
-			Aliases []string `json:"aliases"`
+			ID      string `json:"object_id"`
+			Label   string `json:"display_label"`
+			Lookups struct {
+				Aliases []string `json:"alias"`
+			} `json:"lookup_values"`
 		}
 		if err = json.Unmarshal([]byte(line), &row); err != nil {
 			t.Fatal(err)
@@ -130,10 +145,10 @@ func runEntraLifecycle(t *testing.T, realRelease bool) {
 			t.Fatal("canonical entry/provenance", row.ID, entry.Error)
 		}
 		lookup("app_id", strings.ToUpper(row.ID), []string{row.ID})
-		for _, alias := range row.Aliases {
+		for _, alias := range row.Lookups.Aliases {
 			lookup("alias", strings.ToUpper(alias), []string{row.ID})
 		}
-		if len(row.Aliases) == 0 {
+		if len(row.Lookups.Aliases) == 0 {
 			lookup("alias", row.Label, []string{})
 		}
 	}

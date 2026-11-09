@@ -18,7 +18,7 @@ func NewSourcePort() sourceport.Port {
 		Dependencies: []string{"evidence"},
 		Paths: []sourceport.Path{{
 			LogicalPath: assessmentsBundlePath, ContentRole: "source_rows",
-			Versions: []int{7}, StableIdentity: []string{"record_id"},
+			Versions: []int{8}, StableIdentity: []string{"record_id"},
 			StableIdentityInvariantID: "assessments.source_identity_admitted",
 		}},
 		InvariantIDs: []string{

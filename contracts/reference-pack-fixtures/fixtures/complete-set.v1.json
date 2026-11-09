@@ -6,7 +6,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.enrichment.cisa_kev.v1",
       "content_profile_version": "1"
     },
@@ -15,16 +15,448 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
-      "content_profile_id": "cartulary.reference_pack.enrichment.entra_app_ids.v2",
-      "content_profile_version": "2"
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_16",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_17",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_18",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_19",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_20",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_21",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_22",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_23",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_24",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_25",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_26",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_27",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_28",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_29",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_30",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_31",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_32",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_33",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_34",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_35",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_36",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_37",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_38",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_39",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_40",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_41",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_42",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_43",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_44",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_45",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_46",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_47",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_48",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_49",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_50",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_51",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_52",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_53",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_54",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_55",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_56",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_57",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_58",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_59",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_60",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_61",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_62",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "enrichment.fixture_63",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
     },
     {
       "pack_key": "enrichment.hijacklibs",
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.enrichment.hijacklibs.v1",
       "content_profile_version": "1"
     },
@@ -33,7 +465,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.enrichment.lolbas.v1",
       "content_profile_version": "1"
     },
@@ -42,7 +474,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.enrichment.loldrivers.v1",
       "content_profile_version": "1"
     },
@@ -51,7 +483,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.enrichment.lolesxi.v1",
       "content_profile_version": "1"
     },
@@ -60,7 +492,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.enrichment.ms_portals.v1",
       "content_profile_version": "1"
     },
@@ -69,7 +501,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.enrichment.tor.v1",
       "content_profile_version": "1"
     },
@@ -78,16 +510,16 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
-      "content_profile_id": "cartulary.reference_pack.enrichment.windows_event_ids.v2",
-      "content_profile_version": "2"
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
     },
     {
       "pack_key": "enrichment.windows_sids",
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.enrichment.windows_sids.v1",
       "content_profile_version": "1"
     },
@@ -96,16 +528,16 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
-      "content_profile_id": "cartulary.reference_pack.framework.attack.v2",
-      "content_profile_version": "2"
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
     },
     {
       "pack_key": "framework.d3fend",
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.framework.d3fend.v1",
       "content_profile_version": "1"
     },
@@ -114,16 +546,16 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
-      "content_profile_id": "cartulary.reference_pack.framework.veris.v2",
-      "content_profile_version": "2"
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.dataset.v1",
+      "content_profile_version": "1"
     },
     {
       "pack_key": "type_registry.evidence",
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
       "content_profile_version": "1"
     },
@@ -132,7 +564,7 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
       "content_profile_version": "1"
     },
@@ -141,10 +573,10 @@
       "pack_version": "fixture-1",
       "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
       "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
       "content_profile_version": "1"
     }
   ],
-  "expected_set_id": "rpset_26bcf6ca405598bfaa7ca4378cfc6d94aff6943bd4836197f3cc7675611056b1"
+  "expected_set_id": "rpset_8feb864bb44818d7ffa409553afb8484506db58853563cf1f03bda9fe5407846"
 }

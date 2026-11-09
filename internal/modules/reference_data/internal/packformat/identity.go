@@ -4,22 +4,15 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"slices"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 func Digest(data []byte) string { sum := sha256.Sum256(data); return hex.EncodeToString(sum[:]) }
-func equalHex(left, right string) bool {
-	a, ok := hexBytes(left, 32)
-	b, other := hexBytes(right, 32)
-	return ok && other && subtle.ConstantTimeCompare(a, b) == 1
-}
-
 func ValidateInventory(manifest Manifest, inventory Inventory, operator bool) error {
 	if err := ValidateInventoryLengths(manifest, inventory, operator); err != nil {
 		return err
@@ -55,7 +48,7 @@ type Set struct {
 
 func admittedSetCardinality(count int) bool { return count >= 3 && count <= 64 }
 
-var setShape = compileProjection("pack_set.v2.schema.json")
+var setShape = compileProjection("pack_set.v3.schema.json")
 
 // DecodeSet admits immutable canonical bytes. Only BuildSet may normalize input.
 func DecodeSet(data []byte) (Set, error) {
@@ -110,7 +103,7 @@ func BuildSet(members []SetMember) (Set, error) {
 	slices.SortFunc(members, func(a, b SetMember) int { return strings.Compare(a.Key, b.Key) })
 	seen := map[string]bool{}
 	for _, member := range members {
-		p, ok := profiles[member.Key]
+		p, ok := ProfileForKey(member.Key)
 		_, manifestOK := hexBytes(member.ManifestSHA256, 32)
 		_, payloadOK := hexBytes(member.PayloadSHA256, 32)
 		if !ok || seen[member.Key] || !versionPattern.MatchString(member.Version) || !manifestOK || !payloadOK || member.Contract != ContractID || member.ProfileID != p.ID || member.ProfileVersion != p.Version {
@@ -126,10 +119,10 @@ func BuildSet(members []SetMember) (Set, error) {
 	preimage, err := canonicaljson.Marshal(struct {
 		Schema  string      `json:"schema_id"`
 		Members []SetMember `json:"members"`
-	}{"cartulary.reference_pack_set.v2", members})
+	}{"cartulary.reference_pack_set.v3", members})
 	if err != nil {
 		return Set{}, err
 	}
 	digest := Digest(preimage)
-	return Set{SchemaID: "cartulary.reference_pack_set.v2", ID: "rpset_" + digest, SHA256: digest, Members: members}, nil
+	return Set{SchemaID: "cartulary.reference_pack_set.v3", ID: "rpset_" + digest, SHA256: digest, Members: members}, nil
 }

@@ -62,3 +62,7 @@ func (IndicatorRegistry) LookupPackEntries(context.Context, reference_data.Looku
 func (IndicatorRegistry) GetPackProvenance(context.Context, reference_data.GetPackProvenanceRequest) reference_data.ConsumerResult[reference_data.PackProvenance] {
 	return reference_data.ConsumerResult[reference_data.PackProvenance]{Error: &reference_data.ConsumerError{Code: "pack_unavailable"}}
 }
+
+func (IndicatorRegistry) GetPackDescriptor(context.Context, reference_data.GetPackDescriptorRequest) reference_data.ConsumerResult[reference_data.PackDescriptor] {
+	return reference_data.ConsumerResult[reference_data.PackDescriptor]{Error: &reference_data.ConsumerError{Code: "pack_unavailable"}}
+}

@@ -2,6 +2,8 @@ package packformat
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/schema"
 	"io"
 	"time"
 )
@@ -56,7 +58,7 @@ func verifyDependencies(ctx context.Context, candidate Manifest, resolve Depende
 // metadata ordinal names the bounded sorted input without echoing hostile paths.
 func trustSchemaSummary(ctx context.Context, files map[string][]byte, scratch DiagnosticScratch) (*ValidationSummary, error) {
 	return CheckSummary(ctx, "tuf_schema", scratch, func(ctx context.Context, emit FindingSink) error {
-		return trustSchemaFindings(ctx, files, emit, nil)
+		return fixtureTrustSchemaFindings(ctx, files, emit)
 	})
 }
 
@@ -65,5 +67,11 @@ func verifyTrustWithDiagnostics(ctx context.Context, metadataFiles map[string][]
 }
 
 func compileShape(value map[string]any, ancestors map[string]bool) *shape {
-	return compileShapeIn(value, "inline", value, ancestors)
+	raw, err := canonicaljson.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	resources := projectionResources()
+	resources["inline.schema.json"] = raw
+	return &shape{schema.Compile(resources, fixedShapeLimits, "inline.schema.json")}
 }

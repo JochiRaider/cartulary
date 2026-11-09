@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack.dataset.descriptor.v1",
+  "type": "object",
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack.dataset.descriptor.v1"
+    },
+    "lookups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "input_type": {
+            "enum": [
+              "scalar",
+              "composite"
+            ]
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,63}$"
+                },
+                "type": {
+                  "enum": [
+                    "string",
+                    "integer"
+                  ]
+                },
+                "normalization": {
+                  "enum": [
+                    "exact_nfc",
+                    "ascii_case_insensitive",
+                    "uuid",
+                    "safe_integer"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "type",
+                "normalization"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 4,
+            "x-limitId": "max_dataset_components"
+          },
+          "unique": {
+            "type": "boolean"
+          },
+          "coverage": {
+            "type": "object",
+            "properties": {
+              "objects": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "postings": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "distinct_keys": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "objects",
+              "postings",
+              "distinct_keys"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "input_type",
+          "components",
+          "unique",
+          "coverage"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 32,
+      "x-limitId": "max_dataset_lookups"
+    }
+  },
+  "required": [
+    "schema_id",
+    "lookups"
+  ],
+  "additionalProperties": false
+}

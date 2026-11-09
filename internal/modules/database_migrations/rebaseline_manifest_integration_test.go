@@ -171,7 +171,7 @@ func assertManifestAccessClass(t testing.TB, entry schemaObjectManifestEntry) {
 
 func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(repositoryRoot(t), "contracts", "recovery", "fixtures", "recovery-state-catalog.v2.json"))
+	data, err := os.ReadFile(filepath.Join(repositoryRoot(t), "contracts", "recovery", "fixtures", "recovery-state-catalog.v3.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 	if err := json.Unmarshal(data, &recovery); err != nil {
 		t.Fatal(err)
 	}
-	if recovery.SchemaID != "cartulary.recovery_state_catalog.v2" || len(recovery.Tables) == 0 {
+	if recovery.SchemaID != "cartulary.recovery_state_catalog.v3" || len(recovery.Tables) == 0 {
 		t.Fatalf("Recovery catalog identity/cardinality = %q/%d", recovery.SchemaID, len(recovery.Tables))
 	}
 	authoritative := 0

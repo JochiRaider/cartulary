@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.veris_output_policy.v1",
+  "decision_ref": "veris-cc-by-sa-source-adaptation-2026-11-07",
+  "authorization": "User instruction to implement the VERIS CC BY-SA 4.0 distribution and local installation plan, 2026-11-07.",
+  "scope": "Adapted Community schema, contextual vocabulary and definitions, and original descriptive summaries of upstream validation, coding and enrichment guidance. Exact upstream license retained. Research PDFs, source scripts and upstream incidents are not packaged.",
+  "license": {
+    "expression": "CC-BY-SA-4.0",
+    "license_list_version": "3.28.0",
+    "redistribution": "allowed",
+    "notice_paths": [
+      "notices/CC-BY-SA-4.0.txt",
+      "notices/attribution.txt"
+    ],
+    "license_ref_bindings": []
+  }
+}

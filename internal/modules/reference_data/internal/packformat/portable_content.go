@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 const PortableContentPath = "ext/reference_packs/content.json"

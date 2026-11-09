@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { independentGoModules } from "./go-modules.mjs";
 
 // One projection of the ordinary runner profile, shared by static discovery
 // and execution. Runtime profiles never add compiler/build tags.
@@ -22,6 +23,7 @@ export function goRunnerBuildContext(root) {
   const tags = new Set([environment.GOARCH, `${environment.GOARCH}.${environment.GOAMD64}`, "gc", environment.GOOS, "unix"]);
   for (let minor = 1; minor <= Number(version[2]); minor += 1) tags.add(`go1.${minor}`);
   return Object.freeze({
+    modules: independentGoModules(root),
     goarch: environment.GOARCH,
     goos: environment.GOOS,
     label: `linux/amd64.v1 Go ${pins.go_version}, gc, cgo disabled, no custom build tags`,

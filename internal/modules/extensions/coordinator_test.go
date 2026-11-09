@@ -279,7 +279,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		"import":                    1,
 		"incident_portability":      1,
 		"network_flow_activity":     10,
-		"reference_pack":            3,
+		"reference_pack":            4,
 		"snapshot_reporting":        1,
 	}
 	adoption := map[string][]jobIdentity{

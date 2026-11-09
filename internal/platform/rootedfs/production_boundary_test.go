@@ -28,7 +28,6 @@ func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 	// These are offline producer tooling and test fixture data, not deployment
 	// root consumers. Runtime packages must never import either boundary.
 	nonRuntimeRoots := []string{
-		"internal/modules/reference_data/producer/",
 		"internal/modules/reference_data/testsupport/",
 	}
 	allowedRawEffects := map[string]map[string]bool{

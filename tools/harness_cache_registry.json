@@ -16,6 +16,7 @@
         "packages",
         "pnpm-lock.yaml",
         "pnpm-workspace.yaml",
+        "referencepacks",
         "tools/toolchain_pins.json"
       ],
       "requires_vulnerability_database_revision": false,
@@ -61,6 +62,7 @@
         "go.mod",
         "go.sum",
         "internal",
+        "referencepacks",
         "scripts",
         "tools"
       ],
@@ -70,7 +72,8 @@
         "harness.lint_go_format",
         "harness.lint_go_staticcheck",
         "harness.lint_go_vet",
-        "harness.lint_shell"
+        "harness.lint_shell",
+        "harness.reference_pack_runtime_boundary"
       ],
       "runner_types": []
     },
@@ -83,6 +86,7 @@
         "go.mod",
         "go.sum",
         "internal",
+        "referencepacks",
         "tools/toolchain_pins.json"
       ],
       "requires_vulnerability_database_revision": true,
@@ -109,6 +113,7 @@
         "packages",
         "pnpm-lock.yaml",
         "pnpm-workspace.yaml",
+        "referencepacks",
         "tools/harness_cache_registry.json",
         "tools/harness_work_graph_owner.json",
         "tools/release-evidence/check-release-artifact.sh",
@@ -164,6 +169,7 @@
         "packages",
         "pnpm-lock.yaml",
         "pnpm-workspace.yaml",
+        "referencepacks",
         "scripts",
         "tools",
         "tsconfig.base.json",

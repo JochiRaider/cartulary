@@ -52,7 +52,7 @@ func preparedFixture(t *testing.T) []byte {
 }
 
 func TestPreparedResultClosedShapeAndBindings_Unit(t *testing.T) {
-	t.Run("Entra v2 retained cutover", testEntraPreparedCutover)
+	t.Run("retired Entra profiles", testEntraPreparedCutover)
 	data := preparedFixture(t)
 	if _, err := decodePrepared(data); err != nil {
 		t.Fatal(err)
@@ -186,8 +186,8 @@ func testEntraPreparedCutover(t *testing.T) {
 			t.Fatal(err)
 		}
 		_, err = decodePrepared(encoded)
-		if (err == nil) != (version == "2") {
-			t.Fatal("Entra prepared cutover", version, err)
+		if err == nil {
+			t.Fatal("retired Entra prepared profile admitted", version)
 		}
 	}
 }

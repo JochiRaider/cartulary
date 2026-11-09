@@ -50,7 +50,7 @@ func ReconcileTrustBootstrap(ctx context.Context, pool postgres.DB, bootstrap Tr
 			// The root row, operation and audit are one mutation. A restart that
 			// sees exact retained bytes does not fabricate another root-import event.
 			operation := uuid.New()
-			frozen, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_root_bootstrap.v1", "repository_id": id, "root_version": version, "root_sha256": packformat.Digest(root)})
+			frozen, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_root_bootstrap.v2", "pack_contract_version": packformat.ContractID, "repository_id": id, "root_version": version, "root_sha256": packformat.Digest(root)})
 			if err != nil {
 				return err
 			}

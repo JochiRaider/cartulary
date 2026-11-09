@@ -118,7 +118,7 @@ function trackedExecutableSources(root, restrictedRoots) {
         normalized.endsWith(".mk") ||
         basename === "package.json" ||
         (sourceExtensions.has(path.extname(normalized)) &&
-          /^(?:cmd|internal|apps|packages|scripts|tools)\//u.test(normalized))
+          /^(?:cmd|internal|referencepacks|apps|packages|scripts|tools)\//u.test(normalized))
       );
     })
     .sort();

@@ -13,21 +13,35 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/referencepackfixture"
 )
 
 func TestAuthenticATTACKProductionLifecycle_Integration(t *testing.T) {
+	runAuthenticATTACKLifecycle(t, false)
+}
+
+// Qualify the exact production archive, without fixture signing or renewal.
+func TestRetainedATTACKArtifactImport_Integration(t *testing.T) { runAuthenticATTACKLifecycle(t, true) }
+
+func runAuthenticATTACKLifecycle(t *testing.T, retained bool) {
 	ctx := context.Background()
 	now := time.Now().UTC()
-	keys, err := producer.NewFixtureSigningContext()
-	if err != nil {
-		t.Fatal(err)
+	var err error
+	var keys *referencepackfixture.SigningContext
+	var fixture referencetest.AuthenticATTACKPack
+	if retained {
+		fixture = referencetest.ATTACKRelease(t, "../../..")
+	} else {
+		keys, err = referencepackfixture.NewSigningContext("fixture.attack.dataset.v1", "framework.attack")
+		if err != nil {
+			t.Fatal(err)
+		}
+		fixture = referencetest.AuthenticATTACKFixture(t, "../../..", "20.1", now, keys, 3)
 	}
-	fixture := referencetest.AuthenticATTACKFixture(t, "../../..", "20.1", now, keys, 3)
 	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
 	if err := os.WriteFile(bootstrap, fixture.Bootstrap, 0600); err != nil {
 		t.Fatal(err)
@@ -56,6 +70,13 @@ func TestAuthenticATTACKProductionLifecycle_Integration(t *testing.T) {
 		}
 	}
 	upload(fixture.Container, "authentic-import")
+	for kind, want := range map[string]int{"object": int(fixture.Objects), "relationship": int(fixture.Relationships)} {
+		if got := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_indexes i
+            JOIN reference_pack_candidates c ON c.current_index_id=i.index_id
+            WHERE c.pack_key=$1 AND c.pack_version=$2 AND i.entry_kind=$3`, fixture.Key, fixture.Version, kind); got != want {
+			t.Fatalf("retained %s count=%d, want %d", kind, got, want)
+		}
+	}
 	staged := consumer.ResolveCurrentPackSet(ctx)
 	if staged.Error != nil || staged.Value.ID != before.Value.ID {
 		t.Fatal("import changed active set", staged.Error)
@@ -84,14 +105,20 @@ func TestAuthenticATTACKProductionLifecycle_Integration(t *testing.T) {
 		}
 	}
 	upload(fixture.Container, "authentic-replay")
-	renewed := referencetest.AuthenticATTACKFixture(t, "../../..", "20.1", now, keys, 4)
-	upload(renewed.Container, "authentic-renew")
-	if after := consumer.ResolveCurrentPackSet(ctx); after.Error != nil || after.Value.ID != active.Value.ID {
-		t.Fatal("renewal changed immutable selection", after.Error)
+	if !retained {
+		renewed := referencetest.AuthenticATTACKFixture(t, "../../..", "20.1", now, keys, 4)
+		upload(renewed.Container, "authentic-renew")
+		if after := consumer.ResolveCurrentPackSet(ctx); after.Error != nil || after.Value.ID != active.Value.ID {
+			t.Fatal("renewal changed immutable selection", after.Error)
+		}
 	}
+
 	httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, prefix+"/disable", "authentic-disable", "fixture lifecycle"), http.StatusOK)
 	if fallback := consumer.ResolveCurrentPackSet(ctx); fallback.Error != nil || fallback.Value.ID != before.Value.ID {
 		t.Fatal("disablement fallback", fallback.Error)
+	}
+	if old := consumer.GetPackEntry(ctx, reference_data.GetPackEntryRequest{PackSetID: active.Value.ID, PackKey: fixture.Key, EntryID: "attack-pattern--7385dfaf-6886-4229-9ecd-6fd678040830"}); old.Error != nil || old.Value.Provenance.ManifestSHA256 != fixture.ManifestSHA256 {
+		t.Fatal("disablement changed historical content", old.Error)
 	}
 	httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, prefix+"/remove", "authentic-remove", "fixture retention complete"), http.StatusOK)
 	if old := consumer.GetPackEntry(ctx, reference_data.GetPackEntryRequest{PackSetID: active.Value.ID, PackKey: fixture.Key, EntryID: "attack-pattern--7385dfaf-6886-4229-9ecd-6fd678040830"}); old.Error == nil {

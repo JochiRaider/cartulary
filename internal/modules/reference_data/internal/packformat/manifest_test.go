@@ -9,7 +9,7 @@ import (
 	"testing"
 	"testing/iotest"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 type manifestVector struct {
@@ -164,7 +164,7 @@ func TestPackSetIdentityIsContentOnlyAndRequiresBase_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := BuildSet(complete.Members)
-	if err != nil || got.ID != complete.Expected || len(got.Members) != 16 {
+	if err != nil || got.ID != complete.Expected || len(got.Members) != 64 {
 		t.Fatalf("complete reachable set = %#v, %v", got, err)
 	}
 
@@ -316,37 +316,61 @@ func TestManifestDiagnosticEnumerationAndPrecedence_Unit(t *testing.T) {
 // This conservative byte proof is computed only from executable projections.
 func testContentCountReachability(t *testing.T) {
 	t.Helper()
-	for key, shape := range contentShapes {
-		count := int64(2000000)
-		if strings.HasSuffix(key, "/relationship") {
-			count = 5000000
-		}
-		lower := minimumShapeJSONBytes(shape) + 1 // required NDJSON LF
-		if lower <= 0 || count*lower <= 268435456 {
-			t.Fatal("count reachability changed; add a complete equality fixture", key, lower)
+	for key, p := range profiles {
+		if p.Shape == "dataset" {
+			continue
+		} // Generic limits have complete row fixtures in the neutral module.
+		for kind, name := range p.Schemas {
+			count := int64(2000000)
+			if kind == "relationship" {
+				count = 5000000
+			}
+			var declaration map[string]any
+			if err := json.Unmarshal(projection(name), &declaration); err != nil {
+				t.Fatal(err)
+			}
+			lower := minimumSchemaJSONBytes(declaration) + 1
+			if lower <= 0 || count*lower <= 268435456 {
+				t.Fatal("count reachability changed; add complete equality fixture", key, kind, lower)
+			}
 		}
 	}
 }
 
-func minimumShapeJSONBytes(s *shape) int64 {
-	if s.hasConstant {
-		raw, _ := canonicaljson.Marshal(s.constant)
+// This conservative proof reads trusted machine declarations independently of
+// the format library's private compiled representation.
+func minimumSchemaJSONBytes(s map[string]any) int64 {
+	if ref, ok := s["$ref"].(string); ok {
+		var next map[string]any
+		if err := json.Unmarshal(projection(ref), &next); err != nil {
+			panic(err)
+		}
+		return minimumSchemaJSONBytes(next)
+	}
+	if value, ok := s["const"]; ok {
+		raw, _ := canonicaljson.Marshal(value)
 		return int64(len(raw))
 	}
-	if len(s.enum) > 0 {
+	if values, ok := s["enum"].([]any); ok {
 		shortest := int64(1 << 62)
-		for _, value := range s.enum {
+		for _, value := range values {
 			raw, _ := canonicaljson.Marshal(value)
 			shortest = min(shortest, int64(len(raw)))
 		}
 		return shortest
 	}
-	var n int64
-	switch s.kind {
+	kind, _ := s["type"].(string)
+	nullable := false
+	if kinds, ok := s["type"].([]any); ok {
+		kind = kinds[0].(string)
+		nullable = true
+	}
+	n := int64(0)
+	switch kind {
 	case "string":
 		n = 2
-		if s.minLength != nil {
-			n += int64(*s.minLength)
+		if v, ok := s["minLength"].(float64); ok {
+			n += int64(v)
 		}
 	case "boolean":
 		n = 4
@@ -354,19 +378,21 @@ func minimumShapeJSONBytes(s *shape) int64 {
 		n = 1
 	case "array":
 		n = 2
-		if s.minItems != nil && *s.minItems > 0 {
-			n += int64(*s.minItems-1) + int64(*s.minItems)*minimumShapeJSONBytes(s.items)
+		if v, ok := s["minItems"].(float64); ok && v > 0 {
+			n += int64(v) - 1 + int64(v)*minimumSchemaJSONBytes(s["items"].(map[string]any))
 		}
 	case "object":
-		n = 2 + int64(max(0, len(s.required)-1))
-		for _, key := range s.required {
+		required, _ := s["required"].([]any)
+		properties, _ := s["properties"].(map[string]any)
+		n = 2 + int64(max(0, len(required)-1))
+		for _, value := range required {
+			key := value.(string)
 			raw, _ := canonicaljson.Marshal(key)
-			n += int64(len(raw)) + 1 + minimumShapeJSONBytes(s.properties[key])
+			n += int64(len(raw)) + 1 + minimumSchemaJSONBytes(properties[key].(map[string]any))
 		}
 	}
-	if s.nullable {
+	if nullable {
 		n = min(n, 4)
 	}
-	// Ignoring conditional and pattern restrictions only weakens a lower bound.
 	return n
 }

@@ -315,6 +315,13 @@
       "validation": "harness.json_shape_check"
     },
     {
+      "schema_id": "cartulary.go_modules.v1",
+      "path": "tools/schemas/cartulary.go_modules.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "independent Go module owner",
+      "validation": "harness.json_shape_check"
+    },
+    {
       "schema_id": "cartulary.govulncheck_findings.v1",
       "path": "tools/schemas/cartulary.govulncheck_findings.v1.schema.json",
       "classification": "public_contract",

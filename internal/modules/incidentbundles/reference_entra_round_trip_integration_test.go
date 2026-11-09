@@ -1,8 +1,8 @@
 package incidentbundles_test
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/referencepackfixture"
 	"testing"
 	"time"
 )
@@ -12,7 +12,7 @@ func TestEntraProducedPackSurvivesBundleRoundTrip_Integration(t *testing.T) {
 	if expected.Condition == nil || *expected.Condition != "verified_available" {
 		t.Fatal("Entra owner expectation")
 	}
-	keys, err := producer.NewEntraFixtureSigningContext()
+	keys, err := referencepackfixture.NewSigningContext("fixture.entra.dataset.v1", "enrichment.entra_app_ids")
 	if err != nil {
 		t.Fatal(err)
 	}

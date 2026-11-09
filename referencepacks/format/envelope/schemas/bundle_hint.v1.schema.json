@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_bundle_hint.v1"
+    },
+    "trust_repository_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+      "minLength": 3,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "schema_id",
+    "trust_repository_id"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_bundle_hint.v1"
+}

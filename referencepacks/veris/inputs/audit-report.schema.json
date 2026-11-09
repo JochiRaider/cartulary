@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.veris_audit.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "source_lock_sha256",
+    "source_profile_sha256",
+    "builder",
+    "rules_sha256",
+    "dispositions_sha256",
+    "counts",
+    "objects_sha256",
+    "relationships_sha256"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.veris_audit.v1"
+    },
+    "source_lock_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "source_profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "builder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "builder_id",
+        "builder_version",
+        "builder_source_sha256",
+        "size_bytes",
+        "go_version"
+      ],
+      "properties": {
+        "builder_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "builder_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "builder_source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "minLength": 64,
+          "maxLength": 64
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "go_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "rules_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "dispositions_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "objects_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "relationships_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}

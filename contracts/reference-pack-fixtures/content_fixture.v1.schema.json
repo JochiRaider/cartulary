@@ -66,6 +66,30 @@
               "maxLength": 1048576
             }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "payload/descriptor.json",
+            "payload/objects.ndjson",
+            "payload/relationships.ndjson"
+          ],
+          "properties": {
+            "payload/descriptor.json": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 65536
+            },
+            "payload/objects.ndjson": {
+              "type": "string",
+              "maxLength": 4194304
+            },
+            "payload/relationships.ndjson": {
+              "type": "string",
+              "maxLength": 4194304
+            }
+          }
         }
       ]
     }

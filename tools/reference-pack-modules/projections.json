@@ -1,0 +1,57 @@
+{
+  "schema_id": "cartulary.reference_pack_format_projections.v1",
+  "projections": [
+    {
+      "source": "referencepacks/format/envelope/schemas/bundle_hint.v1.schema.json",
+      "output": "contracts/reference-packs/bundle_hint.v1.schema.json"
+    },
+    {
+      "source": "referencepacks/format/envelope/schemas/manifest.v2.schema.json",
+      "output": "contracts/reference-packs/manifest.v2.schema.json"
+    },
+    {
+      "source": "referencepacks/format/envelope/schemas/tuf_metadata_descriptor.v1.schema.json",
+      "output": "contracts/reference-packs/tuf_metadata_descriptor.v1.schema.json"
+    },
+    {
+      "source": "referencepacks/format/envelope/schemas/tuf_root_metadata.v1.schema.json",
+      "output": "contracts/reference-packs/tuf_root_metadata.v1.schema.json"
+    },
+    {
+      "source": "referencepacks/format/envelope/schemas/tuf_signature.v1.schema.json",
+      "output": "contracts/reference-packs/tuf_signature.v1.schema.json"
+    },
+    {
+      "source": "referencepacks/format/envelope/schemas/tuf_snapshot_metadata.v1.schema.json",
+      "output": "contracts/reference-packs/tuf_snapshot_metadata.v1.schema.json"
+    },
+    {
+      "source": "referencepacks/format/envelope/schemas/tuf_target_descriptor.v1.schema.json",
+      "output": "contracts/reference-packs/tuf_target_descriptor.v1.schema.json"
+    },
+    {
+      "source": "referencepacks/format/envelope/schemas/tuf_targets_metadata.v1.schema.json",
+      "output": "contracts/reference-packs/tuf_targets_metadata.v1.schema.json"
+    },
+    {
+      "source": "referencepacks/format/envelope/schemas/tuf_timestamp_metadata.v1.schema.json",
+      "output": "contracts/reference-packs/tuf_timestamp_metadata.v1.schema.json"
+    },
+    {
+      "source": "referencepacks/format/envelope/schemas/spdx_identifiers.v1.json",
+      "output": "contracts/reference-packs/spdx_identifiers.v1.json"
+    },
+    {
+      "source": "referencepacks/format/dataset/schemas/dataset.descriptor.v1.schema.json",
+      "output": "contracts/reference-packs/profiles/dataset.descriptor.v1.schema.json"
+    },
+    {
+      "source": "referencepacks/format/dataset/schemas/dataset.object.v1.schema.json",
+      "output": "contracts/reference-packs/profiles/dataset.object.v1.schema.json"
+    },
+    {
+      "source": "referencepacks/format/dataset/schemas/dataset.relationship.v1.schema.json",
+      "output": "contracts/reference-packs/profiles/dataset.relationship.v1.schema.json"
+    }
+  ]
+}

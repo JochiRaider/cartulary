@@ -51,7 +51,7 @@ func DependencyChecks(candidate Manifest, resolve DependencyResolver) (map[strin
 					if _, seen := resolved[edge]; seen {
 						continue
 					}
-					_, supported := profiles[edge.Key]
+					_, supported := ProfileForKey(edge.Key)
 					var target Manifest
 					var available bool
 					if supported {

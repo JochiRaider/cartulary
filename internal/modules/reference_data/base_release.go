@@ -56,7 +56,7 @@ func releaseArtifact(name string) ([]byte, error) {
 	return nil, errors.New("reference pack: application release binding absent")
 }
 func loadBuiltinRelease(ctx context.Context) (builtinRelease, []preparedVersion, error) {
-	data, err := releaseArtifact("release.v2.json")
+	data, err := releaseArtifact("release.v3.json")
 	if err != nil {
 		return builtinRelease{}, nil, err
 	}
@@ -92,7 +92,7 @@ func loadBuiltinRelease(ctx context.Context) (builtinRelease, []preparedVersion,
 	if release.SchemaID != "cartulary.reference_pack_builtin_release.v1" || release.ReleaseID == "" || len(release.Packs) != 3 {
 		return release, nil, errors.New("reference pack: incomplete Base release")
 	}
-	source, err := releaseArtifact("source-profile.v1.json")
+	source, err := releaseArtifact("source-profile.v2.json")
 	if err != nil || packformat.Digest(source) != release.SourceProfileSHA256 {
 		return release, nil, errors.New("reference pack: source-profile binding mismatch")
 	}
@@ -186,7 +186,7 @@ func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage Artifac
 	if err != nil {
 		return err
 	}
-	frozen, _ := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_reconciliation.v1", "application_release_id": release.ReleaseID, "profile_claimed": claimed, "clock_trusted": options.ClockTrusted, "max_verification_seconds": options.Limits.ReferencePacks.MaxVerificationSeconds, "max_container_bytes": archive.ContainerBytes, "max_extracted_bytes": archive.ExtractedBytes, "max_compression_ratio": archive.CompressionRatio, "max_members": archive.Members})
+	frozen, _ := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_reconciliation.v2", "pack_contract_version": packformat.ContractID, "application_release_id": release.ReleaseID, "profile_claimed": claimed, "clock_trusted": options.ClockTrusted, "max_verification_seconds": options.Limits.ReferencePacks.MaxVerificationSeconds, "max_container_bytes": archive.ContainerBytes, "max_extracted_bytes": archive.ExtractedBytes, "max_compression_ratio": archive.CompressionRatio, "max_members": archive.Members})
 	created := []StorageRef{}
 	leases := []io.Closer{}
 	defer func() {

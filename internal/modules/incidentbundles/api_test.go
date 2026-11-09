@@ -157,8 +157,8 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	if first.ManifestSHA256 == "" || len(first.ChecksumLines) == 0 {
 		t.Fatalf("bundle result must expose manifest hash and checksums: %#v", first)
 	}
-	if first.Manifest.BundleVersion != 7 {
-		t.Fatalf("manifest bundle_version must be numeric 7, got %#v", first.Manifest.BundleVersion)
+	if first.Manifest.BundleVersion != 8 {
+		t.Fatalf("manifest bundle_version must be numeric 8, got %#v", first.Manifest.BundleVersion)
 	}
 	if first.Manifest.SourceChangeSetHighWatermark == "" {
 		t.Fatalf("manifest must expose source_change_set_high_watermark: %#v", first.Manifest)
@@ -464,7 +464,7 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 	if err != nil {
 		t.Fatalf("buildBundleArchive: %v", err)
 	}
-	for _, version := range []int{7} {
+	for _, version := range []int{8} {
 		original := replaceManifestFields(t, archiveBytes(t, bundle), func(manifest map[string]any) { manifest["bundle_version"] = version })
 		verified, err := verifyBundleBytes(t, verificationBytesInput{Bundle: original, Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}}})
 		if err != nil || verified.Manifest.BundleVersion != version {
@@ -472,7 +472,7 @@ func TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit(t *testing.
 		}
 	}
 
-	for _, version := range []int{1, 2, 3, 4, 5, 6, 8} {
+	for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 9} {
 		t.Run(fmt.Sprintf("unsupported_version_%d", version), func(t *testing.T) {
 			unsupported := replaceManifestFields(t, archiveBytes(t, bundle), func(manifest map[string]any) {
 				manifest["bundle_version"] = version
@@ -626,7 +626,7 @@ func minimalRequiredBundleFiles() map[string][]byte {
 		case "data/incident.json":
 			files[path] = []byte(`{"id":"11111111-1111-1111-1111-111111111111"}` + "\n")
 		case "data/reference_pack_refs.json":
-			files[path] = []byte(`{"schema_id":"reference_pack_refs.v2","sets":[],"versions":[]}` + "\n")
+			files[path] = []byte(`{"schema_id":"reference_pack_refs.v3","sets":[],"versions":[]}` + "\n")
 		default:
 			files[path] = []byte{}
 		}

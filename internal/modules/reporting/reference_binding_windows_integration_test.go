@@ -1,15 +1,15 @@
 package reporting_test
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/referencepackfixture"
 	"testing"
 	"time"
 )
 
 func TestWindowsSnapshotAdmissionRetainsProducedSet_Integration(t *testing.T) {
 	now := time.Now().UTC()
-	keys, err := producer.NewWindowsFixtureSigningContext()
+	keys, err := referencepackfixture.NewSigningContext("fixture.windows.dataset.v1", "enrichment.windows_event_ids")
 	if err != nil {
 		t.Fatal(err)
 	}

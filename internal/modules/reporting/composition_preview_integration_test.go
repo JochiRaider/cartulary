@@ -2,9 +2,9 @@ package reporting_test
 
 import (
 	"encoding/json"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	referencehttp "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport/fixturehttp"
+	"github.com/JochiRaider/cartulary/internal/testutil/referencepackfixture"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,7 +28,7 @@ import (
 func TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	assetPack, templates := declaredTemplateImageRegistry(t)
-	keys, err := producer.NewFixtureSigningContext()
+	keys, err := referencepackfixture.NewSigningContext("fixture.attack.dataset.v1", "framework.attack")
 	if err != nil {
 		t.Fatal(err)
 	}

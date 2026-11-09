@@ -3262,7 +3262,17 @@
             "go.mod",
             "go.sum",
             "tools/go-analysis/go.mod",
-            "tools/go-analysis/go.sum"
+            "tools/go-analysis/go.sum",
+            "referencepacks/format/go.mod",
+            "referencepacks/format/go.sum",
+            "referencepacks/attack/go.mod",
+            "referencepacks/attack/go.sum",
+            "referencepacks/veris/go.mod",
+            "referencepacks/veris/go.sum",
+            "referencepacks/windows/go.mod",
+            "referencepacks/windows/go.sum",
+            "referencepacks/entra/go.mod",
+            "referencepacks/entra/go.sum"
           ]
         }
       ]
@@ -6758,11 +6768,33 @@
     },
     {
       "name": "reference-pack-producer-build",
-      "command_id": "cartulary.harness.command.reference_pack_producer_build.v1",
+      "command_id": "cartulary.harness.command.reference_pack_producer_build.v2",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "inputs": [
+          {
+            "name": "PRODUCER",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "enum",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "values": [
+              "attack",
+              "veris",
+              "windows",
+              "entra"
+            ]
+          }
+        ]
       },
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6793,18 +6825,40 @@
           "owner_section": "Section 8",
           "output_roots": [
             "build/bin",
-            ".cartulary/reference-packs/builders"
+            ".cartulary/reference-packs/builders",
+            ".cartulary/reference-packs/modules"
           ]
         }
       ]
     },
     {
       "name": "reference-pack-source",
-      "command_id": "cartulary.harness.command.reference_pack_source.v1",
+      "command_id": "cartulary.harness.command.reference_pack_source.v2",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": [
+          {
+            "name": "PRODUCER",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "enum",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "values": [
+              "attack",
+              "veris",
+              "windows",
+              "entra"
+            ]
+          },
           {
             "name": "ACTION",
             "binding": "make_variable",
@@ -6939,11 +6993,32 @@
     },
     {
       "name": "reference-pack-package",
-      "command_id": "cartulary.harness.command.reference_pack_package.v1",
+      "command_id": "cartulary.harness.command.reference_pack_package.v2",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": [
+          {
+            "name": "PRODUCER",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "enum",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "values": [
+              "attack",
+              "veris",
+              "windows",
+              "entra"
+            ]
+          },
           {
             "name": "ACTION",
             "binding": "make_variable",
@@ -6962,7 +7037,10 @@
             "values": [
               "assemble",
               "envelope",
-              "renew"
+              "renew",
+              "assemble-fixture",
+              "envelope-fixture",
+              "renew-fixture"
             ],
             "default": null
           },
@@ -7008,6 +7086,70 @@
           "class": "retained_artifacts",
           "owner_section": "Section 8",
           "artifact_policy": "tool_run_summary"
+        }
+      ]
+    },
+    {
+      "name": "reference-pack-module-check",
+      "command_id": "cartulary.harness.command.reference_pack_module_check.v1",
+      "inputs": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "MODULE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "enum",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "values": [
+              "format",
+              "attack",
+              "veris",
+              "windows",
+              "entra"
+            ]
+          }
+        ]
+      },
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            ".cartulary/reference-packs/modules"
+          ]
         }
       ]
     }

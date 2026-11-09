@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	github.com/BurntSushi/toml v1.6.0
+	github.com/JochiRaider/cartulary/referencepacks/format v0.1.0-dev.54251c5b6c647d7a17fe9cc98d31c5a6da334d01be9a164a0ec33b994aae7aad
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.6
 	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.13

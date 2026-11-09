@@ -24,4 +24,5 @@ export const ownersByVersion = new Map([
  [47, "imports"],
  [48, "reference_data"],
  [49, "imports"],
+ [50, "reference_data"],
 ]);

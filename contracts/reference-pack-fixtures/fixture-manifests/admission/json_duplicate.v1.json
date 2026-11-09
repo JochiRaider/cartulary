@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_admission_json_duplicate",
-  "fixture_version": 1,
+  "fixture_version": 3,
   "fixture_family": "json_admission",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/admission/json_duplicate.v1.json"

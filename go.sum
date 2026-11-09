@@ -20,6 +20,8 @@ github.com/ClickHouse/clickhouse-go/v2 v2.43.0 h1:fUR05TrF1GyvLDa/mAQjkx7KbgwdLR
 github.com/ClickHouse/clickhouse-go/v2 v2.43.0/go.mod h1:o6jf7JM/zveWC/PP277BLxjHy5KjnGX/jfljhM4s34g=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.33.0 h1:l7+6kwRMJNwdCvYdDl7Eax+wzEYHSnNY7zrrfbhDdTA=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.33.0/go.mod h1:pJTkW8hEUIIi3Pf65lPZOnn4Y81yCllX6IWk2jNXdkM=
+github.com/JochiRaider/cartulary/referencepacks/format v0.1.0-dev.54251c5b6c647d7a17fe9cc98d31c5a6da334d01be9a164a0ec33b994aae7aad h1:oCu+Kuf8LB4dapyhI2V/oa1CfE7fwjojQisA2aw1SE0=
+github.com/JochiRaider/cartulary/referencepacks/format v0.1.0-dev.54251c5b6c647d7a17fe9cc98d31c5a6da334d01be9a164a0ec33b994aae7aad/go.mod h1:ahtzic4YbsoU46i/YZDMDA9WaptoGu06RML0cRU0sLI=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/andybalholm/brotli v1.2.0 h1:ukwgCxwYrmACq68yiUqwIWnGY0cTPox/M94sVwToPjQ=

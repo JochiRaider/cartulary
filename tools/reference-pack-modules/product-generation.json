@@ -1,0 +1,69 @@
+{
+  "schema_id": "cartulary.reference_pack_product_generation.v1",
+  "contract_registry": "contracts/index.json",
+  "format_projections": "tools/reference-pack-modules/projections.json",
+  "fixture_outputs": "tools/generate_drift_scratch_inputs.json",
+  "copy_paths": [
+    "contracts/index.json",
+    "contracts/indicators",
+    "contracts/incident-bundles",
+    "contracts/protocol-ts",
+    "db/migrations",
+    "package.json",
+    "pnpm-lock.yaml",
+    "tools/toolchain_pins.json",
+    "tools/reference-pack-modules/current-fixtures-recipes.v1.json",
+    "tools/reference-pack-modules/current-fixtures.mjs",
+    "tools/reference-pack-modules/project-contracts.mjs",
+    "tools/protocol-ts/generate-protocol-types.mjs"
+  ],
+  "node_dependencies": [
+    "ajv",
+    "json-schema-to-typescript"
+  ],
+  "steps": [
+    {
+      "runtime": "node",
+      "arguments": [
+        "tools/reference-pack-modules/project-contracts.mjs"
+      ]
+    },
+    {
+      "runtime": "node",
+      "arguments": [
+        "tools/reference-pack-modules/current-fixtures.mjs"
+      ],
+      "readonly_inputs": [
+        "tools/reference-pack-modules/current-fixtures.mjs",
+        "tools/reference-pack-modules/current-fixtures-recipes.v1.json"
+      ],
+      "output_prefix": "contracts/reference-pack-fixtures/"
+    },
+    {
+      "runtime": "go",
+      "arguments": [
+        "run",
+        "./tools/contractgen"
+      ]
+    },
+    {
+      "runtime": "node",
+      "arguments": [
+        "tools/protocol-ts/generate-protocol-types.mjs"
+      ]
+    }
+  ],
+  "protocol_outputs": [
+    "packages/protocol-ts/src/generated/core-indicator-registry.ts",
+    "packages/protocol-ts/src/generated/network-flow-types.ts",
+    "packages/protocol-ts/src/generated/core-http-types.ts",
+    "packages/protocol-ts/src/generated/collaboration-types.ts",
+    "packages/protocol-ts/src/generated/network-flow-validators.ts",
+    "packages/protocol-ts/src/generated/core-http-validators.ts",
+    "packages/protocol-ts/src/generated/collaboration-validators.ts",
+    "packages/protocol-ts/src/generated/http-operation-bindings.ts",
+    "packages/protocol-ts/src/generated/network-flow-descriptor.ts",
+    "packages/protocol-ts/src/generated/network-flow-presentation.ts",
+    "packages/protocol-ts/src/generated/network-flow-mapping-registry.ts"
+  ]
+}

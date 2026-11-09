@@ -66,9 +66,10 @@ const profileByVersion = new Map([
   [25, "incident_portability"],
   [26, "reference_pack"],
   [48, "reference_pack"],
+  [50, "reference_pack"],
 ]);
 const recoveryCatalog = JSON.parse(
-  readFileSync(path.join(root, "contracts/recovery/fixtures/recovery-state-catalog.v2.json"), "utf8"),
+  readFileSync(path.join(root, "contracts/recovery/fixtures/recovery-state-catalog.v3.json"), "utf8"),
 );
 const recoveryByTable = new Map(
   recoveryCatalog.tables.map((entry) => [entry.table_name, entry]),

@@ -64,7 +64,7 @@ func TestVNextGraphRestoreCurrentProjectionContract_Unit(t *testing.T) {
 	}
 	if binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v9" ||
 		binding["algorithm_id"] != "graphprojection.restore_rebuild.v5" ||
-		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v7" ||
+		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v8" ||
 		binding["projection_schema_id"] != "graph_projection.v2" ||
 		binding["recovery_state_catalog_sha256"] != projected.CatalogDigestSHA256 ||
 		binding["source_registry_sha256"] != projected.GraphSourceRegistrySHA256 ||

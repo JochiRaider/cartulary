@@ -13,7 +13,7 @@ import (
 
 const (
 	recoveryRegistrySchemaID           = "cartulary.recovery_contract_registry.v2"
-	recoveryCatalogSchemaID            = "cartulary.recovery_state_catalog.v2"
+	recoveryCatalogSchemaID            = "cartulary.recovery_state_catalog.v3"
 	recoveryGenerationRegistrySchemaID = "cartulary.recovery_generation_registry.v1"
 )
 
@@ -50,7 +50,7 @@ var (
 		"postgres-snapshot-artifact.v3.schema.json":                      "cartulary.postgres_snapshot_artifact.v3",
 		"postgres-snapshot-unit.v1.schema.json":                          "cartulary.postgres_snapshot_unit.v1",
 		"recovery-generation-registry.v1.schema.json":                    recoveryGenerationRegistrySchemaID,
-		"recovery-state-catalog.v2.schema.json":                          recoveryCatalogSchemaID,
+		"recovery-state-catalog.v3.schema.json":                          recoveryCatalogSchemaID,
 		"recovery-state-contribution.v1.schema.json":                     "cartulary.recovery_state_contribution.v1",
 		"restore-target-marker.v5.schema.json":                           "cartulary.restore_target_marker.v5",
 		"restore-verification.v5.schema.json":                            "cartulary.restore_verification.v5",
@@ -74,7 +74,7 @@ var (
 		"fixtures/postgres-snapshot-artifact.v3.json":                      "cartulary.postgres_snapshot_artifact.v3",
 		"fixtures/postgres-snapshot-unit.v1.json":                          "cartulary.postgres_snapshot_unit.v1",
 		"fixtures/recovery-generation-registry.v1.json":                    recoveryGenerationRegistrySchemaID,
-		"fixtures/recovery-state-catalog.v2.json":                          recoveryCatalogSchemaID,
+		"fixtures/recovery-state-catalog.v3.json":                          recoveryCatalogSchemaID,
 		"fixtures/recovery-state-contribution.v1.json":                     "cartulary.recovery_state_contribution.v1",
 		"fixtures/restore-target-marker.v5.json":                           "cartulary.restore_target_marker.v5",
 		"fixtures/restore-verification.v5.json":                            "cartulary.restore_verification.v5",
@@ -206,7 +206,7 @@ func validateRecoveryContractFamily(root string) error {
 	if err := validateRecoveryGenerationRegistry(base); err != nil {
 		return err
 	}
-	catalog, err := readRecoveryObject(base, "fixtures/recovery-state-catalog.v2.json")
+	catalog, err := readRecoveryObject(base, "fixtures/recovery-state-catalog.v3.json")
 	if err != nil {
 		return err
 	}
@@ -264,7 +264,7 @@ func validateRecoveryGenerationRegistry(base string) error {
 	catalogDigest, err := validateRecoveryGenerationCatalogBinding(
 		base,
 		catalog,
-		"fixtures/recovery-state-catalog.v2.json",
+		"fixtures/recovery-state-catalog.v3.json",
 		label+".catalog",
 	)
 	if err != nil {
@@ -519,7 +519,7 @@ func validateGraphProjectionRestoreV5Contracts(base string) error {
 	if len(binding) != len(bindingKeys) ||
 		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v9" ||
 		binding["algorithm_id"] != "graphprojection.restore_rebuild.v5" ||
-		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v7" ||
+		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v8" ||
 		binding["projection_schema_id"] != "graph_projection.v2" ||
 		binding["source_registry_sha256"] != registrySHA256 {
 		return fmt.Errorf("current Graph Projection v5 restore implementation binding has drifted from its authored source set")

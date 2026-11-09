@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type RecoveryStorage struct {
@@ -136,4 +137,8 @@ func (s *RecoveryStorage) ResetVerificationTarget(ctx context.Context) error {
 
 func (s *RecoveryStorage) ValidateHistoricalState(ctx context.Context, db postgres.DB) error {
 	return reference_data.RestoreHistoricalState(ctx, db, s.storage, s.limits, s.lifetime)
+}
+
+func (s *RecoveryStorage) AdmitRestoredState(ctx context.Context, tx pgx.Tx) error {
+	return reference_data.AdmitRestoredState(ctx, tx, s.storage)
 }

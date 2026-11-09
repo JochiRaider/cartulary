@@ -1,0 +1,9 @@
+{
+  "schema_id": "cartulary.reference_pack_historical_base_builder.v1",
+  "status": "historical_inert",
+  "sha256": {
+    "base-release.mjs": "d7d0e48fe7c8aedce328b77f742773de305b23f65d7dfdb18fb53f9c1b105f9f",
+    "base-release-input.v3.json": "667a8f49d13377cf8969a7243fab6d56c6a8e1b30722c8e6b1d79f5541a1c097",
+    "release_sha256": "96a42a19520de0fe32c9a88d93ebf4041cc2ce6a2daa6b5ebb5fe1337889abf3"
+  }
+}

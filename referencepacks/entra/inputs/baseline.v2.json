@@ -1,0 +1,1531 @@
+{
+  "schema_id": "cartulary.entra_baseline.v2",
+  "entries": [
+    {
+      "app_id": "00000002-0000-0000-c000-000000000000",
+      "display_label": "Windows Azure Active Directory",
+      "source_locators": [
+        "S3:L214"
+      ],
+      "aliases": [
+        "Windows Azure Active Directory"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "00000002-0000-0ff1-ce00-000000000000",
+      "display_label": "Office 365 Exchange Online",
+      "source_locators": [
+        "S3:L173"
+      ],
+      "aliases": [
+        "Office 365 Exchange Online"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "00000003-0000-0000-c000-000000000000",
+      "display_label": "Microsoft Graph",
+      "source_locators": [
+        "S3:L153"
+      ],
+      "aliases": [
+        "Microsoft Graph"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "00000003-0000-0ff1-ce00-000000000000",
+      "display_label": "Office 365 SharePoint Online",
+      "source_locators": [
+        "S1:L48",
+        "S3:L176"
+      ],
+      "aliases": [
+        "Office 365 SharePoint Online"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "00000004-0000-0ff1-ce00-000000000000",
+      "display_label": "Skype for Business Online",
+      "source_locators": [
+        "S3:L202"
+      ],
+      "aliases": [
+        "Skype for Business Online"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "00000005-0000-0ff1-ce00-000000000000",
+      "display_label": "Viva Engage (formerly Yammer)",
+      "source_locators": [
+        "S3:L211"
+      ],
+      "aliases": [
+        "Viva Engage",
+        "Viva Engage (formerly Yammer)",
+        "Yammer"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "00000006-0000-0ff1-ce00-000000000000",
+      "display_label": "Microsoft Office 365 Portal",
+      "source_locators": [
+        "S3:L157"
+      ],
+      "aliases": [
+        "Microsoft Office 365 Portal"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "00000007-0000-0000-c000-000000000000",
+      "display_label": "Dataverse",
+      "source_locators": [
+        "S3:L119"
+      ],
+      "aliases": [
+        "Dataverse"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "00000007-0000-0ff1-ce00-000000000000",
+      "display_label": "Microsoft Exchange Online Protection",
+      "source_locators": [
+        "S3:L147"
+      ],
+      "aliases": [
+        "Microsoft Exchange Online Protection"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "00000009-0000-0000-c000-000000000000",
+      "display_label": "Power BI Service",
+      "source_locators": [
+        "S3:L197"
+      ],
+      "aliases": [
+        "Power BI Service"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "0000000c-0000-0000-c000-000000000000",
+      "display_label": "Microsoft App Access Panel",
+      "source_locators": [
+        "S3:L132"
+      ],
+      "aliases": [
+        "Microsoft App Access Panel"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "00000012-0000-0000-c000-000000000000",
+      "display_label": "Microsoft Rights Management Services",
+      "source_locators": [
+        "S1:L46"
+      ],
+      "aliases": [
+        "Microsoft Rights Management Services"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "00000015-0000-0000-c000-000000000000",
+      "display_label": "Microsoft Dynamics ERP",
+      "source_locators": [
+        "S3:L144"
+      ],
+      "aliases": [
+        "Microsoft Dynamics ERP"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "0000001a-0000-0000-c000-000000000000",
+      "display_label": "MicrosoftAzureActiveAuthn",
+      "source_locators": [
+        "S3:L137"
+      ],
+      "aliases": [
+        "MicrosoftAzureActiveAuthn"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "00b41c95-dab0-4487-9791-b9d2c32c80f2",
+      "display_label": "Office 365 Management",
+      "source_locators": [
+        "S3:L174"
+      ],
+      "aliases": [
+        "Office 365 Management"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "022907d3-0f1b-48f7-badc-1ba6abab6d66",
+      "display_label": "Azure SQL Database",
+      "source_locators": [
+        "S3:L113"
+      ],
+      "aliases": [
+        "Azure SQL Database"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "04687a56-4fc2-4e36-b274-b862fb649733",
+      "display_label": "MDATPNetworkScanAgent",
+      "source_locators": [
+        "S1:L45"
+      ],
+      "aliases": [
+        "MDATPNetworkScanAgent"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "04b07795-8ddb-461a-bbee-02f9e1bf7b46",
+      "display_label": "Microsoft Azure CLI",
+      "source_locators": [
+        "S3:L135"
+      ],
+      "aliases": [
+        "Microsoft Azure CLI"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "06dd8193-75af-46d0-84bb-9b9bcaa89e8b",
+      "display_label": "SubstrateActionService",
+      "source_locators": [
+        "S1:L52"
+      ],
+      "aliases": [
+        "SubstrateActionService"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "0736f41a-0425-4b46-bdb5-1563eff02385",
+      "display_label": "Azure Machine Learning",
+      "source_locators": [
+        "S1:L38"
+      ],
+      "aliases": [
+        "Azure Machine Learning"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "08e18876-6177-487e-b8b5-cf950c1e598c",
+      "display_label": "SharePoint Online Web Client Extensibility",
+      "source_locators": [
+        "S3:L200"
+      ],
+      "aliases": [
+        "SharePoint Online Web Client Extensibility"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "0cb7b9ec-5336-483b-bc31-b15b5788de71",
+      "display_label": "ASM Campaign Servicing",
+      "source_locators": [
+        "S3:L108"
+      ],
+      "aliases": [
+        "ASM Campaign Servicing"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "0cd196ee-71bf-4fd6-a57c-b491ffd4fb1e",
+      "display_label": "Media Analysis and Transformation Service",
+      "source_locators": [
+        "S3:L129#id=0cd196ee-71bf-4fd6-a57c-b491ffd4fb1e"
+      ],
+      "aliases": [],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "0f698dd4-f011-4d23-a33e-b36416dcb1e6",
+      "display_label": "OfficeClientService",
+      "source_locators": [
+        "S3:L187"
+      ],
+      "aliases": [
+        "OfficeClientService"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "13937bba-652e-4c46-b222-3003f4d1ff97",
+      "display_label": "Substrate Context Service",
+      "source_locators": [
+        "S3:L205"
+      ],
+      "aliases": [
+        "Substrate Context Service"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "14d82eec-204b-4c2f-b7e8-296a70dab67e",
+      "display_label": "Microsoft Graph Command Line Tools",
+      "source_locators": [
+        "S2:L103"
+      ],
+      "aliases": [
+        "Microsoft Graph Command Line Tools"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "16aeb910-ce68-41d1-9ac3-9e1673ac9575",
+      "display_label": "IrisSelectionFrontDoor",
+      "source_locators": [
+        "S3:L127"
+      ],
+      "aliases": [
+        "IrisSelectionFrontDoor"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "1786c5ed-9644-47b2-8aa0-7201292175b6",
+      "display_label": "Microsoft Bing Default Search Engine",
+      "source_locators": [
+        "S3:L140"
+      ],
+      "aliases": [
+        "Microsoft Bing Default Search Engine"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "17d5e35f-655b-4fb0-8ae6-86356e9a49f5",
+      "display_label": "Office Online Client Microsoft Entra ID- Maker",
+      "source_locators": [
+        "S3:L181"
+      ],
+      "aliases": [
+        "Office Online Client Microsoft Entra ID- Maker"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "18fbca16-2224-45f6-85b0-f7bf2b39b3f3",
+      "display_label": "Microsoft Docs",
+      "source_locators": [
+        "S3:L143"
+      ],
+      "aliases": [
+        "Microsoft Docs"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "1950a258-227b-4e31-a9cf-717495945fc2",
+      "display_label": "Microsoft Azure PowerShell",
+      "source_locators": [
+        "S3:L136"
+      ],
+      "aliases": [
+        "Microsoft Azure PowerShell"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "1b3c667f-cde3-4090-b60b-3d2abd0117f0",
+      "display_label": "Windows Spotlight",
+      "source_locators": [
+        "S3:L219"
+      ],
+      "aliases": [
+        "Windows Spotlight"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "1fec8e78-bce4-4aaf-ab1b-5451cc387264",
+      "display_label": "Microsoft Teams",
+      "source_locators": [
+        "S3:L167"
+      ],
+      "aliases": [
+        "Microsoft Teams"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "20a11fe0-faa8-4df5-baf2-f965f8f9972e",
+      "display_label": "ContactsInferencingEmailProcessor",
+      "source_locators": [
+        "S3:L116"
+      ],
+      "aliases": [
+        "ContactsInferencingEmailProcessor"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "23523755-3a2b-41ca-9315-f81f3f566a95",
+      "display_label": "ACOM Azure Website",
+      "source_locators": [
+        "S3:L104"
+      ],
+      "aliases": [
+        "ACOM Azure Website"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "243c63a3-247d-41c5-9d83-7788c43f1c43",
+      "display_label": "Office Online Core SSO",
+      "source_locators": [
+        "S3:L183"
+      ],
+      "aliases": [
+        "Office Online Core SSO"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "268761a2-03f3-40df-8a8b-c3db24145b6b",
+      "display_label": "Universal Store Native Client",
+      "source_locators": [
+        "S3:L210"
+      ],
+      "aliases": [
+        "Universal Store Native Client"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "26a7ee05-5602-4d76-a7ba-eae8b7b67941",
+      "display_label": "Windows Search",
+      "source_locators": [
+        "S3:L218"
+      ],
+      "aliases": [
+        "Windows Search"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "26abc9a8-24f0-4b11-8234-e86ede698878",
+      "display_label": "SubstrateDirectoryEventProcessor",
+      "source_locators": [
+        "S3:L206"
+      ],
+      "aliases": [
+        "SubstrateDirectoryEventProcessor"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "27922004-5251-4030-b22d-91ecd9a37ea4",
+      "display_label": "Outlook Mobile",
+      "source_locators": [
+        "S3:L193"
+      ],
+      "aliases": [
+        "Outlook Mobile"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "28b567f6-162c-4f54-99a0-6887f387bbcc",
+      "display_label": "Microsoft Storefronts",
+      "source_locators": [
+        "S3:L163"
+      ],
+      "aliases": [
+        "Microsoft Storefronts"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "29d9ed98-a469-4536-ade2-f981bc1d605e",
+      "display_label": "Microsoft Authentication Broker",
+      "source_locators": [
+        "S3:L134"
+      ],
+      "aliases": [
+        "Microsoft Authentication Broker"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "2abdc806-e091-4495-9b10-b04d93c3f040",
+      "display_label": "Office Online Client Microsoft Entra ID- Augmentation Loop",
+      "source_locators": [
+        "S3:L179"
+      ],
+      "aliases": [
+        "Office Online Client Microsoft Entra ID- Augmentation Loop"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "2d4d3d8e-2be3-4bef-9f87-7875a61c29de",
+      "display_label": "OneNote",
+      "source_locators": [
+        "S3:L192"
+      ],
+      "aliases": [
+        "OneNote"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "2d7f3606-b07d-41d1-b9d2-0d0c9296a6e8",
+      "display_label": "Microsoft Bing Search for Microsoft Edge",
+      "source_locators": [
+        "S3:L139"
+      ],
+      "aliases": [
+        "Microsoft Bing Search for Microsoft Edge"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "3090ab82-f1c1-4cdf-af2c-5d7a6f3e2cc7",
+      "display_label": "Microsoft Defender for Cloud Apps",
+      "source_locators": [
+        "S3:L141"
+      ],
+      "aliases": [
+        "Microsoft Defender for Cloud Apps"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "35d54a08-36c9-4847-9018-93934c62740c",
+      "display_label": "PeoplePredictions",
+      "source_locators": [
+        "S3:L196"
+      ],
+      "aliases": [
+        "PeoplePredictions"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "37182072-3c9c-4f6a-a4b3-b3f91cacffce",
+      "display_label": "AzureSupportCenter",
+      "source_locators": [
+        "S3:L114"
+      ],
+      "aliases": [
+        "AzureSupportCenter"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "38049638-cc2c-4cde-abe4-4479d721ed44",
+      "display_label": "Microsoft Approval Management",
+      "source_locators": [
+        "S3:L133#id=38049638-cc2c-4cde-abe4-4479d721ed44"
+      ],
+      "aliases": [],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "3ab9b3bc-762f-4d62-82f7-7e1d653ce29f",
+      "display_label": "Microsoft Volume Licensing",
+      "source_locators": [
+        "S1:L47"
+      ],
+      "aliases": [
+        "Microsoft Volume Licensing"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "3c896ded-22c5-450f-91f6-3d1ef0848f6e",
+      "display_label": "WeveEngine",
+      "source_locators": [
+        "S3:L213"
+      ],
+      "aliases": [
+        "WeveEngine"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "4345a7b9-9a63-4910-a426-35363201d503",
+      "display_label": "O365 Suite UX",
+      "source_locators": [
+        "S3:L172"
+      ],
+      "aliases": [
+        "O365 Suite UX"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "45a330b1-b1ec-4cc1-9161-9f03992aa49f",
+      "display_label": "Windows Store for Business",
+      "source_locators": [
+        "S3:L220"
+      ],
+      "aliases": [
+        "Windows Store for Business"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "47629505-c2b6-4a80-adb1-9b3a3d233b7b",
+      "display_label": "Microsoft Exchange Web Services",
+      "source_locators": [
+        "S3:L150"
+      ],
+      "aliases": [
+        "Microsoft Exchange Web Services"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "4765445b-32c6-49b0-83e6-1d93765276ca",
+      "display_label": "OfficeHome",
+      "source_locators": [
+        "S3:L188"
+      ],
+      "aliases": [
+        "OfficeHome"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "47ee738b-3f1a-4fc7-ab11-37e4822b007e",
+      "display_label": "Azure AD Application Proxy",
+      "source_locators": [
+        "S1:L35"
+      ],
+      "aliases": [
+        "Azure AD Application Proxy"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "497effe9-df71-4043-a8bb-14cf78c4b63b",
+      "display_label": "Exchange Admin Center",
+      "source_locators": [
+        "S3:L121"
+      ],
+      "aliases": [
+        "Exchange Admin Center"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "4b233688-031c-404b-9a80-a4f3f2351f90",
+      "display_label": "Office.com",
+      "source_locators": [
+        "S3:L185"
+      ],
+      "aliases": [
+        "Office.com"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "4d5c2d63-cf83-4365-853c-925fd1a64357",
+      "display_label": "OfficeShredderWacClient",
+      "source_locators": [
+        "S3:L189"
+      ],
+      "aliases": [
+        "OfficeShredderWacClient"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "51be292c-a17e-4f17-9a7e-4b661fb16dd2",
+      "display_label": "Microsoft Exchange ProtectedServiceHost",
+      "source_locators": [
+        "S3:L148"
+      ],
+      "aliases": [
+        "Microsoft Exchange ProtectedServiceHost"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "5572c4c0-d078-44ce-b81c-6cbf8d3ed39e",
+      "display_label": "Vortex [wsfed enabled]",
+      "source_locators": [
+        "S2:L105"
+      ],
+      "aliases": [
+        "Vortex [wsfed enabled]"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "5d661950-3475-41cd-a2c3-d671a3162bc1",
+      "display_label": "Microsoft Outlook",
+      "source_locators": [
+        "S3:L160"
+      ],
+      "aliases": [
+        "Microsoft Outlook"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "5e3ce6c0-2b1f-4285-8d4b-75ee78787346",
+      "display_label": "Microsoft Teams Web Client",
+      "source_locators": [
+        "S3:L169"
+      ],
+      "aliases": [
+        "Microsoft Teams Web Client"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "60c8bde5-3167-4f92-8fdb-059f6176dc0f",
+      "display_label": "Enterprise Roaming and Backup",
+      "source_locators": [
+        "S3:L120"
+      ],
+      "aliases": [
+        "Enterprise Roaming and Backup"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "60ca1954-583c-4d1f-86de-39d835f3e452",
+      "display_label": "Microsoft Defender for Identity (formerly Radius Aad Syncer)",
+      "source_locators": [
+        "S3:L142"
+      ],
+      "aliases": [
+        "Microsoft Defender for Identity",
+        "Microsoft Defender for Identity (formerly Radius Aad Syncer)",
+        "Radius Aad Syncer"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "61109738-7d2b-4a0b-9fe3-660b1ff83505",
+      "display_label": "SpoolsProvisioning",
+      "source_locators": [
+        "S3:L203"
+      ],
+      "aliases": [
+        "SpoolsProvisioning"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "62256cef-54c0-4cb4-bcac-4c67989bdc40",
+      "display_label": "OMSOctopiPROD",
+      "source_locators": [
+        "S3:L190"
+      ],
+      "aliases": [
+        "OMSOctopiPROD"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "6253bca8-faf2-4587-8f2f-b056d80998a7",
+      "display_label": "Microsoft Edge Insider Addons Prod",
+      "source_locators": [
+        "S3:L145"
+      ],
+      "aliases": [
+        "Microsoft Edge Insider Addons Prod"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "6326e366-9d6d-4c70-b22a-34c7ea72d73d",
+      "display_label": "Microsoft Exchange Message Tracking Service",
+      "source_locators": [
+        "S3:L151"
+      ],
+      "aliases": [
+        "Microsoft Exchange Message Tracking Service"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "65d91a3d-ab74-42e6-8a2f-0add61688c74",
+      "display_label": "Microsoft Approval Management",
+      "source_locators": [
+        "S3:L133#id=65d91a3d-ab74-42e6-8a2f-0add61688c74"
+      ],
+      "aliases": [],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "66a88757-258c-4c72-893c-3e8bed4d6899",
+      "display_label": "Office 365 Search Service",
+      "source_locators": [
+        "S3:L175"
+      ],
+      "aliases": [
+        "Office 365 Search Service"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "67e3df25-268a-4324-a550-0de1c7f97287",
+      "display_label": "Microsoft Office Web Apps Service",
+      "source_locators": [
+        "S3:L158"
+      ],
+      "aliases": [
+        "Microsoft Office Web Apps Service"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "69893ee3-dd10-4b1c-832d-4870354be3d8",
+      "display_label": "AEM-DualAuth",
+      "source_locators": [
+        "S3:L106"
+      ],
+      "aliases": [
+        "AEM-DualAuth"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "74658136-14ec-4630-ad9b-26e160ff0fc6",
+      "display_label": "ADIbizaUX",
+      "source_locators": [
+        "S3:L105"
+      ],
+      "aliases": [
+        "ADIbizaUX"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "74bcdadc-2fdc-4bb3-8459-76d06952a0e9",
+      "display_label": "Microsoft Intune Web Company Portal",
+      "source_locators": [
+        "S3:L154"
+      ],
+      "aliases": [
+        "Microsoft Intune Web Company Portal"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "797f4846-ba00-4fd7-ba43-dac1f8f63013",
+      "display_label": "Windows Azure Service Management API",
+      "source_locators": [
+        "S3:L216"
+      ],
+      "aliases": [
+        "Windows Azure Service Management API"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "7ab7862c-4c57-491e-8a45-d52a7e023983",
+      "display_label": "App Service",
+      "source_locators": [
+        "S3:L107"
+      ],
+      "aliases": [
+        "App Service"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "7ae974c5-1af7-4923-af3a-fb1fd14dcb7e",
+      "display_label": "OutlookUserSettingsConsumer",
+      "source_locators": [
+        "S2:L104"
+      ],
+      "aliases": [
+        "OutlookUserSettingsConsumer"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "7b7531ad-5926-4f2d-8a1d-38495ad33e17",
+      "display_label": "Azure Advanced Threat Protection",
+      "source_locators": [
+        "S3:L109"
+      ],
+      "aliases": [
+        "Azure Advanced Threat Protection"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "80ccca67-54bd-44ab-8625-4b79c4dc7775",
+      "display_label": "Microsoft 365 Security and Compliance Center",
+      "source_locators": [
+        "S3:L130"
+      ],
+      "aliases": [
+        "Microsoft 365 Security and Compliance Center"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "835b2a73-6e10-4aa5-a979-21dfda45231c",
+      "display_label": "Azure Lab Services Portal",
+      "source_locators": [
+        "S3:L111"
+      ],
+      "aliases": [
+        "Azure Lab Services Portal"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "871c010f-5e61-4fb1-83ac-98610a7e9110",
+      "display_label": "Microsoft Power BI",
+      "source_locators": [
+        "S3:L162"
+      ],
+      "aliases": [
+        "Microsoft Power BI"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "89bee1f7-5e6e-4d8a-9f3d-ecd601259da7",
+      "display_label": "Office365 Shell WCSS-Client",
+      "source_locators": [
+        "S3:L186"
+      ],
+      "aliases": [
+        "Office365 Shell WCSS-Client"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "8edd93e1-2103-40b4-bd70-6e34e586362d",
+      "display_label": "Windows Azure Security Resource Provider",
+      "source_locators": [
+        "S3:L215"
+      ],
+      "aliases": [
+        "Windows Azure Security Resource Provider"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "905fcf26-4eb7-48a0-9ff0-8dcc7194b5ba",
+      "display_label": "Sway",
+      "source_locators": [
+        "S3:L208"
+      ],
+      "aliases": [
+        "Sway"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "913c6de4-2a4a-4a61-a9ce-945d2b2ce2e0",
+      "display_label": "Azure SQL Managed Instance to Azure AD Resource Provider",
+      "source_locators": [
+        "S1:L40"
+      ],
+      "aliases": [
+        "Azure SQL Managed Instance to Azure AD Resource Provider"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "91ca2ca5-3b3e-41dd-ab65-809fa3dffffa",
+      "display_label": "Sticky Notes API",
+      "source_locators": [
+        "S3:L204"
+      ],
+      "aliases": [
+        "Sticky Notes API"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "93625bc8-bfe2-437a-97e0-3d0060024faa",
+      "display_label": "Microsoft password reset service",
+      "source_locators": [
+        "S3:L161"
+      ],
+      "aliases": [
+        "Microsoft password reset service"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "93d53678-613d-4013-afc1-62e9e444a0a5",
+      "display_label": "Office Online Add-in SSO",
+      "source_locators": [
+        "S3:L178"
+      ],
+      "aliases": [
+        "Office Online Add-in SSO"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "944f0bd1-117b-4b1c-af26-804ed95e767e",
+      "display_label": "Media Analysis and Transformation Service",
+      "source_locators": [
+        "S3:L129#id=944f0bd1-117b-4b1c-af26-804ed95e767e"
+      ],
+      "aliases": [],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "94c63fef-13a3-47bc-8074-75af8c65887a",
+      "display_label": "Office Delve",
+      "source_locators": [
+        "S3:L177"
+      ],
+      "aliases": [
+        "Office Delve"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "95de633a-083e-42f5-b444-a4295d8e9314",
+      "display_label": "Microsoft Whiteboard Services",
+      "source_locators": [
+        "S3:L170"
+      ],
+      "aliases": [
+        "Microsoft Whiteboard Services"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "97cb1f73-50df-47d1-8fb0-0271f2728514",
+      "display_label": "Transcript Ingestion",
+      "source_locators": [
+        "S3:L209"
+      ],
+      "aliases": [
+        "Transcript Ingestion"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "98785600-1bb7-4fb9-b9fa-19afe2c8a360",
+      "display_label": "Azure Security Insights",
+      "source_locators": [
+        "S1:L39"
+      ],
+      "aliases": [
+        "Azure Security Insights"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "98db8bd6-0cc0-4e67-9de5-f187f1cd1b41",
+      "display_label": "Microsoft Substrate Management",
+      "source_locators": [
+        "S3:L165"
+      ],
+      "aliases": [
+        "Microsoft Substrate Management"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "99b904fd-a1fe-455c-b86c-2f9fb1da7687",
+      "display_label": "Microsoft Exchange ForwardSync",
+      "source_locators": [
+        "S3:L146"
+      ],
+      "aliases": [
+        "Microsoft Exchange ForwardSync"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "9d4afbbc-06a4-49e0-8005-4e5afd1d4fec",
+      "display_label": "ZTNA Network Access Control Plane",
+      "source_locators": [
+        "S1:L53"
+      ],
+      "aliases": [
+        "ZTNA Network Access Control Plane"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "9ea1ad79-fdb6-4f9a-8bc3-2b70f96e34c7",
+      "display_label": "Bing",
+      "source_locators": [
+        "S3:L115"
+      ],
+      "aliases": [
+        "Bing"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "a3475900-ccec-4a69-98f5-a65cd5dc5306",
+      "display_label": "Partner Customer Delegated Admin Offline Processor",
+      "source_locators": [
+        "S3:L194"
+      ],
+      "aliases": [
+        "Partner Customer Delegated Admin Offline Processor"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "a3b79187-70b2-4139-83f9-6016c58cd27b",
+      "display_label": "WindowsDefenderATP Portal",
+      "source_locators": [
+        "S3:L217"
+      ],
+      "aliases": [
+        "WindowsDefenderATP Portal"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "a57aca87-cbc0-4f3c-8b9e-dc095fdc8978",
+      "display_label": "IAM Supportability",
+      "source_locators": [
+        "S3:L126"
+      ],
+      "aliases": [
+        "IAM Supportability"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "a6aa9161-5291-40bb-8c5c-923b567bee3b",
+      "display_label": "Storage Resource Provider",
+      "source_locators": [
+        "S1:L51"
+      ],
+      "aliases": [
+        "Storage Resource Provider"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "a970bac6-63fe-4ec5-8884-8536862c42d4",
+      "display_label": "Substrate Search Settings Management Service",
+      "source_locators": [
+        "S3:L207"
+      ],
+      "aliases": [
+        "Substrate Search Settings Management Service"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "a9b49b65-0a12-430b-9540-c80b3332c127",
+      "display_label": "Office Online Search",
+      "source_locators": [
+        "S3:L184"
+      ],
+      "aliases": [
+        "Office Online Search"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "ab9b8c07-8f02-4f72-87fa-80105867a763",
+      "display_label": "OneDrive SyncEngine",
+      "source_locators": [
+        "S3:L191"
+      ],
+      "aliases": [
+        "OneDrive SyncEngine"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "ae8e128e-080f-4086-b0e3-4c19301ada69",
+      "display_label": "Scheduling",
+      "source_locators": [
+        "S3:L198"
+      ],
+      "aliases": [
+        "Scheduling"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "b23dd4db-9142-4734-867f-3577f640ad0c",
+      "display_label": "Office Online Client Microsoft Entra ID- Loki",
+      "source_locators": [
+        "S3:L180"
+      ],
+      "aliases": [
+        "Office Online Client Microsoft Entra ID- Loki"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "b4bddae8-ab25-483e-8670-df09b9f1d0ea",
+      "display_label": "Signup",
+      "source_locators": [
+        "S3:L201"
+      ],
+      "aliases": [
+        "Signup"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "b669c6ea-1adf-453f-b8bc-6d526592b419",
+      "display_label": "Focused Inbox",
+      "source_locators": [
+        "S3:L123"
+      ],
+      "aliases": [
+        "Focused Inbox"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "b6e69c34-5f1f-4c34-8cdf-7fea120b8670",
+      "display_label": "Office Online Client MSA- Loki",
+      "source_locators": [
+        "S3:L182"
+      ],
+      "aliases": [
+        "Office Online Client MSA- Loki"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "bdd48c81-3a58-4ea9-849c-ebea7f6b6360",
+      "display_label": "Password Breach Authenticator",
+      "source_locators": [
+        "S3:L195"
+      ],
+      "aliases": [
+        "Password Breach Authenticator"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "c0be6b4c-212d-4ca9-8a35-fd260fe22342",
+      "display_label": "Fabric Identity Management",
+      "source_locators": [
+        "S1:L44"
+      ],
+      "aliases": [
+        "Fabric Identity Management"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "c1c74fed-04c9-4704-80dc-9f79a2e515cb",
+      "display_label": "Yammer Web",
+      "source_locators": [
+        "S3:L221"
+      ],
+      "aliases": [
+        "Yammer Web"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "c35cb2ba-f88b-4d15-aa9d-37bd443522e1",
+      "display_label": "GroupsRemoteApiRestClient",
+      "source_locators": [
+        "S3:L124"
+      ],
+      "aliases": [
+        "GroupsRemoteApiRestClient"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "c44b4083-3bb0-49c1-b47d-974e53cbdf3c",
+      "display_label": "Azure Portal",
+      "source_locators": [
+        "S3:L112"
+      ],
+      "aliases": [
+        "Azure Portal"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "c6e44401-4d0a-4542-ab22-ecd4c90d28d7",
+      "display_label": "App Protection",
+      "source_locators": [
+        "S1:L34"
+      ],
+      "aliases": [
+        "App Protection"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "c8e14c19-0ae6-4966-bd07-17e5ffa8e4ce",
+      "display_label": "AAD Applications ARM RP",
+      "source_locators": [
+        "S1:L33"
+      ],
+      "aliases": [
+        "AAD Applications ARM RP"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "c9a559d2-7aab-4f13-a6ed-e7e9c52aec87",
+      "display_label": "Microsoft Forms",
+      "source_locators": [
+        "S3:L152"
+      ],
+      "aliases": [
+        "Microsoft Forms"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "cc15fd57-2c6c-4117-a88c-83b1d56b4bbe",
+      "display_label": "Microsoft Teams Services",
+      "source_locators": [
+        "S3:L168"
+      ],
+      "aliases": [
+        "Microsoft Teams Services"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "cf36b471-5b44-428c-9ce7-313bf84528de",
+      "display_label": "Microsoft Bing Search",
+      "source_locators": [
+        "S3:L138"
+      ],
+      "aliases": [
+        "Microsoft Bing Search"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "cf53fce8-def6-4aeb-8d30-b158e7b1cf83",
+      "display_label": "Microsoft Stream Portal",
+      "source_locators": [
+        "S3:L164"
+      ],
+      "aliases": [
+        "Microsoft Stream Portal"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "d176f6e7-38e5-40c9-8a78-3998aab820e7",
+      "display_label": "Microsoft Online Syndication Partner Portal",
+      "source_locators": [
+        "S3:L159"
+      ],
+      "aliases": [
+        "Microsoft Online Syndication Partner Portal"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "d3590ed6-52b3-4102-aeff-aad2292ab01c",
+      "display_label": "Microsoft Office",
+      "source_locators": [
+        "S3:L156"
+      ],
+      "aliases": [
+        "Microsoft Office"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "d73f4b35-55c9-48c7-8b10-651f6f2acb2e",
+      "display_label": "MCAPI Authorization Prod",
+      "source_locators": [
+        "S3:L128"
+      ],
+      "aliases": [
+        "MCAPI Authorization Prod"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "d9b8ec3a-1e4e-4e08-b3c2-5baf00c0fcb0",
+      "display_label": "HxService",
+      "source_locators": [
+        "S3:L125"
+      ],
+      "aliases": [
+        "HxService"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "de8bc8b5-d9f9-48b1-a8ad-b748da725064",
+      "display_label": "Graph Explorer",
+      "source_locators": [
+        "S2:L102"
+      ],
+      "aliases": [
+        "Graph Explorer"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "dfe74da8-9279-44ec-8fb2-2aed9e1c73d0",
+      "display_label": "O365 SkypeSpaces Ingestion Service",
+      "source_locators": [
+        "S3:L171"
+      ],
+      "aliases": [
+        "O365 SkypeSpaces Ingestion Service"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "e1ef36fd-b883-4dbf-97f0-9ece4b576fc6",
+      "display_label": "Yammer Web Embed",
+      "source_locators": [
+        "S3:L222"
+      ],
+      "aliases": [
+        "Yammer Web Embed"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "e64aa8bc-8eb4-40e2-898b-cf261a25954f",
+      "display_label": "CRM Power BI Integration",
+      "source_locators": [
+        "S3:L118"
+      ],
+      "aliases": [
+        "CRM Power BI Integration"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "e9f49c6b-5ce5-44c8-925d-015017e9f7ad",
+      "display_label": "Azure Data Lake",
+      "source_locators": [
+        "S3:L110"
+      ],
+      "aliases": [
+        "Azure Data Lake"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "ee272b19-4411-433f-8f28-5c13cb6fd407",
+      "display_label": "Microsoft 365 Support Service",
+      "source_locators": [
+        "S3:L131"
+      ],
+      "aliases": [
+        "Microsoft 365 Support Service"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "f0ae4899-d877-4d3c-ae25-679e38eea492",
+      "display_label": "AAD App Management",
+      "source_locators": [
+        "S1:L32"
+      ],
+      "aliases": [
+        "AAD App Management"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "f3723d34-6ff5-4ceb-a148-d99dcd2511fc",
+      "display_label": "Bot Framework Dev Portal",
+      "source_locators": [
+        "S1:L41"
+      ],
+      "aliases": [
+        "Bot Framework Dev Portal"
+      ],
+      "source_status": "current_documented"
+    },
+    {
+      "app_id": "f5eaa862-7f08-448c-9c4e-f4047d4d4521",
+      "display_label": "FindTime",
+      "source_locators": [
+        "S3:L122"
+      ],
+      "aliases": [
+        "FindTime"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "fb78d390-0c51-40cd-8e17-fdbfab77341b",
+      "display_label": "Microsoft Exchange REST API Based Powershell",
+      "source_locators": [
+        "S3:L149"
+      ],
+      "aliases": [
+        "Microsoft Exchange REST API Based Powershell"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "fc0f3af4-6835-4174-b806-f7db311fd2f3",
+      "display_label": "Microsoft Intune Windows Agent",
+      "source_locators": [
+        "S3:L155"
+      ],
+      "aliases": [
+        "Microsoft Intune Windows Agent"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "fdf9885b-dd37-42bf-82e5-c3129ef5a302",
+      "display_label": "Microsoft Support",
+      "source_locators": [
+        "S3:L166"
+      ],
+      "aliases": [
+        "Microsoft Support"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "fe93bfe1-7947-460a-a5e0-7a5906b51360",
+      "display_label": "Viva Insights",
+      "source_locators": [
+        "S3:L212"
+      ],
+      "aliases": [
+        "Viva Insights"
+      ],
+      "source_status": "historical_documented"
+    },
+    {
+      "app_id": "ffcb16e8-f789-467c-8ce9-f826a080d987",
+      "display_label": "SharedWithMe",
+      "source_locators": [
+        "S3:L199"
+      ],
+      "aliases": [
+        "SharedWithMe"
+      ],
+      "source_status": "historical_documented"
+    }
+  ]
+}

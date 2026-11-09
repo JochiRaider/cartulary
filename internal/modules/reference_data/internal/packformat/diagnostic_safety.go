@@ -63,7 +63,7 @@ func loadDiagnosticVocabulary() diagnosticWords {
 		walk(value)
 	}
 	var limits map[string]any
-	if err := json.Unmarshal(projection("limits.v2.json"), &limits); err != nil {
+	if err := json.Unmarshal(projection("limits.v3.json"), &limits); err != nil {
 		panic("invalid diagnostic limit projection")
 	}
 	for _, group := range []string{"fixed", "defaults", "ranges"} {

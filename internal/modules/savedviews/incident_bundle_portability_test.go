@@ -251,7 +251,7 @@ INSERT INTO incidents (
 	payload = append(payload, encodePortableSavedViewRow(t, systemRow)...)
 	attributions := &recordingAttributionRecorder{localUserID: targetActorID}
 	importContext := savedViewImportContext{
-		BundleVersion: 7,
+		BundleVersion: 8,
 		IncidentID:    incidentID,
 		ActorUserID:   targetActorID,
 		Attributions:  attributions,
@@ -842,7 +842,7 @@ func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 		}
 	})
 	t.Run("versioned layout grammar and lossless current preparation", func(t *testing.T) {
-		for _, version := range []int{7} {
+		for _, version := range []int{8} {
 			row := validPortableSavedViewRow(t)
 			layout := row["layout_json"].(map[string]any)
 			boundary := any("timeline.activity_synopsis_text")
@@ -864,7 +864,7 @@ func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 			if !bytes.Equal(original, encodePortableSavedViewRow(t, row)) {
 				t.Fatal("original archive row mutated")
 			}
-			ctx.BundleVersion = 7 - version
+			ctx.BundleVersion = 8 - version
 			if _, err := prepareSavedViewImport(context.Background(), savedViewMapBundle{"data/saved_views.ndjson": original}, ctx); err == nil {
 				t.Fatal("layout/bundle version mismatch accepted")
 			}
@@ -1095,7 +1095,7 @@ type savedViewMapBundle = portabilitysupport.MapBundle
 func strictSavedViewImportContext(t testing.TB) savedViewImportContext {
 	t.Helper()
 	return savedViewImportContext{
-		BundleVersion: 7,
+		BundleVersion: 8,
 		IncidentID:    strictSavedViewIncidentID,
 		ActorUserID:   uuid.MustParse("00000000-0000-4000-8000-000000110499"),
 		ActorAdmitted: savedViewActorAdmission(

@@ -14,11 +14,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/referencepackfixture"
 )
 
 func TestWindowsOnlineProductionLifecycle_Integration(t *testing.T) {
@@ -28,7 +28,7 @@ func TestWindowsOnlineProductionLifecycle_Integration(t *testing.T) {
 	}
 	ctx := context.Background()
 	now := time.Now().UTC()
-	keys, err := producer.NewWindowsFixtureSigningContext()
+	keys, err := referencepackfixture.NewSigningContext("fixture.windows.dataset.v1", "enrichment.windows_event_ids")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestWindowsOnlineProductionLifecycle_Integration(t *testing.T) {
 			t.Fatal("version page", page.Error)
 		}
 		var row map[string]any
-		if err = json.Unmarshal(page.Value.Items[0], &row); err != nil || row["entry_id"] != want {
+		if err = json.Unmarshal(page.Value.Items[0], &row); err != nil || row["object_id"] != want {
 			t.Fatal("ordered nullable versions", err, row)
 		}
 
@@ -102,6 +102,7 @@ func TestWindowsOnlineProductionLifecycle_Integration(t *testing.T) {
 	}
 	request.Limit = nil
 	request.Cursor = nil
+	request.LookupKind = "provider_event_version"
 	request.LookupValue = map[string]any{"provider_name": "PowerShellCore", "event_id": json.Number("4104"), "event_version": json.Number("0")}
 	if page := consumer.LookupPackEntries(ctx, request); page.Error != nil || len(page.Value.Items) != 1 {
 		t.Fatal("numeric version excludes null", page.Error)

@@ -16,7 +16,7 @@ import (
 // seedContentProfile changes only the per-key profile generation in otherwise current
 // shared contracts. Reporting cases retain a compatible set and reject only
 // the stale provenance inside the snapshot/release/composition binding.
-func seedContentProfile(t testing.TB, db *sql.DB, kind, key, releasePath, authority string) {
+func seedContentProfile(t testing.TB, db *sql.DB, kind, key, catalogKey, authority string) {
 	t.Helper()
 	encode := func(v any) []byte {
 		t.Helper()
@@ -48,7 +48,7 @@ func seedContentProfile(t testing.TB, db *sql.DB, kind, key, releasePath, author
 			t.Fatal(kind, e)
 		}
 	}
-	release := decode(read(releasePath))
+	release := decode(read("fixtures/reference-packs/dataset-v1/catalog.json"))[catalogKey].(map[string]any)
 	manifest := decode(read(release["logical_root"].(string) + "/manifest.json"))
 	vector := decode(read("contracts/reference-pack-fixtures/fixtures/complete-set.v1.json"))
 	members := []any{}
@@ -66,7 +66,7 @@ func seedContentProfile(t testing.TB, db *sql.DB, kind, key, releasePath, author
 		members[0].(map[string]any)["content_profile_id"] = "cartulary.reference_pack." + key + ".v1"
 		members[0].(map[string]any)["content_profile_version"] = "1"
 	}
-	set := map[string]any{"schema_id": "cartulary.reference_pack_set.v2", "members": members}
+	set := map[string]any{"schema_id": "cartulary.reference_pack_set.v3", "members": members}
 	sum := fmt.Sprintf("%x", sha256.Sum256(encode(set)))
 	set["pack_set_id"] = "rpset_" + sum
 	set["pack_set_sha256"] = sum
@@ -103,7 +103,7 @@ func seedContentProfile(t testing.TB, db *sql.DB, kind, key, releasePath, author
 		p["verified_signer_key_ids"] = []any{}
 		anchors = append(anchors, p)
 	}
-	refs := encode(map[string]any{"schema_id": "reference_pack_refs.v2", "sets": []any{set}, "versions": versions})
+	refs := encode(map[string]any{"schema_id": "reference_pack_refs.v3", "sets": []any{set}, "versions": versions})
 	manifest["content_profile_id"] = "cartulary.reference_pack." + key + ".v1"
 	manifest["content_profile_version"] = "1"
 	overrides := map[string][]byte{"manifest": encode(manifest), "set": encode(set), "references": refs}

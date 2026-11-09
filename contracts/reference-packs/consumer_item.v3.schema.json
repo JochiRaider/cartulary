@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_consumer_item.v3",
+  "oneOf": [
+    {
+      "$ref": "profiles/type_registry.host.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/type_registry.evidence.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/type_registry.indicator.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/framework.d3fend.object.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/enrichment.tor.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/enrichment.cisa_kev.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/enrichment.ms_portals.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/enrichment.lolbas.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/enrichment.loldrivers.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/enrichment.lolesxi.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/enrichment.hijacklibs.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/enrichment.windows_sids.entry.v1.schema.json"
+    },
+    {
+      "$ref": "profiles/dataset.object.v1.schema.json"
+    }
+  ]
+}

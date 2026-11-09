@@ -18,7 +18,8 @@ import (
 const bindingSetQuery = `SELECT canonical_set,pack_set_sha256 FROM public.reference_pack_sets WHERE pack_set_id=$1`
 
 func ValidateBinding(ctx context.Context, db Reader, binding []byte) error {
-	return validateBinding(binding, func(id string) ([]byte, error) {
+	var selected []byte
+	err := validateBinding(binding, func(id string) ([]byte, error) {
 		var b []byte
 		var digest string
 		err := db.QueryRow(ctx, bindingSetQuery, id).Scan(&b, &digest)
@@ -28,6 +29,7 @@ func ValidateBinding(ctx context.Context, db Reader, binding []byte) error {
 			}
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
+			selected = b
 			return b, err
 		}
 		// Inspect retained canonical bytes, never JSONB's reserialized set text.
@@ -46,12 +48,31 @@ func ValidateBinding(ctx context.Context, db Reader, binding []byte) error {
 			}
 			for _, set := range refs.Sets {
 				if set.ID == id {
-					return canonicaljson.Marshal(set)
+					selected, err = canonicaljson.Marshal(set)
+					return selected, err
 				}
 			}
 		}
 		return nil, rows.Err()
 	})
+	if err != nil {
+		return err
+	}
+	set, err := packformat.DecodeSet(selected)
+	if err != nil {
+		return incompatible{}
+	}
+	var value struct {
+		Provenance json.RawMessage `json:"provenance"`
+	}
+	if json.Unmarshal(binding, &value) != nil {
+		return incompatible{}
+	}
+	canonical, err := canonicaljson.Canonicalize(value.Provenance)
+	if err != nil {
+		return incompatible{}
+	}
+	return ValidateLocalProvenance(ctx, db, canonical, set, true)
 }
 func validateBinding(b []byte, load func(string) ([]byte, error)) error {
 	var binding struct {

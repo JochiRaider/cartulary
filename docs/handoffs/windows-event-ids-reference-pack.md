@@ -2017,3 +2017,13 @@ exited 0, with summary at
 The final wording is checked with the same public target under run ID
 `windows-release-markdown-final`; its summary uses the same relative location.
 `git diff --check` also passed. No commit, push, publication or activation was performed.
+
+## Remediation closure follow-up — 2026-11-08
+
+The [RC closure section](reference_data-module-refactor-tracker.md#rc--remediation-closure-2026-11-08)
+records the corrected authority and resource rules, Linux filesystem-isolation
+prerequisites, final producer pins and scoped application qualification. Assembly
+now retains research under the explicit output root, leaving its pinned source
+corpus read-only. Existing signed release descriptors, notices, distribution
+decisions and signing custody remain unchanged. The new unsigned corpus outputs
+are qualification candidates, not replacement releases.

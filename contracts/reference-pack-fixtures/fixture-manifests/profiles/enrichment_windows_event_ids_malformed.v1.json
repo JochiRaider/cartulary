@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_profile_enrichment_windows_event_ids_malformed",
-  "fixture_version": 1,
+  "fixture_version": 3,
   "fixture_family": "content_profile",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/profiles/enrichment_windows_event_ids_malformed.v1.json"
@@ -17,7 +17,7 @@
       "severity": "error",
       "phase": "content_schema",
       "code": "content_schema_invalid",
-      "path": "$.entries[0].source_refs",
+      "path": "$.objects[0].source_refs",
       "entry_id": "example:provider:65535:*",
       "safe_details": {
         "limit_id": null,
@@ -26,7 +26,7 @@
         "related_pack_key": null,
         "related_pack_version": null
       },
-      "issue_id": "rpi_5faadb5c861f0d2d3eb09ba8791083401265a76dd0d7b9d5c0336eb041ec6059",
+      "issue_id": "rpi_b2efa0f598f71262a6aabdec1e085d6ec32d88f9d6996d66aae685f80620ddfd",
       "reason_code": "content_schema_invalid"
     }
   ],

@@ -271,7 +271,7 @@ const value = {
       "capability_ids": [],
       "claim_config_key": "reference_pack.claimed",
       "claimable": true,
-      "contract_major": 3,
+      "contract_major": 4,
       "contributions": [
         {
           "contribution_id": "reference_pack.packs_route",

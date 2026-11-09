@@ -1,0 +1,35 @@
+{
+  "schema_id": "cartulary.go_modules.v1",
+  "modules": [
+    {
+      "root": "referencepacks/format",
+      "module_path": "github.com/JochiRaider/cartulary/referencepacks/format",
+      "version": "v0.1.0",
+      "kind": "reference_pack_format"
+    },
+    {
+      "root": "referencepacks/attack",
+      "module_path": "github.com/JochiRaider/cartulary/referencepacks/attack",
+      "version": "v0.1.0",
+      "kind": "reference_pack_producer"
+    },
+    {
+      "root": "referencepacks/veris",
+      "module_path": "github.com/JochiRaider/cartulary/referencepacks/veris",
+      "version": "v0.1.0",
+      "kind": "reference_pack_producer"
+    },
+    {
+      "root": "referencepacks/windows",
+      "module_path": "github.com/JochiRaider/cartulary/referencepacks/windows",
+      "version": "v0.1.0",
+      "kind": "reference_pack_producer"
+    },
+    {
+      "root": "referencepacks/entra",
+      "module_path": "github.com/JochiRaider/cartulary/referencepacks/entra",
+      "version": "v0.1.0",
+      "kind": "reference_pack_producer"
+    }
+  ]
+}

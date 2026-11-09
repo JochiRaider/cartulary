@@ -2,6 +2,7 @@
   "schema_id": "cartulary.reference_pack_diagnostic_vocabulary.v1",
   "virtual_members": [
     "archive_members",
+    "descriptor",
     "entries",
     "metadata",
     "objects",

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 func testFrameworkExternalLookupKeys(t *testing.T, fixture contentFixture) {

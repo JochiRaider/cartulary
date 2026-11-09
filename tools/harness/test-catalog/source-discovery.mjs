@@ -48,7 +48,7 @@ export function discoverRunnerSources(root, runner) {
     }
   }
   for (const approved of runner.approved_roots) {
-    if (!/^(?:cmd|internal|apps|packages|tools)(?:\/[A-Za-z0-9._@+-]+)*$/u.test(approved) ||
+    if (!/^(?:cmd|internal|apps|packages|tools|referencepacks)(?:\/[A-Za-z0-9._@+-]+)*$/u.test(approved) ||
       approved.split("/").some((segment) => segment === "." || segment === "..") || excluded(approved)) {
       throw new Error(`invalid discovery root: ${approved}`);
     }

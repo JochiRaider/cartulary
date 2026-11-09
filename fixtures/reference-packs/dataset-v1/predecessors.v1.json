@@ -1,0 +1,45 @@
+{
+  "schema_id": "cartulary.reference_pack_dataset_predecessors.v1",
+  "packs": {
+    "framework.attack": {
+      "logical_root": "fixtures/reference-packs/attack-native-v2/20.1/logical/45c74160814ef850777aad3d2a50207dafdafe112aa36bc9ea80a3ec81e8703f",
+      "manifest_sha256": "45c74160814ef850777aad3d2a50207dafdafe112aa36bc9ea80a3ec81e8703f",
+      "objects": 6221,
+      "relationships": 34632,
+      "data_preservation": "exact_canonical_source_model_records"
+    },
+    "framework.veris": {
+      "logical_root": "fixtures/veris/1.4.2-20261107.3/logical/6c0091603e7fb0144ce0ae4a4984250f00c989f129d1d0cf641363baab514876",
+      "manifest_sha256": "6c0091603e7fb0144ce0ae4a4984250f00c989f129d1d0cf641363baab514876",
+      "objects": 2491,
+      "relationships": 2533,
+      "data_preservation": "exact_canonical_source_model_records"
+    },
+    "enrichment.windows_event_ids": {
+      "logical_root": "fixtures/windows-event-ids/2026.11.07.1",
+      "manifest_sha256": "895d36e75685fd1f1dac7de84b63471e4778fc2f07fe17b24b0583f91489b64c",
+      "objects": 503,
+      "relationships": 0,
+      "data_preservation": "exact_canonical_source_model_records",
+      "container_sha256": "b866d7b97128526cf7a431b4225e63e10c94bd9861c82d7409f5158009487b47"
+    },
+    "enrichment.entra_app_ids": {
+      "logical_root": "fixtures/entra-app-ids/2026.11.07.2/logical/e26b14a616c643b95ccbda7e2a224f9a3f89612f506b4335590bb68730c13629",
+      "manifest_sha256": "e26b14a616c643b95ccbda7e2a224f9a3f89612f506b4335590bb68730c13629",
+      "objects": 139,
+      "relationships": 0,
+      "data_preservation": "exact_canonical_source_model_records"
+    }
+  },
+  "source_versions": {
+    "framework.attack": {
+      "20.0": {
+        "logical_root": "fixtures/reference-packs/attack-native-v2/20.0/logical/6e94d63980e3816b0edb6303da63a6f54387dfd90764b5f6d58efa51caec876f",
+        "manifest_sha256": "6e94d63980e3816b0edb6303da63a6f54387dfd90764b5f6d58efa51caec876f",
+        "objects": 6211,
+        "relationships": 34604,
+        "data_preservation": "exact_canonical_source_model_records"
+      }
+    }
+  }
+}

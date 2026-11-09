@@ -66,7 +66,7 @@
           "uniqueItems": true,
           "items": {
             "enum": [
-              7
+              8
             ]
           }
         },
@@ -170,7 +170,7 @@
           "uniqueItems": true,
           "items": {
             "enum": [
-              7
+              8
             ]
           }
         },
@@ -184,7 +184,7 @@
           }
         },
         "schema_id": {
-          "const": "reference_pack_refs.v2"
+          "const": "reference_pack_refs.v3"
         }
       }
     }

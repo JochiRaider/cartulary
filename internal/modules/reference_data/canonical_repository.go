@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -97,6 +98,12 @@ func (r *canonicalRepository) Provenance(ctx context.Context, setID, key string)
 	}
 	anchors, err := decodeRetainedProvenance(data, set)
 	if err != nil {
+		return PackProvenance{}, err
+	}
+	if err := contractadmission.ValidateLocalProvenance(ctx, r.pool, data, set.format(), false); err != nil {
+		if contractadmission.IsIncompatible(err) {
+			return PackProvenance{}, consumerError("pack_unavailable")
+		}
 		return PackProvenance{}, err
 	}
 	for _, anchor := range anchors {

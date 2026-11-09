@@ -1,0 +1,11 @@
+[
+  {"limit":"max_dataset_descriptor_bytes","maximum":65536,"phase":"structural","code":"content_schema_invalid","probe":"descriptor_bytes"},
+  {"limit":"max_dataset_lookups","maximum":32,"phase":"structural","code":"content_schema_invalid","probe":"lookup_count"},
+  {"limit":"max_dataset_components","maximum":4,"phase":"structural","code":"content_schema_invalid","probe":"components"},
+  {"limit":"max_dataset_object_postings","maximum":128,"phase":"semantic","code":"content_semantic_invalid","probe":"object_postings"},
+  {"limit":"max_dataset_key_bytes","maximum":65536,"phase":"semantic","code":"content_semantic_invalid","probe":"key_bytes"},
+  {"limit":"max_dataset_postings","maximum":8000000,"phase":"semantic","code":"content_semantic_invalid","probe":"aggregate_postings"},
+  {"limit":"max_dataset_total_key_bytes","maximum":268435456,"phase":"semantic","code":"content_semantic_invalid","probe":"aggregate_key_bytes"},
+  {"limit":"max_dataset_json_depth","maximum":64,"phase":"structural","code":"content_schema_invalid","probe":"depth"},
+  {"limit":"max_line_bytes","maximum":4194304,"phase":"structural","code":"content_schema_invalid","probe":"row_bytes"}
+]

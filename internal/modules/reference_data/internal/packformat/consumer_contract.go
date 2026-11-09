@@ -6,15 +6,17 @@ import (
 	"errors"
 	"unicode/utf8"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 type consumerContract struct {
 	request, result *shape
 	order           []string
+	required        []string
 }
 
 var consumerContracts = loadConsumerContracts()
+var genericConsumerShape = compileProjection("profiles/dataset.object.v1.schema.json")
 
 func loadConsumerContracts() map[string]consumerContract {
 	var catalog struct {
@@ -26,9 +28,9 @@ func loadConsumerContracts() map[string]consumerContract {
 			Order     []string `json:"field_order"`
 		} `json:"operations"`
 	}
-	decoder := json.NewDecoder(bytes.NewReader(projection("consumer_operations.v2.json")))
+	decoder := json.NewDecoder(bytes.NewReader(projection("consumer_operations.v3.json")))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&catalog); err != nil || catalog.Schema != "cartulary.reference_pack_consumer_operations.v2" || len(catalog.Operations) != 5 {
+	if err := decoder.Decode(&catalog); err != nil || catalog.Schema != "cartulary.reference_pack_consumer_operations.v3" || len(catalog.Operations) != 6 {
 		panic("invalid consumer operation projection")
 	}
 	contracts := map[string]consumerContract{}
@@ -37,12 +39,21 @@ func loadConsumerContracts() map[string]consumerContract {
 			panic("invalid consumer schema reference")
 		}
 		request, result := compileProjection(op.Request), compileProjection(op.Result)
-		if request.kind != "object" || !request.closed || len(request.properties) != len(op.Order) {
+		var declaration struct {
+			Type                 string                     `json:"type"`
+			AdditionalProperties bool                       `json:"additionalProperties"`
+			Properties           map[string]json.RawMessage `json:"properties"`
+			Required             []string                   `json:"required"`
+		}
+		if err := json.Unmarshal(projection(op.Request), &declaration); err != nil {
+			panic("invalid consumer request declaration")
+		}
+		if declaration.Type != "object" || declaration.AdditionalProperties || len(declaration.Properties) != len(op.Order) {
 			panic("consumer request must be closed and ordered")
 		}
 		seen := map[string]bool{}
 		for _, field := range op.Order {
-			if request.properties[field] == nil || seen[field] {
+			if request.property(field) == nil || seen[field] {
 				panic("invalid consumer field order")
 			}
 			seen[field] = true
@@ -50,9 +61,9 @@ func loadConsumerContracts() map[string]consumerContract {
 		if _, exists := contracts[op.Operation]; exists {
 			panic("duplicate consumer operation")
 		}
-		contracts[op.Operation] = consumerContract{request, result, op.Order}
+		contracts[op.Operation] = consumerContract{request, result, op.Order, declaration.Required}
 	}
-	for _, operation := range []string{"ResolveCurrentPackSet", "GetPackEntry", "LookupPackEntries", "EvaluateIndicatorValue", "GetPackProvenance"} {
+	for _, operation := range []string{"ResolveCurrentPackSet", "GetPackEntry", "LookupPackEntries", "EvaluateIndicatorValue", "GetPackProvenance", "GetPackDescriptor"} {
 		if _, ok := contracts[operation]; !ok {
 			panic("missing consumer operation")
 		}
@@ -70,11 +81,11 @@ func ValidateConsumerRequest(operation string, value any) error {
 		return fail("invalid_pack_request")
 	}
 	for key, item := range object {
-		if contract.request.properties[key] == nil || item == nil {
+		if contract.request.property(key) == nil || item == nil {
 			return fail("invalid_pack_request")
 		}
 	}
-	for _, key := range contract.request.required {
+	for _, key := range contract.required {
 		if _, exists := object[key]; !exists {
 			return fail("invalid_pack_request")
 		}
@@ -84,7 +95,7 @@ func ValidateConsumerRequest(operation string, value any) error {
 		if !present {
 			continue
 		}
-		if !contract.request.properties[key].matches(item) {
+		if !contract.request.property(key).matches(item) {
 			if operation == "EvaluateIndicatorValue" && key == "raw_value" {
 				if raw, ok := item.(string); ok && utf8.ValidString(raw) && utf8.RuneCountInString(raw) > 8192 {
 					return fail("indicator_input_too_long")
@@ -123,15 +134,20 @@ func ValidateConsumerResult(operation string, data []byte) error {
 	case "GetPackEntry", "LookupPackEntries":
 		success := envelope["value"].(map[string]any)
 		provenance := success["provenance"].(map[string]any)
-		profile, found := profiles[provenance["pack_key"].(string)]
+		profile, found := ProfileForKey(provenance["pack_key"].(string))
 		if !found {
 			return errors.New("reference pack: invalid consumer result")
 		}
 		kind := "entry"
-		if profile.Shape == "objects_relationships" {
+		if profile.Shape == "objects_relationships" || profile.Shape == "dataset" {
 			kind = "object"
 		}
-		check := func(item any) bool { return contentShapes[profile.Key+"/"+kind].matches(item) }
+		check := func(item any) bool {
+			if profile.Shape == "dataset" {
+				return genericConsumerShape.matches(item)
+			}
+			return contentShapes[profile.Key+"/"+kind].matches(item)
+		}
 		if operation == "GetPackEntry" {
 			if !check(success["item"]) {
 				return errors.New("reference pack: invalid consumer result")

@@ -69,6 +69,58 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.command_surface.behavior.reference_pack_module_archives",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [
+        "module.reference_data"
+      ],
+      "verification_ids": [
+        "harness.command_surface.verification.independent_module_boundaries"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/reference-pack-modules",
+        "tests": [
+          "TestIndependentExecutableInputDiscovery",
+          "TestIndependentModuleArchiveInputs"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.reference_pack_modules",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [
+        "module.reference_data"
+      ],
+      "verification_ids": [
+        "harness.command_surface.verification.independent_module_boundaries"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.reference_pack_module_boundaries"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.command_surface.behavior.scheduler_contract",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.behavior",

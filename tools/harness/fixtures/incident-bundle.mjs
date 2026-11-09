@@ -17,7 +17,7 @@ export function incidentBundleFixture(status = "active", root = path.resolve(imp
     ...catalog.families.flatMap((family) => family.paths),
     ...catalog.special_consumers,
   ]) {
-    if (source.versions.includes(7) && !source.logical_path.includes("*"))
+    if (source.versions.includes(8) && !source.logical_path.includes("*"))
       sources.set(source.logical_path, Buffer.alloc(0));
   }
   const json = (value) => Buffer.from(`${JSON.stringify(value)}\n`);
@@ -50,7 +50,7 @@ export function incidentBundleFixture(status = "active", root = path.resolve(imp
     "data/reference_pack_refs.json",
     Buffer.from(
       JSON.stringify({
-        schema_id: "reference_pack_refs.v2",
+        schema_id: "reference_pack_refs.v3",
         sets: [],
         versions: [],
       }),
@@ -82,7 +82,7 @@ export function incidentBundleFixture(status = "active", root = path.resolve(imp
     "manifest.json",
     json({
       bundle_format: "cartulary.incident_bundle",
-      bundle_version: 7,
+      bundle_version: 8,
       bundle_id: randomUUID(),
       incident_id: incidentId,
       incident_key: key,

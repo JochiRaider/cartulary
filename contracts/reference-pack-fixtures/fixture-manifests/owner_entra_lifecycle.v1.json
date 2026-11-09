@@ -1,13 +1,13 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_owner_entra_lifecycle",
-  "fixture_version": 1,
+  "fixture_version": 3,
   "fixture_family": "consumer",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/owner_entra_lifecycle.v1.json",
     "contracts/reference-pack-producers/entra-app-ids/baseline.v2.json",
-    "contracts/reference-packs/builtins/release.v2.json",
-    "fixtures/entra-app-ids/release.v2.json"
+    "contracts/reference-packs/builtins/release.v3.json",
+    "fixtures/reference-packs/dataset-v1/entra/release.v3.json"
   ],
   "expected_container_sha256": null,
   "expected_manifest_sha256": null,

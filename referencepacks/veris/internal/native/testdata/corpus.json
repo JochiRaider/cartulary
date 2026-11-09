@@ -1,0 +1,86 @@
+{
+  "pack_key": "framework.veris",
+  "source_version": "1.4.2",
+  "source_artifacts": [
+    {
+      "sha256": "55c550adb50e82c87f8aeb6706b6b778e8657cf49593167c9d2bfbc270323182",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/LICENSE.txt",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "5b2f0c731eeccc7068ce517c2a0d8e60b76380722901390d837b449a04253514",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/bin/checkValidity.py",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "376d51079298a1464346bfdb870e96b370d569f1bf90cc455119030fed15140b",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/bin/mergeSchema.py",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "bc14963a8b885da860997e1b5bd3bb2ab6312a0c4e4f465ddbc1b7e09d7d7c8a",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/bin/rules.py",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "b87189b215b022d15f6d1d5ee227ad167af2b284b6e661ed8ebb15262550f065",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/changelog",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "120759720f524dd5e356a20ecdd4d9d85ba8da36882539ac788774e6c0a77846",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/style_guide/VERIS%20Coding%20Style%20Guide%20v3.0.pdf",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "704a049ae3079ff6e5b651b01445b9d7d307b2aa525cc20145a2cd964d9f5e8c",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/veris_style_guide.md",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "6f227ee1dfa2b9f2ec56407510d702cf61271a8ad6f0ff06115eae4e0a54b3e6",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/verisc-enum.json",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "2ee3adb91c28133f5be2dc8d57106302a9f4d1d235df73e9dfeb4b4c57337eb8",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/verisc-labels.json",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "e43fbc1c3c1d7dc93a9e839b7d139a3167f0c38d33785fb4790bc630e6d23bd5",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/verisc-merged.json",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "5be44261687234270cdb5974d5a362a4d5e4099635699d59960d503658612a9d",
+      "source_ref": "https://raw.githubusercontent.com/vz-risk/veris/dba30b035039f3d002c6eb06dc149dbed7476059/verisc.json",
+      "source_version": "1.4.2@dba30b035039f3d002c6eb06dc149dbed7476059"
+    },
+    {
+      "sha256": "8a446d7ad17516045b2a0e2406062f0f2857d988fd162932d707bd1c1e8c87ec",
+      "source_ref": "urn:cartulary:veris:continuity",
+      "source_version": "cartulary.veris.community.native.v1"
+    },
+    {
+      "sha256": "6f156e24aa49798691b320afd0aae9ec187b21b0d481aace7933ac9980f5c8db",
+      "source_ref": "urn:cartulary:veris:dispositions",
+      "source_version": "cartulary.veris.community.native.v1"
+    },
+    {
+      "sha256": "6e682e4380f563a07d950ab195d7736a36119dbb69e0b446e36eb199b04e2c26",
+      "source_ref": "urn:cartulary:veris:license-decision",
+      "source_version": "cartulary.veris.community.native.v1"
+    },
+    {
+      "sha256": "b8841ffc28c718eb2701ad91965ed441c764f6b47b8b638fd7a9d2ce4d7887f0",
+      "source_ref": "urn:cartulary:veris:rules",
+      "source_version": "cartulary.veris.community.native.v1"
+    }
+  ],
+  "content_summary": {
+    "kind": "objects_relationships",
+    "object_count": 2491,
+    "relationship_count": 2533
+  }
+}

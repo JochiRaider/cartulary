@@ -617,7 +617,17 @@
             "go.mod",
             "go.sum",
             "tools/go-analysis/go.mod",
-            "tools/go-analysis/go.sum"
+            "tools/go-analysis/go.sum",
+            "referencepacks/format/go.mod",
+            "referencepacks/format/go.sum",
+            "referencepacks/attack/go.mod",
+            "referencepacks/attack/go.sum",
+            "referencepacks/veris/go.mod",
+            "referencepacks/veris/go.sum",
+            "referencepacks/windows/go.mod",
+            "referencepacks/windows/go.sum",
+            "referencepacks/entra/go.mod",
+            "referencepacks/entra/go.sum"
           ]
         }
       ]

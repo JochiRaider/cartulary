@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_root_bootstrap.v2",
+  "type": "object",
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_root_bootstrap.v2"
+    },
+    "pack_contract_version": {
+      "const": "cartulary.reference_pack_contract.v3"
+    },
+    "repository_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,31}(\\.[a-z][a-z0-9_]{0,31}){1,7}$",
+      "maxLength": 128
+    },
+    "root_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "root_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "required": [
+    "schema_id",
+    "pack_contract_version",
+    "repository_id",
+    "root_version",
+    "root_sha256"
+  ],
+  "additionalProperties": false
+}

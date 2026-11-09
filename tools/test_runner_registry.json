@@ -8,10 +8,12 @@
       "approved_roots": [
         "cmd",
         "internal",
+        "referencepacks",
         "tools/contractgen",
         "tools/embedwebassets",
         "tools/objectstoreprobe",
         "tools/openapi-operation-catalog",
+        "tools/reference-pack-modules",
         "tools/testservices"
       ]
     },

@@ -18,6 +18,7 @@ type consumerMemory struct {
 	limit      int
 	provenance map[string]PackProvenance
 	hostItem   json.RawMessage
+	descriptor json.RawMessage
 }
 
 func (m *consumerMemory) CurrentSet(context.Context) (PackSet, error) { return m.set, nil }
@@ -29,6 +30,9 @@ func (m *consumerMemory) RetainedSet(_ context.Context, id string) (PackSet, err
 }
 func (m *consumerMemory) Provenance(_ context.Context, set, key string) (PackProvenance, error) {
 	return m.provenance[key], nil
+}
+func (m *consumerMemory) Descriptor(context.Context, PackSetMember) (json.RawMessage, error) {
+	return m.descriptor, nil
 }
 func (m *consumerMemory) Entry(_ context.Context, _ PackSetMember, id string) (json.RawMessage, error) {
 	if v, ok := m.items[id]; ok {
@@ -137,13 +141,15 @@ func testConsumerEnvelopePrecedesSetResolution(t *testing.T) {
 	_, c, _ := consumerFixture(t)
 	unknown := "rpset_" + strings.Repeat("0", 64)
 	malformed := string([]byte{255})
-	for _, value := range []any{true, []any{}, json.Number("1e0"), json.Number("65536"), json.Number("-1"), map[string]any{"provider_name": "p", "event_id": json.Number("1"), "event_version": nil}, map[string]any{"provider_name": "p", "event_id": json.Number("1"), "hostile": true}, map[string]any{"algorithm": "sha256", "value": "x", "hostile": true}, map[string]any{"algorithm": "sha256", "value": strings.Repeat("x", 8193)}} {
+	for _, value := range []any{true, []any{}, json.Number("1e0"), json.Number("9007199254740992"), map[string]any{"provider_name": "p", "event_id": json.Number("1"), "event_version": nil}, map[string]any{"provider_name": "p", "event_id": json.Number("1"), "hostile": true}, map[string]any{"algorithm": "sha256", "value": "x", "hostile": true}, map[string]any{"algorithm": "sha256", "value": strings.Repeat("x", 8193)}} {
 		result := c.LookupPackEntries(context.Background(), LookupPackEntriesRequest{PackSetID: unknown, PackKey: "enrichment.windows_event_ids", LookupKind: "provider_event_id", LookupValue: value})
 		if result.Error == nil || result.Error.Code != "invalid_pack_request" || result.Value != nil {
 			t.Fatal("malformed lookup reached set resolution", result.Error)
 		}
 	}
-	for _, value := range []any{json.Number("65535"), map[string]any{"provider_name": "p", "event_id": json.Number("1")}, map[string]any{"algorithm": "sha256", "value": "not-a-hash"}} {
+	// Source-specific numeric ranges and component names are not part of the
+	// generic request envelope. Descriptor resolution follows exact-set admission.
+	for _, value := range []any{json.Number("65535"), json.Number("65536"), json.Number("-1"), map[string]any{"provider_name": "p", "event_id": json.Number("1")}, map[string]any{"algorithm": "sha256", "value": "not-a-hash"}} {
 		result := c.LookupPackEntries(context.Background(), LookupPackEntriesRequest{PackSetID: unknown, PackKey: "enrichment.windows_event_ids", LookupKind: "provider_event_id", LookupValue: value})
 		if result.Error == nil || result.Error.Code != "pack_set_not_found" {
 			t.Fatal("profile semantics preceded set resolution", result.Error)

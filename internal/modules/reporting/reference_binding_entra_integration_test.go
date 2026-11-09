@@ -1,15 +1,15 @@
 package reporting_test
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/referencepackfixture"
 	"testing"
 	"time"
 )
 
 func TestEntraSnapshotAdmissionRetainsProducedSet_Integration(t *testing.T) {
 	now := time.Now().UTC()
-	keys, err := producer.NewEntraFixtureSigningContext()
+	keys, err := referencepackfixture.NewSigningContext("fixture.entra.dataset.v1", "enrichment.entra_app_ids")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,10 +6,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
-const PortableReferencesSchemaID = "reference_pack_refs.v2"
+const PortableReferencesSchemaID = "reference_pack_refs.v3"
 
 type PortableVersion struct {
 	SetMember
@@ -25,7 +25,7 @@ type PortableReferences struct {
 	Versions []PortableVersion `json:"versions"`
 }
 
-var portableReferencesShape = compileProjection("reference_pack_refs.v2.schema.json")
+var portableReferencesShape = compileProjection("reference_pack_refs.v3.schema.json")
 
 // DecodePortableReferences authenticates no content. It admits the complete
 // reference graph before any destination lookup or trust decision is made.
@@ -56,7 +56,7 @@ func DecodePortableReferences(data []byte) (PortableReferences, error) {
 		if _, exists := versions[tuple]; exists {
 			return bad()
 		}
-		profile, ok := profiles[v.Key]
+		profile, ok := ProfileForKey(v.Key)
 		if !ok || v.ProfileID != profile.ID || v.ProfileVersion != profile.Version ||
 			(v.DistributionKind == "packaged_builtin" && v.VerificationMethod != "packaged_release_manifest_v1") ||
 			(v.DistributionKind == "operator_imported" && v.VerificationMethod != "tuf_1_0_35_offline_bundle_v1") {

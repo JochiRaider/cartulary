@@ -270,6 +270,34 @@ func TestImportProjectionDowngradeBarrier_Integration(t *testing.T) {
 	assertDowngradeBarrier(t, 47, 46)
 }
 
+func TestReferencePackGenericDowngradeBarrier_Integration(t *testing.T) {
+	assertDowngradeBarrier(t, 50, 49)
+}
+
+func TestReferencePackGenericIndexStorageBound_Integration(t *testing.T) {
+	database := pgtest.Start(t).MigrationDatabaseThroughT(t, 50)
+	db := database.SQL()
+	// Copy the installed checks without foreign keys, so this verifies the
+	// storage boundary independently of importer-generated records.
+	if _, err := db.ExecContext(t.Context(), `CREATE TABLE generic_index_bound_probe
+        (LIKE public.reference_pack_indexes INCLUDING CONSTRAINTS)`); err != nil {
+		t.Fatal(err)
+	}
+	for _, size := range []int{0, 1, 1048577, 4194303, 4194304} {
+		_, err := db.ExecContext(t.Context(), `INSERT INTO generic_index_bound_probe
+            (index_id, entry_kind, entry_id, canonical_item, lookup_keys)
+            VALUES ('00000000-0000-0000-0000-000000000001', 'object', 'object:1',
+                    decode(repeat('78', $1), 'hex'), '{}'::bytea)`, size)
+		admitted := size >= 1 && size <= 4194303
+		if (err == nil) != admitted {
+			t.Fatalf("stored row bytes %d: admitted=%t, error=%v", size, admitted, err)
+		}
+		if err != nil && !strings.Contains(err.Error(), "rp_indexes_ck3") {
+			t.Fatalf("wrong constraint for %d bytes: %v", size, err)
+		}
+	}
+}
+
 func assertDowngradeBarrier(t *testing.T, version, target int64) {
 	t.Helper()
 	database := pgtest.Start(t).MigrationDatabaseThroughT(t, version)

@@ -252,7 +252,7 @@ AND convert_from(e.canonical_attestation,'UTF8')::jsonb->>'operator_operation_id
 			t.Fatal("historical catalog lost exact references or duplicated versions", refs, err)
 		}
 		empty, err := retained.ExportReferencesTx(ctx, tx, nil)
-		if err != nil || string(empty) != "{\"schema_id\":\"reference_pack_refs.v2\",\"sets\":[],\"versions\":[]}\n" {
+		if err != nil || string(empty) != "{\"schema_id\":\"reference_pack_refs.v3\",\"sets\":[],\"versions\":[]}\n" {
 			t.Fatal("empty reference catalog", string(empty), err)
 		}
 		competing, err := pool.Begin(ctx)

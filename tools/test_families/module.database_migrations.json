@@ -152,6 +152,7 @@
           "TestProductionDDLCatalogManifestParity_Integration",
           "TestProductionDDLContaminationFailsBeforeMutation_Integration",
           "TestProductionDDLExtensionPrerequisiteMatrix_Integration"
+          ,"TestReferencePackGenericIndexStorageBound_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -189,6 +190,7 @@
           "TestMigrationLineagePreflightReportsApplyHeadTarget",
           "TestOrientationDowngradeBarrier_Integration",
           "TestProductionPreflightStateMatrix",
+          "TestReferencePackGenericDowngradeBarrier_Integration",
           "TestScratchRollbackPreservesCompletedSteps_Integration"
         ]
       },

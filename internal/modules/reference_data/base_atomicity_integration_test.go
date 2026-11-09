@@ -420,75 +420,100 @@ func TestCurrentRetainedStructureAcrossConsumersAndRecovery_Integration(t *testi
 			}
 		})
 	}
-	t.Run("portable-only reporting binding", func(t *testing.T) {
-		tx, err := pool.Begin(t.Context())
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer tx.Rollback(t.Context())
-		var raw, anchors []byte
-		if err := tx.QueryRow(t.Context(), `SELECT canonical_set,canonical_provenance FROM reference_pack_sets`).Scan(&raw, &anchors); err != nil {
-			t.Fatal(err)
-		}
-		set, err := packformat.DecodeSet(raw)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for i := range set.Members {
-			set.Members[i].Version = "portable-only.1"
-		}
-		set, err = packformat.BuildSet(set.Members)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var provenance []map[string]any
-		if err := json.Unmarshal(anchors, &provenance); err != nil {
-			t.Fatal(err)
-		}
-		versions := []packformat.PortableVersion{}
-		for i := range provenance {
-			provenance[i]["pack_set_id"] = set.ID
-			provenance[i]["pack_version"] = "portable-only.1"
-			versions = append(versions, packformat.PortableVersion{SetMember: set.Members[i], DistributionKind: "packaged_builtin", VerificationMethod: "packaged_release_manifest_v1", SourceProfileID: provenance[i]["source_profile_id"].(string), SourceProfileSHA256: provenance[i]["source_profile_sha256"].(string)})
-		}
-		catalog, err := packformat.EncodePortableReferences([]packformat.Set{set}, versions)
-		if err != nil {
-			t.Fatal(err)
-		}
-		catalog, err = canonicaljson.Canonicalize(catalog)
-		if err != nil {
-			t.Fatal(err)
-		}
-		id := uuid.New()
-		for _, query := range []string{
-			`INSERT INTO users(id,email,display_name,password_hash) VALUES($1,'portable-only@example.test','Portable-only fixture','unused')`,
-			`INSERT INTO incidents(id,incident_key,incident_key_canonical,title,status,created_by_user_id,updated_by_user_id) VALUES($1,'PORTABLE','portable','Portable-only fixture','active',$1,$1)`,
-			`INSERT INTO reference_pack_operations(operation_id,kind,actor_kind,admitted_at,terminal_at,frozen_input,final_outcome) VALUES($1,'reconcile','system',now(),now(),'{}','{}')`,
-		} {
-			if _, err := tx.Exec(t.Context(), query, id); err != nil {
+	for _, authority := range []string{"", "framework_reference", "advisory_enrichment"} {
+		t.Run("portable-only reporting binding/"+authority, func(t *testing.T) {
+			tx, err := pool.Begin(t.Context())
+			if err != nil {
 				t.Fatal(err)
 			}
-		}
-		if _, err := tx.Exec(t.Context(), `INSERT INTO reference_pack_portable_catalogs(incident_id,operation_id,catalog_sha256,canonical_references,canonical_resolution) VALUES($1,$1,$2,$3,'{}')`, id, packformat.Digest(catalog), catalog); err != nil {
-			t.Fatal(err)
-		}
-		binding, err := canonicaljson.Marshal(map[string]any{"pack_set_id": set.ID, "pack_set_sha256": set.SHA256, "provenance": provenance})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := contractadmission.ValidateBinding(t.Context(), tx, binding); err != nil {
-			t.Fatal("valid unavailable portable binding rejected", err)
-		}
-		if _, err := tx.Exec(t.Context(), `ALTER TABLE reference_pack_portable_catalogs DISABLE TRIGGER USER`); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tx.Exec(t.Context(), `UPDATE reference_pack_portable_catalogs SET canonical_references=$1,catalog_sha256=encode(sha256($1),'hex')`, append(catalog, '\n')); err != nil {
-			t.Fatal(err)
-		}
-		if err := contractadmission.ValidateBinding(t.Context(), tx, binding); !contractadmission.IsIncompatible(err) {
-			t.Fatal("noncanonical portable catalog admitted", err)
-		}
-	})
+			defer tx.Rollback(t.Context())
+			var raw, anchors []byte
+			if err := tx.QueryRow(t.Context(), `SELECT canonical_set,canonical_provenance FROM reference_pack_sets`).Scan(&raw, &anchors); err != nil {
+				t.Fatal(err)
+			}
+			set, err := packformat.DecodeSet(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := range set.Members {
+				set.Members[i].Version = "portable-only.1"
+			}
+			if authority != "" {
+				member := set.Members[0]
+				member.Key, member.ProfileID, member.ProfileVersion = "zz.unregistered", "cartulary.reference_pack.dataset.v1", "1"
+				set.Members = append(set.Members, member)
+			}
+			set, err = packformat.BuildSet(set.Members)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var provenance []map[string]any
+			if err := json.Unmarshal(anchors, &provenance); err != nil {
+				t.Fatal(err)
+			}
+			if authority != "" {
+				anchor := map[string]any{}
+				for key, value := range provenance[0] {
+					anchor[key] = value
+				}
+				anchor["pack_key"], anchor["content_profile_id"], anchor["content_profile_version"], anchor["authority_class"] = "zz.unregistered", "cartulary.reference_pack.dataset.v1", "1", authority
+				provenance = append(provenance, anchor)
+			}
+			versions := []packformat.PortableVersion{}
+			for i := range provenance {
+				provenance[i]["pack_set_id"] = set.ID
+				provenance[i]["pack_version"] = "portable-only.1"
+				versions = append(versions, packformat.PortableVersion{SetMember: set.Members[i], DistributionKind: "packaged_builtin", VerificationMethod: "packaged_release_manifest_v1", SourceProfileID: provenance[i]["source_profile_id"].(string), SourceProfileSHA256: provenance[i]["source_profile_sha256"].(string)})
+			}
+			catalog, err := packformat.EncodePortableReferences([]packformat.Set{set}, versions)
+			if err != nil {
+				t.Fatal(err)
+			}
+			catalog, err = canonicaljson.Canonicalize(catalog)
+			if err != nil {
+				t.Fatal(err)
+			}
+			id := uuid.New()
+			for _, query := range []string{
+				`INSERT INTO users(id,email,display_name,password_hash) VALUES($1,'portable-only@example.test','Portable-only fixture','unused')`,
+				`INSERT INTO incidents(id,incident_key,incident_key_canonical,title,status,created_by_user_id,updated_by_user_id) VALUES($1,'PORTABLE','portable','Portable-only fixture','active',$1,$1)`,
+				`INSERT INTO reference_pack_operations(operation_id,kind,actor_kind,admitted_at,terminal_at,frozen_input,final_outcome) VALUES($1,'reconcile','system',now(),now(),'{}','{}')`,
+			} {
+				if _, err := tx.Exec(t.Context(), query, id); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := tx.Exec(t.Context(), `INSERT INTO reference_pack_portable_catalogs(incident_id,operation_id,catalog_sha256,canonical_references,canonical_resolution) VALUES($1,$1,$2,$3,'{}')`, id, packformat.Digest(catalog), catalog); err != nil {
+				t.Fatal(err)
+			}
+			binding, err := canonicaljson.Marshal(map[string]any{"pack_set_id": set.ID, "pack_set_sha256": set.SHA256, "provenance": provenance})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := contractadmission.ValidateBinding(t.Context(), tx, binding); err != nil {
+				t.Fatal("valid unavailable portable binding rejected", err)
+			}
+			if authority != "" {
+				provenance[len(provenance)-1]["authority_class"] = "registry_authoritative"
+				invalid, err := canonicaljson.Marshal(map[string]any{"pack_set_id": set.ID, "pack_set_sha256": set.SHA256, "provenance": provenance})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := contractadmission.ValidateBinding(t.Context(), tx, invalid); !contractadmission.IsIncompatible(err) {
+					t.Fatal("portable registry escalation", err)
+				}
+			}
+			if _, err := tx.Exec(t.Context(), `ALTER TABLE reference_pack_portable_catalogs DISABLE TRIGGER USER`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tx.Exec(t.Context(), `UPDATE reference_pack_portable_catalogs SET canonical_references=$1,catalog_sha256=encode(sha256($1),'hex')`, append(catalog, '\n')); err != nil {
+				t.Fatal(err)
+			}
+			if err := contractadmission.ValidateBinding(t.Context(), tx, binding); !contractadmission.IsIncompatible(err) {
+				t.Fatal("noncanonical portable catalog admitted", err)
+			}
+		})
+	}
 }
 
 type baseTestTxDB struct{ pgx.Tx }

@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_profile_enrichment_entra_app_ids_semantic",
-  "fixture_version": 2,
+  "fixture_version": 3,
   "fixture_family": "content_profile",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/profiles/enrichment_entra_app_ids_semantic.v1.json"
@@ -17,7 +17,7 @@
       "severity": "error",
       "phase": "content_semantics",
       "code": "content_semantic_invalid",
-      "path": "$.entries[0].source_refs[0].artifact_index",
+      "path": "$.objects[0].source_refs[0].artifact_index",
       "entry_id": "00000000-0000-0000-0000-000000000001",
       "safe_details": {
         "limit_id": null,
@@ -26,7 +26,7 @@
         "related_pack_key": null,
         "related_pack_version": null
       },
-      "issue_id": "rpi_a6c9e7b2ac50aa73cbe636c437211c68f297437637c57d6db8d58708bc9b22c7",
+      "issue_id": "rpi_b06557e866bb97f02b928707abaf60c3042bd1287171dc3fe5139d6638c486c7",
       "reason_code": "content_semantic_invalid"
     }
   ],

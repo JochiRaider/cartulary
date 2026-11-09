@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_profile_enrichment_windows_event_ids_semantic",
-  "fixture_version": 1,
+  "fixture_version": 3,
   "fixture_family": "content_profile",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/profiles/enrichment_windows_event_ids_semantic.v1.json"
@@ -17,7 +17,7 @@
       "severity": "error",
       "phase": "content_semantics",
       "code": "content_semantic_invalid",
-      "path": "$.entries[0].source_refs[0].artifact_index",
+      "path": "$.objects[0].source_refs[0].artifact_index",
       "entry_id": "example:provider:65535:*",
       "safe_details": {
         "limit_id": null,
@@ -26,7 +26,7 @@
         "related_pack_key": null,
         "related_pack_version": null
       },
-      "issue_id": "rpi_c4d152eb8d32faf67bf1eedae2d70b99dde2b7125e8aab35bcd7be9c1942fdef",
+      "issue_id": "rpi_253e9d14957eebdd5947b309cc675ef8076635c09976c0d542185e09c0585693",
       "reason_code": "content_semantic_invalid"
     }
   ],

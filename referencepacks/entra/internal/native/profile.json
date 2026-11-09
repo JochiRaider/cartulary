@@ -1,0 +1,13 @@
+{
+  "pack_key": "enrichment.entra_app_ids",
+  "pack_kind": "enrichment",
+  "content_profile_id": "cartulary.reference_pack.enrichment.entra_app_ids.v2",
+  "content_profile_version": "2",
+  "payload_shape": "entries",
+  "authority_class": "advisory_enrichment",
+  "required_base": false,
+  "schemas": {
+    "entry": "profiles/enrichment.entra_app_ids.entry.v2.schema.json"
+  },
+  "max_line_bytes": 1048576
+}

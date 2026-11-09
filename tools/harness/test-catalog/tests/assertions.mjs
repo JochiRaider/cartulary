@@ -149,7 +149,7 @@ export function assertPrivateRowSelection(context) {
       "tools/task_surface_owner.json",
       "tools/harness_work_graph_owner.json", "tools/test_catalog_row_migrations.json",
       "tools/postgres_fixture_policy_registry.json", "tools/toolchain_pins.json",
-      "tools/generated_artifact_policy.json",
+      "tools/generated_artifact_policy.json", "tools/go_modules.json",
       ...catalog.registry.owners.map((owner) => owner.manifest_path),
       ...catalog.verification.registry.owners.map((owner) => owner.contract_path),
       ...catalog.runners.runners.map((runner) => runner.adapter_path),

@@ -26,8 +26,8 @@ export function packageFixtures(repoRoot, destination) {
   const root = (version) => signed({ _type: "root", spec_version: "1.0.35", version, expires: expiry(365), consistent_snapshot: false, keys: Object.fromEntries(keys.map((key) => [key.id, key.publicValue])), roles: { root: { keyids: keys.map((key) => key.id).sort(), threshold: 2 }, ...Object.fromEntries(["targets", "snapshot", "timestamp"].map((role) => [role, { keyids: [keys[0].id], threshold: 1 }])) }, cartulary: { schema_id: "cartulary.reference_pack_tuf_root_binding.v1", trust_repository_id: repository } });
   const bootstrap = canonical({ schema_id: "cartulary.reference_pack_trust_bootstrap.v1", repositories: [{ repository_id: repository, trusted_root: JSON.parse(root(1)), trusted_root_sha256: digest(root(1)) }] });
   writeFileSync(path.join(destination, "trust.json"), bootstrap, { mode: 0o644 });
-  const base = JSON.parse(readFileSync(path.join(repoRoot, "contracts/reference-packs/builtins/release.v2.json")));
-  const profiles = JSON.parse(readFileSync(path.join(repoRoot, "contracts/reference-packs/profiles.v2.json"))).profiles;
+  const base = JSON.parse(readFileSync(path.join(repoRoot, "contracts/reference-packs/builtins/release.v3.json")));
+  const profiles = JSON.parse(readFileSync(path.join(repoRoot, "contracts/reference-packs/profiles.v3.json"))).profiles;
   function bundle(name, { key = "enrichment.tor", version = 2, metadataVersion = version, rotation = false, badSignature = false, incompatible = false } = {}) {
     const source = base.packs.find((pack) => pack.binding.pack_key === key) ?? base.packs[0];
     const members = Object.fromEntries(Object.entries(source.members).map(([name, value]) => [name, Buffer.from(value)]));

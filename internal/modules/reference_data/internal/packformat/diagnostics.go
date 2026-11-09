@@ -9,7 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
+	formatschema "github.com/JochiRaider/cartulary/referencepacks/format/schema"
 )
 
 type Check struct {
@@ -44,13 +45,7 @@ func loadChecks() []Check {
 }
 func Checks() []Check { return slices.Clone(checks) }
 
-type SafeDetails struct {
-	LimitID            *string `json:"limit_id"`
-	ExpectedToken      *string `json:"expected_token"`
-	ActualToken        *string `json:"actual_token"`
-	RelatedPackKey     *string `json:"related_pack_key"`
-	RelatedPackVersion *string `json:"related_pack_version"`
-}
+type SafeDetails = formatschema.SafeDetails
 
 // LimitFinding reports only a registered identifier and numeric measurements.
 // For a streaming guard, observed is the smallest measured count proving the
@@ -64,11 +59,7 @@ func unsignedLimitFinding(path, id string, maximum, observed uint64) Finding {
 	return Finding{Path: path, Details: SafeDetails{LimitID: &id, ExpectedToken: &expected, ActualToken: &actual}}
 }
 
-type Finding struct {
-	Path    string
-	EntryID *string
-	Details SafeDetails
-}
+type Finding = formatschema.Finding
 type Issue struct {
 	ID         string      `json:"issue_id"`
 	CheckID    string      `json:"check_id"`
@@ -89,7 +80,7 @@ type ValidationSummary struct {
 	Retained       int     `json:"retained_issue_count"`
 	Issues         []Issue `json:"issues"`
 }
-type FindingSink func(Finding) error
+type FindingSink = formatschema.FindingSink
 type CheckFunc func(context.Context, FindingSink) error
 
 // RunChecks executes a complete declared check program. Applicability belongs

@@ -536,7 +536,8 @@
     "harness.backend_module_boundary_check": {
       "needs": [
         "harness.sourcecheck_build",
-        "harness.toolchain_drift"
+        "harness.toolchain_drift",
+        "harness.reference_pack_runtime_boundary"
       ],
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
@@ -1802,6 +1803,16 @@
         "harness.toolchain_drift"
       ],
       "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    "harness.reference_pack_runtime_boundary": {
+      "needs": [
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": [],
@@ -5888,6 +5899,78 @@
           "./tools/reference-packs/package.sh"
         ],
         "test_target": "self"
+      }
+    },
+    "harness.reference_pack_module_check": {
+      "report_key": "reference-pack-module-check",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "reference-pack-module-check",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "MODULE": "$(MODULE)"
+        },
+        "command": [
+          "bash",
+          "./tools/reference-pack-modules/check.sh"
+        ],
+        "test_target": "self"
+      }
+    },
+    "harness.reference_pack_module_boundaries": {
+      "report_key": "reference-pack-module-boundaries",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "reference-pack-module-boundaries",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "./tools/reference-pack-modules/closure.test.mjs",
+          "./tools/reference-packs/explicit-input.test.mjs",
+          "./tools/reference-pack-modules/isolation.test.mjs",
+          "./tools/reference-packs/source-audit.test.mjs"
+        ],
+        "test_target": "self"
+      }
+    },
+    "harness.reference_pack_runtime_boundary": {
+      "report_key": "reference-pack-runtime-boundary",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "reference-pack-runtime-boundary",
+        "command": [
+          "bash",
+          "./tools/reference-pack-modules/runtime-check.sh"
+        ],
+        "test_target": "self",
+        "graph_entry": true,
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "REFERENCE_PACK_GENERATION_PROFILE": "tools/reference-pack-modules/product-generation.json"
+        }
       }
     }
   },

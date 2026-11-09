@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.reference_pack_base_release_input.v3",
+  "predecessor_release": "fixtures/reference-packs/predecessor-contract-v2-projections/builtins/release.v2.json",
+  "predecessor_release_sha256": "9eeb17c67436155136af26e60a5865ad55607dc3197481c980f5b7b5dcb657f3",
+  "source_profile": "contracts/reference-packs/builtins/source-profile.v2.json",
+  "application_release_id": "cartulary.base_registries.2026-11-08.v3",
+  "pack_version": "base-2026-11-08.1",
+  "pack_release_sequence": 3,
+  "built_at": "2026-11-08T17:30:00Z",
+  "payloads": {
+    "type_registry.evidence": "9a24ec390bf4e9f51ea299f6e08c53f7f8186a66ed2a7decb213a2ad9e901d39",
+    "type_registry.host": "afaae18a960bf0d7f75365494966403333706ee4b7f680ca789c5cad8a237b8f",
+    "type_registry.indicator": "1c559a7fd18803b4eb0fbcc53f39be43ff48404d7253dfa0ffd5c62cdb3fecb8"
+  }
+}

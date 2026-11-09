@@ -256,6 +256,82 @@
       "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
     },
     {
+      "retired_row_id": "module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a",
+      "replacement_row_ids": [
+        "module.reference_data.unit.independent_attack_producer"
+      ],
+      "reason": "Pack contract v3 assigns native source correctness to independent producers. Preserved source, command, and publication assertions run in standalone modules; generic runtime structure, reference and lookup assurance replaces profile-specific consumer semantics."
+    },
+    {
+      "retired_row_id": "module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c",
+      "replacement_row_ids": [
+        "module.reference_data.unit.independent_attack_producer",
+        "module.reference_data.unit.independent_format_publication"
+      ],
+      "reason": "Pack contract v3 assigns native source correctness to independent producers. Preserved source, command, and publication assertions run in standalone modules; generic runtime structure, reference and lookup assurance replaces profile-specific consumer semantics."
+    },
+    {
+      "retired_row_id": "module.reference_data.unit.enrichment_entra_app_ids_independently_validates_02047fa20a",
+      "replacement_row_ids": [
+        "module.reference_data.unit.generic_dataset_runtime",
+        "module.reference_data.unit.independent_entra_source_model"
+      ],
+      "reason": "Pack contract v3 assigns native source correctness to independent producers. Preserved source, command, and publication assertions run in standalone modules; generic runtime structure, reference and lookup assurance replaces profile-specific consumer semantics."
+    },
+    {
+      "retired_row_id": "module.reference_data.unit.enrichment_windows_event_ids_independently_valid_fc66475a5f",
+      "replacement_row_ids": [
+        "module.reference_data.unit.generic_dataset_runtime",
+        "module.reference_data.unit.independent_windows_source_model"
+      ],
+      "reason": "Pack contract v3 assigns native source correctness to independent producers. Preserved source, command, and publication assertions run in standalone modules; generic runtime structure, reference and lookup assurance replaces profile-specific consumer semantics."
+    },
+    {
+      "retired_row_id": "module.reference_data.unit.entra_source_producer",
+      "replacement_row_ids": [
+        "module.reference_data.unit.independent_entra_producer"
+      ],
+      "reason": "Pack contract v3 assigns native source correctness to independent producers. Preserved source, command, and publication assertions run in standalone modules; generic runtime structure, reference and lookup assurance replaces profile-specific consumer semantics."
+    },
+    {
+      "retired_row_id": "module.reference_data.unit.framework_attack_independently_validates_canonic_147df00f1f",
+      "replacement_row_ids": [
+        "module.reference_data.unit.generic_dataset_runtime",
+        "module.reference_data.unit.independent_attack_source_model"
+      ],
+      "reason": "Pack contract v3 assigns native source correctness to independent producers. Preserved source, command, and publication assertions run in standalone modules; generic runtime structure, reference and lookup assurance replaces profile-specific consumer semantics."
+    },
+    {
+      "retired_row_id": "module.reference_data.unit.framework_veris_independently_validates_canonica_bb0bacb53d",
+      "replacement_row_ids": [
+        "module.reference_data.unit.generic_dataset_runtime",
+        "module.reference_data.unit.independent_veris_source_model"
+      ],
+      "reason": "Pack contract v3 assigns native source correctness to independent producers. Preserved source, command, and publication assertions run in standalone modules; generic runtime structure, reference and lookup assurance replaces profile-specific consumer semantics."
+    },
+    {
+      "retired_row_id": "module.reference_data.unit.veris_native_content",
+      "replacement_row_ids": [
+        "module.reference_data.unit.generic_dataset_runtime",
+        "module.reference_data.unit.independent_veris_source_model"
+      ],
+      "reason": "Pack contract v3 assigns native source correctness to independent producers. Preserved source, command, and publication assertions run in standalone modules; generic runtime structure, reference and lookup assurance replaces profile-specific consumer semantics."
+    },
+    {
+      "retired_row_id": "module.reference_data.unit.veris_source_producer",
+      "replacement_row_ids": [
+        "module.reference_data.unit.independent_veris_producer"
+      ],
+      "reason": "Pack contract v3 assigns native source correctness to independent producers. Preserved source, command, and publication assertions run in standalone modules; generic runtime structure, reference and lookup assurance replaces profile-specific consumer semantics."
+    },
+    {
+      "retired_row_id": "module.reference_data.unit.windows_online_producer_preserves_documented_ide_30fc80a930",
+      "replacement_row_ids": [
+        "module.reference_data.unit.independent_windows_producer"
+      ],
+      "reason": "Pack contract v3 assigns native source correctness to independent producers. Preserved source, command, and publication assertions run in standalone modules; generic runtime structure, reference and lookup assurance replaces profile-specific consumer semantics."
+    },
+    {
       "retired_row_id": "module.reporting.integration.evidence_provider_redaction_4b6d27e1e9",
       "replacement_row_ids": [
         "module.reporting.integration.managed_service_assertions_for_evidence_provider_0b8acd1609",

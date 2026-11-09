@@ -15,7 +15,7 @@
           "content_role": "singleton_json",
           "schema_id": "cartulary.incident_bundle.incident.row.v1",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "id"
@@ -45,7 +45,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.incident_bundle.records.row.v1",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -76,7 +76,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.imports.committed_source.v1",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "committed_source_id"
@@ -88,7 +88,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.imports.committed_source_record.v1",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "committed_source_id",
@@ -120,7 +120,7 @@
           "logical_path": "data/timeline_time_profiles.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "incident_id"
@@ -131,7 +131,7 @@
           "logical_path": "data/timeline_records.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -142,7 +142,7 @@
           "logical_path": "data/timeline_source_provenance.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id",
@@ -179,7 +179,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.incident_bundle.parties.row.v1",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -209,7 +209,7 @@
           "logical_path": "data/entity_mentions.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "entity_mention_id"
@@ -220,7 +220,7 @@
           "logical_path": "data/hosts.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -231,7 +231,7 @@
           "logical_path": "data/identities.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -242,7 +242,7 @@
           "logical_path": "data/entity_preserved_identifiers.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "entity_preserved_identifier_id"
@@ -253,7 +253,7 @@
           "logical_path": "data/entity_aliases.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "entity_alias_id"
@@ -287,7 +287,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.incident_bundle.indicators.row.v2",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -299,7 +299,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.incident_bundle.indicator_observations.row.v1",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "indicator_observation_id"
@@ -311,7 +311,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.incident_bundle.indicator_state_intervals.row.v1",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "indicator_state_interval_id"
@@ -347,7 +347,7 @@
           "logical_path": "data/artifacts.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -358,7 +358,7 @@
           "logical_path": "data/artifact_findings.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -369,7 +369,7 @@
           "logical_path": "data/artifact_investigative_queries.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -380,7 +380,7 @@
           "logical_path": "data/artifact_forensic_keywords.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -391,7 +391,7 @@
           "logical_path": "data/handoff_risk_refs.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "risk_ref_id"
@@ -422,7 +422,7 @@
           "logical_path": "data/task_requests.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -433,7 +433,7 @@
           "logical_path": "data/decisions.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -463,7 +463,7 @@
           "logical_path": "data/evidence_records.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -474,7 +474,7 @@
           "logical_path": "data/evidence_custody_events.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "custody_event_id"
@@ -485,7 +485,7 @@
           "logical_path": "data/object_blobs.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "object_blob_id"
@@ -519,7 +519,7 @@
           "logical_path": "data/compromise_assessments.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_id"
@@ -548,7 +548,7 @@
           "logical_path": "data/record_links.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_link_id"
@@ -559,7 +559,7 @@
           "logical_path": "data/tags.ndjson",
           "content_role": "validation_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "normalized_tag_name",
@@ -571,7 +571,7 @@
           "logical_path": "data/record_tags.ndjson",
           "content_role": "source_rows",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "record_tag_id"
@@ -604,7 +604,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.incident_bundle.change_sets.row.v1",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "change_set_id"
@@ -616,7 +616,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.incident_bundle.change_set_mutations.row.v1",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "change_set_id",
@@ -629,7 +629,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.incident_bundle.record_revisions.row.v1",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "revision_id"
@@ -662,7 +662,7 @@
           "content_role": "source_rows",
           "schema_id": "cartulary.incident_bundle.saved_views.row.v2",
           "versions": [
-            7
+            8
           ],
           "stable_identity": [
             "saved_view_id"
@@ -688,7 +688,7 @@
       "owner_id": "module.incidentbundles",
       "logical_path": "data/actors.ndjson",
       "versions": [
-        7
+        8
       ],
       "invariant_ids": [
         "actors.reference_complete",
@@ -701,21 +701,21 @@
       "owner_id": "module.reference_data",
       "logical_path": "data/reference_pack_refs.json",
       "versions": [
-        7
+        8
       ],
       "invariant_ids": [
         "reference_pack_refs.exact_shape",
         "reference_pack_refs.identity_exact",
         "reference_pack_refs.degradation_bounded"
       ],
-      "schema_id": "reference_pack_refs.v2"
+      "schema_id": "reference_pack_refs.v3"
     },
     {
       "family_id": "extension_payload",
       "owner_id": "module.extensions",
       "logical_path": "ext/**",
       "versions": [
-        7
+        8
       ],
       "invariant_ids": [
         "extension_payload.participant_admitted",
@@ -729,7 +729,7 @@
       "owner_id": "module.imports",
       "logical_path": "sources/sha256/**",
       "versions": [
-        7
+        8
       ],
       "invariant_ids": [
         "committed_sources.blob_exact"

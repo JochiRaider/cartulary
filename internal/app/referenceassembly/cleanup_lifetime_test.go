@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
@@ -82,7 +83,7 @@ func TestImportProbeSupervisedRootedCleanup_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, mode := range []string{"success", "cancellation", "deadline", "write failure", "cancellation waiting for lease"} {
-		t.Run(mode, func(t *testing.T) {
+		run := func(t *testing.T) {
 			temporary := t.TempDir()
 			root, err := referenceassembly.NewRootStorage(temporary, t.TempDir())
 			if err != nil {
@@ -92,6 +93,7 @@ func TestImportProbeSupervisedRootedCleanup_Unit(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			storage := interruptedStorage{ArtifactStorage: root}
+			wrote := false
 			switch mode {
 			case "cancellation":
 				storage.write = cancel
@@ -99,7 +101,7 @@ func TestImportProbeSupervisedRootedCleanup_Unit(t *testing.T) {
 				var deadlineCancel context.CancelFunc
 				ctx, deadlineCancel = context.WithTimeout(ctx, 40*time.Millisecond)
 				defer deadlineCancel()
-				storage.write = func() { <-ctx.Done() }
+				storage.write = func() { wrote = true; <-ctx.Done() }
 			case "cancellation waiting for lease":
 				leaseRoot, err := rootedfs.Open(temporary)
 				if err != nil {
@@ -126,6 +128,9 @@ func TestImportProbeSupervisedRootedCleanup_Unit(t *testing.T) {
 				t.Fatal(err)
 			}
 			pending, err := application.PrepareImport(ctx, bytes.NewReader(container))
+			if mode == "deadline" && (!wrote || !errors.Is(ctx.Err(), context.DeadlineExceeded)) {
+				t.Fatal("deadline must interrupt an existing workspace after a write", wrote, ctx.Err())
+			}
 			if mode == "success" {
 				if err != nil {
 					t.Fatal(err)
@@ -139,6 +144,15 @@ func TestImportProbeSupervisedRootedCleanup_Unit(t *testing.T) {
 			entries, err := os.ReadDir(filepath.Join(temporary, "reference-packs", "verification"))
 			if err != nil || len(entries) != 0 {
 				t.Fatal("operation returned with scratch", entries, err)
+			}
+		}
+		t.Run(mode, func(t *testing.T) {
+			if mode == "deadline" {
+				// Advance the deadline only after the write hook blocks. Host
+				// scheduling during filesystem setup cannot skip cleanup coverage.
+				synctest.Test(t, run)
+			} else {
+				run(t)
 			}
 		})
 	}

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 type contentFixture struct {
@@ -52,12 +52,11 @@ func (rows *contentRows) Append(_ context.Context, row ContentRow) error {
 	return nil
 }
 func fixtureManifest(f contentFixture) Manifest {
-	m := Manifest{Key: f.Key, ProfileID: profiles[f.Key].ID, Artifacts: []SourceArtifact{{Ref: "fixture"}}}
-	if f.Key == "framework.veris" {
-		m.SourceVersion = "fixture-v2"
-		m.Artifacts[0].Ref = "https://example.test/verisc-merged.json"
-	}
+	m := Manifest{Key: f.Key, ProfileID: profiles[f.Key].ID, ProfileVersion: profiles[f.Key].Version, Artifacts: []SourceArtifact{{Ref: "fixture"}}}
 	m.Summary.Kind = profiles[f.Key].Shape
+	if m.Summary.Kind == "dataset" {
+		m.Summary.Kind = "objects_relationships"
+	}
 	for path, value := range f.Members {
 		n := int64(strings.Count(value, "\n"))
 		switch path {
@@ -205,40 +204,6 @@ func TestContentRejectsMalformedStreamsAndSemanticAmbiguity_Unit(t *testing.T) {
 	}
 }
 
-func TestWindowsEventIdentityAndLookupBoundaries_Unit(t *testing.T) {
-	provider := strings.Repeat("p", 250) + ":colon"
-	version := int64(255)
-	id := EventIdentity(provider, 65535, &version)
-	if len(id) != 266 {
-		t.Fatal("incorrect event bound")
-	}
-	got, event, v, ok := ParseEventIdentity(id)
-	if !ok || got != provider || event != 65535 || v == nil || *v != 255 {
-		t.Fatal("event identity did not round-trip")
-	}
-	nullID := EventIdentity(provider, 65535, nil)
-	_, _, v, ok = ParseEventIdentity(nullID)
-	if !ok || v != nil || nullID == id {
-		t.Fatal("null-version identity collision")
-	}
-	for _, bad := range []string{provider + ":065535:*", provider + ":65536:*", provider + ":1:256", provider + ":1:", strings.ToUpper(id)} {
-		if _, _, _, ok := ParseEventIdentity(bad); ok {
-			t.Fatal("invalid event identity")
-		}
-	}
-	for _, input := range []string{`{"provider_name":"Example:Provider","event_id":65535}`, `{"provider_name":"Example:Provider","event_id":65535,"event_version":255}`} {
-		value, _ := canonicaljson.DecodeStrict([]byte(input))
-		query, err := NormalizeLookup("enrichment.windows_event_ids", "provider_event_id", value)
-		if err != nil || !strings.HasPrefix(query.Value, "example:provider\x0065535") {
-			t.Fatalf("event lookup: %#v %v", query, err)
-		}
-	}
-	value, _ := canonicaljson.DecodeStrict([]byte(`{"provider_name":"Example","event_id":1,"event_version":null}`))
-	if _, err := NormalizeLookup("enrichment.windows_event_ids", "provider_event_id", value); err == nil {
-		t.Fatal("explicit null version admitted")
-	}
-}
-
 func TestWindowsSIDIdentityBoundaries_Unit(t *testing.T) {
 	sid := "S-1-281474976710655" + strings.Repeat("-4294967295", 15)
 	if len(sid) != 184 || !ValidSID(sid) {
@@ -301,26 +266,12 @@ func TestIndicatorRegistryProfileContent_Unit(t *testing.T) {
 	testCanonicalProfileBytes(t, contentFixtureFor(t, "type_registry.indicator"))
 }
 
-func TestATTACKProfileContent_Unit(t *testing.T) {
-	testCanonicalProfileContent(t, contentFixtureFor(t, "framework.attack"))
-	testProfileSchemaClosure(t, contentFixtureFor(t, "framework.attack"))
-	testNestedContentAdmission(t, contentFixtureFor(t, "framework.attack"))
-	testCanonicalProfileBytes(t, contentFixtureFor(t, "framework.attack"))
-	testFrameworkExternalLookupKeys(t, contentFixtureFor(t, "framework.attack"))
-}
-
 func TestD3FENDProfileContent_Unit(t *testing.T) {
 	testCanonicalProfileContent(t, contentFixtureFor(t, "framework.d3fend"))
 	testProfileSchemaClosure(t, contentFixtureFor(t, "framework.d3fend"))
 	testNestedContentAdmission(t, contentFixtureFor(t, "framework.d3fend"))
 	testCanonicalProfileBytes(t, contentFixtureFor(t, "framework.d3fend"))
 	testFrameworkExternalLookupKeys(t, contentFixtureFor(t, "framework.d3fend"))
-}
-
-func TestVERISProfileContent_Unit(t *testing.T) {
-	testCanonicalProfileContent(t, contentFixtureFor(t, "framework.veris"))
-	testProfileSchemaClosure(t, contentFixtureFor(t, "framework.veris"))
-	testCanonicalProfileBytes(t, contentFixtureFor(t, "framework.veris"))
 }
 
 func TestTORProfileContent_Unit(t *testing.T) {
@@ -342,62 +293,6 @@ func TestMSPortalsProfileContent_Unit(t *testing.T) {
 	testProfileSchemaClosure(t, contentFixtureFor(t, "enrichment.ms_portals"))
 	testNestedContentAdmission(t, contentFixtureFor(t, "enrichment.ms_portals"))
 	testCanonicalProfileBytes(t, contentFixtureFor(t, "enrichment.ms_portals"))
-}
-
-func TestWindowsEventIDsProfileContent_Unit(t *testing.T) {
-	testCanonicalProfileContent(t, contentFixtureFor(t, "enrichment.windows_event_ids"))
-	testProfileSchemaClosure(t, contentFixtureFor(t, "enrichment.windows_event_ids"))
-	testNestedContentAdmission(t, contentFixtureFor(t, "enrichment.windows_event_ids"))
-	testCanonicalProfileBytes(t, contentFixtureFor(t, "enrichment.windows_event_ids"))
-	t.Run("rich text has no trailing paragraphs", func(t *testing.T) {
-		f := contentFixtureFor(t, "enrichment.windows_event_ids")
-		lines := strings.Split(strings.TrimSuffix(f.Members["payload/entries.ndjson"], "\n"), "\n")
-		var row map[string]any
-		if e := json.Unmarshal([]byte(lines[0]), &row); e != nil {
-			t.Fatal(e)
-		}
-		for _, text := range []string{"  %1\n\n  %2", "  %1\n\n  %2\n\n"} {
-			row["documentation"] = []any{map[string]any{"kind": "message_template", "scope": "event_version", "source_refs": row["source_refs"], "content": map[string]any{"text": text}}}
-			b, e := canonicaljson.Marshal(row)
-			if e != nil {
-				t.Fatal(e)
-			}
-			lines[0] = string(b)
-			f.Members["payload/entries.ndjson"] = strings.Join(lines, "\n") + "\n"
-			e = ValidateContent(t.Context(), fixtureManifest(f), contentMemory(f.Members), nil)
-			if (e == nil) != !strings.HasSuffix(text, "\n") {
-				t.Fatal("trailing paragraph admission", e)
-			}
-		}
-	})
-	t.Run("v1 is not an admission path", func(t *testing.T) {
-		f := contentFixtureFor(t, "enrichment.windows_event_ids")
-		f.Members["payload/entries.ndjson"] = strings.ReplaceAll(f.Members["payload/entries.ndjson"], "windows_event_ids.entry.v2", "windows_event_ids.entry.v1")
-		if e := ValidateContent(t.Context(), fixtureManifest(f), contentMemory(f.Members), nil); e == nil {
-			t.Fatal("predecessor entry accepted")
-		}
-		members := []SetMember{}
-		for _, key := range []string{"type_registry.host", "type_registry.evidence", "type_registry.indicator", f.Key} {
-			p := profiles[key]
-			members = append(members, SetMember{Key: key, Version: "synthetic", ManifestSHA256: strings.Repeat("0", 64), PayloadSHA256: strings.Repeat("1", 64), Contract: ContractID, ProfileID: p.ID, ProfileVersion: p.Version})
-		}
-		if _, e := BuildSet(members); e != nil {
-			t.Fatal("current set rejected", e)
-		}
-		members[3].ProfileID = "cartulary.reference_pack.enrichment.windows_event_ids.v1"
-		members[3].ProfileVersion = "1"
-		if _, e := BuildSet(members); e == nil {
-			t.Fatal("predecessor set admitted")
-		}
-	})
-}
-
-func TestEntraAppIDsProfileContent_Unit(t *testing.T) {
-	t.Run("synthetic SPN and cutover boundaries", testEntraBoundaries)
-	testCanonicalProfileContent(t, contentFixtureFor(t, "enrichment.entra_app_ids"))
-	testProfileSchemaClosure(t, contentFixtureFor(t, "enrichment.entra_app_ids"))
-	testNestedContentAdmission(t, contentFixtureFor(t, "enrichment.entra_app_ids"))
-	testCanonicalProfileBytes(t, contentFixtureFor(t, "enrichment.entra_app_ids"))
 }
 
 func TestLOLBASProfileContent_Unit(t *testing.T) {

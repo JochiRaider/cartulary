@@ -26,8 +26,8 @@ func committedSourceDescriptor() sourceport.Descriptor {
 		FamilyID: "committed_sources", ContractMajor: sourceport.ContractMajor, OwnerID: "module.imports",
 		OwnerRelationIDs: []string{"committed-import-sources"}, Dependencies: []string{"incident", "records"},
 		Paths: []sourceport.Path{
-			{LogicalPath: committedSourcesPath, ContentRole: "source_rows", SchemaID: "cartulary.imports.committed_source.v1", Versions: []int{7}, StableIdentity: []string{"committed_source_id"}, StableIdentityInvariantID: "committed_sources.source_identity_admitted"},
-			{LogicalPath: committedSourceRecordsPath, ContentRole: "source_rows", SchemaID: "cartulary.imports.committed_source_record.v1", Versions: []int{7}, StableIdentity: []string{"committed_source_id", "source_row_ref"}, StableIdentityInvariantID: "committed_sources.source_identity_admitted"},
+			{LogicalPath: committedSourcesPath, ContentRole: "source_rows", SchemaID: "cartulary.imports.committed_source.v1", Versions: []int{8}, StableIdentity: []string{"committed_source_id"}, StableIdentityInvariantID: "committed_sources.source_identity_admitted"},
+			{LogicalPath: committedSourceRecordsPath, ContentRole: "source_rows", SchemaID: "cartulary.imports.committed_source_record.v1", Versions: []int{8}, StableIdentity: []string{"committed_source_id", "source_row_ref"}, StableIdentityInvariantID: "committed_sources.source_identity_admitted"},
 		},
 		InvariantIDs: []string{"committed_sources.source_identity_admitted", "committed_sources.metadata_exact", "committed_sources.mapping_exact", "committed_sources.blob_exact", "committed_sources.attribution_exact", "committed_sources.record_binding_exact"},
 	}
@@ -207,7 +207,7 @@ type PreparedCommittedSources struct {
 
 func PrepareCommittedSources(ctx context.Context, members incidentportability.MemberReader, incidentID uuid.UUID, actors sourceport.ActorCatalog) (*PreparedCommittedSources, error) {
 	descriptor := committedSourceDescriptor()
-	sourceRows, err := sourceport.PrepareMembers(ctx, descriptor, members, 7)
+	sourceRows, err := sourceport.PrepareMembers(ctx, descriptor, members, 8)
 	if err != nil {
 		return nil, err
 	}

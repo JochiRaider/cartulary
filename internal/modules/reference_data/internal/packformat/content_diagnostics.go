@@ -8,12 +8,20 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/dataset"
 )
 
 // ContentSemanticsFindings visits every admitted row even after a semantic
 // failure. It emits no source values and never starts index construction.
 func ContentSemanticsFindings(ctx context.Context, m Manifest, source ContentSource, emit FindingSink) error {
+	if m.ProfileID == dataset.ProfileID {
+		expected, err := datasetExpected(m)
+		if err != nil {
+			return err
+		}
+		return datasetError(dataset.SemanticsFindings(ctx, source, expected, datasetFindings(emit)))
+	}
 	if emit == nil {
 		return errors.New("reference pack: missing semantic findings sink")
 	}
@@ -31,6 +39,13 @@ func RegistryCompatibilityFindings(ctx context.Context, m Manifest, source Conte
 }
 
 func ContentSchemaFindings(ctx context.Context, m Manifest, source ContentSource, emit FindingSink) error {
+	if m.ProfileID == dataset.ProfileID {
+		expected, err := datasetExpected(m)
+		if err != nil {
+			return err
+		}
+		return datasetError(dataset.StructureFindings(ctx, source, expected, datasetFindings(emit)))
+	}
 	if source == nil || emit == nil {
 		return errors.New("reference pack: incomplete content schema check")
 	}
@@ -115,7 +130,7 @@ func enumerateContentRows(ctx context.Context, source io.Reader, shape *shape, p
 					name = "object_id"
 				}
 				if id, ok := object[name].(string); ok && len(id) <= 512 && singleLine(id, 512) {
-					if rule := shape.properties[name]; rule != nil && rule.matches(id) {
+					if rule := shape.property(name); rule != nil && rule.matches(id) {
 						entryID = &id
 					}
 				}

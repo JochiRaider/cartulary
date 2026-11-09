@@ -14,11 +14,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/producer"
 	referencetest "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/referencepackfixture"
 )
 
 func TestVERISRealReleaseImport_Integration(t *testing.T) { runVERISLifecycle(t, true) }
@@ -30,13 +30,17 @@ func runVERISLifecycle(t *testing.T, realRelease bool) {
 	}
 	ctx := context.Background()
 	now := time.Now().UTC()
-	keys, err := producer.NewVERISFixtureSigningContext()
-	if err != nil {
-		t.Fatal(err)
-	}
-	a := referencetest.VERISFixture(t, "fixture-a", now, keys, 1)
+	var err error
+	var keys *referencepackfixture.SigningContext
+	var a referencetest.ProducedVERISPack
 	if realRelease {
 		a = referencetest.VERISRelease(t, "../../..")
+	} else {
+		keys, err = referencepackfixture.NewSigningContext("fixture.veris.dataset.v1", "framework.veris")
+		if err != nil {
+			t.Fatal(err)
+		}
+		a = referencetest.VERISFixture(t, "fixture-a", now, keys, 1)
 	}
 	bootstrap := filepath.Join(t.TempDir(), "bootstrap.json")
 	if err = os.WriteFile(bootstrap, a.Bootstrap, 0600); err != nil {
@@ -74,6 +78,15 @@ func runVERISLifecycle(t *testing.T, realRelease bool) {
 		httptestx.RequireSuccessEnvelope(t, postAction(t, harness, admin, "/api/v1/reference-packs/"+f.Key+"/"+f.Version+"/activate", txn, ""), http.StatusOK)
 	}
 	upload(a, "veris-import-a")
+	if realRelease {
+		for kind, want := range map[string]int{"object": 2491, "relationship": 2533} {
+			if got := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_indexes i
+                JOIN reference_pack_candidates c ON c.current_index_id=i.index_id
+                WHERE c.pack_key=$1 AND c.pack_version=$2 AND i.entry_kind=$3`, a.Key, a.Version, kind); got != want {
+				t.Fatalf("retained %s count=%d, want %d", kind, got, want)
+			}
+		}
+	}
 	if staged := consumer.ResolveCurrentPackSet(ctx); staged.Error != nil || staged.Value.ID != before.Value.ID {
 		t.Fatal("staging changed activation")
 	}
@@ -119,9 +132,11 @@ func runVERISLifecycle(t *testing.T, realRelease bool) {
 			continue
 		}
 		var row struct {
-			ID      string   `json:"object_id"`
-			Label   string   `json:"display_label"`
-			Aliases []string `json:"aliases"`
+			ID      string `json:"object_id"`
+			Label   string `json:"display_label"`
+			Lookups struct {
+				Aliases []string `json:"alias"`
+			} `json:"lookup_values"`
 		}
 		if err = json.Unmarshal([]byte(line), &row); err != nil {
 			t.Fatal(err)
@@ -132,10 +147,10 @@ func runVERISLifecycle(t *testing.T, realRelease bool) {
 			t.Fatal("canonical entry/provenance", row.ID, entry.Error)
 		}
 		lookup("object_id", row.ID, []string{row.ID})
-		for _, alias := range row.Aliases {
+		for _, alias := range row.Lookups.Aliases {
 			lookup("alias", strings.ToUpper(alias), []string{row.ID})
 		}
-		if len(row.Aliases) == 0 {
+		if len(row.Lookups.Aliases) == 0 {
 			lookup("alias", row.Label, []string{})
 		}
 	}

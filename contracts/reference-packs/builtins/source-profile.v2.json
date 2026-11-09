@@ -1,0 +1,13 @@
+{
+  "built_at": "2026-11-08T17:30:00Z",
+  "input_authority": "Cartulary Base registry vocabulary and indicator_algorithms.v1",
+  "license_expression": "Apache-2.0",
+  "schema_id": "cartulary.reference_pack_source_profile.v1",
+  "selection": "host/evidence unknown fallback and all nine required indicator types",
+  "source_kind": "project_owned",
+  "source_profile_id": "cartulary.base_registries.source.v2",
+  "source_version": "2",
+  "transformation": "Preserve canonical registry payloads and algorithms; rebind manifests to pack contract v3.",
+  "pack_contract_version": "cartulary.reference_pack_contract.v3",
+  "predecessor_profile_sha256": "243087a41dfefd3ad706b756f44f4cdc96e66554edb2aff568e6823b090645e2"
+}

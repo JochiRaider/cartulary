@@ -1,7 +1,7 @@
 package packformat
 
 import (
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 	"testing"
 )
 

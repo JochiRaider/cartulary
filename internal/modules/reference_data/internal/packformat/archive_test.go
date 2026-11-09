@@ -9,10 +9,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 	"hash/crc32"
 	"io"
-	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -186,10 +185,7 @@ func TestArchiveRatioUsesCompleteContainerOnceAndHandlesOverflow_Unit(t *testing
 	if !errors.As(err, &failure) || failure.Code != "archive_compression_ratio_exceeded" {
 		t.Fatalf("ratio denominator was multiplied per member: %v", err)
 	}
-	admission := archiveAdmission{limits: ArchiveLimits{Members: 1, ExtractedBytes: math.MaxInt64, CompressionRatio: 1000}, sourceBytes: math.MaxInt64, compressed: true, members: Inventory{}}
-	if err := admission.reserve(268435456); err != nil {
-		t.Fatalf("overflow-safe guard rejected within-bound input: %v", err)
-	}
+
 }
 
 func container(t *testing.T, kind string, names []string, payload []byte) []byte {

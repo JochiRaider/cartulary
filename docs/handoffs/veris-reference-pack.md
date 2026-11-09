@@ -474,3 +474,13 @@ and pinned content or fail through the existing owner behavior.
 For fixture selection, retain old immutable release trees and change only the
 descriptor after qualifying the selected release and its unexpired envelope.
 Do not delete signing ledgers or regenerate publisher keys as a rollback step.
+
+## Remediation closure follow-up — 2026-11-08
+
+The [RC closure section](reference_data-module-refactor-tracker.md#rc--remediation-closure-2026-11-08)
+records the corrected authority and resource rules, Linux filesystem-isolation
+prerequisites, final producer pins and scoped application qualification. Assembly
+now retains research under the explicit output root, leaving its pinned source
+corpus read-only. Existing signed release descriptors, notices, distribution
+decisions and signing custody remain unchanged. The new unsigned corpus outputs
+are qualification candidates, not replacement releases.

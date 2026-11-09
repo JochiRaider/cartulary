@@ -5074,7 +5074,7 @@ and approved release bytes remain immutable after source import, rename,
 refresh, retirement or soft deletion. Historical graph retention does not make
 retired declarations eligible for new admissions.
 
-Current bundle version 7, adopted by the 2026-11-06 remediation amendment,
+Current bundle version 8, adopted by the generic Reference Pack cutover,
 transfers permitted retained Reporting inputs and explicitly
 selected artifacts under the existing disclosure policy. Sensitive reveal maps
 remain excluded. Imported incident publication includes admitted Reporting
@@ -5084,6 +5084,6 @@ refresh intent, source jobs, live credentials and deployment-local correlation
 keys. Recovery continues to use its own authoritative inventory and lifecycle.
 
 
-## Native Reference Pack binding amendment — 2026-11-06
+## Generic Reference Pack binding amendment — 2026-11-08
 
-The adopted Reference Pack 0.3.0 / major 3 cutover binds current immutable pack sets under pack-contract v2. Existing snapshot binding shapes retain exact set IDs, digests and first-success provenance. Incompatible retained inputs fail before mutation or readiness and are never rebound to current state. No relationship retrieval operation, direct Reference Data storage access or new graph pivot is admitted by this amendment.
+The adopted Reference Pack 0.5.0 / major 4 cutover binds current immutable pack sets v3 under pack-contract v3. Generic object/result and descriptor consumption follows Reference Pack; source-specific factual assurance belongs to its producers. Existing snapshot binding shapes retain exact set IDs, digests and first-success provenance. Incompatible retained inputs fail before mutation or readiness and are never rebound to current state. No relationship retrieval operation, direct Reference Data storage access or new graph pivot is admitted by this amendment.

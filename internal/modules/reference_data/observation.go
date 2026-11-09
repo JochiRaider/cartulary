@@ -95,3 +95,10 @@ func consumerOutcome(err *ConsumerError) string {
 	}
 	return referenceOutcome(err)
 }
+
+func (c *observedConsumer) GetPackDescriptor(ctx context.Context, request GetPackDescriptorRequest) ConsumerResult[PackDescriptor] {
+	ctx, end := observeReferenceOperation(ctx, c.observer, "reference_pack.lookup")
+	result := c.Consumer.GetPackDescriptor(ctx, request)
+	end(consumerOutcome(result.Error))
+	return result
+}

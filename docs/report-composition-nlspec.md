@@ -9,7 +9,7 @@ schema_id: cartulary.report_composition_nlspec.v1
 
 # 1. Status, Scope, And Authority
 
-The native Reference Pack cutover binds preview admission and replay to Reference Pack subsystem major 3, pack contract v2, and immutable pack-set v2. The existing preview identity and Reporting owner interfaces remain unchanged. Incompatible retained bindings fail before mutation or readiness; no current-set substitution or legacy conversion is permitted.
+The generic Reference Pack cutover binds preview admission and replay to Reference Pack subsystem major 4, pack contract v3, and immutable pack-set v3. The existing preview identity and Reporting owner interfaces remain unchanged. Incompatible retained bindings fail before mutation or readiness; no current-set substitution or legacy conversion is permitted.
 
 Version 1.3.1 additionally declares the selected preview Job terminal-success contract in REQ-RC-035a under Core 00 §1.7.
 

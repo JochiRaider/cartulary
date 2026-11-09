@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 var preparedShape = compileProjection("prepared.v1.schema.json")

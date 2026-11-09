@@ -2,15 +2,19 @@
 
 ## 1. Scope and Source Posture
 
-This is the controlling tracker for Reference Data refactoring. The user explicitly authorized implementation of I8's F-33/34 remediation through S-37–40 on 2026-11-08. S-37–40 are DONE and F-33/F-34 are closed by E-I8-S40; sequential execution checkpoints and final qualification are recorded in §22. I6 / S-28–32 and I7 / S-33–36 remain historical completions on §§20–21's evidence; their passes are not current I8 qualification. Execution is sequential, with each completion checkpoint recorded before its successor starts.
+Current invocation: user-authorized remediation of the final LC review, 2026-11-09. **LC-F4 and LC-F5 are RESOLVED; LC-R1–LC-R5 are DONE for scoped engineering acceptance. Human specification projection-fidelity review remains PENDING, as confirmed by the user.** The [review remediation checkpoints](#lc-review-remediation-checkpoints) and final LC-R5 handoff supersede earlier unconditional closure claims. The complete-owner audit accepts all 101 required rows on final executable source `sha256:4e1cb8113d7b0f36e9d96ea95c9610d67a28bb2807c922f39fd68fab722b7f1f`. Earlier LC-P0–P5 and superseded review-freeze results remain historical evidence. Incoming staged work and immutable releases remain preserved. Earlier document-only authorization statements describe their historical invocations, not this implementation request.
+
+RI-P0 through RI-P6 and RC-WS1 through RC-WS7 remain historical completions on their recorded source and scoped evidence. The MITRE-license decision remains closed and the four production artifacts remain delivered. RC's 130-row portfolio is not complete-owner acceptance or qualification of subsequently changed source. LC does not reopen that licensing decision or rewrite earlier releases, provenance or validation records.
+
+This is the controlling tracker for Reference Data refactoring. Historical I8: the user explicitly authorized implementation of I8's F-33/34 remediation through S-37–40 on 2026-11-08. S-37–40 are DONE and F-33/F-34 are closed by E-I8-S40; sequential execution checkpoints and final qualification are recorded in §22. I6 / S-28–32 and I7 / S-33–36 remain historical completions on §§20–21's evidence; their passes are not current I8 qualification. Execution is sequential, with each completion checkpoint recorded before its successor starts.
 
 - Supplied output and admitted artifact: `/home/jochi/code/cartulary/docs/handoffs/reference_data-module-refactor-tracker.md`; permitted location `docs/handoffs`; no replacement tracker.
 - Target established from this tracker's existing identity: `internal/modules/reference_data`, a directory under canonical repository root `/home/jochi/code/cartulary`; normalized label `reference-data`. Preserve the established underscore filename.
-- Artifact mode: `normal` for the completed bounded I8 remediation. Completion does not mean an exhaustive subsystem correctness/dead-code audit or whole-subsystem production-readiness certification. Section 22 controls current decisions, evidence and acceptance limits.
+- Artifact mode: `normal` for the bounded LC plan; inspection depth and future characterization gates are explicit in the LC inventory. Planning completeness does not mean an exhaustive subsystem correctness/dead-code audit or production-readiness certification. Sections 22, 23 and RC retain their historical decisions, evidence and acceptance limits; LC controls current planning.
 - Planning baseline I8-00: clean `main`, HEAD `e2291271a502033b85c5e2d6aace2609bc8c8210`. Target/output and parent components are not symlinks; the output is a single-link regular file with the expected canonical target identity. E-I8-01 records the content/identity baseline and final comparison locations.
-- Current scope: implement F-33/34 through S-37–40 and V-46–48, with tracker updates at each exit; preserve current release bytes, immutable historical artifacts, producer fixture signing, public HTTP/storage formats and Base readiness. The user chose retirement of the one-shot Base reissue command; a general release builder is deferred until a concrete release requires it. Source acquisition, schema/data migration, deployment and release certification remain outside scope. V-49 belongs to the completed planning-document invocation.
+- Historical I8 scope: implement F-33/34 through S-37–40 and V-46–48, with tracker updates at each exit; preserve current release bytes, immutable historical artifacts, producer fixture signing, public HTTP/storage formats and Base readiness. The user chose retirement of the one-shot Base reissue command; a general release builder is deferred until a concrete release requires it. Source acquisition, schema/data migration, deployment and release certification remain outside scope. V-49 belongs to the completed planning-document invocation.
 - Historical S-24–27 completed fatal-finalization remediation (§19); F-21/F-24/F-25 remain closed on that evidence, with F-22/F-23 also closed. S-23's premature closure remains superseded. Earlier execution permissions and test passes are historical, not authorization or qualification for this iteration.
-- Framework `docs/handoffs/cartulary_modular_refactor_planning_framework.md` and the tracker format continue to guide evidence and handoff. The previous planning invocation's tracker-only write boundary remains historical; the user's current explicit implementation request authorizes the named production, tooling and test changes. Test execution follows the test-operations skill.
+- Framework `docs/handoffs/cartulary_modular_refactor_planning_framework.md` and the refactor-tracker format guided the historical planning update, whose write boundary was this tracker only. The later user-authorized LC implementation and product qualification are recorded in the execution amendment.
 
 Implementation baseline I8-03: `main` at `e2291271a502033b85c5e2d6aace2609bc8c8210`, with only this tracker already modified. `/tmp/reference-i8-implementation-xt30lmqv/baseline.json` records content/identity for all 8,942 tracked/nonignored files, the index and 497 immutable Base/producer/fixture artifacts. `tracker-before.md`, `preexisting.diff` and `index-entries.txt` preserve the incoming edits and staged state. The incoming tracker SHA-256 is `2ce9d34c7433dbdea6dbf29ebd31178d85f7bcaff9e21ecaf547c30bc9ee3c5e`. Ignored build/cache/results outputs are managed execution outputs, not part of the immutable preservation claim. The following table retains the earlier document-session baseline.
 
@@ -62,6 +66,12 @@ Authority order is: adopted subsystem NLSpecs for their named subsystem; Core 00
 Skills used as execution guidance: `/mnt/c/Users/jochi/.codex/skills/refactor-tracker/SKILL.md` and its tracker-format reference; `.agents/skills/cartulary-test-ops/SKILL.md` and command recipes. Historical table layouts and IDs are retained; current planning additions follow the skill's evidence and readiness requirements. No external browsing was needed for repository inspection.
 
 ## 2. Current-State Repository Inventory
+
+The RI implementation supersedes the I8 layout below: source producers now live
+in four independent `referencepacks/` modules, the neutral format is a fifth
+module, and the application retains generic consumption and lifecycle ownership.
+Sections 23 and RC record the adopted contracts, artifact selections and prior qualification; LC records the current inventory and future cleanup gates.
+The following enumerations remain historical snapshots of their named slices.
 
 ### I8 enumeration and bounded inspection
 
@@ -403,6 +413,8 @@ Caller/test cells marked `lexical` are conservative identifier/import cross-refe
 
 ## 3. Module Boundary Diagnosis
 
+LC retains the runtime/neutral-library/producer boundary. Its current responsibility decisions and intentional no-action findings are in the LC contract and finding tables; the earlier diagnoses below retain their original scope.
+
 I8 keeps the existing runtime/private-format/offline-producer boundaries. Split obsolete Base cutover execution from maintained producer responsibilities by retiring it, not by moving it into a compatibility package. Keep current release loading and all owner-required Base verification. Simplify the owner-local rejection fixture without creating another fixture framework. A future general Base builder is deferred; no new public facade, package subdivision or platform abstraction is justified by this slice. E-I8-02–04 support F-33/34 and C-13/15/18/19.
 
 Historical I6 diagnosis follows:
@@ -430,6 +442,8 @@ This is an architectural finding, not a decision to preserve every file forever.
 | Generic rows, queries, saved views, view schemas, links, timeline, collaboration and grid vendor | Not implemented by the target; limited downstream effects through registry assignments/Jobs/portability | Existing source owners, workbook/projections, collaboration and grid adapter | defer | O-01 scope exclusions; E-05/06/07; C-21 | No direct target-owned implementation found to move. Do not infer ownership from framework examples or similar labels. Reopen only if a later slice traces an actual affected contract. |
 
 ## 4. Public Contract and Behavior Freeze Map
+
+LC-C1 through LC-C4 define the current freeze. No new public API, profile retirement, compatibility reader, state conversion or recovery format is proposed. Earlier contract rows remain historical evidence and do not reinstate predecessor formats.
 
 I8 preserves runtime contracts and implements one separately authorized offline behavior removal in S-38. NLSpec §1 (adopted/current 0.4.0, major 3) excludes compatibility readers and implicit conversion; RP-REQ-059/060 require release-bound Base verification. These clauses do not require the one-shot producer command. Removing it is the user's selected maintenance direction, not a claim that its offline existence violates the owner.
 
@@ -482,6 +496,8 @@ All nine operations below are bound by `RegisterRoutes` through generated operat
 | C-22: claimed-family authorization ordering and denial side effects | Core 01/04; Reference Data transport and application routing | `http_adapter.go:164,208`; `httpapi.go:185–225`; `operation_catalog.go:126–134`; O-03 REQ-01-480 | Upload-admin test checks a valid import; singleton pagination test uses authorized caller; shared unclaimed-family test | S-01/02: unauthenticated, ordinary authenticated and admin callers × claimed/unclaimed profile × malformed query/path, unsupported method, unknown descendant and normal nine operations. Assert no Job, receipt or pack mutation on denial. | high | Static mismatch: singleton query validation precedes auth; generated method routing/unknown paths can terminate before handler auth. No runtime reproduction run. This is implementation-versus-owner drift, not an owner contradiction. |
 
 ## 5. Coupling and Boundary Findings
+
+LC-F1 through LC-F6 are the current bounded cleanup findings. Earlier closed findings below remain closed on their recorded evidence; LC does not infer dead code from a filename, old version suffix or prior completion claim.
 
 Current I8 findings are F-33/34. Their removal/simplification is implemented and qualified by E-I8-S38/39/40; both findings are closed. The table retains each finding's baseline diagnosis and required acceptance:
 
@@ -538,6 +554,8 @@ F-02/03/05–09/11/13 retain their evidence-backed owner boundaries and safeguar
 
 ## 6. Refactor Workstreams
 
+LC-W1 through LC-W5 are the next workstreams. The LC phase table is their authoritative dependency graph; the historical workflow tables below do not authorize current execution.
+
 The following is the sole authoritative I8 prerequisite graph. Implementation is explicitly authorized; record each exit checkpoint before its successor. No sub-agent or parallel execution is prescribed.
 
 | Workflow ID / name | Class | Authoritative prerequisites | Goal / likely files | Validation | Handoff checkpoint / binary exit |
@@ -574,6 +592,8 @@ Historical transport workstreams:
 
 ## 7. Proposed Refactor Slice Plan
 
+LC-P0 through LC-P5 are the next slices. LC-P0 is ready for inspection in a later authorized task; deletion and movement remain blocked on its caller/assertion characterization and the stated predecessor exits.
+
 Current I8 slices use §6's WF-I8 graph under the user's explicit implementation authorization. Readiness and work status are independent; current execution checkpoints are in §22.
 
 | Slice / kind | Findings / contracts | Intended change | Entry evidence / readiness now | Tests / validation | Rollback / migration | Binary completion / eventual evidence |
@@ -609,6 +629,8 @@ The following table is the historical transport implementation plan, retained fo
 I8 readiness is determined by its own predecessor exits, not historical DONE rows or earlier implementation permissions. A genuine primary-owner contradiction, if discovered, blocks only the affected decision; none is established for I8.
 
 ## 8. Validation Plan
+
+LC-V0 is this invocation's documentation check. LC-V1 through LC-V5 are future implementation obligations, including complete Reference Data owner acceptance and affected cross-owner coverage. Historical passes below do not satisfy those obligations on changed source.
 
 Current implementation obligations V-46–48 and their exact portfolio/results are in §22. Baseline, post-slice checks, finalization, final three-row portfolio, boundary/generated/schema checks and reproducible producer build pass. S-40 documentation and final preservation checks also pass. V-49 records historical planning-document validation. Scoped qualification does not claim whole-owner or production-release acceptance. All commands use repository root `/home/jochi/code/cartulary` and public Make entrypoints.
 
@@ -671,6 +693,18 @@ Additional-source command discovery inspected `tools/harness/diagnostics/owner-d
 
 ## 9. Top-Level Work Tracker
 
+| ID | Current LC work item | Status | Dependencies / trace | Exit condition |
+| --- | --- | --- | --- | --- |
+| LC-DOC | Adopt the bounded LC plan in this tracker | DONE | Approved document plan; LC-E0; LC-V0; final LC document checkpoint | Current summary reconciled; Markdown and preservation checks pass |
+| LC-P0 | Baseline and removal ledger | TODO | LC-F1–F6; current source revalidation | Caller/input/assertion map and immutable identities complete |
+| LC-P1 | Dead-code removal / LC-W1 | BLOCKED | LC-P0; LC-RB1 | Focused checks and affected independent module builds pass |
+| LC-P2 | Transitional-tool retirement / LC-W2–W3 | BLOCKED | LC-P0; LC-RB1 | Stable generation, preserved releases and current witnesses pass |
+| LC-P3 | Boundary qualification / LC-W4 | BLOCKED | LC-P1 and LC-P2; LC-RB2 | Affected generation/build closure and negative probes pass in isolation |
+| LC-P4 | Final qualification / LC-W5 | BLOCKED | LC-P3; LC-RB3 | Frozen-source portfolio and required owner evidence audit pass |
+| LC-P5 | Handoff and closure | BLOCKED | LC-P4 | Findings, evidence, operator guidance and remaining limits reconciled |
+
+The following work items are historical I8 and earlier completion records.
+
 | ID | Current work item / workflow | Status | Dependencies / trace | Exit condition |
 | --- | --- | --- | --- | --- |
 | T-034 | I8 document update | DONE | E-I8-01–06; user-approved document plan; V-49 | Reconciled tracker, Markdown/whitespace pass and tracker-only preservation; final transcription check recorded in §22 |
@@ -710,7 +744,9 @@ Historical T-001–009 completed initial planning; T-010/011/013/014 were supers
 
 ## 10. Session Handoff Log
 
-Current implementation session `reference-i8-implementation-xt30lmqv`, 2026-11-08 America/New_York: S-37–40 are DONE with sequential checkpoints; finalization, executable checks, documentation and preservation pass. F-33/F-34 are closed by E-I8-S40. §22 retains source identities, exact commands, native sessions, summaries and compatibility limits. The initial tracker edits are preserved; the only production change is offline Base-command retirement, accompanied by regression/fixture changes and witness admission removal. No frontend, runtime schema, authorization or lifecycle contract changed.
+Current document session `reference-lc-docs`, 2026-11-08 America/New_York: the approved LC plan is adopted into this tracker only. LC-E0 records the incoming dirty source/index and file identities; LC-V0 and the final LC checkpoint record passing documentation validation and tracker-only preservation. Future LC implementation and production-readiness acceptance remain unexecuted.
+
+Historical implementation session `reference-i8-implementation-xt30lmqv`, 2026-11-08 America/New_York: S-37–40 are DONE with sequential checkpoints; finalization, executable checks, documentation and preservation pass. F-33/F-34 are closed by E-I8-S40. §22 retains source identities, exact commands, native sessions, summaries and compatibility limits. The initial tracker edits are preserved; the only production change is offline Base-command retirement, accompanied by regression/fixture changes and witness admission removal. No frontend, runtime schema, authorization or lifecycle contract changed.
 
 Historical document session `reference-i8-docs`, 2026-11-08 America/New_York: the user approved implementation of the document-update plan only. E-I8-01–05 and §22 record revalidated source, scope, tests/harness discovery and remaining future gates. Scope/authority and backend changes are planning-only; frontend/rendered review is not applicable because no UI change is planned; contract/codegen changes are not planned; security/rejection guarantees are preserved. Only the tracker is touched. Final documentation/preservation results are recorded at the end of §22.
 
@@ -849,6 +885,8 @@ The shared router accepts a complete generated owner family and owner-supplied p
 
 ## 11. Open Questions and Blockers
 
+LC has no unresolved product-scope choice: retain adopted features and remove only proven obsolete paths. LC-RB1–3 below are future characterization, integration and qualification gates, not new licensing or deployment approval requests. LC-DOC completion does not resolve them. Historical blockers follow.
+
 I8 has no unresolved design/authority question. The user chose retirement rather than a new general builder and explicitly authorized implementation. E-I8-S37 resolves the characterization gate; E-I8-S38/39 satisfy the sequential implementation exits in §6:
 
 | ID | Question or blocker | Affected scope | Needed evidence | Status / resolution |
@@ -871,7 +909,9 @@ Historical blockers below remain closed for their original scopes; RB-001 is not
 
 ## 12. Binary Completion Criteria
 
-| Outcome | Current I8 statement |
+Current LC outcomes are separate: the bounded design is specified; LC-P0 is ready for later inspection while implementation slices await their entry gates; production readiness is unproven until LC-P4/P5. This invocation authorizes only the tracker update. LC-V0 and the final checkpoint establish document completion and preservation, not product acceptance. The following table preserves historical I8 acceptance.
+
+| Outcome | Historical I8 statement |
 | --- | --- |
 | Planning completeness | complete for the bounded F-33/34 retirement/simplification design; normal artifact, no pending required source inspection or owner decision; not an exhaustive audit or production-readiness certification |
 | Per-slice readiness | S-37–40 DONE; all predecessor gates and scoped acceptance criteria satisfied |
@@ -1896,3 +1936,2467 @@ Remaining S-40 gates: `make lint-markdown`, `git diff --check`, final content/in
 | Tracker integrity and handoff | Markdown/whitespace and content/index/historical-record comparison pass; current statuses, compatibility impact, exact evidence and excluded qualification scopes are reconciled |
 
 Final completion-transcription validation uses `CARTULARY_TEST_RUN_ID=reference-i8-docs-final-xt30lmqv make lint-markdown`, `git diff --check` and the same preservation comparison. Its owning summary is `/home/jochi/code/cartulary/.cartulary/test-results/reference-i8-docs-final-xt30lmqv/adhoc/lint-markdown/tool-run-summary.json`; exact native exit and final results are retained in `/tmp/reference-i8-implementation-xt30lmqv/completion-validation.json`, with final comparison in `preservation-final.json`. No repository edit follows the successful transcription check. No additional implementation work remains in the approved F-33/F-34 scope; a future general Base builder remains intentionally deferred until a concrete release needs it.
+
+## 23. Reference-pack independence and generic-format remediation
+
+### Authorization and baseline
+
+The user approved implementation of the complete six-gap plan on 2026-11-08.
+The starting checkout is clean `main` at
+`70ba53b47269d1733f1bdbbf310cfd4b94a7b455`. The adopted direction is one
+application-independent format module and four producer modules in this repository,
+a generic dataset profile, pack contract v3 / extension major 4, exact-set/catalog
+v3 and incident-bundle 8. Source-specific correctness moves to producers; runtime
+retains trust, structural safety, integrity, references, bounded indexing and
+lookup validation. Optional Entra SPNs remain supported with zero actual baseline
+coverage. No permanent predecessor reader, automatic conversion, deployment
+installation or hosted publication is authorized by this implementation scope.
+
+The initial ATT&CK licensing gate and blocked-release checkpoints below are historical. The user subsequently directed adoption of MITRE's issued license; the production release and gate-resolution checkpoint at the end of this section controls current distribution status.
+
+### Phase gates
+
+| ID | Work | Status | Dependency | Exit |
+| --- | --- | --- | --- | --- |
+| RI-P0 | Baseline, retained Windows import and assertion destinations | DONE | Authorized plan | Four corpus baselines, Windows real-artifact pass, boundary inventory |
+| RI-P1 | Coordinated owner amendments and typed contract freeze | DONE | RI-P0 | Generic contracts, safety limits and assurance boundary adopted |
+| RI-P2 | Standalone format library and four producers | DONE | RI-P1 | Isolated builds and both dependency-direction guards pass |
+| RI-P3 | Generic projections and production publication | DONE | RI-P2 | Four qualified candidates; explicit ATT&CK distribution disposition |
+| RI-P4 | Generic runtime and coordinated current-only cutover | DONE | RI-P2, RI-P3 | Lifecycle, consumer, Base, portability and recovery qualification |
+| RI-P5 | Exact signed-artifact qualification | DONE | RI-P3, RI-P4 | Four independent real-artifact scenarios plus security/extensibility portfolio |
+| RI-P6 | Cleanup and final handoff | DONE | RI-P5 | Legacy paths removed, final source qualified, per-pack handoffs complete |
+
+### Evidence and checkpoints
+
+- RI-E0: the initial source identity and clean status were inspected directly.
+  Immutable corpus/member fingerprints are retained in
+  `.cartulary/reference-packs/independence-v3/p0-artifact-baseline.json`.
+  This is an implementation preservation inventory, not a prose-derived product
+  contract or qualification result.
+- RI-E1: `make task-guide OWNER=module.reference_data` and `make help ALL=1`
+  discover the current Make surface. No previous audit is current qualification.
+- RI-P0 adds an independently selectable Windows retained-release import test.
+  It reads the exact published archive/bootstrap, validates their recorded hashes,
+  imports without re-signing, retrieves all 503 complete canonical definitions,
+  exercises provider/version/ambiguous/no-hit queries, and proves disablement
+  preserves historical reads. The synthetic lifecycle remains separately selected.
+
+### Finding and assertion destinations
+
+| Gap | Owning remediation | Required destination |
+| --- | --- | --- |
+| RI-R1 | Independent production and consumption | Module build closure, transitive import/embed/input guards, standalone vectors |
+| RI-R2 | Real ATT&CK publication | Explicit release authority, license decision, append-only ledger and exact-artifact import |
+| RI-R3 | Truthful optional SPN support | Descriptor zero coverage; real no-hit and synthetic positive/duplicate/case tests |
+| RI-R4 | Windows real-artifact coverage | `TestWindowsRealReleaseImport_Integration`, followed by its generic release successor |
+| RI-R5 | Generic extensibility | Generic safety tests, producer native semantics, fifth unknown-key dataset |
+| RI-R6 | Coherent owner and evidence boundary | Coordinated contracts and final source-bound handoff; no executable prose dependencies |
+
+Engineering and four-pack artifact delivery are complete on the scoped evidence below. RI-GATE-ATTACK was subsequently resolved through the user-directed MITRE license adoption and exact production publication/qualification recorded at the end of this section. Historical blocked statuses are not current-state claims.
+
+### RI-P0 completion — 2026-11-08
+
+`reference-independence-v3-p0-r1` passed with caching disabled, native exit 0,
+and all six selected rows passing. The exact row selection is recorded in its
+run manifest under `.cartulary/test-results/reference-independence-v3-p0-r1/`.
+It covers the new Windows retained-release import, VERIS and Entra real-release
+imports, authentic ATT&CK producer artifacts with fixture authority, optional-pack
+absence/failure and Base canonical consumers. All 15 cleanup operations completed;
+the retained-secret scan passed over 50 files. This is baseline characterization,
+not v3 qualification or production ATT&CK publication evidence. Source identity is
+commit `70ba53b47269d1733f1bdbbf310cfd4b94a7b455` plus dirty-source digest
+`sha256:d6d4a89659066e2645cd0aa3845c71d707cc7608f5b839da99885c4b60263345`.
+`make format` and `make generate` passed before that run; generation added the
+new test selection's topology projection.
+
+The preservation inventory records 543 files. The separate corpus inspection
+`p0-corpus-inventory.json` records ATT&CK 6,221 objects/34,632 relationships,
+VERIS 2,491/2,533, Windows 503 definitions and Entra 139 application identities,
+zero SPNs. The largest native row is 3,034,554 bytes and maximum native nesting is
+five. Final generic bytes, lookup counts and aggregate key bytes still require
+measurement before the new projections are qualified.
+
+### Assertion ownership inventory
+
+These are explicit transfer obligations; moving a source file alone does not close
+them. The listed suites remain active until destination qualification passes.
+
+| Existing assertions | Destination after cutover | Preservation or intentional change |
+| --- | --- | --- |
+| `attack_native_test`, `attack_source_contract_test`, native members of `attack_remediation_test` | ATT&CK producer native-model validation | Source shapes, native absence/ordering/lifecycle, display projection, citations, domains, embedded edge cardinality/direction, occurrence provenance, arrays and source bounds retained |
+| `veris_test` | VERIS producer native-model validation | Schema reconstruction, contextual identities, rules, semantic edges, provenance, cycle/source-keyword and native bound checks retained |
+| Windows semantic assertions in `content_test` and producer Windows suites | Windows producer | Stable provider/event/version identities, native scalar bounds, full documentation, source reconciliations and editorial dispositions retained; optional-version query replaced by two named composite lookups |
+| `entra_content_test` and producer Entra suites | Entra producer plus generic normalization vectors | 139 IDs/zero real SPNs, UUID/source correspondence, qualifiers/aliases, 64 SPNs and 1024-byte native bound, normalized shared-SPN rejection retained |
+| `framework_lookup_test` | Producers for citation tuples; generic engine for postings | Full citation tuples remain distinct; producer coalesces repeated factual lookup values before emission; generic engine rejects duplicate normalized postings |
+| Archive, manifest, inventory, notice, canonical JSON and TUF suites | Neutral format library | Preserve exact canonical bytes, framing, trust, threshold, rollback, rotation, expiry, inventory and verification precedence; new contract vectors are separately versioned |
+| Schema compiler, depth, line, duplicate, endpoint, replacement-chain, cancellation and safe-diagnostic assertions | Neutral generic admission; application integration for cancellation/publication | Native shape checks leave runtime; closed envelopes, bounded inert JSON, local references and complete private indexing remain runtime obligations |
+| Set, provenance, consumer, indicator, lifecycle, retention, portability, recovery and attestation suites | Reference Data and participating application owners | Exact-set provenance, Base algorithms, atomic publication, Jobs and authorization retained under the coordinated version changes |
+| Fixture-only repository, ledger, key confinement, reservations and renewal suites | Neutral publication package plus each producer authority adapter | Fixture/release inputs remain distinct; ATT&CK gains a separate production path only with an exact-output license decision |
+
+### Boundary and interface inventory
+
+Current coupling enters through `producer/release_verification.go`, producer
+canonicalization imports, generated application schemas and the omnibus
+`tools/reference-packs/main.go`. Source profiles embed producer contracts from
+`contracts/reference-pack-producers`. Test support also imports the producer.
+The format extraction must separate canonical/container/trust primitives from
+application attestations, operations, sets, indicator policies and recovery.
+
+Public affected projections include manifest, profile registry, lookup request,
+consumer item/results, immutable sets/reference catalogs, portability bindings,
+incident-bundle version, release-bound Base manifests and recovery codec bindings.
+The administrative routes, common Jobs and deployment authorization remain with
+their current owners. Build/test routing currently assumes the root Go module;
+standalone module archives need explicit task-surface, execution-topology and
+transitive import/embed/input-discovery checks. RI-P1 begins only after this
+checkpoint; no producer assertion is retired by this inventory.
+
+### RI-P1 contract preparation checkpoint
+
+The Reference Pack owner now specifies generic dataset v1 under RP-REQ-275–283,
+with explicit native-producer responsibility, bounded inert data, injective
+normalized key framing, exact coverage counts, separate Windows composite lookups
+and descriptor consumption. Companion owner amendments bind major 4 / contract v3,
+sets/catalogs v3 and incident-bundle 8. Current machine schemas are being prepared
+alongside predecessors; the runtime switch and predecessor removal remain RI-P4/P6.
+
+Prospective generic envelope sizing over every retained canonical row is recorded
+in `p1-generic-sizing-inspection.json`. Maximum encoded rows including LF are
+3,035,129 bytes (ATT&CK), 4,102 (VERIS), 7,696 (Windows) and 1,588 (Entra); maximum
+nesting is six. Maximum object postings are 25/2/3/4 respectively. Aggregate key
+bytes are 448,241/296,079/35,137/9,460, well below 256 MiB; the maximum single key
+is 88 bytes. Counts remain the P0 counts. This is sizing inspection of the defined
+projection, not a producer witness or release qualification. Final descriptors,
+canonical outputs and independent expectations still require RI-P3 validation.
+
+RI-P1 validation: `make generate` passed in `20261108T160605Z-p87822`;
+`make source-check CHECK=schema` passed in `reference-independence-v3-p1-schema-r1`
+with native exit 0 and caching disabled. `make lint-markdown` passed in
+`reference-independence-v3-p1-docs-r1`, native exit 0. Subsequent owner-version
+cleanup and operation-input v4 preparation will be included in the next refresh.
+The contract decisions and assertion allocation are fixed; executable adoption,
+Base reissue, participating-owner projections and final-source qualification remain
+explicit RI-P4/P5 work. RI-P2 begins with the neutral library and module-aware
+build/test routing; no legacy producer or validator has yet been deleted.
+
+### RI-P2 foundation checkpoint
+
+A standalone `referencepacks/format` module now contains canonical JSON and a
+bounded generic dataset engine. It has its own manifest/checksums, no application
+imports, and focused rows under `module.reference_data.unit.independent_format_*`.
+`reference-independence-v3-format-r1` passed both initial canonical/dataset rows
+with cache off and native exit 0; cleanup completed and the retained-secret scan
+passed. These are foundation tests, not complete format or release qualification.
+Application runtime, producers and retained archives remain on the predecessor
+implementation until their coordinated cutover.
+
+Module-aware Go routing uses an authored registry, `GOWORK=off`, `-mod=readonly`
+and explicit module working directories. Module rows do not load application
+authentication fixtures. Preparation uses `make bootstrap PART=go`; it generated
+the module checksum file and also corrected the root's existing `x/net` direct
+import classification without changing its version.
+
+Intermediate generation/format attempts exposed both closed runner-schema root
+allowlists. Generation failures are retained in `20261108T162326Z-p98858` and
+`20261108T162427Z-p2745`; their failing task-surface generator logs identify the
+registry-root and exact-selector patterns. The authored schemas were updated;
+`make generate` then passed in `20261108T162531Z-p6866`, and `make format` passed
+in `20261108T162616Z-p10302`. The earlier format attempts failed plan admission
+before formatter execution, not product assertions.
+
+`reference-independence-v3-runner-r1` passed the scheduler contract but failed the
+public command-surface row: a minimal selected-source fixture lacked the new
+module registry. Investigation also removed eager reads of every sibling module
+manifest from build-context discovery. Metadata loading now reads the registry;
+execution validates only the selected module's manifest. The fixture includes the
+new metadata. `reference-independence-v3-runner-r2` reran only the affected
+command-surface row and passed, native exit 0 with cache off. No complete harness
+acceptance is claimed for these focused runs.
+
+Container, manifest, notice and offline-TUF primitives are now being extracted
+into the module's `envelope` package. Its machine inputs are embedded within that
+module; application profile/Base policy, sets, Jobs, attestations and diagnostic
+retention remain internal. Existing application assertions stay active while their
+standalone counterparts are qualified. Remaining RI-P2 obligations include full
+neutral primitive qualification, publication extraction, four producer modules,
+exported-archive builds, transitive/embed/generator/input boundary negatives and
+complete generic diagnostic enumeration. RI-P2 is not complete.
+
+#### RI-P2 standalone envelope and publication checkpoint
+
+The format module now owns neutral archive admission/writing, manifest v2 and
+contract v3 admission, offline TUF, inventory hashing, SPDX expression checks,
+and notice validation. Application registries, activation, jobs, retained
+attestations, and dependency policy remain outside it. `verification.Dataset`
+combines these primitives with generic admission without application imports.
+A separate `publication` package owns typed release/fixture entry points, a
+private-key-free signer interface, scoped private signing contexts, append-only
+logical and metadata reservations, immutable publication, and renewal. Release
+publication requires an exact approved-output binding represented in manifest
+provenance; this mechanism does not constitute ATT&CK licensing approval.
+
+- `make bootstrap PART=go`: native exit 0; run
+  `20261108T164800Z-p57809` updated the new module's managed dependency checksums.
+- `make format`: native exit 0; run `20261108T164907Z-p58329` passed.
+- `make generate`: native exit 0; run `20261108T164925Z-p65597` passed.
+- Cache-disabled `make test-slice OWNER=module.reference_data
+  ROWS=module.reference_data.unit.independent_format_envelope,module.reference_data.unit.independent_format_dataset`:
+  run `reference-independence-v3-envelope-r1`, native exit 0, pass 1,356 ms,
+  all 11 cleanup actions completed, retained-secret scan passed (16 files).
+  This covers independent TUF vectors, root replay/thresholds, expiry/tampering,
+  archive traversal/ratio/collision/cancellation, changed admitted sources, and
+  the generic dataset structural, lookup, reference and resource boundaries.
+- Cache-disabled `make test-slice OWNER=module.reference_data
+  ROWS=module.reference_data.unit.independent_format_publication`:
+  run `reference-independence-v3-publication-r1`, native exit 0, pass 1,543 ms.
+  Authority separation, exact output approval binding, renewal, tampered prior
+  envelopes, expiry, concurrent logical reservations, metadata rollback and
+  immutable output collisions passed using synthetic authority only.
+
+These are narrow development results. The source archive qualification,
+producer modules, runtime cutover, final-source qualification, and release
+artifacts remain outstanding. Existing private implementations remain until
+replacement obligations pass. No claim of four-pack readiness is made.
+
+#### RI-P2/RI-P3 independent producers and candidate checkpoint
+
+The repository now contains five independently versioned Go modules under
+`referencepacks/`: `format`, `attack`, `veris`, `windows`, and `entra`. Each
+producer has its own source inputs, native validation, command composition,
+executable, and dependency manifest. The public producer targets require
+`PRODUCER=attack|veris|windows|entra`; implicit omnibus selection is retired from
+these targets. The old internal dispatcher remains pending caller/test migration
+and removal in RI-P6. Runtime consumption is still the predecessor implementation.
+
+`make reference-pack-module-check MODULE=<module>` exports only the selected
+module, extracts it outside the application checkout, and builds with
+`GOWORK=off`, `GOENV=off`, `GOPROXY=off`, and `-mod=readonly`. It inspects the
+transitive package/test/embed closure. Snapshot module versions bind the complete
+exported source digest; producer manifests pin an immutable format module archive,
+with no local `replace`. Explicit `make bootstrap PART=go` owns archive dependency
+preparation and managed checksum updates. `reference-pack-producer-build` also
+builds each selected exported module twice and retains byte-identical executables.
+
+The four producer projections use the same descriptor/object/relationship engine.
+Each object or relationship retains its complete predecessor source-model record
+as inert `data`; producer-owned native validation runs before serialization.
+Windows declares separate `provider_event_id` and `provider_event_version`
+lookups. Entra declares SPN lookup with measured zero real coverage. Production
+and fixture signing have distinct typed input contracts. ATT&CK production uses
+`cartulary.attack`; its candidate output policy records pending external licensing
+review. No ATT&CK distribution approval has been inferred or recorded.
+
+Narrow development evidence, with native exit 0 unless explicitly identified:
+
+- `reference-independence-v3-producer-deps-r2` and `-r3`: public Go bootstrap passed;
+  current producer manifests were updated by the dependency tool.
+- Isolated module checks: Entra and VERIS `*-build-r1` passed; ATT&CK and Windows
+  `*-build-r2` passed after fixing an extracted type-name collision and a missing
+  source commit validator. Failed `*-build-r1` roots preserve those compiler
+  errors. These checks predate subsequent command/test additions.
+- `reference-independence-v3-generic-encode-r1`: cache-disabled dataset and
+  publication rows passed (1,369 ms), including producer encoding and typed
+  approval binding.
+- `reference-independence-v3-producer-command-generate-r1`: generation passed.
+  `reference-independence-v3-producer-format-r1` failed plan admission because the
+  newly relocated tests were not yet registered; `-r2` passed after authored
+  routing was added. No formatter assertion failed in the first attempt.
+- Reproduced independent binaries: ATT&CK, Windows and Entra `*-binary-r2`, and
+  VERIS `*-binary-r3` passed. ATT&CK `*-binary-r1` failed compilation because a
+  flag import collided with a producer helper; that import was explicitly aliased.
+  VERIS retains its existing production repository `cartulary.veris.community`.
+- `reference-independence-v3-producer-tests-r1`: all four selected producer rows
+  passed with cache disabled (2,967 ms). This includes relocated acquisition,
+  integrity, projection, publication and fixture-authority cases, plus positive
+  synthetic Entra SPNs, ASCII matching, within/across-object duplicate rejection,
+  exact provenance and zero-coverage behavior.
+- `reference-independence-v3-native-tests-r1`: Entra and VERIS source-model rows
+  passed; ATT&CK failed test compilation on an extracted import, native outer exit
+  2, classified `infra/preflight_error`. All 12 cleanup actions completed.
+  `reference-independence-v3-native-tests-r2` reran the repaired ATT&CK row only
+  and passed with cache disabled (973 ms). Native ATT&CK typed endpoint/source
+  limits and VERIS corpus reconstruction, semantic rejection and graph bounds
+  now have producer-owned destinations.
+
+The independent Node witness consumes canonical artifacts and explicit retained
+predecessor expectations, never the producer implementation or upstream Markdown.
+It compares every complete native object/relationship, common factual fields,
+lookup mapping and notice, and independently measures normalized coverage.
+The following unsigned candidate invocations all passed:
+
+| Pack | Explicit run | Objects | Relationships | Postings | Encoded key bytes |
+| --- | --- | ---: | ---: | ---: | ---: |
+| ATT&CK | `reference-independence-v3-attack-candidate-r1` | 6,221 | 34,632 | 14,490 | 448,241 |
+| VERIS | `reference-independence-v3-veris-candidate-r1` | 2,491 | 2,533 | 4,982 | 296,079 |
+| Windows | `reference-independence-v3-windows-candidate-r1` | 503 | 0 | 1,439 | 35,137 |
+| Entra | `reference-independence-v3-entra-candidate-r1` | 139 | 0 | 278 | 9,460 |
+
+Each exact candidate report and witness is retained below
+`.cartulary/reference-packs/independence-v3/candidates/<producer>/`; the invocation's
+published stdout identifies its immutable manifest, payload, and witness hashes.
+Windows has 433 version-specific postings; Entra has zero SPN objects, postings,
+and distinct keys. Every candidate passed the inclusive generic limits.
+These results establish candidate preservation and feasibility, not final-source
+or signed-release qualification. Later source changes require new builder/release
+identities; retained candidate bytes and historical releases remain unchanged.
+
+RI-P2 remains open for complete executable/generation input enforcement, actual
+application dependency closure checks, neutral schema ownership, and complete
+safe generic diagnostics. RI-P3 remains open for the remaining assertion
+allocation, production signing/renewal qualification, and release dossiers.
+RI-P4–RI-P6 have not exited. The application cutover, participating-owner contract
+bindings, current Base releases, final exact-artifact import tests, finalization,
+and handoff are outstanding. Four-pack distribution readiness is not claimed.
+
+
+#### RI-P2/RI-P4 shared primitives and consumer cutover checkpoint
+
+This checkpoint supersedes the earlier statement that runtime consumption is
+still entirely the predecessor implementation. The generic runtime is now
+implemented and has narrow passing evidence; RI-P2–RI-P6 have not exited.
+
+The application delegates container admission/writing, manifest parsing and
+inventory hashes, notices/licensing syntax, bootstrap decoding and offline TUF
+to the standalone format module. Application diagnostics, registry policy,
+transactions, Jobs, retention and attestations remain internal. Private native
+validators and the duplicate private schema compiler remain pending removal;
+this checkpoint does not claim that extraction is complete.
+
+Consumer request v2, generic item/results v3 and exact retained descriptor reads
+are implemented. Generic lookups preserve exact-set binding, confidential cursors,
+zero-hit success and separate invalid/unsupported/unavailable outcomes. Base
+release v3 preserves its payloads and algorithms. Incident-bundle format 8,
+reference catalogs/sets v3, Reference Pack extension major 4, recovery codecs v4,
+state catalog v3 and participating owner bindings are generated together.
+Terminal operation admission now also covers closed bootstrap/reconciliation
+inputs, rather than treating those records as ordinary pending operations.
+Predecessor recovery catalog bytes were moved intact to historical fixtures.
+
+Assertion destinations retained in independent producers include:
+
+| Original obligation | Current destination |
+| --- | --- |
+| ATT&CK source discriminator, recursive closure and exact optional fields | `referencepacks/attack/internal/native/source_envelope_test.go`, `source_contract_test.go` |
+| ATT&CK disjoint schema dispatch, exact/one-over native arrays and bounded traversal | `referencepacks/attack/internal/native/schema_boundaries_test.go`, `source_limits_test.go` |
+| ATT&CK native typed endpoints and embedded relationships | Independent ATT&CK native source tests; runtime replacement is generic signed local-reference rejection |
+| Windows identity, nullable/numeric versions and documentation normalization | `referencepacks/windows/internal/native/source_policy_test.go`, `source_envelope_test.go` |
+| Entra recursive closed source records and SPN correctness | `referencepacks/entra/internal/native/source_envelope_test.go` and independent source-model tests |
+| Canonical archive/TUF parsing, descriptor admission and thresholds | `referencepacks/format/envelope`; application adapter checks preserve diagnostic/operational distinctions |
+
+Application lifecycle and participating-owner tests now use a test-only in-memory
+signer instead of importing producers. The neutral publication package exposes a
+fixture-authority-only envelope path for negative payloads; production publication
+still requires typed release approval, reservations and standalone verification.
+The Windows synthetic lifecycle reads authored canonical generic bytes and never
+acquires or parses source documents. Generic corpus fixture catalogs bind the
+actual producer outputs; independent factual expectations remain separate.
+
+Development evidence (not final-source qualification):
+
+- `reference-independence-v3-owner-bindings-generate-r5`: `make generate`, native
+  exit 0. Earlier `-r2` through `-r4` failed stale recovery generator/binding
+  projections; those exact roots are retained. `-r1` has a failed structured
+  summary but its native exit was not observed.
+- `reference-independence-v3-neutral-runtime-r3`: trust adapters, generic runtime,
+  descriptor consumer, Windows and Entra source-model rows passed; ATT&CK test
+  compilation failed on a stale helper call, native exit 2. The corrected
+  ATT&CK `reference-independence-v3-native-assertions-r2` has a passing structured
+  result and completed cleanup; its native exit was not observed. Prior
+  `native-assertions-r1` failed because a test supplied a Go integer where a
+  canonical decoded JSON number was required.
+- `reference-independence-v3-recovery-bindings-r1` and
+  `reference-independence-v3-extension-bindings-r2`: selected recovery codec/
+  catalog and extension registry checks passed, native exits 0. The first
+  extension run failed its stale major-3 expectation.
+- `reference-independence-v3-bundle-bindings-r4`: selected cross-owner source-port
+  checks passed, native exit 0. Earlier runs exposed remaining version-7 owner
+  declarations and an unsupported-version test that incorrectly rejected 8.
+- `reference-independence-v3-format-deps-r9`: public Go dependency bootstrap
+  passed, native exit 0. It owns the updated immutable format pin/checksums.
+- `reference-independence-v3-{attack,veris,windows,entra}-builder-r2`: each public
+  independent producer build passed, native exit 0, with repeated byte-identical
+  builds from its exported module source.
+- `reference-independence-v3-{veris,windows,entra}-candidate-r2` and
+  `reference-independence-v3-attack-fixture-20-{0,1}-r1`: producer assembly and
+  independent complete-corpus witnesses passed, native exits 0. Canonical
+  artifacts are retained under `fixtures/reference-packs/dataset-v1/`; the authored
+  `catalog.json` binds manifests, payloads and independently established counts.
+  ATT&CK uses fixture authority here; no production approval is implied.
+- `reference-independence-v3-retained-input-generate-r1`: generation passed,
+  native exit 0, including current bootstrap/reconciliation/portability inputs.
+- `reference-independence-v3-windows-generic-lifecycle-r1` and `-r2` failed with
+  native exits 2: first a missing synthetic source timestamp, then current
+  bootstrap input rejected as an ordinary operation. Both were repaired.
+- `reference-independence-v3-generic-fixtures-r2`: Windows generic lifecycle
+  passed; the other two selected rows failed on fixture artifact-root selection
+  and independent alias ordering. All 16 cleanup actions completed; outer
+  native exit 2. `-r1` stopped at routing admission because a new authored row
+  was not ASCII-sorted; no product test ran.
+- `reference-independence-v3-generic-fixtures-r3`: generic signed reference
+  validation, Entra complete factual oracle, and retained binding/operation
+  admission passed with caching disabled, native exit 0 (13,053 ms). The generic
+  signed test uses an unknown advisory key and proves native data is inert while
+  dangling endpoints, duplicate relationships and replacement cycles cannot
+  reach indexing.
+
+Remaining work includes complete input-discovery and transitive boundary guards,
+legacy runtime/dispatcher removal, current fixture refresh, all four real signed
+artifact scenarios, descriptor/storage integration, full resource-bound evidence,
+Reporting/Composition and portability/restore integration, finalization, frozen
+source qualification and operator dossiers. The ATT&CK licensing decision remains
+an external gate. No installed history has been converted or reset, and no
+four-pack distribution readiness is claimed.
+
+#### RI-P2/RI-P4 runtime and fixture separation checkpoint
+
+This checkpoint supersedes the preceding remaining-work list where the work below
+is now implemented. It is development evidence, not P5/P6 acceptance. Executable
+source is still changing; no production envelope or deployment trust was created.
+
+- Removed the omnibus `internal/modules/reference_data/producer` and its command
+  composition. Each standalone producer preserves its command rejection, help,
+  identity and report-delivery checks. ATT&CK also preserves native child exits,
+  frozen-profile selection, attributable audit failures, canonical replay and
+  retention before report-delivery failure. The command tests exposed and fixed
+  empty report delivery after rejected publication/source inputs.
+- Removed ATT&CK/VERIS semantic dispatch, Windows event identity/documentation
+  rules, Entra SPN rules and the optional-version Windows query from application
+  runtime code. Their source correctness assertions run in producer-owned native
+  model packages. The unchanged D3FEND relationship identity algorithm remains
+  local to Reference Data. Authored row migrations name replacement obligations.
+- Replaced the duplicate application schema compiler, union evaluator and duplicate
+  member walker with the neutral format evaluator. Application request ordering,
+  exact consumer contracts, findings retention and operational error classification
+  remain local. No format publication dependency enters production runtime.
+- Reissued current manifest, complete-set, portability and signed synthetic
+  vectors through `make generate` using an independent Node implementation of
+  canonicalization, SHA-256, Ed25519 and ZIP/TAR/GZIP. The complete set now contains
+  64 keys, including unknown advisory datasets. Predecessor input bytes are pinned
+  under `fixtures/reference-packs/predecessor-contract-v2-vectors/`. Synthetic
+  authority and clock-controlled vectors are not production release qualification.
+- Replaced current four-profile structural fixtures with generic envelopes.
+  Native endpoint fixtures and their registrations are retained as historical
+  inputs outside runtime contract embedding; producer endpoint obligations and
+  generic signed-reference rejection have separate active destinations.
+- Extended the complete portability boundary recipe to 1,024 sets, 16,384 distinct
+  versions and 65,536 required memberships through version reuse over 64 keys.
+  Independent Python expectations are 35,317,052 bytes for each reference catalog
+  and 11,186,253 bytes for embedded-content declarations. This recipe still needs
+  its focused validation run.
+- Hardened publication: relative reads use confined open handles and bounded
+  regular-file admission; FIFO substitutions cannot block opening; immutable
+  records and tree publication sync parent directories; no-replace publication
+  uses pinned directory descriptors. Metadata replay validates the entire retained
+  reservation chain, including later records. Fixture signing explicitly rejects
+  release authority. Focused publication tests passed before the new library pin.
+
+Observed native exits (all successful test invocations disabled result caching):
+
+| Run suffix after `reference-independence-v3-` | Outcome |
+| --- | --- |
+| `independent-cli-r1` | Exit 2; four commands emitted zero-valued reports after rejected input. |
+| `independent-cli-r3` | Exit 0; four independent producer command/source rows passed. |
+| `attack-cli-preservation-r1` | Exit 0; preserved ATT&CK command and source assertions passed. |
+| `native-removal-r1` | Exit 0; four producer native models and generic runtime passed. |
+| `schema-extraction-r1` | Exit 2; stale v2 manifest vector failed one manifest-limit test; trust, retained admission and generic checks passed. |
+| `schema-extraction-r2` | Exit 0; refreshed canonical profile/manifest-limit and generic runtime checks passed. |
+| `contract-vector-reissue-r1` | `make generate`, exit 0. |
+| `generic-fixture-projections-r1` | `make generate`, exit 0. |
+| `current-fixture-closure-r1` | Exit 2; admission vectors still embedded predecessor manifest bytes. |
+| `admission-vector-reissue-r1` | `make generate`, exit 0; explicit malformed encoding/spacing/duplicate mutations preserved. |
+| `current-fixture-closure-r2` | Exit 0; complete current fixture registration/admission closure passed. |
+| `publication-durability-r1` | Exit 0; standalone publication authority, renewal, immutable retention and damaged-ledger replay checks passed. |
+
+Preflight-only invocations rejected an unsupported run-root argument, a run ID
+supplied as a Make argument instead of environment, a missing owner selection,
+unsorted test selectors and an already nonempty run identity. They supply no
+product verification; no retained run root was cleared or reused.
+
+Remaining engineering: qualify transitive and executable-input boundaries with
+exported module/corpus builds; remove unused predecessor runtime projections;
+finish full-bound and descriptor/database tests; issue new signed real artifacts
+and independently import each exact envelope; validate Reporting/Composition,
+portability, recovery, readiness and core-workflow absence. Then finalize, freeze
+source, qualify the affected owner union and deliver release/operator dossiers.
+ATT&CK redistribution remains externally blocked; signing-path implementation
+must not be reported as licensing approval or four-pack distribution readiness.
+
+#### RI-P2–RI-P5 artifact and database checkpoint
+
+This checkpoint supersedes prior current-state statements about missing production
+envelopes and runtime projection cleanup. It does not close the final qualification
+or external ATT&CK gate. Source continues to change during the repairs below.
+
+- Retired unused native runtime projections and predecessor Base release bindings
+  into byte-preserving historical fixture directories. Current Base manifests and
+  independently calculated witnesses bind release 3 without changing Base payloads.
+- Qualified all five exported module archives with workspace resolution disabled,
+  read-only pinned dependency resolution and no network fallback. Closure inspection
+  includes test dependencies and embedded files. Negative guards cover application
+  imports, sibling producers, publication imports in runtime, local replacements,
+  escaped/prose/corpus/key embeddings, generation directives and implicit executable
+  input discovery. Each producer was built twice with identical executable bytes.
+- Added empty-directory, empty-environment invocation of copied producer binaries.
+  The adapter resolves only explicitly supplied paths. It retains closed-input
+  rejection for duplicate JSON members, invalid UTF-8/surrogates, unsafe integer
+  encodings, oversized inputs and symlink substitution.
+- Qualified complete generic corpus preservation with an independent Node witness:
+  native fields, identities, relationships, lookups, notices, provenance and resource
+  bounds. This uses retained machine artifacts, never upstream Markdown or owner
+  prose. Counts remain ATT&CK 6,221/34,632, VERIS 2,491/2,533, Windows 503/0 and
+  Entra 139/0 with zero real SPN postings.
+- Issued three production-authority envelopes and one explicitly fixture-authority
+  ATT&CK envelope. Their immutable paths are retained beneath
+  `fixtures/reference-packs/dataset-v1/`. Per-pack `release.v3.json` selectors bind
+  exact archives, bootstraps, manifests, payloads, source profiles and builders.
+  Existing output policies authorize the three production outputs. ATT&CK has an
+  unsigned `cartulary.attack` candidate and a pending exact-output licensing gate;
+  its fixture result is not production distribution readiness.
+- Added independently selected exact-artifact tests for all four packs. These read
+  delivered archives and bootstraps unchanged, use the current trusted clock, and
+  never sign or renew their subject. The three production releases passed. ATT&CK
+  initially failed because migration 48 allowed large rows only for retired native
+  ATT&CK schema IDs. New migration 50 installs the generic 4 MiB-minus-LF storage
+  bound without interpreting inert data, and blocks in-place downgrade. The retained
+  ATT&CK scenario then passed. Historical migration 48 remains unchanged.
+- Added unknown advisory-key lifecycle coverage, exact descriptor/provenance reads,
+  nullable Base descriptors, scalar/composite inputs, distinct errors, pagination,
+  cursor expiry, historical-set reads and corruption-triggered atomic invalidation.
+  The database-bound test admits equality and rejects one byte over; migration
+  traversal, installed catalog parity and downgrade-barrier tests pass.
+- Empty-directory corpus replay exposed shared-ledger contamination after signing:
+  release reservations rejected envelope subdirectories. The neutral publication
+  library now owns separate `logical` and `envelopes` namespaces. A complete
+  assembly/signing/replay/renewal/next-release test passes. Flat predecessor ledgers
+  fail closed. Existing unpublished development reservations were copied byte for
+  byte into new namespaced roots, preserving both original roots and sequence
+  history; the explicit mapping is
+  `.cartulary/reference-packs/independence-v3/ledger-namespace-transition.v1.json`.
+  No deployment state, installed history or signing key was converted.
+- The current format pin is
+  `v0.1.0-dev.d829afb9b953015a5ba6cc2e0fe5556a41aa3e4d1002f1a76f4137a74284b45f`.
+  Four producer rebuilds passed and new `.dataset.4` candidates are being qualified.
+  Prior `.dataset.3` production and ATT&CK `.dataset.2` fixture artifacts remain
+  immutable historical outputs. Final evidence must follow the selected successor.
+
+Additional observed evidence, with run roots under `.cartulary/test-results/` and
+prefix `reference-independence-v3-` (test runs disable result caching):
+
+| Run suffix | Native result and scope |
+| --- | --- |
+| `generic-db-r1` | 0; unknown-key/ATT&CK generic consumers and complete portability-bound vectors. |
+| `input-discovery-boundaries-r2` | 0; module archive and closure negative guards. |
+| `backend-boundary-r1` | 0; backend and transitive production dependency direction. |
+| `{format,attack,veris,windows,entra}-isolation-r1` | All 0; exported module build and dependency/input closure. |
+| `{attack,veris,windows,entra}-release-builder-r3` | All 0; independently reproduced binaries. |
+| `{attack,veris,windows,entra}-logical-r3` | All 0; standalone assembly and complete independent preservation witness. |
+| `{attack,veris,windows,entra}-envelope-r3` | All 0; exact signed bytes and independent current-clock trust witness. |
+| `attack-production-candidate-r3` | 0; unsigned production candidate, licensing still pending. |
+| `engineering-finalize-r2` | 0; finalizer before later database/publication repairs. |
+| `delivered-{entra_real_release_import,veris_real_release_import,windows_real_release_import}-r1` | All 0; exact delivered production-artifact imports. |
+| `delivered-attack_retained_artifact-r1` | 2; database native-schema size dispatch rejected a 3,035,100-byte generic row; all cleanup completed. |
+| `generic-storage-tests-r1` | 0; repaired ATT&CK retained import and descriptor-corruption lifecycle. |
+| `generic-storage-migrations-r2` | 0; exact storage bounds, installed catalog, migration traversal and downgrade barriers. |
+| `empty-cwd-boundaries-r1` | 0; strict explicit-input and dependency boundary tests. |
+| `cross-owner-finalize-r2` | 0; generated finalization before the ledger repair. |
+| `{attack,veris,windows,entra}-empty-cwd-corpus-r1` | All 2; correctly rejected contaminated flat publication ledgers after signing. |
+| `ledger-namespace-tests-r1` | 0; publication authority, immutable reservations, renewal and shared-ledger lifecycle. |
+| `format-deps-r11` | 0; Make-owned module pin and checksum update. |
+| `{attack,veris,windows,entra}-release-builder-r4` | All 0; reproduced binaries using the corrected publication library. |
+
+Preflight failures also identified an invalid migration row selector and stale
+routing/topology projections after authored fixture changes. Corrected public
+selections and `make generate` resolved them; no failed root was reused. Finalizer
+retained-run maintenance remains skipped because no compatible full warm-check
+root was supplied. These are selected engineering results, not complete-owner or
+final-source acceptance.
+
+Remaining work: finish successor artifact signing and exact descriptors; qualify
+all affected Reference Data backend rows and participating Reporting/Composition,
+portability, recovery, server/operator admission and Base/core-absence obligations;
+rerun finalization and required generated/schema/boundary/documentation checks on
+frozen source; complete per-pack operator/build/renewal/custody handoffs. ATT&CK's
+exact-output licensing authority remains the named external distribution gate.
+
+#### RI-P5 artifact and operator handoff before MITRE license adoption
+
+The selected `.dataset.4` releases below supersede the earlier current-artifact
+selections. Immutable logical trees, envelope trees and descriptors remain
+append-only; `release.v3.json` is only the current selection. Each descriptor
+records the full archive, bootstrap, envelope-report, manifest and payload hashes,
+source profile and builder identity. Its byte-identical immutable copy is
+`descriptors/<container_sha256>.json` beside the selector. The application tests
+require that equality before importing the delivered archive unchanged.
+
+| Pack | Selected descriptor | Authority and distribution | Factual corpus |
+| --- | --- | --- | --- |
+| veris | [2026.11.08.dataset.4](../../fixtures/reference-packs/dataset-v1/veris/descriptors/00d3740ee5f3ffd8cde9048cb34f5997f633d746f5ec925d6a4c06f705ba5e76.json) | `cartulary.veris.community`; approved existing output decision, CC-BY-SA-4.0 | 2,491 objects / 2,533 relationships |
+| windows | [2026.11.08.dataset.4](../../fixtures/reference-packs/dataset-v1/windows/descriptors/ba65ca6288fbb96720afc1c95104a581c68bbcce7545171547b20d8a87776427.json) | `cartulary.windows_event_ids`; approved existing project-output decision, Apache-2.0 | 503 objects / no relationships |
+| entra | [2026.11.08.dataset.4](../../fixtures/reference-packs/dataset-v1/entra/descriptors/ea7109980a2fd0641921268ae89c069ed08236f684e181a37f09735d526e6d15.json) | `cartulary.entra_app_ids`; approved existing output decision, Apache-2.0 | 139 applications / no relationships / zero SPN postings |
+| attack | [20.1.dataset.4](../../fixtures/reference-packs/dataset-v1/attack/20.1/descriptors/de8ce9573ea446e3ba142d7672a2c56f76af8c71fe70b858656f32b6a18c9ec9.json) | `fixture.attack.dataset.v1`; restricted fixture only, production distribution blocked | 6,221 objects / 34,632 relationships |
+
+For each row, `logical_root` contains the canonical `manifest.json`, three generic
+payload members and the exact notices. `envelope_root` contains `container.pack`,
+public `bootstrap.json` and `envelope-report.json`. The current online metadata
+expires at **2026-12-08T19:52:00Z**; root metadata expires at
+**2027-11-08T19:20:00Z**. Expiry is a verification failure, not permission to alter
+an archived qualification subject. Renewal creates another envelope and descriptor.
+
+Each production approval is retained at
+`fixtures/reference-packs/dataset-v1/<pack>/approvals/<manifest_sha256>.json`.
+These records preserve previously established output decisions and bind the exact
+successor output. They are not new legal opinions or approvals inferred from a
+signature. A signature authenticates its publisher, not the factual correctness
+of source interpretation. The producer owns that correctness.
+
+ATT&CK's unsigned production candidate is
+`fixtures/reference-packs/dataset-v1/attack/release-candidate/logical/eaa1d842f23c6dd5be9d2a758ab3fe030f7fe70f1d2c068ec9ef3979bd9d8403/`.
+It binds repository `cartulary.attack`, version `20.1.dataset.4`, and the actual
+20.1 upstream corpus. `output-policy.pending.v1.json` remains pending. The earlier
+`9dac…` candidate and fixture artifacts remain historical. To close **RI-GATE-ATTACK**,
+the licensing authority must record its decision reference, exact permitted output
+and notices, redistribution/embedding classification and source-profile scope.
+An output-changing decision requires a new immutable profile/policy and release;
+otherwise it must approve the exact current manifest. A fixture key or fixture
+qualification cannot satisfy production publication. No production ATT&CK key,
+bootstrap installation or distribution-readiness claim has been created.
+
+##### Build and update procedure
+
+The five independent source modules are `referencepacks/format`, `attack`,
+`veris`, `windows` and `entra`, each with its own Go dependency manifest. The shared
+format dependency is pinned at
+`v0.1.0-dev.d829afb9b953015a5ba6cc2e0fe5556a41aa3e4d1002f1a76f4137a74284b45f`.
+Public Make commands below run from the repository root. Discovery remains
+`make help ALL=1`; substitute one explicit producer name for `<pack>`.
+
+```sh
+make bootstrap PART=go
+make reference-pack-module-check MODULE=format
+make reference-pack-module-check MODULE=<pack>
+make reference-pack-producer-build PRODUCER=<pack>
+make reference-pack-source PRODUCER=<pack> ACTION=check SOURCE_LOCK=<pinned-json> SOURCE_DIR=<explicit-source-root>
+make reference-pack-package PRODUCER=<pack> ACTION=assemble INPUT=<closed-build-input.json>
+make reference-pack-package PRODUCER=<pack> ACTION=envelope INPUT=<closed-release-envelope-input.json>
+```
+
+Bootstrap is the dependency-maintenance operation; review changed manifests and
+checksums. It completes cache population and tidies checksums before exporting the
+format module, so the pinned archive describes the final source tree. Qualification
+exports each module, builds from its isolated archive with `GOWORK=off`,
+`GOENV=off`, `GOPROXY=off` and `-mod=readonly`, and checks transitive/test/embed/input
+closure. Builder reproduction compiles twice and compares executable bytes.
+Qualified archives and `.mod`/`.info` companions are retained under
+`.cartulary/reference-packs/modules/proxy/`; corresponding source hashes, archive
+hashes and closure evidence live under `modules/qualified/<source_sha256>/`.
+Deliver the selected source archive and its pinned dependency archives together
+for offline builds. No application source, sibling producer, workspace or local
+`replace` is part of a producer build. Production executables and reproduction
+records are in `.cartulary/reference-packs/builders/<builder_source_sha256>/`.
+
+The exact completed recipes are
+`.cartulary/reference-packs/independence-v3/inputs/<pack>-candidate-r4.json` and
+`<pack>-envelope-r4.json`; ATT&CK production uses
+`attack-release-candidate-r4.json`. ATT&CK fixtures require **assemble-fixture**
+and **envelope-fixture**, with fixture input types. Passing a fixture input to
+`assemble` correctly fails; there is no authority fallback. Production ATT&CK
+uses `assemble` and, only after RI-GATE-ATTACK, `envelope` with release approval.
+All input paths are explicit. The package wrapper invokes a copied binary from
+an empty directory and environment, then runs the independent machine witness.
+
+For a source update, acquire only through the selected producer and its reviewed,
+immutable lock/inventory. Use `reference-pack-source ACTION=acquire` with that
+producer's explicit acquisition input; `check` validates the retained inputs and
+`audit` applies source policy. Source-specific contracts and machine expectations
+reside in the producer's `inputs/` and tests. Upstream Markdown is permitted only
+inside explicitly pinned source acquisition/interpretation; application tests and
+release witnesses consume machine artifacts. Output-affecting source/policy changes
+receive new source-profile identity, pack version and monotonically reserved
+release sequence. Do not edit a retained release or reset its reservation ledger.
+Update complete independent factual expectations and qualify the new artifact
+before changing a selector. Corpus counts alone do not establish preservation.
+
+##### Signing custody, renewal and distribution
+
+The three production signing contexts and the separate ATT&CK fixture context
+are outside the checkout, under
+`/home/jochi/.local/share/cartulary/reference-pack-signing/dataset-v1/`.
+Context files are private regular files with mode 0600 in private 0700 directories.
+They are local file-signer custody, not a managed HSM or externally escrowed key
+service. Private bytes are absent from module archives, application inputs,
+release outputs and retained test logs. Public bootstrap files are distributable.
+A custodian must preserve the private contexts and their monotonically increasing
+reservation history; copying public artifacts alone does not transfer signing
+capability. The optional library signer interface permits a future custody adapter.
+
+Development release ledgers now use separate `logical` and `envelopes` namespaces.
+The explicit byte-preserving development transition recorded earlier does not
+supply a migration for installed application history. An unrecognized ledger
+layout fails closed; never erase it to force publication.
+
+For renewal, retain the same logical root and exact-output approval, use the same
+signer with `create_signing_context=false`, provide `previous_envelope`, increase
+`metadata_version`, and supply explicit issue/expiry timestamps valid against the
+trusted current clock. Invoke `make reference-pack-package PRODUCER=<pack>
+ACTION=renew INPUT=<renewal-input.json>`; fixture ATT&CK uses `renew-fixture`.
+Retain the new immutable envelope/report/bootstrap and create its immutable
+release descriptor before advancing the current selector. Manifest, payload and
+notice bytes must remain identical. Requalify that exact new archive; neither a
+test nor a consumer silently renews expired metadata. Root rotation follows the
+offline trust chain and threshold rules and needs its own review/qualification.
+
+##### Destination trust, import, activation and rollback
+
+Publication does not install deployment trust. An operator must authenticate the
+selected public bootstrap independently, explicitly configure the destination's
+trust bootstrap path and establish trusted UTC. The configuration example is
+`deploy/mvp/reference-pack-administration.toml.example`; its false clock assertion
+must not be treated as a default trust grant. Install the approved **production**
+bootstrap for the corresponding repository. Never install the ATT&CK fixture root
+as production trust. The three approved packs are independently installable; none
+requires another optional pack or a producer checkout.
+
+Validate this contract cutover in fresh isolated state. Server, operator and
+Recovery admission reject incompatible retained manifests, sets, operations,
+prepared imports, catalogs, snapshots and participating owner bindings before
+mutation/readiness. Required Base release 3 readiness remains mandatory. There is
+no predecessor reader, implicit reset or automatic historical conversion.
+
+Copy the exact archive into the configured Reference Pack incoming directory,
+verify its descriptor hashes, and use the existing administrative import route or
+`operator reference-pack import <bundle_name>`. Observe the returned job/operation
+to terminal success. Import leaves the pack inactive. Explicitly activate its
+version through the existing administration route, resolve the current set, and
+confirm the descriptor, coverage, provenance and representative lookups. Lookups
+bind the returned exact set; provider/event and provider/event/version are separate
+Windows keys. Entra's supported SPN lookup successfully returns no hits for this
+real release; it is not evidence that an arbitrary SPN is invalid.
+
+Disablement removes current optional availability while retaining admissible
+historical pinned sets. Removal remains subject to retention/pinning rules.
+Incident-bundle 8 respects the recorded distribution classification, retains
+historical provenance and does not silently activate embedded packs. Backup/restore
+uses the coordinated current Recovery codec. Before cutover, rollback restores
+the previous application and its preserved compatible environment together. After
+v3 state is accepted, an older application may run only against its preserved old
+environment; it must never reinterpret new state. Database migration 50 explicitly
+blocks an in-place downgrade of generic index storage. No installation, deployment,
+hosted publication, trust grant or production state reset ran in this task.
+
+##### Qualified module archive identities
+
+These exact exports passed the independent archive/closure check after dependency
+maintenance. All four producer binaries reproduced the selected `.dataset.4`
+builder hashes unchanged. The format export exactly matches its pinned archive,
+including maintained checksums. The version is `v0.1.0-dev.<source_sha256>`.
+
+| Module | Source SHA-256 | Archive SHA-256 |
+| --- | --- | --- |
+| format | `d829afb9b953015a5ba6cc2e0fe5556a41aa3e4d1002f1a76f4137a74284b45f` | `20081930328e649d54ca6988c3d43e6709a7efd114e9a299ac405e059c69cd6e` |
+| attack | `db9a03909929d336db2f2629ab9811c2132185e184cd797f99722ceb6bdc4a73` | `f58068168c6dc04d7b105e85e31410d396df519aba6d164a7f8ba1ed847502f5` |
+| veris | `260fd3afd982f8348ec5e598063702bf35f80a63d9d2530a6ed48b3c2d65edc5` | `e19baa51126d003d9de31039d0b13bff94e7b75cd2fed11eca6eec9cd8865b82` |
+| windows | `9a697c487ef6cd40ea6f2dc7f8ce01ec056e5ea18c42c7e789fca66641bdaf74` | `4d2d73537c686e673d2e28bbe7b6dc25f3930b349fa7be3245b268a4cd315b28` |
+| entra | `8f447de6a70ead3a2d807498bfe3cbeea719c699a600732df5c06f20bda6acdb` | `e341012a9f07dd476c0089f2133e3053f45a23aad9a74b0e1d110af5b2035843` |
+
+P0 preservation review confirms 540 of 543 original artifact paths unchanged and
+the three retired Base bindings preserved byte-for-byte under
+`fixtures/reference-packs/predecessor-contract-v2-projections/builtins/`. This is
+a bounded immutable-artifact claim; mutable current projections and generated
+clients were intentionally updated. Historical audit/run manifests were not
+rewritten or promoted to final-source evidence.
+
+#### RI-P4–RI-P6 repair and qualification accounting
+
+The broader portfolio exposed stale cutover fixtures and one production binding:
+
+- Base-set, manifest and contract expectations still named predecessor identities.
+  They now name reviewed current machine artifacts. Retired Entra profile tests
+  require rejection; generic success is proved by the real-artifact scenarios.
+- Multiple Entra negative fixtures reused a release sequence, so reservation
+  rejection masked content rejection. Each now has a distinct sequence.
+- Shared server/operator admission fixtures retained `{}` as a terminal operation
+  input. A valid current reconciliation input now permits each test to reach its
+  intended incompatible record. Both owners preserve state and classify SQL
+  failures separately from contract incompatibility.
+- Committed-source preparation passed bundle version 7 to its version-8 descriptor.
+  It now uses 8, coherently with the other source owners. All four bundle round
+  trips pass, including permitted embedding and restricted references. Remaining
+  version-bound source-port expectations were refreshed and their affected rows
+  passed for Imports, Indicators, Links, Artifacts, Revisions and Saved Views.
+- Bootstrap exported the format module before `mod download all` appended unused
+  dependency-test checksums. It now tidies after cache population and exports the
+  final source. The existing pin and all executable/artifact hashes are unchanged;
+  isolated archive qualification confirms exact equality, including `go.sum`.
+
+Failed roots are retained, never reused: `backend-unit-0-r1`,
+`backend-integration-1-r1`, `operator-admission-r1`, `server-admission-r1`,
+`portability-portfolio-r1` and the one-case `portability-diagnosis-r1`, all under
+`.cartulary/test-results/reference-independence-v3-<suffix>`. The respective
+`make explain-run RESULTS_DIR=<root> TARGET=test-slice DETAIL=summary|logs`
+records distinguish assertion failures, the missing selector caused by a test
+compile mismatch, native exits and completed cleanup. Temporary diagnostic output
+used to locate the source-port failure was removed before finalization.
+
+The `attack-replay-r4` package invocation supplied a fixture input to production
+`assemble` and failed closed before publication. `attack-fixture-replay-r4` used
+`assemble-fixture` and passed. All four post-signing logical replays passed the
+independent corpus witness without changing manifests, payloads, notices or
+reservation history. Invalid selector, oversized ROWS and stale-generated
+preflight invocations were corrected through discovery/generation; they do not
+count as product qualification. Full details of earlier database/publication
+repairs remain in the preceding checkpoints.
+
+Final executable freeze follows `reference-independence-v3-finalize-r2`, native
+exit 0. Final graph manifests bind commit
+`70ba53b47269d1733f1bdbbf310cfd4b94a7b455` plus dirty-source digest
+`sha256:1c5d4a3effb22a18d003b31a3528175e24b7ccb7148165cce27b8b0dc1cedc73`.
+Only this documentation handoff changes after that freeze. Earlier results with
+different source identities are characterization or repair evidence, not members
+of the final-source portfolio. Repeating the selected portfolio after the last
+dependency-maintenance change establishes a coherent source-bound handoff.
+
+#### RI final-source portfolio and disposition before MITRE license adoption
+
+The final twelve `test-slice` invocations cover **109 distinct selected rows**.
+Every invocation below used a fresh explicit run ID, disabled harness caching,
+completed with observed native exit 0, reported pass, completed cleanup with no
+failed/blocked step, and passed its retained-secret scan. These are scoped
+engineering results; no complete-owner evidence-union audit or full CI/release
+certification is claimed. Exact ROWS, command IDs and source/toolchain/graph
+identities are in each `run-manifest.json`, with outcomes in `run-summary.json`,
+row/unit results, `cleanup-results.json` and `retained-secret-scan.json`.
+
+All roots in this table have prefix
+`.cartulary/test-results/reference-independence-v3-qualified-` and suffix `-r1`.
+Commands use `CARTULARY_TEST_RUN_ID=<root-name> CARTULARY_HARNESS_CACHE_MODE=off
+make test-slice OWNER=<owner> ROWS=<manifest-selection>`.
+
+| Root stem / owner | Selected obligation | Native result |
+| --- | --- | --- |
+| `backend-unit` / `module.reference_data` | 48 rows: neutral format/trust/security/limits, producer native correctness and publication, consumer contracts, current fixtures and source-independent expectations | 0; 19/19 work units passed |
+| `backend-integration` / `module.reference_data` | 37 rows: Base readiness, absent optional packs/core behavior, generic admission/indexing, unknown-key extensibility, lifecycle, history, bounded operations, portability and failure atomicity | 0; 6/6 work units passed |
+| `attack_retained_artifact` / `module.reference_data` | Exact `.dataset.4` ATT&CK archive/bootstrap, real corpus; fixture authority only | 0; separate one-row invocation |
+| `windows_real_release_import` / `module.reference_data` | Exact `.dataset.4` production Windows archive/bootstrap and all 503 objects | 0; separate one-row invocation |
+| `entra_real_release_import` / `module.reference_data` | Exact `.dataset.4` production Entra archive/bootstrap, 139 applications and zero real SPNs | 0; separate one-row invocation |
+| `veris_real_release_import` / `module.reference_data` | Exact `.dataset.4` production VERIS archive/bootstrap and complete object/relationship counts | 0; separate one-row invocation |
+| `reporting` / `module.reporting` | Four pack snapshot bindings, exact-set admission and frozen release/snapshot payloads | 0; 4/4 work units passed |
+| `composition` / `module.reportcomposition` | Delegation, release-binding reason matrix and canonical digests | 0; 5/5 work units passed |
+| `recovery` / `module.recovery` | Entra, VERIS and Windows backing-storage/provenance restore through the shared current codec | 0; 3/3 work units passed |
+| `operator-admission` / `app.operator` | Incompatible retained state fails before mutation; current unavailable catalogs and operational SQL failures remain distinct | 0; 3/3 work units passed |
+| `server-admission` / `app.server` | Startup retained-state gate, state preservation and operational failure classification | 0; 3/3 work units passed |
+| `portability` / `module.incidentbundles` | All four round trips, permitted/restricted embedding, historical provenance and predecessor-bundle rejection | 0; 3/3 work units passed |
+
+Module qualification and twice-reproduced binaries passed in
+`reference-independence-v3-{format,attack,veris,windows,entra}-isolation-r3` and
+`reference-independence-v3-{attack,veris,windows,entra}-release-builder-confirm-r4`.
+Each uses its named public `reference-pack-module-check` or
+`reference-pack-producer-build` target and retains `tool-run-summary.json` beneath
+that target's directory. Complete independent factual witnesses and current-clock
+standalone signature verification passed for the selected r4 outputs; four
+post-signing replays passed as recorded above. Native exits were all 0.
+
+Final `make source-check CHECK=generated`, `make source-check CHECK=schema` and
+`make lint CHECK=backend-boundary` passed with native exit 0 in the respective
+`reference-independence-v3-freeze-{generated,schema,boundary}-r1` roots, all on the
+same frozen source digest. `make agent-finalize` passed in `finalize-r2`.
+Migration 50's exact/equality/one-over storage bounds and downgrade barrier passed
+in `generic-storage-migrations-r2`; those assertions and migration bytes did not
+change afterward. The affected source-port rows passed in `final-imports-r1`,
+`final-indicators-r1`, `final-links-r1`, `final-artifacts-r1`, `final-revisions-r1`
+and `final-savedviews-r1` before the checksum-only dependency repair; they are
+supporting evidence, not promoted to the final-source row union.
+
+The finalizer's optional retained-run maintenance remained skipped because no
+compatible full warm-check root was supplied. Full CI, browser/UI visual review,
+deployment installation and hosted publication were not required by this backend
+cutover and were not run. There is no dedicated ATT&CK backup/restore scenario in
+this portfolio; its exact artifact import and bundle round trip passed, while
+Recovery's shared generic codec is covered by the three named restore scenarios.
+No required scoped engineering check is intentionally omitted. Human review of
+specification-to-projection fidelity remains a repository responsibility.
+
+| Remediation | Final disposition | Remaining action |
+| --- | --- | --- |
+| RI-R1 | CLOSED: five independent modules, four binaries, application-independent publication, isolated dependency/input closure and both-direction guards | Preserve these boundaries for future modules/releases |
+| RI-R2 | ENGINEERING_DONE; production distribution BLOCKED by RI-GATE-ATTACK | Licensing authority approves exact output/notices; issue production envelope and bootstrap; independently qualify that actual signed artifact before distribution readiness |
+| RI-R3 | CLOSED: optional SPNs with truthful zero real coverage and positive synthetic coverage | A populated SPN release needs a new reviewed immutable source profile and explicit shared-SPN policy |
+| RI-R4 | CLOSED: historical 503-definition baseline and new exact generic release independently exercised | Future selectors require their own exact-artifact qualification |
+| RI-R5 | CLOSED: one generic runtime engine; source-specific semantics and useful negative assertions retained in producers | New normalizers require reviewed engine changes; new supported declarative datasets do not |
+| RI-R6 | CLOSED: coordinated major/contract cutover, projections, owner bindings, historical evidence separation and operator handoff | Preserve single-owner authority and final-source evidence distinctions |
+
+P0/P1/P2/P4 exits are complete. P3/P5/P6 engineering, cleanup and handoff exits are
+complete; their four-production-release distribution exit remains explicitly
+blocked by RI-GATE-ATTACK. The three approved production packs are delivered with
+exact bytes and qualification. ATT&CK is delivered as a qualified restricted
+fixture plus unsigned production candidate and a tested, approval-gated publisher.
+The next action is the external licensing decision, followed by production
+publication/qualification for ATT&CK. No compatibility reader, implicit state reset,
+undocumented data inference or fixture-to-production fallback is a workaround.
+
+The additional final boundary row
+`harness.command_surface.behavior.reference_pack_modules` passed with native exit
+0, all ten cleanup steps complete and a passing retained-secret scan in
+`reference-independence-v3-qualified-module-boundaries-r1`. Its archive/dependency,
+embed/generation/input-discovery and strict explicit-input negative tests share
+the same frozen source identity. Including this row, final selected coverage is
+**110 rows across thirteen independent test-slice invocations**.
+
+The final documentation gate is
+`CARTULARY_TEST_RUN_ID=reference-independence-v3-handoff-final-r1 make lint-markdown`;
+its result is retained at
+`.cartulary/test-results/reference-independence-v3-handoff-final-r1/adhoc/lint-markdown/tool-run-summary.json`.
+Completion reporting requires its observed native exit 0 and a clean
+`git diff --check`. No executable source, release bytes or dependency manifest
+changes follow the recorded freeze.
+
+#### RI-GATE-ATTACK — MITRE-issued license and production release
+
+The user answered the pending licensing question: **“Use the license issued by
+MITRE.”** This is project authorization to apply MITRE's published license to the
+retained corpus, not a claim that MITRE separately reviewed or endorsed Cartulary.
+The earlier question referenced manifest `9dac8399…`; subsequent engineering had
+already produced `eaa1d842…`. Neither immutable candidate was rewritten. A new
+release binds the adopted license decision and current source profile.
+
+On 2026-11-08 the official [MITRE ATT&CK® terms of use](https://attack.mitre.org/resources/legal-and-branding/terms-of-use/)
+were checked against the already pinned upstream `LICENSE.txt`. MITRE grants
+royalty-free research, development and commercial use on the condition that
+copies reproduce its copyright designation and license. The
+[branding guidance](https://attack.mitre.org/resources/legal-and-branding/)
+also prohibits implying affiliation, sponsorship or endorsement. The retained
+notice includes the complete copyright statement, license and disclaimers;
+it is not replaced with the project's own license.
+
+The immutable licensing source is the [selected upstream license](https://raw.githubusercontent.com/mitre-attack/attack-stix-data/f59b03ecf828579d5f9e93683ce25b7e2e5fd9d7/LICENSE.txt),
+SHA-256 `738144f7fb054722a4ef9d3367c51710341dc12fc574c6ac3a41daaaecd8bf5e`.
+The project decision and exact-output approval are authored machine inputs under
+`fixtures/reference-packs/dataset-v1/attack/release/`, separate from the human
+handoff. Product tests and release witnesses do not access either website or
+this document. The approved classification is `allowed`, including distribution
+of complete packs and incident-bundle embedding that retains their notices.
+
+The successor source profile is
+`referencepacks/attack/inputs/dataset-profile.v2.json`, ID
+`cartulary.attack.all_domains.dataset.v2`, SHA-256
+`782a47c25857afd720fb46b5e2e09143bd3f54b9d64a7a2c0a798ac2ffd37e9e`.
+It records the license conditions and predecessor identity. The generic content
+profile remains v1; no consumer contract or data normalization changed. The
+producer admits this exact current profile. The previous source profile, fixture
+releases, pending policy and unsigned candidates remain historical bytes.
+
+The selected production artifact is
+[20.1.dataset.5](../../fixtures/reference-packs/dataset-v1/attack/release/descriptors/83ec1d97ae95f08dea534ababead88cece253f88ae3433feeabf8b771390e02f.json),
+using repository `cartulary.attack`, release authority, logical release sequence
+3 and initial metadata version 1. Its manifest is
+`d517c015e1de62ac0317f8ab16648d88077165f65d74663b343f3008f5abafa9`;
+container `83ec1d97ae95f08dea534ababead88cece253f88ae3433feeabf8b771390e02f`;
+payload `7e7a75265d8f8d56ed4d4aa4052e8c0d2a28316e926e7be7eac38f4a41b958e0`.
+The payload, complete notice, 6,221 objects and 34,632 relationships are unchanged.
+Only release/provenance/approval identities and the permitted redistribution
+classification change. The independent complete-corpus witness passed.
+
+The new independently reproduced builder is
+`674d1490ab93ba58b573bb6d3df8bcc80f43c46b020579bcf7b850487d6b9b69`.
+It passed isolated module/archive qualification and producer/source-model/publication
+unit tests. Production signing uses a distinct private context
+`/home/jochi/.local/share/cartulary/reference-pack-signing/dataset-v1/attack-release.json`;
+it does not reuse the fixture authority. Custody and renewal procedures above
+apply. Online metadata expires `2026-12-08T20:40:00Z`; root metadata expires
+`2027-11-08T20:40:00Z`. The public bootstrap is beside the selected container.
+No deployment bootstrap was installed and no hosted publication occurred.
+
+Reproduction inputs are
+`.cartulary/reference-packs/independence-v3/inputs/attack-mitre-release-r5.json`
+and `attack-mitre-envelope-r5.json`. Use production actions `assemble` and
+`envelope`; a renewal requires its own explicit predecessor and higher metadata
+version. The application retained-artifact selector now reads this production
+release directly. Its positive import test cannot substitute fixture signing or
+renew the subject. Portability qualification additionally imports and embeds these
+exact bytes, while preserving the separate restricted-fixture regression.
+
+##### MITRE license gate closure and final handoff
+
+**RI-GATE-ATTACK CLOSED; RI-R2 CLOSED; RI-P3/P5/P6 DONE.** The user-directed
+license decision, complete notice preservation, distinct production signing and
+exact production-artifact qualification satisfy the remaining distribution gate.
+This supersedes all earlier current-state claims that ATT&CK has fixture-only
+publication or pending licensing. Those earlier artifacts and evidence remain
+historical. All four packs now have independently signed production artifacts
+and their own import qualification; no fixture authority is promoted to production.
+
+| Current production pack | Selected descriptor | Distribution classification |
+| --- | --- | --- |
+| MITRE ATT&CK® | [20.1.dataset.5](../../fixtures/reference-packs/dataset-v1/attack/release/release.v3.json) | Allowed under the retained MITRE-issued license and notice conditions |
+| VERIS | [2026.11.08.dataset.4](../../fixtures/reference-packs/dataset-v1/veris/release.v3.json) | Allowed under its retained CC-BY-SA-4.0 decision/notices |
+| Windows Event IDs | [2026.11.08.dataset.4](../../fixtures/reference-packs/dataset-v1/windows/release.v3.json) | Allowed under its retained project-output decision/notices |
+| Entra application IDs | [2026.11.08.dataset.4](../../fixtures/reference-packs/dataset-v1/entra/release.v3.json) | Allowed under its retained decision/notices; zero real SPNs |
+
+The ATT&CK module archive has source hash
+`0a2d635363d1373bd687442252e50a2837e8876e74b3fc42d571fd8fb5d0558d` and archive
+hash `a7674dc8ef853cd5de195d1af85024cf1c25b6194aa5c950e2d4f9321741f955`,
+with its qualification under
+`.cartulary/reference-packs/modules/qualified/<source_hash>/`. Source profile v1
+is historical; the producer archive embeds only the current v2 source profile.
+The three other producer modules and selected release artifacts did not change.
+
+All following roots are under `.cartulary/test-results/` and have prefix
+`attack-mitre-license-`. Every listed command completed with observed native exit
+0. Final test invocations disabled caching, completed cleanup, and passed retained
+secret scans. The final source identity is commit
+`70ba53b47269d1733f1bdbbf310cfd4b94a7b455` plus dirty digest
+`sha256:176bb8b6a5a78e1c3ebdd6ca9283c758952d1f14cd93020f1489c7c73f78addd`.
+
+| Run suffix | Public command / qualification | Result |
+| --- | --- | --- |
+| `builder-r1` | `make reference-pack-producer-build PRODUCER=attack` | Two byte-identical production binaries |
+| `isolation-r1` | `make reference-pack-module-check MODULE=attack` | Exported source builds independently; closure checks pass |
+| `logical-r1` | `make reference-pack-package PRODUCER=attack ACTION=assemble INPUT=.cartulary/reference-packs/independence-v3/inputs/attack-mitre-release-r5.json` | Complete independent factual/notice preservation witness passes |
+| `envelope-r1` | `make reference-pack-package PRODUCER=attack ACTION=envelope INPUT=.cartulary/reference-packs/independence-v3/inputs/attack-mitre-envelope-r5.json` | Production signing, standalone verification and independent trust witness pass |
+| `replay-r1` | Repeat the exact logical assembly input after signing | Identical logical bytes and reservation replay |
+| `finalize-r1` | `make agent-finalize` | Generated finalization passes; executable source frozen afterward |
+| `final-producer-r1` | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.independent_attack_producer,module.reference_data.unit.independent_attack_source_model,module.reference_data.unit.independent_format_publication` | Three selected rows / three work units pass; 12 cleanup steps complete |
+| `final-import-r1` | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.integration.attack_retained_artifact` | Actual production archive/bootstrap, no re-signing, trusted current clock; 14 cleanup steps complete |
+| `final-portability-r1` | `make test-slice OWNER=module.incidentbundles ROWS=module.incidentbundles.integration.attack_pack_portability_preserves_independent_re_a273637b25` | Production bytes embed/reimport exactly; restricted fixture remains references-only; cleanup and secret scan pass |
+| `generated-r1` | `make source-check CHECK=generated` | Pass |
+| `schema-r1` | `make source-check CHECK=schema` | Pass |
+| `boundary-r1` | `make lint CHECK=backend-boundary` | Pass |
+
+The manifest of each test run retains the complete ROWS selection and command;
+`run-summary.json`, row/unit results, `cleanup-results.json` and
+`retained-secret-scan.json` record terminal evidence. Package/build/module targets
+retain their named `tool-run-summary.json`. The prior 110-row remediation portfolio
+remains earlier-source engineering evidence; this follow-up requalified the changed
+producer/profile, delivered artifact and affected application scenarios. It does
+not claim a new full-owner union or full CI run. The finalizer's optional retained-run
+maintenance was skipped because no compatible full warm-check root was supplied.
+No required scoped check was skipped, and no deployment or hosted publication ran.
+
+Final documentation validation is
+`CARTULARY_TEST_RUN_ID=attack-mitre-license-handoff-r1 make lint-markdown`, with its
+result at
+`.cartulary/test-results/attack-mitre-license-handoff-r1/adhoc/lint-markdown/tool-run-summary.json`.
+Completion reporting requires its observed native exit 0 and clean
+`git diff --check`. The approval, notices, selected immutable descriptor and signing
+custody are concrete; there is no remaining licensing approval question for this
+release under the user's adopted MITRE license decision.
+
+## RC — Remediation closure, 2026-11-08
+
+This section supersedes earlier current-state closure claims while preserving
+all prior source identities, releases and validation records as history. The
+user confirmed this is pre-deployment and authorized WS1–WS7. Pack contract v3,
+Reference Pack major 4 / NLSpec 0.5.0, dataset v1, sets/reference catalogs v3 and
+incident-bundle 8 remain the adopted cutover. No compatibility reader, reset,
+historical-anchor rewrite, deployment, trust installation or signing-custody
+change is introduced.
+
+### RC checkpoints and assertion destinations
+
+| ID | Dependency | Implementation and evidence destination | State |
+| --- | --- | --- | --- |
+| RC-P0 | Existing staged implementation | Revalidated manifest-policy callers, resource passes, producer inputs, retained selectors and prior portfolios. Index digest `595000ca0cb52f563d622bc6fa5fba8d9107e0c15151a5956cf7a655cfdbecb9` records the preserved staged baseline. | Done |
+| RC-WS1 / P1 | RC-P0 | Core 00 current major/NLSpec paragraph; Core 01 REQ-01-635 and current path/source-catalog bindings; Core 04 acceptance clauses; Reporting current bundle amendment; RP-REQ-099/230/275/279. Historical adoption records retain their original context. | Closed |
+| RC-WS2 / P2 | RC-P1 | `packformat.ManifestAuthority`, exact local manifest/provenance checks in `contractadmission`, consumer and retained-binding paths. `TestUnregisteredGenericDatasetLifecycle`, its two recovery cases, and `TestBaseReconciliationAtomicPublication_Integration` own unknown framework/enrichment, wrong-authority, portable-only and registry-escalation assertions. | Closed; focused and final checks pass |
+| RC-WS3 / P2 | RC-P1 | Neutral `canonicaljson.ScanTokens`, bounded dataset row projection, shared semantic posting/key budgets and producer encoding. Authored object/descriptor schemas remove structural posting/coverage ceilings; semantic bounds remain enforced. | Closed; focused and final checks pass |
+| RC-WS4 / P3 | RC-WS3 | `referencepacks/format/dataset/limit_matrix.json` and `TestGenericLimitMatrix`, plus existing replacement/cancellation tests. Independent token vectors live in `TestBoundedTokenViews`. | Closed; focused and final checks pass |
+| RC-WS5 / P2–P3 | RC-P1 | `tools/reference-pack-modules/{isolation,isolated-go,application-isolation}.mjs`, module/build/package Make workflows and negative probes. Producer research outputs moved out of read-only source corpora. | Closed; five modules, four builders and four real corpora pass isolation |
+| RC-WS6 / P3 | RC-WS2 | `TestATTACKProductionPackRestoresPinnedHistory_Integration`; shared fresh-target recovery probes; Reference Data `AdmitRestoredState` before Recovery commits authoritative rows. | Closed; exact production artifact and three rejection probes pass |
+| RC-WS7 / P4–P5 | RC-P3 | Frozen-source 130-row scoped portfolio, exact production selectors, independent build/corpus qualification and final static checks below. | Closed; 130 final-source rows pass |
+
+RC-P0 → RC-P1 → RC-P2 → RC-P3 → RC-P4 → RC-P5 remains the closure sequence.
+All seven workstreams and RC-P0 through RC-P5 are complete with the final
+evidence below. Earlier development runs are diagnostic history, not substitutes
+for final-source rows.
+
+### Corrected runtime and retained-history behavior
+
+An unknown key resolves a generic content model without inventing a kind or
+source authority. The admitted manifest resolves `framework` to
+`framework_reference` and `enrichment` to `advisory_enrichment`. Standardized
+keys and the Base registry namespace retain their policy restrictions. Local
+anchors bind exact manifest and payload identities to their set member before
+comparing authority. Consumers, startup, retention and restore use that check.
+Incorrect local anchors fail closed; no bytes or pins are repaired.
+
+Reference-only portable assertions may lack matching manifests. Their closed
+shape and permitted advisory authority are checked, and the historical assertion
+is preserved; it supplies neither destination trust nor content availability.
+A locally present matching logical identity requires exact manifest agreement.
+Both unknown kinds have lifecycle/recovery coverage, with portable-only binding
+and escalation coverage in the canonical-persistence row.
+
+Recovery now checks authoritative bindings and non-removed retained logical
+members within its uncommitted transaction. Missing/damaged members and wrong
+authority cannot commit pack rows or indexes. A failed target stays quarantined
+in `restoring`; successfully staged immutable files may remain confined there.
+This is not a usable partial restore or an implicit cleanup/reset. Existing
+recorded-time trust checks and index rebuilding still precede readiness. The
+ATT&CK test uses the actual production archive, a Reporting snapshot pin,
+disabled historical content, exact descriptor/anchor/inventory comparisons,
+6,221 objects and 34,632 relationships, and a removal rejection while pinned.
+
+### Resource admission and allocation evidence
+
+Structural admission owns canonical syntax, Unicode, duplicate members, safe
+integers, closed shape, depth, descriptor/row size and component count. Semantic
+admission owns normalized keys, posting budgets, actual coverage, uniqueness and
+references. One lookup with 129 inputs and two lookups totaling 129 now fail
+`content_semantic_invalid` with `max_dataset_object_postings`.
+
+The token reader retains inert data as bounded raw JSON. Row materialization
+retains at most 128 lookup inputs across names. It scans excess inputs without
+retaining their collections so that a later structural defect still wins.
+Encoded-key sizes and aggregate budgets are checked before encoded-key
+allocation or posting insertion. Cancellation closes an opened stream and
+leaves no published index. The private-index boundary remains application-owned.
+
+The authored matrix checks equality/one-over for 64 KiB descriptors, 32 lookups,
+four components, 128 object postings, 64 KiB keys, eight million pack postings,
+256 MiB encoded keys, depth 64 and 4 MiB rows. Descriptor byte admission is
+qualified separately from its closed semantic shape; no padding field was added.
+Exact aggregate arithmetic uses controlled near-limit state; streaming public
+admission cases exercise the shared guards, failure precedence and zero index
+writes. Coverage declarations, NFC expansion, JSON escaping, normalized
+collisions, replacement chains and cancellation have companion assertions.
+
+### Isolation prerequisites and operator workflow
+
+Qualification requires Linux namespaces and the exact bubblewrap pin in
+`tools/toolchain_pins.json`. An unavailable namespace, mount capability or pinned
+tool fails qualification visibly. There is no unrestricted fallback or host
+reconfiguration. Static transitive import/embedding checks remain supplementary.
+Negative probes cover absolute/relative reads, environment discovery, generator
+inputs, symlink escape, sibling corpora, signing dependencies and writes to
+read-only inputs.
+
+Module qualification exports the selected module, mounts only its pinned Go
+runtime/dependencies and creates private writable caches. `GOWORK=off`,
+`-mod=readonly`, local toolchain selection and disabled network resolution apply.
+No application checkout or sibling producer is visible. Application qualification
+builds the `cmd` closure and regenerates neutral-format contract projections
+without producer sources/corpora/private signing inputs. A completed operator
+binary exercises its usage path with the documented exit 2; qualification checks
+both that exit and the expected usage text. This probe is command admission, not
+a claim that all operational application paths execute in the namespace.
+
+Producer package execution receives only its binary, explicit input files,
+selected corpus and private output/ledger directories. Assembly writes research
+under `<output_root>/research/<manifest_sha256>/`; ATT&CK includes its source audit
+there. Source acquisition/audit commands retain their separate source-management
+purpose. Assembly no longer needs to modify source corpora. New builder hashes
+change future candidate identities; already-valid signed releases are untouched.
+
+Use the public workflows from the repository root:
+
+```sh
+make reference-pack-module-check MODULE=format
+make reference-pack-module-check MODULE=<attack|veris|windows|entra>
+make reference-pack-producer-build PRODUCER=<attack|veris|windows|entra>
+make reference-pack-package PRODUCER=<pack> ACTION=assemble INPUT=<explicit-input.json>
+make lint CHECK=backend-boundary
+```
+
+Successful namespace manifests are retained under
+`.cartulary/reference-packs/isolation/{module,producer,application,corpus}/`.
+The owning command's stderr links its exact content-addressed evidence record.
+Module archive qualification also retains selected dependency pins and a recipe
+hash under `.cartulary/reference-packs/modules/qualified-isolated-v1/`.
+No record includes signing key contents. The common neutral dependency pin is
+`v0.1.0-dev.45295465495d9a17284932765904e16b3e788239215d6d977242ff4b825cba46`,
+managed through `make bootstrap PART=go`, with no local-path replacements.
+
+The final corpus inputs are
+`.cartulary/reference-packs/closure-qualification/<pack>/input-final-r1.json`.
+Their output directories contain unsigned qualification candidates and independent
+complete-corpus witnesses, not replacement distribution releases. All four
+corpora preserve their identities, factual fields, relationships, documentation,
+notices and lookup coverage against the existing machine expectations. Entra
+remains 139 application objects and zero populated SPNs.
+
+### Frozen source and selected releases
+
+`reference-closure-finalize-r1` completed `make agent-finalize` with native exit 0.
+Generated changes were inspected before freezing executable source. The final
+source is commit `70ba53b47269d1733f1bdbbf310cfd4b94a7b455` plus dirty digest
+`sha256:ad28e6d13bb312a7b68ea51e2da3aa33bc07b163cead8f8db2656fbb7dbe5646`.
+The preexisting staged baseline remains unchanged. Documentation-only handoff
+updates do not enter executable source or evidence inputs.
+
+Production selectors remain the four `dataset-v1` descriptors listed in the
+MITRE-license closure above. Their signed bytes, source profiles, distribution
+decisions and custody remain unchanged. ATT&CK online metadata expires
+`2026-12-08T20:40:00Z` (root `2027-11-08T20:40:00Z`); the other three online
+envelopes expire `2026-12-08T19:52:00Z` (roots `2027-11-08T19:52:00Z`).
+Fresh import uses the trusted current clock and must reject expired metadata.
+Renewal is a separate explicit `ACTION=renew` operation with the preserved
+logical root, approval, production authority, predecessor envelope and advancing
+metadata versions. Retain its new immutable descriptor before selecting it for
+future qualification. Tests never renew or re-sign their subject. Installation,
+activation and rollback procedures above continue to apply to the selected
+production releases; this work installs no deployment trust.
+
+### Final scoped portfolio
+
+The authored selection and pre-execution plans are retained at
+`.cartulary/reference-packs/closure-qualification/portfolio.v1.json` and
+`portfolio-inputs/*.plan.json`. The portfolio deduplicates the earlier 110-row
+remediation coverage, ATT&CK follow-up, affected source-owner supporting rows and
+new recovery obligation into 130 rows. Every invocation below uses a fresh run
+identity and cache mode `off`. Exact row selections are retained in its
+`run-manifest.json`. No earlier-source root supplies missing final-source coverage.
+
+Every selected row passed with observed native exit 0, completed cleanup and a
+passing retained-secret scan. All 20 run manifests bind the one frozen digest
+above and match the predeclared selections exactly. This is a scoped
+remediation portfolio; no full-owner evidence audit or full CI claim is made.
+Optional finalizer retained-run maintenance is skipped because no compatible full
+warm-check root was supplied. Hosted publication, installation and signing-key
+changes remain outside scope.
+
+All roots in this table are under `.cartulary/test-results/` with prefix
+`reference-closure-final-` and suffix `-r1`. Each has `run-manifest.json`,
+`run-summary.json`, `cleanup-results.json` and `retained-secret-scan.json`.
+
+| Run stem | Selected rows | Native exit | Cleanup steps, all completed | Secret scan |
+| --- | ---: | ---: | ---: | --- |
+| `app-operator-1` | 1 | 0 | 14 | Pass |
+| `app-server-1` | 1 | 0 | 14 | Pass |
+| `harness-command_surface-1` | 1 | 0 | 10 | Pass |
+| `module-artifacts-1` | 1 | 0 | 10 | Pass |
+| `module-database_migrations-1` | 2 | 0 | 14 | Pass |
+| `module-imports-1` | 1 | 0 | 10 | Pass |
+| `module-incidentbundles-1` | 5 | 0 | 14 | Pass |
+| `module-indicators-1` | 4 | 0 | 16 | Pass |
+| `module-links-1` | 5 | 0 | 19 | Pass |
+| `module-recovery-1` | 4 | 0 | 14 | Pass |
+| `import-attack` | 1 | 0 | 14 | Pass |
+| `import-windows` | 1 | 0 | 14 | Pass |
+| `import-entra` | 1 | 0 | 14 | Pass |
+| `import-veris` | 1 | 0 | 14 | Pass |
+| `reference-unit-1` | 48 | 0 | 28 | Pass |
+| `reference-integration-1` | 37 | 0 | 23 | Pass |
+| `module-reportcomposition-1` | 3 | 0 | 18 | Pass |
+| `module-reporting-1` | 7 | 0 | 15 | Pass |
+| `module-revisions-1` | 2 | 0 | 14 | Pass |
+| `module-savedviews-1` | 4 | 0 | 15 | Pass |
+
+The final `boundary-r1`, `generated-r1` and `schema-r1` roots under the same
+prefix each passed their named Make check with native exit 0. Five
+`module-<module>-r1` runs passed independent exported-module qualification. Four
+`builder-<pack>-r1` runs produced byte-identical binaries in two isolated builds.
+Four `corpus-<pack>-r1` and four `replay-<pack>-r1` runs passed assembly and its
+independent factual/notice witness with unchanged logical payload bytes. These
+non-graph workflows retain their named `tool-run-summary.json`, exact commands,
+stdout/stderr references and immutable namespace/archive/builder evidence. They
+are separate build/corpus witnesses, not additional rows in the 130-row count.
+
+| Producer | Final module source SHA-256 | Qualified binary SHA-256 |
+| --- | --- | --- |
+| ATT&CK | `c33620e8007de7567a08172815b890be038459558ddfc78a808887543b1fad24` | `d58423612ea68cfc302fd9a83f876267e67088d987d1caac535848b68c473688` |
+| VERIS | `8886eb88877b20ee7beceb46ef2f3a2dddd5998b806f815c94595d64a64f7e1f` | `e71f90c8303821559975a09bf4ebbfca50d2503591dd3726cdec24d5ded96785` |
+| Windows | `5ef95e728632880d289138b781aff80163a5908e2e408514cf80971d64dcbe86` | `044ba3a67f95fa7eb3cb7d184064cda7ec2c70afc410677e4b4b5eec4ae06e11` |
+| Entra | `ba2291cfcafa1f650ac3fee02c24daef06ee28955eab800c97da8550869baab0` | `e5df7bb7cac158ded18eb4b50ca8a6466eaf85ce022ac5c8db4164c45f8ea938` |
+
+The neutral module source identity is the hash in its dependency version above.
+Archive descriptors and their pinned dependency qualifications are retained by
+source identity and qualification recipe, so repeated qualification does not
+rewrite an earlier record.
+
+### Development failures and their disposition
+
+All entries below are repaired development evidence. None supplies final-source
+acceptance. Paths are under `.cartulary/test-results/`; graph roots retain
+`run-summary.json`, and package/module roots retain the target's
+`tool-run-summary.json`.
+
+| Root / target | Finding and disposition |
+| --- | --- |
+| `reference-closure-format-dev-r1`, `reference-closure-format-dev-r2` / `test-slice` | Fixed a test compilation error and moved deliberate immutable-provenance corruption into an explicit test-superuser transaction. Runtime permissions and immutable triggers remain enforced. |
+| `reference-closure-isolation-format-dev-r1`, `reference-closure-isolation-format-dev-r2` / `reference-pack-module-check` | Resolved the exact pinned toolchain rather than its launcher and included selected lazy-module archive metadata. No shared-cache or network fallback was added. |
+| `reference-closure-application-isolation-dev-r1` through `-r3` / `lint CHECK=backend-boundary` | Added the pinned cryptographic build environment, asserted the operator's real usage exit 2, and registered the new cross-owner recovery test in the authored boundary inventory. Final boundary qualification passes. |
+| `reference-closure-corpus-<pack>-dev-r1` / `reference-pack-package` | Read-only source mounts exposed research/audit writes in all four assemblers. Research moved to explicit outputs; final corpus and replay passes retain read-only source mounts. |
+| `reference-closure-attack-recovery-dev-r1`, `reference-closure-attack-recovery-dev-r2` / `test-slice` | Fixed test cleanup compilation and compared retained version/envelope/release references rather than transient operation references swept by recovery. Exact descriptor, canonical content, anchors and pins remain asserted. |
+
+The final documentation command is
+`CARTULARY_TEST_RUN_ID=reference-closure-handoff-final-r1 make lint-markdown`, with
+summary at
+`.cartulary/test-results/reference-closure-handoff-final-r1/adhoc/lint-markdown/tool-run-summary.json`.
+Completion reporting requires its observed native exit 0 and clean
+`git diff --check`. No executable edit follows the recorded freeze. No required
+scoped obligation or external prerequisite remains blocked. This conclusion
+closes the specified remediation; it does not assert an exhaustive subsystem,
+full-owner, full-CI, hosted-publication or deployment qualification.
+
+## LC — Legacy removal and production readiness
+
+### LC authority, scope and source posture
+
+The user approved this document amendment after choosing **current-contract
+cleanup**. This section is the next refactoring plan, not execution of its
+production changes. Preserve adopted capabilities while removing proven dead
+code, completed migration machinery and unnecessary input/dependency breadth.
+Prefer a smaller set of clear owners over compatibility aliases or another
+producer framework. No source acquisition, hosted publication, deployment,
+trust installation or signing-custody redesign is included.
+
+The preceding Plan-mode invocation performed read-only exploration and wrote
+nothing. This document session supersedes that pending-write status. Existing
+staged, unstaged and untracked work must be preserved; do not stage this update
+or reset the working tree. Implementation authorization is **not granted by this
+document-update invocation**. A later authorized implementation task must
+revalidate LC-E0 and satisfy each phase's entry conditions.
+
+| Evidence ID | Baseline / source identity | Scope and limits |
+| --- | --- | --- |
+| LC-E0 | `main`, HEAD `70ba53b47269d1733f1bdbbf310cfd4b94a7b455`; baseline and comparisons under `/tmp/reference-lc-docs-u5jejg2_/` | Dirty source is preserved, not described as a clean release baseline. `baseline.json` fingerprints 9,473 tracked/nonignored entries by content and identity; `index-entries.bin` and `status-before.bin` retain staged/working-tree posture. |
+| LC-E0-index | Index-entry SHA-256 `9f71114aa9c7ad0a4b18047abb83171f241477a10863a9b4252d764c35534c88` | Compare exact entries after the update; this is not a claim about every Git internal file. |
+| LC-E0-tracker | Incoming SHA-256 `e4fe7aadbdb0690a3f55a8a4e1acc74d2b13ccd0a26a591fadc7123759b5a830`; inode `708148`, one link; `tracker-before.md` retains the incoming document | Canonical target remains `internal/modules/reference_data`; admitted output remains this existing regular file. Output/parent components are not symlinks. |
+| LC-E1 | Candidate source reads and reference searches from the preceding LC exploration; current per-path hashes and dispositions in `lc-inventory.json` | Textual absence is a removal candidate, not proof that dynamic, generated or external consumers are absent. LC-P0 supplies executable characterization. |
+| LC-E2 | `tools/harness/generated-artifacts/generate-artifacts.sh`, Base/fixture conversion scripts and input declarations; source/package witness callers; application isolation launcher | Establishes active transitional paths and the generation-boundary expansion required below; not a failed product test. |
+| LC-E3 | RC final portfolio and `.cartulary/test-results/reference-closure-final-reference-unit-1-r1/{run-manifest.json,run-summary.json,cleanup-results.json,retained-secret-scan.json}` | Selected retained records were inspected, not rerun. RC binds commit above plus dirty digest `sha256:ad28e6d13bb312a7b68ea51e2da3aa33bc07b163cead8f8db2656fbb7dbe5646`; no LC final-source or complete-owner claim follows. |
+| LC-E4 | `ignored-baseline.json`, public Make Markdown route, installed-readiness checks, non-fixing Markdown configuration, external result/cache paths | Preservation covers relevant frontend installation/toolchain/Corepack/static-cache files and selected lock metadata. Unrelated ignored build/service/result trees are not exhaustively fingerprinted. |
+
+The current owner remains adopted Reference Pack NLSpec 0.5.0 / extension major
+4 under Core 00 precedence. RP-REQ-018 governs compatibility, RP-REQ-099 generic
+authority, and RP-REQ-275 through RP-REQ-279 the neutral boundary, generic
+contract and resource admission. Core 01's current bundle/consumer contracts,
+Core 04 security requirements, and the participating Reporting, portability and
+Recovery owners continue to apply. This plan adopts no normative amendment.
+An actual owner conflict or behavior defect receives a separate finding and
+correction slice; it must not be hidden inside structural cleanup.
+
+### LC inventory and responsibility decisions
+
+The universe is tracked and nonignored untracked files under the established
+target, expanded to the four producers, neutral library and named tooling.
+Ignored caches/results, external paths and unrelated repository subtrees are
+outside this bounded inventory. All 532 entries in these four roots have a
+per-path disposition in `lc-inventory.json`. Direct inspection means relevant
+bodies were read during LC exploration, not exhaustive correctness review.
+
+| Root | Entries | Directly inspected | Metadata-only | Next inspection boundary |
+| --- | ---: | ---: | ---: | --- |
+| `internal/modules/reference_data` | 226 | 9 | 217 | Candidate helpers, complete caller/generated closures and surviving assertion destinations in LC-P0 |
+| `referencepacks` | 276 | 8 | 268 | Current profile/input reachability before removing historical-only exported material |
+| `tools/reference-pack-modules` | 18 | 6 | 12 | Generation input/output declarations and affected isolation execution closure |
+| `tools/reference-packs` | 12 | 3 | 9 | Source-audit helpers and current witness assertions before dispatch reduction |
+
+Additional direct evidence includes the old ATT&CK contract-input embedding
+file, generated-artifact policy, execution topology, current owner clauses and
+selected retained RC results. Metadata-only accounting is not deletion approval.
+Any file reached by a proposed removal becomes required direct inspection in
+LC-P0. The plan is complete for the bounded workstreams and deterministic entry
+gates below; it is not an exhaustive dead-code or correctness audit of all 532
+entries or the whole subsystem.
+
+| Responsibility | Owner / disposition | Rationale and preservation rule |
+| --- | --- | --- |
+| Canonical encoding, envelope/trust primitives, generic validation and budgets | Neutral format module; keep | Remove abandoned local copies without exporting application lifecycle policy. |
+| Authorization, Jobs, transaction publication, sets, retention, Base policy and local provenance | Reference Data/application adapters; keep | These are live application responsibilities, not accidental duplication of producer logic. |
+| Source interpretation, factual correctness, licensing decisions and authority selection | Each independent producer; keep | Do not merge small policy adapters into an omnibus dispatcher or shared producer framework. |
+| One-time predecessor conversion | Remove from active generation; retain necessary historical evidence | Current releases must not be reissued as a side effect of ordinary generation. |
+| Current-format fixture construction and independent witnesses | Tooling; simplify and retain | Independent expectations must not be manufactured by the production encoder under test. |
+| D3FEND relationships and other adopted non-generic profiles | Existing runtime owners; intentional/no_action | These are live supported features. Their retirement or redesign is outside LC. |
+
+### LC contract freeze and findings
+
+| Contract ID | Required preservation | Evidence / affected phases |
+| --- | --- | --- |
+| LC-C1 | Pack contract v3, subsystem major 4, generic dataset v1, sets/reference catalogs v3, incident-bundle 8; current consumer types, routes, authorization and recovery formats | Adopted owners above; LC-P1–P5. No compatibility reader, automatic conversion, reset or historical-anchor rewrite. |
+| LC-C2 | Exact existing Base and optional production release bytes, identities, notices, approved distribution decisions and historical results | RC release selectors; LC-P0 fingerprints, LC-P2 and LC-P4 comparisons. Code cleanup changes future builder/source identities, not retained releases. |
+| LC-C3 | Five independently buildable modules, four independent producers, finite generic runtime and isolated declared inputs | RP-REQ-275; LC-P1–P4. Runtime must not acquire publication, producer, corpus or private-signing dependencies. |
+| LC-C4 | Verification precedence, bounded diagnostics/resources, cancellation and atomicity, exact-set provenance, portable-history limits and source correctness | Current owner requirements and RC assertion destinations; LC-P0 characterization and LC-P1–P4 regression. A signature does not establish factual truth. |
+
+| Finding ID / classification | Observed evidence and uncertainty | Remediation / areas | Trace |
+| --- | --- | --- | --- |
+| LC-F1 / must_fix for LC-P1 | App declarations `packTime`, `equalHex`, `equalDigest`, `duplicateManifestFindings`, `ProjectionDigest`, `WriteUSTAR` and neutral dataset `sourceRefs` have no callers in the inspected searches. Same-named library/native functions can be live. | Prove exact declaration ownership and remove only unused copies; implementation, tests and managed pins. | LC-C1/C3/C4; LC-W1; LC-P0/P1; LC-V1 |
+| LC-F2 / must_fix for LC-P2 | Normal generation invokes `base-release.mjs`, which derives a current release and builder identity from predecessor bytes and script content. | Seal existing v3 Base bytes as an immutable input; remove active cutover registration; tooling/declarations/tests. Preserve any source snapshot needed to explain the retained builder identity. | LC-C2/C3; LC-W2; LC-P2; LC-V2 |
+| LC-F3 / must_fix for LC-P2 | `current-fixtures.mjs` still constructs current vectors by reading predecessor-contract-v2 vectors. | Replace conversion inputs with reviewed current-format recipes and an independent encoder; preserve explicit predecessor rejection fixtures; tooling/machine inputs/tests. | LC-C1/C3/C4; LC-W2; LC-P2; LC-V2 |
+| LC-F4 / must_fix for LC-P2 | `source.sh` still calls the old witness for source audits; `package.sh` uses the dataset witness. Old native assembly/envelope/renew branches remain. The old ATT&CK Go embed has no discovered consumer; producer archive input reachability is not yet fully classified. | Reduce the old entrypoint to supported source-audit work; remove confirmed redundant executable copies and historical-only export inputs after characterization; tooling/producer packaging/tests/docs. | LC-C2/C3/C4; LC-W3; LC-P0/P2; LC-V3 |
+| LC-F5 / must_fix for LC-P3 | Application isolation executes the neutral projection generator, application build and operator usage probe. It does not yet qualify the entire affected product-generation closure. | Extend existing isolation using explicit current inputs and negative probes; tooling/execution declarations/tests. This is an evidence gap, not proof of a present hidden application dependency. | LC-C3; LC-W4; LC-P3; LC-V4 |
+| LC-F6 / must_fix for LC-P4/P5 | RC explicitly records scoped 130-row acceptance without a complete-owner evidence audit. Cleanup will produce new source identities. | Predeclare complete Reference Data owner plus affected cross-owner obligations; finalize/freeze/requalify and reconcile handoff; validation/release accounting/docs. | LC-C1–C4; LC-W5; LC-P4/P5; LC-V5 |
+
+### LC workstreams and durable outcomes
+
+**LC-W1 — Remove extraction leftovers.** Delete proven unused declarations and
+their orphaned imports/files. Remove the old ATT&CK contract-input Go embed only
+after its complete consumer check; independent witness inputs remain live even
+if they share that directory. Retain application policy/error translation and
+all adopted specialized profiles. Refresh changed format-module dependencies
+through managed Make workflows, never by hand-editing dependency lockfiles.
+The benefit is fewer competing implementations and clearer ownership; the risk
+of leaving this gap is future fixes landing in inactive copies. No public
+behavior change is intended. Exit requires no active references to deleted
+symbols, passing focused assertions and independent affected-module builds.
+
+**LC-W2 — End predecessor-driven normal generation.** Remove the one-time Base
+cutover operation from ordinary generation and retain the current v3 Base release
+byte-for-byte as an immutable machine input. Preserve required historical
+builder/source evidence outside active generation. A general Base publisher is
+deferred until a concrete release requires one. Replace predecessor-derived
+fixture recipes with reviewed current-format inputs and an independent encoder;
+do not use the production format implementation to manufacture its own answers.
+Retain predecessor bytes only for historical evidence or explicit rejection
+tests. Update authored generation ownership and execution declarations before
+regenerating. This reduces compatibility burden and prevents incidental release
+reissuance. Existing production bytes do not change; fixture changes require
+explicit expectation review. Exit requires repeatable generation, identical Base
+bytes and successful current generation with retired conversion inputs hidden.
+
+**LC-W3 — Retire obsolete witness and producer-input paths.** Keep the old witness
+only for its supported source audits; delete obsolete native publication actions
+without aliases. Generic publication keeps the dataset witness. Characterize
+ATT&CK's empty/nonempty audit-report behavior and the meaning of successful
+source audit before restructuring dispatch: unsupported witness actions must
+not silently count as evidence. Any required observable correction is a separate
+finding, not an incidental refactor. Classify each producer input through current
+profiles, embeddings, tests and independent witnesses. Exclude historical-only
+material from current exported trees without deleting immutable evidence or
+inputs reachable through older-named current profiles. Producer authority policy
+stays local. This reduces unused inputs and duplicated qualification paths;
+unresolved ambiguity risks false witness success or lost factual checks. Exit
+requires independently passing current audits/witnesses, no obsolete callers and
+complete inputs for all four exported producers.
+
+**LC-W4 — Qualify the complete affected generation boundary.** Reuse the existing
+Linux filesystem-isolation launcher and evidence model. Cover the affected
+product-generation closure, keeping harness catalog discovery of producer test
+metadata separate. Expose only declared current inputs, pinned tools and private
+outputs; hide producer source, upstream corpora, private signing material and
+retired conversion inputs. Preserve offline execution, workspace-disabled/read-only
+module resolution, negative probes and visible failure when prerequisites are
+unavailable. Do not add an unrestricted fallback or reconfigure the host. This
+makes future filesystem dependencies detectable without a second framework.
+Qualification changes; application interfaces do not. Exit requires isolated
+generation/build success and intended rejection of undeclared reads, symlink
+escapes and forbidden generator inputs.
+
+**LC-W5 — Establish production-readiness evidence.** Before execution, materialize
+the required portfolio from current routing: complete Reference Data owner
+coverage, affected cross-owner obligations, five standalone modules, four
+producer qualifications and four independent exact production-artifact
+lifecycles. Preserve existing selectors and approved distribution decisions.
+Final evidence must bind one frozen executable-source state rather than combine
+incompatible earlier roots. The benefit is traceable readiness; the unresolved
+risk is overstating accumulated scoped passes as current acceptance. Exit
+requires every required obligation mapped to compatible evidence, observed
+native exits, cleanup and secret-scan results, plus the complete-owner audit.
+
+### LC slices, dependencies and entry gates
+
+The dependency column below is authoritative. LC-P1 and LC-P2 may proceed
+independently after LC-P0, but LC-P3 requires both exits. All code and tooling work
+is future implementation; the document update does not start LC-P0.
+
+| Phase / status | Depends on | Work and readiness | Principal risk / control | Binary exit / rollback |
+| --- | --- | --- | --- | --- |
+| LC-P0 / TODO | Current source and LC-E0 revalidation | Ready for inspection in a later authorized task. Complete per-declaration callers, generated/file-input reachability, assertion destinations, current tool selections and immutable artifact hashes. | False dead-code conclusions; inspect exact declarations and compiled/executable closures rather than names alone. | A complete bounded removal ledger, retained characterization and concrete portfolio inputs. No production mutation to roll back. |
+| LC-P1 / BLOCKED | LC-P0 | LC-W1; blocked on LC-RB1 characterization. | Deleting live policy or error mapping; preserve assertion owners and phase/diagnostic behavior. | LC-V1 passes, dead references absent, affected modules independently build. Revert only this slice's changes, preserving incoming work and artifacts. |
+| LC-P2 / BLOCKED | LC-P0 | LC-W2 and LC-W3; blocked on LC-RB1, including witness/input characterization. | Fixture drift, lost independent checks or Base reissuance; compare canonical bytes and hashes before accepting generation. | LC-V2/V3 pass, current recipes stable, existing releases identical and old publication paths unregistered. Restore authored recipe/tooling changes if needed, never rewrite historical outputs. |
+| LC-P3 / BLOCKED | LC-P1 and LC-P2 | LC-W4; blocked on LC-RB2 integration. | Nominal isolation or accidental reliance on harness discovery; exercise the declared product closure with forbidden inputs inaccessible. | LC-V4 passes positive and negative probes. Roll back launcher/declaration changes as a unit; no unrestricted bypass. |
+| LC-P4 / BLOCKED | LC-P3 | LC-W5; blocked on LC-RB3 final qualification. Finalize, inspect generated changes, freeze executable source, then run the predeclared portfolio. | Mixed source evidence or fresh substitute artifacts; enforce source compatibility and exact selectors. | LC-V5 and complete-owner evidence audit pass. Repairs invalidate affected evidence; re-finalize/freeze and requalify before closure. |
+| LC-P5 / BLOCKED | LC-P4 | Reconcile findings, release links, operator guidance and coverage limitations. | A DONE label outrunning evidence; require every named gate and evidence edge. | No unresolved required row or unrecorded uncertainty. If a gate fails, retain explicit BLOCKED status and exact evidence; no readiness claim. |
+
+No runtime/storage migration is planned. Existing incompatible retained state
+continues to fail closed under the adopted cutover. Rollback restores the
+appropriate application/source environment without reinterpreting new state,
+rewriting historical anchors or resetting a deployment.
+
+### LC validation and evidence obligations
+
+All managed commands run from the repository root through public Make targets.
+LC-P0 must resolve exact row/module selections from `make task-guide
+OWNER=module.reference_data`, affected-owner guides and `make target-plan` before
+execution. Record the concrete commands and required rows in machine-owned
+portfolio inputs. Those tools, tests and release witnesses must not read or hash
+this tracker, specification/adoption prose, README or other `docs/` content.
+Documentation lint is a separate documentation-maintenance check.
+
+| Validation ID / stage | Required coverage and workflow | Expected evidence / failure consequence |
+| --- | --- | --- |
+| LC-V0 / document update | `make lint-markdown` with installed-only prerequisites, network-disabled Corepack and external result/static-cache roots; `git --no-optional-locks diff --check -- docs/handoffs/reference_data-module-refactor-tracker.md`; final content/index/identity comparison | Native exit 0, retained tool summary, no whitespace errors and only this tracker changed. Failure keeps LC-DOC open. No product checks, formatting, generation or finalization in this session. |
+| LC-V1 / characterization and post-LC-P1 | Narrow discovered `make test-slice` selections for affected format/adapter behavior; `make reference-pack-module-check` for affected modules; retain live-profile and diagnostic precedence assertions | Named surviving assertions, independent build evidence and absence of removed callers. Pure deletion does not justify tests that merely mirror removed implementation. |
+| LC-V2 / post-LC-P2 generation | `make generate`, repeat generation, `make source-check CHECK=generated`, `make source-check CHECK=schema`; current recipe and predecessor-rejection assertions | Stable output, reviewed fixture expectations, unchanged Base/production hashes and no predecessor conversion dependency in the active closure. |
+| LC-V3 / post-LC-P2 producers | Current source-audit, logical assembly, publication and renewal witness selections through public producer workflows; all four exported modules and their pinned corpora | Current factual/notice assertions survive; obsolete action paths have no callers; unsupported witness actions cannot provide successful evidence. ATT&CK audit-report characterization is mandatory before removal. |
+| LC-V4 / post-LC-P3 boundary | `make lint CHECK=backend-boundary` and the discovered isolation/command-surface rows; application generation/build, five module builds, four producer input closures and negative probes | Offline isolated success; undeclared absolute/relative reads, environment discovery, symlink escapes, sibling corpora and signing/generator dependencies rejected. Missing prerequisites fail visibly. |
+| LC-V5 / final regression | `make agent-finalize`, generated-change review and executable freeze; fresh cache-disabled `make test-slice` selections; required build/corpus qualification; boundary/generated/schema/Markdown checks; `make test-evidence-audit OWNER=module.reference_data EVIDENCE_ROOTS_FILE=<exact compatible roots file>` | One compatible final-source portfolio, complete required Reference Data owner union and separately identified affected cross-owner coverage. Replace the roots-file placeholder with the predeclared concrete artifact. Missing rows block LC-P4; full CI is not implied. |
+
+The LC-V5 portfolio includes canonical/trust vectors; generic limits and
+verification precedence; cancellation/cleanup and atomic publication; Base
+readiness; adopted specialized profiles; optional-pack absence; unknown generic
+framework/enrichment keys; all four exact production imports and recovery
+scenarios; Reporting/Composition; permitted/restricted portability; and
+server/operator retained-state admission. UI/browser obligations follow current
+complete-owner routing; no visual redesign or golden refresh is introduced.
+Scoped cross-owner success is not complete acceptance of those other owners.
+
+Reuse the existing production selectors recorded in RI/RC. Fresh imports use the
+trusted current clock. ATT&CK online metadata expires `2026-12-08T20:40:00Z`
+(root `2027-11-08T20:40:00Z`); the other three online envelopes expire
+`2026-12-08T19:52:00Z` (roots `2027-11-08T19:52:00Z`). Revalidate these identities
+and dates before LC-P4. If renewal is necessary, perform a separately authorized
+publication operation before qualification, retain its new immutable descriptor
+and preserve logical bytes. Never renew or re-sign inside the test. Historical
+restore retains its adopted recorded-time verification semantics.
+
+### LC blockers, completion criteria and durable handoff
+
+| Gate ID | Status | Affected phases | Exact resolution |
+| --- | --- | --- | --- |
+| LC-RB1 | TODO | LC-P1/P2 | LC-P0 proves callers/input reachability and surviving assertions, including ATT&CK source-audit behavior and immutable hashes. Missing characterization blocks deletion. |
+| LC-RB2 | TODO | LC-P3 | LC-P1/P2 exits and declared generation input/output closure are available; isolation prerequisites pass without installation or fallback. |
+| LC-RB3 | TODO | LC-P4/P5 | Predeclared required portfolio, completed finalization/freeze, compatible passing roots and complete-owner evidence audit. Existing RC passes do not resolve this gate. |
+
+There is no unresolved LC product-scope choice, new license decision or requested
+compatibility exception. A newly discovered behavior defect gets a separate
+finding, owner allocation and correction slice; a true primary-owner conflict
+blocks only its dependent work. Do not silently broaden LC into feature removal.
+
+The implementation handoff must record each LC finding's disposition, actual
+deleted/moved paths, surviving assertion destinations, refreshed dependency pins,
+qualified module/build identities, exact production selectors, expiry/renewal
+instructions, isolation inputs/prerequisites, retained evidence roots and any
+skipped required checks. Preserve earlier history while replacing current-state
+claims. Entra remains 139 application identities with zero real SPN postings
+unless a separately adopted source release changes that factual coverage.
+
+| Outcome | LC completion rule |
+| --- | --- |
+| Planning completeness | Complete for the specified bounded workstreams, dependency graph and characterization gates; metadata-only entries and broader audit limits remain explicit. |
+| Slice readiness | LC-P0 ready for later inspection; LC-P1–P5 blocked until named predecessor/characterization exits. A planning DONE never means code or validation DONE. |
+| Implementation authorization | Not granted by this document-update invocation. Follow the approved future plan only in a later authorized implementation task. |
+| Document completion | LC-DOC becomes DONE only after LC-V0 passes and tracker-only preservation is verified. |
+| Production readiness | Requires LC-P4/P5 with every required obligation and owner audit passing on compatible final source. A blocked gate remains blocked; no full-CI, hosted-publication or deployment certification follows. |
+
+### LC document-session checkpoint
+
+LC-DOC is DONE. The approved plan, current-state summary, finding/contract links,
+slice dependencies, validation portfolio and future readiness gates are recorded.
+Only this tracker has been edited. The following command passed with observed
+native exit 0:
+
+```sh
+CARTULARY_PREPARATION_POLICY=installed_only COREPACK_ENABLE_NETWORK=0 CARTULARY_TEST_RESULTS_DIR=/tmp/reference-lc-docs-u5jejg2_/results CARTULARY_STATIC_ANALYSIS_CACHE_DIR=/tmp/reference-lc-docs-u5jejg2_/static-cache CARTULARY_TEST_RUN_ID=reference-lc-docs-r1 make lint-markdown
+```
+
+The tool summary is
+`/tmp/reference-lc-docs-u5jejg2_/results/reference-lc-docs-r1/adhoc/lint-markdown/tool-run-summary.json`.
+`git --no-optional-locks diff --check -- docs/handoffs/reference_data-module-refactor-tracker.md`
+also passed. `preservation-result.json` in the LC-E0 directory confirms that only
+this tracker differs among all 9,473 baseline entries; staged entries and tracker
+file identity are preserved, and none of the 6,815 inspected relevant ignored
+entries changed. Historical sections 13 through RC remain byte-for-byte intact.
+The LC-DOC outcome does not close LC-P0–P5 or LC-RB1–3.
+
+The completion transcription receives the same Markdown command with fresh run
+ID `reference-lc-docs-final-r1`; its tool summary is under that exact run root.
+Final reporting requires its observed native exit 0 and a repeated preservation
+comparison after the final write. Comparison scripts and records stay outside
+the repository and are not product qualification inputs.
+
+Product tests, generation, dependency updates and `make agent-finalize` are
+intentionally skipped for this documentation-only step. This does not waive any
+future LC-V1–V5 obligation. No production refactor, release mutation or deployment
+action was performed. The next action is a separately authorized LC-P0 baseline
+and removal-ledger task, starting with source/evidence revalidation.
+
+### LC execution amendment and sequential checkpoints
+
+The user explicitly authorized implementation of the complete remediation plan.
+The scope is current-contract cleanup, preserving adopted capabilities and
+immutable releases while removing obsolete behavior and dependencies. This
+amendment supersedes the earlier LC dependency table and readiness summary;
+LC-F1–F6, LC-C1–C4 and their detailed rationale remain applicable.
+
+Baseline LC-EX0: `main` at `70ba53b47269d1733f1bdbbf310cfd4b94a7b455`;
+`/tmp/reference-lc-implementation-2wfeic7g/baseline.json` records content and
+identity for 9,473 tracked/nonignored entries. The same directory retains exact
+index entries, initial status, unstaged diff and the incoming tracker. The index
+is preserved; no staging, reset or release rewrite is authorized. Managed build,
+cache and result outputs are not immutable source artifacts.
+
+| Finding | Decision / areas | Rationale, impact and completion |
+| --- | --- | --- |
+| LC-F1 | Remove proven unused application helpers and neutral `sourceRefs`; implementation/tests/dependencies | One active owner per responsibility; no public behavior change. Exact callers, surviving assertions and independent affected-module builds must pass. |
+| LC-F2 | Seal the existing Base v3 release as an immutable input; tooling/declarations/tests/docs | Ordinary generation must not reissue releases. Preserve exact bytes and historical builder evidence; current generation must work without conversion inputs. No new Base publisher. |
+| LC-F3 | Replace predecessor conversion with current-format recipes and independent encoding; tooling/fixtures/tests | Remove obsolete-format coupling without making production code its own oracle. Preserve fixture IDs and meaningful malformed cases; repeat generation must be stable. |
+| LC-F4 | Correct unsupported ATT&CK source-witness success separately, then retire old publication witness paths and unused export inputs; implementation/tooling/tests/docs | Success must represent an actual check. ATT&CK retains its producer audit and independent canonical-artifact witness. Unsupported internal witness actions fail without aliases; current producer audits and all independent factual checks survive. |
+| LC-F5 | Isolate the full affected product-generation chain, including downstream embeddings/projections; tooling/declarations/tests | Start with authored inputs, not copied generated answers. Reuse existing isolation; no producer/corpus/private-signing/prose/conversion dependencies, network fallback or host reconfiguration. |
+| LC-F6 | Complete final-source portfolio and owner audit; tests/evidence/docs | Historical scoped passes do not establish current complete-owner acceptance. Native exits, cleanup, scan results and compatible evidence are required. |
+| LC-F7 | Correct the NLSpec introduction's reconciliation v1 restatement through RP-REQ-283's v2 contract and mark Core 00's unresolved ATT&CK license statement historical; specification/docs | Editorial owner alignment prevents retired-format restoration and stale distribution blockers. Preserve adoption history; no API/storage/contract-major change or reopened license decision. Markdown validation and owner review are required. |
+
+LC-P2 is an umbrella, not an executable combined slice. The following prerequisite
+column is authoritative. No successor starts until the preceding exit and its
+tracker checkpoint are complete. Failures remain BLOCKED with exact evidence;
+repairs are within the authorized workstream and invalidate affected evidence.
+
+| Workstream | Depends on | Status | Work / binary exit |
+| --- | --- | --- | --- |
+| LC-P0 | none | DONE | Revalidate source/owners/releases, complete removal and input ledger, assertion map, executable characterization and concrete portfolio inputs. |
+| LC-P0a | LC-P0 | DONE | LC-F7 owner alignment and Markdown lint; record editorial-only scope. |
+| LC-P1 | LC-P0a | DONE | LC-F1 removal, managed pins and focused assertions/builds; no remaining deleted-symbol callers. |
+| LC-P2a | LC-P1 | DONE | LC-F2 immutable Base ownership and historical builder retention; unchanged release hashes and no active conversion. |
+| LC-P2b | LC-P2a | DONE | LC-F3 current recipes; independent deterministic generation and canonical/trust/admission assertions. |
+| LC-P2c | LC-P2b | DONE | LC-F4 audit correctness; valid nonempty success reports, preserved failures, unsupported witness rejection, actual supported witnesses. |
+| LC-P2d | LC-P2c | DONE | LC-F4 obsolete branch/embed/export-input removal; current producer closures and factual checks preserved. |
+| LC-P3 | LC-P2d | DONE | LC-F5 isolated complete affected generation/build, exact output comparison and negative boundary probes. |
+| LC-P4 | LC-P3 | DONE | Finalize/review/freeze; fresh compatible full required portfolio, standalone modules/builds/corpora and independent exact production lifecycles. |
+| LC-P5 | LC-P4 | DONE | Complete-owner evidence audit, finding reconciliation, preservation, operator guidance and validation/handoff completion. |
+
+Current routing identifies 101 Reference Data rows: 48 backend unit, 41 backend
+integration, six frontend, three browser and three measurement. Materialize five
+complete target partitions, explicitly including all three explicit-only import
+rows. The final evidence manifest names their child targets, not a filtered
+`test-slice` as an unfiltered owner result. Separate four exact production-pack
+runs establish independence beyond the combined partition. Add affected
+cross-owner obligations, five standalone module qualifications and four producer
+build/corpus qualifications. Recompute exact routing before the final freeze.
+
+All managed checks use public Make targets. Narrow characterization precedes
+movement; authored generation changes precede `make generate`, repeat generation,
+`make source-check CHECK=generated` and `make source-check CHECK=schema`.
+`make lint CHECK=backend-boundary` verifies isolation/boundaries.
+`make agent-finalize` precedes final executable-source freeze and cache-disabled
+qualification. LC-P5 requires `make test-evidence-audit OWNER=module.reference_data
+EVIDENCE_ROOTS_FILE=<recorded-manifest>` with the concrete compatible roots file,
+then Markdown validation. Tests, generators, runtime metadata and release
+evidence never consume this tracker or other Cartulary prose.
+
+Selected releases remain ATT&CK `20.1.dataset.5` and VERIS/Windows/Entra
+`2026.11.08.dataset.4`. Revalidate exact descriptors/hashes and freshness before
+qualification. Tests never renew or re-sign their subjects. Expiry blocks that
+qualification until a separately authorized renewal; no historical bytes or
+anchors are rewritten. No deployment, trust installation, source acquisition,
+compatibility alias, automatic conversion/reset or signing-custody change is
+included. Rollback restores only this effort's authored changes and regenerated
+projections while preserving incoming work and immutable artifacts.
+
+Planning, sequential implementation and final validation/handoff are complete
+for this bounded scope. Each workstream's exit is recorded below. Completion
+means scoped engineering readiness, not full CI, deployment or formal
+cryptographic certification. The handoff identifies removed paths, surviving
+assertions, module/dependency identities, generation inputs, exact releases/expiry,
+commands, source/run identities, cleanup/scans, preservation and acceptance limits.
+
+#### LC-P0 completion
+
+LC-P0 is DONE. LC-EX0 preserved the incoming source/index and 733 immutable
+Reference Pack artifact entries. Exact helper searches confirm only the named
+application copies and neutral `sourceRefs` lack callers; live neutral/native
+namesakes remain. `producer-input-ledger.json` beside the baseline accounts for
+54 producer input files, with 11 historical-only export copies eligible for
+removal. ATT&CK `fixtures/native-cases.v1.json` remains live through the current
+profile and is retained even though it is not directly embedded. Other producer
+policy, baseline, notice and native-schema inputs remain owned by their modules.
+The unused old ATT&CK Go embedding has no import consumer; its JSON files remain
+available to independent witnesses. Base builder source/input and existing v3
+release hashes are included in the baseline.
+
+The concrete portfolio is
+`.cartulary/reference-packs/lc-qualification/portfolio.v1.json`, with exact JSON
+selections under `selections/` and current owner discovery in `owner-guide.json`.
+It includes all 101 Reference Data rows, independent production selections,
+affected cross-owner selections and generation/module boundary obligations.
+Discovery used `make help ALL=1` and `make task-guide OWNER=module.reference_data
+JSON=1`, both native exit 0. Target plans will be refreshed for the final source.
+
+`reference-lc-p0-characterization-r1` ran `make test-slice
+OWNER=module.reference_data ROWS=<eight exact rows>` with cache mode `off` and
+native exit 0. Its run manifest records the exact eight rows: independent ATT&CK
+producer, independent format dataset/envelope, canonical manifest/trust/
+diagnostics/archive and fixture manifests. The retained root is
+`.cartulary/test-results/reference-lc-p0-characterization-r1`; run summary and
+retained-secret scan pass and cleanup completed. `TestATTACKProducerCLI` covers
+successful nonempty canonical reports, attributable failure reports, empty/no
+report on unbound input and delivery failure. The old witness's ATT&CK branch
+produces no independent witness for a nonempty report; LC-P2c removes that false
+acceptance explicitly. No production source changed during characterization.
+Surviving assertion destinations are the eight rows above plus the later
+producer/native and boundary rows recorded in the portfolio.
+
+LC-P0a now begins with the two editorial owner corrections; no runtime contract
+or distribution policy is being amended.
+
+#### LC-P0a completion
+
+LC-P0a is DONE. The NLSpec introduction now delegates retained operation-input
+versions to RP-REQ-283 instead of restating retired reconciliation v1. Core 00
+marks the prior ATT&CK licensing blocker historical and links the existing MITRE
+gate closure. This implements the user's editorial decision without new product
+requirements, version changes or distribution approval. `reference-lc-p0a-markdown-r1`
+completed `make lint-markdown` with native exit 0; summary:
+`.cartulary/test-results/reference-lc-p0a-markdown-r1/adhoc/lint-markdown/tool-run-summary.json`.
+Human projection-fidelity review remains the repository's review responsibility;
+these checks do not claim to perform it.
+
+The LC-P0 input ledger was refined through transitive JSON references before any
+removal: the current ATT&CK profile names native fixture cases, which in turn
+name three candidate-named schemas. All four files remain; the eligible count
+is 11, not the preliminary 14. This resolves the naming/reachability risk without
+changing the current profile. LC-P1 now starts the seven proven-unused helper
+removals; the surviving neutral/native implementations remain intact.
+
+#### LC-P1 completion
+
+LC-P1 is DONE and LC-F1 is resolved. Removed the six named application helpers
+(two complete wrapper files) and neutral dataset `sourceRefs`; live neutral
+encoding/trust and producer-native helpers remain. No public behavior changed.
+`make bootstrap PART=go` (`reference-lc-p1-dependencies-r1`) refreshed application
+and producer pins through the managed workflow; current format source version is
+`v0.1.0-dev.54251c5b6c647d7a17fe9cc98d31c5a6da334d01be9a164a0ec33b994aae7aad`.
+`reference-lc-p1-focused-r1` passed six exact existing format/verifier rows with
+cache disabled and native exit 0. All five `reference-lc-p1-module-<module>-r1`
+invocations passed `make reference-pack-module-check MODULE=<module>` with native
+exit 0. Their roots are under `.cartulary/test-results/`; graph evidence retains
+selection/cleanup/scan records and module runs retain tool summaries and immutable
+isolation/archive evidence. Deleted declarations have no remaining local caller.
+LC-P2a now begins immutable Base ownership; retained release bytes stay unchanged.
+
+#### LC-P2a completion
+
+LC-P2a is DONE and LC-F2 is resolved. Base `release.v3.json` is an immutable
+contract input, removed from generated-file ownership and scratch deletion.
+Ordinary generation no longer invokes the historical builder. Its exact script
+and input moved to `fixtures/reference-packs/predecessor-contract-v2-projections/builtins/`,
+with `builder-evidence.v3.json` recording their hashes and the retained release
+SHA-256 `96a42a19520de0fe32c9a88d93ebf4041cc2ce6a2daa6b5ebb5fe1337889abf3`.
+Historical builder inputs are absent from scratch generation. No release was
+reissued or publisher added.
+
+`make generate` passed twice (`reference-lc-p2a-generate-r1`, `-r2`);
+`make source-check CHECK=generated` and `CHECK=schema` passed in
+`reference-lc-p2a-generated-r1` and `reference-lc-p2a-schema-r1`. All native exits
+were 0; roots are under `.cartulary/test-results/`. The retained release matches
+LC-EX0 byte-for-byte. LC-P2b starts current-format fixture recipes with independent
+encoding and unchanged assertion destinations.
+
+#### LC-P2b completion
+
+LC-P2b is DONE and LC-F3 is resolved. `current-fixtures-recipes.v1.json` replaces
+the predecessor hash/conversion input. It contains current manifest/set inputs,
+unsigned metadata templates, public synthetic-key recipes, pinned expectations,
+and literal deliberately malformed bytes. The independent Node encoder produces
+ZIP/TAR/GZIP, canonical JSON, digests and Ed25519 signatures without production
+encoding or predecessor reads. It fails on changed pinned identities instead of
+silently refreshing expectations. Existing IDs and assertion destinations remain.
+All current fixture files match the LC-P2b baseline byte-for-byte.
+
+Generation passed in `reference-lc-p2b-generate-r1`, `-r2`, `-r3`; the final two
+runs establish stability after preserving readable JSON field order. Scratch
+generation no longer copies predecessor vectors; `reference-lc-p2b-generated-r1`
+and `reference-lc-p2b-schema-r1` passed generated/schema checks. Five existing
+canonical manifest, trust, diagnostic, archive-admission and fixture-manifest rows
+passed in `reference-lc-p2b-focused-r1`. All native exits were 0; exact manifests
+and summaries are under `.cartulary/test-results/`. The complete owner portfolio
+still owns portability and broader integration acceptance. LC-P2c now begins the
+source-audit evidence correction separately from obsolete tooling retirement.
+
+#### LC-P2c completion
+
+LC-P2c is DONE. Successful source audits now require a regular, nonempty,
+canonical report with the expected producer schema, success status where defined,
+no reported issues and bound source/builder digests. Producer failures preserve
+their original native status and diagnostics without running a success witness.
+ATT&CK source-witness admission is removed; its producer audit and independent
+dataset artifact witness remain. Other source witnesses must actually complete
+before publishing success evidence.
+
+New wrapper command tests cover successful delivery, empty/missing/malformed and
+wrong reports, failed status, preserved failure exit/diagnostics, unsupported
+ATT&CK witness input and missing supported witness inputs. The first boundary run
+`reference-lc-p2c-boundaries-r1` failed (native exit 2): a symlinked CLI skipped its
+entry-point guard. After resolving the actual executable path,
+`reference-lc-p2c-boundaries-r2` passed with native exit 0, completed cleanup and a
+passing retained-secret scan. Historical failure evidence remains intact.
+
+Four `reference-lc-p2c-build-<pack>-r1` producer builds and four
+`reference-lc-p2c-audit-<pack>-r1` public offline source audits passed, all native
+exits 0. Audit inputs are private copies of existing pinned corpora under
+`.cartulary/reference-packs/lc-qualification/audits/<pack>/source/`; no acquisition
+or signing occurred. Windows, VERIS and Entra retained actual independent reports
+under `witnesses/`; ATT&CK retained its canonical producer audit under `audits/`.
+Generation passed twice, and generated/schema checks passed in
+`reference-lc-p2c-generated-r1` and `reference-lc-p2c-schema-r1`. LC-P2d now starts
+obsolete publication-witness removal and reachability-proven export pruning.
+
+#### LC-P2d completion
+
+LC-P2d is DONE and LC-F4 is resolved. `witness.mjs` was replaced by the explicitly
+bounded `source-witness.mjs`: only Windows, Entra and VERIS source audits are
+supported. Native assembly/envelope/renew branches and their crypto/framing
+copies are removed, with unsupported actions tested to fail without publishing
+evidence. Candidate bytes must match report digests before factual witnessing.
+`dataset-witness.mjs` and its independent historical canonical artifacts remain.
+The unused `contracts/reference-pack-producers/attack/inputs.go` embedding is gone.
+
+Ten exact historical input copies were removed from producer exports; their
+originals remain under `contracts/reference-pack-producers/`. The eleventh,
+ATT&CK `dataset-profile.v1.json`, had no identical historical original and moved
+to `fixtures/reference-packs/predecessor-producer-inputs/attack/`. The preservation
+ledger records exact old/new paths and hashes. Current profiles, native cases,
+transitive candidate-named schemas, notices and factual expectations remain.
+`reference-lc-p2d-dependencies-r1` refreshed module pins through Make bootstrap.
+
+All five `reference-lc-p2d-module-<module>-r1` checks, four producer unit rows in
+`reference-lc-p2d-focused-r1`, both command-boundary rows in
+`reference-lc-p2d-boundaries-r1`, and the three supported source audits in
+`reference-lc-p2d-audit-<veris|windows|entra>-r1` passed with native exit 0. These
+checks build each exported closure and retain real witness evidence; final
+fresh-source producer/corpus qualification remains LC-P4. LC-P3 now extends the
+isolated product-generation chain through downstream embeddings/projections.
+
+#### LC-P3 completion
+
+LC-P3 is DONE and LC-F5 is resolved. `product-generation.json` declares the shared
+ordinary/isolated sequence: neutral schemas, current fixtures, contract-family
+Go/TypeScript generation, then frontend protocol projections. Existing harness
+operation ownership supplies the profile; catalog discovery stays outside this
+product boundary. The isolated tree starts without all 119 declared outputs,
+including Reference Pack and fixture Go embeddings. It admits compiler-discovered
+application/generator source, explicit machine contract inputs and 20 locally
+resolved pinned Node dependency packages. No producer module, corpus, signing
+context, predecessor vectors or Cartulary prose is exposed.
+
+Output directories are private, with read-only overlays preserving authored
+inputs such as the immutable Base release. The fixture encoder receives only
+its script, current recipes and output directories; negative probes verify that
+production encoder files and predecessor vectors cannot be read. Existing probes
+cover absolute/relative/environment discovery and symlink escapes; new probes
+also reject overwriting, deleting or replacing an overlaid authored input.
+Module and runtime closure tests retain both dependency-direction checks.
+
+`reference-lc-p3-generate-r1`, `-r2`, `-r3` passed generation with unchanged outputs.
+`reference-lc-p3-boundary-r1` and `-r2` passed `make lint CHECK=backend-boundary`;
+the second includes the stricter fixture capability scope. The complete isolated
+generation reproduced all 119 outputs, built `./cmd/...` offline and passed the
+binary-only operator help probe. Exact capability/output manifests are retained
+under `.cartulary/reference-packs/isolation/application/` and linked from each
+run's logs. `reference-lc-p3-probes-r1`, `reference-lc-p3-generated-r1` and
+`reference-lc-p3-schema-r1` passed, all native exits 0. LC-EX0 comparison confirms
+all 733 immutable artifact entries and the incoming Git index remain unchanged.
+LC-P4 now begins finalization, source freeze and the complete fresh portfolio.
+
+#### LC-P4 source freeze and acceptance inputs
+
+`reference-lc-p4-finalize-r1` passed `make agent-finalize` with native exit 0.
+Generated changes were reviewed; no executable source changes follow this
+freeze. Final source is `70ba53b47269d1733f1bdbbf310cfd4b94a7b455` plus
+`sha256:9b3503d81be4236c9425e70a0aa5997062537d3d4c16e0b6dfc456b594ca9f44`.
+The concrete portfolio contains 24 invocations / 149 row executions, including
+101 complete-owner rows, affected cross-owner coverage and four intentionally
+separate production imports. The duplicate command-boundary selection was
+removed. `portfolio.v1.json`, `plans/`, `final-source.json` and the five-partition
+`evidence-roots-final.json` are retained under
+`.cartulary/reference-packs/lc-qualification/`. All final executions disable the
+execution cache and use fresh `reference-lc-final-…-r1` identities.
+
+`selected-releases-final.json` records exact descriptors, logical/container/
+bootstrap hashes and expiry for the selected ATT&CK `20.1.dataset.5` and three
+`2026.11.08.dataset.4` releases. Hashes matched and all were fresh at
+`2026-11-09T04:16:11Z`. No test subject was renewed or re-signed. Optional retained
+warm-run maintenance was not selected: no compatible full warm-check root was
+created or supplied merely for maintenance. This does not waive final coverage.
+
+LC-P4 measurement gate is BLOCKED pending diagnosis:
+`reference-lc-final-reference-browser-e2e-measurement-r1` returned native exit 2
+with a failing test-slice summary after 295,565 ms. Other 23 final test invocations
+and all 13 standalone module/build/corpus qualifications passed. The measurement
+run had no concurrent task verification. LC-P5 has not started; the failed root
+is preserved and no acceptance audit or complete-owner claim has been made.
+
+#### LC-P4 measurement diagnosis and new freeze cycle
+
+All three failed measurement rows stopped at the workload identity assertion,
+before timing: the authored performance contract still named
+`base-2026-10-02.1`, whereas the preserved Base and browser fixture identify
+`base-2026-11-08.1`. The payload hash, pack key, browser version, repository and
+activation policy agree. Correct only the stale `base_version` expectation in
+`contracts/performance/reference-pack-progress.v1.json`; keep the 1,000 ms
+threshold and all behavioral assertions. The failed run completed cleanup (36
+steps, none failed/blocked) and passed its retained-secret scan (194 files).
+
+The first repair generation (`reference-lc-p4-repair-generate-r1`, native exit 2)
+identified the same stale constant in the authored performance schema. Align
+that constant as well and regenerate its validator through Make; do not relax
+the exact workload admission rule. Both failures remain retained.
+
+LC-P4 resumes IN_PROGRESS. This authored repair invalidates the first executable
+source freeze for final acceptance. Preserve all `-r1` results as historical
+evidence; regenerate, finalize and freeze again, then qualify the complete
+portfolio under fresh `-r2` identities. Run the measurement partition first and
+alone to resolve this gate before the remaining final portfolio. LC-P5 remains
+TODO until all required final-source qualifications pass.
+
+Repair generation passed twice (`reference-lc-p4-repair-generate-r2`, `-r3`),
+then `reference-lc-p4-finalize-r2` passed `make agent-finalize`; native exits 0.
+Reviewed generated changes are the workload value and its bound digest in Go
+and TypeScript projections plus the regenerated schema validator. The second
+freeze is commit `70ba53b47269d1733f1bdbbf310cfd4b94a7b455` plus source digest
+`sha256:ba3965050f504fceecd78f4908986e6d2810b5cfaf4ba7b869e1743fc2fa8845`.
+All 24 refreshed target plans pass with unchanged row selection and cache off.
+The three measurements passed in `reference-lc-final-reference-browser-e2e-measurement-r2`
+(native exit 0, 301,712 ms), with all 36 cleanup steps completed and a passing
+187-file retained-secret scan. Remaining `-r2` portfolio execution now proceeds
+against that freeze. The prior freeze's native observations and selections are
+preserved under `lc-qualification/*-r1.json` and their original result roots.
+
+#### LC-P4 completion
+
+LC-P4 is DONE. All 24 final `test-slice` invocations passed with independently
+observed native exit 0: 149 row executions comprise the complete 101-row
+Reference Data partition, 44 affected cross-owner rows, and four separately
+executed production-artifact lifecycles. All use fresh `reference-lc-final-…-r2`
+IDs, cache mode `off`, and the second frozen source digest above. Exact commands,
+selections, native exits and terminal output are in
+`.cartulary/reference-packs/lc-qualification/native-observations-final.json`;
+the concrete portfolio remains `portfolio.v1.json` in that directory.
+
+Five standalone module checks, four producer builds and four current-corpus
+assemblies passed with native exit 0. Module/archive/dependency identities are
+recorded in `module-identities-final.json`; reproducible executable identities
+are in `builder-identities-final.json`. Corpus qualification writes only private
+`corpora/<pack>/output-r2` and `ledger-r2` outputs. Every independent dataset
+witness reports complete native preservation; payload hashes match the selected
+immutable releases. Newly qualified builder identities change the private
+assembly manifests, not the retained production envelopes or descriptors.
+
+`reference-lc-final-generated-r2`, `reference-lc-final-schema-r2`, and
+`reference-lc-final-boundary-r2` passed the required generated, schema and backend
+boundary checks with native exit 0. All 27 final graph roots share the exact
+source, toolchain and system identities; all 434 cleanup steps completed, and
+every retained-secret scan passed. `lifecycle-results-final.json` records those
+per-root results. Standalone module/build/corpus helpers retain their declared
+tool summaries and immutable qualification/isolation records, not graph cleanup
+or secret-scan reports; they supplement the fully scanned product test roots.
+
+This checkpoint is persisted before LC-P5 begins. LC-P5 now runs the complete-owner
+audit against the five exact child-target partitions in `evidence-roots-final.json`,
+then reconciles preservation, operator guidance, findings and Markdown validation.
+
+#### LC-P5 audit, disposition and durable handoff
+
+The complete-owner audit passed in `reference-lc-final-owner-audit-r2`, native
+exit 0, using the exact five entries in `evidence-roots-final.json`. The report is
+`.cartulary/test-results/reference-lc-final-owner-audit-r2/test-evidence-audit/audit.json`.
+It accepts all 101 required rows on the second frozen source; no fragmented
+selection is represented as an unfiltered owner run. The audit's ten cleanup
+steps completed and its 11-file retained-secret scan passed. Final handoff
+Markdown validation passed as recorded in the LC-P5 completion checkpoint below.
+
+| Finding / gate | Final disposition | Evidence-backed exit |
+| --- | --- | --- |
+| LC-F1 | RESOLVED | Seven unreachable declarations removed; live format/native owners and application policy retained. Focused tests, 48 final owner unit rows and five independent module qualifications pass. |
+| LC-F2 | RESOLVED | Immutable Base is an authored machine input. Historical builder source/input preserved exactly; ordinary and isolated generation do not access them. Baseline release hash is unchanged. |
+| LC-F3 | RESOLVED | Current recipes and independent encoding replace conversion. All 342 current fixture files remain byte-identical. Canonical, trust, malformed-input, predecessor rejection and portability coverage passes. |
+| LC-F4 | RESOLVED | Audits require truthful nonempty reports and preserve failures. Supported source witnesses and all four independent dataset witnesses remain; obsolete publication branches, embedding and 11 export inputs are retired. |
+| LC-F5 | RESOLVED | Four declared generation stages reproduce 119 outputs from authored inputs under filesystem isolation; application build, operator probe and negative access/dependency probes pass. |
+| LC-F6 | RESOLVED | Fresh final-source portfolio, native exits, complete-owner audit and retained lifecycle results pass. Historical evidence is preserved separately. |
+| LC-F7 | RESOLVED in authorized editorial scope | Introduction delegates to RP-REQ-283; historical Core 00 licensing status links the recorded closure. No new requirement or distribution decision. Human projection-fidelity review remains normal repository review, not a claim supplied by automated checks. |
+| LC-RB1 | PASS | Exact declaration/input ledger and source-audit characterization completed before removal; the three transitively referenced candidate-named schemas and native fixture cases were retained. |
+| LC-RB2 | PASS | Shared generation declaration, isolated positive build and negative boundaries qualified on final source. |
+| LC-RB3 | PASS | Finalize/freeze, complete compatible portfolio and complete-owner evidence audit passed. |
+
+The five owner partitions below all passed with native exit 0. Their run IDs are
+`reference-lc-final-reference-<partition>-r2` under `.cartulary/test-results/`.
+Each includes its exact child-target projection, completed cleanup and passing
+retained-secret scan.
+
+| Partition | Accepted rows |
+| --- | ---: |
+| `backend-unit` | 48 |
+| `backend-integration` | 41 |
+| `frontend-unit` | 6 |
+| `browser-e2e-webserver-backed` | 3 |
+| `browser-e2e-measurement` | 3 |
+
+The other 19 test invocations contain 44 affected cross-owner rows and four
+independent production imports. Cross-owner coverage includes operator/server
+retained admission, Recovery, Reporting, Composition, Artifacts, Indicators,
+Links, Revisions, database migrations, Imports, Incident Bundles, Saved Views,
+generation and command boundaries. Independent roots are
+`reference-lc-final-import-<attack|veris|windows|entra>-r2`. The exact row lists,
+commands and native exits are recorded in `portfolio.v1.json`, `selections/`,
+`plans/` and `native-observations-final.json` in the qualification directory;
+`lifecycle-results-final.json` records every final product/check root's cleanup
+and scan outcome. This is complete Reference Data acceptance plus the named
+cross-owner scope, not complete acceptance of each neighboring owner.
+
+The final source identity is the second LC-P4 freeze. Subsequent changes are
+handoff prose and private bookkeeping only. No executable source repair follows
+that freeze. `final-source.json` also pins system/toolchain/catalog/routing
+identities. The first measurement failure and incomplete first repair generation
+remain recorded above; their corrected `-r2`/`-r3` successors supply acceptance.
+The earlier source-audit symlink failure remains historical characterization.
+
+##### Removed paths, surviving assertions and module identities
+
+`source-change-ledger.json` records the exact delta from LC-EX0, distinguishing
+this effort from incoming staged/unstaged work. Removed application files are
+`internal/modules/reference_data/internal/packformat/archive_writer.go` and
+`duplicate_diagnostics.go`. Removed declarations in surviving files are
+`packTime` (`manifest.go`), `equalHex` (`identity.go`), `equalDigest`
+(`json_values.go`), `ProjectionDigest` (`shape.go`) and neutral `sourceRefs`
+(`referencepacks/format/dataset/objects.go`). The two deleted wrapper files owned
+application `WriteUSTAR` and `duplicateManifestFindings`. Live neutral functions
+with matching names were not removed.
+
+The old `contracts/reference-pack-producers/attack/inputs.go` embedding,
+`tools/reference-packs/witness.mjs`, and
+`tools/reference-pack-modules/current-fixtures-input.v3.json` are removed.
+`source-witness.mjs`, `audit-report.mjs`, `source-audit.test.mjs` and
+`current-fixtures-recipes.v1.json` supply the supported current behavior.
+`base-release.mjs` and `base-release-input.v3.json` moved unchanged from
+`tools/reference-pack-modules/` to
+`fixtures/reference-packs/predecessor-contract-v2-projections/builtins/` with
+`builder-evidence.v3.json`; these are historical evidence, not active commands.
+
+The pruned export paths are ATT&CK `inputs/candidate-index.v1.json`,
+`dataset-profile.v1.json`, `dispositions.v1.json`, `field-policy.candidate.v1.json`,
+`source-profile.candidate.v1.json`, `source-profile.native.v1.json`,
+`source-profile.native.v2.json`, and `source-profile.native.v2.r2.json`; VERIS
+`inputs/source-profile.v1.json`; Windows and Entra `inputs/source-profile.v2.json`.
+Ten originals remain in `contracts/reference-pack-producers/`; the unique ATT&CK
+dataset profile moved to `fixtures/reference-packs/predecessor-producer-inputs/attack/`.
+`preservation/producer-input-ledger.json` binds every old and retained path by
+hash, and `preservation-final.json` confirms all 11 retained copies match.
+
+Surviving assertion owners include neutral `canonicaljson`, `dataset`,
+`envelope` and `publication` tests; application `internal/packformat` manifest,
+archive/limit, trust, fixture and diagnostic tests; `retired_format_fixture_test.go`;
+Base reconciliation/atomicity and admission/cleanup integration tests; each
+producer's command/source/native tests; and the existing canonical-artifact
+`dataset-witness.mjs`. New wrapper failure/report tests live in
+`tools/reference-packs/source-audit.test.mjs`; isolation assertions live in
+`tools/reference-pack-modules/isolation.test.mjs`. They run through the existing
+command-boundary rows. Browser lifecycle and progress assertions remain in
+`apps/web/e2e/reference-pack.spec.ts` and
+`apps/web/e2e/measurement/reference-pack-progress.spec.ts`. No assertion was
+deleted merely because its old implementation helper was removed.
+
+| Independently qualified module | Source SHA-256 |
+| --- | --- |
+| format | `54251c5b6c647d7a17fe9cc98d31c5a6da334d01be9a164a0ec33b994aae7aad` |
+| attack | `6feee7c809ff50f51259a8518ed6593aa2e7aa1ee916cd9eebb3e0d702b12f54` |
+| veris | `3009639d02e0131ab139845344a1377917a58eb741421bdc231c6cd3b8905a31` |
+| windows | `ea6392dfc6ee099151e781a04d7f5b3afb4917b5847aedbe4d853db0bc3b232d` |
+| entra | `886f18e6d303309b307d6a55edcbea7d96ffb64ba02d4e6d38c2f0d1657960a9` |
+
+Managed versions use `v0.1.0-dev.<source SHA-256>`. Application and producer
+dependency manifests/sums were refreshed through Make. Exact archive hashes,
+dependency lists and qualification records are linked by
+`module-identities-final.json`; current qualification recipe is
+`38fd591e26fe87dce3fed7a1a68e4389d64c5fbe7444cd50b5ee54e9fcc2be7c`.
+All five exported modules build independently with workspace/network resolution
+off and readonly dependency admission. Four reproducible builder hashes are in
+`builder-identities-final.json` and their immutable builder directories. These
+new builder identities do not supersede historical release-builder identities.
+
+##### Generation and operator handoff
+
+`tools/reference-pack-modules/product-generation.json` is the authored shared
+sequence consumed by ordinary generation and isolated qualification. Its four
+stages project neutral schemas, encode current fixtures, generate contract
+embeddings/projections, then generate frontend protocol artifacts. Inputs come
+from the active contract registry, projection/scratch declarations, current
+recipes, compiler-discovered source and explicitly pinned local dependencies.
+The 119 outputs are absent at isolated startup. The fixture stage sees only its
+script, recipe and output roots. Immutable Base bytes are protected by readonly
+overlays even where authored inputs share a generated output directory.
+
+Final exact capability/output evidence is
+`.cartulary/reference-packs/isolation/application/b2fe5be515adbd52173aadfc7653024d35ea944059e2f7537a21e8d10f5e6fd9.json`,
+indexed by `generation-isolation-final.json`. It records four generation stages,
+20 Node dependency packages, 119 matching output hashes and the operator probe.
+The boundary check exercises the existing offline launcher and negative probes;
+missing prerequisites fail instead of acquiring dependencies or reconfiguring
+the host. Harness catalog discovery remains outside the product-generation
+boundary. Product verification never reads Cartulary specification/adoption prose.
+
+Ordinary maintenance remains `make generate`, repeated generation when authored
+inputs change, `make source-check CHECK=generated`, `make source-check CHECK=schema`
+and `make lint CHECK=backend-boundary`, with selection through current task-guide
+and target-plan surfaces. Base `contracts/reference-packs/builtins/release.v3.json`
+has SHA-256 `96a42a19520de0fe32c9a88d93ebf4041cc2ce6a2daa6b5ebb5fe1337889abf3`
+and version `base-2026-11-08.1`. Generation consumes it; a future Base publication
+requires a separately scoped publisher/release task. Do not restore conversion
+or invoke the inert historical builder as an ordinary maintenance path.
+
+Use public `make reference-pack-source PRODUCER=<pack> ACTION=audit` with its
+declared source inputs. Successful producer reports must be valid and nonempty;
+failed producer native statuses remain failures. The source witness supports
+Windows, VERIS and Entra only. ATT&CK uses its producer audit report and the
+independent dataset witness during current-corpus assembly. Removed native
+assembly/envelope/renew witness actions fail explicitly; there are no aliases.
+Supported producer publication operations remain available through their public
+Make workflows. This cleanup adds no publisher, trust installation or signing
+custody change.
+
+##### Exact retained production selectors and preservation
+
+The final tests use these exact descriptors, verified unchanged and fresh before
+the second freeze. `selected-releases-final.json` records complete logical,
+payload, container, bootstrap, report and source-profile identities and expiry.
+
+| Pack / selected version | Descriptor path | Descriptor SHA-256 | Online metadata expiry (UTC) |
+| --- | --- | --- | --- |
+| ATT&CK / `20.1.dataset.5` | `fixtures/reference-packs/dataset-v1/attack/release/release.v3.json` | `70166c6c5a1671269a324781737594400cbb1ad6701841599788bdc595783a05` | 2026-12-08 20:40 |
+| VERIS / `2026.11.08.dataset.4` | `fixtures/reference-packs/dataset-v1/veris/release.v3.json` | `7fea2e94bc7bd3431ebfb5d64ad209cab4298da56fc013f73dd283030093daa1` | 2026-12-08 19:52 |
+| Windows / `2026.11.08.dataset.4` | `fixtures/reference-packs/dataset-v1/windows/release.v3.json` | `f45c91c7418774657ae9a31f5c2e9a445f7fd716616ddabbe2899dcacf880469` | 2026-12-08 19:52 |
+| Entra / `2026.11.08.dataset.4` | `fixtures/reference-packs/dataset-v1/entra/release.v3.json` | `e01e3e25f692704a46fcb0db7d78f074cbebe1cbd6c6d3b0f44f6aaba8aeba0a` | 2026-12-08 19:52 |
+
+Trusted roots expire on 2027-11-08 at 20:40 UTC for ATT&CK and 19:20 UTC for the
+other three. At expiry, stop affected qualification and retain the failure;
+request a separately authorized envelope renewal with unchanged logical content,
+preserved historical envelopes/anchors and independent exact-artifact reruns.
+Tests must never renew or re-sign their subjects. No renewal occurred here.
+Entra still qualifies 139 objects and zero service-principal-name postings; this
+is the pinned source's current coverage, not a newly inferred completeness claim.
+
+Final comparison at `2026-11-09T04:49:57Z` found zero mismatches among 733 immutable
+artifact entries and 342 current fixture files. All 11 historical export-input
+copies are preserved. Incoming staged entries are unchanged with SHA-256
+`9f71114aa9c7ad0a4b18047abb83171f241477a10863a9b4252d764c35534c88`.
+`preservation-final.json` retains those results, and the original LC-EX0 baseline
+remains available. No API, persisted format, pack v3, subsystem major 4 or generic
+dataset v1 migration is required. Internal obsolete witness callers must use
+the supported operations; unsupported actions intentionally receive no alias.
+
+No required product validation is skipped. Optional warm-run maintenance was
+not selected because no compatible full warm-check root was supplied or created
+for that purpose. Normal human review of projection fidelity remains explicit.
+Acceptance is scoped engineering readiness for this remediation: no deployment,
+hosted publication, full CI or formal cryptographic certification is claimed.
+Future expiry and changes to declared generation inputs require fresh scoped
+qualification; they are maintenance obligations, not unresolved LC defects.
+
+#### LC-P5 completion
+
+LC-P5 is DONE. The complete-owner audit, finding reconciliation, exact evidence
+index, operator handoff and preservation comparison are complete.
+`CARTULARY_TEST_RUN_ID=reference-lc-p5-markdown-r1 make lint-markdown` passed with
+native exit 0; its summary is
+`.cartulary/test-results/reference-lc-p5-markdown-r1/adhoc/lint-markdown/tool-run-summary.json`.
+`git diff --check` also passed. This final checkpoint closes the last workstream;
+no required engineering obligation or unresolved LC blocker remains. Human
+projection-fidelity review and the explicitly excluded release/deployment claims
+remain outside the automated acceptance record. The tracker is the sole
+controlling plan artifact, with private machine evidence indexed beside the
+recorded final roots rather than promoted into requirements.
+
+### LC review remediation checkpoints
+
+The user authorizes reopening LC-F4 and LC-F5, durable implementation repairs,
+acceptance reconciliation, final-source requalification and a completed handoff.
+The original LC release/compatibility constraints remain: no production artifact
+rewrite, signing/renewal, deployment, alias, migration or reset. The new baseline
+is `.cartulary/reference-packs/lc-review-qualification/source-baseline.json`, with
+the exact incoming index and tracker alongside it. Prior result roots remain
+unchanged; their passing status does not qualify executable repairs below.
+
+| Workstream | Dependency | Status | Work and binary exit |
+| --- | --- | --- | --- |
+| LC-R1 / LC-F4 | reviewed baseline | DONE | Producer-owned closed audit-report shapes; exact typed digest and invocation bindings; preserve failure diagnostics/status; reject incomplete, mistyped and mismatched reports. Focused positive/negative command tests and supported real audits must pass. |
+| LC-R2 / LC-F5 | LC-R1 | DONE | Reject linked/nonregular/escaping generation outputs and compare the complete produced inventory before host reads. Add positive and negative boundary coverage, including parent symlinks and undeclared outputs; isolated generation/build must pass. |
+| LC-R3 / acceptance | LC-R2 | DONE | Reconcile graph versus helper evidence under the adopted harness contract; record the actual human projection-review status separately from engineering completion. No invented scans, source bindings or human approval. |
+| LC-R4 / final qualification | LC-R3 | DONE | Generate/finalize, refresh exact selections, freeze source, run the complete compatible required portfolio with cache off and fresh IDs; preserve selected production releases and independently qualify all four. |
+| LC-R5 / validation and handoff | LC-R4 | DONE | Complete-owner audit, final preservation comparison, native/lifecycle evidence index, updated findings and operator handoff, Markdown validation. Close engineering work only when all applicable gates pass. |
+
+Each workstream begins IN_PROGRESS and exits with a persisted checkpoint before
+the next starts. A failed required gate is BLOCKED until repaired and qualified.
+Repairs after final source freeze require new compatible acceptance evidence.
+Human projection-fidelity review is not performed by an automated test; its
+status must remain explicit even when engineering handoff is complete.
+
+#### LC-R1 completion — LC-F4 resolved
+
+Binary exit: **PASS**. Complete producer-owned schemas now govern successful
+audit delivery. Windows reuses its existing reconciliation definition; ATT&CK,
+VERIS and Entra own closed schemas in their exported `inputs/` trees and validate
+successful command output before delivery. Make projects standalone JavaScript
+validators for the source helper; audit execution needs no installed AJV package.
+These tooling projections are separate from application product generation.
+
+The wrapper snapshots the exact selected executable, inventory/lock, policy,
+profile, applicable editorial input and ATT&CK timestamp before invocation.
+Inventory-based producers bind their retained acquisition lock back to the
+selected inventory; VERIS uses its existing canonical lock digest. Strict report
+types reject digest arrays, missing members, unknown fields and malformed nested
+values. Schema-conformant reports with mismatched invocation identities fail.
+Producer failures retain their original exit and diagnostics, including when the
+secondary context check also fails. Supported factual witnesses remain required;
+ATT&CK source witness and retired publication actions remain unsupported.
+
+Changed paths and before/after hashes are recorded in
+`.cartulary/reference-packs/lc-review-qualification/r1-source-changes.json`.
+No public report format, producer action, release or runtime contract changed.
+`make bootstrap PART=go` completed twice without dependency-lock changes.
+`make format`, two `make generate` invocations, schema validation, ATT&CK's
+exported-module qualification, four producer builds and four actual source audits
+passed. Native observations are retained in this evidence directory.
+
+Focused graph acceptance: `reference-lc-review-r1-boundaries-4` passed with native
+exit 0, completed cleanup and retained-secret scan pass. This covers complete
+report shapes, identity mismatches, failed-producer precedence, missing witness
+inputs and unsupported actions. `reference-lc-review-r1-generated-2` and
+`reference-lc-review-r1-schema` passed with native exits 0. Actual audit roots are
+`reference-lc-review-r1-audit-attack` and
+`reference-lc-review-r1-audit-{veris,windows,entra}-2`, all native exits 0;
+independent reports remain under the corresponding private `audits/` trees.
+
+Historical failures remain retained: the first inventory-based audit attempts
+rejected an incorrect inventory-as-lock expectation; the corrected implementation
+follows the producer's existing lock semantics. Boundary attempt 2 exposed a test
+variable-scope error, repaired before attempts 3/4 passed. The first generated
+check detected missing scratch declarations for the new tooling generator; exact
+schema/script inputs were added before attempt 2 passed. No failed result is used
+for acceptance. Final frozen-source qualification remains LC-R4's obligation.
+
+The user confirmed that human review of the earlier specification edits is still
+pending. This is an explicit handoff limitation, not an automated acceptance claim.
+LC-R2 has not begun at this checkpoint.
+
+#### LC-R2 completion — LC-F5 resolved
+
+Binary exit: **PASS**. `generation-outputs.mjs` validates the complete writable
+product-output inventory before reading content. Declared files and every parent
+must be contained regular paths; symbolic links, hard links, special files,
+missing outputs, extra files and extra directories fail. Content reads use
+no-follow opens and descriptor identity checks. Inputs sharing writable output
+directories must remain byte-identical. Generation no longer receives the binary
+output directory as a writable capability.
+
+`application-isolation.mjs` now invokes this trusted comparison in a separate
+read-only sandbox with only the authored/current comparison files and private
+produced tree. Generator stages still cannot access checked-in answers. Host
+qualification code receives validated hashes from stdout rather than reading
+paths created by a generator. The retained isolation record includes the exact
+comparison capability. Paths/hashes are in
+`.cartulary/reference-packs/lc-review-qualification/r2-source-changes.json`.
+
+`reference-lc-review-r2-boundaries-2` passed the focused command row, including
+sandbox-generated dangling links to byte-identical host answers, linked parents,
+hard links, FIFO rejection, missing/extra outputs, byte drift, authored-input
+mutation and path traversal. `reference-lc-review-r2-isolation-2` passed
+`make lint CHECK=backend-boundary`: complete isolated product generation, exact
+output comparison, application build, operator probe and dependency boundaries.
+Both native exits were 0, cleanup completed and retained-secret scans passed.
+The earlier boundary attempt failed because a negative test removed an empty
+directory without the required recursive option; that fixture cleanup error was
+fixed before the successful run. Both historical and successful roots remain.
+No host reconfiguration, network fallback or release rewrite occurred.
+
+LC-R3 has not begun at this checkpoint. Final-source qualification remains open.
+
+#### LC-R3 acceptance reconciliation
+
+The adopted Testing Harness §5.3 and its independent-module qualification
+section distinguish graph-backed product evidence from helper-only producer
+operations. The final acceptance ledger will apply those actual contracts:
+
+| Obligation | Required retained evidence | Acceptance limit |
+| --- | --- | --- |
+| Complete Reference Data owner, cross-owner rows, four independent exact-release lifecycles, generated/schema/boundary checks | Compatible final graph source/selection; native exit 0; passing row/target results; completed cleanup; passing retained-secret scan | Only exact selected roots participate in the owner audit; fragments do not masquerade as an unfiltered owner invocation. |
+| Five exported-module checks, four producer builds, four current-corpus assemblies | Native exit 0 and successful public tool summary; exact exported source/archive/dependency identities; byte-identical builder evidence or independent corpus witness as applicable | Helper summaries are not graph run manifests, do not supply graph cleanup receipts, and do not publish retained-secret scans. No such fields or results are fabricated. These supplement the graph-backed release evidence. |
+| Four successful source audits added for this repair | Native exit 0 and public tool summary; complete invocation-bound audit report; the three supported independent source witnesses | ATT&CK's source report is producer evidence; its factual artifact witness is exercised separately. Source auditing does not grant publication or trust authority. |
+| Human projection-fidelity review | A human's recorded disposition of the existing RP-REQ-283 cross-reference and Core 00 licensing clarification | **PENDING**, explicitly confirmed by the user. Automated checks cannot close this item. |
+
+The earlier plan's blanket cleanup/scan wording is thus narrowed to the
+life-cycle evidence that the adopted graph harness actually provides. It is not
+a claim that helper-retained archives or reports were separately secret-scanned.
+Helpers retain their declared source/artifact evidence and ordinary private-work
+cleanup behavior; no new helper lifecycle protocol is introduced by this repair.
+All exact-production-artifact acceptance runs still require the full graph
+cleanup and retained-secret-scan gates. Historical results remain intact.
+
+Final execution must freeze source after `make agent-finalize`, refresh routing
+and selections, retain the selected immutable descriptors and expiry checks, and
+record helper source/artifact identities alongside the final graph identity.
+A repair after freezing invalidates affected acceptance and requires a new
+finalize/freeze cycle. Human review remains a handoff obligation even after all
+engineering gates pass; no deployment, hosted release or cryptographic
+certification is implied.
+
+LC-R3 binary exit: **PASS** for evidence-contract reconciliation. The human review
+item remains explicitly pending. `reference-lc-review-r3-markdown` completed
+`make lint-markdown` with native exit 0. The applicable evidence categories,
+limits and fresh final obligations are recorded above; LC-R4 has not begun at
+this checkpoint.
+
+#### LC-R4 first freeze — repair required
+
+`reference-lc-review-r4-finalize` passed with native exit 0. The first frozen
+source was `sha256:73e5e363298031604b79ab51fa0168366ffc7a2c83d7f7d2a0a7e498ab0148ec`.
+Complete-owner discovery still contains exactly 101 rows, with no missing or
+extra selections. All 24 target plans passed. Selected production descriptors,
+container/bootstrap/report/manifest hashes and expiries matched their retained
+identities; no renewal is needed.
+
+The final boundary gate failed with native exit 2: the new output validator also
+rejected a legitimate hard-linked comparison input installed by the frontend
+artifact cache (`client-asset-set-manifest.json`). Private generated outputs must
+remain single-link regular files; read-only reference inputs may share an inode
+with the immutable build cache. LC-R4 is BLOCKED while that distinction is repaired
+and tested. Earlier focused output-isolation passes remain historical. Any graph
+runs under this first freeze will not be used for acceptance after the repair;
+a new finalize/freeze cycle and compatible qualification are required.
+
+The LC-F5 repair supplement passed: `reference-lc-review-r2-boundaries-3`
+explicitly accepts hard-linked read-only comparison inputs while rejecting
+hard-linked generated outputs. `reference-lc-review-r2-isolation-3` passed the
+complete isolated generation/build/operator and backend-boundary checks. Both
+native exits were 0. LC-R4 resumes with a new finalize/freeze cycle; the first
+freeze is retained as `first-freeze-source.json` and `first-freeze-content.json`
+and is excluded from final acceptance.
+
+#### LC-R4 second freeze — deterministic deadline test repair
+
+The second frozen source was
+`sha256:278359eb3a2a3f8212f6dc0c2fb709ea94e3da82cf26b0b90f778f6fc6c83d16`.
+Standalone modules/builds, all four corpus assemblies/source audits and final
+schema/generated/backend-boundary checks passed. However, the complete backend
+unit partition failed (`reference-lc-review-final-reference-backend-unit-r2`,
+native exit 2) in the existing supervised-cleanup deadline test. Its 40 ms wall
+clock starts before workspace creation; under host scheduling delay it expires
+before the directory exists, while the assertion requires an existing empty
+directory. This is an untested early-expiry path mistaken for a cleanup failure,
+not evidence of retained scratch or an LC-F4/LC-F5 production defect.
+
+LC-R4 is BLOCKED while the test is made deterministic using Go's virtual test
+clock for that deadline case, with an explicit assertion that a workspace write
+occurred. Production timeouts and cleanup behavior will not change. This source
+repair again requires finalize/freeze and compatible final graph evidence.
+
+`reference-lc-review-cleanup-deadline` passed the exact affected storage/cleanup
+row with native exit 0. The deadline now expires under `testing/synctest` only
+after the workspace-write hook blocks; the test proves both a write and
+`context.DeadlineExceeded`, then checks complete scratch removal. Other cleanup
+cases and production code are unchanged. LC-R4 resumes with the third
+finalize/freeze cycle. All superseded run roots remain historical.
+
+#### LC-R4 completion — final-source qualification
+
+Binary exit: **PASS**. `make agent-finalize` completed as
+`reference-lc-review-r4-finalize-3` with native exit 0. Its changes were inspected
+before freezing executable source:
+`sha256:4e1cb8113d7b0f36e9d96ea95c9610d67a28bb2807c922f39fd68fab722b7f1f`
+(commit `70ba53b47269d1733f1bdbbf310cfd4b94a7b455`, preserved dirty checkout).
+No executable source changed afterward. The only additional acceptance repair
+was the deterministic cleanup deadline test documented above.
+
+The final portfolio has 43 observed successful native command exits: 26
+compatible graph roots and 17 helper qualifications. Every graph root uses the
+frozen source and execution cache `off`, has a passing summary, completed cleanup
+(420 completed actions in total), and a passing retained-secret scan. Helpers
+have their adopted tool/artifact evidence and the explicit LC-R3 limits.
+
+All 101 Reference Data rows passed in the five exact partitions: backend unit 48,
+backend integration 41, frontend 6, browser administration 3 and measurement 3.
+The three explicit-only production-import rows are included. Each of ATT&CK,
+VERIS, Windows and Entra also passed a separate exact-production-artifact run.
+Affected cross-owner selections, five standalone modules, four reproducible
+producer builds, four current-corpus assemblies and four source audits passed.
+Final generated, schema and backend-boundary checks passed. The generated check
+also supplies the exact two cross-owner generation rows: refreshed plans proved
+identical membership, so no redundant `harness-generation` invocation was added.
+
+Final runs use `reference-lc-review-final-<name>-r3`. The exact commands, native
+sessions/exits and all refreshed target plans are retained in
+`.cartulary/reference-packs/lc-review-qualification/native-observations-final.json`.
+`portfolio.v1.json`, `plans/`, `selections/`, `evidence-roots-final.json`,
+`lifecycle-results-final.json`, `helper-results-final.json`,
+`module-identities-final.json`, `builder-identities-final.json`,
+`source-audit-identities-final.json` and `final-source.json` provide the bounded
+qualification index. Module source/archive identities match current exported
+inputs; all builder pairs reproduce byte-for-byte. Final audit reports match the
+selected builders and retain the three supported independent witnesses.
+
+All first/second-freeze roots and their failures remain historical and are
+excluded from acceptance. No required execution was skipped; the duplicate
+generation selection is satisfied by compatible exact-row evidence, as recorded
+in the portfolio. LC-R5 has not begun at this checkpoint: the complete-owner
+accounting audit, final preservation comparison and final handoff are still due.
+Human projection-fidelity review remains pending.
+
+#### LC-R5 validation and handoff
+
+The complete-owner command
+`make test-evidence-audit OWNER=module.reference_data EVIDENCE_ROOTS_FILE=.cartulary/reference-packs/lc-review-qualification/evidence-roots-final.json`
+passed as `reference-lc-review-r5-owner-audit`, native exit 0. Its authoritative
+result is
+`.cartulary/test-results/reference-lc-review-r5-owner-audit/test-evidence-audit/audit.json`.
+It accepts all five child partitions and all 101 required rows, with no rejected
+or unused roots, against the third final-source identity. The audit itself also
+has completed cleanup and a passing retained-secret scan.
+
+| Finding / uncertainty | Current disposition | Final acceptance evidence |
+| --- | --- | --- |
+| LC-F4 — source-audit report acceptance | RESOLVED | Producer-owned complete schemas, exact invocation bindings, preserved failure precedence; final command-boundary row and all four current source audits pass. Three supported factual source witnesses remain; ATT&CK retains producer and independent artifact evidence separately. |
+| LC-F5 — isolated generation output acceptance | RESOLVED | Complete contained regular output inventory and authored-input preservation are checked inside a read-only comparison sandbox; linked/missing/extra/special outputs fail. Final boundary qualification reproduces outputs, builds the application and runs the operator probe. Read-only comparison files may use immutable-cache hard links. |
+| Deadline cleanup validation uncertainty found during qualification | RESOLVED | Virtual-clock deadline case proves a workspace write, deadline expiry and scratch cleanup; the complete final backend unit partition passes. Production behavior/timeouts are unchanged. |
+| Helper versus graph evidence | RECONCILED | LC-R3 records the adopted distinct contracts. Seventeen helper qualifications have observed native success and their tool/artifact evidence; they are not claimed to publish graph cleanup receipts or retained-secret scans. All 26 product/check graph roots do publish passing lifecycle evidence. |
+| Human specification projection-fidelity review | PENDING | The user explicitly confirmed that review has not occurred. No automated result or engineering completion represents human acceptance of the earlier specification edits. |
+
+`preservation-final.json` confirms all 733 immutable release/evidence files, all
+342 current fixture files and all 11 preserved historical producer inputs match
+the original LC baselines. The incoming staged index remains byte-identical
+(SHA-256 `9f71114aa9c7ad0a4b18047abb83171f241477a10863a9b4252d764c35534c88`).
+The review repair changed 29 paths, recorded individually with before/after hashes
+in `source-change-ledger-final.json`; no path was removed by this repair.
+Earlier LC removals/moves and surviving assertion destinations remain documented
+in the historical handoff above. Managed dependency files and retained production
+artifacts are unchanged by this review repair.
+
+Selected releases remain ATT&CK `20.1.dataset.5` and VERIS/Windows/Entra
+`2026.11.08.dataset.4`. `selected-releases-final.json` records exact descriptor,
+manifest, container, bootstrap and envelope-report hashes. Online metadata expires
+2026-12-08 at 20:40Z for ATT&CK and 19:52Z for the other three; root metadata expires
+2027-11-08 at 20:40Z and 19:20Z respectively. No renewal/re-signing occurred.
+Expiry must block future qualification until separately authorized renewal with
+unchanged logical content; tests must not renew their subjects. Base release bytes
+and readiness expectations remain unchanged.
+
+Operator and maintainer handoff:
+
+- Rebuild a selected producer through `make reference-pack-producer-build
+  PRODUCER=<pack>` after changing its owned inputs. Update audit schemas under
+  the producer's `inputs/` tree (Windows uses the existing reconciliation
+  definition), then run `make generate` for tooling validators. Never hand-edit
+  generated validator code or dependency lockfiles.
+- `make reference-pack-source PRODUCER=<pack> ACTION=audit SOURCE_DIR=<retained-root>
+  SOURCE_LOCK=<selected-input>` must receive an explicit selection. ATT&CK selects
+  its source lock and explicit `BUILT_AT`; the other producers select inventories
+  whose retained acquisition locks must bind those exact bytes. Windows may
+  receive the explicit `EDITORIAL` used for the audited corpus. Mismatched
+  report/input/builder identities fail and must be investigated, not bypassed.
+- Source-audit success requires the complete report and every supported factual
+  witness. Retired witness actions and ATT&CK source-witness admission have no
+  compatibility alias. The independent canonical-artifact witness remains part
+  of current corpus qualification.
+- Expand product generation through its existing authored machine declarations,
+  including the complete output inventory. Regenerate through Make and qualify
+  with `make lint CHECK=backend-boundary`; extend meaningful negative cases when
+  adding new capabilities. Generators never receive checked-in answers; the
+  separate trusted comparison receives read-only reference files afterward.
+- Preserve `native-observations-final.json`, the five-root owner manifest, final
+  source/content inventories, module/builder/audit identities, lifecycle/helper
+  results, and the complete-owner audit artifact when handing this work onward.
+  Superseded and failed roots remain historical. Future executable repairs require
+  a new finalize/freeze and compatible evidence; do not combine incompatible roots.
+- A human still needs to review the RP-REQ-283 cross-reference and Core 00's
+  historical ATT&CK licensing clarification, and record that disposition here.
+  This is documentation review, not a new product requirement or licensing decision.
+
+No required engineering execution was skipped. Full CI, deployment, hosted
+publication, trust installation, signing-custody redesign and formal cryptographic
+certification are outside this scoped engineering handoff.
+
+LC-R5 binary exit: **PASS** for scoped engineering acceptance and handoff.
+`reference-lc-review-r5-markdown` passed `make lint-markdown` with native exit 0;
+its summary is
+`.cartulary/test-results/reference-lc-review-r5-markdown/adhoc/lint-markdown/tool-run-summary.json`.
+`git diff --check` also passed. The final checkpoint is followed by a final
+Markdown validation recorded as `reference-lc-review-r5-markdown-final` in
+`handoff-validation.json`. No required engineering gate or implementation blocker
+remains. Human review remains explicitly pending and is the next external
+handoff action; it does not authorize changing retained releases or reopening
+the existing licensing decision. No deployment/publication claim is made.

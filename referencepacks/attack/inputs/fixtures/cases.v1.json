@@ -1,0 +1,60 @@
+{
+  "schema_id": "cartulary.attack_source_cases.v1",
+  "cases": [
+    {
+      "name": "valid",
+      "operation": "audit",
+      "expected_error": null
+    },
+    {
+      "name": "hash_mismatch",
+      "operation": "acquire",
+      "expected_error": "source hash or length mismatch"
+    },
+    {
+      "name": "release_mismatch",
+      "operation": "acquire",
+      "expected_error": "release identity mismatch"
+    },
+    {
+      "name": "tag_moved",
+      "operation": "acquire",
+      "expected_error": "release tag moved"
+    },
+    {
+      "name": "unknown_property",
+      "operation": "audit",
+      "expected_error": "unclassified_property"
+    },
+    {
+      "name": "wrong_property_type",
+      "operation": "audit",
+      "expected_error": "property_type_mismatch"
+    },
+    {
+      "name": "duplicate_conflict",
+      "operation": "audit",
+      "expected_error": "same_id_content_conflict"
+    },
+    {
+      "name": "missing_endpoint",
+      "operation": "audit",
+      "expected_error": "unresolved_reference"
+    },
+    {
+      "name": "replacement_cycle",
+      "operation": "audit",
+      "expected_error": "replacement_cycle"
+    },
+    {
+      "name": "malformed_json",
+      "operation": "audit",
+      "expected_error": "malformed source JSON"
+    },
+    {
+      "name": "unknown_relationship_type",
+      "operation": "audit",
+      "expected_error": "unclassified_relationship_type"
+    }
+  ]
+}

@@ -312,13 +312,7 @@ func (c *importAdmission) accept(ctx context.Context, request VerificationReques
 		}
 	}
 	for _, key := range keys {
-		known := false
-		for _, profile := range packformat.Profiles() {
-			if profile.Key == key {
-				known = true
-				break
-			}
-		}
+		_, known := packformat.ProfileForKey(key)
 		if !known {
 			return JobAcceptedResult{}, false, &RequestRejection{Field: "pack_keys", Reason: "invalid_pack_keys"}
 		}

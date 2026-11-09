@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.windows_event_release_fixture.v2",
+  "root": "fixtures/windows-event-ids/2026.11.07.1",
+  "container_sha256": "b866d7b97128526cf7a431b4225e63e10c94bd9861c82d7409f5158009487b47",
+  "bootstrap_sha256": "36ffc425499acda4ffdf9a4632eddd26f45846cd3cbaed0921ef8394bdf93f2b",
+  "manifest_sha256": "895d36e75685fd1f1dac7de84b63471e4778fc2f07fe17b24b0583f91489b64c",
+  "entry_count": 503
+}

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 // The complete fixture has a valid Base manifest, payload, original license,
@@ -25,7 +25,7 @@ func testCompleteArchiveFileByteBoundary(t *testing.T) {
 	const noticePath = "notices/boundary.txt"
 	// Independently calculated SHA-256 of 268435455 ASCII 'a' bytes and LF.
 	const noticeSHA = "3f77e4d9918931a1937694be0700e22f8a609fb5514f83f9f3ddce1de2185ce7"
-	raw, err := os.ReadFile("../../../../../contracts/reference-packs/builtins/release.v2.json")
+	raw, err := os.ReadFile("../../../../../contracts/reference-packs/builtins/release.v3.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 type trustVector struct {
@@ -36,7 +36,7 @@ func TestOfflineTUFRequiresBothRootThresholdsAndRejectsExtraSignatures_Unit(t *t
 			if err != nil {
 				t.Fatal(err)
 			}
-			old, _ := decodeRoot(trust.Root)
+			old, _ := fixtureMetadataHeader(trust.Root, "root")
 			m := vectorMetadata(vector)
 			rootPath := "metadata/2.root.json"
 			value, err := canonicaljson.DecodeStrict(m[rootPath])
@@ -73,7 +73,7 @@ func TestOfflineTUFRequiresBothRootThresholdsAndRejectsExtraSignatures_Unit(t *t
 	value, _ := canonicaljson.DecodeStrict(m["metadata/targets.json"])
 	envelope := value.(map[string]any)
 	signatures := envelope["signatures"].([]any)
-	root, _ := decodeRoot(trust.Root)
+	root, _ := fixtureMetadataHeader(trust.Root, "root")
 	unauthorized := ""
 	for id := range root.roles["root"].keys {
 		if _, ok := root.roles["targets"].keys[id]; !ok {
@@ -153,7 +153,7 @@ func TestOfflineTUFIndependentVectorsAndRootReplay_Unit(t *testing.T) {
 			}
 			// Shape admission must reject before signature verification; an
 			// invalidated self-signature alone would not prove key policy.
-			if _, err := decodeRootShape(raw); err == nil {
+			if _, err := fixtureMetadataHeader(raw, "root"); err == nil {
 				t.Fatal("unsupported root key admitted before signature verification")
 			}
 			if _, err := AdmitBootstrap(raw); err == nil {
@@ -219,7 +219,7 @@ func TestOfflineTUFIndependentVectorsAndRootReplay_Unit(t *testing.T) {
 			if !proposal.ValidUntil.Equal(v.ValidUntil) || len(proposal.Signers["targets"]) != 1 || proposal.Signers["targets"][0] != v.Signers[0] {
 				t.Fatal("wrong trust result")
 			}
-			root, err := decodeRoot(proposal.Root)
+			root, err := fixtureMetadataHeader(proposal.Root, "root")
 			if err != nil || root.version != v.RootVersion {
 				t.Fatal("wrong root proposal")
 			}
@@ -252,7 +252,7 @@ func TestOfflineTUFFailsClosedOnTamperingAndExpiry_Unit(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		admitted, err := decodeMetadataShape(metadata["metadata/timestamp.json"], "timestamp", 64)
+		admitted, err := fixtureMetadataHeader(metadata["metadata/timestamp.json"], "timestamp")
 		if err != nil || !bytes.Contains(admitted.signedBytes, []byte(`"org.example.information":"extension-value"`)) {
 			t.Fatalf("signed extension was rejected or omitted from authenticated bytes: %v", err)
 		}
@@ -327,58 +327,6 @@ func TestOfflineTUFFailsClosedOnTamperingAndExpiry_Unit(t *testing.T) {
 	var rejected *Failure
 	if !errors.As(err, &rejected) || rejected.Code != "metadata_expired" {
 		t.Fatalf("expiry equality=%v", err)
-	}
-}
-
-func TestOfflineTUFDescriptorAdmission_Unit(t *testing.T) {
-	for _, metadataDescriptor := range []bool{false, true} {
-		name := "tuf_target_descriptor.v1.schema.json"
-		if metadataDescriptor {
-			name = "tuf_metadata_descriptor.v1.schema.json"
-		}
-		rule := compileProjection(name)
-		base := map[string]any{"length": json.Number("123"), "hashes": map[string]any{"sha256": strings.Repeat("a", 64)}}
-		if metadataDescriptor {
-			base["version"] = json.Number("1")
-		}
-		if !rule.matches(base) || !descriptorComplete(base, metadataDescriptor) {
-			t.Fatal("valid descriptor rejected")
-		}
-		for _, member := range []string{"length", "hashes", "version"} {
-			original, present := base[member]
-			if !present {
-				continue
-			}
-			delete(base, member)
-			if !rule.matches(base) || descriptorComplete(base, metadataDescriptor) {
-				t.Fatalf("omitted %s must belong to missing-integrity check", member)
-			}
-			for _, invalid := range []any{nil, true, []any{}, "value", json.Number("-1")} {
-				base[member] = invalid
-				if rule.matches(base) {
-					t.Fatalf("invalid %s admitted", member)
-				}
-			}
-			base[member] = original
-		}
-		base["unknown"] = true
-		if rule.matches(base) {
-			t.Fatal("unknown descriptor member admitted")
-		}
-		delete(base, "unknown")
-		for _, hashes := range []map[string]any{
-			{"sha256": nil}, {"sha256": strings.Repeat("A", 64)}, {"sha256": strings.Repeat("a", 63)},
-			{"sha256": strings.Repeat("a", 64), "sha512": strings.Repeat("b", 128)},
-		} {
-			base["hashes"] = hashes
-			if rule.matches(base) {
-				t.Fatal("invalid digest object admitted")
-			}
-		}
-		base["hashes"] = map[string]any{}
-		if !rule.matches(base) || descriptorComplete(base, metadataDescriptor) {
-			t.Fatal("absent SHA-256 must belong to missing-integrity check")
-		}
 	}
 }
 
@@ -589,7 +537,7 @@ func TestOfflineTUFRegistryProgramDiagnostics_Unit(t *testing.T) {
 			}
 		}},
 		{"all expired roles", "metadata_expiry", 4, func(_ map[string][]byte, _ Inventory, trust *TrustSnapshot, at *time.Time) {
-			root, _ := decodeRoot(trust.Root)
+			root, _ := fixtureMetadataHeader(trust.Root, "root")
 			*at = root.expires
 		}},
 		{"all undeclared inventory members", "target_missing", 2, func(_ map[string][]byte, inventory Inventory, _ *TrustSnapshot, _ *time.Time) {

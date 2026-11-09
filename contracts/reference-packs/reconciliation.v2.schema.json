@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_reconciliation.v2",
+  "type": "object",
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_reconciliation.v2"
+    },
+    "pack_contract_version": {
+      "const": "cartulary.reference_pack_contract.v3"
+    },
+    "application_release_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 192
+    },
+    "profile_claimed": {
+      "type": "boolean"
+    },
+    "clock_trusted": {
+      "type": "boolean"
+    },
+    "max_verification_seconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 86400
+    },
+    "max_container_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "max_extracted_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "max_compression_ratio": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "max_members": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "schema_id",
+    "pack_contract_version",
+    "application_release_id",
+    "profile_claimed",
+    "clock_trusted",
+    "max_verification_seconds",
+    "max_container_bytes",
+    "max_extracted_bytes",
+    "max_compression_ratio",
+    "max_members"
+  ],
+  "additionalProperties": false
+}

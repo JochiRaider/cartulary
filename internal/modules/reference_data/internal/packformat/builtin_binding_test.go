@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 func TestBuiltinBindingClosesIdentityAndShape_Unit(t *testing.T) {
@@ -14,14 +14,14 @@ func TestBuiltinBindingClosesIdentityAndShape_Unit(t *testing.T) {
 			Members map[string]string `json:"members"`
 		} `json:"packs"`
 	}
-	if err := json.Unmarshal(projection("builtins/release.v2.json"), &release); err != nil {
+	if err := json.Unmarshal(projection("builtins/release.v3.json"), &release); err != nil {
 		t.Fatal(err)
 	}
 	var witness struct {
 		SetSHA  string      `json:"pack_set_sha256"`
 		Members []SetMember `json:"members"`
 	}
-	if err := json.Unmarshal(projection("builtins/witness.v2.json"), &witness); err != nil {
+	if err := json.Unmarshal(projection("builtins/witness.v3.json"), &witness); err != nil {
 		t.Fatal(err)
 	}
 	set, err := BuildSet(witness.Members)
@@ -54,7 +54,7 @@ func TestBuiltinBindingClosesIdentityAndShape_Unit(t *testing.T) {
 		found := false
 		for _, w := range witness.Members {
 			if w.Key == manifest.Key {
-				found = w.Version == manifest.Version && w.ManifestSHA256 == binding.ManifestSHA256 && w.PayloadSHA256 == payload && manifest.Sequence == 2 && w.Contract == manifest.Contract && w.ProfileID == manifest.ProfileID && w.ProfileVersion == manifest.ProfileVersion
+				found = w.Version == manifest.Version && w.ManifestSHA256 == binding.ManifestSHA256 && w.PayloadSHA256 == payload && manifest.Sequence == 3 && w.Contract == manifest.Contract && w.ProfileID == manifest.ProfileID && w.ProfileVersion == manifest.ProfileVersion
 			}
 		}
 		if !found {

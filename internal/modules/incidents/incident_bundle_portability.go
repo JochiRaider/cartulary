@@ -125,7 +125,7 @@ func (prepared preparedIncidentSource) matches(
 		prepared.schemaID == contract.source.Path.SchemaID &&
 		prepared.operationID != "" && prepared.operationID == importContext.operationID &&
 		prepared.incidentID != uuid.Nil && prepared.incidentID == importContext.incidentID &&
-		prepared.bundleVersion == 7 && prepared.bundleVersion == importContext.bundleVersion &&
+		prepared.bundleVersion == 8 && prepared.bundleVersion == importContext.bundleVersion &&
 		prepared.contractMajor == incidentSourceContractMajor &&
 		prepared.contractMajor == contract.source.ContractMajor
 }
@@ -174,7 +174,7 @@ func prepareIncidentBundleIncident(
 	importContext incidentSourceImportContext,
 ) (preparedIncidentSource, error) {
 	if len(payload) == 0 || importContext.operationID == "" || importContext.incidentID == uuid.Nil ||
-		importContext.actorUserID == uuid.Nil || importContext.bundleVersion != 7 || importContext.actorAdmitted == nil ||
+		importContext.actorUserID == uuid.Nil || importContext.bundleVersion != 8 || importContext.actorAdmitted == nil ||
 		contract.source.ContractMajor != incidentSourceContractMajor || len(contract.columns) != 16 {
 		return preparedIncidentSource{}, fmt.Errorf("%w: Incidents source binding is invalid", errIncidentSourceCatalog)
 	}

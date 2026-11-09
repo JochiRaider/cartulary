@@ -790,3 +790,13 @@ claimed as fresh execution here. Release reissuance, environment reset and trust
 installation were neither needed nor performed. Finalization again skipped
 retained warm-check maintenance because no compatible full warm-check
 `RESULTS_DIR` was supplied.
+
+## Remediation closure follow-up — 2026-11-08
+
+The [RC closure section](reference_data-module-refactor-tracker.md#rc--remediation-closure-2026-11-08)
+records the corrected authority and resource rules, Linux filesystem-isolation
+prerequisites, final producer pins and scoped application qualification. Assembly
+now retains research under the explicit output root, leaving its pinned source
+corpus read-only. Existing signed release descriptors, notices, distribution
+decisions and signing custody remain unchanged. The new unsigned corpus outputs
+are qualification candidates, not replacement releases.

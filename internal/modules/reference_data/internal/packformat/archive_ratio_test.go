@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 func testCompleteCompressionRatio(t *testing.T, manifest Manifest, original contentMemory) {

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 func testPortableContentManifest(t *testing.T) {
@@ -144,7 +144,7 @@ func testPortableContentManifest(t *testing.T) {
 		name  string
 		limit int
 	}{{"containers", 16384}, {"required_members", 65536}} {
-		rule := portableContentShape.properties[field.name]
+		rule := portableContentShape.property(field.name)
 		items := make([]any, field.limit+1)
 		value, err := canonicaljson.DecodeStrict(fixture.Content)
 		if err != nil {
@@ -154,7 +154,7 @@ func testPortableContentManifest(t *testing.T) {
 		for i := range items {
 			items[i] = item
 		}
-		if *rule.maxItems != field.limit || !rule.matches(items[:field.limit]) || rule.matches(items) {
+		if !rule.matches(items[:field.limit]) || rule.matches(items) {
 			t.Fatal("content cardinality guard", field.name)
 		}
 	}
@@ -189,27 +189,38 @@ func testPortableContentManifest(t *testing.T) {
 // hashlib.sha256, not this producer or decoder. No fixture reads Markdown.
 func testPortableContentReachableLimits(t *testing.T) {
 	keys := []string{"type_registry.host", "type_registry.evidence", "type_registry.indicator", "framework.attack", "framework.d3fend", "framework.veris", "enrichment.tor", "enrichment.cisa_kev", "enrichment.ms_portals", "enrichment.windows_event_ids", "enrichment.entra_app_ids", "enrichment.lolbas", "enrichment.loldrivers", "enrichment.lolesxi", "enrichment.hijacklibs", "enrichment.windows_sids"}
+	for n := len(keys); n < 64; n++ {
+		keys = append(keys, fmt.Sprintf("enrichment.fixture_%02d", n))
+	}
 	slices.Sort(keys)
-	refs := PortableReferences{SchemaID: "reference_pack_refs.v2", Sets: []Set{}, Versions: []PortableVersion{}}
+	refs := PortableReferences{SchemaID: "reference_pack_refs.v3", Sets: []Set{}, Versions: []PortableVersion{}}
 	content := EmptyPortableContent()
+	seenVersions := map[string]bool{}
 	for i := range 1024 {
 		members := []SetMember{}
-		for _, key := range keys {
-			version := fmt.Sprintf("v%04d", i)
+		for j, key := range keys {
+			versionIndex := i % 256
+			if j == 0 {
+				versionIndex = i / 4
+			}
+			version := fmt.Sprintf("v%04d", versionIndex)
 			manifest := Digest([]byte("manifest:" + key + "/" + version))
-			profile := profiles[key]
-			member := SetMember{Key: key, Version: version, ManifestSHA256: manifest, PayloadSHA256: strings.Repeat("2", 64), Contract: "cartulary.reference_pack_contract.v2", ProfileID: profile.ID, ProfileVersion: profile.Version}
+			profile, _ := ProfileForKey(key)
+			member := SetMember{Key: key, Version: version, ManifestSHA256: manifest, PayloadSHA256: strings.Repeat("2", 64), Contract: "cartulary.reference_pack_contract.v3", ProfileID: profile.ID, ProfileVersion: profile.Version}
 			members = append(members, member)
-			refs.Versions = append(refs.Versions, PortableVersion{SetMember: member, DistributionKind: "operator_imported", VerificationMethod: "tuf_1_0_35_offline_bundle_v1", SourceProfileID: "fixture.portable.v1", SourceProfileSHA256: strings.Repeat("3", 64)})
-			content.Containers = append(content.Containers, PortableContainer{ManifestSHA256: manifest, ContainerSHA256: strings.Repeat("4", 64), SizeBytes: 1})
+			if !seenVersions[key+"/"+version] {
+				seenVersions[key+"/"+version] = true
+				refs.Versions = append(refs.Versions, PortableVersion{SetMember: member, DistributionKind: "operator_imported", VerificationMethod: "tuf_1_0_35_offline_bundle_v1", SourceProfileID: "fixture.portable.v1", SourceProfileSHA256: strings.Repeat("3", 64)})
+				content.Containers = append(content.Containers, PortableContainer{ManifestSHA256: manifest, ContainerSHA256: strings.Repeat("4", 64), SizeBytes: 1})
+			}
 		}
-		preimage, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_set.v2", "members": members})
+		preimage, err := canonicaljson.Marshal(map[string]any{"schema_id": "cartulary.reference_pack_set.v3", "members": members})
 		if err != nil {
 			t.Fatal(err)
 		}
 		digest := Digest(preimage)
 		id := "rpset_" + digest
-		refs.Sets = append(refs.Sets, Set{SchemaID: "cartulary.reference_pack_set.v2", ID: id, SHA256: digest, Members: members})
+		refs.Sets = append(refs.Sets, Set{SchemaID: "cartulary.reference_pack_set.v3", ID: id, SHA256: digest, Members: members})
 		for _, key := range keys {
 			content.RequiredMembers = append(content.RequiredMembers, PortableRequiredMember{SetID: id, Key: key})
 		}
@@ -220,7 +231,7 @@ func testPortableContentReachableLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 16801852 || Digest(encoded) != "3bf4bf5636878e063f15f5698bfa5ac6b34516587ed1046db1c14904e93d1b40" {
+	if len(encoded) != 35317052 || Digest(encoded) != "2784ff6901f74a1b3f6c1badd9ed703670430d9f6e647c440fae42e476b61771" {
 		t.Fatal("independent catalog changed")
 	}
 	admitted, err := DecodePortableReferences(encoded)
@@ -235,11 +246,11 @@ func testPortableContentReachableLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encoded) != 5091405 || Digest(encoded) != "83f2feb1eb73b8909126aa1bfc3d74ac32efad1c886cca811323ab330ff9d22a" {
+	if len(encoded) != 11186253 || Digest(encoded) != "f2b8c01bf31a7b2d96dd41b03c1d2c5682543131ab1113b7032aa3766ac4a2ba" {
 		t.Fatal("independent content changed")
 	}
 	got, err := DecodePortableContent(encoded, admitted)
-	if err != nil || len(got.Containers) != 16384 || len(got.RequiredMembers) != 16384 {
+	if err != nil || len(got.Containers) != 16384 || len(got.RequiredMembers) != 65536 {
 		t.Fatal("complete content limit rejected", err)
 	}
 	content.Containers[0], content.Containers[1] = content.Containers[1], content.Containers[0]

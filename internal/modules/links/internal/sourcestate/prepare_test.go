@@ -246,7 +246,7 @@ func encodeTestRows(t *testing.T, rows []map[string]any) []byte {
 
 func testImportContext(operationID string) sourceport.ImportContext {
 	return sourceport.ImportContext{
-		IncidentID: testIncidentID, ActorUserID: testActorID, BundleVersion: 7,
+		IncidentID: testIncidentID, ActorUserID: testActorID, BundleVersion: 8,
 		OperationID: operationID,
 	}
 }

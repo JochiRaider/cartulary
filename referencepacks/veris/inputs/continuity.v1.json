@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.veris_continuity.v1",
+  "source_commit": "dba30b035039f3d002c6eb06dc149dbed7476059",
+  "predecessor": "Synthetic VERIS v1 is rejected; it supplies no real source subjects to carry forward.",
+  "baseline": "First native Community corpus establishes source-pointer and contextual raw-value identities.",
+  "future_policy": "Review every added, removed and changed semantic key against the prior accepted corpus. Preserve IDs only for the same subject. A different meaning at the same pointer/raw value blocks publication until an explicit owner amendment establishes a distinct semantic key; never silently add a release version or display label to identity. Rule IDs are curated stable subjects.",
+  "automatic_conversion": false
+}

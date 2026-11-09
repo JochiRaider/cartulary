@@ -259,3 +259,11 @@ func testDeferredCheckPrograms(t *testing.T) {
 		t.Fatal("nil check accepted")
 	}
 }
+
+func TestResourceLimitDoesNotHideOperationalFailure_Unit(t *testing.T) {
+	if summary, err := CheckSummary(t.Context(), "content_schema", nil, func(context.Context, FindingSink) error {
+		return errors.Join(errShapeLimit, io.ErrClosedPipe)
+	}); summary != nil || !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatal("resource abort concealed operational failure", summary, err)
+	}
+}

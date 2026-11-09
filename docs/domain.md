@@ -1244,3 +1244,21 @@ A semantic rule describes source guidance or checks and performs no automatic
 classification or enrichment. Requiredness, explicit unknown and missing data
 are separate concepts. Reference Pack RP-REQ-270–274 owns this vocabulary and
 its v2 content profile; no taxonomy browser or workbook surface is implied.
+
+## Generic reference-pack vocabulary — 2026-11-08
+
+Reference Pack RP-REQ-275–283 owns the behavioral meaning of these terms. Domain
+vocabulary is navigation, not a second contract. A **generic dataset** is bounded
+advisory objects, relationships and declarative lookups in a signed pack. A
+**descriptor** declares lookup inputs, normalization, uniqueness and measured
+coverage; zero coverage is distinct from unsupported lookup. A **producer** owns
+source interpretation and factual correctness; the runtime owns trust, structural
+integrity, references, resource limits and consumption. A signature authenticates
+the publisher without proving factual truth. Native source records remain inert.
+
+**Build independence**, **artifact independence**, **qualification independence**
+and **profile extensibility** are separate properties defined by RP-REQ-275.
+Entra application identity enrichment currently covers 139 application IDs and
+zero SPNs. Supported SPN syntax does not imply observed SPN coverage or that a
+no-hit value is invalid. Required Base registries retain their distinct readiness
+and assignment rules; generic advisory packs do not replace them.

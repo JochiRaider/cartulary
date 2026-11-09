@@ -1,13 +1,13 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_admission_license_spdx_exception",
-  "fixture_version": 1,
+  "fixture_version": 3,
   "fixture_family": "licensing",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/admission/license_spdx_exception.v1.json"
   ],
   "expected_container_sha256": null,
-  "expected_manifest_sha256": "f68db4e682466622ce80e20b7c8d45806145cc0d2280852fadef4c6ba8bdd4f3",
+  "expected_manifest_sha256": "05bfff520dfa1a32d8fcea549b0a198d91518559977146bf39e9f24cc25376d7",
   "expected_payload_sha256": "e38ff4e85cc452ea298b402bd1003c3ba199db81e9f2fd9a8f3931369965e584",
   "expected_pack_set_sha256": null,
   "expected_condition": null,

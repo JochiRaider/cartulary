@@ -30,11 +30,11 @@ func Seed(t testing.TB, db *sql.DB, kind string) {
 		return
 	}
 	if strings.HasPrefix(kind, "entra ") {
-		seedContentProfile(t, db, strings.TrimPrefix(kind, "entra "), "enrichment.entra_app_ids", "fixtures/entra-app-ids/release.v2.json", "advisory_enrichment")
+		seedContentProfile(t, db, strings.TrimPrefix(kind, "entra "), "enrichment.entra_app_ids", "entra", "advisory_enrichment")
 		return
 	}
 	if strings.HasPrefix(kind, "veris ") {
-		seedContentProfile(t, db, strings.TrimPrefix(kind, "veris "), "framework.veris", "fixtures/veris/release.v1.json", "framework_reference")
+		seedContentProfile(t, db, strings.TrimPrefix(kind, "veris "), "framework.veris", "veris", "framework_reference")
 		return
 	}
 	seed(t, db, kind, nil)
@@ -101,7 +101,20 @@ func seedWith(t testing.TB, db *sql.DB, kind string, catalog []byte, overrides m
 		exec(`INSERT INTO reference_pack_operations(operation_id,kind,actor_kind,admitted_at,frozen_input) VALUES($1,'reconcile','application_release',now(),$2)`, identity, []byte(`{"schema_id":"cartulary.reference_pack_operation_input.v2"}`))
 		return
 	}
-	exec(`INSERT INTO reference_pack_operations(operation_id,kind,actor_kind,admitted_at,terminal_at,frozen_input,final_outcome) VALUES($1,'reconcile','application_release',now(),now(),'{}','{}')`, identity)
+	// Keep unrelated state current so each case reaches the record it is meant
+	// to reject. Terminal operations are subject to retained admission too.
+	input, err := canonicaljson.Marshal(map[string]any{
+		"schema_id":              "cartulary.reference_pack_reconciliation.v2",
+		"pack_contract_version":  "cartulary.reference_pack_contract.v3",
+		"application_release_id": "admission-fixture", "profile_claimed": false,
+		"clock_trusted": true, "max_verification_seconds": 60,
+		"max_container_bytes": 1048576, "max_extracted_bytes": 1048576,
+		"max_compression_ratio": 100, "max_members": 100,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(`INSERT INTO reference_pack_operations(operation_id,kind,actor_kind,admitted_at,terminal_at,frozen_input,final_outcome) VALUES($1,'reconcile','application_release',now(),now(),$2,'{}')`, identity, input)
 	switch kind {
 	case "manifest":
 		exec(`INSERT INTO reference_pack_key_state(pack_key) VALUES('framework.attack')`)

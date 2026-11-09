@@ -1,0 +1,35 @@
+{
+  "schema_id": "cartulary.reference_pack_base_witness.v3",
+  "application_release_id": "cartulary.base_registries.2026-11-08.v3",
+  "release_sha256": "96a42a19520de0fe32c9a88d93ebf4041cc2ce6a2daa6b5ebb5fe1337889abf3",
+  "pack_set_sha256": "c0a752817ee49beb7fdc8053cb1a23614be39d9df931fbf9515694fe95d29b61",
+  "members": [
+    {
+      "pack_key": "type_registry.evidence",
+      "pack_version": "base-2026-11-08.1",
+      "manifest_sha256": "ed16a044b5e6cbfd9f15cd8412a21bd3ed40eb0d7d9f48ead366e99b6808714b",
+      "payload_sha256": "9a24ec390bf4e9f51ea299f6e08c53f7f8186a66ed2a7decb213a2ad9e901d39",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "type_registry.host",
+      "pack_version": "base-2026-11-08.1",
+      "manifest_sha256": "c3240ce44520a1e0e6cf40c1cc9705e06710c53b78093f7dcbb09655dfb4aefa",
+      "payload_sha256": "afaae18a960bf0d7f75365494966403333706ee4b7f680ca789c5cad8a237b8f",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
+      "content_profile_version": "1"
+    },
+    {
+      "pack_key": "type_registry.indicator",
+      "pack_version": "base-2026-11-08.1",
+      "manifest_sha256": "7abedd5525c86831de9b8953eb04a665a6b1524d43d8bec1454ebbf68cce39c4",
+      "payload_sha256": "1c559a7fd18803b4eb0fbcc53f39be43ff48404d7253dfa0ffd5c62cdb3fecb8",
+      "pack_contract_version": "cartulary.reference_pack_contract.v3",
+      "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
+      "content_profile_version": "1"
+    }
+  ]
+}

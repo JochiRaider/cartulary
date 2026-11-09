@@ -7,16 +7,17 @@ import (
 	"slices"
 	"strings"
 
-	entrainputs "github.com/JochiRaider/cartulary/contracts/reference-pack-producers/entra-app-ids"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"os"
+	"path/filepath"
 )
 
 // checkEntraBaseline compares public bytes with authored factual expectations.
 // It shares no extraction/projection code with the source producer or JS witness.
-func checkEntraBaseline(manifest packformat.Manifest, payload []byte) error {
+func checkEntraBaseline(repositoryRoot string, manifest packformat.Manifest, payload []byte) error {
 	read := func(name string, value any) error {
-		b, err := entrainputs.Files.ReadFile(name)
+		b, err := os.ReadFile(filepath.Join(repositoryRoot, "contracts/reference-pack-producers/entra-app-ids", name))
 		if err != nil {
 			return err
 		}
@@ -124,11 +125,33 @@ func checkEntraBaseline(manifest packformat.Manifest, payload []byte) error {
 			}
 			return strings.Compare(a.Locator, b.Locator)
 		})
-		expected, err := canonicaljson.Marshal(map[string]any{
+		native := map[string]any{
 			"schema_id": "cartulary.reference_pack.enrichment.entra_app_ids.entry.v2", "entry_id": want.ID,
 			"app_id": want.ID, "display_label": want.Label, "aliases": want.Aliases, "description": description,
 			"source_refs": refs, "publisher": "Microsoft", "service_principal_names": []string{},
 			"deprecated": false, "replacement_entry_id": nil, "extensions": map[string]any{},
+		}
+		lookups := map[string]any{"app_id": []string{want.ID}}
+		if len(want.Aliases) != 0 {
+			ordered := slices.Clone(want.Aliases)
+			key := func(value string) []byte {
+				value = strings.Map(func(r rune) rune {
+					if r >= 'A' && r <= 'Z' {
+						return r + ('a' - 'A')
+					}
+					return r
+				}, value)
+				raw, _ := json.Marshal([]string{value})
+				return raw
+			}
+			slices.SortFunc(ordered, func(a, b string) int { return bytes.Compare(key(a), key(b)) })
+			lookups["alias"] = ordered
+		}
+		expected, err := canonicaljson.Marshal(map[string]any{
+			"schema_id": "cartulary.reference_pack.dataset.object.v1", "object_id": want.ID,
+			"object_type": "entra_application", "display_label": want.Label, "description": description,
+			"deprecated": false, "replacement_object_id": nil, "source_refs": refs,
+			"data": native, "lookup_values": lookups,
 		})
 		if err != nil {
 			return err

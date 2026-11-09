@@ -1,0 +1,24 @@
+{
+  "schema_id": "cartulary.reference_pack_release_descriptor.v3",
+  "pack_key": "framework.veris",
+  "pack_version": "2026.11.08.dataset.4",
+  "authority_class": "release",
+  "distribution_status": "approved_existing_output_policy",
+  "logical_root": "fixtures/reference-packs/dataset-v1/veris/logical/3e8246f35dbf3779708e568bc348f071c236c827c68466a2f901f8b2f448ce30",
+  "envelope_root": "fixtures/reference-packs/dataset-v1/veris/envelopes/00d3740ee5f3ffd8cde9048cb34f5997f633d746f5ec925d6a4c06f705ba5e76",
+  "manifest_sha256": "3e8246f35dbf3779708e568bc348f071c236c827c68466a2f901f8b2f448ce30",
+  "payload_sha256": "d78399d23925f56192d636aeed0bf961e24b2a849e876063302e9f17fb5605ca",
+  "container_sha256": "00d3740ee5f3ffd8cde9048cb34f5997f633d746f5ec925d6a4c06f705ba5e76",
+  "bootstrap_sha256": "2d1d80a7f217e76c1f66c609756a4748b122471c212340573378b912528ecd58",
+  "envelope_report_sha256": "3efe2874679481540afb5dba151a67b0ed356d354dd3d88f14add471d7c289b3",
+  "source_profile_id": "cartulary.veris.community.dataset.v1",
+  "source_profile_sha256": "5781e99d63d2c33f8bca3a5dc505e4f7943984e9c88ca7528c46677ec98041b4",
+  "source_version": "1.4.2",
+  "builder": {
+    "builder_id": "cartulary.reference-pack.veris",
+    "builder_source_sha256": "76fbb73a23b35a770775d168db49f64ea7ecf90f51cbe717e6cb23c28f6f9a36",
+    "builder_version": "dataset-v1"
+  },
+  "objects": 2491,
+  "relationships": 2533
+}

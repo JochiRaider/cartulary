@@ -1,0 +1,1784 @@
+{
+  "schema_id": "cartulary.veris_dispositions.v1",
+  "units": [
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:1",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:2",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:3",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:4",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:5",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:6",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-direct-actors"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:7",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-direct-actors",
+        "guide-multiple-selections"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:8",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-actor-relationship",
+        "guide-direct-actors",
+        "guide-multiple-selections"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:9",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-actor-relationship",
+        "guide-direct-actors",
+        "guide-multiple-selections"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:10",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-actor-relationship",
+        "guide-direct-actors",
+        "guide-multiple-selections"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:11",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-multiple-selections"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:12",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-multiple-selections",
+        "guide-social-assets"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:13",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-multiple-selections",
+        "guide-social-assets"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:14",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-cia-attributes",
+        "guide-multiple-selections"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:15",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-cia-attributes",
+        "guide-multiple-selections"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:16",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-cia-attributes",
+        "guide-multiple-selections"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:17",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:18",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:19",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:20",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:21",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:22",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:23",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:24",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:25",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:26",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:27",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:28",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:29",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:30",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:31",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:32",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-evidence-summary"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:33",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:34",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-asset-totals"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:35",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-asset-totals"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:36",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:37",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:38",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-targeting"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:39",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-discovery"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:40",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-discovery"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:41",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-discovery"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:42",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-discovery"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:43",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-impact"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:44",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-impact"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:45",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:46",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:47",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:48",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:49",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:50",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:51",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:52",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disposal-loss"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:53",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disposal-loss"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:54",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disposal-loss"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:55",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disposal-loss"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:56",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-publishing-misconfiguration"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:57",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-publishing-misconfiguration"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:58",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-publishing-misconfiguration"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:59",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-publishing-misconfiguration"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:60",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:61",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:62",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:63",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:64",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:65",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:66",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:67",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:68",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:69",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:70",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:71",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:72",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:73",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:74",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:75",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:76",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:77",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:78",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:79",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:80",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:81",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:82",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:83",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:84",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:85",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:86",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-misuse-trust"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:87",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-misuse-trust"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:88",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-misuse-trust"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:89",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-misuse-trust"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:90",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:91",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:92",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:93",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:94",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:95",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-phishing-pretexting"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:96",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-phishing-pretexting"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:97",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-phishing-pretexting"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:98",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-phishing-pretexting"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:99",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-phishing-pretexting"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:100",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:101",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:102",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:103",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:104",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:105",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:106",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:107",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:108",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:109",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:110",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:111",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:112",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:113",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:114",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:115",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:116",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:117",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:118",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:119",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:120",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:121",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:122",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:123",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:124",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:125",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-disclosure-evidence"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:126",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:127",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:128",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:129",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:130",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:131",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:132",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:133",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:134",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:135",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-ransomware-disclosure"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:136",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-ransomware-disclosure"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:137",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-ransomware-disclosure"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:138",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-ransomware-disclosure",
+        "guide-repurpose"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:139",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-repurpose"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:140",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-repurpose"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:141",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-repurpose"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:142",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:143",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:144",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-physical-tampering"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:145",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-organized-crime",
+        "guide-physical-tampering"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:146",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-organized-crime",
+        "guide-physical-tampering"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:147",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-broadest-supported-value",
+        "guide-organized-crime"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:148",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-broadest-supported-value",
+        "guide-organized-crime"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:149",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-organized-crime"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:150",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-organized-crime"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:151",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-organized-crime"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:152",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-organized-crime"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:153",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-organized-crime"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:154",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:155",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:156",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:157",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:158",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:159",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:160",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:161",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:162",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:163",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:164",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:165",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:166",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-secondary-victims",
+        "guide-supply-chain"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:167",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-secondary-victims",
+        "guide-supply-chain"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:168",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-secondary-victims",
+        "guide-supply-chain"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:169",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-secondary-victims",
+        "guide-supply-chain"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:170",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-secondary-victims",
+        "guide-supply-chain"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:171",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-supply-chain"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "locator": "page:172",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "guide-supply-chain"
+      ],
+      "reason": "Only general interpretation summaries are included. Case narratives, quotations, examples, images, WebApp procedures, template automation and VCDB-only fields remain documentation."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:33-36",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkMalwareIntegrity"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:39-42",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkSocialIntegrity"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:45-48",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkSQLiRepurpose"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:51-56",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkSecurityIncident"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:59-67",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkLossTheftAvailability"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:69-72",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkPlusAttributeConsistency"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:74-123",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:128-133",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkImpactTotal"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:138-143",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkDataTotal"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:147-149",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkMisuseActor"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:154-187",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkRegion"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:192-196",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkSecondaryVictimAmount"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:201-265",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkValueChain"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:268-273",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkDefacementInterruption"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:276-285",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkAgenticActors"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:288-297",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkMisalignmentAgenticSystem"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:300-306",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "checkInadequateContainment"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "locator": "lines:308-346",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/rules.py",
+      "locator": "lines:107-1174",
+      "disposition": "included_guidance_with_documentation",
+      "rule_ids": [
+        "enrichment-authentication",
+        "enrichment-backdoor-c2",
+        "enrichment-country-normalization",
+        "enrichment-credentials",
+        "enrichment-data-state",
+        "enrichment-desktop-laptop",
+        "enrichment-email-hierarchy",
+        "enrichment-exploit-hierarchy",
+        "enrichment-malware-mining",
+        "enrichment-malware-web",
+        "enrichment-personal-data",
+        "enrichment-rat-hierarchy",
+        "enrichment-secondary-count",
+        "enrichment-secondary-motive",
+        "enrichment-social-integrity-assets",
+        "enrichment-social-target",
+        "enrichment-sqli-loss",
+        "enrichment-totals",
+        "enrichment-value-chain",
+        "enrichment-web-asset"
+      ],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/mergeSchema.py",
+      "locator": "lines:34-38",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/mergeSchema.py",
+      "locator": "lines:40-45",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/mergeSchema.py",
+      "locator": "lines:87-101",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/mergeSchema.py",
+      "locator": "lines:104-110",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/mergeSchema.py",
+      "locator": "lines:113-116",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/mergeSchema.py",
+      "locator": "lines:119-149",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    },
+    {
+      "source_path": "bin/mergeSchema.py",
+      "locator": "lines:151-162",
+      "disposition": "documentation_only",
+      "rule_ids": [],
+      "reason": "Descriptive summaries only; execution, IO, repair, version conversions and DBIR-specific reporting-year logic are outside the Community reference corpus."
+    }
+  ],
+  "excluded_content": [
+    "All original case records, third-party quoted material, images, template automation and executable source are retained for research only.",
+    "Rules.makeValid defaults, repairs and conversions are excluded; unknown and missing values are not conflated.",
+    "External country enrichment table is excluded because country/region inference is not executed.",
+    "Inactive commented rules are not asserted as active upstream behavior."
+  ],
+  "source_items": [
+    {
+      "source_path": "LICENSE.txt",
+      "disposition": "included_with_context",
+      "rule_ids": [],
+      "reason": "Exact CC BY-SA 4.0 text is distributed as a notice and retained as source evidence."
+    },
+    {
+      "source_path": "bin/checkValidity.py",
+      "disposition": "included_with_context",
+      "rule_ids": [
+        "checkAgenticActors",
+        "checkDataTotal",
+        "checkDefacementInterruption",
+        "checkImpactTotal",
+        "checkInadequateContainment",
+        "checkLossTheftAvailability",
+        "checkMalwareIntegrity",
+        "checkMisalignmentAgenticSystem",
+        "checkMisuseActor",
+        "checkPlusAttributeConsistency",
+        "checkRegion",
+        "checkSQLiRepurpose",
+        "checkSecondaryVictimAmount",
+        "checkSecurityIncident",
+        "checkSocialIntegrity",
+        "checkValueChain"
+      ],
+      "reason": "Active checks are represented as inert statements; DBIR reporting-year selection and execution/CLI helpers are excluded. Every line remains retained source evidence."
+    },
+    {
+      "source_path": "bin/mergeSchema.py",
+      "disposition": "contextual",
+      "rule_ids": [],
+      "reason": "Merge algorithm is reviewed reconciliation evidence; no source script is executed or distributed."
+    },
+    {
+      "source_path": "bin/rules.py",
+      "disposition": "included_with_context",
+      "rule_ids": [
+        "enrichment-authentication",
+        "enrichment-backdoor-c2",
+        "enrichment-country-normalization",
+        "enrichment-credentials",
+        "enrichment-data-state",
+        "enrichment-desktop-laptop",
+        "enrichment-email-hierarchy",
+        "enrichment-exploit-hierarchy",
+        "enrichment-malware-mining",
+        "enrichment-malware-web",
+        "enrichment-personal-data",
+        "enrichment-rat-hierarchy",
+        "enrichment-secondary-count",
+        "enrichment-secondary-motive",
+        "enrichment-social-integrity-assets",
+        "enrichment-social-target",
+        "enrichment-sqli-loss",
+        "enrichment-totals",
+        "enrichment-value-chain",
+        "enrichment-web-asset"
+      ],
+      "reason": "Active implications are summarized; repairs, default insertion, conversions, external country-table inference, comments and execution are excluded. Every line remains retained source evidence."
+    },
+    {
+      "source_path": "changelog",
+      "disposition": "contextual",
+      "rule_ids": [],
+      "reason": "Changelog establishes source revision 1.4.2; release prose is contextual evidence, not incident data."
+    },
+    {
+      "source_path": "style_guide/VERIS Coding Style Guide v3.0.pdf",
+      "disposition": "included_with_context",
+      "rule_ids": [
+        "guide-actor-relationship",
+        "guide-asset-totals",
+        "guide-broadest-supported-value",
+        "guide-cia-attributes",
+        "guide-direct-actors",
+        "guide-disclosure-evidence",
+        "guide-discovery",
+        "guide-disposal-loss",
+        "guide-evidence-summary",
+        "guide-impact",
+        "guide-misuse-trust",
+        "guide-multiple-selections",
+        "guide-organized-crime",
+        "guide-phishing-pretexting",
+        "guide-physical-tampering",
+        "guide-publishing-misconfiguration",
+        "guide-ransomware-disclosure",
+        "guide-repurpose",
+        "guide-secondary-victims",
+        "guide-social-assets",
+        "guide-supply-chain",
+        "guide-targeting"
+      ],
+      "reason": "All 172 pages have explicit dispositions. Applicable interpretation is summarized; case quotations, diagrams/images, VCDB-only fields, WebApp instructions and template automation remain documentation."
+    },
+    {
+      "source_path": "veris_style_guide.md",
+      "disposition": "included_with_context",
+      "rule_ids": [
+        "display-capitalization"
+      ],
+      "reason": "Short capitalization guidance is represented as an inert statement; native values remain exact."
+    },
+    {
+      "source_path": "verisc-enum.json",
+      "disposition": "included_with_context",
+      "rule_ids": [],
+      "reason": "Every contextual raw value and original enum ordering is reconciled against the merged schema."
+    },
+    {
+      "source_path": "verisc-labels.json",
+      "disposition": "included_with_context",
+      "rule_ids": [],
+      "reason": "Every contextual label definition is preserved exactly, including equal raw values with different meanings."
+    },
+    {
+      "source_path": "verisc-merged.json",
+      "disposition": "included_with_context",
+      "rule_ids": [
+        "schema-version-default"
+      ],
+      "reason": "Every node and observed keyword is retained exactly; structural properties/items become stable references."
+    },
+    {
+      "source_path": "verisc.json",
+      "disposition": "included_with_context",
+      "rule_ids": [
+        "region-other-discrepancy",
+        "unknown-actor-notes"
+      ],
+      "reason": "Complete parsed base schema is reconciled against the reconstructed merged graph after removing enums."
+    }
+  ]
+}

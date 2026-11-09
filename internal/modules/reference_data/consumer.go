@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/JochiRaider/cartulary/referencepacks/format/dataset"
 )
 
 type PackProvenance struct {
@@ -91,6 +93,14 @@ type GetPackProvenanceRequest struct {
 	PackSetID string `json:"pack_set_id"`
 	PackKey   string `json:"pack_key"`
 }
+type GetPackDescriptorRequest struct {
+	PackSetID string `json:"pack_set_id"`
+	PackKey   string `json:"pack_key"`
+}
+type PackDescriptor struct {
+	Descriptor json.RawMessage `json:"descriptor"`
+	Provenance PackProvenance  `json:"provenance"`
+}
 type PackEntry struct {
 	Item       json.RawMessage `json:"item"`
 	Provenance PackProvenance  `json:"provenance"`
@@ -120,6 +130,7 @@ type Consumer interface {
 	LookupPackEntries(context.Context, LookupPackEntriesRequest) ConsumerResult[PackEntryPage]
 	EvaluateIndicatorValue(context.Context, EvaluateIndicatorRequest) ConsumerResult[IndicatorEvaluation]
 	GetPackProvenance(context.Context, GetPackProvenanceRequest) ConsumerResult[PackProvenance]
+	GetPackDescriptor(context.Context, GetPackDescriptorRequest) ConsumerResult[PackDescriptor]
 }
 
 type indexedItem struct {
@@ -131,6 +142,7 @@ type consumerRepository interface {
 	RetainedSet(context.Context, string) (PackSet, error)
 	Provenance(context.Context, string, string) (PackProvenance, error)
 	Entry(context.Context, PackSetMember, string) (json.RawMessage, error)
+	Descriptor(context.Context, PackSetMember) (json.RawMessage, error)
 	Lookup(context.Context, PackSetMember, packformat.LookupInput, string, int) ([]indexedItem, error)
 }
 type packConsumer struct {
@@ -178,6 +190,21 @@ func (c *packConsumer) GetPackProvenance(ctx context.Context, request GetPackPro
 	}
 	return consumerSuccess(provenance)
 }
+func (c *packConsumer) GetPackDescriptor(ctx context.Context, request GetPackDescriptorRequest) ConsumerResult[PackDescriptor] {
+	if err := packformat.ValidateConsumerRequest("GetPackDescriptor", map[string]any{"pack_set_id": request.PackSetID, "pack_key": request.PackKey}); err != nil {
+		return consumerFailure[PackDescriptor](err)
+	}
+	member, provenance, err := c.resolve(ctx, request.PackSetID, request.PackKey)
+	if err != nil {
+		return consumerFailure[PackDescriptor](err)
+	}
+	raw, err := c.repository.Descriptor(ctx, member)
+	if err != nil {
+		return consumerFailure[PackDescriptor](err)
+	}
+	return consumerSuccess(PackDescriptor{Descriptor: raw, Provenance: provenance})
+}
+
 func (c *packConsumer) GetPackEntry(ctx context.Context, request GetPackEntryRequest) ConsumerResult[PackEntry] {
 	if err := packformat.ValidateConsumerRequest("GetPackEntry", map[string]any{"pack_set_id": request.PackSetID, "pack_key": request.PackKey, "entry_id": request.EntryID}); err != nil {
 		return consumerFailure[PackEntry](err)
@@ -247,7 +274,34 @@ func (c *packConsumer) LookupPackEntries(ctx context.Context, request LookupPack
 	if err != nil {
 		return consumerFailure[PackEntryPage](err)
 	}
-	query, err := packformat.NormalizeLookup(member.Key, request.LookupKind, request.LookupValue)
+	var query packformat.LookupInput
+	if member.ProfileID == dataset.ProfileID {
+		var raw json.RawMessage
+		raw, err = c.repository.Descriptor(ctx, member)
+		if err == nil {
+			var descriptor dataset.Descriptor
+			descriptor, err = dataset.DecodeDescriptor(raw)
+			if err != nil {
+				err = consumerError("pack_unavailable")
+			} else {
+				var input []byte
+				input, err = canonicaljson.Marshal(request.LookupValue)
+				if err != nil {
+					err = consumerError("invalid_pack_request")
+				} else {
+					query.Kind = request.LookupKind
+					query.Value, err = dataset.Normalize(descriptor, request.LookupKind, input)
+					if errors.Is(err, dataset.ErrUnsupportedLookup) {
+						err = consumerError("lookup_kind_unsupported")
+					} else if err != nil {
+						err = consumerError("invalid_pack_request")
+					}
+				}
+			}
+		}
+	} else {
+		query, err = packformat.NormalizeLookup(member.Key, request.LookupKind, request.LookupValue)
+	}
 	if err != nil {
 		return consumerFailure[PackEntryPage](err)
 	}
@@ -259,7 +313,7 @@ func (c *packConsumer) LookupPackEntries(ctx context.Context, request LookupPack
 	position := ""
 	if request.Cursor != nil {
 		cursor, err := c.codec.Decode(*request.Cursor)
-		if err != nil || cursor.Route != "reference_pack.lookup.v1" || cursor.Mode != pagination.ModeKeyset || cursor.ActorUserID != "reference_pack_consumer" || len(cursor.Scope) != 4 || len(cursor.Position) != 3 || cursor.Limit < 1 || cursor.Limit > 200 {
+		if err != nil || cursor.Route != "reference_pack.lookup.v2" || cursor.Mode != pagination.ModeKeyset || cursor.ActorUserID != "reference_pack_consumer" || len(cursor.Scope) != 4 || len(cursor.Position) != 3 || cursor.Limit < 1 || cursor.Limit > 200 {
 			return bad("cursor_invalid")
 		}
 		issued, e1 := time.Parse(time.RFC3339Nano, cursor.Position["issued"])
@@ -288,7 +342,7 @@ func (c *packConsumer) LookupPackEntries(ctx context.Context, request LookupPack
 	page := PackEntryPage{Items: []json.RawMessage{}, Provenance: provenance}
 	if len(rows) > limit {
 		rows = rows[:limit]
-		token, err := c.codec.Encode(pagination.Cursor{Mode: pagination.ModeKeyset, Route: "reference_pack.lookup.v1", ActorUserID: "reference_pack_consumer", Limit: limit, Scope: scope, Position: map[string]string{"after": rows[len(rows)-1].Position, "issued": now.Format(time.RFC3339Nano), "expires": now.Add(900 * time.Second).Format(time.RFC3339Nano)}})
+		token, err := c.codec.Encode(pagination.Cursor{Mode: pagination.ModeKeyset, Route: "reference_pack.lookup.v2", ActorUserID: "reference_pack_consumer", Limit: limit, Scope: scope, Position: map[string]string{"after": rows[len(rows)-1].Position, "issued": now.Format(time.RFC3339Nano), "expires": now.Add(900 * time.Second).Format(time.RFC3339Nano)}})
 		if err != nil {
 			return consumerFailure[PackEntryPage](err)
 		}
@@ -350,5 +404,15 @@ func (r *GetPackProvenanceRequest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*r = GetPackProvenanceRequest(value)
+	return nil
+}
+
+func (r *GetPackDescriptorRequest) UnmarshalJSON(data []byte) error {
+	type admitted GetPackDescriptorRequest
+	var value admitted
+	if err := decodeConsumerRequest("GetPackDescriptor", data, &value); err != nil {
+		return err
+	}
+	*r = GetPackDescriptorRequest(value)
 	return nil
 }

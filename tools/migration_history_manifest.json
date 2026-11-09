@@ -296,6 +296,12 @@
       "filename": "00049_import_committed_source_index.sql",
       "sha256": "352716f0fc8743aae4b945f216459ebf242665fde91d021a3df8074f3e461659",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 50,
+      "filename": "00050_reference_pack_generic_index_bound.sql",
+      "sha256": "b67c835538f9b885407b46caa259b5a80ba41fd531dbbe880d4ce54e566e33ef",
+      "historical_phase_shaped": false
     }
   ]
 }

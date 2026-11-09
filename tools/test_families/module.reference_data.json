@@ -409,7 +409,39 @@
       ],
       "postgres_isolation": "exclusive",
       "fixture_input_roots": [
-        "fixtures/reference-packs/attack-native-v2"
+        "fixtures/reference-packs/dataset-v1/attack",
+        "fixtures/reference-packs/dataset-v1/catalog.json"
+      ]
+    },
+    {
+      "row_id": "module.reference_data.integration.attack_retained_artifact",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestRetainedATTACKArtifactImport_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/dataset-v1/attack/release"
       ]
     },
     {
@@ -811,7 +843,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/dataset-v1/entra"
+      ]
     },
     {
       "row_id": "module.reference_data.integration.execution_admission_scope",
@@ -868,10 +903,7 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive",
-      "fixture_input_roots": [
-        "fixtures/reference-packs/attack-native-v2"
-      ]
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.framework_d3fend_independently_imports_activates_f8ef62f99f",
@@ -1335,6 +1367,34 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.reference_data.integration.unregistered_generic_dataset",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestUnregisteredGenericDatasetLifecycle_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.reference_data.integration.veris_real_release_import",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.integration",
@@ -1360,7 +1420,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/dataset-v1/veris"
+      ]
     },
     {
       "row_id": "module.reference_data.integration.windows_event_ids_producer_artifacts_preserve_in_466944f93e",
@@ -1389,6 +1452,37 @@
         "postgres"
       ],
       "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reference_data.integration.windows_real_release_import",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestWindowsRealReleaseImport_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "explicit_only",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/dataset-v1/windows"
+      ]
     },
     {
       "row_id": "module.reference_data.integration.workspace_cleanup_lifecycle",
@@ -1565,59 +1659,6 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.reference_data.unit.attack_producer_cli_enforces_current_inputs_and_9107ea959a",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.reference_data.verification.source_contracts"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reference_data/producer",
-        "tests": [
-          "TestATTACKProducerCLI"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.reference_data.unit.attack_producer_validates_pinned_all_domain_sour_79f71e137c",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.reference_data.verification.source_contracts"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reference_data/producer",
-        "tests": [
-          "TestATTACKPublicationLedger",
-          "TestATTACKSourceContractClosure",
-          "TestATTACKSourceFixtures",
-          "TestATTACKSourceRetentionBoundaries"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "module.reference_data.unit.canonical_consumers",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.unit",
@@ -1669,10 +1710,7 @@
       "fixture_capability": "none",
       "aggregate_placement": "fast",
       "service_dependencies": [],
-      "postgres_isolation": "none",
-      "fixture_input_roots": [
-        "fixtures/reference-packs/attack-native-v2"
-      ]
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_archive_admission",
@@ -1809,7 +1847,8 @@
         "tests": [
           "TestContentRejectsMalformedStreamsAndSemanticAmbiguity_Unit",
           "TestContentSchemaFailurePrecedence_Unit",
-          "TestSchemaUnionDispatchAndLimitBindings_Unit"
+          "TestManifestAndPathLimits_Unit",
+          "TestResourceLimitDoesNotHideOperationalFailure_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -1861,7 +1900,6 @@
         "tests": [
           "TestOfflineTUFCombinedFaultPrecedence_Unit",
           "TestOfflineTUFCompleteSchemaDiagnostics_Unit",
-          "TestOfflineTUFDescriptorAdmission_Unit",
           "TestOfflineTUFFailsClosedOnTamperingAndExpiry_Unit",
           "TestOfflineTUFIndependentVectorsAndRootReplay_Unit",
           "TestOfflineTUFRegistryProgramDiagnostics_Unit",
@@ -1894,31 +1932,6 @@
         "tests": [
           "TestCISAKEVIdentityBoundaries_Unit",
           "TestCISAKEVProfileContent_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.reference_data.unit.enrichment_entra_app_ids_independently_validates_02047fa20a",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.reference_data.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reference_data/internal/packformat",
-        "tests": [
-          "TestEntraAppIDsProfileContent_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -2082,32 +2095,6 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.reference_data.unit.enrichment_windows_event_ids_independently_valid_fc66475a5f",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.reference_data.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reference_data/internal/packformat",
-        "tests": [
-          "TestWindowsEventIDsProfileContent_Unit",
-          "TestWindowsEventIdentityAndLookupBoundaries_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "module.reference_data.unit.enrichment_windows_sids_independently_validates_6f7b5c9cc9",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.unit",
@@ -2159,64 +2146,6 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.reference_data.unit.entra_source_producer",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.reference_data.verification.source_contracts"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reference_data/producer",
-        "tests": [
-          "TestEntraSourceBoundaries_Unit",
-          "TestEntraSourceIntegrity_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.reference_data.unit.framework_attack_independently_validates_canonic_147df00f1f",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.reference_data.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reference_data/internal/packformat",
-        "tests": [
-          "TestATTACKManifestAndPathLimits_Unit",
-          "TestATTACKProfileContent_Unit",
-          "TestNativeATTACKLimitSummary_Unit",
-          "TestNativeATTACKProjectionAndLocalReferences_Unit",
-          "TestNativeATTACKTypedEmbeddedEndpoints_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none",
-      "fixture_input_roots": [
-        "fixtures/reference-packs/attack-native-v2"
-      ]
-    },
-    {
       "row_id": "module.reference_data.unit.framework_d3fend_independently_validates_canonic_420fac0262",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.unit",
@@ -2242,7 +2171,7 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.reference_data.unit.framework_veris_independently_validates_canonica_bb0bacb53d",
+      "row_id": "module.reference_data.unit.generated_open_api_and_error_registry_artifacts_0843af138f",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.unit",
       "collaborator_ids": [],
@@ -2251,9 +2180,9 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/reference_data/internal/packformat",
+        "package": "./internal/modules/reference_data",
         "tests": [
-          "TestVERISProfileContent_Unit"
+          "TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -2267,7 +2196,7 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.reference_data.unit.generated_open_api_and_error_registry_artifacts_0843af138f",
+      "row_id": "module.reference_data.unit.generic_artifact_verification",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.unit",
       "collaborator_ids": [],
@@ -2278,7 +2207,424 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit"
+          "TestGenericSignedEndpointSemantics_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none",
+      "fixture_input_roots": [
+        "fixtures/reference-packs/dataset-v1/catalog.json",
+        "fixtures/reference-packs/dataset-v1/windows"
+      ]
+    },
+    {
+      "row_id": "module.reference_data.unit.generic_dataset_runtime",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data/internal/packformat",
+        "tests": [
+          "TestGenericDatasetRuntime_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.generic_descriptor_consumer",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reference_data",
+        "tests": [
+          "TestGenericDescriptorConsumer_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_attack_producer",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/attack",
+        "tests": [
+          "TestATTACKProducerCLI",
+          "TestATTACKSourceContractClosure",
+          "TestATTACKSourceFixtures",
+          "TestATTACKSourceRetentionBoundaries",
+          "TestStandaloneProducerCommand"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_attack_source_model",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/attack/internal/native",
+        "tests": [
+          "TestATTACKSourceContracts",
+          "TestNativeATTACKProjectionAndLocalReferences_Unit",
+          "TestNativeATTACKSchemaLimits",
+          "TestNativeATTACKTypedEmbeddedEndpoints_Unit",
+          "TestNativeSourceEnvelopeClosure",
+          "TestSchemaUnionDispatchAndLimitBindings_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_entra_producer",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/entra",
+        "tests": [
+          "TestEntraGenericSPNCoverage",
+          "TestEntraSourceBoundaries_Unit",
+          "TestEntraSourceIntegrity_Unit",
+          "TestStandaloneProducerCommand"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_entra_source_model",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/entra/internal/native",
+        "tests": [
+          "TestEntraSourceModelBoundaries",
+          "TestNativeSourceEnvelopeClosure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_format_canonicaljson",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/format/canonicaljson",
+        "tests": [
+          "TestBoundedTokenViews",
+          "TestRFC8785RejectsNonFiniteValues",
+          "TestRFC8785SerializationSample",
+          "TestRFC8785UsesUTF16PropertyOrdering",
+          "TestStrictAdmissionPreservesLexicalNumbersAndUnicode_Unit",
+          "TestStrictAdmissionRejectsLossyJSON_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_format_dataset",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/format/dataset",
+        "tests": [
+          "TestGenericAdmissionAndLookup",
+          "TestGenericCancellationAndCleanup",
+          "TestGenericCompleteDiagnostics",
+          "TestGenericDepthAndRowBoundaries",
+          "TestGenericDiagnosticResourceStop",
+          "TestGenericLimitMatrix",
+          "TestGenericNormalizationAndLimits",
+          "TestGenericProducerEncoding",
+          "TestGenericReplacementBoundaries",
+          "TestGenericSafetyAndAtomicIndex"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_format_envelope",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/format/envelope",
+        "tests": [
+          "TestArchiveAdmissionRejectsAttacksAndLimits_Unit",
+          "TestArchiveContainersHaveEquivalentLogicalBytes_Unit",
+          "TestArchiveDirectoryMarkersHaveAnIndependentStructuralBound_Unit",
+          "TestArchiveExtractionRejectsChangedAdmittedSource_Unit",
+          "TestArchivePathDirectoryExceptionAndCancellation_Unit",
+          "TestArchiveRatioUsesCompleteContainerOnceAndHandlesOverflow_Unit",
+          "TestArchiveTAROriginalNameAndChecksumAdmission_Unit",
+          "TestArchiveTARPaddingHasIndependentStructuralBound_Unit",
+          "TestArchiveZIPChecksDecodedCRCSizeAndCompressedEnd_Unit",
+          "TestArchiveZIPMetadataHasBoundedWorkingReads_Unit",
+          "TestOfflineTUFDescriptorAdmission_Unit",
+          "TestOfflineTUFFailsClosedOnTamperingAndExpiry_Unit",
+          "TestOfflineTUFIndependentVectorsAndRootReplay_Unit",
+          "TestOfflineTUFRequiresBothRootThresholdsAndRejectsExtraSignatures_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_format_publication",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/format/publication",
+        "tests": [
+          "TestPublicationAuthorityAndRenewal",
+          "TestPublicationMetadataReservations",
+          "TestPublicationRejectsAuthorityAndOutputMismatch",
+          "TestPublicationReservationsAndImmutableTrees",
+          "TestPublicationSharedLedgerLifecycle"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_veris_producer",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/veris",
+        "tests": [
+          "TestStandaloneProducerCommand",
+          "TestVERISSourceAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_veris_source_model",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/veris/internal/native",
+        "tests": [
+          "TestVERISNativeBounds_Unit",
+          "TestVERISNativeCorpus_Unit",
+          "TestVERISNativeRejections_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_windows_producer",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/windows",
+        "tests": [
+          "TestStandaloneProducerCommand",
+          "TestWindowsOnlineFixtureTrust",
+          "TestWindowsOnlineProjection",
+          "TestWindowsOnlinePublication",
+          "TestWindowsOnlineSources"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reference_data.unit.independent_windows_source_model",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract",
+        "module.reference_data.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./referencepacks/windows/internal/native",
+        "tests": [
+          "TestNativeSourceEnvelopeClosure",
+          "TestWindowsDocumentationPresentation",
+          "TestWindowsEventSourceIdentity"
         ]
       },
       "evidence_class": "unit",
@@ -2412,7 +2758,6 @@
       "selector": {
         "package": "./internal/modules/reference_data",
         "tests": [
-          "TestNativeATTACKSignedEndpointSemantics_Unit",
           "TestObjectCollectorLifecycle_Unit",
           "TestRetainedProvenanceClosedAndBoundToExactSet_Unit",
           "TestSuccessfulEnvelopeClosedPersistence_Unit",
@@ -2430,10 +2775,7 @@
       "fixture_capability": "none",
       "aggregate_placement": "fast",
       "service_dependencies": [],
-      "postgres_isolation": "none",
-      "fixture_input_roots": [
-        "fixtures/reference-packs/attack-native-v2"
-      ]
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.reference_pack_verifier_fails_closed_for_extract_ae36003205",
@@ -2607,86 +2949,6 @@
         "package": "./internal/modules/reference_data/internal/packformat",
         "tests": [
           "TestIndicatorRegistryProfileContent_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.reference_data.unit.veris_native_content",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.reference_data.verification.source_contracts"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reference_data/internal/packformat",
-        "tests": [
-          "TestVERISNativeBounds_Unit",
-          "TestVERISNativeCorpus_Unit",
-          "TestVERISNativeRejections_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.reference_data.unit.veris_source_producer",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.reference_data.verification.source_contracts"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reference_data/producer",
-        "tests": [
-          "TestVERISSourceAdmission_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
-      "row_id": "module.reference_data.unit.windows_online_producer_preserves_documented_ide_30fc80a930",
-      "owner_id": "module.reference_data",
-      "family_id": "module.reference_data.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.reference_data.verification.source_contracts"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reference_data/producer",
-        "tests": [
-          "TestWindowsOnlineFixtureTrust",
-          "TestWindowsOnlineProjection",
-          "TestWindowsOnlinePublication",
-          "TestWindowsOnlineSources"
         ]
       },
       "evidence_class": "unit",

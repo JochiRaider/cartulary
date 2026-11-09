@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 // OperationInput is the current closed durable operation format shared by
@@ -56,7 +56,7 @@ func DecodeOperationInput(data []byte) (OperationInput, error) {
 	if err := json.Unmarshal(data, &value); err != nil {
 		return value, err
 	}
-	if value.Contract != ContractID || value.SchemaID != "cartulary.reference_pack_operation_input.v3" || value.AdmittedAt.IsZero() || value.TimeoutSeconds < 60 || value.TimeoutSeconds > 86400 || !slices.Contains([]string{"import", "reverify", "refresh", "activate", "disable", "remove", "integrity"}, value.Kind) || (value.PackSetID == nil && value.Kind != "integrity" || value.PackSetID != nil && !validOperationSetID(*value.PackSetID)) || value.SetRevision < 1 || !validOperationDigest(value.ConfigurationSHA256) {
+	if value.Contract != ContractID || value.SchemaID != "cartulary.reference_pack_operation_input.v4" || value.AdmittedAt.IsZero() || value.TimeoutSeconds < 60 || value.TimeoutSeconds > 86400 || !slices.Contains([]string{"import", "reverify", "refresh", "activate", "disable", "remove", "integrity"}, value.Kind) || (value.PackSetID == nil && value.Kind != "integrity" || value.PackSetID != nil && !validOperationSetID(*value.PackSetID)) || value.SetRevision < 1 || !validOperationDigest(value.ConfigurationSHA256) {
 		return value, errors.New("reference pack: invalid retained operation input")
 	}
 	if value.Kind == "import" {
@@ -81,9 +81,13 @@ func validOperationSetID(value string) bool {
 	return strings.HasPrefix(value, "rpset_") && validOperationDigest(strings.TrimPrefix(value, "rpset_"))
 }
 
-// ValidatePendingInput admits only the two current closed input contracts.
-// It does not search arbitrary JSON for a growing list of obsolete schema IDs.
-func ValidatePendingInput(data []byte) error {
+var reconciliationInputShape = compileProjection("reconciliation.v2.schema.json")
+var rootBootstrapInputShape = compileProjection("root_bootstrap.v2.schema.json")
+
+// ValidateRetainedOperationInput admits every current durable operation input,
+// including completed bootstrap and Base reconciliation operations. Unknown and
+// predecessor contracts fail closed regardless of their operation's terminality.
+func ValidateRetainedOperationInput(data []byte) error {
 	var header struct {
 		SchemaID string `json:"schema_id"`
 	}
@@ -91,13 +95,19 @@ func ValidatePendingInput(data []byte) error {
 		return err
 	}
 	switch header.SchemaID {
-	case "cartulary.reference_pack_operation_input.v3":
+	case "cartulary.reference_pack_operation_input.v4":
 		_, err := DecodeOperationInput(data)
 		return err
-	case "cartulary.reference_pack_portability_input.v2":
+	case "cartulary.reference_pack_portability_input.v3":
 		_, err := decodePortabilityObject(data, portabilityInputShape)
 		return err
+	case "cartulary.reference_pack_reconciliation.v2":
+		_, err := decodePortabilityObject(data, reconciliationInputShape)
+		return err
+	case "cartulary.reference_pack_root_bootstrap.v2":
+		_, err := decodePortabilityObject(data, rootBootstrapInputShape)
+		return err
 	default:
-		return errors.New("reference pack: unsupported pending input contract")
+		return errors.New("reference pack: unsupported retained operation input contract")
 	}
 }

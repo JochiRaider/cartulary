@@ -90,7 +90,8 @@ else
   test-run-recovery-status \
   reference-pack-producer-build \
   reference-pack-source \
-  reference-pack-package
+  reference-pack-package \
+  reference-pack-module-check
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -231,6 +232,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make release-evidence-verify' \
 	'                                      EVIDENCE_ROOTS_FILE=<path> verify selected retained release evidence without launching tests' \
 	'  make reference-pack-producer-build  reproduce and retain the immutable reference-pack producer executable' \
+	'  make reference-pack-module-check' \
+	'                                      MODULE=format qualify an exported reference-pack module without application source' \
 	'  make reference-pack-source' \
 	'                                      ACTION=discover|acquire|check|audit SOURCE_LOCK=<JSON> SOURCE_DIR=<path> discover, acquire, check or audit explicit pack source inputs' \
 	'  make reference-pack-package' \
@@ -366,12 +369,14 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: retained_artifacts' \
 	'test-run-recovery-status inputs: RESULTS_DIR=path (required)' \
 	'  side effects: retained_artifacts' \
-	'reference-pack-producer-build inputs: none' \
+	'reference-pack-producer-build inputs: PRODUCER=attack|veris|windows|entra (required)' \
 	'  side effects: retained_artifacts, build_outputs' \
-	'reference-pack-source inputs: ACTION=discover|acquire|check|audit (default check), SOURCE_DIR=path (required), BUILT_AT=semantic_text (default ), SOURCE_LOCK=path (required), EDITORIAL=path (optional), SOURCE_INPUT=path (optional)' \
+	'reference-pack-source inputs: PRODUCER=attack|veris|windows|entra (required), ACTION=discover|acquire|check|audit (default check), SOURCE_DIR=path (required), BUILT_AT=semantic_text (default ), SOURCE_LOCK=path (required), EDITORIAL=path (optional), SOURCE_INPUT=path (optional)' \
 	'  side effects: retained_artifacts' \
-	'reference-pack-package inputs: ACTION=assemble|envelope|renew (required), INPUT=path (required)' \
+	'reference-pack-package inputs: PRODUCER=attack|veris|windows|entra (required), ACTION=assemble|envelope|renew|assemble-fixture|envelope-fixture|renew-fixture (required), INPUT=path (required)' \
 	'  side effects: retained_artifacts' \
+	'reference-pack-module-check inputs: MODULE=format|attack|veris|windows|entra (required)' \
+	'  side effects: retained_artifacts, build_outputs' \
 	''
 
 test-fast: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -1031,21 +1036,31 @@ reference-pack-producer-build: export CARTULARY_TEST_TARGET ?= reference-pack-pr
 reference-pack-producer-build:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,reference-pack-producer-build)
-	$(Q)$(RUN_STEP_SCRIPT) "reference-pack-producer-build" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" bash ./tools/reference-packs/build.sh
+	$(Q)PRODUCER="$(PRODUCER)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,PRODUCER)" $(RUN_STEP_SCRIPT) "reference-pack-producer-build" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) PRODUCER="$(PRODUCER)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,PRODUCER)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" bash ./tools/reference-packs/build.sh
 
 reference-pack-source: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 reference-pack-source: export CARTULARY_TEST_TARGET ?= reference-pack-source
 reference-pack-source:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,reference-pack-source)
-	$(Q)ACTION="$(ACTION)" BUILT_AT="$(BUILT_AT)" EDITORIAL="$(EDITORIAL)" SOURCE_DIR="$(SOURCE_DIR)" SOURCE_INPUT="$(SOURCE_INPUT)" SOURCE_LOCK="$(SOURCE_LOCK)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION BUILT_AT EDITORIAL SOURCE_DIR SOURCE_INPUT SOURCE_LOCK)" $(RUN_STEP_SCRIPT) "reference-pack-source" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ACTION="$(ACTION)" BUILT_AT="$(BUILT_AT)" EDITORIAL="$(EDITORIAL)" \
-	  SOURCE_DIR="$(SOURCE_DIR)" SOURCE_INPUT="$(SOURCE_INPUT)" SOURCE_LOCK="$(SOURCE_LOCK)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION BUILT_AT EDITORIAL SOURCE_DIR SOURCE_INPUT SOURCE_LOCK)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" ACTION="$(ACTION)" SOURCE_DIR="$(SOURCE_DIR)" BUILT_AT="$(BUILT_AT)" SOURCE_LOCK="$(SOURCE_LOCK)" bash ./tools/reference-packs/source.sh
+	$(Q)ACTION="$(ACTION)" BUILT_AT="$(BUILT_AT)" EDITORIAL="$(EDITORIAL)" PRODUCER="$(PRODUCER)" SOURCE_DIR="$(SOURCE_DIR)" SOURCE_INPUT="$(SOURCE_INPUT)" SOURCE_LOCK="$(SOURCE_LOCK)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION BUILT_AT EDITORIAL PRODUCER SOURCE_DIR SOURCE_INPUT SOURCE_LOCK)" $(RUN_STEP_SCRIPT) "reference-pack-source" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ACTION="$(ACTION)" BUILT_AT="$(BUILT_AT)" \
+	  EDITORIAL="$(EDITORIAL)" PRODUCER="$(PRODUCER)" SOURCE_DIR="$(SOURCE_DIR)" SOURCE_INPUT="$(SOURCE_INPUT)" SOURCE_LOCK="$(SOURCE_LOCK)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION BUILT_AT EDITORIAL PRODUCER SOURCE_DIR SOURCE_INPUT SOURCE_LOCK)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" ACTION="$(ACTION)" SOURCE_DIR="$(SOURCE_DIR)" BUILT_AT="$(BUILT_AT)" \
+	  SOURCE_LOCK="$(SOURCE_LOCK)" bash ./tools/reference-packs/source.sh
 
 reference-pack-package: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 reference-pack-package: export CARTULARY_TEST_TARGET ?= reference-pack-package
 reference-pack-package:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,reference-pack-package)
-	$(Q)ACTION="$(ACTION)" INPUT="$(INPUT)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION INPUT)" $(RUN_STEP_SCRIPT) "reference-pack-package" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ACTION="$(ACTION)" INPUT="$(INPUT)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION INPUT)" NODE_BIN="$(NODE_BIN)" ACTION="$(ACTION)" INPUT="$(INPUT)" bash ./tools/reference-packs/package.sh
+	$(Q)ACTION="$(ACTION)" INPUT="$(INPUT)" PRODUCER="$(PRODUCER)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION INPUT PRODUCER)" $(RUN_STEP_SCRIPT) "reference-pack-package" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ACTION="$(ACTION)" INPUT="$(INPUT)" PRODUCER="$(PRODUCER)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ACTION INPUT PRODUCER)" NODE_BIN="$(NODE_BIN)" ACTION="$(ACTION)" INPUT="$(INPUT)" bash \
+	  ./tools/reference-packs/package.sh
+
+reference-pack-module-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+reference-pack-module-check: export CARTULARY_TEST_TARGET ?= reference-pack-module-check
+reference-pack-module-check:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,reference-pack-module-check)
+	$(Q)MODULE="$(MODULE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,MODULE)" $(RUN_STEP_SCRIPT) "reference-pack-module-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) MODULE="$(MODULE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,MODULE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" MODULE="$(MODULE)" bash \
+	  ./tools/reference-pack-modules/check.sh
 
 endif

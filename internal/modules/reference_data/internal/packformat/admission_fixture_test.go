@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 // These static containers were produced with Python's standard archive tools.

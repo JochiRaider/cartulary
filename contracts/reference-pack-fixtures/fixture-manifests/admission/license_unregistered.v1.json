@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_admission_license_unregistered",
-  "fixture_version": 1,
+  "fixture_version": 3,
   "fixture_family": "licensing",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/admission/license_unregistered.v1.json"

@@ -314,6 +314,11 @@ func (target *vNextRestoreTarget) WithAtomicRestore(
 	if err := run(mutation); err != nil {
 		return err
 	}
+	if target.target.ReferencePacks != nil {
+		if err := target.target.ReferencePacks.AdmitRestoredState(ctx, tx); err != nil {
+			return err
+		}
+	}
 	if err := validateRestoredPostgresRows(ctx, tx); err != nil {
 		return err
 	}

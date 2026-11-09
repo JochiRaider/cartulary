@@ -20,7 +20,7 @@
   },
   "restore_generation": {
     "target_generation_id": "00000000-0000-0000-0000-000000000303",
-    "recovery_state_catalog_sha256": "c159793413093c4265ff087208a076affc6d80f4acfd920f2fc52c357a6e08ef",
+    "recovery_state_catalog_sha256": "23f3497b15a628a3b35cbf7c7b58d8ad28701ebad0c4b5964043e10f14a6a6a3",
     "codec_registry_sha256": "456254886c50efc1b52206b03d8d8a194a0885b217935e3e897832d07969ec23"
   }
 }

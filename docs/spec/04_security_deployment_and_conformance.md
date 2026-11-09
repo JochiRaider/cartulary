@@ -2314,7 +2314,7 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-00-071, REQ-01-650, REQ-01-659, REQ-02-204, REQ-02-216..REQ-02-218, REQ-02-265, REQ-03-066
 - **AC-530**: Indicator observations accept and persist exactly `manual_entry`, `clipboard_paste`, `csv_import`, `xlsx_import`, `api_import`, `extraction`, and trusted-internal `system`. `interactive_cell`, empty, missing, case-folded, whitespace-padded, aliased, unknown, extension-prefixed, and ordinary caller-selected `system` values fail before the first database write. Every live producer emits its assigned token; ordinary HTTP analyst entry emits `manual_entry`. Exact tokens survive history, rollback, and Incident Bundle round trips, and repeated equal-content observations with distinct stable identities remain separate. Every invalid-origin fixture proves no observation, source or Indicator version, change set, revision, projection, Collaboration intent, idempotency success, or publication effect.
   - Verifies: REQ-01-639..REQ-01-642, REQ-02-075..REQ-02-080, REQ-02-260
-- **AC-531**: Indicator source-major-`3` files for admitted bundle version `7` accept only the three exact REQ-01-640 row schemas, explicit nullable members, canonical scalar forms, and stable-identity export ordering. Interval rows accept only lifecycle state `active`, `benign`, `false_positive`, or `retired` and require unique canonical support-reference UUIDs. Independent negative fixtures exercise each of the ten Indicator invariants plus unknown, case-variant, whitespace-padded, aliased lifecycle tokens and duplicate support references; three multi-defect fixtures under different archive and row permutations always select the owner-defined lowest-precedence invariant and stable row identity. Valid v7 export/import/export preserve deterministic source rows, active and tombstoned repeated observations remain distinct, and injected failure during apply, validation, or before final commit leaves no visible state. Unsupported, hostile, and malformed values expose only `source_family_id='indicators'` and the selected closed `invariant_id`; they disclose no row value, raw digest, SQL, relation, constraint, storage, path, or internal topology through responses, jobs, logs, telemetry, readiness, administrative summaries, or operator output.
+- **AC-531**: Indicator source-major-`3` files for admitted bundle version `8` accept only the three exact REQ-01-640 row schemas, explicit nullable members, canonical scalar forms, and stable-identity export ordering. Interval rows accept only lifecycle state `active`, `benign`, `false_positive`, or `retired` and require unique canonical support-reference UUIDs. Independent negative fixtures exercise each of the ten Indicator invariants plus unknown, case-variant, whitespace-padded, aliased lifecycle tokens and duplicate support references; three multi-defect fixtures under different archive and row permutations always select the owner-defined lowest-precedence invariant and stable row identity. Valid v8 export/import/export preserve deterministic source rows, active and tombstoned repeated observations remain distinct, and injected failure during apply, validation, or before final commit leaves no visible state. Unsupported, hostile, and malformed values expose only `source_family_id='indicators'` and the selected closed `invariant_id`; they disclose no row value, raw digest, SQL, relation, constraint, storage, path, or internal topology through responses, jobs, logs, telemetry, readiness, administrative summaries, or operator output.
 
 - **AC-532**: The six Indicator observation and lifecycle route families, comprising eight HTTP operations, implement their exact read, create, resolve, dismiss, restore, and append contracts. Independent fixtures cover authenticated hidden-resource ordering, viewer denial, editor success, cookie CSRF, exact and divergent replay, stale base versions, every legal and illegal observation transition, source/view/field validation, ASCII and multibyte UTF-8 spans, mid-code-point and out-of-range spans, server-derived text/locator/manual origin, canonical candidate derivation, same-incident targets/support UUIDs, the four exact lifecycle tokens, canonical times, affected-record lock/version order, row-centric history, projection refresh, ordinary Collaboration publication, and failure atomicity. Source-record failures use `indicator_source_record_not_found`; requested resolution-target failures use `resolved_indicator_not_found`; addressed Indicator failures use `indicator_not_found`; unavailable prior observation dependencies remain concealed as `indicator_observation_not_found`; invalid support references remain invalid mutation input; and storage failures use the safe internal path without being rewritten as semantic 404 or 400 responses. Every such failure commits no source, envelope, history, projection, idempotency-success, or Collaboration effect and discloses no SQL, relation, constraint, driver value, or hidden identifier. Observation and interval pages are stable, actor/record-bound, tombstone-free, newest-first, OFFSET-free, and reject cursor replay under another actor, record, route, or limit. Discovery emits the four exact Core 01 Indicator feature rows, and the client resolves their complete semantic tuples before wildcard families. Indicator and Timeline Inspector handlers call the real routes, never generic record patch, preserve selection, expose accessible pending/empty/error/retry/paging states, and omit unsupported actions instead of rendering inert controls.
   - Verifies: REQ-01-615..REQ-01-617, REQ-01-652, REQ-01-654, REQ-02-263..REQ-02-264, REQ-03-306, REQ-04-150
@@ -2693,7 +2693,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   clipboard, Incident Bundle import, and recovery produce the same claim set.
   Go and SQL normalization agree for the versioned corpus and reject unknown
   classes. Every declared Entities bundle invariant has an independent
-  deterministic negative fixture, valid version-7 bytes round-trip exactly,
+  deterministic negative fixture, valid version-8 bytes round-trip exactly,
   and claim rows appear in neither portable nor authoritative backup content.
   Invalid source rows or duplicate active claims block migration, import, or
   recovery before partial publication and without guessing or exposing SQL,
@@ -2889,7 +2889,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   data, and effect ordering across the catalog cutover.
   - Verifies: REQ-01-336..REQ-01-341, REQ-01-671
 
-- **AC-566**: Incident source-family evidence proves that the version-7 singleton
+- **AC-566**: Incident source-family evidence proves that the version-8 singleton
   file has exactly the 16 REQ-01-673 members and canonical scalar forms. Negative
   fixtures independently cover malformed or multivalue documents, duplicate,
   missing, unknown, aliased, wrongly typed, noncanonical, and incoherent members,
@@ -4111,13 +4111,13 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   provenance, and satisfies generated-artifact policy with no manually edited
   generated root or dependency lockfile.
   - Verifies: REQ-01-643
-- **AC-506**: Incident Bundle version 7 is the sole admitted import/export format.
+- **AC-506**: Incident Bundle version 8 is the sole admitted import/export format.
   Version dispatch selects only the integer manifest version before source
-  preparation. Retired versions 1/2/3/4/5/6 and all other integers fail with the safe
+  preparation. Retired versions 1/2/3/4/5/6/7 and all other integers fail with the safe
   unsupported-version error and no fallback, target mutation or publication.
   Malformed/omitted/null versions use the malformed-manifest error. An already
   admitted asynchronous legacy job terminates safely with no source preparation.
-  All source and special-consumer path/schema bindings admit only version 7.
+  All source and special-consumer path/schema bindings admit only version 8.
   Matched client/server cutover retires incompatible attempts and jobs; immutable
   historical schemas, baselines, artifacts and receipts remain unchanged. The
   narrow REQ-01-021 exception does not weaken general API versioning.
@@ -5340,7 +5340,7 @@ change the backend cancellation/commit rules.
 
 ## Complete incident portability security amendment (2026-11-05)
 
-Current complete-incident transfer requires bundle version 7 and compatible,
+Current complete-incident transfer requires bundle version 8 and compatible,
 enabled Network Flow major 10/state 7 whenever that state is present. Transfer
 never grants source permissions, creates login accounts from historical actors,
 automatically enables profiles or silently omits extension data. Committed
@@ -5369,8 +5369,19 @@ new target; keep the prior executable and its data together for historical
 access. Neither application startup nor test setup resets a live target.
 
 
-## Native Reference Pack coordinated amendment — 2026-11-06
+## Generic Reference Pack coordinated amendment — 2026-11-08
 
-Reference Pack 0.3.0 / profile major 3 governs the clean pack-contract v2 cutover. Only current immutable v2 pack sets and `reference_pack_refs.v2` are admitted; incident-bundle outer version remains 7. Incompatible retained pack state and dependent inputs fail before mutation or readiness. No reset, historical rewrite or compatibility reader is authorized. Required Base registry content is retained under new release-bound manifest identities. Activation remains deployment-scoped and reference-only, with no automatic incident mutation. Current authorization, offline TUF thresholds and trusted wall-clock admission remain unchanged.
+Reference Pack 0.5.0 / profile major 4 governs the generic pack-contract v3
+cutover. Current immutable pack sets and reference catalogs are v3; incident-bundle
+outer version is 8. Manifest v2, consumer item/results v3, lookup request v2 and
+descriptor consumption are owned by Reference Pack RP-REQ-275–283. Incompatible
+packs, sets, pending operations, snapshots and recovery inputs fail before mutation
+or readiness. No reset, historical rewrite, automatic conversion or compatibility
+reader is authorized. Base registry content and algorithms remain unchanged under
+new release-bound manifests. Source-specific correctness belongs to independently
+buildable producers; runtime owns trust, generic structure, references, resource
+bounds and lookups. Authorization, offline TUF, exact-set provenance and the trusted
+wall-clock requirement remain unchanged. Optional data remains advisory and its
+absence never blocks core capture.
 
-Recovery current generation `recovery.reference_pack_native.v3` binds the v2 Reference Data state catalog through the owner’s v3 member inventory, validation, and restore algorithms. A predecessor catalog digest is rejected during immutable transfer preflight, before restore-target mutation. The unchanged outer Recovery codecs do not authorize predecessor Reference Pack state.
+Recovery current generation `recovery.reference_pack_generic.v4` binds the v3 Reference Data state catalog through its v4 inventory, validation and restore algorithms. A predecessor catalog digest is rejected during immutable transfer preflight, before restore-target mutation. The unchanged outer Recovery codecs do not authorize predecessor Reference Pack state.

@@ -1,0 +1,30 @@
+{
+  "documents": [
+    {
+      "ID": "core-manifest",
+      "Kind": "powershell_manifest",
+      "Body": "<assembly><instrumentation><events><provider name=\"PowerShellCore\" guid=\"{f90714a8-5509-434a-bf6d-b1624c8a19a2}\"><events><event value=\"4104\" version=\"0\"/><event value=\"4104\" version=\"1\"/></events></provider></events></instrumentation></assembly>"
+    },
+    {
+      "ID": "core-document",
+      "Kind": "provider_article",
+      "Body": "<main><h1>Synthetic PowerShellCore fixture</h1><p>PowerShellCore</p><p>Event ID: 4104</p></main>"
+    },
+    {
+      "ID": "legacy-document",
+      "Kind": "provider_article",
+      "Body": "<main><h1>Synthetic legacy fixture</h1><p>Microsoft-Windows-PowerShell</p><p>Event ID: 4104</p></main>"
+    },
+    {
+      "ID": "notice",
+      "Kind": "license",
+      "Body": "Project-authored synthetic fixture. This is not Microsoft source material or a licensing decision for real documentation. Permission to use this synthetic fixture is granted for testing.\n"
+    }
+  ],
+  "expected_ids": [
+    "microsoft-windows-powershell:4104:*",
+    "powershellcore:4104:*",
+    "powershellcore:4104:0",
+    "powershellcore:4104:1"
+  ]
+}

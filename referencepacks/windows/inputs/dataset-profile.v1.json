@@ -1,0 +1,154 @@
+{
+  "schema_id": "cartulary.windows_event_source_profile.v2",
+  "source_profile_id": "cartulary.windows_event_ids.microsoft_references.dataset.v1",
+  "scope": "Every admissible definition in the frozen first-party inventory, including Sysmon and documented providers for Security, System, Application and Setup; not all registered providers or installed Windows build coverage.",
+  "providers": [
+    "Application Error",
+    "Application Hang",
+    "EMET",
+    "Microsoft Antimalware",
+    "Microsoft-Windows-Eventlog",
+    "Microsoft-Windows-GroupPolicy",
+    "Microsoft-Windows-Kernel-General",
+    "Microsoft-Windows-Kernel-Power",
+    "Microsoft-Windows-PowerShell",
+    "Microsoft-Windows-Security-Auditing",
+    "Microsoft-Windows-Servicing",
+    "Microsoft-Windows-Sysmon",
+    "Microsoft-Windows-TaskScheduler",
+    "Microsoft-Windows-Time-Service",
+    "Microsoft-Windows-User Profiles Service",
+    "Microsoft-Windows-WMI-Activity",
+    "Microsoft-Windows-WUSA",
+    "NETLOGON",
+    "PowerShellCore",
+    "RemoteAccess",
+    "Service Control Manager",
+    "USER32",
+    "VSS",
+    "Windows Error Reporting"
+  ],
+  "accepted_media": [
+    "text/html",
+    "application/xml",
+    "application/json",
+    "text/plain",
+    "text/csv",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ],
+  "source_version": "microsoft-references:<exact-source-lock-sha256>",
+  "source_date": "Maximum actual source admission completion in the accepted lock; original retrieval times are separate and may be absent.",
+  "digests": "SHA-256 of exact retained bytes; source profile, inventory, lock, evidence archive, payload, manifest and envelope are distinct subjects.",
+  "identity": "ASCII-lower provider name, colon, shortest decimal ID, colon, explicit shortest decimal version or * for documented unspecified version. Parse the final two colons from the right.",
+  "field_mapping": "Only explicit per-version numeric level/task/opcode values become shortest decimal strings. Documentation version lists contribute identities, never another version's fields. Missing values are null. Known GUIDs must agree. No provider is inferred from a channel.",
+  "text": "Strict UTF-8. Research evidence preserves original text exactly. Published text consists only of authored summaries, generated explanations of explicit facts, and technical identifiers/classification labels. No upstream prose, message templates, XML or table excerpts are projected. Canonical authored text strips trailing Unicode White_Space; no truncation.",
+  "duplicates": "Group by provider/ID/nullable-version. Compatible partial facts merge; conflicting known facts block. Exact presentation variants coalesce with all source references. Unspecified versions never collapse numeric versions.",
+  "omissions": "All common and Windows entry members are present. aliases=[], extensions={}, deprecated=false, replacement_entry_id=null. Every source assertion is emitted, coalesced, explicitly excluded or blocking. Missing source bytes and malformed definitions block acceptance.",
+  "relationships": "None; entries-only profile.",
+  "ordering": "Entries and references sort by UTF-8 bytes; arrays in evidence have declared stable order. RFC 8785 NDJSON with final LF. No truncation or variant dropping.",
+  "locators": "Entries retain immutable evidence locators and digests; research archives remain outside distribution roots. Consumers do not need the archive or any website to use the pack.",
+  "licensing": "The requesting project user selected Apache-2.0 for the factual and originally authored output on 2026-11-07. license.project.v2.json records the exact-lock decision and project notice. This decision does not license or distribute upstream source materials. Fixture licensing remains synthetic and separate.",
+  "limits": {
+    "request_seconds": 120,
+    "artifact_bytes": 67108864,
+    "total_bytes": 536870912,
+    "source_count": 2048,
+    "definitions_per_provider": 10000
+  },
+  "fixtures": [
+    "valid synthetic definitions",
+    "malformed and hostile source",
+    "identity and projection conflicts",
+    "unknown and numeric versions",
+    "inclusive bounds",
+    "deterministic rebuild and atomic publication"
+  ],
+  "csv": "All 44 columns map to identity, local research documentation or immutable provenance; public entries project only allowed facts. Original OOXML cells and body-child ranges are checked. Unqualified providers block unless that exact unchanged row has an explicit reviewed provider exclusion. Boundary markers remain non-events.",
+  "provider_recovery": "One authoritative retained source is sufficient. Word definitions do not require confirmation in Excel or an online source. Explicitly reviewed CSV/event-document associations select a provider-qualified System with the same ID/version; no second-source title, message or field-label corroboration is required. Unstated identity facts remain missing. No inferred aliases, wrong-version descriptor inheritance or website refresh.",
+  "qualification": "Existing production cases cover usable input parsing, safe packaging and verification, import, activation, lookup and presentation. Provenance-only research tests and duplicate source-accounting witnesses are excluded from normal build and test gates; source audit remains an explicit diagnostic operation.",
+  "channels": "Channels describe source context only. They neither supply nor alias a provider identity. Reviewed event catalogs bind each publisher locally to its own event IDs.",
+  "sysmon": "Read the pinned shared XML manifest as inert data. Windows publisher name/GUID come from the matching retained template declaration, never executing the template. Exclude Linux-only events explicitly. Schema and binary versions are context, not event versions. Preserve symbolic descriptors as documentation; do not invent numeric values.",
+  "distribution": "Only canonical factual entries, Cartulary-authored summaries, manifest/trust metadata and the project license notice are distributable. Original files, evidence archives, messages, templates, samples and copied explanatory text stay in separate local research retention. Hashes and locators may identify that research without embedding it.",
+  "provider_exclusions": "The user excluded 255 currently unresolved CSV event/version rows on 2026-11-07. editorial.references.v2.json binds each exclusion to its exact retained row digest. Exclusions preserve complete accounting and never assign a provider; stale, duplicate or no-longer-applicable exclusions fail review. New unresolved rows do not inherit this decision.",
+  "predecessor_source_profile_sha256": "25e26e9ac0d855184338b92dcaf943b6ae69d0ea51720bdea00774e06e2080b0",
+  "pack_contract_version": "cartulary.reference_pack_contract.v3",
+  "content_profile_id": "cartulary.reference_pack.dataset.v1",
+  "content_profile_version": "1",
+  "subsystem_contract_major": 4,
+  "generic_projection": {
+    "data": "Complete canonical predecessor source-model record, including its inert schema_id; no source fields discarded.",
+    "object_identity": "Preserve source-model object_id or entry_id exactly.",
+    "relationship_identity": "Preserve source-model relationship_id exactly.",
+    "source_references": "Preserve ordered source_refs and their manifest source-artifact bindings.",
+    "validation_owner": "Producer-owned source-model schema and semantic checks run before generic encoding. Runtime interprets only the generic envelope and descriptor."
+  },
+  "lookup_definitions": [
+    {
+      "name": "event_id",
+      "input_type": "scalar",
+      "components": [
+        {
+          "name": "value",
+          "type": "integer",
+          "normalization": "safe_integer"
+        }
+      ],
+      "unique": false,
+      "coverage": {
+        "objects": 0,
+        "postings": 0,
+        "distinct_keys": 0
+      }
+    },
+    {
+      "name": "provider_event_id",
+      "input_type": "composite",
+      "components": [
+        {
+          "name": "event_id",
+          "type": "integer",
+          "normalization": "safe_integer"
+        },
+        {
+          "name": "provider_name",
+          "type": "string",
+          "normalization": "ascii_case_insensitive"
+        }
+      ],
+      "unique": false,
+      "coverage": {
+        "objects": 0,
+        "postings": 0,
+        "distinct_keys": 0
+      }
+    },
+    {
+      "name": "provider_event_version",
+      "input_type": "composite",
+      "components": [
+        {
+          "name": "event_id",
+          "type": "integer",
+          "normalization": "safe_integer"
+        },
+        {
+          "name": "event_version",
+          "type": "integer",
+          "normalization": "safe_integer"
+        },
+        {
+          "name": "provider_name",
+          "type": "string",
+          "normalization": "ascii_case_insensitive"
+        }
+      ],
+      "unique": false,
+      "coverage": {
+        "objects": 0,
+        "postings": 0,
+        "distinct_keys": 0
+      }
+    }
+  ]
+}

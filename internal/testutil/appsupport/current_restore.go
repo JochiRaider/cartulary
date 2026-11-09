@@ -28,7 +28,7 @@ import (
 // It neither encodes snapshots nor resets an existing target. The caller stops
 // source workers first and selects the claims for the restored application.
 // Operator process behavior must be qualified separately.
-func (runtime *Runtime) CaptureRestoreServer(t testing.TB, source *ServerHarness, options ServerOptions) *ServerHarness {
+func (runtime *Runtime) CaptureRestoreServer(t testing.TB, source *ServerHarness, options ServerOptions, probes ...CurrentRestoreProbe) *ServerHarness {
 	t.Helper()
 	ctx := t.Context()
 	open := func(database *pgtest.TestDatabase) postgres.AdmittedPool {
@@ -103,53 +103,72 @@ func (runtime *Runtime) CaptureRestoreServer(t testing.TB, source *ServerHarness
 		t.Fatal(err)
 	}
 
-	targetDB := runtime.PrepareIsolatedDatabase(t, options.Prefix+"-target")
-	targetPool := open(targetDB)
-	targetObjects, objectEnv := prepareApplicationObjectStore(t, options.Prefix+"-target")
-	env := configtest.SetupTempRoots(t).Paths
-	env["CARTULARY__DEPLOYMENT_PROFILE"] = "on_prem"
-	for k, v := range targetDB.EnvForServiceRef("restored_pg", postgres.PurposeRuntime) {
-		env[k] = v
+	prepareTarget := func(selected ServerOptions) (ServerOptions, CurrentRestoreParams) {
+		targetDB := runtime.PrepareIsolatedDatabase(t, selected.Prefix+"-target")
+		targetPool := open(targetDB)
+		targetObjects, objectEnv := prepareApplicationObjectStore(t, selected.Prefix+"-target")
+		env := configtest.SetupTempRoots(t).Paths
+		env["CARTULARY__DEPLOYMENT_PROFILE"] = "on_prem"
+		for k, v := range targetDB.EnvForServiceRef("restored_pg", postgres.PurposeRuntime) {
+			env[k] = v
+		}
+		for k, v := range s3test.Start(t).EnvForServiceRef("restored_objects", objectEnv[objectstore.BucketEnv]) {
+			env[k] = v
+		}
+		for k, v := range selected.Env {
+			env[k] = v
+		}
+		env["CARTULARY__ROOTS__DATABASE_STORAGE__BINDING_KIND"] = "managed_service"
+		env["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"] = ""
+		env["CARTULARY__ROOTS__DATABASE_STORAGE__SERVICE_REF"] = "restored_pg"
+		env["CARTULARY__ROOTS__OBJECT_STORAGE__BINDING_KIND"] = "managed_service"
+		env["CARTULARY__ROOTS__OBJECT_STORAGE__PATH"] = ""
+		env["CARTULARY__ROOTS__OBJECT_STORAGE__SERVICE_REF"] = "restored_objects"
+		env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"] = fixtures.Path("reference-packs", "trust-bootstrap.json")
+		env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
+		loaded := configtest.LoadFixture(t, []string{"config", "valid.toml"}, env)
+		bindings, err := configassembly.RecoveryTargetBindings(loaded.Deployment(), configtest.EffectiveConfigEnv([]string{"config", "valid.toml"}, env))
+		if err != nil {
+			t.Fatalf("bind current restore target: %v", err)
+		}
+		roots := loaded.Deployment().Roots
+		targetPacks, err := referenceassembly.NewRecoveryStorage(roots.TemporaryWork.Path, roots.ReferencePackStorage.Path, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(targetPacks.Close)
+		core, err := projectionassembly.Build(targetPool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		target := recovery.RestoreTarget{Postgres: targetPool, ObjectStore: targetObjects, ReferencePacks: targetPacks, ProofScratch: recoverytest.ProofScratch(t), EvidenceObjects: evidence.NewRecoveryProvider(targetPool), Projections: core.RecoveryPorts().Rebuilder}
+		params := CurrentRestoreParams{
+			Source: sourcePool, Target: target,
+			Runner:  recovery.NewVersionedRestoreRunner(store, storage, extensions, state),
+			Catalog: recovery.NewBackupCatalog(store, storage, extensions, state),
+			Backup:  backup, Key: key, Bindings: bindings,
+		}
+		selected.Database, selected.ObjectStore, selected.Env, selected.loaded = targetDB, targetObjects, env, &loaded
+		return selected, params
 	}
-	for k, v := range s3test.Start(t).EnvForServiceRef("restored_objects", objectEnv[objectstore.BucketEnv]) {
-		env[k] = v
+	for _, probe := range probes {
+		selected := options
+		selected.Prefix += "-" + probe.Name
+		_, params := prepareTarget(selected)
+		probe.Run(t, params)
 	}
-	for k, v := range options.Env {
-		env[k] = v
-	}
-	env["CARTULARY__ROOTS__DATABASE_STORAGE__BINDING_KIND"] = "managed_service"
-	env["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"] = ""
-	env["CARTULARY__ROOTS__DATABASE_STORAGE__SERVICE_REF"] = "restored_pg"
-	env["CARTULARY__ROOTS__OBJECT_STORAGE__BINDING_KIND"] = "managed_service"
-	env["CARTULARY__ROOTS__OBJECT_STORAGE__PATH"] = ""
-	env["CARTULARY__ROOTS__OBJECT_STORAGE__SERVICE_REF"] = "restored_objects"
-	env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"] = fixtures.Path("reference-packs", "trust-bootstrap.json")
-	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
-	loaded := configtest.LoadFixture(t, []string{"config", "valid.toml"}, env)
-	bindings, err := configassembly.RecoveryTargetBindings(loaded.Deployment(), configtest.EffectiveConfigEnv([]string{"config", "valid.toml"}, env))
-	if err != nil {
-		t.Fatalf("bind current restore target: %v", err)
-	}
-	roots := loaded.Deployment().Roots
-	targetPacks, err := referenceassembly.NewRecoveryStorage(roots.TemporaryWork.Path, roots.ReferencePackStorage.Path, reference_data.DefaultLimits(), verificationtest.Lifetime(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(targetPacks.Close)
-	core, err := projectionassembly.Build(targetPool)
-	if err != nil {
-		t.Fatal(err)
-	}
-	target := recovery.RestoreTarget{Postgres: targetPool, ObjectStore: targetObjects, ReferencePacks: targetPacks, ProofScratch: recoverytest.ProofScratch(t), EvidenceObjects: evidence.NewRecoveryProvider(targetPool), Projections: core.RecoveryPorts().Rebuilder}
-	_, err = RestoreCurrentBackup(ctx, CurrentRestoreParams{
-		Source: sourcePool, Target: target,
-		Runner:  recovery.NewVersionedRestoreRunner(store, storage, extensions, state),
-		Catalog: recovery.NewBackupCatalog(store, storage, extensions, state),
-		Backup:  backup, Key: key, Bindings: bindings,
-	})
+	options, params := prepareTarget(options)
+	_, err = RestoreCurrentBackup(ctx, params)
 	if err != nil {
 		t.Fatalf("restore current backup: %v", err)
 	}
-	options.Database, options.ObjectStore, options.Env, options.loaded = targetDB, targetObjects, env, &loaded
 	return runtime.StartServer(t, options)
+}
+
+// CurrentRestoreProbe receives a separate fresh target of the same captured
+// bytes. Probes can inject faults at participant boundaries, never reuse/reset
+// the successful target or manufacture recovery evidence.
+type CurrentRestoreProbe struct {
+	Name string
+	Run  func(testing.TB, CurrentRestoreParams)
 }

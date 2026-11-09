@@ -1,0 +1,184 @@
+{
+  "schema_id": "cartulary.attack_source_profile.v1",
+  "source_profile_id": "cartulary.attack.all_domains.dataset.v1",
+  "status": "adopted_frozen",
+  "frozen_for_runtime": true,
+  "accepted_inputs": "Only the independently pinned and audited v20.0 and v20.1 all-domain collections and exact selected-commit LICENSE.txt; v20.1 remains the primary baseline.",
+  "version_dates": "Catalog version from agreeing locked release tag and each collection x_mitre_version. source_as_of is locked release published_at, never max(object.modified). built_at is explicit UTC at or after source_as_of; cutoff and major release date are independent fields.",
+  "digest_subjects": "Source hashes cover exact downloaded bytes, including license. Builder hash covers exact retained executable bytes. Source profile hash covers exact eventual frozen profile bytes; candidate index binds every proposal file separately. Runtime manifest/payload/JCS framing follow adopted successor owner, not this candidate index.",
+  "object_identity": "Source-stable STIX id. The source field preserves all encountered typed properties, including original id, human ATT&CK IDs, external references, lifecycle, aliases and structured metadata. Source object and relationship schemas are closed. Values and array order are preserved without URL or text rewriting.",
+  "normalization": "Native parsed values, arrays and optional presence are exact. Common display fields normalize CRLF/CR to LF, trim using RP-REQ-118 and apply NFC. Empty or absent description is null. No truncation. Lookup aliases use NFC then ASCII folding, with every ambiguous key excluded across all objects and lifecycle states.",
+  "omissions_nulls": "Native optional STIX members preserve absence. Native present values retain their exact parsed types, never coerce null to empty. Wrapper members are all required, extensions exactly {}, embedded relationship source exactly null. Source schemas do not insert defaults. No opaque untyped extensions.",
+  "duplicates": "Across domains coalesce only byte-identical JCS source objects with agreeing id/version and retain every source locator. Within-domain repeated ID, cross-domain same-ID difference or unresolved reference fails. No domain wins by order.",
+  "relationship_construction": "Direct STIX SROs preserve direction, description, citations, original relationship id and lifecycle. Resolve direct kill_chain_phases membership only by unique (domain, tactic shortname); matrix tactic_refs retain array order; strategy analytic_refs and analytic data_component_ref edges retain exact array-item locators and log descriptors. No transitive edge assertions. Named related_assets lack STIX references: retain structured metadata without inventing identities or graph edges. Creator, modifier, marking and collection references remain native provenance; do not expose them as threat assertions. Embedded source and target types are mandatory; missing endpoints, incorrect native categories, and ambiguous tactic resolution fail content_semantic_invalid. Retirement alone does not invalidate permitted endpoints.",
+  "relationship_identity": "RP-REQ-111 unchanged. One edge per direct embedded property occurrence, coalescing identical cross-domain copies only. Source artifact order is fixed before locators and relationship IDs. Distinct occurrences with the same endpoints remain distinct.",
+  "ordering": "RP-REQ-102: object rows sort by object_id; relationship rows by relationship_type, source_object_id, target_object_id, relationship_id, all ascending UTF-8 bytes. The three bundle source_artifacts use official asset URLs as source_ref, catalog version as source_version, exact SHA-256, and sort by source_ref, source_version, sha256 under Table 8-C. The license is a retained build input and declared notice, not an object source artifact. Preserve native array order; member serialization uses existing RFC8785 JCS; NDJSON ends each row with LF. Canonical source_refs sort artifact_index then locator. Deterministic uncompressed ustar only after adoption.",
+  "licensing": "Use exact selected-commit LICENSE.txt as notices/MITRE-ATTACK.txt; proposed license expression LicenseRef-MITRE-ATTACK with matching license_refs binding. Notices participate in framed payload digest. Actual project redistribution and security dispositions remain unavailable; source access is not distribution approval.",
+  "lifecycle": "Generic deprecated = revoked OR x_mitre_deprecated, absent flags treated false. Preserve original flags independently; no current-only filter. Evaluate SRO lifecycle independently and retain retired endpoints and valid replacements.",
+  "provenance": "Native object rows include collection, identity and marking-definition. Collection inventory object_ref/object_modified remains typed and ordered; entire original bundles and their framing remain source evidence outside the runtime pack. No encountered source object category or property is excluded.",
+  "limits": {
+    "source_artifact_bytes": 134217728,
+    "native_string_scalars": 8192,
+    "ordinary_array_items": 64,
+    "component_log_source_items": 512,
+    "collection_content_items": 32768,
+    "rationale": "Adopted native limits, checked against complete augmented canonical rows; no truncation.",
+    "native_row_bytes": 4194304
+  },
+  "fixtures": [
+    "fixtures/inputs.v1.json",
+    "fixtures/cases.v1.json",
+    "fixtures/native-cases.v1.json"
+  ],
+  "network": "Only source acquisition can access the network. Assembly, envelope production and verification use retained local inputs.",
+  "canonical_projection": {
+    "object_id": "source.id",
+    "object_type": "source.type",
+    "display_label": "Trimmed NFC source.name; marking-definition uses MITRE ATT&CK marking plus source.id. Never truncate.",
+    "description": "CRLF/CR to LF, RP-REQ-118 trimming, NFC; null for absent or empty. Preserve original source.description.",
+    "aliases": "sorted unambiguous normalized source aliases and x_mitre_aliases; empty array when none",
+    "deprecated": "OR(revoked,x_mitre_deprecated); missing flags treated false; preserve original optional flags.",
+    "replacement_object_id": "target of active direct revoked-by SRO if unique; null otherwise; reject self, cycle, missing target, chain >32; require generic deprecated=true when replacement exists",
+    "external_refs": "source citations with real nonempty external_id only; retain canonical HTTPS/no-fragment URL unchanged when already conformant, otherwise url=null; original complete citations always native in source.external_references",
+    "source_refs": "all source-artifact indexes and /objects/index JSON pointers; embedded edges use exact property/item pointers",
+    "source_domains": "sorted set of contributing bundle domains, separately from original x_mitre_domains",
+    "relationship_type": "original SRO relationship_type; embedded predicates has-tactic, member-of-tactic, has-analytic, uses-data-component",
+    "source_object_id": "original SRO source_ref; embedded reference containing object id",
+    "target_object_id": "original SRO target_ref; embedded referenced object id or uniquely resolved named tactic",
+    "relationship_description": "SRO description normalized without truncation, null for embedded edges; original procedure text remains native",
+    "extensions": "exactly {}"
+  },
+  "direct_embedded_predicates": [
+    {
+      "property": "tactic_refs[]",
+      "predicate": "has-tactic",
+      "direction": "matrix to tactic",
+      "locator": "/objects/i/tactic_refs/j",
+      "order": "source.tactic_refs preserves j",
+      "source_type": "x-mitre-matrix",
+      "target_type": "x-mitre-tactic"
+    },
+    {
+      "property": "kill_chain_phases[]",
+      "predicate": "member-of-tactic",
+      "direction": "technique to unique tactic matching domain/shortname",
+      "locator": "/objects/i/kill_chain_phases/j",
+      "order": "source.kill_chain_phases preserves j",
+      "source_type": "attack-pattern",
+      "target_type": "x-mitre-tactic"
+    },
+    {
+      "property": "x_mitre_analytic_refs[]",
+      "predicate": "has-analytic",
+      "direction": "strategy to analytic",
+      "locator": "/objects/i/x_mitre_analytic_refs/j",
+      "order": "source.x_mitre_analytic_refs preserves j",
+      "source_type": "x-mitre-detection-strategy",
+      "target_type": "x-mitre-analytic"
+    },
+    {
+      "property": "x_mitre_log_source_references[].x_mitre_data_component_ref",
+      "predicate": "uses-data-component",
+      "direction": "analytic to component",
+      "locator": "/objects/i/x_mitre_log_source_references/j/x_mitre_data_component_ref",
+      "order": "source.x_mitre_log_source_references retains name/channel/j; no component to technique assertion",
+      "source_type": "x-mitre-analytic",
+      "target_type": "x-mitre-data-component"
+    }
+  ],
+  "accepted_source_lock_sha256": [
+    "171183b6b4c7e2f8fb0b4e2c08cc0f36d411602c13746fe755f052110c3ddeaa",
+    "ba44e42a1c1d4d000b69055bba8214b264e83130baa9aa6292374cbeb78202fc"
+  ],
+  "field_policy_sha256": "32b69aa7463c302f8b1be56d857aff3527638517054850654801a371fd4fceeb",
+  "authored_schema_sha256": {
+    "profiles/framework.attack.native_source.v2.schema.json": "2ffb139964aab103c72755c1d4b79d4f81e10b843622c28a038297cd15379386",
+    "profiles/framework.attack.object.v2.schema.json": "82ef9379eb0971040df1547889fb2217552f627969a7c567eee0157b39b3a962",
+    "profiles/framework.attack.relationship.v2.schema.json": "b6546cc49089536875631cb780c46cec75f2b4dcc5af9d9e174552277e5cff69"
+  },
+  "predecessor_source_profile_sha256": "bea57e402fab7d5281e159652f19ffb74a0d4e162be92bf9e8bfdad70d2bbf3c",
+  "pack_contract_version": "cartulary.reference_pack_contract.v3",
+  "content_profile_id": "cartulary.reference_pack.dataset.v1",
+  "content_profile_version": "1",
+  "subsystem_contract_major": 4,
+  "generic_projection": {
+    "data": "Complete canonical predecessor source-model record, including its inert schema_id; no source fields discarded.",
+    "object_identity": "Preserve source-model object_id or entry_id exactly.",
+    "relationship_identity": "Preserve source-model relationship_id exactly.",
+    "source_references": "Preserve ordered source_refs and their manifest source-artifact bindings.",
+    "validation_owner": "Producer-owned source-model schema and semantic checks run before generic encoding. Runtime interprets only the generic envelope and descriptor."
+  },
+  "source_model_schema_sha256": {
+    "profiles/framework.attack.native_source.v2.schema.json": "ed596471e2fb50887fd3871540e2a3e1d11eddb85d6cf6369d61612e573d0d7f",
+    "profiles/framework.attack.object.v2.schema.json": "93025737c97d0a0403ce6bb74f63baaff78c8623a9534921f8c1b40e04df6558",
+    "profiles/framework.attack.relationship.v2.schema.json": "126d4e19360f8974b231b59b23fad8f174c34cf2309a8118d2b8efbcc3ab5d62"
+  },
+  "source_model_contract": {
+    "pack_key": "framework.attack",
+    "pack_kind": "framework",
+    "pack_contract_version": "cartulary.reference_pack_contract.v2",
+    "content_profile_id": "cartulary.reference_pack.framework.attack.v2",
+    "content_profile_version": "2",
+    "object_schema_id": "cartulary.reference_pack.framework.attack.object.v2",
+    "relationship_schema_id": "cartulary.reference_pack.framework.attack.relationship.v2",
+    "subsystem_contract_major": 3,
+    "authority_class": "framework_reference",
+    "cartulary_contract_majors": [
+      1
+    ],
+    "required_capabilities": []
+  },
+  "lookup_definitions": [
+    {
+      "name": "alias",
+      "input_type": "scalar",
+      "components": [
+        {
+          "name": "value",
+          "type": "string",
+          "normalization": "ascii_case_insensitive"
+        }
+      ],
+      "unique": true,
+      "coverage": {
+        "objects": 0,
+        "postings": 0,
+        "distinct_keys": 0
+      }
+    },
+    {
+      "name": "external_id",
+      "input_type": "scalar",
+      "components": [
+        {
+          "name": "value",
+          "type": "string",
+          "normalization": "exact_nfc"
+        }
+      ],
+      "unique": false,
+      "coverage": {
+        "objects": 0,
+        "postings": 0,
+        "distinct_keys": 0
+      }
+    },
+    {
+      "name": "object_id",
+      "input_type": "scalar",
+      "components": [
+        {
+          "name": "value",
+          "type": "string",
+          "normalization": "exact_nfc"
+        }
+      ],
+      "unique": true,
+      "coverage": {
+        "objects": 0,
+        "postings": 0,
+        "distinct_keys": 0
+      }
+    }
+  ]
+}

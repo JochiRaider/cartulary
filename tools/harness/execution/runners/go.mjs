@@ -3,6 +3,7 @@ import { createInterface } from "node:readline";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
 import { resolveMachineStatePaths } from "../../contract/harness-contract.mjs";
+import { goModuleSelection } from "../../test-catalog/go-modules.mjs";
 
 // Machine paths belong to execution, not static Go selector discovery.
 export function goExecutionEnvironment(root, environment = process.env) {
@@ -38,11 +39,15 @@ export function buildGoInvocations(rows, workers, command, context) {
   }
   return [...byPackage.entries()]
     .sort(([left], [right]) => asciiCompare(left, right))
-    .map(([packageName, packageRows]) => ({
+    .map(([packageName, packageRows]) => {
+      const module = goModuleSelection(packageName, context.modules ?? []);
+      return ({
       command,
       environment: { ...context.environment, ...(context.goRace ? { CGO_ENABLED: "1" } : {}) },
       args: [
+        ...(module ? ["-C", module.directory] : []),
         "test",
+        ...(module ? ["-mod=readonly"] : []),
         "-json",
         "-count=1",
         ...(context.goRace ? ["-race"] : []),
@@ -52,13 +57,13 @@ export function buildGoInvocations(rows, workers, command, context) {
         exactAlternation(
           [...new Set(packageRows.flatMap((row) => row.selector.tests))].sort(asciiCompare),
         ),
-        packageName,
+        module?.package ?? packageName,
       ],
       rows: packageRows.map((row) => ({
         row_id: row.row_id,
         selectors: [...row.selector.tests],
       })),
-    }));
+    }); });
 }
 
 const failureMarker = "CARTULARY_HARNESS_TEST_FAILURE=";

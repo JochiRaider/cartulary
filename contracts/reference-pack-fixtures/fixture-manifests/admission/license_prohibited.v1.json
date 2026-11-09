@@ -1,13 +1,13 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_admission_license_prohibited",
-  "fixture_version": 1,
+  "fixture_version": 3,
   "fixture_family": "licensing",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/admission/license_prohibited.v1.json"
   ],
   "expected_container_sha256": null,
-  "expected_manifest_sha256": "21b3245cbafb4d703b2dce52913416101807e6ab63f01e735de827824d6df1b4",
+  "expected_manifest_sha256": "dcdb01385f68aaa26ac90b04cf8fbd5aa082ae56290e119b587f3ae5cd02eb19",
   "expected_payload_sha256": "e38ff4e85cc452ea298b402bd1003c3ba199db81e9f2fd9a8f3931369965e584",
   "expected_pack_set_sha256": null,
   "expected_condition": null,

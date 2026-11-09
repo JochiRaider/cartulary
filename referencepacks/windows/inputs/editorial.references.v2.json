@@ -1,0 +1,1301 @@
+{
+  "schema_id": "cartulary.windows_event_editorial.v2",
+  "notes": [],
+  "provider_bindings": [
+    {
+      "csv_source_id": "combined-security-reference",
+      "csv_locator": "csv/record/351",
+      "csv_fragment_sha256": "d1ea7f92f40b277ec9b59c22106129cbb7bc155896938603bb29c7d2394b16c0",
+      "source_id": "discovered-74cf37b71819ef1f",
+      "source_sha256": "38a354331566a1b3344d7c0fabc940b4d9d7fa524dcac4b711606bd689122dd7",
+      "locator": "html/pre/0/text()",
+      "fragment_sha256": "d96c5fdcf25579c2c99f77746cff89c2587e4e1b6a93617b4774ed637d230c5a"
+    },
+    {
+      "csv_source_id": "combined-security-reference",
+      "csv_locator": "csv/record/357",
+      "csv_fragment_sha256": "32630cceaefff4d0c5204b994176432e5f321fe6027b1fc15af8cfd39c691abd",
+      "source_id": "discovered-b2a021911e194f41",
+      "source_sha256": "932388b95693191c090ebed9ee08508488998e800c7665bb7f098077e8bdc537",
+      "locator": "html/pre/0/text()",
+      "fragment_sha256": "1f981a98ffab17a39a327024e4903320d8d37f52c58ebf478b33b154dffe08a2"
+    }
+  ],
+  "provider_exclusions": [
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/10",
+      "fragment_sha256": "40840e17d47066520d58f6e6ebe81ee2569f72be78c52f26c332d7bcc7dead94"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/100",
+      "fragment_sha256": "e824d413984cdd529bcc1c253ef2aee86f6c30d7bec89a6285c202caa40fafb8"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/101",
+      "fragment_sha256": "39b1935354f946242394943fa1ea5c54681f36d409a547a1223c1ec813ebf131"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/102",
+      "fragment_sha256": "167e8b587ad8a2725b1e7f8d58b5b66e4f85e4cfef65e9e0bad07e53fd79178a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/103",
+      "fragment_sha256": "ac1323fdc9baee46803d139fb1c45cc28a6c28303616eccc47390a7903b2213f"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/110",
+      "fragment_sha256": "605513bb4effda54af39992c90450a94f8c9b2f4b0b064e4e51ed53df4cd2c9f"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/117",
+      "fragment_sha256": "c8607a76ef00c58b00b04edaab938defe4f5b3314d48ffd215131abb294f6d54"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/118",
+      "fragment_sha256": "8ec73d365bc5f645ffe80d01f175760ef21dc8c90480c9294c41a038db234018"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/119",
+      "fragment_sha256": "8c1d568f1c0b8d8563a64e0882a03653a3698ac9add250bda7bd14c06b491a8d"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/12",
+      "fragment_sha256": "e4eb573ed8ab297096c085f75807eefde116f44f4c86245f01e0a3c896e5afac"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/120",
+      "fragment_sha256": "cdd6014b2651607c1e22589f001120aed7a787224307dd628d0b5378c5374023"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/121",
+      "fragment_sha256": "630b8c6549b08361351d1a1a5d7cf4fe2e41ec9994d9cfc1cf8031570b0ea074"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/122",
+      "fragment_sha256": "07246f310a4776809c879c53c03fc96c40bf9bca10ca02dece905e874c382220"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/129",
+      "fragment_sha256": "ad2f88a39e81433aab5b6c93d7507bc38f9c4f0461320a8373657d503600b0e3"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/130",
+      "fragment_sha256": "18bf26ef44e7ffe783c8280b4f9248dfd95d7917ea904a61f0c57e84da1efe70"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/131",
+      "fragment_sha256": "defb04d0887e58e1c85a72c3d9d68ad085ea100bd97ce9cc71d171e01fdd8920"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/132",
+      "fragment_sha256": "ed0c3570009c58e3679f5a0829c62c8c6aa5ee6fc68bcaf0a77cb6a5693c5ba3"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/133",
+      "fragment_sha256": "e8ae6249bd9f25700d18d3cd3e9ee7652d3165cca561aebb341adb53fd3b7871"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/134",
+      "fragment_sha256": "69b0075ec9790f087ab2bb5315bb3e06b0f89dd0cedd5753211964612b35bba8"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/135",
+      "fragment_sha256": "6586f62c97bd1c7b0d78ee311dd08434257bdd98c5a45c57f68b341dda2b7974"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/136",
+      "fragment_sha256": "b8bd7b367af62e586be68598ee8c84a0da6eb581fc1e60f05508e6e49bd25425"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/137",
+      "fragment_sha256": "0ced3d1d8c84d7c257c49a93e837024c10a8dfe40e88f84873662341df8a7f81"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/138",
+      "fragment_sha256": "bb9a0640bb74978d6117210d22603f424a9930f213df30aa6e1ccb825800830a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/139",
+      "fragment_sha256": "3db3c5ad284e5ed4742c75b8940c8cbee51b61652dc6687a20b282f281a2a588"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/140",
+      "fragment_sha256": "4d9460027205a9bc977fc556dded7812dc517408d48436e9840bbc57dde76df3"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/142",
+      "fragment_sha256": "d28f3dbef853426b6791797bf113b17c2666ef257a4fd21eaaa43a78b19b0b42"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/143",
+      "fragment_sha256": "111c349d73639f983d7ff02f9447cc62f56a18f9abe085127e68e5106a5c3ec9"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/149",
+      "fragment_sha256": "c612857eba8d71656cdb41de064148649b2eac253d41a7dc5b009e1ec98c2c59"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/150",
+      "fragment_sha256": "c9e1b97bf004e8aa317c8dd8c71224b84493c3b48ad0586df455af932579fc43"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/151",
+      "fragment_sha256": "8c6a82ed8dbe935f208e2a7c86fd5e79d8bb48e49231292edaee9cbb29062f60"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/152",
+      "fragment_sha256": "ad08ca9290bfdb44230f35266c1a9e532227485dbe9eaae713ae481a7d8c2875"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/154",
+      "fragment_sha256": "928324cc675625a2cb68be5c90e31337fb6d0c443812568d626f1015b7e7c24f"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/157",
+      "fragment_sha256": "96cbc3af5b6da47556f4c6d4ddd01568bb10bfa20e4bddc13dd68dd86f38c632"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/16",
+      "fragment_sha256": "1485249e17d09af759ad3add96995f08c3613fb8a838f65c8461d34a9b5f65cf"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/160",
+      "fragment_sha256": "75728761b0789653a3174e960391d830fd1581fb91eade965ef1e494477aa388"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/161",
+      "fragment_sha256": "994c052956bd4629a3f4d77e5c9e178c78324178e6feae032c67b77f5ec9435f"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/162",
+      "fragment_sha256": "346eb798413b985d43cf5bd74c4480c6aa1654b0df5518783f14c3556d60d9c5"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/163",
+      "fragment_sha256": "6747180391e23084c82ccf1926ff9223d91b23d79a60a857adf6d575e8ebdc04"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/164",
+      "fragment_sha256": "fdc0a47f3f6df396be6841f01a99383a5d6941504eb8e4752eaf4060f6f18041"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/165",
+      "fragment_sha256": "65a4929e0ca5c08e86c15199bd69a75d4ae3d6aabe4e8f4ec2dadbcc478a5490"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/166",
+      "fragment_sha256": "d331e9858a89ca4ed6ea2a49a7b5b7fda9e9e24eb3ffe943c22963e946e2bd8a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/167",
+      "fragment_sha256": "46ecebd2055f7af95d59d56388e9ba926e06976eab079b583a63e80aafeb9a9e"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/168",
+      "fragment_sha256": "a838bf424d6fdf3cf5328b11cd0a36ae89ee4d0fe8390f92d0ab8b1cf4b2116c"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/169",
+      "fragment_sha256": "25d43284436a7f95102d7bd0e62512fb17a87bdbd1a3ab3ede2ece1195139da0"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/170",
+      "fragment_sha256": "5e71f9ff2eb6b8c73ba116ac9d9d56ca3bb5d315f07ee5f20f15214a09253f13"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/173",
+      "fragment_sha256": "e9ccc72111bed9138144fd2344fe85d985e20681143eb3437f8aba3268d131bc"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/180",
+      "fragment_sha256": "e3c291a5848f35703e1c77714b221e4faa0a0d752b56f9d7434a6f7a0d12a74e"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/181",
+      "fragment_sha256": "7870a6d9a79b28a733acf8bffc798f159e1dc202acd3732f9742d42656df1341"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/185",
+      "fragment_sha256": "012589bea3fc7757ea7c6cf72741e362c5ca1594956787563894a513063e5aec"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/186",
+      "fragment_sha256": "f7ddf75e7c86131d467c6067d4a2455b82823a80e3b0c95963837bc9f4eb39b9"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/187",
+      "fragment_sha256": "0b57d1187914790e33c52aae5d5c8a017df7a370517dc220a1ebda872f7a0d7a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/188",
+      "fragment_sha256": "913bb92edc1adba0423d89731d325cf2fae8fdad742fdb52efd597299468e74a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/189",
+      "fragment_sha256": "f7011d642bedfb379ed1cd33136bad9fcb3574e7816d7a16e5f5a043f86d334c"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/190",
+      "fragment_sha256": "f716b9bdddd8528071b33828e532bffd5566332b949d2f34896e38060da29827"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/192",
+      "fragment_sha256": "69aad3c022755a71079c6f6060298ff907fcc5a97237e7e3df9245c6575fdb1c"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/194",
+      "fragment_sha256": "6ec5929ebb382d43696eba82f4bf2b66f77eba820035913dedb7582a5949f219"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/195",
+      "fragment_sha256": "2e174e98f43388ba4112ff81e5b9c2412bc4504fe04dcd86d9926496dabb02dc"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/196",
+      "fragment_sha256": "872a089f5c3ec2a397b31483630cd34e490d33a20fa7e10578899c19f06f05a0"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/197",
+      "fragment_sha256": "7c8a47133bda4bbe24d6272e83489f66ed0a09226637dcc73d0a057f494229fd"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/198",
+      "fragment_sha256": "8003ac66a9b7644a09b0820cf03e11ab9b12e24343db990a969cdfc6d5ca0450"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/199",
+      "fragment_sha256": "6b18555737267c9c811ed4482efddaf699c252b3aa4f26aea023960fefbb00d6"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/200",
+      "fragment_sha256": "652d54945bce710b1c7b2f65ea9b73950734a1748e31da16cec9393a164eaa16"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/201",
+      "fragment_sha256": "ef71d874779a9effa65303c927265f5b2eca1b1fdea8bd6d3ff8a86ad424b591"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/202",
+      "fragment_sha256": "e20364dae7cafbca3fcf22a4d318deb86aefca2e7c0ec358ef100ba195e10608"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/203",
+      "fragment_sha256": "5845c5d5dd8b95ab461c41fe08dd7d3978d92965d8cd2766538afcda286e49c9"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/204",
+      "fragment_sha256": "4c4f42be80b8bdd8ff1e214775e4151649e73352992fe3aa407c3779d381c596"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/205",
+      "fragment_sha256": "0a39e040880ac9fd27bdbccfb597b98f77a556118a2c5c650f22ee36896030c5"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/206",
+      "fragment_sha256": "0cfcfab0c6af805c222bd56c4f04939c170c4c69efd6ee378d38ec21fdc6334b"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/207",
+      "fragment_sha256": "af452897fb8fb88f7b438643b4b2d1bb52b2bd6af9dc3fb89b7e2d9753bfb6a2"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/208",
+      "fragment_sha256": "19a7e424222f277eb3b1ef820c2b5bbd2f56d055b8f41786187a1bc476b7b73c"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/209",
+      "fragment_sha256": "84ba0c7c32e41d447cd994874740fd6ff14800799e31a64a937e61ccb48f6322"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/210",
+      "fragment_sha256": "42073fc763f04c6a3e9fdc0c8fb7c7018243fce0091cb96ac288d50129945f37"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/211",
+      "fragment_sha256": "dcabace1bdbdf05f90b053758fa6017e32e618afb4acd65f2366db4c44e381f2"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/212",
+      "fragment_sha256": "3cca281ff95d52a4f45470c267686eb7761d15922425e7399da4926f93de8a7c"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/213",
+      "fragment_sha256": "c7c77a9fa5ac67f9ac0c80e2117af8ad293637af6d8629272e49c7f5da30f93b"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/214",
+      "fragment_sha256": "b1b2f730e4dbc4c1377326919005c5ec4a8ebf4a8ca869b3e19cd4cc35a201c2"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/215",
+      "fragment_sha256": "88b303fdf5d63d392f5d94e331b2184d91fb932e20c82b48be17f04e657b31ee"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/216",
+      "fragment_sha256": "6bb033175cd435563a92cbca8150d1e19df5213aeed0f6e3f9017f28b8db6341"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/217",
+      "fragment_sha256": "911f23d093e2c17ded8d418ec4f533b25a332db528872b0828a3cc87e11d43ac"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/218",
+      "fragment_sha256": "df403d48aa199e17ee0a1f8ce9e7d78dcafe368a59db96ca5d9a13fd58044d39"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/219",
+      "fragment_sha256": "8bda85544dc568da49db2640f1c5052efd75e3bfe59407d255429e47ff55b463"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/220",
+      "fragment_sha256": "a43ed5329ae461e634d8a0ce47473d6717eda9f35db06d20542a9e1de72fcb5e"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/221",
+      "fragment_sha256": "6365232cccf3fb36a2509ac5a700194d3503b9dc496895e668b8cfc435579490"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/222",
+      "fragment_sha256": "08c1d93c21500988a1f854ea6c5c32808195fb6fb6a346e7809322fa62605068"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/223",
+      "fragment_sha256": "6e6636a7fc2f56991792274e9a4c48f0118454e8f94de65672b3fc64f4b6eb12"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/224",
+      "fragment_sha256": "796d840fee946fd959c32341611e84e86380743bfb30d31b4e7bbe263545d2b3"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/225",
+      "fragment_sha256": "bffe924c831de040ac799569502c9cb942057c212640699930be64792ca14caa"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/226",
+      "fragment_sha256": "1767b39fc26e8083d6f2c243e8fae5206d213ede87fb1dcc1a90d187a3fa0708"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/227",
+      "fragment_sha256": "c82c339cf62b78e987a238546735845ee5d9b8fb464f545f19777a724b1fa71b"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/228",
+      "fragment_sha256": "daf48998ac07d084da2863bbea6ae7cfd5801aeca17f8de40a756d8ca837d38e"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/235",
+      "fragment_sha256": "134ca0c2f53053098acd02bbe8bb3bee95dd5bfa25532931d3239c28534019a7"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/236",
+      "fragment_sha256": "631cb6590ba10a7f8389b1c5cde17e6fccf0dcfc700bec2506878bd3d437e429"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/246",
+      "fragment_sha256": "8bf31a7e49c4007d709eeabeec0e9034e69684e114f352d0be1080d2c0ed689a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/248",
+      "fragment_sha256": "50d5a1bc7e9b2ea9ca8b3ab2cc65b45260371a1a78a2ba2e998fde45fde73b0d"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/249",
+      "fragment_sha256": "ead6e98945553b57c5d0a3515c939302fae7716ce34aec1fb0e1484845a02069"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/25",
+      "fragment_sha256": "e7141d30d28161845fec7eb68e58abf4999623de84c053a9250f9aef06992daf"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/258",
+      "fragment_sha256": "6b6d7e8475a30a237bfdda60701c1bd1c2208fcbbaafb984cfe330619a28366b"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/263",
+      "fragment_sha256": "c596c68bed4b7e68ba2bd146d26b4d3b899811e655bb9730e8d7d881c1e004bb"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/264",
+      "fragment_sha256": "e51094a6347adaf786756898fef472a2c995a4338d730d579f412bb24a6a67cc"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/265",
+      "fragment_sha256": "fb55cb07f560b5882e42e1d02bc96bc52d04b1b45ad21a3c798ed240e3bff291"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/266",
+      "fragment_sha256": "31546ad9b3835b74dec21d6f1b38abe815dbe5177113a18b288dbfe349038c63"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/267",
+      "fragment_sha256": "58031979a5dbe9e3809553a6ab1c990583a79e642a191e142e039a79ddfc89a8"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/269",
+      "fragment_sha256": "a9147e89369286e668fa0e77eba2398948a49a78d4b7b78d12e698ec31923f33"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/270",
+      "fragment_sha256": "fd8e26b72aa683abfc94749b691904680158ba646fdd53ba1baaeb336ada4e60"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/271",
+      "fragment_sha256": "c1d04ae646217bd6f6b5003d3b880e65a8f4c89a6d84eaddf9301f2e41bea681"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/272",
+      "fragment_sha256": "7f1fb5cf4114fe176e7b07e1ada2935fe930f17174a7a6ac449a08d62f9d919f"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/273",
+      "fragment_sha256": "980ef8a962afeeabff69ca41ea76e632a8bb59a0db0d82ac68160ede800c8b5c"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/274",
+      "fragment_sha256": "6f46550c9e174fa6e18d523f46b2daa3cd387088b57e43039c12574aea63f37c"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/275",
+      "fragment_sha256": "4d3e07d3d2be35e1e8438d066c140a67de72ae45267a30b888c6abf047d63554"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/276",
+      "fragment_sha256": "de36969699b34af278563fbcf5ad6c072c98ab57c39ead54a369a2fb13fcba74"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/277",
+      "fragment_sha256": "761c1c0cc6e4e2ff09eb1a129fb6b23509f1cbddea40c3c4151550e6cc0b6622"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/278",
+      "fragment_sha256": "b6c4b3b6513c2ae77eb58c501bb03bb43977131a03c5c1557cf9d33c760d1748"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/28",
+      "fragment_sha256": "78f8968a4d7165a0aebf607c2335e48e6fa846b9bcd4f552f1a37103b6a318a7"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/284",
+      "fragment_sha256": "f04542ab118a433590176a855815c09d3f98f67332966ec9871ccb9a1533cdf7"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/285",
+      "fragment_sha256": "61dd5a9cc3a1b0c28b1cceaad1e8a598391d3a8abb586fc2970ee2ef9aba1425"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/287",
+      "fragment_sha256": "1f288f3ff8741e29191309b8c103e801285633e73ddfa768bbe9bf0dedc1a563"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/29",
+      "fragment_sha256": "912a6954b752ec2ea807edd14c766fded60d95fb6e363b0d8067b94772c70ccf"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/290",
+      "fragment_sha256": "970532db34d7f51403ed51a18adabcb58de6d60461d48c2d8c7b1d282291db71"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/291",
+      "fragment_sha256": "a562e5b546803373fc1b4ff39426aadc80d4e0d3772033dd8c6d42139e85f2c1"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/292",
+      "fragment_sha256": "d93108f53dac145ebab9bd3a5e0a274d90ae3e8891de3a78e345d36b1add0d0a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/293",
+      "fragment_sha256": "3f265ff2ef17fbea35dc8ffd613210e806f099bfdc324bb5b657b38a5e8ffab6"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/294",
+      "fragment_sha256": "8b3a2d227ee29401471c722507f17be1ead8115749c078fc6cbae474cc7310a2"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/295",
+      "fragment_sha256": "a221c589236115ba64e2b487780b825d5ce01779681215b3881ea51999578468"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/296",
+      "fragment_sha256": "e87e04ded2b3279cfd78d9722a08613a8086fb21a745edafb797b38e046daf22"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/297",
+      "fragment_sha256": "64017407b55890f8982dcd2873d09d73a7a295ada4fb81a9c64aac354c0c5448"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/298",
+      "fragment_sha256": "9865386193c03998a0c140c7fe1b0084432bdc5d13b17573c5327e5215240119"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/299",
+      "fragment_sha256": "a13aec40e41fa9fdad42be6c018bee8c0f330d6ee2613efe196e6eee158e0e25"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/30",
+      "fragment_sha256": "24ef4e54e94977d3507a0222e66dd7c9fc6084f3789dc056b0ff8a6b44e33e62"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/300",
+      "fragment_sha256": "0046c355a41718552b6e568793d573495dcac9e0364df89062cfa27f9501d434"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/301",
+      "fragment_sha256": "8bf004d9ae4c61850f0bfa7e047be4398827989a42cb94230683c0e52832522e"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/302",
+      "fragment_sha256": "139cc9c9291244814d322bddf827863ee4a844bedaea371884105fb55bb842b3"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/303",
+      "fragment_sha256": "2b58a1da5e669ae7a6a9330cff26a1c63b70ccded3630ef0c032bb49ed0e5be6"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/304",
+      "fragment_sha256": "afef68fab17aa52e00c6560b9f2f0b8354299eee360c61125fbb2beefb3db41f"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/305",
+      "fragment_sha256": "70883edaf436b5b2d1ce65c04cecf8e3287c629884d4f734f97b6ca0e502ce16"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/306",
+      "fragment_sha256": "182bc57f0c71d3536d6681af4ebd7fbe52c37343be7647a5a0245df03bf8be43"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/307",
+      "fragment_sha256": "21fb4c061815a179874e4d4d58e5736d711ee5b6d7942a805343deb2be2a3bcf"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/31",
+      "fragment_sha256": "9ddecb8b5765d0e1c7d61b6127ca7b0894b11fd46cf223245ed5a6cced459ea6"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/310",
+      "fragment_sha256": "2404c96c21a67534d9f4c6a83e7d42d9e4ba8e95289fa3ca1d40a9c9552d66cd"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/312",
+      "fragment_sha256": "fa07fa45f758a6402a4f11e336c59ab04834c256d90330089988923bf8db6c31"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/313",
+      "fragment_sha256": "a41c682d198f2492532c241ee8326c795b3dbf92f67a30e8f0ac99e1695382b0"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/314",
+      "fragment_sha256": "31d1f30039da81084a118b4ee2c41144b0f7e08928a95f73eec749ec3d6c14a3"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/315",
+      "fragment_sha256": "c9fa42359275a6fe39eb655505135384ba69390e799be840aee4230635de08a2"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/316",
+      "fragment_sha256": "8860f22a6311a923d7e726cdee12f70c2489e831cd5ada1668cac9e2d7277eed"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/317",
+      "fragment_sha256": "a0258e537404a95d1ab07cda7d67f713e2966c78a00aa5af83f5a7910173479d"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/318",
+      "fragment_sha256": "373e96e8788a687291c7bc07eb6e58fe0cea171f6ee4f0a631dc7946bbf7cc79"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/319",
+      "fragment_sha256": "a6062dc6b150e4d45c5f240159b2257a41c7a3cda51c893cf8e50d6d467e88af"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/32",
+      "fragment_sha256": "d7f4222f6a3f645859106edb59970de77824818ed21bddc3e5892c3eb4f08940"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/320",
+      "fragment_sha256": "33d57a4e9f584145daa66125ba8b3bece23ee8515e947fd9a4660f651801e2c5"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/321",
+      "fragment_sha256": "660ac3ee1ac730fc9b201493723837118f9befc7b770d41f425c8bd1e198f4ca"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/322",
+      "fragment_sha256": "da5ec8c75a27bb67b3b564591d67318a830ffe68e3d389fe58175081eab8cd56"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/323",
+      "fragment_sha256": "9bc9dc62d673bf78c4f7a8d3d9b42911861858b49978f9db4946e64f41074dfc"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/324",
+      "fragment_sha256": "9ae0323feebba6b88d32661dc6cccc904007538c80c08be6d3442099bc410072"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/325",
+      "fragment_sha256": "7d745e4d279690008a6f5384666c0e2c6e1ef0f7bb2c588d3b271a3ce60921ee"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/326",
+      "fragment_sha256": "4eb29414bc88ac6cc991d017fe87089c5bafeb9cc42653766f97c12b90ed0a24"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/327",
+      "fragment_sha256": "5027aa5eeb80df3e0098e18eb12b267dc6f5c8ba0257c3fbbe90bf91eb1343a8"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/328",
+      "fragment_sha256": "eb022d9d902985a698f320c6084866a288496288263a7f2d5ceddcf51650724a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/329",
+      "fragment_sha256": "af60358a3b2f1982c96aba8712ccda82e43c1794fe4e8018d4b31558b92dc5fd"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/33",
+      "fragment_sha256": "60da497a11d088ea58e3a1664b7582867608b8f90e112dcff79d27e13e52f8e1"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/330",
+      "fragment_sha256": "8e41acbdf06115d02a93cf6f04141879e1ffd7b7f2205d5cb9434b0061818438"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/34",
+      "fragment_sha256": "4ae2e0347b0f499cea1b17164d819a3df4be4d2ff7140df2534f71b8fdfa70de"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/342",
+      "fragment_sha256": "8528ae160e0da20569edeb2302c8eec4e5f073028ec0f81f38a6af5114aa68d6"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/343",
+      "fragment_sha256": "69ffe810e1795f0137f87fd745d04666dbaad3cf39b3fc31ffc056ed432d61ac"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/344",
+      "fragment_sha256": "c4700c132693013f3e6324f53cba1716fc83756b9ce20b3b3e9c242ed26036e4"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/345",
+      "fragment_sha256": "69a94ef7d241fbe2364d84a77c7ee47db280a25da49ea1eb4d9218b8b55b4930"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/346",
+      "fragment_sha256": "558755c6715eccf2008a97502406973be80fb25f26ac489f6313d163e0749838"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/347",
+      "fragment_sha256": "58e514efee668c1329e680b1556dfe2f5762c699f8f8e9bc77c7518a6056b1e0"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/349",
+      "fragment_sha256": "202c1c0b0b93255fd5173a8073425b9537ba494491cb3ace2ecafaede4a43509"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/35",
+      "fragment_sha256": "eee570ec6dad07236da2f0339bae9e974b5a185bb3f4773b0ff51c71127f54c1"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/359",
+      "fragment_sha256": "943db82bfc0c1fca19828e78d847cd745bd35bae6744df4534e671cb3dcaf812"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/363",
+      "fragment_sha256": "b41e1c21ce511d4beb919a75d4249ec7c6393b3f4df3dbc59affb63eb0c93d4a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/364",
+      "fragment_sha256": "1ee948fb4c9b7a6d90052e6285191f7469d47d8a04fc1c7696d04d0b2bf4b29a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/365",
+      "fragment_sha256": "609d09396ad4db17a41f17974088a984a19c307ce11f12809aefa99c38a7b326"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/366",
+      "fragment_sha256": "56fb401160d328077f31d7209694e2af18f4f1dc5766c521656ff75b1d61d43b"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/367",
+      "fragment_sha256": "6890f92c4049eb4bb4f097f2e2d62ddc7057dbdd1233d2cd7093d9652d9ff87c"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/368",
+      "fragment_sha256": "776ef3e64d0321db3f73e0526c2aeb9ce2b8b22d3a4a0551742cb33e0d1ac762"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/370",
+      "fragment_sha256": "12b3bf85e0324619c8b3561d21641a874e17df01dfc41dc930ea13e367306058"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/371",
+      "fragment_sha256": "e420a8192d763ecea773abadf927eb8c33afd8bd852ed08f0eae36615b533d06"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/372",
+      "fragment_sha256": "179348fc86f0a2eeaff886f136afeffcf405c958c31f4e128f669a1881f4e5fb"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/373",
+      "fragment_sha256": "5c16a7c2f28964cef281c1a3b4e7f98793de856e91c4ccbef2dc1900883cf01b"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/374",
+      "fragment_sha256": "40be54175e4a53987d29bf6da2b5ad1171f3b0aa1a182a9bda1f1499f3b8bf30"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/375",
+      "fragment_sha256": "031af8b274897d01bdaa0ff6924f696a99c22c6b70da1aef2d8560b0580ef3dd"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/376",
+      "fragment_sha256": "2e54eb4c33430a8838cdee1d442c3cc6978ab0b2e93b83781b1cc052aa161144"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/377",
+      "fragment_sha256": "6e30f5d9488953186e53a6d3ae5b28d99c18f0f752c572f230e75eb5ad04828e"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/378",
+      "fragment_sha256": "4f3b35bbab791859b2f7c8ec2314a6506c404bbe39b8a1bb4e0822c2915dad38"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/379",
+      "fragment_sha256": "58021385b34b678f653e9df492c62659226e0b183214fbc42bc58cb05db916c8"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/380",
+      "fragment_sha256": "e50cb380d880eb41b5dadc2be051942d59f0fcf4f3fc20f88601fe81e562454e"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/381",
+      "fragment_sha256": "ae9457132461550050ec4af0c7500b9888be3c5071d962e0cc60a41209135b82"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/382",
+      "fragment_sha256": "e6ba75d96858698f4503dd8020c7e1bdb1ed207847ddc860348a48c971d9fa93"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/383",
+      "fragment_sha256": "ade5c9b55ed69df1866bb14fe4978105875b8f931f94cbeb9c5a12f0a2f7a8a1"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/384",
+      "fragment_sha256": "9a3ad768438f74ae874df56288a8ed30f1b097ecfe4a117a54b2bbb09f72668b"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/385",
+      "fragment_sha256": "cd42e9604dc021abe929c656049b1b9f5828eb78b4727ac6be16042d028eb729"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/386",
+      "fragment_sha256": "2177fab5ca86d76c0bf3f2818fc36ccddb5da27a60fa8be3079b353653ce93b7"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/387",
+      "fragment_sha256": "b2deec41d244e76d51844f5c8ce5226f0c69e624d5af889f9fa5003a7e578695"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/388",
+      "fragment_sha256": "bda58d82cd69b2bbf07ed68c0c058bce945c5ec07743689772d19ebc243f8bad"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/389",
+      "fragment_sha256": "0406be9ecbb36d7a4a6e24b3863edb14029ec14b1d9be409615dd4b11338da32"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/390",
+      "fragment_sha256": "580a1fb63d7b80c9e567cf58bf913b6e8f750e33c8cd311db233a225df8f115c"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/391",
+      "fragment_sha256": "a9e14cf19ace312a36e5b9f861122db586c06e7014338b30b15a57132574b042"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/392",
+      "fragment_sha256": "3287823ab4a87e2ecf611e5f0bab992eeb87544276ddee8a4c11ad9ff7c7977e"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/393",
+      "fragment_sha256": "42f94b53a989736f5a44b16e43eca43dcb599582b588cf6ad2f0688c7fbc3318"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/394",
+      "fragment_sha256": "6e40526be06571ea919bfd6da50a4ebf8907f189225eb5ad8d05159dd450c926"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/395",
+      "fragment_sha256": "c89d7837da386816001b044416e78fd147fa2541347dd01aa15ebba3bd2152b5"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/396",
+      "fragment_sha256": "dc1583692b64ee49fc0f7b4d27094fd2ba488896bda34a6fcdd2d91a131c6ac0"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/397",
+      "fragment_sha256": "c966fde408a1e1759660c1c738c3e0c5156599caa20d54c6ccedf215afef08f2"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/398",
+      "fragment_sha256": "af38c5eea42bfd60a3221474a457046f8304cf8e382c3c3157b49350ab73cb36"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/399",
+      "fragment_sha256": "e47377b48f09e08602cd50a461206e10579d7fee93917a85ae494c0f98982524"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/40",
+      "fragment_sha256": "774ba8a6346304cdd6814d22f167f151e5f99aa27e213fb8c88883981b408bd2"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/400",
+      "fragment_sha256": "2f3cb5b2f09a796cb644b52d442d24cf6716bd2f59e6b438ab950bc02fd2222e"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/401",
+      "fragment_sha256": "44c11c17acc000c5aa2e1f11b29f92a922d07094bd6cf818bdf1ba0229f37c7d"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/405",
+      "fragment_sha256": "878eaef9aa5213912eff3f4665eb2f5658fea680d8167587bd680295b60884d3"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/411",
+      "fragment_sha256": "39c6d605567b0c16ccfebc4b79cd2725ac0518e6867c904269497870d7f65e7a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/412",
+      "fragment_sha256": "922d188644eaba191016be75832fba1372f1f999f71210e5ccf50860e2cb6769"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/413",
+      "fragment_sha256": "8c88b8ca2b2ad31a14454953aa66958f3edb6c449f2abc7c02728f7e9c358835"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/414",
+      "fragment_sha256": "00aecf23af53935bb71e8cf4cd0121cc364b1764bb66f2b3a9b3933167d7c4ce"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/415",
+      "fragment_sha256": "7aa53d377d527c1c581a2a477fae4e02d886693a0f6f3ce83a8961e0a2e03e7f"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/416",
+      "fragment_sha256": "1571c44ad8886091a57aba057f29b9894ceb63ec158c1ce32c014ba2d05a07a7"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/417",
+      "fragment_sha256": "971467c21f8d33413e4278aebda27befdc7831cf089ee6502628b9324c42644b"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/418",
+      "fragment_sha256": "5dbe2b3140062468ac9f9a9ee215f679761bd079139ac9ead50d4bd5c72c76bc"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/419",
+      "fragment_sha256": "b493678778c2bdc79e0ca6204c7d8a7ebc480dc38ab6f9c1583c9e44635d34ee"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/420",
+      "fragment_sha256": "0cdb830b4860a4776521cad7d1c37ad3a1b9f37edd5023a2e19cb9a0e48ec292"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/421",
+      "fragment_sha256": "b2ef67fba53973536df70f5484e8fd71664dc8b7047aca1d3b2b6d5c26703dad"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/422",
+      "fragment_sha256": "b0be5ba36e8b9262ff6dbae06b0c15dc5da5df2cda2072a6f4a4eea8bcd73cc3"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/423",
+      "fragment_sha256": "349d93b9e7d931b37aa203e71edfcef4ba18c026207c4c0fbfae61d57b3ebd50"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/424",
+      "fragment_sha256": "b1679e5496f1ed1ea39fefbbfbd4d88521fdcd64c8171c4105b277777026ec34"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/425",
+      "fragment_sha256": "698eb6d64ee9a6c1215a239a269a0e989e75c51bd65ab49914ac6345a4a80b18"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/426",
+      "fragment_sha256": "d4e5352e597050421b0a828a72abd28fb7b37e71695eed1e1402141a0965be71"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/427",
+      "fragment_sha256": "02ae0aed699147e74f4dfc6cac6fc35ad613feeb14b1cde4d726cc2700a7fe83"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/428",
+      "fragment_sha256": "6291f17a05cdf2f235eda99d5ed942ff15d52d5bd8fb5a3f1577d11cba040684"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/429",
+      "fragment_sha256": "73416d36bafe111bf7b0eb0d8f5fb8cac22ce4885b1a86dea7dbc9b1387ad705"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/430",
+      "fragment_sha256": "3303cd6a587b8de88d7345e4a15da44e7e734b19f695f9fde8aa7f591668f417"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/431",
+      "fragment_sha256": "3324657f55d9409c38ca4ecc02e042752c1329728ec72d121307d7f71dc323a2"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/432",
+      "fragment_sha256": "d6fc4dba2b26138f0aace56014dbd2c311531e4dcf67852d1e0776f4ded6cfc3"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/433",
+      "fragment_sha256": "cae310ea4ca6f97eef8369347a2c18089b24666a352024142bc23b4978047f26"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/434",
+      "fragment_sha256": "21c76a36f2133925cf92f3481a2f213b44af9cbd147e3d8e08118b944a9048d8"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/435",
+      "fragment_sha256": "cbbc235c01d80d79ec8527751b0274e5c76ae75c0aaed2fab3ecc36bd0a28c00"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/436",
+      "fragment_sha256": "f2da20ef5bc26fbae0a6b472cf41b2b4df39f159a3938368fce66b25a9a58136"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/437",
+      "fragment_sha256": "7762e83e56a933bcddad4eb50555dd59b87e2ea07b97e2f580f60618eb86c985"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/440",
+      "fragment_sha256": "eff4a92de8a143eb4397bf8eae5669a0ab58ab6f1ca49dfed0546028ea001c92"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/441",
+      "fragment_sha256": "765c1f94f6316bae5005536c4da48c4ccf083780909bba0f7feb4a840006a5fa"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/447",
+      "fragment_sha256": "e13a5fec4266fae887c4a8bfc82e8f158a9708c042823ea9eb85589457a1ae5f"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/48",
+      "fragment_sha256": "784b85d56f6aba7d0958345c572f8bc0d254b2a10d2e6a4ece6add5f9b1a75f9"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/49",
+      "fragment_sha256": "3f4aabcab9485ee403f807f91cd7b7ccf8bb5bededff6f207ac85d1996634fa8"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/50",
+      "fragment_sha256": "1691c01caa11f27388ff29f41557131ebe634b98b3936d674fdfea046b842bc8"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/51",
+      "fragment_sha256": "31a52802c58fc20a310530e9a5578373b44dee38cccbdd44325a6f080e5aa6a3"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/52",
+      "fragment_sha256": "515051d84e5c99469ca520254cfe9df4be0f8f4cf8feb3b348f4b89684bd9ec0"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/53",
+      "fragment_sha256": "cfd295170cc704aef0245ab4680178b3d9e39fa1fb35a769a28a831d47e71c46"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/55",
+      "fragment_sha256": "e0a0d67ad59dfe024f7ff3c895af192dc9a3174407af498dc726efe134041bfd"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/59",
+      "fragment_sha256": "899ee00de8c789dcd1bdec68a3665e141ab531ed4513a85e84bd29a783011780"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/68",
+      "fragment_sha256": "7ff9b81346424d5c88346ed15ab9cdb9585b2b8798dc4a01371a6e138dfdc21d"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/69",
+      "fragment_sha256": "2f8812d3c8936130d10fa6cddcb258d63258b6bb932cd0c9dfd585197055e24b"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/7",
+      "fragment_sha256": "8e4ddce136b0c6534ff2d050ca8f36480a524af8dfac7fc1da86df60f362b466"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/82",
+      "fragment_sha256": "4ecdffc41a03eec3e0b4d409b5d6463e0115a2eedb664b2d5c3997947f76410e"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/83",
+      "fragment_sha256": "dd191e0f8e11e5534bbd65dcfa43df2a89f8e4f8e6cbb66f3be2700b11494f20"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/84",
+      "fragment_sha256": "05e42f876dda994560a330c18296b4f346191fdafc5859678adc8da67a94315a"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/85",
+      "fragment_sha256": "a0a735794402ffbfd7aac1958781dccd970c97d25111ec68056e7a57d752d107"
+    },
+    {
+      "source_id": "combined-security-reference",
+      "locator": "csv/record/99",
+      "fragment_sha256": "efdf8a11f3e0a89ee2d9696f89c714782fc6e8b52ab90c5500cb6d411f4d6fc1"
+    }
+  ]
+}

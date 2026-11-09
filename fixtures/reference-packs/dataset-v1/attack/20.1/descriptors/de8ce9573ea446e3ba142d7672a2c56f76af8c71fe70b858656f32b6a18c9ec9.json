@@ -1,0 +1,24 @@
+{
+  "schema_id": "cartulary.reference_pack_release_descriptor.v3",
+  "pack_key": "framework.attack",
+  "pack_version": "20.1.dataset.4",
+  "authority_class": "fixture",
+  "distribution_status": "blocked_external_licensing_decision",
+  "logical_root": "fixtures/reference-packs/dataset-v1/attack/20.1/logical/29813a3625c663cb9fc4953661510ad849563d838cb166ccc73553938df8bc8f",
+  "envelope_root": "fixtures/reference-packs/dataset-v1/attack/20.1/envelopes/de8ce9573ea446e3ba142d7672a2c56f76af8c71fe70b858656f32b6a18c9ec9",
+  "manifest_sha256": "29813a3625c663cb9fc4953661510ad849563d838cb166ccc73553938df8bc8f",
+  "payload_sha256": "7e7a75265d8f8d56ed4d4aa4052e8c0d2a28316e926e7be7eac38f4a41b958e0",
+  "container_sha256": "de8ce9573ea446e3ba142d7672a2c56f76af8c71fe70b858656f32b6a18c9ec9",
+  "bootstrap_sha256": "b07e515b829154a3739632899387b9a25ae4529ee40a1d30643158dd94fe3b70",
+  "envelope_report_sha256": "006a1e797b7e3addc5f77580da6e5ef02ce0facc26c7f7ba2ad55a01d6983ae9",
+  "source_profile_id": "cartulary.attack.all_domains.dataset.v1",
+  "source_profile_sha256": "1665973ba08a678fa64b223db0713633be26dd6225c9b3ffa0beeff6a5803baa",
+  "source_version": "20.1",
+  "builder": {
+    "builder_id": "cartulary.reference-pack.attack",
+    "builder_source_sha256": "9cb0137f1bd13e0d5d6592de3fc0e3da95801e94e1d948325c8e13da3e5e7d87",
+    "builder_version": "dataset-v1"
+  },
+  "objects": 6221,
+  "relationships": 34632
+}

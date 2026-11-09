@@ -1,0 +1,14 @@
+{
+  "pack_key": "framework.attack",
+  "pack_kind": "framework",
+  "content_profile_id": "cartulary.reference_pack.framework.attack.v2",
+  "content_profile_version": "2",
+  "payload_shape": "objects_relationships",
+  "authority_class": "framework_reference",
+  "required_base": false,
+  "schemas": {
+    "object": "profiles/framework.attack.object.v2.schema.json",
+    "relationship": "profiles/framework.attack.relationship.v2.schema.json"
+  },
+  "max_line_bytes": 4194304
+}

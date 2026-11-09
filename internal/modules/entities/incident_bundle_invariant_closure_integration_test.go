@@ -175,7 +175,7 @@ func entityPortableTestContext(t testing.TB, incidentID, actorID uuid.UUID, oper
 		t.Fatalf("construct entity portable actor catalog: %v", err)
 	}
 	return sourceport.ImportContext{
-		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 7,
+		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 8,
 		OperationID: operationID, Actors: actors,
 	}
 }

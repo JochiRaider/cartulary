@@ -16,15 +16,15 @@ import (
 
 const (
 	ContributionSchemaID = "cartulary.recovery_state_contribution.v1"
-	CatalogSchemaID      = "cartulary.recovery_state_catalog.v2"
+	CatalogSchemaID      = "cartulary.recovery_state_catalog.v3"
 	PostgresUnitCodecID  = "cartulary.postgres_snapshot_unit.v1"
 
 	AuthoredTableCount  = contractrecovery.CurrentRecoveryAuthoredTableCount
 	RequiredTableCount  = contractrecovery.CurrentRecoveryRequiredTableCount
 	ContributionCount   = contractrecovery.CurrentRecoveryContributionCount
 	ObjectFamilyCount   = contractrecovery.CurrentRecoveryObjectFamilyCount
-	catalogFixturePath  = "contracts/recovery/fixtures/recovery-state-catalog.v2.json"
-	catalogDigestPrefix = "CARTULARY-RECOVERY-STATE-CATALOG-V2\n"
+	catalogFixturePath  = "contracts/recovery/fixtures/recovery-state-catalog.v3.json"
+	catalogDigestPrefix = "CARTULARY-RECOVERY-STATE-CATALOG-V3\n"
 )
 
 var ErrInvalidCatalog = errors.New("recovery state catalog is invalid")

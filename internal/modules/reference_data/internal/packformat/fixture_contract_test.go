@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepackfixtures"
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 )
 
 // This is a machine-projection check, not a specification/adoption check.
@@ -91,9 +91,8 @@ func TestExecutableFixtureContracts_Unit(t *testing.T) {
 		}
 		switch id {
 		case "rpfx_set_cardinality_64", "rpfx_set_cardinality_65":
-			// A complete 64-key set is unreachable in the closed 16-key
-			// catalog. Exercise only the independently declared count guard;
-			// the complete-set fixture separately admits all reachable keys.
+			// Exercise the isolated guard; the complete-set vector separately
+			// admits 64 keys, including unregistered generic datasets.
 			if len(vector) != 2 || vector["schema_id"] != "cartulary.reference_pack_cardinality_guard_fixture.v1" {
 				t.Fatal("invalid cardinality guard fixture")
 			}
@@ -140,9 +139,7 @@ func TestExecutableFixtureContracts_Unit(t *testing.T) {
 				}
 			}
 		default:
-			if strings.HasPrefix(id, "rpfx_native_") {
-				t.Run(id, func(t *testing.T) { runNativeFixture(t, root, input, m) })
-			} else if strings.HasPrefix(id, "rpfx_profile_") || strings.HasPrefix(id, "rpfx_type_compatibility_") {
+			if strings.HasPrefix(id, "rpfx_profile_") || strings.HasPrefix(id, "rpfx_type_compatibility_") {
 				runProfileManifest(t, input, m)
 			} else if strings.HasPrefix(id, "rpfx_dependency_") {
 				t.Run(id, func(t *testing.T) { runDependencyManifest(t, input, m) })
@@ -162,14 +159,14 @@ func TestExecutableFixtureContracts_Unit(t *testing.T) {
 			}
 		}
 	}
-	if err := fixtureCoverage(shape, families, profileCases); err != nil {
+	if err := fixtureCoverage(schema, families, profileCases); err != nil {
 		t.Fatal(err)
 	}
 	// Removing the last case of any required class must fail even when the
 	// remaining corpus is otherwise well formed and every row is routed.
 	for family, count := range families {
 		families[family] = 0
-		if err := fixtureCoverage(shape, families, profileCases); err == nil {
+		if err := fixtureCoverage(schema, families, profileCases); err == nil {
 			t.Fatal("missing behavioral family accepted", family)
 		}
 		families[family] = count
@@ -178,7 +175,7 @@ func TestExecutableFixtureContracts_Unit(t *testing.T) {
 		for _, outcome := range []string{"valid", "content_schema_invalid", "content_semantic_invalid"} {
 			count := cases[outcome]
 			cases[outcome] = 0
-			if err := fixtureCoverage(shape, families, profileCases); err == nil {
+			if err := fixtureCoverage(schema, families, profileCases); err == nil {
 				t.Fatal("missing profile case accepted", key, outcome)
 			}
 			cases[outcome] = count
@@ -336,8 +333,8 @@ func validateFixtureRelations(root string, m map[string]any) error {
 
 // Coverage follows executable family and profile declarations, not a fixed
 // inventory total or a second catalog of prose requirement identifiers.
-func fixtureCoverage(manifestShape *shape, families map[string]int, cases map[string]map[string]int) error {
-	for _, value := range manifestShape.properties["fixture_family"].enum {
+func fixtureCoverage(manifestSchema map[string]any, families map[string]int, cases map[string]map[string]int) error {
+	for _, value := range manifestSchema["properties"].(map[string]any)["fixture_family"].(map[string]any)["enum"].([]any) {
 		family := value.(string)
 		if families[family] == 0 {
 			return fmt.Errorf("missing fixture family %s", family)

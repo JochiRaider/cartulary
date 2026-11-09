@@ -11,12 +11,12 @@ import (
 )
 
 func TestEntraCurrentContractAdmission_Unit(t *testing.T) {
-	testCurrentContentProfileAdmission(t, "enrichment.entra_app_ids", "fixtures/entra-app-ids/release.v2.json")
+	testCurrentContentProfileAdmission(t, "enrichment.entra_app_ids", "entra")
 }
 func TestVERISCurrentContractAdmission_Unit(t *testing.T) {
-	testCurrentContentProfileAdmission(t, "framework.veris", "fixtures/veris/release.v1.json")
+	testCurrentContentProfileAdmission(t, "framework.veris", "veris")
 }
-func testCurrentContentProfileAdmission(t *testing.T, key, releasePath string) {
+func testCurrentContentProfileAdmission(t *testing.T, key, datasetName string) {
 	read := func(path string) []byte {
 		t.Helper()
 		b, e := os.ReadFile("../../../../" + path)
@@ -33,19 +33,23 @@ func testCurrentContentProfileAdmission(t *testing.T, key, releasePath string) {
 		}
 		return b
 	}
-	var release struct {
+	var catalog map[string]struct {
 		LogicalRoot string `json:"logical_root"`
 	}
-	if err := json.Unmarshal(read(releasePath), &release); err != nil {
+	if err := json.Unmarshal(read("fixtures/reference-packs/dataset-v1/catalog.json"), &catalog); err != nil {
 		t.Fatal(err)
 	}
-	manifest := read(release.LogicalRoot + "/manifest.json")
-	var vector struct {
-		Members []packformat.SetMember `json:"members"`
-	}
-	if err := json.Unmarshal(read("contracts/reference-pack-fixtures/fixtures/complete-set.v1.json"), &vector); err != nil {
+	manifest := read(catalog[datasetName].LogicalRoot + "/manifest.json")
+	m, err := packformat.DecodeManifest(manifest, true)
+	if err != nil {
 		t.Fatal(err)
 	}
+	payload, err := packformat.PayloadDigest(m.Files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vector := struct{ Members []packformat.SetMember }{currentBaseMembers(t)}
+	vector.Members = append(vector.Members, packformat.SetMember{Key: m.Key, Version: m.Version, ManifestSHA256: packformat.Digest(manifest), PayloadSHA256: payload, Contract: m.Contract, ProfileID: m.ProfileID, ProfileVersion: m.ProfileVersion})
 	set, err := packformat.BuildSet(vector.Members)
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +72,7 @@ func testCurrentContentProfileAdmission(t *testing.T, key, releasePath string) {
 			if err := validate(tc.kind, tc.current); err != nil {
 				t.Fatal("current retained state rejected", err)
 			}
-			old := bytes.ReplaceAll(tc.current, []byte("cartulary.reference_pack."+key+".v2"), []byte("cartulary.reference_pack."+key+".v1"))
+			old := bytes.ReplaceAll(tc.current, []byte("cartulary.reference_pack.dataset.v1"), []byte("cartulary.reference_pack."+key+".v2"))
 			if bytes.Equal(old, tc.current) {
 				t.Fatal("missing profile binding")
 			}
@@ -79,7 +83,7 @@ func testCurrentContentProfileAdmission(t *testing.T, key, releasePath string) {
 	}
 	for i := range vector.Members {
 		if vector.Members[i].Key == key {
-			vector.Members[i].ProfileVersion = "1"
+			vector.Members[i].ProfileVersion = "2"
 		}
 	}
 	if _, err := packformat.BuildSet(vector.Members); err == nil {

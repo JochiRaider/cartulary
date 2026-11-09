@@ -269,13 +269,9 @@ func provenanceFor(setID string, m packformat.Manifest, envelope successfulEnvel
 		method = "tuf_1_0_35_offline_bundle_v1"
 		signers = append(signers, envelope.TrustProposal.Signers["targets"]...)
 	}
-	authority := ""
-	for _, profile := range packformat.Profiles() {
-		if profile.Key == m.Key {
-			authority = profile.Authority
-			break
-		}
-	}
+	// All callers hold an admitted manifest. Unknown content keys do not have
+	// a registry default for kind or authority.
+	authority, _ := packformat.ManifestAuthority(m)
 	return PackProvenance{PackSetID: setID, PackKey: m.Key, PackVersion: m.Version, ManifestSHA256: envelope.ManifestSHA256, PayloadSHA256: envelope.PayloadSHA256, PackContractVersion: m.Contract, ContentProfileID: m.ProfileID, ContentProfileVersion: m.ProfileVersion, AuthorityClass: authority, SourceProfileID: m.SourceProfileID, SourceProfileSHA256: m.SourceProfileSHA256, SourceIdentifier: m.SourceIdentifier, SourceVersion: m.SourceVersion, SourceAsOf: m.SourceAsOf, SourceArtifacts: sourceArtifactsFromFormat(m.Artifacts), License: packLicenseFromFormat(m.License), VerificationMethod: method, LastVerifiedAt: envelope.VerifiedAt, TrustValidUntil: envelope.TrustValidUntil, VerifiedSignerKeyIDs: signers}
 }
 

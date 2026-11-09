@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.reference_pack_fixture_manifest.v1",
   "fixture_id": "rpfx_profile_framework_veris_semantic",
-  "fixture_version": 1,
+  "fixture_version": 3,
   "fixture_family": "content_profile",
   "input_refs": [
     "contracts/reference-pack-fixtures/fixtures/profiles/framework_veris_semantic.v1.json"
@@ -17,7 +17,7 @@
       "severity": "error",
       "phase": "content_semantics",
       "code": "content_semantic_invalid",
-      "path": "$.objects[0].deprecated",
+      "path": "$.objects[0].source_refs[0].artifact_index",
       "entry_id": "veris-schema-node-1da6d72625eab284507898b0483c5f03358f1f2e1d6a11193ad870393b1f7f4b",
       "safe_details": {
         "limit_id": null,
@@ -26,7 +26,7 @@
         "related_pack_key": null,
         "related_pack_version": null
       },
-      "issue_id": "rpi_90f8a7ef8316eea20decb9f5d70e40fa16cae61d851033227bb052ad5dc527f9",
+      "issue_id": "rpi_9304cd1bc7bd8c02d96e4d84d3a2c1125655e07a658674e8eb54a2bd4e3ca093",
       "reason_code": "content_semantic_invalid"
     }
   ],

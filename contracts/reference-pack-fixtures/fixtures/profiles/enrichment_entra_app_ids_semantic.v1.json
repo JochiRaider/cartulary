@@ -1,7 +1,9 @@
 {
+  "schema_id": "cartulary.reference_pack_content_fixture.v1",
   "pack_key": "enrichment.entra_app_ids",
   "members": {
-    "payload/entries.ndjson": "{\"aliases\":[],\"app_id\":\"00000000-0000-0000-0000-000000000001\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"00000000-0000-0000-0000-000000000001\",\"extensions\":{},\"publisher\":null,\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.entra_app_ids.entry.v2\",\"service_principal_names\":[\"example.invalid\"],\"source_refs\":[{\"artifact_index\":1,\"locator\":\"fixture:1\"}]}\n"
-  },
-  "schema_id": "cartulary.reference_pack_content_fixture.v1"
+    "payload/descriptor.json": "{\"lookups\":[{\"components\":[{\"name\":\"value\",\"normalization\":\"ascii_case_insensitive\",\"type\":\"string\"}],\"coverage\":{\"distinct_keys\":1,\"objects\":1,\"postings\":1},\"input_type\":\"scalar\",\"name\":\"label\",\"unique\":false}],\"schema_id\":\"cartulary.reference_pack.dataset.descriptor.v1\"}",
+    "payload/objects.ndjson": "{\"data\":{\"aliases\":[],\"app_id\":\"00000000-0000-0000-0000-000000000001\",\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"entry_id\":\"00000000-0000-0000-0000-000000000001\",\"extensions\":{},\"publisher\":null,\"replacement_entry_id\":null,\"schema_id\":\"cartulary.reference_pack.enrichment.entra_app_ids.entry.v2\",\"service_principal_names\":[\"example.invalid\"],\"source_refs\":[{\"artifact_index\":0,\"locator\":\"fixture:1\"}]},\"deprecated\":false,\"description\":null,\"display_label\":\"Synthetic fixture\",\"lookup_values\":{\"label\":[\"Fixture\"]},\"object_id\":\"00000000-0000-0000-0000-000000000001\",\"object_type\":\"fixture_object\",\"replacement_object_id\":null,\"schema_id\":\"cartulary.reference_pack.dataset.object.v1\",\"source_refs\":[{\"artifact_index\":1,\"locator\":\"fixture:1\"}]}\n",
+    "payload/relationships.ndjson": ""
+  }
 }

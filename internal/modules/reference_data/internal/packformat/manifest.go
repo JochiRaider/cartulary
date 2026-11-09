@@ -3,22 +3,18 @@ package packformat
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"regexp"
 	"slices"
 	"strings"
-	"time"
-	"unicode"
 	"unicode/utf8"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/envelope"
 	"golang.org/x/text/unicode/norm"
 )
 
-const ContractID = "cartulary.reference_pack_contract.v2"
+const ContractID = "cartulary.reference_pack_contract.v3"
 
 // SafeManifestIdentity attributes a candidate without trusting its content or
 // materializing producer defaults. Every other field remains unverified.
@@ -50,78 +46,15 @@ type Profile struct {
 	Schemas      map[string]string `json:"schemas"`
 	MaxLineBytes int               `json:"max_line_bytes"`
 }
-type Manifest struct {
-	SchemaID            string  `json:"schema_id"`
-	Contract            string  `json:"pack_contract_version"`
-	Key                 string  `json:"pack_key"`
-	Kind                string  `json:"pack_kind"`
-	Version             string  `json:"pack_version"`
-	Sequence            int64   `json:"pack_release_sequence"`
-	ProfileID           string  `json:"content_profile_id"`
-	ProfileVersion      string  `json:"content_profile_version"`
-	SourceProfileID     string  `json:"source_profile_id"`
-	SourceProfileSHA256 string  `json:"source_profile_sha256"`
-	Repository          *string `json:"trust_repository_id"`
-	SourceIdentifier    string  `json:"source_identifier"`
-	SourceVersion       string  `json:"source_version"`
-	SourceAsOf          *string `json:"source_as_of"`
-	BuiltAt             string  `json:"built_at"`
-	Builder             struct {
-		ID      string `json:"builder_id"`
-		Version string `json:"builder_version"`
-		SHA256  string `json:"builder_source_sha256"`
-	} `json:"builder"`
-	Artifacts     []SourceArtifact `json:"source_artifacts"`
-	Compatibility struct {
-		Majors       []int    `json:"cartulary_contract_majors"`
-		Capabilities []string `json:"required_capabilities"`
-	} `json:"compatibility"`
-	Dependencies []Dependency `json:"dependencies"`
-	Conflicts    []Conflict   `json:"conflicts"`
-	Files        []File       `json:"files"`
-	Summary      struct {
-		Kind          string `json:"kind"`
-		Entries       *int64 `json:"entry_count,omitempty"`
-		Objects       *int64 `json:"object_count,omitempty"`
-		Relationships *int64 `json:"relationship_count,omitempty"`
-	} `json:"content_summary"`
-	License    License        `json:"license"`
-	Extensions map[string]any `json:"extensions"`
-}
-type SourceArtifact struct {
-	Ref     string `json:"source_ref"`
-	Version string `json:"source_version"`
-	SHA256  string `json:"sha256"`
-}
-type Dependency struct {
-	Key     string `json:"pack_key"`
-	Version string `json:"pack_version"`
-	SHA256  string `json:"payload_sha256"`
-}
-type Conflict struct {
-	Key     string  `json:"pack_key"`
-	Version *string `json:"pack_version"`
-}
-type File struct {
-	Path      string `json:"path"`
-	Role      string `json:"role"`
-	MediaType string `json:"media_type"`
-	Size      int64  `json:"size_bytes"`
-	SHA256    string `json:"sha256"`
-}
-type License struct {
-	Expression     string           `json:"expression"`
-	ListVersion    string           `json:"license_list_version"`
-	Redistribution string           `json:"redistribution"`
-	Notices        []string         `json:"notice_paths"`
-	Bindings       []LicenseBinding `json:"license_ref_bindings"`
-}
-type LicenseBinding struct {
-	Ref  string `json:"license_ref"`
-	Path string `json:"notice_path"`
-}
+type Manifest = envelope.Manifest
+type SourceArtifact = envelope.SourceArtifact
+type Dependency = envelope.Dependency
+type Conflict = envelope.Conflict
+type File = envelope.File
+type License = envelope.License
+type LicenseBinding = envelope.LicenseBinding
 
-var manifestShape = compileProjection("manifest.v1.schema.json")
+var manifestShape = compileProjection("manifest.v2.schema.json")
 var hintShape = compileProjection("bundle_hint.v1.schema.json")
 var profiles = loadProfiles()
 var keyPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}(\.[a-z][a-z0-9_]{0,31}){1,7}$`)
@@ -131,7 +64,7 @@ func loadProfiles() map[string]Profile {
 	var catalog struct {
 		Profiles []Profile `json:"profiles"`
 	}
-	if err := json.Unmarshal(projection("profiles.v2.json"), &catalog); err != nil {
+	if err := json.Unmarshal(projection("profiles.v3.json"), &catalog); err != nil {
 		panic("invalid reference pack profile projection")
 	}
 	result := map[string]Profile{}
@@ -139,6 +72,38 @@ func loadProfiles() map[string]Profile {
 		result[profile.Key] = profile
 	}
 	return result
+}
+
+// ProfileForKey reserves every standardized key and the registry namespace.
+// Unregistered advisory keys share the generic model; content cannot invent
+// registry authority or substitute a different profile for a reserved key.
+func ProfileForKey(key string) (Profile, bool) {
+	if p, ok := profiles[key]; ok {
+		return p, true
+	}
+	if len(key) > 128 || !keyPattern.MatchString(key) || strings.HasPrefix(key, "type_registry.") {
+		return Profile{}, false
+	}
+	return Profile{Key: key, ID: "cartulary.reference_pack.dataset.v1", Version: "1", Shape: "dataset", Schemas: map[string]string{"descriptor": "profiles/dataset.descriptor.v1.schema.json", "object": "profiles/dataset.object.v1.schema.json", "relationship": "profiles/dataset.relationship.v1.schema.json"}, MaxLineBytes: 4194304}, true
+}
+
+// ManifestAuthority resolves policy from an admitted manifest, not the name of
+// an unregistered key. A content model alone cannot supply source meaning.
+func ManifestAuthority(m Manifest) (string, error) {
+	if err := ValidateManifestContract(m); err != nil {
+		return "", err
+	}
+	if p, standard := profiles[m.Key]; standard {
+		return p.Authority, nil
+	}
+	switch m.Kind {
+	case "framework":
+		return "framework_reference", nil
+	case "enrichment":
+		return "advisory_enrichment", nil
+	default:
+		return "", fail("contract_incompatible")
+	}
 }
 func Profiles() []Profile {
 	result := make([]Profile, 0, len(profiles))
@@ -189,11 +154,6 @@ func singleLine(value string, max int) bool {
 	}
 	return true
 }
-func packTime(value string) (time.Time, bool) {
-	t, err := time.Parse("2006-01-02T15:04:05Z", value)
-	return t, err == nil && t.Year() >= 1 && t.Format("2006-01-02T15:04:05Z") == value
-}
-
 func DecodeManifest(data []byte, operator bool) (Manifest, error) {
 	m, err := DecodeManifestSchema(data, operator)
 	if err != nil {
@@ -253,41 +213,8 @@ func ValidateManifestConflicts(m Manifest) error {
 	return nil
 }
 
-// PayloadDigest hashes the already validated manifest order, including notices.
-// It never sorts or repairs untrusted declarations.
 func PayloadDigest(files []File) (string, error) {
-	if len(files) < 1 || len(files) > 66 {
-		return "", fail("manifest_schema_invalid")
-	}
-	h := sha256.New()
-	h.Write([]byte("cartulary.reference_pack.payload.v1\x00"))
-	previous := ""
-	for _, file := range files {
-		digest, ok := hexBytes(file.SHA256, 32)
-		if !ok || file.Size < 0 || file.Size > 268435456 || ValidatePath(file.Path, false) != nil || file.Path <= previous {
-			return "", fail("manifest_schema_invalid")
-		}
-		previous = file.Path
-		var pathLength [4]byte
-		binary.BigEndian.PutUint32(pathLength[:], uint32(len(file.Path)))
-		h.Write(pathLength[:])
-		h.Write([]byte(file.Path))
-		var size [8]byte
-		binary.BigEndian.PutUint64(size[:], uint64(file.Size))
-		h.Write(size[:])
-		h.Write(digest)
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	value, err := envelope.PayloadDigest(files)
+	return value, formatError(err)
 }
-
-func ValidateNotice(data []byte) error {
-	if len(data) == 0 || !utf8.Valid(data) || bytes.HasPrefix(data, []byte{0xef, 0xbb, 0xbf}) || !norm.NFC.IsNormal(data) || data[len(data)-1] != '\n' || (len(data) > 1 && data[len(data)-2] == '\n') {
-		return fail("content_semantic_invalid")
-	}
-	for _, r := range string(data) {
-		if unicode.IsControl(r) && r != '\n' && r != '\t' {
-			return fail("content_semantic_invalid")
-		}
-	}
-	return nil
-}
+func ValidateNotice(data []byte) error { return formatError(envelope.ValidateNotice(data)) }

@@ -27,10 +27,10 @@ func seedMalformedCurrent(t testing.TB, db *sql.DB, kind string) {
 	artifact := "set"
 	vector := read("contracts/reference-pack-fixtures/fixtures/complete-set.v1.json")
 	id := vector["expected_set_id"].(string)
-	value := map[string]any{"schema_id": "cartulary.reference_pack_set.v2", "pack_set_id": id, "pack_set_sha256": strings.TrimPrefix(id, "rpset_"), "members": vector["members"]}
+	value := map[string]any{"schema_id": "cartulary.reference_pack_set.v3", "pack_set_id": id, "pack_set_sha256": strings.TrimPrefix(id, "rpset_"), "members": vector["members"]}
 	if strings.HasPrefix(kind, "current manifest") {
 		artifact = "manifest"
-		release := read("fixtures/entra-app-ids/release.v2.json")
+		release := read("fixtures/reference-packs/dataset-v1/catalog.json")["entra"].(map[string]any)
 		value = read(release["logical_root"].(string) + "/manifest.json")
 		if kind == "current manifest extra" {
 			value["extra"] = true

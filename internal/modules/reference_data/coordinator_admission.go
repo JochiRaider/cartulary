@@ -112,7 +112,7 @@ type operationAdmission struct {
 // Jobs admission and its idempotency receipt. Locks are short and acquired in
 // repository/key/current-set/usage order; no verification runs under them.
 func admitOperationTx(ctx context.Context, tx pgx.Tx, a operationAdmission) (frozenOperation, error) {
-	frozen := frozenOperation{Contract: packformat.ContractID, SchemaID: "cartulary.reference_pack_operation_input.v3", Kind: a.Kind, AdmittedAt: a.At.UTC(), ClockTrusted: a.ClockTrusted, TimeoutSeconds: a.TimeoutSeconds, ContainerSHA256: a.ContainerSHA, ContainerBytes: a.ContainerBytes}
+	frozen := frozenOperation{Contract: packformat.ContractID, SchemaID: "cartulary.reference_pack_operation_input.v4", Kind: a.Kind, AdmittedAt: a.At.UTC(), ClockTrusted: a.ClockTrusted, TimeoutSeconds: a.TimeoutSeconds, ContainerSHA256: a.ContainerSHA, ContainerBytes: a.ContainerBytes}
 	if a.ID == uuid.Nil || a.At.IsZero() || a.TimeoutSeconds < 60 || a.TimeoutSeconds > 86400 {
 		return frozen, errors.New("reference pack: invalid operation admission")
 	}

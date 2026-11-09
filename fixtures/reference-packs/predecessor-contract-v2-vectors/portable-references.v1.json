@@ -1,0 +1,80 @@
+{
+  "schema_id": "reference_pack_refs.v2",
+  "sets": [
+    {
+      "schema_id": "cartulary.reference_pack_set.v2",
+      "pack_set_id": "rpset_c936674fa61126953193cb8d72e8d93ce597f614d050a92cdd59fdc50d68342d",
+      "pack_set_sha256": "c936674fa61126953193cb8d72e8d93ce597f614d050a92cdd59fdc50d68342d",
+      "members": [
+        {
+          "pack_key": "type_registry.evidence",
+          "pack_version": "fixture-1",
+          "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "pack_contract_version": "cartulary.reference_pack_contract.v2",
+          "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
+          "content_profile_version": "1"
+        },
+        {
+          "pack_key": "type_registry.host",
+          "pack_version": "fixture-1",
+          "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "pack_contract_version": "cartulary.reference_pack_contract.v2",
+          "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
+          "content_profile_version": "1"
+        },
+        {
+          "pack_key": "type_registry.indicator",
+          "pack_version": "fixture-1",
+          "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "pack_contract_version": "cartulary.reference_pack_contract.v2",
+          "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
+          "content_profile_version": "1"
+        }
+      ]
+    }
+  ],
+  "versions": [
+    {
+      "pack_key": "type_registry.evidence",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "content_profile_id": "cartulary.reference_pack.type_registry.evidence.v1",
+      "content_profile_version": "1",
+      "distribution_kind": "operator_imported",
+      "verification_method": "tuf_1_0_35_offline_bundle_v1",
+      "source_profile_id": "fixture.source.v1",
+      "source_profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "pack_key": "type_registry.host",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "content_profile_id": "cartulary.reference_pack.type_registry.host.v1",
+      "content_profile_version": "1",
+      "distribution_kind": "operator_imported",
+      "verification_method": "tuf_1_0_35_offline_bundle_v1",
+      "source_profile_id": "fixture.source.v1",
+      "source_profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "pack_key": "type_registry.indicator",
+      "pack_version": "fixture-1",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "pack_contract_version": "cartulary.reference_pack_contract.v2",
+      "content_profile_id": "cartulary.reference_pack.type_registry.indicator.v1",
+      "content_profile_version": "1",
+      "distribution_kind": "operator_imported",
+      "verification_method": "tuf_1_0_35_offline_bundle_v1",
+      "source_profile_id": "fixture.source.v1",
+      "source_profile_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ]
+}

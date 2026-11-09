@@ -359,6 +359,14 @@ assert.equal(childEnvironment.GOARCH, buildContext.goarch);
 assert.ok(buildContext.tags.has(`${childEnvironment.GOARCH}.${childEnvironment.GOAMD64}`));
 assert.ok(!buildContext.tags.has("cgo") && !buildContext.tags.has("race"));
 assert.deepEqual(ordinaryInvocation.args, ["test", "-json", "-count=1", "-p=2", "-run", "^(?:TestActive)$", "./internal/fixture"]);
+const [moduleInvocation] = buildGoInvocations([
+  { row_id: "independent", selector: { package: "./referencepacks/format/dataset", tests: ["TestGenericAdmissionAndLookup"] } },
+], 2, "pinned-go", buildContext);
+assert.deepEqual(moduleInvocation.args, ["-C", "referencepacks/format", "test", "-mod=readonly", "-json", "-count=1", "-p=2", "-run", "^(?:TestGenericAdmissionAndLookup)$", "./dataset"]);
+assert.equal(moduleInvocation.environment.GOWORK, "off");
+assert.throws(() => buildGoInvocations([
+  { row_id: "unknown", selector: { package: "./referencepacks/undeclared/data", tests: ["TestUnknown"] } },
+], 1, "go", buildContext), /unregistered independent Go module/);
 const graph = new WorkGraphCompiler(root).compile({ kind: "target", target: "harness.suite_backend_unit" });
 const goUnits = graph.units.filter((unit) => unit.unit_id.startsWith("go:"));
 assert.ok(goUnits.length > 0);

@@ -1,0 +1,5 @@
+{
+  "max_aliases": 64,
+  "max_profile_array": 64,
+  "max_source_refs": 64
+}

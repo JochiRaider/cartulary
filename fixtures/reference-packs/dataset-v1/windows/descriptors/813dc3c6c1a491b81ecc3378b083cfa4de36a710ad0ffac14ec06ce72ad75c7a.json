@@ -1,0 +1,24 @@
+{
+  "schema_id": "cartulary.reference_pack_release_descriptor.v3",
+  "pack_key": "enrichment.windows_event_ids",
+  "pack_version": "2026.11.08.dataset.3",
+  "authority_class": "release",
+  "distribution_status": "approved_existing_output_policy",
+  "logical_root": "fixtures/reference-packs/dataset-v1/windows/logical/54424ac332cb382e8bac69a9216319ae6d86a2265d76e9dfe7985c04f6d64cfd",
+  "envelope_root": "fixtures/reference-packs/dataset-v1/windows/envelopes/813dc3c6c1a491b81ecc3378b083cfa4de36a710ad0ffac14ec06ce72ad75c7a",
+  "manifest_sha256": "54424ac332cb382e8bac69a9216319ae6d86a2265d76e9dfe7985c04f6d64cfd",
+  "payload_sha256": "29096ea3f0d459afce5375fd9588cc300c8ff91b9bf39209cfbda8dca547d216",
+  "container_sha256": "813dc3c6c1a491b81ecc3378b083cfa4de36a710ad0ffac14ec06ce72ad75c7a",
+  "bootstrap_sha256": "21ffd16b6e43024cc0355b9edca6ad3db47113c6719915d3562dc8045b5860b5",
+  "envelope_report_sha256": "728816cfca500be0bbec5fb3a0cc4af6d3130306c50eb47454fe88e758cae017",
+  "source_profile_id": "cartulary.windows_event_ids.microsoft_references.dataset.v1",
+  "source_profile_sha256": "979d5c01c53e572ff827da3c1928e39e22a1cd9385a2f03f4b826617139ef356",
+  "source_version": "microsoft-references:40a5e272b0fc2483526f02f5a7eb98707524f6ca7489919d9b88abd754c43fca",
+  "builder": {
+    "builder_id": "cartulary.reference-pack.windows",
+    "builder_source_sha256": "5f0de9c8d19688e7d7ef22de09b875de5e47eb19aee037675ec5fe406b8ec25c",
+    "builder_version": "dataset-v1"
+  },
+  "objects": 503,
+  "relationships": 0
+}

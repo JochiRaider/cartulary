@@ -1,0 +1,12 @@
+{
+  "schema_id": "cartulary.reference_pack_format_limits.v1",
+  "fixed": {
+    "max_manifest_files": 66,
+    "max_root_keys": 64,
+    "max_signatures": 64,
+    "max_root_update_signatures": 128,
+    "max_source_artifacts": 64,
+    "max_dependencies": 64,
+    "max_conflicts": 64
+  }
+}

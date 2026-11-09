@@ -6,7 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/referencepacks/format/canonicaljson"
 	"github.com/google/uuid"
 )
 

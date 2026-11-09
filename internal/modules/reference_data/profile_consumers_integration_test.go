@@ -32,7 +32,7 @@ func TestIndicatorRegistryProfileConsumer_Integration(t *testing.T) {
 }
 
 func TestATTACKProfileConsumer_Integration(t *testing.T) {
-	runCanonicalProfileConsumer(t, "framework.attack")
+	runGenericProfileConsumer(t, "framework.attack")
 }
 
 func TestD3FENDProfileConsumer_Integration(t *testing.T) {
@@ -40,7 +40,7 @@ func TestD3FENDProfileConsumer_Integration(t *testing.T) {
 }
 
 func TestVERISProfileConsumer_Integration(t *testing.T) {
-	runVERISLifecycle(t, false)
+	runGenericProfileConsumer(t, "framework.veris")
 }
 
 func TestTORProfileConsumer_Integration(t *testing.T) {
@@ -56,11 +56,11 @@ func TestMSPortalsProfileConsumer_Integration(t *testing.T) {
 }
 
 func TestWindowsEventIDsProfileConsumer_Integration(t *testing.T) {
-	runCanonicalProfileConsumer(t, "enrichment.windows_event_ids")
+	runGenericProfileConsumer(t, "enrichment.windows_event_ids")
 }
 
 func TestEntraAppIDsProfileConsumer_Integration(t *testing.T) {
-	runCanonicalProfileConsumer(t, "enrichment.entra_app_ids")
+	runGenericProfileConsumer(t, "enrichment.entra_app_ids")
 }
 
 func TestLOLBASProfileConsumer_Integration(t *testing.T) {
@@ -109,9 +109,6 @@ func runCanonicalProfileConsumer(t *testing.T, packKey string) {
 						t.Fatal(err)
 					}
 					row["external_refs"] = []any{map[string]any{"source_name": "a", "external_id": "shared", "url": nil}, map[string]any{"source_name": "a", "external_id": "shared", "url": "https://example.com/"}, map[string]any{"source_name": "b", "external_id": "shared", "url": nil}}
-					if fixture.Key == "framework.attack" {
-						row["source"].(map[string]any)["external_references"] = []any{map[string]any{"source_name": "a", "external_id": "shared"}, map[string]any{"source_name": "a", "external_id": "shared", "url": "https://example.com/"}, map[string]any{"source_name": "b", "external_id": "shared"}}
-					}
 					lines[i] = string(integrationCanonical(t, row))
 				}
 				return []byte(strings.Join(lines, "\n") + "\n")
@@ -197,9 +194,6 @@ func runCanonicalProfileConsumer(t *testing.T, packKey string) {
 			limit := 1
 			request := reference_data.LookupPackEntriesRequest{PackSetID: set.Value.ID, PackKey: fixture.Key, LookupKind: "external_id", LookupValue: "shared", Limit: &limit}
 			expectedIDs := []string{"fixture:1", "fixture:2"}
-			if fixture.Key == "framework.attack" {
-				expectedIDs = []string{"tool--00000000-0000-4000-8000-000000000001", "tool--00000000-0000-4000-8000-000000000002"}
-			}
 			for index, want := range expectedIDs {
 				page := consumer.LookupPackEntries(ctx, request)
 				if page.Error != nil || page.Value == nil || len(page.Value.Items) != 1 {

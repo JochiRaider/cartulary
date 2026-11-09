@@ -145,8 +145,8 @@
     },
     {
       "profile_id": "reference_pack",
-      "contract_major": 3,
-      "implementation_id": "cartulary.reference_pack.builtin.v2",
+      "contract_major": 4,
+      "implementation_id": "cartulary.reference_pack.builtin.v3",
       "state_ownership_kind": "core_managed",
       "implemented_contribution_ids": [
         "reference_pack.packs_route"

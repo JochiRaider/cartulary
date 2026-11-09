@@ -30,7 +30,7 @@ func TestPreparedBoundAndSchemaReferenceConfinement_Unit(t *testing.T) {
 				t.Error("cyclic projection reference accepted")
 			}
 		}()
-		compileProjectionChain("prepared.v1.schema.json", map[string]bool{"prepared.v1.schema.json#": true})
+		compileShape(map[string]any{"$ref": "inline.schema.json"}, nil)
 	}()
 	func() {
 		defer func() {

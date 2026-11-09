@@ -38,6 +38,13 @@
         ".cjs"
       ],
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "tools/reference-packs/generated",
+      "allowed_extensions": [
+        ".cjs"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     }
   ],
   "generated_files": [
@@ -180,6 +187,426 @@
         ".mjs"
       ],
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "contracts/reference-packs/bundle_hint.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/manifest.v2.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/tuf_metadata_descriptor.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/tuf_root_metadata.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/tuf_signature.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/tuf_snapshot_metadata.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/tuf_target_descriptor.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/tuf_targets_metadata.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/tuf_timestamp_metadata.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/spdx_identifiers.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/profiles/dataset.descriptor.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/profiles/dataset.object.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-packs/profiles/dataset.relationship.v1.schema.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/manifest.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/complete-set.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/portable-references.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/portable-content.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/signed-container.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/portable-input.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/manifest_identity.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/complete_set.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/signed_container.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/equivalent_gzip.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/equivalent_gzip.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/equivalent_tar.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/equivalent_tar.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/equivalent_zip.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/equivalent_zip.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/json_bom.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/json_bom.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/json_duplicate.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/json_duplicate.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/json_invalid_utf8.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/json_invalid_utf8.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/json_noncanonical.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/json_noncanonical.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/json_unknown.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/json_unknown.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/license_document_ref.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/license_document_ref.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/license_prohibited.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/license_prohibited.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/license_restricted.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/license_restricted.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/license_spdx_exception.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/license_spdx_exception.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/license_spdx_invalid.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/license_spdx_invalid.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/license_spdx_valid.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/license_spdx_valid.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/license_unbound_ref.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/license_unbound_ref.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/license_unregistered.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/license_unregistered.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/source_0b221a86ed33.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/source_0b221a86ed33.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/source_f0c7012f41ea.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/source_f0c7012f41ea.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixtures/admission/source_fe60f8ccc99b.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
+    },
+    {
+      "path": "contracts/reference-pack-fixtures/fixture-manifests/admission/source_fe60f8ccc99b.v1.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{"
     }
   ],
   "lint_scope_checks": {
