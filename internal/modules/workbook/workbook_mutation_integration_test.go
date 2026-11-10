@@ -27,17 +27,6 @@ func TestPartiesSurface_Integration(t *testing.T) {
 	})
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
-	listResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas", nil, httptestx.WithCookies(adminLogin.Session))
-	listData := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)
-	if !viewSchemaListContains(listData["view_schemas"].([]any), "cartulary.view.parties.v1") {
-		t.Fatalf("Parties schema missing from base-profile discovery: %#v", listData["view_schemas"])
-	}
-	singleResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.parties.v1", nil, httptestx.WithCookies(adminLogin.Session))
-	singleData := httptestx.RequireSuccessEnvelope(t, singleResp, http.StatusOK)["data"].(map[string]any)
-	if singleData["view_schema_id"] != "cartulary.view.parties.v1" || singleData["surface_kind"] != "system_view" {
-		t.Fatalf("unexpected Parties singleton schema: %#v", singleData)
-	}
-
 	beforeRecords := countIncidentRecords(t, harness, incidentID)
 	beforeProjection := countViewRows(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1")
 	invalidParty := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, map[string]any{
@@ -1078,15 +1067,6 @@ func countViewRows(t testing.TB, harness *appsupport.ServerHarness, login authco
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	return len(body["data"].(map[string]any)["rows"].([]any))
-}
-
-func viewSchemaListContains(items []any, viewSchemaID string) bool {
-	for _, item := range items {
-		if item.(map[string]any)["view_schema_id"] == viewSchemaID {
-			return true
-		}
-	}
-	return false
 }
 
 func seedDecisionRecord(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, summary string) uuid.UUID {

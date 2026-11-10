@@ -44,7 +44,6 @@ import {
   createTimelineRow,
   driveRealTimelineSummaryConflict,
   editTimelineSummary,
-  exerciseRevokedPendingReplay,
   exerciseSameFieldResolver,
   expectServerSummaries,
   expectServerTimelineCells,
@@ -349,7 +348,6 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
   browserScope,
   page,
   sessionTracker,
-  testActorRequest,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -608,21 +606,6 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
 
     if (remotePage) await browserScope.closeContext(remotePage.context());
   }
-
-  await exerciseRevokedPendingReplay({
-    createdBy: "end-to-end.collaboration.row-01",
-    incidentKeyPrefix: "COLLABORATIONREVOKE",
-    page,
-    scenario: "revoked",
-    sessionTracker,
-    triggerRevocation: async ({ member }) => {
-      await revokeAllSessions(
-        testActorRequest,
-        member.user_id,
-        "end-to-end.collaboration.row-01 browser revoke-all",
-      );
-    },
-  });
 });
 
 async function preparePresenceClients(
@@ -1562,7 +1545,6 @@ test("replays queued unsent writes after re-authentication without silent reload
   page,
   sessionTracker,
   testActor,
-  testActorRequest,
 }) => {
   await test.step("replays transient browser request failures in FIFO order after transport recovery", async () => {
     const incidentId = await createIncident(
@@ -1982,28 +1964,6 @@ test("replays queued unsent writes after re-authentication without silent reload
     });
 
     await patchController.dispose();
-  });
-
-  await test.step("replays queued writes in FIFO order after real session revocation and re-authentication", async () => {
-    await exerciseRevokedPendingReplay({
-      createdBy: "collaboration-conflict",
-      incidentKeyPrefix: "E605REVOKE",
-      localValues: [
-        "collaboration-conflict revoked A local",
-        "collaboration-conflict revoked B local",
-        "collaboration-conflict revoked C local",
-      ],
-      page,
-      scenario: "revoked",
-      sessionTracker,
-      triggerRevocation: async ({ member }) => {
-        await revokeAllSessions(
-          testActorRequest,
-          member.user_id,
-          "Collaboration collaboration-conflict browser revoke-all",
-        );
-      },
-    });
   });
 });
 

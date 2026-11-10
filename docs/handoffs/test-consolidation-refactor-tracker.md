@@ -1,10 +1,10 @@
 # Test Consolidation Refactor Tracker and Handoff
 
-Version: 1.8.0  
+Version: 1.12.0
 Date: 2026-11-10  
 Target: Cartulary testing ecosystem  
-Authoring status: recovered-panic correction complete — scoped GO  
-Artifact mode: corrective handoff; S-051 and final S-012/S-014 govern readiness
+Authoring status: implementation, final-diff review corrections and S-056 handoff complete
+Artifact mode: normal; S-052–S-056 govern current work; S-051 remains completed history
 
 ## 1. Scope and Source Posture
 
@@ -26,14 +26,15 @@ supplies planning doctrine. Neither establishes that a test, defect, or runtime
 result exists. The [domain document](../domain.md) supplies vocabulary and owner
 navigation; it does not establish exact test selectors or internal filenames.
 
-**TCR-REQ-002 — Current authorization.** The maintainer's instruction to
-"Implement the proposed plan" authorizes the remediation workstreams in §6,
-including owner amendments, authored implementation and test changes, canonical
-generation, targeted validation, and this tracker's checkpoint updates. The
-tracker-only restriction applied to the initial authoring session and remains
-historical evidence; it does not restrict this implementation session. Repository
-procedure and generated-artifact safeguards continue to apply. Another session's
-services and unrelated work remain outside scope.
+**TCR-REQ-002 — Current authorization.** The maintainer explicitly requested
+implementation of the accepted S-052–S-056 remediation plan on 2026-11-10.
+This authorizes its test/support edits, authored routing, Make regeneration,
+targeted qualification and tracker checkpoints. Execute slices sequentially;
+update this tracker after each completed workstream and before entering the next.
+The earlier document-only permission and evidence remain historical. No staging,
+commit, merge or deployment is requested. Owner-required corrections discovered
+in qualification require a separately recorded corrective workstream before
+any dependent retirement; defective behavior is not a compatibility promise.
 
 **TCR-REQ-003 — Prose isolation.** Tests, generators, runtime metadata,
 conformance, and release evidence MUST NOT read, stat, hash, parse, or depend on
@@ -111,6 +112,29 @@ pre-write comparison baseline is recorded in E-024: HEAD advanced again to
 9472 non-output entries were fingerprinted. E-025 identifies stale
 invocation details; other unchanged candidate source observations remain pinned
 to their inspected baseline. Future sessions MUST revalidate affected evidence.
+
+### 1.4 Next-iteration planning baseline, 2026-11-10
+
+The target remains the repository testing ecosystem, canonical target `.`; the
+only admitted output is `docs/handoffs/test-consolidation-refactor-tracker.md`.
+The maintainer selected the broader product/HTTP/browser portfolio rather than
+an enforcement-test-only iteration. The framework remains
+`docs/handoffs/cartulary_modular_refactor_planning_framework.md`; adopted Core 00,
+Core 01 §7.4, Core 03 §4.4 and Harness REQ-800 govern the affected boundaries.
+The plan introduces no product requirement, public API, schema or storage change.
+
+| Baseline item | Starting evidence | Comparison scope |
+| --- | --- | --- |
+| Source | Clean `main` at `0a4708625906f4d5827ac76dba17f9f2d4e3e799`; no staged, unstaged or untracked changes. | New planning baseline; the earlier `beaf029` dirty-tree observations stay historical. |
+| File universe | 9,509 tracked/nonignored entries, content hashes and mode/device/inode/link identities. | All entries accounted for; only the tracker may differ. Enumeration is not assertion-level inspection. |
+| Index | SHA-256 `42689a282678aea863ace221eee0f846de7631017a264b94f598d3b879fa66ac`. | Must remain unchanged, together with HEAD. |
+| Tracker | Regular, singly linked file; output and parent components are not symlinks. Initial SHA-256 `1df254854ea1793400395668038cb4313a60e97a4c0c07bb608806b6b2b1958b`. | Canonical identity and content rechecked immediately before editing. |
+| Comparison material | `/tmp/cartulary-next-consolidation-plan-baseline-20261110.json`. | Private baseline outside the repository; not a test or release input. |
+| Ignored outputs | Immediate identities and child names of `.cartulary/test-results` and `.cache/cartulary/static-analysis` captured. | No new product runs; descendant contents are not exhaustively hashed. |
+
+Planning completeness, slice readiness and implementation authorization are
+independent (§12). This document creates no new passing implementation evidence
+and does not renew S-051's commit recommendation for a later change set.
 
 ## 2. Current-State Repository Inventory
 
@@ -2563,6 +2587,32 @@ CPU, service, test-body or cleanup cost. Current functional run durations are
 retained diagnostics, not a performance baseline. Retention/placement decisions
 are therefore justified by assurance and the adopted harness contract.
 
+### 2.6 Next-iteration inventory and inspection limits
+
+At `0a4708625`, the authored family manifests enumerate **2,612 rows across 66
+owners**: Go 1,208, Vitest 753, Playwright 613 and shell 38. These metadata counts
+supersede §2.5 only as a current census; they are not completeness targets. The
+9,509-entry repository census is metadata/content-identity accounting. Existing
+per-file and owner ledgers remain historical; assertions outside the following
+selected boundaries have not received a new semantic audit.
+
+| Paths / source kind | Inspection depth and current responsibility | Planned disposition / owner |
+| --- | --- | --- |
+| [Session recovery](../../apps/web/e2e/session-recovery.spec.ts), [replay support](../../apps/web/e2e/support/collaboration/replay.ts), [Collaboration scenarios](../../apps/web/e2e/collaboration.spec.ts), [Timeline public routes](../../apps/web/e2e/timeline-public-route.spec.ts) | Authored browser source; all six helper call sites, complete recovery helper and relevant editor/detachment helpers inspected. Large parent scenarios inspected at affected blocks, not exhaustively. | One canonical revoke-all witness; retain logout/idle expiry and distinct parent observations. module.collaboration; Workbook/Timeline collaborators. S-052 must finish the assertion ledger before removal. |
+| [Queue units](../../apps/web/src/workbook/runtime/pending/workbookPendingQueue.node.test.ts), [coordinator units](../../apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.node.test.ts) | Relevant FIFO cases inspected; they test queue/coordinator behavior without a live browser. Remaining cases metadata-only in this iteration. | Retain as independent assurance; the browser gap is not a claim that FIFO has no unit coverage. |
+| [Registry browser](../../apps/web/e2e/workbook-registry.spec.ts), [surface units](../../packages/view-contracts/src/surfaces.node.test.ts) | Registry comparisons and browser navigation inspected; pure identities/partitions already have package assertions. | Keep package identity checks and browser mounting/navigation separately. package.view_contracts and module.workbook. |
+| [Workbook HTTP](../../internal/modules/workbook/workbook_integration_test.go), [Parties mutation HTTP](../../internal/modules/workbook/workbook_mutation_integration_test.go), [optional catalogs](../../internal/modules/workbook/optional_surfaces_catalog_test.go) | Relevant discovery, singleton, create-admission and optional-resource blocks inspected; unrelated product cases remain pending for any later relocation. | Extend the central HTTP registry witness; preserve Parties surface kind and owner mutation behavior. module.workbook. |
+| [Clipboard HTTP](../../internal/modules/workbook/clipboard_paste_integration_test.go), [mutation replay HTTP](../../internal/modules/workbook/mutation_replay_test.go), [HTTP assertions](../../internal/testutil/httptestx/response.go) | Cross-incident paste/no-partial-write and replay/error-envelope blocks inspected. | Retain stronger HTTP successors; add only missing Timeline validation observations. module.workbook. |
+| [Continuation routes](../../apps/web/e2e/workbook-query.routes.spec.ts), [continuation authority](../../apps/web/e2e/workbook-query.authority.spec.ts), [merge scenario](../../apps/web/e2e/merge.spec.ts), [merge support](../../apps/web/e2e/support/entities/merge.ts) | Candidate review, including helper tracing. API setup and helper-mediated UI are not evidence of redundancy. | Retain; route diversity, live authorization, inspector interaction and focus remain distinct. Further reduction deferred. |
+| [Extension state](../../apps/web/e2e/extensions.stateful.spec.ts), [fixture isolation](../../apps/web/e2e/fixture-state.spec.ts), [clock recovery](../../apps/web/e2e/clock.spec.ts), [audit browser](../../apps/web/e2e/administrative-audit.spec.ts) | Candidate blocks and helper use inspected, not a complete behavioral review of each large file. | Retain; lifecycle, owned cleanup, actual expiry and keyboard/focus observations need separate proof before movement. |
+| Current family manifests and relevant verification owners | Structured selectors, stages, profiles, ownership and tiers inspected; no commands executed. | Preserve current semantic ownership; author the one proposed HTTP row only during later implementation. |
+| Remaining authored files; generated/vendor/binary entries; ignored dependencies/build/results | Metadata-only or excluded from semantic review with these reasons. No traversal into external targets or ignored dependency trees. | No deletion decision. Next boundary is the selected assertion/successor ledger, not a repository-wide rewrite. |
+
+No text-search count or absence of direct `page.getBy*` calls establishes that a
+scenario lacks browser behavior. In particular, merge and session recovery hide
+real interactions in helpers. No case is retired solely because it uses
+`page.request`, a familiar title, or a shared fixture.
+
 ## 3. Module Boundary Diagnosis
 
 ### 3.1 Structural diagnosis
@@ -2622,6 +2672,20 @@ a lower layer cannot observe its boundary.
 policy maintenance and mismatched execution boundaries. Reducing test count
 without establishing effective surviving assertions would worsen assurance.
 
+### 3.3 Next-iteration responsibility decisions
+
+| Responsibility | Owner / decision | Structural benefit and boundary |
+| --- | --- | --- |
+| Real session-loss replay choreography | Keep feature-owned support in browser Collaboration; consolidate revoke-all execution in its dedicated case. | One complete scenario; no new universal runner or cross-owner callback framework. |
+| Surface registry identity | Keep in package.view_contracts units. | Pure adapter/partition checks do not need a browser process. |
+| Public registry and mutation admission | Keep/extend assembled module.workbook HTTP tests. | Auth, routing, serialization and persistence effects remain observable beyond unit decoders. |
+| Navigation, editor submission, focus and recovery | Keep browser-owned assertions and explicit scenario identity. | Lower-layer passes cannot stand in for actual client construction or rendered behavior. |
+| Queue/coordinator logic, fixture isolation, visual/accessibility and extension lifecycle | Retain their existing distinct owners; defer further consolidation. | Similar setup does not make these failure modes equivalent. |
+
+Consolidation removes repeated obligations only after an effective successor is
+qualified. No broad compatibility wrapper, mutable shared fixture, retired-row
+alias, test-count target or production architecture change is proposed.
+
 ## 4. Public Contract and Behavior Freeze Map
 
 **TCR-REQ-011 — Preservation boundary.** Consolidation MUST preserve
@@ -2651,7 +2715,36 @@ Their tests MUST still be inventoried and their obligations retained. A later
 slice touching their evidence MUST add the affected owner clauses and exact
 case mapping before entry; a generic preservation statement cannot replace it.
 
+### 4.1 Next-iteration contracts
+
+| Contract | Adopted owner and required observation | Preserve / correction boundary | Finding / slice / validation |
+| --- | --- | --- | --- |
+| C-012 Test-layer and successor accounting | Harness REQ-800 and TCR-REQ-009/010/016: every removed assertion has a named survivor and explicit boundary/profile; retired IDs have no runtime aliases. | Structural consolidation; no test, generator or evidence consumer reads this tracker. | F-052–054; S-052–056; V-015–019. |
+| C-013 Browser session-loss FIFO | Core 03 §4.4, especially REQ-03-099: admitted work survives same-runtime revocation, reauth rechecks authority, and replay follows enqueue order rather than visible order. | Correct the ineffective browser witness first. Preserve unit/coordinator coverage, logout/expiry mechanisms and distinct parent behavior. | F-051/F-052; S-053; V-015. |
+| C-014 Registry identity and public/browser exposure | Core 01 §7.4 and its authored machine projections: identities/status partitions, exposed singleton resources and actual navigation are separate observations. | Unit matrix, HTTP matrix and browser navigation each retain their boundary. No new expected-data generator. | F-053; S-054; V-016. |
+| C-015 Timeline request admission and safe effects | Core 01 mutation/view contracts and §3.3.6.2 public-error details; Core 03 mutation/conflict behavior. The browser matrix is observation evidence, not requirement authority. | Map invalid-field/limit/version and safe-error assertions to their owners in S-052. Move standalone API assertions only; preserve captured client requests, errors presented by the client, focus and recovery. | F-054; S-055; V-017. |
+
+Existing product behavior that contradicts an adopted owner is not a compatibility
+promise. If qualification exposes such a defect, record a separate owner-backed
+correction and block the dependent removal; do not hide a production repair in a
+structural slice. No owner amendment is currently required for this iteration.
+
 ## 5. Coupling and Boundary Findings
+
+### Current iteration findings: F-051–F-054 — resolved
+
+| Finding / classification | Source evidence | Remediation and rationale | Compatibility / risk if unresolved | Completion criterion |
+| --- | --- | --- | --- | --- |
+| F-051 Incomplete multi-edit browser FIFO witness; must_fix for S-053 | E-028: the helper creates every requested record but initializes `queuedReplayItems` with only the first and queues only that item. | Repair the scenario before consolidation; require every supplied edit to be admitted and observed. Existing units do not replace the browser boundary. | Test-support-only tightening; no production defect is established. Leaving it retains misleading FIFO claims and can conceal dropped or reordered later work. | Three distinct edits survive real revocation and replay in enqueue order with exact successful count and persisted values. C-013; V-015. |
+| F-052 Repeated revoke-all scenario execution; should_fix | E-028: four revoke-all invocations across dedicated recovery, Timeline and two Collaboration parent cases; the helper creates independent incident/user fixtures. | Keep one stronger dedicated witness, remove three embedded repetitions after qualification, retain logout and idle-expiry cases. | Internal fixture migration only; deleting surrounding cases would lose independent UI/transport assurance. | Three intended trigger scenarios remain; no duplicate revoke-all block or lost parent obligation. C-012/C-013; V-015. |
+| F-053 Registry checks span inappropriate layers; should_fix | E-029: package identities/partitions repeat in the browser; singleton/discovery checks also appear in Parties HTTP coverage. | Own exact identities in package units, all public singleton observations in one assembled HTTP matrix, and mounting/navigation in the browser. | No public contract change. Self-derived expectations or lost Parties kind/unsupported-resource checks could weaken detection. | All mapped unit/HTTP/UI assertions pass before predecessor blocks are removed. C-012/C-014; V-016. |
+| F-054 Standalone API validation embedded in Timeline browser lifecycle; should_fix | E-030: five forbidden create fields, patch shape/limit/version cases and direct foreign-target paste do not themselves observe UI submission. | Centralize those assertions in owner HTTP tests; reuse the stronger cross-incident paste survivor. Retain UI-generated payload/replay and recovery observations. | No runtime migration. Removing captured-request or error-presentation checks would lose the browser/client boundary. | Exact HTTP errors, unchanged mutation effects and preserved browser behavior have compatible evidence. C-012/C-015; V-017. |
+
+All four findings are DONE under the S-056 closure matrix in §10. Their source
+evidence describes the entry baseline; the remediation columns retain the
+approved decisions. The findings are scoped to S-052–S-056. Existing enforcement tests, source admission,
+capabilities and prior SQL fixes are not consolidation targets in this iteration.
+The older findings below retain their original source/evidence context.
 
 ### 5.1 Findings register
 
@@ -2794,9 +2887,33 @@ The five-command harness restatement MUST NOT override Core's seven commands.
 
 ## 6. Refactor Workstreams
 
-### Current corrective execution graph: S-051
+### Execution graph: S-052–S-056 and review corrections
 
-**Scoped GO for the documented pending change set.** F-050 and S-051 are complete:
+**Original implementation and review corrections complete.** The
+execution checkpoint in §10 records current evidence. The dependency column is
+the authoritative prerequisite list. Runtime qualification gates do not prevent
+entering the slice that establishes them; they prevent dependent retirement.
+
+| Slice | Prerequisite | Work status / readiness | Binary exit |
+| --- | --- | --- | --- |
+| S-052 Obligation and successor ledger | Current baseline and accepted implementation plan | DONE / ready | Every proposed removal maps exact assertions, owner, boundary, row/profile, successor and unique retained observations. |
+| S-053 Replay witness and consolidation | S-052 | DONE / qualified | A qualified three-edit FIFO witness precedes removal of the three duplicate revoke-all invocations; all affected parents and trigger cases pass. |
+| S-054 Registry ownership | S-052 | DONE / qualified | Unit identities, full HTTP singleton matrix and browser navigation pass before duplicate blocks are removed. |
+| S-055 Timeline validation ownership | S-052 | DONE / qualified | Focused HTTP admission and clipboard successors pass; reduced browser scenarios preserve actual client behavior. |
+| S-057 Restore lookup identity assertion | S-054 and final-diff review | DONE / qualified | Exact lookup identity is restored in the package successor and its row passes. |
+| S-058 Observe recovered browser materialization | S-053 and S-057 checkpoint | DONE / qualified | All three recovery triggers verify restored visible values and exact final replay observations. |
+| S-056 Routing, evidence and handoff | S-053, S-054, S-055; review corrections S-057/S-058 | DONE / review qualified | Authored routing, generated projections, successor ledger, cleanup and final source review close without orphaned assurance. |
+
+S-054 and S-055 have no semantic dependency on S-053 or each other. The
+accepted execution schedule is nevertheless S-052 → S-053 → S-054 → S-055 →
+S-056, with a completed tracker checkpoint between slices. No parallel agents
+or shared fixture state are introduced. Characterization and deletion remain ordered within each slice. S-051,
+S-012 and S-014 below remain DONE for their historical scope rather than being
+reopened to track unrelated future work.
+
+### Historical completed corrective graph: S-051
+
+**Historical scoped GO for the S-051 pending change set.** F-050 and S-051 are complete:
 every defer in a raw SQL helper's own body rejects its summary. Fresh mechanics
 and production checks qualify both consumers; S-012 and S-014 are complete.
 F-047–049 and S-047–050 retain compatible evidence for unchanged obligations,
@@ -2806,8 +2923,8 @@ and universal SQL soundness claims remain outside this recommendation. No
 production exploit path was established.
 
 Baseline: main at `beaf0293634e6aef9e62aa5670e033a26b6458d3`; 524 tracked changes,
-44 untracked files, nothing staged. The current content/file-identity baseline is
-`/tmp/cartulary-s051-baseline-20261110.json`; the S-047 baseline is historical.
+44 untracked files, nothing staged. The S-051 content/file-identity baseline was
+`/tmp/cartulary-s051-baseline-20261110.json`; both it and S-047 are historical.
 Preserve unrelated edits and the
 index. No staging, commit, merge or deployment is authorized by this task.
 
@@ -3411,11 +3528,11 @@ WF-00 is satisfied by the revalidated execution baseline in E-026.
 | S-012 Coverage and reliability closure | S-011 | DONE | Close identified obligation gaps and blocking defects; preserve failure evidence and limits on stability claims. | V-012 |
 | S-014 Final validation and handoff | S-012 and every required corrective slice | DONE | Reconcile compatible results, routing, all acceptance criteria, residual limits and final handoff. | V-011/V-014 |
 
-## 7. Adopted Remediation Decisions
+## 7. Refactor Slice Plan and Historical Remediation Decisions
 
-The maintainer accepted the complete plan and then requested implementation.
-Authorization is granted; completion and test success are separate facts. The
-following decisions supersede conflicting initial recommendations. Existing
+The following table records historical remediation decisions and their original
+authorization. Current S-052–S-056 authorization is TCR-REQ-002; their execution
+checkpoints, not these historical statements, determine completion. Existing
 finding and contract IDs remain stable.
 
 | Findings / slice | Remediation and affected areas | Rationale / durable benefit | Compatibility and unresolved risk | Completion criterion |
@@ -3441,7 +3558,152 @@ generated projections together; original failure records remain retained.
 New production behavior changes beyond this adopted plan remain separate owner
 amendments and cannot be hidden in structural consolidation.
 
+### 7.1 Planned next-iteration slices
+
+The slices below are authorized implementation work under TCR-REQ-002.
+Prerequisites are defined once in §6. Rollback means preserving/restoring
+the prior assertions and routing together; no legacy runtime acceptance switch or
+row alias is introduced.
+
+**S-052 — Build the obligation/successor ledger.** Revalidate source and selectors
+at entry. For each affected block record the concrete input/failure cases, expected
+outputs and side effects, adopted owner or engineering purpose, current and target
+row, runtime/stage/profile, unique browser observation and pre-move evidence. Trace
+helper-mediated behavior and any later use of setup/results. Mark unmatched
+observations retained, never inferred redundant. Separate F-051's correction from
+structural retirement. S-052 exits only with no unresolved decision about which
+assertions the selected slices move; evidence prerequisites may remain explicit.
+
+**S-053 — Establish FIFO, then consolidate revoke-all.** Keep the dedicated
+`session_recovery_revoke_all` case as the canonical real three-edit witness. Make
+supplied replay values explicit, remove the two-value fallback, and verify all
+supplied values. Seed three distinct records; enqueue in an order different from
+visible sort order. Hold the first request, use `editTimelineSummary` with explicit
+`queued` outcomes, and use `returnToTimelineWithRetainedWork` between admissions.
+Assert growth to three retained units without changing client instance. Replace
+the private blur-based `queueTimelineSummary` helper and remove it after its sole
+caller migrates. Do not inject queue internals, relax timeouts or treat displayed
+text as proof of admission.
+
+Retain a failing browser demonstration that the old helper only admits/verifies
+one requested edit, then repair it. After actual session revocation, verify the
+socket closes, protected rows retire, same-account reauthentication restores
+authorized materialization, and all edits replay FIFO. Bind successful calls to
+the post-reauthentication interval; assert the exact expected count and order,
+not a trailing slice that can hide extras. Preserve the first attempted request's
+transaction/payload identity and verify final persisted values plus queue count
+zero. Keep logout and idle-expiry cases as distinct mechanisms with one explicit
+input each; the dedicated revoke-all case alone exercises three-edit FIFO. Once the dedicated survivor passes, remove only the standalone helper
+invocations at the end of Timeline's main public-route case and the two inspected
+Collaboration parent blocks. Preserve their preceding live-update, presence,
+HTTP-auth-failure, reload, conflict and recovery steps. Parent rows remain active.
+
+**S-054 — Separate registry assertions by boundary.** The existing
+`package.view_contracts.frontend_unit.surfaces` suite owns exact identities,
+ordering, status partitions and lookup identity. Extend
+`TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident` to inspect every public
+singleton's status, matching identifier and nonempty fields, reject the unsupported
+Hypotheses singleton, and preserve Parties `surface_kind == system_view`.
+Do not replace independently authored expected identities with values derived
+from the implementation under test or from Markdown. After the central HTTP
+matrix passes, remove equivalent discovery/singleton checks from
+`TestPartiesSurface_Integration`, leaving its mutation/idempotency/authorization
+checks untouched. Remove pure package comparisons and direct HTTP enumeration
+from the registry browser scenario, retaining switcher membership, mounted grids,
+URL identity and navigation among required/optional surfaces. Keep existing
+semantic rows while those distinct observations survive; no compatibility alias.
+
+**S-055 — Relocate standalone Timeline admission matrices.** Add
+`TestWorkbookTimelineMutationAdmission_Integration` under module.workbook, using
+the existing assembled-server fixture with test routes disabled. Add authored row
+`module.workbook.integration.timeline_public_mutation_admission`, bound to the
+existing workbook behavior/route-security verification contracts and the same
+required service/runtime profile as its neighboring assembled HTTP tests. Admit this authored selector and regenerate affected projections before
+qualification; it is not selectable at the entry baseline.
+
+Preserve the exact five forbidden create fields (`record_id`, `row_version`,
+`timeline.evidence_count`, `timeline.capture_state`, `timeline.edited_at`), the
+empty/duplicate/33-change patch cases and future row-version rejection. Assert
+HTTP status, public code, details field/reason, request identity, and absence of
+`stack`, `trace` and `internal` fields. Existing `httptestx` envelope assertions
+cover identity/status but do not alone assert those three field absences. Reuse
+owner-local mutation-effect snapshots to prove rejected writes do not alter
+source rows, versions, projections or history. Keep each case isolated enough
+that an earlier mutation cannot satisfy a later assertion.
+
+The existing `TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration`
+is the successor for the direct foreign-target paste block: it already checks
+create-plus-foreign-row rejection at current/future versions, no version oracle,
+no local create, unchanged foreign state and no change set. Add the missing public error-envelope assertions (status, request identity and
+absence of stack/trace/internal), then qualify it before removing the browser
+duplicate. Keep actual UI-created request payloads, replay
+of the captured UI PATCH, divergent captured-request replay, paste gestures,
+save-state, conflict presentation, unknown-error presentation, focus and remount
+recovery in the browser. Remove only wrappers/imports left unused by the moved
+blocks; retain helpers still used for UI scenario setup or observations.
+
+**S-056 — Reconcile routing and hand off.** Update authored selectors/accounting
+with their assertion successors, regenerate affected outputs through Make, and
+review all generated deltas. The planned new HTTP row requires catalog admission;
+new physical test identities must not overlap existing selectors. Parent browser
+rows remain because their unique observations remain. Retired identifiers, if
+any prove necessary, receive no runtime aliases. Record exact passing commands,
+source/profile identities, failures, secret scans and cleanup. Stop after the
+required targeted checks; no full-owner, suite, visual or release claim is implied.
+
+#### Ranked follow-up inventory: retained outside S-052–S-056
+
+| Priority / candidate | Current decision | Evidence needed before a later reduction |
+| --- | --- | --- |
+| Next: per-surface continuation matrix | Retain all current cases. Shared choreography alone does not prove route, renderer and owner equivalence. | Surface-by-surface successor map for paging, mounted later rows, inspector/edit behavior, focus and authorization. |
+| Next: merge inspector and other helper-heavy scenarios | Retain; merge helpers perform real navigation, review/confirmation and focus/scroll observations. | Trace each helper boundary and distinguish setup/API read-back from actual UI assurance. |
+| Later: fixture isolation and extension lifecycle | Retain owned cleanup, session/resource lifetime, profile and packaged/browser continuity observations. | Failure/cleanup and profile-equivalence evidence, not counts of direct request calls. |
+| Separate scope: accessibility, visual and measurement | Retain their distinct selections and evidence classes. | Explicit observation-equivalence and owner authorization; no automatic visual run or golden refresh. |
+| Separate scope: SQL enforcement fixture consolidation | Deferred by the maintainer's broader-portfolio priority. | Preserve S-051's independent analyzer/policy/discovery coverage; this plan does not amend enforcement acceptance. |
+
+No percentage, duration, row-count reduction or startup saving is an exit criterion.
+Reducing three embedded scenario invocations does not remove their parent browser
+rows or necessarily remove browser-stack startup.
+
 ## 8. Validation Plan
+
+### Current iteration validation
+
+V-015–V-018 are authorized implementation obligations under TCR-REQ-002.
+Use fresh explicit `CARTULARY_TEST_RUN_ID` values and retain exact native exits,
+manifest source/toolchain/profile identity, summaries, secret scans and cleanup.
+Discover the selected expansions again through `make task-guide` before launch.
+Do not substitute an owner-wide selection for the named rows. The same final
+Timeline row can cover V-015/V-017 when its source/profile is compatible; do not
+repeat it merely to fill two evidence cells.
+
+| Validation | Stage / exact command from repository root | Scope and required outcome |
+| --- | --- | --- |
+| V-015 / C-013 / S-053 | Before helper repair: `make test-slice OWNER=module.collaboration ROWS=module.collaboration.browser_stateful.session_recovery_revoke_all` | Retain an assertion failure demonstrating fewer than three admitted/replayed units with the old helper; distinguish it from setup failure. Repair and qualify this survivor before deleting repeated invocations. |
+| V-015 / C-012/C-013 / S-053 | After repair: `make test-slice OWNER=module.collaboration ROWS=module.collaboration.browser_stateful.session_recovery_revoke_all,module.collaboration.browser_stateful.session_recovery_logout,module.collaboration.browser_stateful.deterministic_route_owned_browser_revocation_sou_a134c3e26b` | Dedicated revoke-all, logout and actual idle-expiry scenarios; default runtime, stateful stage. All selected cases pass, including cleanup. |
+| V-015 / S-053 | After removals: `make test-slice OWNER=module.collaboration ROWS=module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1,module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054` | Both affected parent scenarios retain their unique assertions; default runtime, respective stateful/webserver-backed stages. |
+| V-015/V-017 / S-053/S-055 | `make test-slice OWNER=module.workbook ROWS=module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5` | Selects both the main public-route and transaction-recovery scenarios. Preserve actual client payloads, errors, paste, focus, remount and recovery. |
+| V-016 / C-014 / S-054 | `make test-slice OWNER=package.view_contracts ROWS=package.view_contracts.frontend_unit.surfaces` | Service-free units: four registered identity/partition/lookup/projection assertions remain effective. |
+| V-016 / S-054 | `make test-slice OWNER=module.workbook ROWS=module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120,module.workbook.integration.the_parties_system_view_is_discoverable_as_a_bas_7c96f60552` | Default-profile assembled HTTP: extended singleton/discovery matrix and retained Parties mutation behavior. The registry row also selects existing create-admission/common-query-boundary controls. |
+| V-016 / S-054 | `make test-slice OWNER=module.workbook ROWS=module.workbook.browser.public_registry_discovery_exposes_exactly_the_fo_e62f2b8ba8` | Default-runtime webserver-backed navigation, switcher, mounting and URL assertions; pure registry/HTTP duplicates removed only after successors pass. |
+| V-017 / C-015 / S-055 | Admitted in S-055: `make test-slice OWNER=module.workbook ROWS=module.workbook.integration.timeline_public_mutation_admission,module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770` | New exact admission matrix plus existing six-test clipboard/batch selection, including cross-incident/no-partial-effect controls. Runtime/profile follows the existing default assembled-HTTP fixture. |
+| V-018 / C-012 / S-056 | `make generate` when authored routing changes affect outputs; `make source-check CHECK=generated`; `make source-check CHECK=catalog`; `make format` after implementation edits. | No hand-edited projections, orphaned or overlapping registrations, runtime aliases, or missing successor mapping. Schema checks are conditional on actual schema changes; none is planned. |
+| V-019 / document update and final handoff | `make lint-markdown`; `git diff --check` | Required at documentation checkpoints and final handoff. Documentation checks do not substitute for product or characterization evidence. |
+
+Inspect command effects before execution. The documentation target directly runs
+pinned Biome Markdown lint with safe fixes; formatter/assist and embedded analysis
+are disabled, and only two Markdown lint rules are enabled. It has no product,
+service or generation prerequisites. Review any lint edits against the authorized
+change scope. The S-052–S-056 implementation authorization supersedes the earlier
+tracker-only session boundary; preserve all unrelated edits and the Git index.
+
+The old S-051 runs qualify their original enforcement inputs only. They cannot
+qualify a changed browser helper or newly relocated HTTP assertion. Existing queue
+and coordinator unit tests remain separate assurance; their unchanged source need
+not be rerun solely because browser choreography changes. Expand validation only
+for a concrete additional risk found in implementation, documenting that reason
+before launch. No full suite, complete owner, visual, accessibility, release or
+performance claim follows from these targeted selections.
 
 ### 8.1 Validation interface and canonical commands
 
@@ -3461,7 +3723,8 @@ maintenance; an implementation edit alone does not require them.
 Each invocation record MUST contain its exact resolved command, fresh
 literal run identity, source baseline, selected rows/cases, runtime/fixture
 profiles, environment, outer exit, terminal result, artifact path, and remaining
-applicability limits. Execution is authorized by TCR-REQ-002, subject to the workstream gates.
+applicability limits. Product execution follows the accepted implementation task;
+current TCR-REQ-002 authorizes the accepted targeted implementation checks.
 
 Baseline exact selectors for high-priority cases are recorded below. A later
 session MUST revalidate them through current catalog/Make selection before
@@ -3529,11 +3792,27 @@ Make discovery.
 The Refactor Tracker skill used in authoring (host-local source:
 `/mnt/c/Users/jochi/.codex/skills/refactor-tracker/SKILL.md`) states: “Do not run commands that may write outside the
 tracker.” Its local installation is not a repository requirement or portable
-dependency. That restriction applied to the initial planning-only session. The
-subsequent explicit implementation request superseded it, as recorded in current
-TCR-REQ-002; it is not a restriction on the completed execution work.
+dependency. That restriction applied to the initial planning-only session. Later
+explicit implementation requests authorized the completed execution work. The
+current implementation authorization is TCR-REQ-002; the historical skill
+restriction does not limit this approved execution.
 
 ## 9. Top-Level Work Tracker
+
+### Current iteration work items
+
+| Work item | Kind / slice | Status | Readiness / evidence gate | Exit |
+| --- | --- | --- | --- | --- |
+| T-016 Publish next consolidation plan | Documentation | DONE | E-027–E-031; V-019 passed; tracker-only preservation verified. | Current findings, slices, exact selectors, evidence limits and preservation checks recorded. |
+| T-017 Assertion/successor ledger | S-052 | DONE | L-052-01–07; C-012; documentation checks passed. | Every selected removal has a complete preservation decision. |
+| T-018 Repair replay witness, then deduplicate | S-053 | DONE | Qualified V-015; F-051/F-052 and RB-009 closed. | Real three-edit FIFO and retained trigger/parent cases pass before three duplicate blocks retire. |
+| T-019 Centralize registry responsibility | S-054 | DONE | Qualified V-016; F-053 and RB-010 closed. | Unit, HTTP and browser survivors qualify their separate observations. |
+| T-020 Move Timeline admission matrices | S-055 | DONE | Qualified V-017; F-054 and RB-011 closed. | Exact HTTP successor and preserved client observations qualify before deletion. |
+| T-021 Reconcile routing and implementation handoff | S-056 | DONE | Original evidence and S-057/S-058 corrections reconciled; final documentation checks passed. | V-018 and all applicable targeted obligations complete; no orphaned assurance. |
+
+The following original work table is historical. Its TODO/BLOCKED states are not
+current blockers; the S-001–S-051 execution checkpoints record their later
+resolution. Current iteration state is the table above and §6.
 
 **TCR-REQ-023 — Checkpoint updates.** Each execution session MUST update status only
 from recorded evidence, preserve stable IDs, and identify superseded conclusions.
@@ -3561,6 +3840,391 @@ the next workstream begins.
 | T-015 Deliver this handoff | Planning | WF-00 / V-014 | DONE | E-023/E-024; canonical lint explicitly skipped. | Tracker written, reviewed, limitations recorded, outside content/index preserved. |
 
 ## 10. Session Handoff Log
+
+### Final review handoff: S-056 complete after S-057/S-058, 2026-11-10
+
+Status: DONE; bounded acceptance **GO**. The final diff review found two concrete
+assurance gaps, F-055 and F-056. Both are corrected and qualified in their
+sequential S-057/S-058 checkpoints below. This handoff supersedes the earlier
+S-056 completion for the changed package assertion and recovery helper. No
+additional regression, lost assertion or gap was found within the reviewed
+S-052–S-056 scope; no production behavior changed.
+
+| Reviewed slice | Result / preservation evidence |
+| --- | --- |
+| S-052 authority and ledger | Original authority cleanup and L-052-01–07 remain. L-052-03 now has an explicit package contract-ID assertion (F-055); L-052-01 additionally observes recovered UI materialization (F-056). Historical permissions/evidence remain labeled history. |
+| S-053 replay and duplicate retirement | Three explicit admissions, rotated observed row order, real revocation/socket closure, concealed rows, settled 401, same-account/runtime/client identity, immutable first request, exact replay counts/order, persisted values and empty queue remain. S-058 adds visible recovered values and closes replay observation after persistence/rendering. Exactly three standalone helper invocations remain retired; parent assertions and other replay-controller functions are unchanged. |
+| S-054 registry boundaries | Restored lookup ID assertion closes the one lost package check. The independent 17-ID HTTP collection/order, all singleton identities/fields, Parties kind, Hypotheses 404 and empty queries/paging remain. Parties mutations/idempotency/authorization and browser switcher/navigation/mounting remain. |
+| S-055 Timeline admission | All nine isolated cases retain exact status/code/details, 33/32 limit precedence, matched request identity and diagnostic-field absence. Existing snapshots observe source, versions, query projections, history, receipts and publication effects. Clipboard keeps current/future foreign-target safety and added envelope checks. Captured UI create/PATCH payloads, replay/divergence, paste, focus, errors/conflicts and remount recovery remain in the browser. |
+| S-056 routing/evidence | New HTTP test still has exactly one active authored selector with both existing verification contracts. Parent rows/titles/profiles are unchanged. Generated diff still contains only its recorded input/index hashes; no alias, orphaned selector, lockfile or production delta was introduced. |
+
+Validation: four package surface cases passed in
+`tcr-s057-surfaces-20261110-01`; all three recovery triggers passed in
+`tcr-s058-recovery-20261110-01`. Exact commands, profiles, source/toolchain identity,
+native exits, summaries, secret scans and cleanup are in the two checkpoints.
+Both owning Make commands exited 0, with 11/26 successful cleanup steps and
+passing retained-secret scans. No new failing test invocation occurred. The
+original expected F-051 characterization failure remains retained.
+
+Final reviewed executable source is
+`327d883bc3860c17dee2ba16dc3c20178a7b03b1b26fa72f68e7efc6dcde08a1` at unchanged HEAD
+`0a4708625906f4d5827ac76dba17f9f2d4e3e799`. Later documentation edits do not affect
+that identity. The package pass remains compatible after S-058 because only the
+recovery helper and tracker changed. S-058 changes only exerciseRevokedPendingReplay,
+whose three callers are the qualified recovery cases; no other consumer changed.
+Existing Collaboration parent, Timeline, registry HTTP/browser and clipboard
+qualification remains applicable to their unchanged assertions/dependencies.
+
+No authored routing, test identities, profile, schema or generation input changed
+in this review. Reused `tcr-s056-generated-20261110-01` and
+`tcr-s056-catalog-20261110-01` retain their original passing evidence; canonical
+`make explain-run RESULTS_DIR=.cartulary/test-results/<run_id>` inspection confirmed
+summaries and cleanup. These observer exits are not fresh validation claims.
+Generation/source checks were not repeated solely for test-body assertions.
+`make format` passed for each correction; final `make lint-markdown` passed
+(125 files, no fixes) and `git diff --check` passed. No required check is omitted.
+
+Only the package unit assertion, recovery helper and tracker changed during this
+review. Changes remain unstaged; the pre-existing tracker content and all prior
+failure evidence are preserved. No commit, migration, compatibility switch,
+fixture broadening or timeout increase. Broader portfolio consolidation and
+performance claims remain deferred. No further action is required for the bounded
+review request.
+
+### Review correction checkpoint: S-058 complete, 2026-11-10
+
+F-056 is closed. After same-account reauthentication the helper now verifies each
+saved row is visible and displays its recovered value, in addition to independent
+HTTP persistence. The exact dispatch/success counts, FIFO order, immutable first
+request and same-runtime/client checks now close the window after those browser
+and persistence observations. Admission, concealment, real socket revocation and
+single-edit logout/expiry mechanisms remain unchanged. No timeout was increased.
+
+- `CARTULARY_TEST_RUN_ID=tcr-s058-format-20261110-01 make format`: native exit 0;
+  terminal PASS, 11 cleanup steps, retained-secret scan PASS.
+- `CARTULARY_TEST_RUN_ID=tcr-s058-recovery-20261110-01 make test-slice OWNER=module.collaboration ROWS=module.collaboration.browser_stateful.session_recovery_revoke_all,module.collaboration.browser_stateful.session_recovery_logout,module.collaboration.browser_stateful.deterministic_route_owned_browser_revocation_sou_a134c3e26b`:
+  native exit 0; all three triggers PASS, 26 cleanup steps, retained-secret scan PASS.
+
+Roots are `.cartulary/test-results/<run_id>`. Final behavioral source digest is
+`327d883bc3860c17dee2ba16dc3c20178a7b03b1b26fa72f68e7efc6dcde08a1`; toolchain remains
+`0e302b723a654ff49d1df64d0c655f27c266127f9f49480b0ea7a88b56be8893`. Selection uses the
+unchanged default Chromium/stateful/browser_ordinary profiles and original
+isolated/test-owned state scopes. The helper has exactly these three callers.
+This run supersedes tcr-s053-recovery-20261110-01 for the changed helper. Other
+replay-controller functions and Collaboration/Timeline parent behavior were not
+changed by this review. `make lint-markdown` and `git diff --check` passed at this
+checkpoint. Finish reopened S-056 reconciliation next.
+
+### Review correction checkpoint: S-057 complete, 2026-11-10
+
+F-055 is closed. The existing surface-identity loop now asserts each contract's
+viewSchemaId equals its independently enumerated surface ID, alongside object
+identity. This restores the removed browser assertion at its intended unit
+boundary without changing any production contract, test title, row or profile.
+
+- `CARTULARY_TEST_RUN_ID=tcr-s057-format-20261110-01 make format`: native exit 0;
+  terminal PASS, 11 cleanup steps, retained-secret scan PASS.
+- `CARTULARY_TEST_RUN_ID=tcr-s057-surfaces-20261110-01 make test-slice OWNER=package.view_contracts ROWS=package.view_contracts.frontend_unit.surfaces`:
+  native exit 0; four cases PASS, 11 cleanup steps, retained-secret scan PASS.
+
+Roots: `.cartulary/test-results/<run_id>`. Both manifests bind source
+`14674bc29af7dd67ae712801d4b9b4bd777ddf0990a9770e32655ce3d1f0d9ff` and the unchanged
+`0e302b723a654ff49d1df64d0c655f27c266127f9f49480b0ea7a88b56be8893` toolchain. Profile
+is none/standard/node-unit, service-free. L-052-03 and F-053's package evidence now
+use this run in place of the earlier unchanged-unit claim. HTTP and browser
+registry evidence remains compatible. `make lint-markdown` and
+`git diff --check` passed at this checkpoint. Enter S-058 next.
+
+### Historical post-implementation review entry, 2026-11-10
+
+The maintainer requested review of the final diff, fixes and validation evidence.
+Entry HEAD and changes match the preceding handoff. The prior S-056 completion
+is historical pending these bounded corrections; no production defect was found.
+The original S-052–S-055 sequence remains complete. Execute S-057 then S-058,
+checkpointing each, and finish with reopened S-056 review reconciliation.
+
+| Finding / priority | Concrete gap and remediation | Validation / status |
+| --- | --- | --- |
+| F-055 / should_fix / S-057 | L-052-03's removed browser assertion checked requireViewContract(id).viewSchemaId == id. The mapped surfaces unit checks object identity against the same lookup, without checking that identity field. Restore the exact ID assertion in the existing package loop; preserve its four test cases. | Exact package surfaces row; DONE, tcr-s057-surfaces-20261110-01. No routing, API or fixture migration. |
+| F-056 / should_fix / S-058 | The retained browser recovery helper proves concealment and post-reauthentication HTTP persistence but never observes restored rows/values in the UI, despite the S-053 materialization obligation. Assert visible saved rows and recovered values, then evaluate exact replay counts/order at the end of those recovery observations. | Exact three recovery-trigger rows; DONE, tcr-s058-recovery-20261110-01. No production change or timeout increase. |
+
+These are test assurance gaps. Leaving F-055 loses the independent lookup-identity
+check; leaving F-056 allows successful writes with a broken recovered view to
+pass. The fixes keep responsibilities with their package/browser owners. Existing
+HTTP admission, clipboard, Parties and registry browser successors remain intact.
+
+### Historical execution checkpoint: S-056 validation and handoff complete, 2026-11-10
+
+Status: DONE; bounded acceptance **GO**. S-052–S-055 checkpoints completed in order
+before this final slice. F-051–F-054 and RB-009–RB-011 are resolved. No production
+FIFO defect was established, and no product requirement amendment was needed.
+Specification cleanup reconciled authority and the assertion/successor ledger;
+product NLSpecs and typed runtime contracts remain unchanged.
+
+| Finding → obligation / ledger | Qualified surviving boundary and selector | Passing evidence / final applicability |
+| --- | --- | --- |
+| F-051 → C-013 / L-052-01 | Dedicated revoke-all: exact three admissions, non-display enqueue order, same-runtime recovery, exact successful replay and frozen first payload. V-015 recovery rows. | tcr-s053-recovery-20261110-01; helper/session-recovery source and profiles unchanged afterward. Expected old-helper failure tcr-s053-red-20261110-01 remains retained, native exit 2; secret scan and 23 cleanup steps passed. |
+| F-052 → C-012/C-013 / L-052-02 | Dedicated revoke-all plus separate single-edit logout/idle expiry; both Collaboration parents and both Timeline scenarios. V-015. | Recovery and Collaboration roots in S-053; final Timeline qualification tcr-s055-timeline-20261110-01 supersedes its earlier S-053 pass for changed browser source. Three embedded blocks are absent; all parent rows remain active. |
+| F-053 → C-012/C-014 / L-052-03/04 | Four package units; independent public collection/singleton HTTP expectations; remaining Parties behavior; real switcher/mount/navigation browser observations. V-016. | tcr-s054-package-20261110-01, tcr-s054-http-final-20261110-01, tcr-s054-browser-20261110-01. Selected assertions, production dependencies and fixture profiles unchanged after qualification. |
+| F-054 → C-012/C-015 / L-052-05/06/07 | New exact Timeline admission row plus existing six-test clipboard row; retained client-generated payloads, replay, paste, presentation and recovery. V-017. | tcr-s055-http-20261110-01 passed before removal; its selected code is unchanged afterward. tcr-s055-timeline-20261110-01 passed after final browser reduction. |
+
+Exact commands and source digests are in the slice checkpoints and V-015–V-017.
+All final behavioral qualification commands completed natively with exit 0,
+passing terminal summaries and retained-secret scans, and no failed/blocked
+cleanup. The retained characterization failure is the intended F-051 witness,
+not an unresolved qualification failure. Diagnostic usage errors and the initial
+S-055 format session's unobserved native completion are disclosed in their
+checkpoints; none is substituted for final passing evidence.
+
+Evidence compatibility review: registry package units are service-free; all
+selected assembled HTTP rows use the unchanged default runtime, standard
+resource profile and dedicated Postgres fixture. Browser rows retain their
+registered default Chromium runtime and stateful/webserver-backed stages. The
+only routing addition is the new HTTP test, exactly once, under the existing
+Workbook behavior and route-security verification contracts. No parent selector,
+profile or shared fixture was broadened. The global source/graph digest changes
+across slices are recorded, not treated as identical. Reuse is limited to
+unchanged selected code and dependencies; the final Timeline run covers the
+intervening browser changes. No additional rerun was needed.
+
+Final commands use `CARTULARY_TEST_RUN_ID=<run_id>` and exact roots
+`.cartulary/test-results/<run_id>`:
+
+| Run ID | Exact command | Result |
+| --- | --- | --- |
+| tcr-s056-generated-20261110-01 | `make source-check CHECK=generated` | Native exit 0; PASS; 14 cleanup steps, secret scan pass. |
+| tcr-s056-catalog-20261110-01 | `make source-check CHECK=catalog` | Native exit 0; PASS; 11 cleanup steps, secret scan pass. No overlap/orphaned test. |
+
+Both final source checks and the final Timeline browser run bind source digest
+`7b375ced6fca8c85099e02b057c308db6f140258a2e525aa059bedcd7567fa27`, HEAD
+`0a4708625906f4d5827ac76dba17f9f2d4e3e799`, and toolchain digest
+`0e302b723a654ff49d1df64d0c655f27c266127f9f49480b0ea7a88b56be8893`.
+Their `run-manifest.json`, `run-summary.json`, `cleanup-results.json` and
+`retained-secret-scan.json` retain the terminal evidence. Final documentation
+changes do not enter executable source identity. `make generate` and final
+`make format` evidence are in S-055. Final `make lint-markdown` and
+`git diff --check` passed. No required targeted check is skipped. Separate schema
+validation is inapplicable because no schema changed; no agent-finalize,
+full-suite, visual, accessibility, release or performance invocation is required
+by this bounded change.
+
+Source review covered all nine changed test/support files (including the new
+admission file), authored routing and generated deltas. The only generated edit
+is the execution-topology index's manifest/input hashes, regenerated through
+Make. Whitespace-insensitive review separates Timeline's formatter reindentation
+from the authorized assertion removals. No unused removed helper, retired-row
+alias, new shared fixture, product code, dependency lock or storage change was
+introduced. Feature-specific helpers remain with Collaboration or Workbook.
+
+Compatibility and handoff: no public API, route, production type, data or storage
+migration. Internal replay-helper callers now supply explicit nonempty inputs.
+One new exact HTTP selector is admitted. Future matrix growth belongs with the
+owning HTTP test; browser coverage remains responsible for real client behavior.
+Further continuation-matrix consolidation and portfolio/performance investigation
+remain deferred under §7.1; no universal coverage or measured speedup is claimed.
+No unresolved finding remains in this iteration. Retained artifacts, including
+failure evidence, were preserved; harness cleanup completed. Working changes
+remain unstaged on main, and the entry tracker content/diff backups remain in
+`/tmp` as recorded in §12. No commit, merge or deployment was performed.
+
+### Execution checkpoint: S-055 complete, 2026-11-10
+
+Status: DONE. F-054/RB-011 are closed. Nine isolated admission cases now own the
+five forbidden create fields, empty/duplicate/33-change patches and future row
+version. Every rejection verifies the public envelope, response request identity,
+absent diagnostic fields and unchanged source/version/query/history/receipt/
+publication effects. The over-limit case verifies 33/32 counts and precedence
+before duplicate-field handling. The clipboard successor now checks the missing
+envelope observations while retaining its current/future foreign-target and
+atomicity controls. Only those qualified API-only blocks and two unused request
+wrappers were removed from the browser. Client submission, captured-request
+replay/divergence, paste gestures, presentation, focus and recovery remain.
+
+The new row binds existing behavior and route-security contracts and the default
+assembled HTTP profile; it was authored and generated before selection. The only
+generated change is the execution-topology render index input digest. No product
+implementation, API or storage contract changed.
+
+Prefix commands with `CARTULARY_TEST_RUN_ID=<run_id>`; exact roots are
+`.cartulary/test-results/<run_id>`.
+
+| Run ID | Exact command | Native result / applicability |
+| --- | --- | --- |
+| tcr-s055-generate-20261110-01 | `make generate` | Exit 0; tool-summary PASS. This maintenance target publishes tool evidence, not a test manifest/cleanup/secret-scan claim. |
+| tcr-s055-format-20261110-02 | `make format` | Exit 0; PASS, 11 cleanup steps, secret scan pass. Final formatted implementation. |
+| tcr-s055-http-20261110-01 | `make test-slice OWNER=module.workbook ROWS=module.workbook.integration.timeline_public_mutation_admission,module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770` | Exit 0; PASS before removal, 14 cleanup steps, secret scan pass. Nine-case admission plus existing six-test clipboard selection. Source f1db4c88da78ce0380283d882ed3fcf46fc11b4491a3356a9b91491fa4e4b4ad. |
+| tcr-s055-timeline-20261110-01 | `make test-slice OWNER=module.workbook ROWS=module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5` | Exit 0; both retained scenarios PASS after removal, 23 cleanup steps, secret scan pass. Source 7b375ced6fca8c85099e02b057c308db6f140258a2e525aa059bedcd7567fa27. |
+
+HTTP source is unchanged by subsequent browser deletion/formatting. Full
+source/toolchain/selection identities remain in each test run-manifest; the
+toolchain digest remains 0e302b723a654ff49d1df64d0c655f27c266127f9f49480b0ea7a88b56be8893.
+The initial format run tcr-s055-format-20261110-01 has a passing terminal summary,
+but its native-session completion was lost during context handoff; it is not
+used for acceptance. The later required post-removal format run above supplies
+native completion. An attempted `explain-run DETAIL=tests` returned usage exit 2
+(the detail is unsupported); this observer failure neither reran nor invalidated
+the HTTP tests. Canonical summary diagnosis succeeded.
+
+S-055 checkpoint documentation checks: `make lint-markdown` and
+`git diff --check` passed. S-056 is next; no broader acceptance is claimed.
+
+### Execution checkpoint: S-054 complete, 2026-11-10
+
+Status: DONE. F-053/RB-010 are closed. The central HTTP registry witness now owns
+an independent sorted 17-ID expectation, all singleton identifiers/nonempty
+fields, Parties system_view kind and Hypotheses 404, alongside existing empty
+query/paging assertions. Four package units remain unchanged. Only duplicate
+Parties discovery/singleton blocks, their unused membership helper and browser
+package/API checks were removed. Browser switcher, mounted grids, navigation and
+URL identity remain; Parties mutation/idempotency/authorization remain. No row,
+product contract or runtime implementation changed.
+
+Commands use `CARTULARY_TEST_RUN_ID=<run_id>` and the root
+`.cartulary/test-results/<run_id>`. All native exits were 0 and all retained
+secret scans passed. `make format` passed in tcr-s054-format-20261110-01/02.
+
+| Run ID | Exact command | Result / applicability |
+| --- | --- | --- |
+| tcr-s054-http-survivor-20261110-01 | `make test-slice OWNER=module.workbook ROWS=module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120` | PASS before removal; 14 cleanup steps. Source 4523ece511d9089eae9b57b796144dc2d8551eba2aae3a5cbeaf5a0265632233. |
+| tcr-s054-package-20261110-01 | `make test-slice OWNER=package.view_contracts ROWS=package.view_contracts.frontend_unit.surfaces` | PASS, four assertions; 11 cleanup steps; same 4523ece source. Package source unchanged by retirement. |
+| tcr-s054-http-final-20261110-01 | `make test-slice OWNER=module.workbook ROWS=module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120,module.workbook.integration.the_parties_system_view_is_discoverable_as_a_bas_7c96f60552` | PASS after removal; 14 cleanup steps. Source b0d7b93ccb89688ed4a8e6b1bf08ac03ca4243643da491f2303df1202e10fe45. |
+| tcr-s054-browser-20261110-01 | `make test-slice OWNER=module.workbook ROWS=module.workbook.browser.public_registry_discovery_exposes_exactly_the_fo_e62f2b8ba8` | PASS; 23 cleanup steps; same b0d7b93 source. |
+
+Source/profile/toolchain identities and individual results remain in each
+run-manifest/run-summary. `git diff --check` passed. S-055 is next.
+
+### Execution checkpoint: S-053 complete, 2026-11-10
+
+Status: DONE. F-051/F-052 and RB-009 are closed. Replay values are required and
+nonempty; semantic editor admissions grow to three, observed display order is
+rotated, real revocation conceals rows and closes the socket, and the held 401
+settles before reauthentication. Exact dispatch/success order, immutable first
+payload, client-instance/runtime continuity, persisted values and empty queue
+qualify the survivor. Logout and actual idle expiry each use one explicit edit.
+Only three independent revoke-all blocks and unused references were removed;
+parent rows and their unique assertions remain. No production code changed.
+
+Every command below exited 0; exact selections are V-015. Prefix each with the
+listed `CARTULARY_TEST_RUN_ID`. Run roots are `.cartulary/test-results/<run_id>`;
+`run-summary.json`, `run-manifest.json`, cleanup and retained-secret-scan artifacts
+retain source, toolchain, profile and terminal evidence.
+
+| Run ID | Exact command / selected obligation | Result / compatibility |
+| --- | --- | --- |
+| tcr-s053-format-20261110-01 | `make format` | PASS before survivor qualification. |
+| tcr-s053-recovery-20261110-01 | `make test-slice OWNER=module.collaboration ROWS=module.collaboration.browser_stateful.session_recovery_revoke_all,module.collaboration.browser_stateful.session_recovery_logout,module.collaboration.browser_stateful.deterministic_route_owned_browser_revocation_sou_a134c3e26b` | PASS; 26 cleanup steps; secret scan pass. Source 51b2d69d7a73ade67fddf72a402c99a589725074fe62ee6a2add33631e3b4ab2. Helper/session-recovery source unchanged by subsequent parent removals. |
+| tcr-s053-format-20261110-02 | `make format` | PASS after removals; Timeline parent indentation changed with shortened fixture signature. |
+| tcr-s053-collaboration-20261110-01 | `make test-slice OWNER=module.collaboration ROWS=module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1,module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054` | PASS; 24 cleanup steps; secret scan pass. Source 72ee09cfb57c79089c4b95ba3f60f6c696b1b2bc9fd7e697f539035ade1c21ae. |
+| tcr-s053-timeline-20261110-01 | `make test-slice OWNER=module.workbook ROWS=module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5` | PASS, both scenarios; 23 cleanup steps; secret scan pass; same 72ee09cf source. S-055 must requalify this row after further changes. |
+
+`git diff --check` passed. Whitespace-insensitive diff review confirmed parent
+assertions were retained. S-054 is next; no broader acceptance is claimed.
+
+### S-053 characterization evidence, 2026-11-10
+
+The pre-repair exact revoke-all row failed as intended: save-state pending count
+expected 3, received 1 at replay.ts admission assertion. This is F-051 browser
+witness evidence, not a production FIFO failure. Invocation:
+`CARTULARY_TEST_RUN_ID=tcr-s053-red-20261110-01 CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=module.collaboration ROWS=module.collaboration.browser_stateful.session_recovery_revoke_all`.
+Native Make exit 2; normalized product/test_assertion_failure; 23 cleanup steps
+passed. Run root: `.cartulary/test-results/tcr-s053-red-20261110-01`;
+source digest `47186e6960d70a2e6a9e510643f1c5059892d5104c5fdcba0ab5a743f247a8e9`.
+The exact Playwright report retains the expected/actual count. Two diagnostic
+usage errors (logs without TARGET and an internal target name) were corrected by
+`make explain-run ... TARGET=test-slice DETAIL=logs`; they did not rerun tests.
+Repair qualification pending; no repeated invocation has been removed.
+
+### Execution checkpoint: S-052 authority and successor ledger, 2026-11-10
+
+Status: DONE. Entry HEAD is `0a4708625906f4d5827ac76dba17f9f2d4e3e799`;
+only the pre-existing tracker edit is carried forward. No product files changed
+at this checkpoint. The approved plan supersedes document-only authorization.
+
+| Ledger | Original assertions / inputs | Successor and owner / profile | Disposition and independent retained observations |
+| --- | --- | --- | --- |
+| L-052-01 / F-051 / C-013 | Replay support creates all supplied records but queues/verifies only the first; dedicated recovery has implicit values. | Dedicated session_recovery_revoke_all, module.collaboration, Chromium/default/stateful, V-015. Core 03 REQ-03-099/100. | Correct: three explicit distinct edits, enqueue order different from observed display order, exact admissions/replay/persistence and frozen first request. Expected failing characterization precedes repair. |
+| L-052-02 / F-052 / C-012/C-013 | Four independent revoke-all helper calls: dedicated recovery, end of Timeline main case, end of multi-client Collaboration, final Collaboration conflict step. All create separate incidents/users and return no downstream result. | L-052-01 survivor. Logout and real idle expiry keep separate one-edit recovery cases under their existing rows. | Remove only three standalone repetitions after qualification. Preserve parent live updates, presence, reset/invalidate, stale requery, HTTP auth failure, reload and conflict recovery. No parent row retirement. |
+| L-052-03 / F-053 / C-014 | Registry browser compares exact identities/lookup, sorted HTTP collection, singleton identity/nonempty fields and Hypotheses 404. | Four package surface units (none/service-free); central Workbook HTTP registry (default, dedicated Postgres); V-016. Core 01 §7.4, REQ-01-307/579 and public view discovery. | Preserve unit identity/partition/projection assertions. Extend HTTP successor with independently authored 17-ID sorted expectation and all singleton/unsupported checks. Browser keeps switcher membership, Notes/Indicators/Findings mounting, navigation and URL identity. |
+| L-052-04 / F-053 | Parties HTTP discovery membership and singleton identity/system_view kind precede mutation setup; neither response feeds later mutation assertions. | Central registry HTTP matrix, V-016. | Move those two blocks only after qualification; retain Parties create/patch, idempotency, attribution, authorization and unchanged rejected effects. |
+| L-052-05 / F-054 / C-015 | Timeline five forbidden create fields and no-created-row check; empty/duplicate/33-change patches and future version rejection. | New TestWorkbookTimelineMutationAdmission_Integration and exact authored row, module.workbook, default/dedicated Postgres, V-017. Core 01 REQ-01-069, §7.4.1, REQ-01-229/233/234/238. | Move API-only assertions. Require exact error details including 33/32 counts, matched request identity, absent stack/trace/internal and unchanged source/version/projection/history/idempotency effects. Admit routing and generate before execution. |
+| L-052-06 / F-054 | Direct create-plus-foreign-target paste: 404 incident_not_found, error status/request ID/diagnostic absence, no local create and foreign summary unchanged. | Existing TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration (six-test clipboard row), V-017. | Extend missing envelope assertions before removal. Preserve stronger existing current/future-version rejection, no-version-oracle, unchanged foreign version and no change set. |
+| L-052-07 / C-015 | Captured UI create/PATCH bodies, immutable and divergent request replay, same-field conflict, scalar/tabular/grouped paste, save/conflict/error presentation, focus, reload, remount/retry/discard. | Existing Timeline row selects both public-route and transaction-recovery cases, default/stateful, V-015/V-017. | Retain browser observations and still-used setup/error wrappers. No broader API-only deletion is inferred. |
+
+The exact row selectors remain V-015–V-017. Source bodies, helper-mediated
+behavior, package units, HTTP envelope helpers, owner clauses and authored row
+expansions were inspected during planning and revalidated against unchanged HEAD.
+The old clipboard successor lacks error.status/request_id and diagnostic-absence
+assertions; its stronger side-effect checks alone do not close L-052-06.
+Engineering-purpose observations remain explicit; no normative amendment, new
+public behavior or executable prose registry is required.
+
+Entry discovery: `make help ALL=1` passed; earlier same-source `make task-guide`
+for module.collaboration, module.workbook and package.view_contracts passed.
+Current S-052 checks: `make lint-markdown` exit 0 (125 files, no fixes);
+`git diff --check` exit 0. S-052 is complete; the next workstream is S-053.
+
+### Historical next-iteration document session, 2026-11-10
+
+The following decisions record the earlier planning-only session. Its
+authorization and next actions were superseded by TCR-REQ-002 and the completed
+S-052–S-056 execution checkpoints above.
+
+#### Scope and authority
+
+| Baseline / evidence | Current decision | Next action |
+| --- | --- | --- |
+| `0a4708625`; E-027; accepted document-only plan | Repository target identity unchanged; only this tracker may be edited. S-052–S-056 are not implemented or authorized. | Later implementation revalidates baseline and enters S-052. |
+
+#### Backend boundary
+
+| Inspected evidence | Current decision | Next action |
+| --- | --- | --- |
+| Registry, Parties, mutation replay, clipboard HTTP and envelope assertions; E-029/E-030 | Centralize only equivalent public-boundary checks; keep source-owner/domain mutation tests and stronger negative effects. | Qualify missing singleton/admission cases before removing predecessor assertions. |
+
+#### Frontend boundary
+
+| Inspected evidence | Current decision | Next action |
+| --- | --- | --- |
+| All recovery helper calls, its full body, semantic editor/detachment helpers, relevant unit cases; E-028 | Correct actual multi-edit admission and then consolidate four revoke-all invocations into one; retain logout/expiry and other browser work. | Retain failing witness and passing repair under V-015. |
+
+#### Contracts and generated artifacts
+
+| Inspected evidence | Current decision | Next action |
+| --- | --- | --- |
+| Core 01 §7.4, Core 03 §4.4, Harness REQ-800; current workbook/collaboration/package family selectors | No owner amendment or public API change. One new HTTP row is planned; no aliases or universal scenario framework. | Author routing and regenerate only during later implementation. |
+
+#### Tests and harness
+
+| Inspected evidence | Current decision | Next action |
+| --- | --- | --- |
+| 2,612 authored rows / 66 owners; exact selections in V-015–V-018 | Inventory is metadata, not semantic completeness or execution. No product validation is launched by this session. | Reconcile assertions and run only the affected named rows during implementation. |
+
+#### Security and authorization
+
+| Inspected evidence | Current decision | Next action |
+| --- | --- | --- |
+| Real session revocation, same-account recovery, cross-incident denial/no-version oracle, safe error envelope | Preserve actual authority refresh and non-disclosure effects; manual request assertions do not prove UI CSRF/cookie behavior. | Block removal until the matching live/browser or assembled-HTTP successor passes. |
+
+#### Open risks and next session
+
+| Evidence / risk | Disposition | Resume boundary |
+| --- | --- | --- |
+| E-028 browser helper only queues first value | RB-009 blocks replay retirement, not unrelated registry discovery. No production FIFO failure or whole-portfolio absence of FIFO tests is established. | Repair browser witness before deduplication; preserve unit/coordinator tests. |
+| Partial semantic review of large parent scenarios and broader portfolio | Explicit inspection limit; no blanket file/scenario deletion. | S-052 verifies every affected block, its dependencies and successors; follow-up candidates stay retained. |
+
+#### Evidence ledger for this iteration
+
+| Evidence | Exact inspected sources / observations | Applicability and limits |
+| --- | --- | --- |
+| E-027 | Root/backend/tooling instructions, refactor-tracker skill/format/framework, Core 00, Core 01 §7.4, Core 03 §4.4, Harness REQ-800; fresh Git/content baseline in §1.4. | Current authority and document-only boundary. Baseline is outside the repo; manual accounting never becomes a test input. |
+| E-028 | `support/collaboration/replay.ts`: `queuedReplayItems = [firstReplayItem]`, sole `queueTimelineSummary` call, verification of that same single-item list; six callers in session-recovery, Timeline and Collaboration. Semantic editor/detachment helpers and FIFO unit/coordinator cases inspected. | Confirms incomplete browser witness and four repeated revoke-all invocations. Static source observation; no new failing browser run or product defect is claimed. |
+| E-029 | Registry browser, view-contracts surface units, `TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident`, Parties singleton block and optional catalog expectations. | Confirms boundary-specific overlap and missing central singleton breadth. Future qualification required; no expectation may be derived from Markdown. |
+| E-030 | Timeline forbidden-field/patch-limit/version/foreign-paste blocks; captured UI request/replay and error-presentation blocks; cross-incident clipboard HTTP and `httptestx` envelope checks. | Supports the precise transfer plan and independently retained observations. No whole-file or all-owner deletion conclusion. |
+| E-031 | Tracker re-read; `make lint-markdown` exit 0 (125 files, no fixes); `git diff --check` exit 0 after removing trailing spaces on two edited header lines. All 12 validation selectors reconciled against authored manifests: 11 existing, one explicitly proposed. Twelve top-level sections and file links checked. Full 9,509-entry baseline comparison found only this tracker changed; no added/removed entries; HEAD/index and sampled ignored-root identities/child lists unchanged. | Documentation closure only. The first ad hoc selector review used `id` instead of `row_id`; correcting that review yielded the stated 11 existing selectors. No product run, summary artifact, generated output or fresh implementation GO. |
+
+The S-012 coverage closure below and the later S-051 execution handoff are
+historical records. They are retained intact except explicit current/historical
+labels; this planning session does not extend their passing evidence to new work.
 
 ### Coverage and reliability closure: S-012
 
@@ -4110,10 +4774,19 @@ of the containing subsystem.
 
 ## 11. Open Questions and Blockers
 
-Current blockers: none within the documented remediation scope. F-050, S-051 and
-reopened S-012/S-014 are complete. Fresh evidence and the bounded acceptance claim
-are recorded in the final S-051 reconciliation/handoff; earlier blockers remain
-historical below.
+There is no unresolved decision or retirement gate for S-052–S-056.
+The gates below retain their original missing-evidence descriptions and completed
+resolutions; broader deferred work does not block this bounded acceptance. F-050/S-051 and their S-012/S-014 closure remain DONE
+for the historical enforcement scope.
+
+| Blocker | Affected work | Missing evidence | Resolution condition / status |
+| --- | --- | --- | --- |
+| RB-009 Missing effective multi-edit browser characterization | S-053 retirement; F-051/F-052 | At entry, the helper admitted/verified only one requested edit. Existing unit FIFO checks do not qualify browser retention/replay. | DONE: expected 3/actual 1 failure retained; real three-edit witness and parents passed before closure. |
+| RB-010 Incomplete centralized registry successor | S-054 removal; F-053 | The central HTTP matrix needs all singleton observations, Parties kind and unsupported-resource response. | DONE: extended HTTP and package survivors qualified before removal; final HTTP/Parties/browser rows passed. |
+| RB-011 Missing focused Timeline HTTP admission matrix | S-055 removal; F-054 | Exact malformed-create/patch/version errors, diagnostic field absence and unchanged effects need a qualified assembled successor. | DONE: admitted nine-case HTTP matrix and extended clipboard successor passed before removal; reduced Timeline browser scenarios passed. |
+
+Earlier blockers below remain historical. S-056 satisfied all three slice exits;
+no generic whole-suite or performance audit is introduced as a prerequisite.
 
 Blockers below are scoped. They MUST NOT stop independent investigation or
 authorize broad repair. Missing information MUST remain explicit until supported
@@ -4136,12 +4809,26 @@ is retained solely as historical evidence.
 
 ## 12. Binary Completion Criteria
 
+### Current S-052–S-056 execution outcomes
+
+| Independent outcome | Current statement |
+| --- | --- |
+| Planning completeness | Complete for the bounded S-052–S-056 iteration and ranked follow-up dispositions. The broader 66-owner portfolio remains partially inspected at assertion depth; no repository-wide deletion plan or universal requirement-coverage claim. |
+| Per-slice readiness | S-052–S-058 complete, including reopened S-056 final review. F-051–F-056 and RB-009–RB-011 resolved. |
+| Implementation authorization | Granted by the explicit implementation request; see TCR-REQ-002. |
+| Documentation completion | Historical E-031 remains valid only for its original document baseline. Current checkpoint/final Markdown lint and whitespace checks passed. |
+| Preservation | Entry: main at 0a4708625906f4d5827ac76dba17f9f2d4e3e799; only this tracker was dirty (SHA-256 0b4efe802eb458e0756ce62f484e99df0f3fd63ef362b48615504ae9c85b01c3). Entry content/diff retained outside repository in /tmp/cartulary-s052-tracker-entry.md and /tmp/cartulary-s052-entry.diff. |
+| Recommendation | GO for the bounded implementation and reviewed corrections. No unresolved review finding, product migration or full-suite/release/performance claim. |
+
+The following completion statements describe prior implementation checkpoints,
+not completion of S-052–S-056.
+
 Historical execution outcome before the corrective reopenings: **DONE**. All 17 workstreams, including S-014 final
 validation and handoff, are complete. No identified blocking implementation gap
 or unsafe retirement remains. The original authoring-only outcomes in
 §8.2/§9/§10 remain history; current results are the execution checkpoints and
-acceptance matrix below. The current S-047–050 graph supersedes the S-043–046 final handoff; these
-historical claims do not renew whole-suite acceptance.
+acceptance matrix below. The S-051 handoff closed that corrective chain. The current S-052–S-056 graph
+records the completed current iteration; historical claims do not renew whole-suite acceptance.
 
 ### 12.1 Independent completion claims
 
@@ -5782,7 +6469,7 @@ whole-suite, visual, release and performance acceptance remain unclaimed. No
 required targeted check is omitted.
 
 
-### Final S-014 handoff after S-051, 2026-11-10
+### Historical final S-014 handoff after S-051, 2026-11-10
 
 **Recommendation: scoped GO for committing the documented pending change set.**
 F-050, S-051 and reopened S-012/S-014 are DONE. The preceding S-050 GO is historical;

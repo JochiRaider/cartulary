@@ -38,15 +38,48 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rawSchemas := body["data"].(map[string]any)["view_schemas"].([]any)
-	registrySchemas := viewschema.ListPublicResources()
-	if len(rawSchemas) != len(registrySchemas) {
-		t.Fatalf("discovery returned %d view schemas, machine registry has %d", len(rawSchemas), len(registrySchemas))
+	// Independent public expectations catch omissions shared by discovery and its registry.
+	wantIDs := []string{
+		"cartulary.view.assessments.v1",
+		"cartulary.view.comm_log.v1",
+		"cartulary.view.decisions.v1",
+		"cartulary.view.evidence.v1",
+		"cartulary.view.findings.v1",
+		"cartulary.view.forensic_keywords.v1",
+		"cartulary.view.handoff.v1",
+		"cartulary.view.hosts.v1",
+		"cartulary.view.identities.v1",
+		"cartulary.view.indicators.v1",
+		"cartulary.view.investigative_queries.v1",
+		"cartulary.view.lesson.v1",
+		"cartulary.view.notes.v1",
+		"cartulary.view.parties.v1",
+		"cartulary.view.status_review.v1",
+		"cartulary.view.task_requests.v1",
+		"cartulary.view.timeline.v2",
+	}
+	if len(rawSchemas) != len(wantIDs) {
+		t.Fatalf("discovery returned %d view schemas, want %d", len(rawSchemas), len(wantIDs))
 	}
 
 	gotIDs := make([]string, 0, len(rawSchemas))
 	for _, rawSchema := range rawSchemas {
 		viewSchemaID := rawSchema.(map[string]any)["view_schema_id"].(string)
 		gotIDs = append(gotIDs, viewSchemaID)
+
+		singleResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet,
+			harness.Server.HTTP.URL+"/api/v1/view-schemas/"+viewSchemaID, nil,
+			httptestx.WithCookies(adminLogin.Session))
+		singleData := httptestx.RequireSuccessData(t, singleResp, http.StatusOK)
+		if singleData["view_schema_id"] != viewSchemaID {
+			t.Fatalf("singleton for %s returned wrong identity: %#v", viewSchemaID, singleData)
+		}
+		if fields, ok := singleData["fields"].([]any); !ok || len(fields) == 0 {
+			t.Fatalf("singleton for %s has no fields: %#v", viewSchemaID, singleData)
+		}
+		if viewSchemaID == "cartulary.view.parties.v1" && singleData["surface_kind"] != "system_view" {
+			t.Fatalf("Parties singleton has wrong surface kind: %#v", singleData)
+		}
 
 		queryResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
@@ -71,13 +104,13 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 		}
 	}
 
-	wantIDs := make([]string, 0, len(registrySchemas))
-	for _, resource := range registrySchemas {
-		wantIDs = append(wantIDs, resource.ViewSchemaID)
-	}
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Fatalf("unexpected discovered ids:\ngot  %v\nwant %v", gotIDs, wantIDs)
 	}
+	unsupported := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.hypotheses.v1", nil,
+		httptestx.WithCookies(adminLogin.Session))
+	httptestx.ReadResponseBody(t, unsupported, http.StatusNotFound)
 }
 
 func TestWorkbook_AllRegisteredSurfacesHaveCreateAdmission_Integration(t *testing.T) {

@@ -13,6 +13,11 @@ test("preserves and replays local work after owned-user revoke-all", async ({
   await exerciseRevokedPendingReplay({
     createdBy: "collaboration-recovery",
     incidentKeyPrefix: "E603REVOKE",
+    localValues: [
+      "Recovery first local",
+      "Recovery second local",
+      "Recovery third local",
+    ],
     page,
     scenario: "revoke-all",
     sessionTracker,
@@ -33,6 +38,7 @@ test("preserves and replays local work after current-session logout", async ({
   await exerciseRevokedPendingReplay({
     createdBy: "collaboration-recovery",
     incidentKeyPrefix: "E603LOGOUT",
+    localValues: ["Logout recovery local"],
     page,
     scenario: "logout",
     sessionTracker,
@@ -59,6 +65,7 @@ test("preserves unsaved local work after socket idle expiry and re-authenticatio
     await exerciseRevokedPendingReplay({
       createdBy: "collaboration-recovery",
       incidentKeyPrefix: "E603IDLE",
+      localValues: ["Idle expiry recovery local"],
       page,
       scenario: "idle-expiry",
       sessionTracker,

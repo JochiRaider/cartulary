@@ -76,6 +76,7 @@ describe("workbook surface contracts", () => {
     expect(entries[5]?.viewSchemaId).toBe(indicatorsViewSchemaId);
     for (const entry of entries) {
       expect(entry.contract).toBe(requireViewContract(entry.viewSchemaId));
+      expect(entry.contract.viewSchemaId).toBe(entry.viewSchemaId);
     }
   });
 

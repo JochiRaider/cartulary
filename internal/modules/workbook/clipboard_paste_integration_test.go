@@ -470,7 +470,7 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 		if baseRowVersion > 1 {
 			txnID = "txn-workbook_interaction-i-9-01-cross-paste-future-version"
 		}
-		body := requireClipboardPaste(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
+		response := doClipboardPaste(t, harness, adminLogin, incidentAID, timeline.TimelineViewSchemaID, map[string]any{
 			"view_schema_id":  timeline.TimelineViewSchemaID,
 			"client_txn_id":   txnID,
 			"clipboard_text":  "Should not create\nShould not disclose",
@@ -481,7 +481,8 @@ func TestClipboardPasteAndBulkRejectCrossIncidentTargets_Integration(t *testing.
 				{"kind": "create"},
 				{"kind": "record", "record_id": foreignID.String(), "base_row_version": baseRowVersion},
 			},
-		}, http.StatusNotFound)
+		})
+		body := requireWorkbookMutationError(t, response, http.StatusNotFound, "incident_not_found")
 		requireNoVersionOracle(t, body)
 		requireNoTimelineSummary(t, harness, incidentAID, "Should not create")
 		requireTimelineSummaryAndVersion(t, harness, foreignID, "Foreign batch target", 1)
@@ -652,13 +653,7 @@ func TestWorkbookBatchAdmissionHasNoPartialEffects_Integration(t *testing.T) {
 
 func requireClipboardPaste(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, body map[string]any, wantStatus int) map[string]any {
 	t.Helper()
-	resp := httptestx.DoJSON(t, http.DefaultClient,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/clipboard-paste",
-		body,
-		httptestx.WithCookies(login.Session, login.CSRF),
-		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
-	)
+	resp := doClipboardPaste(t, harness, login, incidentID, viewSchemaID, body)
 	if wantStatus == http.StatusOK {
 		return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	}
@@ -666,6 +661,17 @@ func requireClipboardPaste(t testing.TB, harness *appsupport.ServerHarness, logi
 		t.Fatalf("clipboard paste status: got %d want %d body=%#v", resp.StatusCode, wantStatus, httptestx.ReadJSONBody(t, resp))
 	}
 	return httptestx.ReadJSONBody(t, resp)
+}
+
+func doClipboardPaste(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, body map[string]any) *http.Response {
+	t.Helper()
+	return httptestx.DoJSON(t, http.DefaultClient,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/clipboard-paste",
+		body,
+		httptestx.WithCookies(login.Session, login.CSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value),
+	)
 }
 
 func requireBulkMutation(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {

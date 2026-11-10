@@ -149,7 +149,7 @@ export async function openIncidentAsTrackedUserReady(
 type SessionRecoveryScenario = {
   createdBy: string;
   incidentKeyPrefix: string;
-  localValues?: readonly string[];
+  localValues: readonly [string, ...string[]];
   page: Page;
   scenario: string;
   sessionTracker: SessionTracker;
@@ -346,38 +346,6 @@ export async function currentTimelineSummary(page: Page, recordId: string) {
     );
   }
   return display.evaluate((element) => element.textContent?.trim());
-}
-
-async function queueTimelineSummary(
-  page: Page,
-  recordId: string,
-  value: string,
-) {
-  await scrollGridCellIntoView({
-    cellKey: "timeline.activity_synopsis_text",
-    page,
-    recordId,
-    surface: timelineViewSchemaId,
-  });
-  const display = page.getByTestId(
-    rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-  );
-  await display.click();
-  const input = page.getByTestId(
-    timelineScalarEditorTestId({
-      fieldKey: "timeline.activity_synopsis_text",
-      recordId,
-      surface: "grid",
-    }),
-  );
-  await expect(input).toBeFocused();
-  await input.fill(value);
-  await input.evaluate((element) => {
-    if (element instanceof HTMLElement) element.blur();
-  });
-  await expect
-    .poll(() => currentTimelineSummary(page, recordId), { timeout: 25_000 })
-    .toBe(value);
 }
 
 export async function patchTimelineField(
@@ -580,10 +548,7 @@ export async function exerciseRevokedPendingReplay({
   sessionTracker,
   triggerRevocation,
 }: SessionRecoveryScenario) {
-  const replayValues = localValues ?? [
-    `Collaboration ${createdBy} ${scenario} first local`,
-    `Collaboration ${createdBy} ${scenario} second local`,
-  ];
+  const replayValues = localValues;
   if (replayValues.length < 1) {
     throw new Error("revoked pending replay requires a local value");
   }
@@ -617,10 +582,9 @@ export async function exerciseRevokedPendingReplay({
   if (!firstReplayItem) {
     throw new Error("revoked pending replay did not create a first row");
   }
-  const queuedReplayItems = [firstReplayItem];
   const patchController = await installPatchController(page);
 
-  {
+  try {
     await sessionTracker.loginTrackedUser(page, {
       createdBy,
       email: member.email,
@@ -632,6 +596,12 @@ export async function exerciseRevokedPendingReplay({
     const socketMonitor = installIncidentSocketMonitor(page, incidentId);
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForAcceptedSocket();
+    const clientInstanceId = socketMonitor
+      .sentMessages()
+      .find((message) => message.type === "hello")?.payload.client_instance_id;
+    expect(clientInstanceId).toEqual(expect.any(String));
+    expect(clientInstanceId).not.toBe("");
+    const runtimeOrigin = await page.evaluate(() => performance.timeOrigin);
     await scrollGridCellIntoView({
       cellKey: "timeline.activity_synopsis_text",
       page,
@@ -648,18 +618,42 @@ export async function exerciseRevokedPendingReplay({
     ).toHaveText(`Collaboration ${createdBy} ${scenario} 1 base`);
     await expectCurrentIncidentRole(page, "Current incident role: editor");
 
-    const heldPatch = patchController.holdNextPatch();
-    await queueTimelineSummary(
-      page,
-      firstReplayItem.recordId,
-      firstReplayItem.value,
+    await expect
+      .poll(async () =>
+        (await mountedTimelineRecordIDs(page)).filter((id) =>
+          recordIds.includes(id),
+        ),
+      )
+      .toHaveLength(replayItems.length);
+    const visibleIds = (await mountedTimelineRecordIDs(page)).filter((id) =>
+      recordIds.includes(id),
     );
-    await heldPatch.waitForHit;
+    // Rotate the observed display order so FIFO cannot pass by sorting rows.
+    const enqueueIds = [...visibleIds.slice(1), ...visibleIds.slice(0, 1)];
+    const queuedReplayItems = enqueueIds.map((recordId) => {
+      const item = replayItems.find(
+        (candidate) => candidate.recordId === recordId,
+      );
+      if (!item) throw new Error(`missing replay item for ${recordId}`);
+      return item;
+    });
+    if (replayItems.length > 1) expect(enqueueIds).not.toEqual(visibleIds);
+    const firstQueuedItem = queuedReplayItems[0];
+    if (!firstQueuedItem) throw new Error("missing first queued replay item");
+    const heldPatch = patchController.holdNextPatch({
+      recordId: firstQueuedItem.recordId,
+    });
+    for (const [index, item] of queuedReplayItems.entries()) {
+      if (index > 0) await returnToTimelineWithRetainedWork(page);
+      await editTimelineSummary(page, item.recordId, item.value, {
+        outcome: "queued",
+        expectedQueueCount: index + 1,
+      });
+    }
+    const firstAttempt = await heldPatch.waitForHit;
+    if (!firstAttempt) throw new Error("first replay attempt was cancelled");
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
-      pendingReplayCountAttribute,
-      String(queuedReplayItems.length),
-    );
+    await expect.poll(() => pendingReplayCount(page)).toBe(replayValues.length);
 
     const establishedSocket = socketMonitor.latestEstablishedSocket();
     if (!establishedSocket) {
@@ -672,6 +666,9 @@ export async function exerciseRevokedPendingReplay({
     await socketMonitor.waitForClose(revocation.socketIndex, 25_000);
 
     heldPatch.release();
+    const rejectedAttempt = await heldPatch.waitForCompletion;
+    expect(rejectedAttempt?.status).toBe(401);
+    expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);
     await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
       "revoked",
@@ -686,6 +683,7 @@ export async function exerciseRevokedPendingReplay({
     }
 
     const messageStart = socketMonitor.messageCount();
+    const replayStart = patchController.attempts.length;
     await sessionTracker.loginTrackedUser(page, {
       createdBy,
       email: member.email,
@@ -697,24 +695,8 @@ export async function exerciseRevokedPendingReplay({
       startAt: messageStart,
     });
 
-    await expect
-      .poll(() => successfulPatchCalls(patchController.calls).length)
-      .toBeGreaterThanOrEqual(queuedReplayItems.length);
-    const replayed = successfulPatchCalls(patchController.calls).slice(
-      -queuedReplayItems.length,
-    );
-    expect(replayed.map((call) => call.recordId)).toEqual(
-      queuedReplayItems.map((item) => item.recordId),
-    );
-    expect(replayed.map((call) => summaryPatchValue(call.body))).toEqual(
-      queuedReplayItems.map((item) => item.value),
-    );
-
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
-      pendingReplayCountAttribute,
-      "0",
-    );
+    await expect.poll(() => pendingReplayCount(page)).toBe(0);
     await expectServerSummaries(
       page,
       incidentId,
@@ -722,7 +704,41 @@ export async function exerciseRevokedPendingReplay({
         queuedReplayItems.map((item) => [item.recordId, item.value]),
       ),
     );
-
+    for (const item of queuedReplayItems) {
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId: item.recordId,
+        surface: timelineViewSchemaId,
+      });
+      await expect(
+        page.getByTestId(gridRowTestId(timelineViewSchemaId, item.recordId)),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId(
+          rowCellTestId(item.recordId, "timeline.activity_synopsis_text"),
+        ),
+      ).toHaveText(item.value);
+    }
+    await expect.poll(() => pendingReplayCount(page)).toBe(0);
+    // Close the recovery observation window after persistence and rendering.
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(
+      runtimeOrigin,
+    );
+    for (const message of socketMonitor.sentMessages()) {
+      if (message.type === "hello" || message.type === "resume") {
+        expect(message.payload.client_instance_id).toBe(clientInstanceId);
+      }
+    }
+    const replayed = patchController.attempts.slice(replayStart);
+    expect(replayed).toHaveLength(queuedReplayItems.length);
+    expect(successfulPatchCalls(patchController.calls)).toEqual(replayed);
+    expect(replayed.map((call) => call.recordId)).toEqual(enqueueIds);
+    expect(replayed.map((call) => summaryPatchValue(call.body))).toEqual(
+      queuedReplayItems.map((item) => item.value),
+    );
+    expect(replayed[0]?.body).toEqual(firstAttempt.body);
+  } finally {
     await patchController.dispose();
   }
 }
@@ -868,6 +884,7 @@ export async function installPatchController(page: Page) {
   const holds = new Set<Extract<PatchBehavior, { type: "hold" }>>();
   let disposed = false;
   const calls: PatchCall[] = [];
+  const attempts: PatchCall[] = [];
   const behaviors: PatchBehavior[] = [];
   const routePattern = "**/api/v1/records/*";
   const takeBehavior = (call: PatchCall) => {
@@ -893,6 +910,7 @@ export async function installPatchController(page: Page) {
       recordId: recordIdFromURL(request.url()),
       status: 0,
     };
+    attempts.push(call);
     const behavior = takeBehavior(call);
     if (behavior?.type === "hold") {
       behavior.call = call;
@@ -939,6 +957,7 @@ export async function installPatchController(page: Page) {
   });
 
   return {
+    attempts,
     calls,
     dispose: ownedRoute.dispose,
     failNextPatch: (

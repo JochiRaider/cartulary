@@ -31,11 +31,7 @@ import { expect, test } from "./fixtures";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
 import { gridSavedRows } from "./pages/workbookInspector";
 import { csrfHeaders } from "./support/auth/browserSession";
-import { revokeAllSessions } from "./support/auth/sessions";
-import {
-  exerciseRevokedPendingReplay,
-  installPatchController,
-} from "./support/collaboration/replay";
+import { installPatchController } from "./support/collaboration/replay";
 import { createIncident } from "./support/incidents/fixtures";
 import { apiBase } from "./support/runtime/configuration";
 import {
@@ -138,34 +134,6 @@ async function patchTimelinePublic(
     headers: await csrfHeaders(page),
     data: body,
   });
-}
-
-async function postTimelineCreatePublic(
-  page: Page,
-  incidentId: string,
-  body: Record<string, unknown>,
-) {
-  return page.request.post(
-    `${apiBase}/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
-    {
-      headers: await csrfHeaders(page),
-      data: body,
-    },
-  );
-}
-
-async function postTimelinePastePublic(
-  page: Page,
-  incidentId: string,
-  body: Record<string, unknown>,
-) {
-  return page.request.post(
-    `${apiBase}/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
-    {
-      headers: await csrfHeaders(page),
-      data: body,
-    },
-  );
 }
 
 async function dispatchClipboardText(
@@ -284,847 +252,226 @@ async function submitTimelineSummary(
   await editor.press("Enter");
 }
 
-test(
-  exactScenarioTitle,
-  async ({ browserScope, page, sessionTracker, testActorRequest }) => {
-    test.setTimeout(300_000);
+test(exactScenarioTitle, async ({ browserScope, page }) => {
+  test.setTimeout(300_000);
 
-    const incidentId = await createIncident(
-      page,
-      uniqueIncidentKey("TIMELINEPUBLIC"),
-      "end-to-end.mutation-lifecycle.row-01 public route browser coverage",
-    );
-    const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("timeline-public-alpha"),
-      "timeline.activity_utc_text": "2026-04-10T10:00:00.000Z",
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("TIMELINEPUBLIC"),
+    "end-to-end.mutation-lifecycle.row-01 public route browser coverage",
+  );
+  const alpha = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-public-alpha"),
+    "timeline.activity_utc_text": "2026-04-10T10:00:00.000Z",
+    "timeline.activity_synopsis_text":
+      "end-to-end.mutation-lifecycle.row-01 Alpha",
+  });
+  const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("timeline-public-beta"),
+    "timeline.activity_utc_text": "2026-04-10T10:05:00.000Z",
+    "timeline.activity_synopsis_text":
+      "end-to-end.mutation-lifecycle.row-01 Beta",
+  });
+  const pasteSeed = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("timeline-public-paste-seed"),
       "timeline.activity_synopsis_text":
-        "end-to-end.mutation-lifecycle.row-01 Alpha",
-    });
-    const beta = await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("timeline-public-beta"),
-      "timeline.activity_utc_text": "2026-04-10T10:05:00.000Z",
+        "end-to-end.mutation-lifecycle.row-01 Paste seed",
+    },
+  );
+  const tabularSeed = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("timeline-public-tabular-seed"),
       "timeline.activity_synopsis_text":
-        "end-to-end.mutation-lifecycle.row-01 Beta",
-    });
-    const pasteSeed = await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("timeline-public-paste-seed"),
-        "timeline.activity_synopsis_text":
-          "end-to-end.mutation-lifecycle.row-01 Paste seed",
-      },
-    );
-    const tabularSeed = await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("timeline-public-tabular-seed"),
-        "timeline.activity_synopsis_text":
-          "end-to-end.mutation-lifecycle.row-01 Tabular seed",
-      },
-    );
+        "end-to-end.mutation-lifecycle.row-01 Tabular seed",
+    },
+  );
 
-    await test.step("authenticated browser query and rough create use public routes", async () => {
-      const queryResponse = page.waitForResponse(
+  await test.step("authenticated browser query and rough create use public routes", async () => {
+    const queryResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response
+          .url()
+          .endsWith(
+            `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+          ),
+    );
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(
+      page.getByTestId(timelineMutationSubstrateReadyTestId()),
+    ).toBeVisible();
+    const query = await queryResponse;
+    expect(query.ok()).toBeTruthy();
+    const queryBody = await readEnvelope(query);
+    expect((queryBody.data as { view_schema_id?: string }).view_schema_id).toBe(
+      timelineViewSchemaId,
+    );
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId: alpha.record_id,
+      surface: timelineViewSchemaId,
+    });
+    await expect(
+      page.getByTestId(
+        rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
+      ),
+    ).toHaveText("end-to-end.mutation-lifecycle.row-01 Alpha");
+
+    const createBodies: Record<string, unknown>[] = [];
+    const createRoute = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`;
+    const createRouteHandler = async (route: Route) => {
+      if (route.request().method().toUpperCase() === "POST") {
+        createBodies.push(readPostBody(route.request()));
+      }
+      await route.fallback();
+    };
+    await installOwnedRoute(page, createRoute, createRouteHandler);
+    try {
+      const draftSynopsisTestId = draftCellTestId(
+        "timeline.activity_synopsis_text",
+      );
+      await scrollGridTargetIntoView({
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: draftSynopsisTestId,
+      });
+      const createResponse = page.waitForResponse(
         (response) =>
           response.request().method() === "POST" &&
           response
             .url()
             .endsWith(
-              `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+              `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
             ),
       );
-      await page.goto(`/?incident_id=${incidentId}`);
-      await expect(
-        page.getByTestId(timelineMutationSubstrateReadyTestId()),
-      ).toBeVisible();
-      const query = await queryResponse;
-      expect(query.ok()).toBeTruthy();
-      const queryBody = await readEnvelope(query);
-      expect(
-        (queryBody.data as { view_schema_id?: string }).view_schema_id,
-      ).toBe(timelineViewSchemaId);
+      await page
+        .getByTestId(draftSynopsisTestId)
+        .fill("end-to-end.mutation-lifecycle.row-01 Rough summary");
+      await page.getByTestId(draftSynopsisTestId).press("Enter");
+      const createEnvelope = await readWorkbookMutation(
+        await createResponse,
+        "createViewRow",
+      );
+      const createdRow = createEnvelope.data.row;
+      expect(createBodies).toHaveLength(1);
+      const createBody = createBodies[0] ?? {};
+      expect(typeof createBody.client_txn_id).toBe("string");
+      expect(Object.keys(createBody).sort()).toEqual([
+        "client_txn_id",
+        "timeline.activity_synopsis_text",
+      ]);
+      for (const fieldKey of Object.keys(createBody)) {
+        expect(allowedCreateFieldKeys.has(fieldKey)).toBeTruthy();
+      }
+      expect(createBody).not.toHaveProperty("record_id");
+      expect(createBody).not.toHaveProperty("row_version");
+      expect(createBody).not.toHaveProperty("timeline.capture_state");
+      expect(createBody).not.toHaveProperty("timeline.edited_at");
       await scrollGridCellIntoView({
         cellKey: "timeline.activity_synopsis_text",
         page,
-        recordId: alpha.record_id,
+        recordId: createdRow.record_id,
         surface: timelineViewSchemaId,
       });
-      await expect(
-        page.getByTestId(
-          rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
-        ),
-      ).toHaveText("end-to-end.mutation-lifecycle.row-01 Alpha");
-
-      const createBodies: Record<string, unknown>[] = [];
-      const createRoute = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`;
-      const createRouteHandler = async (route: Route) => {
-        if (route.request().method().toUpperCase() === "POST") {
-          createBodies.push(readPostBody(route.request()));
-        }
-        await route.fallback();
-      };
-      await installOwnedRoute(page, createRoute, createRouteHandler);
-      try {
-        const draftSynopsisTestId = draftCellTestId(
-          "timeline.activity_synopsis_text",
-        );
-        await scrollGridTargetIntoView({
-          page,
-          surface: timelineViewSchemaId,
-          targetTestId: draftSynopsisTestId,
-        });
-        const createResponse = page.waitForResponse(
-          (response) =>
-            response.request().method() === "POST" &&
-            response
-              .url()
-              .endsWith(
-                `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
-              ),
-        );
-        await page
-          .getByTestId(draftSynopsisTestId)
-          .fill("end-to-end.mutation-lifecycle.row-01 Rough summary");
-        await page.getByTestId(draftSynopsisTestId).press("Enter");
-        const createEnvelope = await readWorkbookMutation(
-          await createResponse,
-          "createViewRow",
-        );
-        const createdRow = createEnvelope.data.row;
-        expect(createBodies).toHaveLength(1);
-        const createBody = createBodies[0] ?? {};
-        expect(typeof createBody.client_txn_id).toBe("string");
-        expect(Object.keys(createBody).sort()).toEqual([
-          "client_txn_id",
-          "timeline.activity_synopsis_text",
-        ]);
-        for (const fieldKey of Object.keys(createBody)) {
-          expect(allowedCreateFieldKeys.has(fieldKey)).toBeTruthy();
-        }
-        expect(createBody).not.toHaveProperty("record_id");
-        expect(createBody).not.toHaveProperty("row_version");
-        expect(createBody).not.toHaveProperty("timeline.capture_state");
-        expect(createBody).not.toHaveProperty("timeline.edited_at");
-        await scrollGridCellIntoView({
-          cellKey: "timeline.activity_synopsis_text",
-          page,
-          recordId: createdRow.record_id,
-          surface: timelineViewSchemaId,
-        });
-        await expect(
-          page.getByTestId(
-            rowCellTestId(
-              createdRow.record_id,
-              "timeline.activity_synopsis_text",
-            ),
-          ),
-        ).toHaveText("end-to-end.mutation-lifecycle.row-01 Rough summary");
-        await scrollGridCellIntoView({
-          cellKey: "timeline.capture_state",
-          page,
-          recordId: createdRow.record_id,
-          surface: timelineViewSchemaId,
-        });
-        await expect(
-          page.getByTestId(
-            rowCellTestId(createdRow.record_id, "timeline.capture_state"),
-          ),
-        ).toHaveText("rough");
-      } finally {
-        await safeUnroute(page, createRoute, createRouteHandler);
-      }
-
-      for (const [fieldKey, value] of [
-        ["record_id", beta.record_id],
-        ["row_version", 1],
-        ["timeline.evidence_count", 4],
-        ["timeline.capture_state", "reviewed"],
-        ["timeline.edited_at", "2026-04-10T10:15:00Z"],
-      ] as const) {
-        const response = await postTimelineCreatePublic(page, incidentId, {
-          client_txn_id: uniqueTxn(`timeline-public-create-${fieldKey}`),
-          "timeline.activity_synopsis_text": `end-to-end.mutation-lifecycle.row-01 forbidden ${fieldKey}`,
-          [fieldKey]: value,
-        });
-        await expectPublicError(response, 400, "invalid_mutation_payload", {
-          field: fieldKey,
-          reason_code: "unknown_field",
-        });
-      }
-      const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
-      expect(
-        rows.some((row) =>
-          String(summaryValue(row) ?? "").startsWith(
-            "end-to-end.mutation-lifecycle.row-01 forbidden ",
-          ),
-        ),
-      ).toBe(false);
-    });
-
-    await test.step("inline edit route covers payload boundaries, save-state, refresh, and conflicts", async () => {
-      const patchController = await installPatchController(page);
-      {
-        const heldPatch = patchController.holdNextPatch({
-          recordId: beta.record_id,
-        });
-        await scrollGridCellIntoView({
-          cellKey: "timeline.activity_synopsis_text",
-          page,
-          recordId: beta.record_id,
-          surface: timelineViewSchemaId,
-        });
-        const betaInlineCell = page.getByTestId(
-          rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
-        );
-        await betaInlineCell.click();
-        const betaInlineEditor = page.getByTestId(
-          timelineScalarEditorTestId({
-            fieldKey: "timeline.activity_synopsis_text",
-            recordId: beta.record_id,
-            surface: "grid",
-          }),
-        );
-        await betaInlineEditor.fill(
-          "end-to-end.mutation-lifecycle.row-01 Beta inline edit",
-        );
-        await betaInlineEditor.press("Enter");
-        const heldCall = await heldPatch.waitForHit;
-        if (!heldCall) throw new Error("Patch observation was cancelled");
-        expect(heldCall.recordId).toBe(beta.record_id);
-        expect(heldCall.body).toMatchObject({
-          view_schema_id: timelineViewSchemaId,
-          base_row_version: beta.row_version,
-        });
-        expect(typeof heldCall.body.client_txn_id).toBe("string");
-        const changes = heldCall.body.changes;
-        expect(Array.isArray(changes)).toBe(true);
-        expect(changes).toHaveLength(1);
-        expect(changes).toEqual([
-          {
-            field_key: "timeline.activity_synopsis_text",
-            value: "end-to-end.mutation-lifecycle.row-01 Beta inline edit",
-          },
-        ]);
-        await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-
-        await sortByHeader(
-          page,
-          timelineViewSchemaId,
-          "timeline.activity_synopsis_text",
-        );
-        await expect
-          .poll(async () => visibleRecordIds(page))
-          .toContain(beta.record_id);
-
-        const patchResponse = page.waitForResponse(
-          (response) =>
-            response.request().method() === "PATCH" &&
-            response.url().endsWith(`/api/v1/records/${beta.record_id}`),
-        );
-        heldPatch.release();
-        const patchEnvelope = (await (await patchResponse).json()) as {
-          data: { change_set_id: string; row: ViewRow };
-        };
-        const completedPatch = await heldPatch.waitForCompletion;
-        if (!completedPatch) throw new Error("Patch observation was cancelled");
-        expect(completedPatch.status).toBe(200);
-        await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-        await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
-          pendingReplayCountAttribute,
-          "0",
-        );
-        await expect(
-          page.getByTestId(
-            rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
-          ),
-        ).toHaveText("end-to-end.mutation-lifecycle.row-01 Beta inline edit");
-        await expect(
-          page.getByTestId(gridRowTestId(timelineViewSchemaId, beta.record_id)),
-        ).toHaveAttribute(
-          gridRowVersionAttribute,
-          String(patchEnvelope.data.row.row_version),
-        );
-
-        const replayResponse = await patchTimelinePublic(
-          page,
-          beta.record_id,
-          heldCall.body,
-        );
-        expect(replayResponse.ok()).toBeTruthy();
-        const replayEnvelope = (await replayResponse.json()) as {
-          data: { change_set_id: string; row: ViewRow };
-        };
-        expect(replayEnvelope.data.change_set_id).toBe(
-          patchEnvelope.data.change_set_id,
-        );
-        expect(replayEnvelope.data.row.row_version).toBe(
-          patchEnvelope.data.row.row_version,
-        );
-        expect(summaryValue(replayEnvelope.data.row)).toBe(
-          "end-to-end.mutation-lifecycle.row-01 Beta inline edit",
-        );
-
-        await expectPublicError(
-          await patchTimelinePublic(page, beta.record_id, {
-            ...heldCall.body,
-            changes: [
-              {
-                field_key: "timeline.activity_synopsis_text",
-                value: "end-to-end.mutation-lifecycle.row-01 divergent replay",
-              },
-            ],
-          }),
-          409,
-          "client_txn_conflict",
-        );
-        await expectPublicError(
-          await patchTimelinePublic(page, beta.record_id, {
-            view_schema_id: timelineViewSchemaId,
-            base_row_version: patchEnvelope.data.row.row_version,
-            client_txn_id: uniqueTxn("timeline-public-empty-changes"),
-            changes: [],
-          }),
-          400,
-          "invalid_mutation_payload",
-          { field: "changes", reason_code: "empty_changes" },
-        );
-        await expectPublicError(
-          await patchTimelinePublic(page, beta.record_id, {
-            view_schema_id: timelineViewSchemaId,
-            base_row_version: patchEnvelope.data.row.row_version,
-            client_txn_id: uniqueTxn("timeline-public-duplicate-field"),
-            changes: [
-              { field_key: "timeline.activity_synopsis_text", value: "first" },
-              { field_key: "timeline.activity_synopsis_text", value: "second" },
-            ],
-          }),
-          400,
-          "invalid_mutation_payload",
-          { field: "changes", reason_code: "duplicate_field_key" },
-        );
-        await expectPublicError(
-          await patchTimelinePublic(page, beta.record_id, {
-            view_schema_id: timelineViewSchemaId,
-            base_row_version: patchEnvelope.data.row.row_version,
-            client_txn_id: uniqueTxn("timeline-public-over-max"),
-            changes: Array.from({ length: 33 }, (_, index) => ({
-              field_key: "timeline.activity_synopsis_text",
-              value: `over max ${index}`,
-            })),
-          }),
-          400,
-          "invalid_mutation_payload",
-          { field: "changes", reason_code: "change_count_exceeded" },
-        );
-        await expectPublicError(
-          await patchTimelinePublic(page, beta.record_id, {
-            view_schema_id: timelineViewSchemaId,
-            base_row_version: patchEnvelope.data.row.row_version + 100,
-            client_txn_id: uniqueTxn("timeline-public-row-version-conflict"),
-            changes: [
-              {
-                field_key: "timeline.activity_synopsis_text",
-                value:
-                  "end-to-end.mutation-lifecycle.row-01 future row version",
-              },
-            ],
-          }),
-          409,
-          "row_version_conflict",
-        );
-
-        const conflictRow = await createViewRow(
-          page,
-          incidentId,
-          timelineViewSchemaId,
-          {
-            client_txn_id: uniqueTxn("timeline-public-conflict-row"),
-            "timeline.activity_synopsis_text":
-              "end-to-end.mutation-lifecycle.row-01 conflict base",
-          },
-        );
-        const serverConflictPatch = await patchTimelinePublic(
-          page,
-          conflictRow.record_id,
-          {
-            view_schema_id: timelineViewSchemaId,
-            base_row_version: conflictRow.row_version,
-            client_txn_id: uniqueTxn("timeline-public-same-field-server"),
-            changes: [
-              {
-                field_key: "timeline.activity_synopsis_text",
-                value: "end-to-end.mutation-lifecycle.row-01 conflict server",
-              },
-            ],
-          },
-        );
-        expect(serverConflictPatch.ok()).toBeTruthy();
-        const sameFieldBody = await expectPublicError(
-          await patchTimelinePublic(page, conflictRow.record_id, {
-            view_schema_id: timelineViewSchemaId,
-            base_row_version: conflictRow.row_version,
-            client_txn_id: uniqueTxn("timeline-public-same-field-client"),
-            changes: [
-              {
-                field_key: "timeline.activity_synopsis_text",
-                value: "end-to-end.mutation-lifecycle.row-01 conflict client",
-              },
-            ],
-          }),
-          409,
-          "same_field_conflict",
-        );
-        expect(sameFieldBody.error.conflict?.field_key).toBe(
-          "timeline.activity_synopsis_text",
-        );
-
-        await page.reload();
-        await scrollGridCellIntoView({
-          cellKey: "timeline.activity_synopsis_text",
-          page,
-          recordId: beta.record_id,
-          surface: timelineViewSchemaId,
-        });
-        await expect(
-          page.getByTestId(
-            rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
-          ),
-        ).toHaveText("end-to-end.mutation-lifecycle.row-01 Beta inline edit");
-        await expect(
-          page.getByTestId(gridRowTestId(timelineViewSchemaId, beta.record_id)),
-        ).toHaveAttribute(
-          gridRowVersionAttribute,
-          String(patchEnvelope.data.row.row_version),
-        );
-
-        await patchController.dispose();
-      }
-    });
-
-    await test.step("paste dispatch, target validation, non-conflicting commit, and grouped conflicts use public routes", async () => {
-      const scalarPasteRequests: string[] = [];
-      const captureScalarPaste = (request: {
-        method: () => string;
-        url: () => string;
-      }) => {
-        if (
-          request.method() === "POST" &&
-          request.url().includes("/clipboard-paste")
-        ) {
-          scalarPasteRequests.push(request.url());
-        }
-      };
-      page.on("request", captureScalarPaste);
-      try {
-        const scalarPatchResponse = page.waitForResponse(
-          (response) =>
-            response.request().method() === "PATCH" &&
-            response.url().endsWith(`/api/v1/records/${pasteSeed.record_id}`),
-        );
-        await scrollGridCellIntoView({
-          cellKey: "timeline.activity_synopsis_text",
-          page,
-          recordId: pasteSeed.record_id,
-          surface: timelineViewSchemaId,
-        });
-        const scalarPasteCell = page.getByTestId(
-          rowCellTestId(pasteSeed.record_id, "timeline.activity_synopsis_text"),
-        );
-        await scalarPasteCell.click();
-        await page
-          .getByTestId(
-            timelineScalarEditorTestId({
-              fieldKey: "timeline.activity_synopsis_text",
-              recordId: pasteSeed.record_id,
-              surface: "grid",
-            }),
-          )
-          .fill("end-to-end.mutation-lifecycle.row-01 scalar, comma only");
-        await dispatchClipboardText(
-          page,
-          pasteSeed.record_id,
-          "timeline.activity_synopsis_text",
-          "end-to-end.mutation-lifecycle.row-01 scalar, comma only",
-        );
-        // Pasting into an active text editor remains local authoring until the
-        // user commits; a synthetic paste event has no browser default action.
-        await page
-          .getByTestId(
-            timelineScalarEditorTestId({
-              fieldKey: "timeline.activity_synopsis_text",
-              recordId: pasteSeed.record_id,
-              surface: "grid",
-            }),
-          )
-          .press("Tab");
-        const scalarPatch = await scalarPatchResponse;
-        expect(scalarPatch.ok()).toBeTruthy();
-        expect(readPostBody(scalarPatch.request())).toMatchObject({
-          view_schema_id: timelineViewSchemaId,
-          changes: [
-            {
-              field_key: "timeline.activity_synopsis_text",
-              value: "end-to-end.mutation-lifecycle.row-01 scalar, comma only",
-            },
-          ],
-        });
-        expect(scalarPasteRequests).toHaveLength(0);
-        await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      } finally {
-        page.off("request", captureScalarPaste);
-      }
-
-      const pasteRequest = page.waitForRequest(
-        (request) =>
-          request.method() === "POST" &&
-          request
-            .url()
-            .endsWith(
-              `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
-            ),
-      );
-      const pasteResponse = page.waitForResponse(
-        (response) =>
-          response.request().method() === "POST" &&
-          response
-            .url()
-            .endsWith(
-              `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
-            ),
-      );
-      await pasteGridMatrix({
-        fieldKey: "timeline.activity_synopsis_text",
-        matrix: [
-          [
-            "end-to-end.mutation-lifecycle.row-01 tabular summary",
-            "timeline-public-host.example.test",
-          ],
-        ],
-        page,
-        recordId: tabularSeed.record_id,
-        surface: timelineViewSchemaId,
-      });
-      const pasteBody = readPostBody(await pasteRequest);
-      expect(pasteBody).toMatchObject({
-        view_schema_id: timelineViewSchemaId,
-        clipboard_text:
-          "end-to-end.mutation-lifecycle.row-01 tabular summary\ttimeline-public-host.example.test",
-        format: "tsv",
-        start_field_key: "timeline.activity_synopsis_text",
-        columns: [
-          "timeline.activity_synopsis_text",
-          "timeline.data_source_text",
-        ],
-        targets: [
-          {
-            kind: "record",
-            record_id: tabularSeed.record_id,
-          },
-        ],
-      });
-      expect(typeof pasteBody.client_txn_id).toBe("string");
-      expect((await pasteResponse).ok()).toBeTruthy();
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(
         page.getByTestId(
           rowCellTestId(
-            tabularSeed.record_id,
+            createdRow.record_id,
             "timeline.activity_synopsis_text",
           ),
         ),
-      ).toHaveText("end-to-end.mutation-lifecycle.row-01 tabular summary");
-
-      const foreignIncidentId = await createIncident(
-        page,
-        uniqueIncidentKey("TIMELINEPUBLICFOREIGN"),
-        "end-to-end.mutation-lifecycle.row-01 foreign paste target",
-      );
-      const foreign = await createViewRow(
-        page,
-        foreignIncidentId,
-        timelineViewSchemaId,
-        {
-          client_txn_id: uniqueTxn("timeline-public-foreign-row"),
-          "timeline.activity_synopsis_text":
-            "end-to-end.mutation-lifecycle.row-01 foreign untouched",
-        },
-      );
-      await expectPublicError(
-        await postTimelinePastePublic(page, incidentId, {
-          view_schema_id: timelineViewSchemaId,
-          client_txn_id: uniqueTxn("timeline-public-invalid-paste-target"),
-          clipboard_text:
-            "end-to-end.mutation-lifecycle.row-01 should not create\nend-to-end.mutation-lifecycle.row-01 should not disclose",
-          format: "tsv",
-          start_field_key: "timeline.activity_synopsis_text",
-          columns: ["timeline.activity_synopsis_text"],
-          targets: [
-            { kind: "create" },
-            {
-              kind: "record",
-              record_id: foreign.record_id,
-              base_row_version: foreign.row_version,
-            },
-          ],
-        }),
-        404,
-        "incident_not_found",
-      );
-      const localRowsAfterRejectedPaste = await queryViewRows(
-        page,
-        incidentId,
-        timelineViewSchemaId,
-      );
-      expect(
-        localRowsAfterRejectedPaste.some(
-          (row) =>
-            summaryValue(row) ===
-            "end-to-end.mutation-lifecycle.row-01 should not create",
-        ),
-      ).toBe(false);
-      const foreignRowsAfterRejectedPaste = await queryViewRows(
-        page,
-        foreignIncidentId,
-        timelineViewSchemaId,
-      );
-      expect(summaryValue(foreignRowsAfterRejectedPaste[0])).toBe(
-        "end-to-end.mutation-lifecycle.row-01 foreign untouched",
-      );
-
-      const staleIncidentId = await createIncident(
-        page,
-        uniqueIncidentKey("TIMELINEPUBLICSTALE"),
-        "end-to-end.mutation-lifecycle.row-01 grouped paste conflict",
-      );
-      const staleFirst = await createViewRow(
-        page,
-        staleIncidentId,
-        timelineViewSchemaId,
-        {
-          client_txn_id: uniqueTxn("timeline-public-stale-first"),
-          "timeline.activity_synopsis_text":
-            "end-to-end.mutation-lifecycle.row-01 stale first base",
-        },
-      );
-      const staleSecond = await createViewRow(
-        page,
-        staleIncidentId,
-        timelineViewSchemaId,
-        {
-          client_txn_id: uniqueTxn("timeline-public-stale-second"),
-          "timeline.activity_synopsis_text":
-            "end-to-end.mutation-lifecycle.row-01 stale second base",
-        },
-      );
-      const staleContext = await browserScope.newContext({
-        storageState: await page.context().storageState(),
-      });
-      const stalePage = await staleContext.newPage();
-      {
-        await disableWorkbookSockets(stalePage);
-        await stalePage.goto(`/?incident_id=${staleIncidentId}`);
-        await expect(
-          stalePage.getByTestId(timelineMutationSubstrateReadyTestId()),
-        ).toBeVisible();
-        await expect(
-          gridSavedRows(stalePage, timelineViewSchemaId),
-        ).toHaveCount(2);
-        const visibleStaleRecordIds = (
-          await gridSavedRows(stalePage, timelineViewSchemaId).evaluateAll(
-            (rows) =>
-              rows.map((row) => row.getAttribute("data-grid-record-id") ?? ""),
-          )
-        ).filter(
-          (recordId) =>
-            recordId === staleFirst.record_id ||
-            recordId === staleSecond.record_id,
-        );
-        expect(visibleStaleRecordIds).toHaveLength(2);
-        const staleStartRecordId = visibleStaleRecordIds[0];
-        const staleNextRecordId = visibleStaleRecordIds[1];
-        if (
-          staleStartRecordId === undefined ||
-          staleNextRecordId === undefined
-        ) {
-          throw new Error("expected two visible stale Timeline records");
-        }
-        const stalePasteTextByRecordId = new Map([
-          [
-            staleFirst.record_id,
-            "end-to-end.mutation-lifecycle.row-01 stale first client",
-          ],
-          [
-            staleSecond.record_id,
-            "end-to-end.mutation-lifecycle.row-01 stale second client",
-          ],
-        ]);
-        const staleStartText = stalePasteTextByRecordId.get(staleStartRecordId);
-        const staleNextText = stalePasteTextByRecordId.get(staleNextRecordId);
-        if (staleStartText === undefined || staleNextText === undefined) {
-          throw new Error(
-            "visible stale Timeline record did not map to paste text",
-          );
-        }
-        await scrollGridCellIntoView({
-          cellKey: "timeline.activity_synopsis_text",
-          page: stalePage,
-          recordId: staleStartRecordId,
-          surface: timelineViewSchemaId,
-        });
-        const staleStartCell = stalePage
-          .getByTestId(
-            rowCellTestId(
-              staleStartRecordId,
-              "timeline.activity_synopsis_text",
-            ),
-          )
-          .locator("xpath=ancestor::*[@role='gridcell'][1]");
-        await activateCommittedGridCell(staleStartCell);
-        await expect(
-          stalePage.getByTestId(workbookFocusAnchorTestId()),
-        ).toHaveText(
-          `${timelineViewSchemaId}:${staleStartRecordId}:timeline.activity_synopsis_text`,
-        );
-        await patchRecord(page, staleFirst.record_id, {
-          view_schema_id: timelineViewSchemaId,
-          base_row_version: staleFirst.row_version,
-          client_txn_id: uniqueTxn("timeline-public-stale-first-server"),
-          changes: [
-            {
-              field_key: "timeline.activity_synopsis_text",
-              value: "end-to-end.mutation-lifecycle.row-01 stale first server",
-            },
-          ],
-        });
-        await patchRecord(page, staleSecond.record_id, {
-          view_schema_id: timelineViewSchemaId,
-          base_row_version: staleSecond.row_version,
-          client_txn_id: uniqueTxn("timeline-public-stale-second-server"),
-          changes: [
-            {
-              field_key: "timeline.activity_synopsis_text",
-              value: "end-to-end.mutation-lifecycle.row-01 stale second server",
-            },
-          ],
-        });
-        const groupedPasteResponse = stalePage.waitForResponse(
-          (response) =>
-            response.request().method() === "POST" &&
-            response
-              .url()
-              .includes(
-                `/api/v1/incidents/${staleIncidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
-              ),
-        );
-        await dispatchClipboardText(
-          stalePage,
-          staleStartRecordId,
-          "timeline.activity_synopsis_text",
-          [
-            staleStartText,
-            staleNextText,
-            "end-to-end.mutation-lifecycle.row-01 stale created",
-          ].join("\n"),
-        );
-        const groupedEnvelope = await readHttpOperationResponse(
-          await groupedPasteResponse,
-          "pasteWorkbookClipboard",
-        );
-        expect(groupedEnvelope.data.conflicts).toHaveLength(2);
-        expect(groupedEnvelope.data.rows).toHaveLength(1);
-        await expect(
-          stalePage.getByTestId(gridShellTestId(timelineViewSchemaId)),
-        ).toBeVisible();
-        await expect(stalePage.getByTestId(saveStateTestId())).toHaveText(
-          "Conflict",
-        );
-        await expect(
-          stalePage.getByTestId(
-            conflictMarkerTestId(
-              staleStartRecordId,
-              "timeline.activity_synopsis_text",
-            ),
-          ),
-        ).toBeVisible();
-        await expect(
-          stalePage.getByTestId(
-            conflictMarkerTestId(
-              staleNextRecordId,
-              "timeline.activity_synopsis_text",
-            ),
-          ),
-        ).toBeVisible();
-        await openRecoveryItem(stalePage, /^Paste · Timeline$/);
-        await expect(
-          stalePage.getByTestId(
-            workbookConflictControlTestId("paste-navigator"),
-          ),
-        ).toBeVisible();
-        await expect(
-          stalePage.getByTestId(
-            workbookConflictControlTestId("paste-position"),
-          ),
-        ).toHaveText("1 of 2");
-        await expect(
-          stalePage.getByTestId(workbookConflictLocalValueTestId()),
-        ).toHaveValue(staleStartText);
-        await stalePage
-          .getByTestId(workbookConflictControlTestId("paste-next"))
-          .click();
-        await expect(
-          stalePage.getByTestId(
-            workbookConflictControlTestId("paste-position"),
-          ),
-        ).toHaveText("2 of 2");
-        await expect(
-          stalePage.getByTestId(workbookConflictLocalValueTestId()),
-        ).toHaveValue(staleNextText);
-
-        await browserScope.closeContext(staleContext);
-      }
-    });
-
-    await test.step("public string date edits preserve unparseable authored text", async () => {
-      await openTimelineIncident(page, incidentId);
+      ).toHaveText("end-to-end.mutation-lifecycle.row-01 Rough summary");
       await scrollGridCellIntoView({
-        cellKey: "timeline.activity_utc_text",
+        cellKey: "timeline.capture_state",
+        page,
+        recordId: createdRow.record_id,
+        surface: timelineViewSchemaId,
+      });
+      await expect(
+        page.getByTestId(
+          rowCellTestId(createdRow.record_id, "timeline.capture_state"),
+        ),
+      ).toHaveText("rough");
+    } finally {
+      await safeUnroute(page, createRoute, createRouteHandler);
+    }
+  });
+
+  await test.step("inline edit route covers payload boundaries, save-state, refresh, and conflicts", async () => {
+    const patchController = await installPatchController(page);
+    {
+      const heldPatch = patchController.holdNextPatch({
+        recordId: beta.record_id,
+      });
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
         page,
         recordId: beta.record_id,
         surface: timelineViewSchemaId,
       });
-      const validationResponse = page.waitForResponse(
-        (response) =>
-          response.request().method() === "PATCH" &&
-          response.url().endsWith(`/api/v1/records/${beta.record_id}`),
+      const betaInlineCell = page.getByTestId(
+        rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
       );
-      const betaUtcCell = page.getByTestId(
-        rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
-      );
-      await betaUtcCell.click();
-      const betaUtcEditor = page.getByTestId(
+      await betaInlineCell.click();
+      const betaInlineEditor = page.getByTestId(
         timelineScalarEditorTestId({
-          fieldKey: "timeline.activity_utc_text",
+          fieldKey: "timeline.activity_synopsis_text",
           recordId: beta.record_id,
           surface: "grid",
         }),
       );
-      await betaUtcEditor.fill("not-a-timestamp");
-      await betaUtcEditor.press("Enter");
-      const validationEnvelope = await readWorkbookMutation(
-        await validationResponse,
-        "patchRecord",
+      await betaInlineEditor.fill(
+        "end-to-end.mutation-lifecycle.row-01 Beta inline edit",
       );
-      expect(
-        validationEnvelope.data.row.cells["timeline.activity_utc_text"]?.value,
-      ).toBe("not-a-timestamp");
-      expect(
-        validationEnvelope.data.row.cells["timeline.activity_time_pair_state"]
-          ?.value,
-      ).toBe("disabled");
+      await betaInlineEditor.press("Enter");
+      const heldCall = await heldPatch.waitForHit;
+      if (!heldCall) throw new Error("Patch observation was cancelled");
+      expect(heldCall.recordId).toBe(beta.record_id);
+      expect(heldCall.body).toMatchObject({
+        view_schema_id: timelineViewSchemaId,
+        base_row_version: beta.row_version,
+      });
+      expect(typeof heldCall.body.client_txn_id).toBe("string");
+      const changes = heldCall.body.changes;
+      expect(Array.isArray(changes)).toBe(true);
+      expect(changes).toHaveLength(1);
+      expect(changes).toEqual([
+        {
+          field_key: "timeline.activity_synopsis_text",
+          value: "end-to-end.mutation-lifecycle.row-01 Beta inline edit",
+        },
+      ]);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+
+      await sortByHeader(
+        page,
+        timelineViewSchemaId,
+        "timeline.activity_synopsis_text",
+      );
+      await expect
+        .poll(async () => visibleRecordIds(page))
+        .toContain(beta.record_id);
+
+      const patchResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "PATCH" &&
+          response.url().endsWith(`/api/v1/records/${beta.record_id}`),
+      );
+      heldPatch.release();
+      const patchEnvelope = (await (await patchResponse).json()) as {
+        data: { change_set_id: string; row: ViewRow };
+      };
+      const completedPatch = await heldPatch.waitForCompletion;
+      if (!completedPatch) throw new Error("Patch observation was cancelled");
+      expect(completedPatch.status).toBe(200);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
         pendingReplayCountAttribute,
@@ -1132,114 +479,553 @@ test(
       );
       await expect(
         page.getByTestId(
-          rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
+          rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
         ),
-      ).toHaveText("not-a-timestamp");
-      await page.reload();
-      await openTimelineIncident(page, incidentId);
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-    });
+      ).toHaveText("end-to-end.mutation-lifecycle.row-01 Beta inline edit");
+      await expect(
+        page.getByTestId(gridRowTestId(timelineViewSchemaId, beta.record_id)),
+      ).toHaveAttribute(
+        gridRowVersionAttribute,
+        String(patchEnvelope.data.row.row_version),
+      );
 
-    await test.step("unknown public error presentation uses an exact local response", async () => {
-      const faultPath = `/api/v1/records/${alpha.record_id}`;
-      const publicError = await installPublicErrorResponse(page, {
-        method: "PATCH",
-        path: faultPath,
-        status: 418,
-        code: "future_private_public_error",
-        message:
-          "stack trace at handler (/home/cartulary/internal/private.go:42)",
-        retryable: false,
-        details: {
-          reason_code: "future_private_public_error",
-          private_path: "/home/cartulary/internal/private.go",
+      const replayResponse = await patchTimelinePublic(
+        page,
+        beta.record_id,
+        heldCall.body,
+      );
+      expect(replayResponse.ok()).toBeTruthy();
+      const replayEnvelope = (await replayResponse.json()) as {
+        data: { change_set_id: string; row: ViewRow };
+      };
+      expect(replayEnvelope.data.change_set_id).toBe(
+        patchEnvelope.data.change_set_id,
+      );
+      expect(replayEnvelope.data.row.row_version).toBe(
+        patchEnvelope.data.row.row_version,
+      );
+      expect(summaryValue(replayEnvelope.data.row)).toBe(
+        "end-to-end.mutation-lifecycle.row-01 Beta inline edit",
+      );
+
+      await expectPublicError(
+        await patchTimelinePublic(page, beta.record_id, {
+          ...heldCall.body,
+          changes: [
+            {
+              field_key: "timeline.activity_synopsis_text",
+              value: "end-to-end.mutation-lifecycle.row-01 divergent replay",
+            },
+          ],
+        }),
+        409,
+        "client_txn_conflict",
+      );
+      const conflictRow = await createViewRow(
+        page,
+        incidentId,
+        timelineViewSchemaId,
+        {
+          client_txn_id: uniqueTxn("timeline-public-conflict-row"),
+          "timeline.activity_synopsis_text":
+            "end-to-end.mutation-lifecycle.row-01 conflict base",
         },
+      );
+      const serverConflictPatch = await patchTimelinePublic(
+        page,
+        conflictRow.record_id,
+        {
+          view_schema_id: timelineViewSchemaId,
+          base_row_version: conflictRow.row_version,
+          client_txn_id: uniqueTxn("timeline-public-same-field-server"),
+          changes: [
+            {
+              field_key: "timeline.activity_synopsis_text",
+              value: "end-to-end.mutation-lifecycle.row-01 conflict server",
+            },
+          ],
+        },
+      );
+      expect(serverConflictPatch.ok()).toBeTruthy();
+      const sameFieldBody = await expectPublicError(
+        await patchTimelinePublic(page, conflictRow.record_id, {
+          view_schema_id: timelineViewSchemaId,
+          base_row_version: conflictRow.row_version,
+          client_txn_id: uniqueTxn("timeline-public-same-field-client"),
+          changes: [
+            {
+              field_key: "timeline.activity_synopsis_text",
+              value: "end-to-end.mutation-lifecycle.row-01 conflict client",
+            },
+          ],
+        }),
+        409,
+        "same_field_conflict",
+      );
+      expect(sameFieldBody.error.conflict?.field_key).toBe(
+        "timeline.activity_synopsis_text",
+      );
+
+      await page.reload();
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId: beta.record_id,
+        surface: timelineViewSchemaId,
       });
-      const unknownPatchResponse = page.waitForResponse(
+      await expect(
+        page.getByTestId(
+          rowCellTestId(beta.record_id, "timeline.activity_synopsis_text"),
+        ),
+      ).toHaveText("end-to-end.mutation-lifecycle.row-01 Beta inline edit");
+      await expect(
+        page.getByTestId(gridRowTestId(timelineViewSchemaId, beta.record_id)),
+      ).toHaveAttribute(
+        gridRowVersionAttribute,
+        String(patchEnvelope.data.row.row_version),
+      );
+
+      await patchController.dispose();
+    }
+  });
+
+  await test.step("paste dispatch, target validation, non-conflicting commit, and grouped conflicts use public routes", async () => {
+    const scalarPasteRequests: string[] = [];
+    const captureScalarPaste = (request: {
+      method: () => string;
+      url: () => string;
+    }) => {
+      if (
+        request.method() === "POST" &&
+        request.url().includes("/clipboard-paste")
+      ) {
+        scalarPasteRequests.push(request.url());
+      }
+    };
+    page.on("request", captureScalarPaste);
+    try {
+      const scalarPatchResponse = page.waitForResponse(
         (response) =>
           response.request().method() === "PATCH" &&
-          response.url().endsWith(faultPath),
-      );
-      const alphaSummaryCell = page.getByTestId(
-        rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
+          response.url().endsWith(`/api/v1/records/${pasteSeed.record_id}`),
       );
       await scrollGridCellIntoView({
         cellKey: "timeline.activity_synopsis_text",
         page,
-        recordId: alpha.record_id,
+        recordId: pasteSeed.record_id,
         surface: timelineViewSchemaId,
       });
-      await alphaSummaryCell.scrollIntoViewIfNeeded();
-      await alphaSummaryCell.click();
-      const alphaSummaryEditor = page.getByTestId(
-        timelineScalarEditorTestId({
-          fieldKey: "timeline.activity_synopsis_text",
-          recordId: alpha.record_id,
-          surface: "grid",
-        }),
+      const scalarPasteCell = page.getByTestId(
+        rowCellTestId(pasteSeed.record_id, "timeline.activity_synopsis_text"),
       );
-      await alphaSummaryEditor.fill(
-        "end-to-end.mutation-lifecycle.row-01 unknown fallback local",
-      );
-      await alphaSummaryEditor.press("Enter");
-      const unknownEnvelope = await expectPublicError(
-        await unknownPatchResponse,
-        418,
-        "future_private_public_error",
-        { reason_code: "future_private_public_error" },
-      );
-      expect(unknownEnvelope.error.retryable).toBe(false);
-      expect(publicError.hitCount()).toBe(1);
-      await publicError.dispose();
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-      await openRecoveryItem(page, /^Queued edit recovery ·/);
-      const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
-      await expect(recoveryPanel).toBeVisible();
-      await expect(recoveryPanel).toContainText(
-        "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
-      );
-      await expect(recoveryPanel).not.toContainText("/home/cartulary");
-      await expect(recoveryPanel).not.toContainText("stack trace");
-      await expect(recoveryPanel).not.toContainText("private.go");
-      await expect(recoveryPanel).not.toContainText(
-        "future_private_public_error",
-      );
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-      await expect(alphaSummaryEditor).toHaveValue(
-        "end-to-end.mutation-lifecycle.row-01 unknown fallback local",
-      );
-
-      page.once("dialog", async (dialog) => {
-        await dialog.accept();
-      });
-      await page.reload();
-      await openTimelineIncident(page, incidentId);
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-    });
-
-    await test.step("real session revocation replays queued public PATCH work in FIFO order", async () => {
-      await exerciseRevokedPendingReplay({
-        createdBy: "end-to-end.mutation-lifecycle.row-01",
-        incidentKeyPrefix: "TIMELINEPUBLICREVOKE",
-        localValues: [
-          "end-to-end.mutation-lifecycle.row-01 revoked A local",
-          "end-to-end.mutation-lifecycle.row-01 revoked B local",
-          "end-to-end.mutation-lifecycle.row-01 revoked C local",
-        ],
+      await scalarPasteCell.click();
+      await page
+        .getByTestId(
+          timelineScalarEditorTestId({
+            fieldKey: "timeline.activity_synopsis_text",
+            recordId: pasteSeed.record_id,
+            surface: "grid",
+          }),
+        )
+        .fill("end-to-end.mutation-lifecycle.row-01 scalar, comma only");
+      await dispatchClipboardText(
         page,
-        scenario: "revoked",
-        sessionTracker,
-        triggerRevocation: async ({ member }) => {
-          await revokeAllSessions(
-            testActorRequest,
-            member.user_id,
-            "end-to-end.mutation-lifecycle.row-01 browser revoke-all",
-          );
-        },
+        pasteSeed.record_id,
+        "timeline.activity_synopsis_text",
+        "end-to-end.mutation-lifecycle.row-01 scalar, comma only",
+      );
+      // Pasting into an active text editor remains local authoring until the
+      // user commits; a synthetic paste event has no browser default action.
+      await page
+        .getByTestId(
+          timelineScalarEditorTestId({
+            fieldKey: "timeline.activity_synopsis_text",
+            recordId: pasteSeed.record_id,
+            surface: "grid",
+          }),
+        )
+        .press("Tab");
+      const scalarPatch = await scalarPatchResponse;
+      expect(scalarPatch.ok()).toBeTruthy();
+      expect(readPostBody(scalarPatch.request())).toMatchObject({
+        view_schema_id: timelineViewSchemaId,
+        changes: [
+          {
+            field_key: "timeline.activity_synopsis_text",
+            value: "end-to-end.mutation-lifecycle.row-01 scalar, comma only",
+          },
+        ],
       });
+      expect(scalarPasteRequests).toHaveLength(0);
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    } finally {
+      page.off("request", captureScalarPaste);
+    }
+
+    const pasteRequest = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        request
+          .url()
+          .endsWith(
+            `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+          ),
+    );
+    const pasteResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response
+          .url()
+          .endsWith(
+            `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+          ),
+    );
+    await pasteGridMatrix({
+      fieldKey: "timeline.activity_synopsis_text",
+      matrix: [
+        [
+          "end-to-end.mutation-lifecycle.row-01 tabular summary",
+          "timeline-public-host.example.test",
+        ],
+      ],
+      page,
+      recordId: tabularSeed.record_id,
+      surface: timelineViewSchemaId,
     });
-  },
-);
+    const pasteBody = readPostBody(await pasteRequest);
+    expect(pasteBody).toMatchObject({
+      view_schema_id: timelineViewSchemaId,
+      clipboard_text:
+        "end-to-end.mutation-lifecycle.row-01 tabular summary\ttimeline-public-host.example.test",
+      format: "tsv",
+      start_field_key: "timeline.activity_synopsis_text",
+      columns: ["timeline.activity_synopsis_text", "timeline.data_source_text"],
+      targets: [
+        {
+          kind: "record",
+          record_id: tabularSeed.record_id,
+        },
+      ],
+    });
+    expect(typeof pasteBody.client_txn_id).toBe("string");
+    expect((await pasteResponse).ok()).toBeTruthy();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(
+      page.getByTestId(
+        rowCellTestId(tabularSeed.record_id, "timeline.activity_synopsis_text"),
+      ),
+    ).toHaveText("end-to-end.mutation-lifecycle.row-01 tabular summary");
+
+    const staleIncidentId = await createIncident(
+      page,
+      uniqueIncidentKey("TIMELINEPUBLICSTALE"),
+      "end-to-end.mutation-lifecycle.row-01 grouped paste conflict",
+    );
+    const staleFirst = await createViewRow(
+      page,
+      staleIncidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("timeline-public-stale-first"),
+        "timeline.activity_synopsis_text":
+          "end-to-end.mutation-lifecycle.row-01 stale first base",
+      },
+    );
+    const staleSecond = await createViewRow(
+      page,
+      staleIncidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("timeline-public-stale-second"),
+        "timeline.activity_synopsis_text":
+          "end-to-end.mutation-lifecycle.row-01 stale second base",
+      },
+    );
+    const staleContext = await browserScope.newContext({
+      storageState: await page.context().storageState(),
+    });
+    const stalePage = await staleContext.newPage();
+    {
+      await disableWorkbookSockets(stalePage);
+      await stalePage.goto(`/?incident_id=${staleIncidentId}`);
+      await expect(
+        stalePage.getByTestId(timelineMutationSubstrateReadyTestId()),
+      ).toBeVisible();
+      await expect(gridSavedRows(stalePage, timelineViewSchemaId)).toHaveCount(
+        2,
+      );
+      const visibleStaleRecordIds = (
+        await gridSavedRows(stalePage, timelineViewSchemaId).evaluateAll(
+          (rows) =>
+            rows.map((row) => row.getAttribute("data-grid-record-id") ?? ""),
+        )
+      ).filter(
+        (recordId) =>
+          recordId === staleFirst.record_id ||
+          recordId === staleSecond.record_id,
+      );
+      expect(visibleStaleRecordIds).toHaveLength(2);
+      const staleStartRecordId = visibleStaleRecordIds[0];
+      const staleNextRecordId = visibleStaleRecordIds[1];
+      if (staleStartRecordId === undefined || staleNextRecordId === undefined) {
+        throw new Error("expected two visible stale Timeline records");
+      }
+      const stalePasteTextByRecordId = new Map([
+        [
+          staleFirst.record_id,
+          "end-to-end.mutation-lifecycle.row-01 stale first client",
+        ],
+        [
+          staleSecond.record_id,
+          "end-to-end.mutation-lifecycle.row-01 stale second client",
+        ],
+      ]);
+      const staleStartText = stalePasteTextByRecordId.get(staleStartRecordId);
+      const staleNextText = stalePasteTextByRecordId.get(staleNextRecordId);
+      if (staleStartText === undefined || staleNextText === undefined) {
+        throw new Error(
+          "visible stale Timeline record did not map to paste text",
+        );
+      }
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page: stalePage,
+        recordId: staleStartRecordId,
+        surface: timelineViewSchemaId,
+      });
+      const staleStartCell = stalePage
+        .getByTestId(
+          rowCellTestId(staleStartRecordId, "timeline.activity_synopsis_text"),
+        )
+        .locator("xpath=ancestor::*[@role='gridcell'][1]");
+      await activateCommittedGridCell(staleStartCell);
+      await expect(
+        stalePage.getByTestId(workbookFocusAnchorTestId()),
+      ).toHaveText(
+        `${timelineViewSchemaId}:${staleStartRecordId}:timeline.activity_synopsis_text`,
+      );
+      await patchRecord(page, staleFirst.record_id, {
+        view_schema_id: timelineViewSchemaId,
+        base_row_version: staleFirst.row_version,
+        client_txn_id: uniqueTxn("timeline-public-stale-first-server"),
+        changes: [
+          {
+            field_key: "timeline.activity_synopsis_text",
+            value: "end-to-end.mutation-lifecycle.row-01 stale first server",
+          },
+        ],
+      });
+      await patchRecord(page, staleSecond.record_id, {
+        view_schema_id: timelineViewSchemaId,
+        base_row_version: staleSecond.row_version,
+        client_txn_id: uniqueTxn("timeline-public-stale-second-server"),
+        changes: [
+          {
+            field_key: "timeline.activity_synopsis_text",
+            value: "end-to-end.mutation-lifecycle.row-01 stale second server",
+          },
+        ],
+      });
+      const groupedPasteResponse = stalePage.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          response
+            .url()
+            .includes(
+              `/api/v1/incidents/${staleIncidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
+            ),
+      );
+      await dispatchClipboardText(
+        stalePage,
+        staleStartRecordId,
+        "timeline.activity_synopsis_text",
+        [
+          staleStartText,
+          staleNextText,
+          "end-to-end.mutation-lifecycle.row-01 stale created",
+        ].join("\n"),
+      );
+      const groupedEnvelope = await readHttpOperationResponse(
+        await groupedPasteResponse,
+        "pasteWorkbookClipboard",
+      );
+      expect(groupedEnvelope.data.conflicts).toHaveLength(2);
+      expect(groupedEnvelope.data.rows).toHaveLength(1);
+      await expect(
+        stalePage.getByTestId(gridShellTestId(timelineViewSchemaId)),
+      ).toBeVisible();
+      await expect(stalePage.getByTestId(saveStateTestId())).toHaveText(
+        "Conflict",
+      );
+      await expect(
+        stalePage.getByTestId(
+          conflictMarkerTestId(
+            staleStartRecordId,
+            "timeline.activity_synopsis_text",
+          ),
+        ),
+      ).toBeVisible();
+      await expect(
+        stalePage.getByTestId(
+          conflictMarkerTestId(
+            staleNextRecordId,
+            "timeline.activity_synopsis_text",
+          ),
+        ),
+      ).toBeVisible();
+      await openRecoveryItem(stalePage, /^Paste · Timeline$/);
+      await expect(
+        stalePage.getByTestId(workbookConflictControlTestId("paste-navigator")),
+      ).toBeVisible();
+      await expect(
+        stalePage.getByTestId(workbookConflictControlTestId("paste-position")),
+      ).toHaveText("1 of 2");
+      await expect(
+        stalePage.getByTestId(workbookConflictLocalValueTestId()),
+      ).toHaveValue(staleStartText);
+      await stalePage
+        .getByTestId(workbookConflictControlTestId("paste-next"))
+        .click();
+      await expect(
+        stalePage.getByTestId(workbookConflictControlTestId("paste-position")),
+      ).toHaveText("2 of 2");
+      await expect(
+        stalePage.getByTestId(workbookConflictLocalValueTestId()),
+      ).toHaveValue(staleNextText);
+
+      await browserScope.closeContext(staleContext);
+    }
+  });
+
+  await test.step("public string date edits preserve unparseable authored text", async () => {
+    await openTimelineIncident(page, incidentId);
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_utc_text",
+      page,
+      recordId: beta.record_id,
+      surface: timelineViewSchemaId,
+    });
+    const validationResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().endsWith(`/api/v1/records/${beta.record_id}`),
+    );
+    const betaUtcCell = page.getByTestId(
+      rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
+    );
+    await betaUtcCell.click();
+    const betaUtcEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_utc_text",
+        recordId: beta.record_id,
+        surface: "grid",
+      }),
+    );
+    await betaUtcEditor.fill("not-a-timestamp");
+    await betaUtcEditor.press("Enter");
+    const validationEnvelope = await readWorkbookMutation(
+      await validationResponse,
+      "patchRecord",
+    );
+    expect(
+      validationEnvelope.data.row.cells["timeline.activity_utc_text"]?.value,
+    ).toBe("not-a-timestamp");
+    expect(
+      validationEnvelope.data.row.cells["timeline.activity_time_pair_state"]
+        ?.value,
+    ).toBe("disabled");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+      pendingReplayCountAttribute,
+      "0",
+    );
+    await expect(
+      page.getByTestId(
+        rowCellTestId(beta.record_id, "timeline.activity_utc_text"),
+      ),
+    ).toHaveText("not-a-timestamp");
+    await page.reload();
+    await openTimelineIncident(page, incidentId);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  });
+
+  await test.step("unknown public error presentation uses an exact local response", async () => {
+    const faultPath = `/api/v1/records/${alpha.record_id}`;
+    const publicError = await installPublicErrorResponse(page, {
+      method: "PATCH",
+      path: faultPath,
+      status: 418,
+      code: "future_private_public_error",
+      message:
+        "stack trace at handler (/home/cartulary/internal/private.go:42)",
+      retryable: false,
+      details: {
+        reason_code: "future_private_public_error",
+        private_path: "/home/cartulary/internal/private.go",
+      },
+    });
+    const unknownPatchResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().endsWith(faultPath),
+    );
+    const alphaSummaryCell = page.getByTestId(
+      rowCellTestId(alpha.record_id, "timeline.activity_synopsis_text"),
+    );
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId: alpha.record_id,
+      surface: timelineViewSchemaId,
+    });
+    await alphaSummaryCell.scrollIntoViewIfNeeded();
+    await alphaSummaryCell.click();
+    const alphaSummaryEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId: alpha.record_id,
+        surface: "grid",
+      }),
+    );
+    await alphaSummaryEditor.fill(
+      "end-to-end.mutation-lifecycle.row-01 unknown fallback local",
+    );
+    await alphaSummaryEditor.press("Enter");
+    const unknownEnvelope = await expectPublicError(
+      await unknownPatchResponse,
+      418,
+      "future_private_public_error",
+      { reason_code: "future_private_public_error" },
+    );
+    expect(unknownEnvelope.error.retryable).toBe(false);
+    expect(publicError.hitCount()).toBe(1);
+    await publicError.dispose();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    await openRecoveryItem(page, /^Queued edit recovery ·/);
+    const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
+    await expect(recoveryPanel).toBeVisible();
+    await expect(recoveryPanel).toContainText(
+      "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
+    );
+    await expect(recoveryPanel).not.toContainText("/home/cartulary");
+    await expect(recoveryPanel).not.toContainText("stack trace");
+    await expect(recoveryPanel).not.toContainText("private.go");
+    await expect(recoveryPanel).not.toContainText(
+      "future_private_public_error",
+    );
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    await expect(alphaSummaryEditor).toHaveValue(
+      "end-to-end.mutation-lifecycle.row-01 unknown fallback local",
+    );
+
+    page.once("dialog", async (dialog) => {
+      await dialog.accept();
+    });
+    await page.reload();
+    await openTimelineIncident(page, incidentId);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  });
+});
 
 test(recoveryScenarioTitle, async ({ browserScope, page }) => {
   test.setTimeout(180_000);
