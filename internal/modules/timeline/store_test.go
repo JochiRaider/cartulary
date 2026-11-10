@@ -22,7 +22,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -883,7 +883,7 @@ func createReviewedTimelineRow(t testing.TB, store *eventTimelineCommands, actor
 	return reviewed
 }
 
-func setTimelineProjectionEvidenceCount(t testing.TB, db postgres.DB, recordID uuid.UUID, count int) {
+func setTimelineProjectionEvidenceCount(t testing.TB, db dbport.DB, recordID uuid.UUID, count int) {
 	t.Helper()
 
 	if _, err := db.Exec(context.Background(), `
@@ -918,7 +918,7 @@ type timelineProjectionQuery interface {
 	QueryRows(context.Context, uuid.UUID, string, viewschema.QueryMeta) ([]map[string]any, error)
 }
 
-func newEventTimelineCommands(t testing.TB, pool postgres.DB) *eventTimelineCommands {
+func newEventTimelineCommands(t testing.TB, pool dbport.DB) *eventTimelineCommands {
 	t.Helper()
 	bundle, projections := newTestTimelineComposition(t, pool, conflicttest.NewCodec("timeline"))
 	return &eventTimelineCommands{
@@ -927,7 +927,7 @@ func newEventTimelineCommands(t testing.TB, pool postgres.DB) *eventTimelineComm
 	}
 }
 
-func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.DB, fail func(workbookprojection.ProjectionMutation) error) *eventTimelineCommands {
+func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool dbport.DB, fail func(workbookprojection.ProjectionMutation) error) *eventTimelineCommands {
 	t.Helper()
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
@@ -1009,7 +1009,7 @@ func (c *eventTimelineCommands) QueryRows(ctx context.Context, incidentID uuid.U
 	return c.projections.QueryRows(ctx, incidentID, timeline.TimelineViewSchemaID, query)
 }
 
-func requireTimelineMutationRecorded(t testing.TB, db postgres.DB, changeSetID string, recordID string, wantActorUserID string, wantSource string, wantClientTxnID string, wantMutationRows int, wantRevisions int) {
+func requireTimelineMutationRecorded(t testing.TB, db dbport.DB, changeSetID string, recordID string, wantActorUserID string, wantSource string, wantClientTxnID string, wantMutationRows int, wantRevisions int) {
 	t.Helper()
 
 	changeSet := asserttest.LookupChangeSet(t, asserttest.PostgresDatabase(db), changeSetID)
@@ -1024,7 +1024,7 @@ func requireTimelineMutationRecorded(t testing.TB, db postgres.DB, changeSetID s
 	}
 }
 
-func requireSupersedeRejectedWithGuards(t testing.TB, db postgres.DB, store *eventTimelineCommands, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, request timeline.SupersedeRequest, requestID string, wantFrom string, wantTo string, wantGuards []string, now time.Time) {
+func requireSupersedeRejectedWithGuards(t testing.TB, db dbport.DB, store *eventTimelineCommands, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, request timeline.SupersedeRequest, requestID string, wantFrom string, wantTo string, wantGuards []string, now time.Time) {
 	t.Helper()
 
 	before := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(db), incidentID.String(), recordID.String())

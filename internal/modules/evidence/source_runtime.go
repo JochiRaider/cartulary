@@ -7,7 +7,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // SourceRuntime composes transaction-bound Evidence capabilities independently
@@ -19,7 +19,7 @@ type SourceRuntime struct {
 }
 
 type SourceRuntimeDependencies struct {
-	Postgres       postgres.DB
+	Postgres       dbport.DB
 	ConflictTokens *conflicttokens.ConflictTokenCodec
 	Revisions      *revisions.Appender
 	Collaboration  collaboration.RecordChangedAppender

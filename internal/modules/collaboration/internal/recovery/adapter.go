@@ -11,7 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type FailureKind string
@@ -59,10 +59,10 @@ type Capability interface {
 }
 
 type Adapter struct {
-	db postgres.DB
+	db dbport.DB
 }
 
-func NewAdapter(db postgres.DB) Capability {
+func NewAdapter(db dbport.DB) Capability {
 	return &Adapter{db: db}
 }
 

@@ -11,7 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 )
 
@@ -602,7 +602,7 @@ func mustUserRecord(t testing.TB, store *authn.Store, userID uuid.UUID) authn.Us
 	return record
 }
 
-func requireSessionRevoked(t testing.TB, db postgres.DB, sessionID uuid.UUID, revokedAt time.Time, reasonCode string) {
+func requireSessionRevoked(t testing.TB, db dbport.DB, sessionID uuid.UUID, revokedAt time.Time, reasonCode string) {
 	t.Helper()
 
 	row := storetest.QuerySessionByID(t, db, sessionID.String())
@@ -614,7 +614,7 @@ func requireSessionRevoked(t testing.TB, db postgres.DB, sessionID uuid.UUID, re
 	}
 }
 
-func requireSessionActive(t testing.TB, db postgres.DB, sessionID uuid.UUID) {
+func requireSessionActive(t testing.TB, db dbport.DB, sessionID uuid.UUID) {
 	t.Helper()
 
 	row := storetest.QuerySessionByID(t, db, sessionID.String())

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	taskprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const taskRequestsViewSchemaID = "cartulary.view.task_requests.v1"
@@ -77,46 +78,46 @@ SELECT t.record_id, jsonb_build_object(
 func TaskRequestPlans() []Surface {
 	return []Surface{{
 		ViewSchemaID: taskRequestsViewSchemaID,
-		FromSQL:      "FROM task_request_grid_projection p JOIN records r ON r.record_id = p.record_id",
-		RecordExpr:   "p.record_id",
-		IncidentExpr: "p.incident_id",
+		FromSQL:      sqlshape.Literal("FROM task_request_grid_projection p JOIN records r ON r.record_id = p.record_id"),
+		RecordExpr:   sqlshape.Literal("p.record_id"),
+		IncidentExpr: sqlshape.Literal("p.incident_id"),
 		Fields: []Field{
-			{Key: "task.title", Expr: "p.title", Kind: FieldKindText},
-			{Key: "task.status", Expr: "p.status", Kind: FieldKindText},
-			{Key: "task.owner_user_id", Expr: "p.owner_user_id", Kind: FieldKindText},
-			{Key: "task.priority", Expr: "p.priority", Kind: FieldKindText},
-			{Key: "task.task_kind", Expr: "p.task_kind", Kind: FieldKindText},
-			{Key: "task.workstream", Expr: "p.workstream", Kind: FieldKindText},
-			{Key: "task.due_at", Expr: "p.due_at", Kind: FieldKindTimestamp},
-			{Key: "task.requester_party_text", Expr: "p.requester_party_text", Kind: FieldKindText},
-			{Key: "task.requester_party_id", Expr: "p.requester_party_id", Kind: FieldKindText},
-			{Key: "task.blocked_reason", Expr: "p.blocked_reason", Kind: FieldKindText},
-			{Key: "task.completed_at", Expr: "p.completed_at", Kind: FieldKindTimestamp},
-			{Key: "task.external_ticket_ref", Expr: "p.external_ticket_ref", Kind: FieldKindText},
-			{Key: "task.closure_summary", Expr: "p.closure_summary", Kind: FieldKindText},
-			{Key: "task.linked_record_ids", Expr: taskRecordRefCollectionExpr("p", "task.linked_record_ids", "references_record"), Kind: FieldKindCollection},
-			{Key: "task.decision_record_id", Expr: "p.decision_record_id", Kind: FieldKindText},
-			{Key: "task.linked_record_count", Expr: "p.linked_record_count", Kind: FieldKindNumber},
-			{Key: "task.updated_at", Expr: "p.updated_at", Kind: FieldKindTimestamp},
-			{Key: "task.no_owner", Expr: "p.no_owner", Kind: FieldKindBool},
+			{Key: "task.title", Expr: sqlshape.Literal("p.title"), Kind: FieldKindText},
+			{Key: "task.status", Expr: sqlshape.Literal("p.status"), Kind: FieldKindText},
+			{Key: "task.owner_user_id", Expr: sqlshape.Literal("p.owner_user_id"), Kind: FieldKindText},
+			{Key: "task.priority", Expr: sqlshape.Literal("p.priority"), Kind: FieldKindText},
+			{Key: "task.task_kind", Expr: sqlshape.Literal("p.task_kind"), Kind: FieldKindText},
+			{Key: "task.workstream", Expr: sqlshape.Literal("p.workstream"), Kind: FieldKindText},
+			{Key: "task.due_at", Expr: sqlshape.Literal("p.due_at"), Kind: FieldKindTimestamp},
+			{Key: "task.requester_party_text", Expr: sqlshape.Literal("p.requester_party_text"), Kind: FieldKindText},
+			{Key: "task.requester_party_id", Expr: sqlshape.Literal("p.requester_party_id"), Kind: FieldKindText},
+			{Key: "task.blocked_reason", Expr: sqlshape.Literal("p.blocked_reason"), Kind: FieldKindText},
+			{Key: "task.completed_at", Expr: sqlshape.Literal("p.completed_at"), Kind: FieldKindTimestamp},
+			{Key: "task.external_ticket_ref", Expr: sqlshape.Literal("p.external_ticket_ref"), Kind: FieldKindText},
+			{Key: "task.closure_summary", Expr: sqlshape.Literal("p.closure_summary"), Kind: FieldKindText},
+			{Key: "task.linked_record_ids", Expr: taskRecordRefCollectionExpr("task.linked_record_ids", "references_record"), Kind: FieldKindCollection},
+			{Key: "task.decision_record_id", Expr: sqlshape.Literal("p.decision_record_id"), Kind: FieldKindText},
+			{Key: "task.linked_record_count", Expr: sqlshape.Literal("p.linked_record_count"), Kind: FieldKindNumber},
+			{Key: "task.updated_at", Expr: sqlshape.Literal("p.updated_at"), Kind: FieldKindTimestamp},
+			{Key: "task.no_owner", Expr: sqlshape.Literal("p.no_owner"), Kind: FieldKindBool},
 		},
 	}}
 }
 
-func taskRecordRefCollectionExpr(alias string, fieldKey string, linkType string) string {
-	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
-        'item_ref', ` + recordRefItemRefSQL("dst.record_id") + `,
+func taskRecordRefCollectionExpr(fieldKey string, linkType string) sqlshape.Fragment {
+	return sqlshape.Format(`(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', %s,
         'item_kind', 'record_ref',
         'display_text', dst.record_type || ':' || dst.record_id::text,
         'linked_record_id', dst.record_id::text
     ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb)
-      FROM ` + activeRecordLinksAlias("rl") + `
+      FROM active_record_links_v1 rl
       JOIN records dst
         ON dst.incident_id = rl.incident_id
        AND dst.record_id = rl.dst_record_id
        AND dst.deleted_at IS NULL
-     WHERE rl.incident_id = ` + alias + `.incident_id
-       AND rl.src_record_id = ` + alias + `.record_id
-       AND rl.link_type = '` + linkType + `'
-       AND rl.field_key = '` + fieldKey + `')::text`
+     WHERE rl.incident_id = p.incident_id
+       AND rl.src_record_id = p.record_id
+       AND rl.link_type = %s
+       AND rl.field_key = %s)::text`, recordRefItemRefSQL(sqlshape.Literal("dst.record_id")), sqlshape.Quote(linkType), sqlshape.Quote(fieldKey))
 }

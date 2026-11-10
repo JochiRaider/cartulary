@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"reflect"
 	"strings"
 	"testing"
@@ -20,7 +21,6 @@ import (
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport/extensionstate"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -91,11 +91,11 @@ UPDATE network_flow_graph_views
 }
 
 type extensionStateV3Reader struct {
-	db       postgres.DB
+	db       dbport.DB
 	counters map[string]extensionstore.FamilyCounter
 }
 
-func newExtensionStateV3Reader(db postgres.DB) extensionStateV3Reader {
+func newExtensionStateV3Reader(db dbport.DB) extensionStateV3Reader {
 	counters := make(map[string]extensionstore.FamilyCounter)
 	for _, counter := range ExtensionStateFamilyCounters() {
 		counters[counter.FamilyID] = counter

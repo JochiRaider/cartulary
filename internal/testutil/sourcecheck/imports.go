@@ -37,30 +37,47 @@ func ParseImports(path string, source []byte) ([]string, error) {
 // ReadImports walks the caller-rooted filesystem without following links. Only
 // selected production Go files are opened; callers apply package/support policy.
 func ReadImports(source fs.FS) ([]FileImports, error) {
+	return ReadImportsUnder(source, []string{"."}, nil)
+}
+
+// ReadImportsUnder scans explicit roots, pruning caller-owned exclusions before
+// opening them. Policies remain with the caller; build constraints never omit files.
+func ReadImportsUnder(source fs.FS, roots []string, exclude func(string) bool) ([]FileImports, error) {
 	files := make([]FileImports, 0)
-	err := fs.WalkDir(source, ".", func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return fmt.Errorf("walk imports %s: %w", path, err)
+	for _, root := range roots {
+		if !fs.ValidPath(root) {
+			return nil, fmt.Errorf("invalid import root %q", root)
 		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+		err := fs.WalkDir(source, root, func(path string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return fmt.Errorf("walk imports %s: %w", path, err)
+			}
+			if exclude != nil && exclude(path) {
+				if entry.IsDir() {
+					return fs.SkipDir
+				}
+				return nil
+			}
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			if !entry.Type().IsRegular() {
+				return fmt.Errorf("inspect imports %s: not a regular file", path)
+			}
+			data, err := fs.ReadFile(source, path)
+			if err != nil {
+				return fmt.Errorf("read imports %s: %w", path, err)
+			}
+			imports, err := ParseImports(path, data)
+			if err != nil {
+				return err
+			}
+			files = append(files, FileImports{Path: path, Imports: imports})
 			return nil
-		}
-		if !entry.Type().IsRegular() {
-			return fmt.Errorf("inspect imports %s: not a regular file", path)
-		}
-		data, err := fs.ReadFile(source, path)
+		})
 		if err != nil {
-			return fmt.Errorf("read imports %s: %w", path, err)
+			return nil, err
 		}
-		imports, err := ParseImports(path, data)
-		if err != nil {
-			return err
-		}
-		files = append(files, FileImports{Path: path, Imports: imports})
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	return files, nil

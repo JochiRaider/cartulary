@@ -633,7 +633,7 @@
           "scenario_3925df4ef78d"
         ],
         "titles": [
-          "Verify bootstrap route selectors and error-state selectors use stable test-id builders."
+          "renders stable selectors across landing, account, administration and login states"
         ]
       },
       "evidence_class": "browser",

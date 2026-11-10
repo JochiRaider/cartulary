@@ -7,16 +7,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
+	linkvocabulary "github.com/JochiRaider/cartulary/internal/modules/links/vocabulary"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/collectionfacts"
 )
 
 type linkReader struct {
-	source links.FactReader
+	source linkfacts.FactReader
 }
 
 func NewLinkReader() collectionfacts.LinkReader {
-	return linkReader{source: links.FactReader{}}
+	return linkReader{source: linkfacts.FactReader{}}
 }
 
 func (reader linkReader) LoadTx(
@@ -29,17 +30,17 @@ func (reader linkReader) LoadTx(
 	if err != nil {
 		return collectionfacts.LinkFacts{}, err
 	}
-	outbound := make([]links.RecordLinkFact, 0)
-	tags := make([]links.RecordTagFact, 0)
-	var replacement *links.RecordLinkFact
+	outbound := make([]linkfacts.RecordLinkFact, 0)
+	tags := make([]linkfacts.RecordTagFact, 0)
+	var replacement *linkfacts.RecordLinkFact
 	for _, fact := range facts.RecordLinks {
 		if fact.SrcRecordID == recordID {
 			switch fact.LinkType {
-			case links.LinkTypeObservedOnHost, links.LinkTypeObservedAsIdentity, links.LinkTypeAttachedEvidence:
+			case linkvocabulary.LinkTypeObservedOnHost, linkvocabulary.LinkTypeObservedAsIdentity, linkvocabulary.LinkTypeAttachedEvidence:
 				outbound = append(outbound, fact)
 			}
 		}
-		if fact.DstRecordID == recordID && fact.LinkType == links.LinkTypeSupersedes &&
+		if fact.DstRecordID == recordID && fact.LinkType == linkvocabulary.LinkTypeSupersedes &&
 			(replacement == nil || replacement.CreatedAt.Before(fact.CreatedAt) ||
 				(replacement.CreatedAt.Equal(fact.CreatedAt) && replacement.RecordLinkID.String() < fact.RecordLinkID.String())) {
 			copy := fact
@@ -76,7 +77,7 @@ func (reader linkReader) LoadTx(
 		result.ReplacementRecordID = &replacementRecordID
 	}
 	for _, fact := range outbound {
-		if fact.LinkType == links.LinkTypeAttachedEvidence {
+		if fact.LinkType == linkvocabulary.LinkTypeAttachedEvidence {
 			result.AttachedEvidenceIDs = append(result.AttachedEvidenceIDs, fact.DstRecordID)
 			continue
 		}

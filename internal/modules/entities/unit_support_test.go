@@ -5,28 +5,28 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
-	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
-func newEntityTestTimelineBundle(t testing.TB, pool postgres.DB) *timelineassembly.Bundle {
+func newEntityTestTimelineBundle(t testing.TB, pool dbport.DB) *timelineassembly.Bundle {
 	t.Helper()
 	bundle, _ := newEntityTestTimelineComposition(t, pool)
 	return bundle
 }
 
-func newEntityTestTimelineComposition(t testing.TB, pool postgres.DB) (*timelineassembly.Bundle, *projectionassembly.Runtime) {
+func newEntityTestTimelineComposition(t testing.TB, pool dbport.DB) (*timelineassembly.Bundle, *projectionassembly.Runtime) {
 	t.Helper()
 	revisionComposition := revisionsupport.MustComposition(t)
 	projections, err := projectionassembly.Build(pool)
@@ -58,7 +58,7 @@ func newEntityTestTimelineComposition(t testing.TB, pool postgres.DB) (*timeline
 	return bundle, projections
 }
 
-func newEntityTestStore(t testing.TB, pool postgres.DB) *hostidentity.Store {
+func newEntityTestStore(t testing.TB, pool dbport.DB) *hostidentity.Store {
 	t.Helper()
 	revisionComposition := revisionsupport.MustComposition(t)
 	projection, err := projectionassembly.Build(pool)
@@ -88,7 +88,7 @@ func mustDefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMet
 	return schema.DefaultQueryMeta()
 }
 
-func requireTimelineMutationAfterSnapshotMatchesRecord(t testing.TB, db postgres.DB, changeSetID uuid.UUID, queryRow map[string]any) {
+func requireTimelineMutationAfterSnapshotMatchesRecord(t testing.TB, db dbport.DB, changeSetID uuid.UUID, queryRow map[string]any) {
 	t.Helper()
 
 	var rawAfterValue []byte

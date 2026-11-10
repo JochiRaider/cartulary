@@ -3,12 +3,14 @@ package storetest
 import (
 	"context"
 	"database/sql"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
-func SeedUserPreferences(t testing.TB, db postgres.DB, incidentID, userID uuid.UUID) {
+func SeedUserPreferences(t testing.TB, db dbport.DB, incidentID, userID uuid.UUID) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), seedUserPreferences, incidentID, userID); err != nil {
 		t.Fatalf("seed user workbook preferences: %v", err)

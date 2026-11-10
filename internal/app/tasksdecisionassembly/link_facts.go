@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 )
 
@@ -15,11 +15,11 @@ type linkFactsAdapter struct {
 }
 
 type linkRecordFactReader interface {
-	LoadRecordTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (links.ActiveFacts, error)
+	LoadRecordTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (linkfacts.ActiveFacts, error)
 }
 
 func NewLinkFactsCapability() tasksdecisions.LinkFactsCapability {
-	return newLinkFactsCapability(links.FactReader{})
+	return newLinkFactsCapability(linkfacts.FactReader{})
 }
 
 func newLinkFactsCapability(reader linkRecordFactReader) tasksdecisions.LinkFactsCapability {

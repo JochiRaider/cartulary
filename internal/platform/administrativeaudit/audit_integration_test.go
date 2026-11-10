@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -110,7 +110,7 @@ func TestAdministrativeAuditProjectionStore_Integration(t *testing.T) {
 
 }
 
-func appendAuditFixture(t *testing.T, db postgres.DB) (uuid.UUID, time.Time) {
+func appendAuditFixture(t *testing.T, db dbport.DB) (uuid.UUID, time.Time) {
 	t.Helper()
 	now := time.Date(2026, time.July, 25, 19, 45, 0, 0, time.UTC)
 	targetID := uuid.NewString()

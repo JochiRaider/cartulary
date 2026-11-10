@@ -2,12 +2,13 @@ package appsupport
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 	"sync"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // ReferencePackVerificationBarrier blocks the next preparation configuration
@@ -32,12 +33,12 @@ func (b *ReferencePackVerificationBarrier) BlockNext(entered chan<- struct{}, re
 	}
 	b.next = &referencePackBlockedRead{query: "SELECT configuration_sha256 FROM reference_pack_current_set WHERE singleton", entered: entered, release: release}
 }
-func (b *ReferencePackVerificationBarrier) WrapDatabase(db postgres.DB) postgres.DB {
+func (b *ReferencePackVerificationBarrier) WrapDatabase(db dbport.DB) dbport.DB {
 	return referencePackBarrierDB{DB: db, barrier: b}
 }
 
 type referencePackBarrierDB struct {
-	postgres.DB
+	dbport.DB
 	barrier *ReferencePackVerificationBarrier
 }
 type referencePackCanceledRead struct{ err error }

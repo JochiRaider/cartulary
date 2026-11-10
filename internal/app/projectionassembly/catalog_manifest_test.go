@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type projectionManifestDB struct {
-	postgres.DB
+	dbport.DB
 }
 
 type projectionProviderManifest struct {

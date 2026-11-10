@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/maintenancequery"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 // FencedRestore owns one pending payload transaction and its independently
@@ -183,7 +185,7 @@ func (fence *FencedRestore) Complete(ctx context.Context, proof TargetCompletion
 
 // The protected control singleton remains outside this transaction so its
 // quarantine commit survives rollback of all payload work.
-func beginRestoreTargetTransaction(ctx context.Context, db postgres.DB, catalog *recoverystate.Catalog) (_ pgx.Tx, resultErr error) {
+func beginRestoreTargetTransaction(ctx context.Context, db dbport.DB, catalog *recoverystate.Catalog) (_ pgx.Tx, resultErr error) {
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
@@ -197,14 +199,12 @@ func beginRestoreTargetTransaction(ctx context.Context, db postgres.DB, catalog 
 	if err != nil {
 		return nil, err
 	}
-	identifiers := make([]string, len(tables))
-	for i, table := range tables {
-		identifiers[i] = pgx.Identifier{"public", table}.Sanitize()
+	command, err := maintenancequery.LockMutable(tables)
+	if err != nil {
+		return nil, err
 	}
-	if len(identifiers) > 0 {
-		if _, err := tx.Exec(ctx, "LOCK TABLE "+strings.Join(identifiers, ",")+" IN ACCESS EXCLUSIVE MODE"); err != nil {
-			return nil, err
-		}
+	if _, err = tx.Exec(ctx, sqlshape.CommandText(command)); err != nil {
+		return nil, err
 	}
 	if _, err := tx.Exec(ctx, `SET LOCAL row_security = off`); err != nil {
 		return nil, err

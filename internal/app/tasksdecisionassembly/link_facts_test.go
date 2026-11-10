@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
 )
 
 func TestLinkFactsAdapterCopiesScalarFactsAndFailsWithoutPartialResults_Unit(t *testing.T) {
@@ -16,8 +17,8 @@ func TestLinkFactsAdapterCopiesScalarFactsAndFailsWithoutPartialResults_Unit(t *
 	recordID := uuid.New()
 	targetID := uuid.New()
 	fieldKey := "task.decision_record_id"
-	capability := newLinkFactsCapability(fakeLinkRecordFactReader{facts: links.ActiveFacts{
-		RecordLinks: []links.RecordLinkFact{{
+	capability := newLinkFactsCapability(fakeLinkRecordFactReader{facts: linkfacts.ActiveFacts{
+		RecordLinks: []linkfacts.RecordLinkFact{{
 			SrcRecordID: recordID, DstRecordID: targetID,
 			LinkType: links.LinkType(links.LinkTypeReferencesRecord), FieldKey: &fieldKey,
 		}},
@@ -35,7 +36,7 @@ func TestLinkFactsAdapterCopiesScalarFactsAndFailsWithoutPartialResults_Unit(t *
 		t.Fatalf("mapped fact retained source pointer: %#v", facts[0])
 	}
 
-	empty, err := newLinkFactsCapability(fakeLinkRecordFactReader{facts: links.ActiveFacts{RecordLinks: []links.RecordLinkFact{}}}).LoadRecordLinkFactsTx(
+	empty, err := newLinkFactsCapability(fakeLinkRecordFactReader{facts: linkfacts.ActiveFacts{RecordLinks: []linkfacts.RecordLinkFact{}}}).LoadRecordLinkFactsTx(
 		context.Background(), nil, incidentID, recordID,
 	)
 	if err != nil || empty == nil || len(empty) != 0 {
@@ -44,7 +45,7 @@ func TestLinkFactsAdapterCopiesScalarFactsAndFailsWithoutPartialResults_Unit(t *
 
 	wantErr := errors.New("fact read failed")
 	partial, err := newLinkFactsCapability(fakeLinkRecordFactReader{
-		facts: links.ActiveFacts{RecordLinks: []links.RecordLinkFact{{SrcRecordID: recordID}}},
+		facts: linkfacts.ActiveFacts{RecordLinks: []linkfacts.RecordLinkFact{{SrcRecordID: recordID}}},
 		err:   wantErr,
 	}).LoadRecordLinkFactsTx(context.Background(), nil, incidentID, recordID)
 	if !errors.Is(err, wantErr) || partial != nil {
@@ -53,10 +54,10 @@ func TestLinkFactsAdapterCopiesScalarFactsAndFailsWithoutPartialResults_Unit(t *
 }
 
 type fakeLinkRecordFactReader struct {
-	facts links.ActiveFacts
+	facts linkfacts.ActiveFacts
 	err   error
 }
 
-func (reader fakeLinkRecordFactReader) LoadRecordTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (links.ActiveFacts, error) {
+func (reader fakeLinkRecordFactReader) LoadRecordTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (linkfacts.ActiveFacts, error) {
 	return reader.facts, reader.err
 }

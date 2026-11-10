@@ -8,13 +8,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrapport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // Application is the Incidents application boundary. It owns transaction and
 // policy coordination while the private repository owns persistence details.
 type Application struct {
-	pool                postgres.DB
+	pool                dbport.DB
 	authStore           *authn.Store
 	repository          *repository
 	admission           *admission.Checker
@@ -23,7 +23,7 @@ type Application struct {
 }
 
 type ApplicationDependencies struct {
-	Postgres            postgres.DB
+	Postgres            dbport.DB
 	PreferenceBootstrap bootstrapport.Writer
 	Now                 func() time.Time
 }

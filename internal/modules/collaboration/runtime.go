@@ -11,7 +11,7 @@ import (
 
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
@@ -19,7 +19,7 @@ import (
 // Collaboration runtime. The runtime owns its private process components, but
 // it never closes the supplied database or transport.
 type Options struct {
-	Postgres                   postgres.DB
+	Postgres                   dbport.DB
 	AcceptSocket               protocol.AcceptSocket
 	CheckBrowserOrigin         protocol.CheckBrowserOrigin
 	ServiceVersion             string

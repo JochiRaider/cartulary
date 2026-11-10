@@ -11,12 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type postgresSavedViewRepository struct {
-	pool postgres.DB
+	pool dbport.DB
 }
 
 var (
@@ -90,7 +90,7 @@ type listPageRequest struct {
 	Limit           int
 }
 
-func newPostgresSavedViewRepository(pool postgres.DB) *postgresSavedViewRepository {
+func newPostgresSavedViewRepository(pool dbport.DB) *postgresSavedViewRepository {
 	return &postgresSavedViewRepository{pool: pool}
 }
 

@@ -5,23 +5,25 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
+	verificationtest "github.com/JochiRaider/cartulary/internal/testutil/referencetest"
 )
 
 var errCollectionCommitAck = errors.New("fixture collection acknowledgement lost")
 
 type collectionCommitFault struct {
-	postgres.DB
+	dbport.DB
 	begins int
 }
 
@@ -44,7 +46,7 @@ func (t collectionCommitFaultTx) Commit(ctx context.Context) error {
 }
 
 type backupSnapshotOrder struct {
-	postgres.DB
+	dbport.DB
 	levels []pgx.TxIsoLevel
 }
 
@@ -53,7 +55,7 @@ func (d *backupSnapshotOrder) BeginTx(ctx context.Context, opts pgx.TxOptions) (
 	return d.DB.BeginTx(ctx, opts)
 }
 
-func testPublicationCollectionAndBackupGuards(t *testing.T, db postgres.DB, storage *referenceassembly.RootStorage) {
+func testPublicationCollectionAndBackupGuards(t *testing.T, db dbport.DB, storage *referenceassembly.RootStorage) {
 	t.Helper()
 	ctx := context.Background()
 	digest := fmt.Sprintf("%x", sha256.Sum256([]byte("orphan")))
@@ -87,7 +89,7 @@ func testPublicationCollectionAndBackupGuards(t *testing.T, db postgres.DB, stor
 		if len(snapshotDB.levels) != 2 || snapshotDB.levels[0] != pgx.ReadCommitted || snapshotDB.levels[1] != pgx.RepeatableRead {
 			t.Fatal("backup snapshot preceded retention guard", snapshotDB.levels)
 		}
-		rows, err := snapshot.QueryRows(ctx, `SELECT count(*) FROM reference_pack_objects`)
+		rows, err := snapshot.QueryRows(ctx, sqlshape.Literal(`SELECT count(*) FROM reference_pack_objects`))
 		if err != nil {
 			return err
 		}

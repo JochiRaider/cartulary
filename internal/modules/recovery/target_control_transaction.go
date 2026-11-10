@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type TargetControlTransaction interface {
@@ -19,6 +19,6 @@ type TargetControlTransaction interface {
 type TargetControlCapability interface {
 	Context() context.Context
 	AssertHeld() error
-	TargetDatabase() postgres.DB
+	TargetDatabase() dbport.DB
 	WithControlTransaction(context.Context, func(context.Context, TargetControlTransaction) error) error
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 )
 
@@ -196,7 +197,7 @@ var _ func(Binding, Purpose, map[string]string) (Settings, error) = ResolveSetti
 // returns. Its private marker prevents callers from wrapping an unadmitted
 // raw pool.
 type AdmittedPool interface {
-	DB
+	dbport.DB
 	Close()
 	Pool() *pgxpool.Pool
 	Acquire(context.Context) (*pgxpool.Conn, error)
@@ -341,7 +342,18 @@ func connectionInitializer(settings Settings, expectedSessionUser string) func(c
 		if !ok || settings.ExpectedRole != contract.role || expectedSessionUser == "" {
 			return configurationError(ReasonEffectiveRoleMismatch)
 		}
-		if _, err := connection.Exec(ctx, "SET ROLE "+contract.role); err != nil {
+		var roleSQL string
+		switch settings.Purpose {
+		case PurposeRuntime:
+			roleSQL = "SET ROLE cartulary_runtime"
+		case PurposeMigration:
+			roleSQL = "SET ROLE cartulary_schema_owner"
+		case PurposeRecovery:
+			roleSQL = "SET ROLE cartulary_recovery"
+		default:
+			return configurationError(ReasonEffectiveRoleMismatch)
+		}
+		if _, err := connection.Exec(ctx, roleSQL); err != nil {
 			return configurationError(ReasonEffectiveRoleMismatch)
 		}
 		facts := admissionFacts{}

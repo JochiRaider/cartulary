@@ -16,7 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -105,19 +105,19 @@ func sortedRecordIDs(values ...uuid.UUID) []uuid.UUID {
 	return result
 }
 
-func (s *Application) lockAffectedRecordsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]records.Envelope, error) {
+func (s *Application) lockAffectedRecordsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]recordenvelope.Envelope, error) {
 	return s.recordEnvelopes.LoadEnvelopesTx(ctx, tx, sortedRecordIDs(recordIDs...), true)
 }
 
-func activeIncidentEnvelope(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, recordID uuid.UUID) (records.Envelope, bool) {
+func activeIncidentEnvelope(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, recordID uuid.UUID) (recordenvelope.Envelope, bool) {
 	envelope, found := envelopes[recordID]
 	if !found || envelope.IncidentID != incidentID || envelope.DeletedAt != nil {
-		return records.Envelope{}, false
+		return recordenvelope.Envelope{}, false
 	}
 	return envelope, true
 }
 
-func validateObservationSourceEnvelope(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, recordID uuid.UUID, expectedVersion int64) error {
+func validateObservationSourceEnvelope(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, recordID uuid.UUID, expectedVersion int64) error {
 	envelope, available := activeIncidentEnvelope(envelopes, incidentID, recordID)
 	if !available {
 		return ErrIndicatorSourceNotFound
@@ -128,7 +128,7 @@ func validateObservationSourceEnvelope(envelopes map[uuid.UUID]records.Envelope,
 	return nil
 }
 
-func validateResolvedIndicatorEnvelope(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, recordID uuid.UUID) error {
+func validateResolvedIndicatorEnvelope(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, recordID uuid.UUID) error {
 	envelope, available := activeIncidentEnvelope(envelopes, incidentID, recordID)
 	if !available || envelope.RecordType != "indicator" {
 		return ErrResolvedIndicatorNotFound
@@ -136,7 +136,7 @@ func validateResolvedIndicatorEnvelope(envelopes map[uuid.UUID]records.Envelope,
 	return nil
 }
 
-func validateAddressedIndicatorEnvelope(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, recordID uuid.UUID) error {
+func validateAddressedIndicatorEnvelope(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, recordID uuid.UUID) error {
 	envelope, available := activeIncidentEnvelope(envelopes, incidentID, recordID)
 	if !available || envelope.RecordType != "indicator" {
 		return ErrIndicatorNotFound
@@ -144,7 +144,7 @@ func validateAddressedIndicatorEnvelope(envelopes map[uuid.UUID]records.Envelope
 	return nil
 }
 
-func validatePriorObservationDependencies(envelopes map[uuid.UUID]records.Envelope, current IndicatorObservationRecord) error {
+func validatePriorObservationDependencies(envelopes map[uuid.UUID]recordenvelope.Envelope, current IndicatorObservationRecord) error {
 	if _, available := activeIncidentEnvelope(envelopes, current.IncidentID, current.SourceRecordID); !available {
 		return ErrIndicatorObservationNotFound
 	}
@@ -158,7 +158,7 @@ func validatePriorObservationDependencies(envelopes map[uuid.UUID]records.Envelo
 	return nil
 }
 
-func validateLifecycleSupportEnvelopes(envelopes map[uuid.UUID]records.Envelope, incidentID uuid.UUID, supportRefs []uuid.UUID) error {
+func validateLifecycleSupportEnvelopes(envelopes map[uuid.UUID]recordenvelope.Envelope, incidentID uuid.UUID, supportRefs []uuid.UUID) error {
 	for _, recordID := range supportRefs {
 		if _, available := activeIncidentEnvelope(envelopes, incidentID, recordID); !available {
 			return ErrInvalidCreateRequest

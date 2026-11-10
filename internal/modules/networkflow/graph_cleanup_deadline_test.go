@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type stalledCleanupDatabase struct {
-	postgres.DB
+	dbport.DB
 	tx *stalledCleanupTransaction
 }
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -14,7 +14,7 @@ func TestJobsDefinitionHeadSchemaContract_Integration(t *testing.T) {
 	assertJobsDefinitionHeadShape(t, db)
 }
 
-func assertJobsDefinitionHeadShape(t testing.TB, db postgres.DB) {
+func assertJobsDefinitionHeadShape(t testing.TB, db dbport.DB) {
 	t.Helper()
 	var columns int
 	if err := db.QueryRow(context.Background(), `

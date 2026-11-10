@@ -6,7 +6,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -144,10 +143,34 @@ SELECT e.lifecycle_state, e.object_blob_id::text, b.upload_state
 }
 
 func (s *sourceMutationService) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value FieldValue, now time.Time) (bool, error) {
-	if !strings.HasPrefix(fieldKey, "evidence.") {
+	var column string
+	switch fieldKey {
+	case "evidence.title":
+		column = "title"
+	case "evidence.lifecycle_state":
+		column = "lifecycle_state"
+	case "evidence.requested_at":
+		column = "requested_at"
+	case "evidence.received_at":
+		column = "received_at"
+	case "evidence.storage_ref":
+		column = "storage_ref"
+	case "evidence.blob_hash":
+		column = "blob_hash"
+	case "evidence.collector_party_text":
+		column = "collector_party_text"
+	case "evidence.collector_party_id":
+		column = "collector_party_id"
+	case "evidence.source_party_text":
+		column = "source_party_text"
+	case "evidence.source_party_id":
+		column = "source_party_id"
+	case "evidence.upload_state":
+		column = "upload_state"
+	default:
 		return false, &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
 	}
-	column := strings.TrimPrefix(fieldKey, "evidence.")
+
 	dbValue := directDBValue(value)
 	tag, err := tx.Exec(ctx, fmt.Sprintf(`UPDATE evidence SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2`, column, column), recordID, dbValue, now)
 	if err != nil {

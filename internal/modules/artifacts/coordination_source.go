@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 )
 
 const coordinationSourceInput = "coordination.source_record_id"
@@ -26,7 +26,7 @@ func isCoordinationView(view string) bool {
 func (f *MutationFacade) validateCoordinationSourceTx(ctx context.Context, tx pgx.Tx, incidentID, sourceID uuid.UUID, targetView string) error {
 	invalid := func() error { return &ValidationError{Field: coordinationSourceInput, ReasonCode: "invalid_value"} }
 	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, sourceID, true)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return invalid()
 	}
 	if err != nil {

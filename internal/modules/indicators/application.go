@@ -12,14 +12,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type Application struct {
 	registry        reference_data.RegistryAssignments
-	pool            postgres.DB
+	pool            dbport.DB
 	idempotency     IdempotencyPort
 	incidentState   IncidentStatePort
 	recordEnvelopes RecordEnvelopePort
@@ -38,7 +39,7 @@ type IdempotencyPort interface {
 
 type RecordEnvelopePort interface {
 	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
-	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]records.Envelope, error)
+	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]recordenvelope.Envelope, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 }
 
@@ -48,7 +49,7 @@ type IncidentStatePort interface {
 
 type ApplicationDependencies struct {
 	ReferencePacks  reference_data.RegistryAssignments
-	Postgres        postgres.DB
+	Postgres        dbport.DB
 	Idempotency     IdempotencyPort
 	IncidentState   IncidentStatePort
 	Revisions       RevisionPort

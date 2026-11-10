@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const (
@@ -37,15 +38,15 @@ type ExtensionStateReader interface {
 // the generated logical-family identities. The generic Extensions coordinator
 // never receives table names or unrestricted SQL.
 func ExtensionStateFamilyCounters() []extensionstore.FamilyCounter {
-	graphViews := countExtensionFamily(extensionFamilyGraphViews, `SELECT COUNT(*) FROM network_flow_graph_views`)
+	graphViews := countExtensionFamily(extensionFamilyGraphViews, sqlshape.Literal(`SELECT COUNT(*) FROM network_flow_graph_views`))
 	graphViews.Validate = validatePersistedGraphViewFamily
-	bindings := countExtensionFamily(extensionFamilyIndicatorBindings, `SELECT COUNT(*) FROM network_flow_indicator_bindings`)
+	bindings := countExtensionFamily(extensionFamilyIndicatorBindings, sqlshape.Literal(`SELECT COUNT(*) FROM network_flow_indicator_bindings`))
 	bindings.Validate = validatePersistedIndicatorLinkFamily
-	diagnostics := countExtensionFamily(extensionFamilyRejectedRowDiagnostics, `SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics`)
+	diagnostics := countExtensionFamily(extensionFamilyRejectedRowDiagnostics, sqlshape.Literal(`SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics`))
 	diagnostics.Validate = validatePersistedDiagnosticFamily
-	rows := countExtensionFamily(extensionFamilyRows, `SELECT COUNT(*) FROM network_flow_rows`)
+	rows := countExtensionFamily(extensionFamilyRows, sqlshape.Literal(`SELECT COUNT(*) FROM network_flow_rows`))
 	rows.Validate = validatePersistedObservationFamily
-	tables := countExtensionFamily(extensionFamilyTables, `SELECT COUNT(*) FROM network_flow_tables`)
+	tables := countExtensionFamily(extensionFamilyTables, sqlshape.Literal(`SELECT COUNT(*) FROM network_flow_tables`))
 	tables.Validate = validatePersistedTableProfiles
 	return []extensionstore.FamilyCounter{
 		bindings,
@@ -56,12 +57,12 @@ func ExtensionStateFamilyCounters() []extensionstore.FamilyCounter {
 	}
 }
 
-func countExtensionFamily(familyID, query string) extensionstore.FamilyCounter {
+func countExtensionFamily(familyID string, query sqlshape.Fragment) extensionstore.FamilyCounter {
 	return extensionstore.FamilyCounter{
 		FamilyID: familyID,
 		Count: func(ctx context.Context, querier extensionstore.Querier) (int64, error) {
 			var count int64
-			if err := querier.QueryRow(ctx, query).Scan(&count); err != nil {
+			if err := querier.QueryRow(ctx, sqlshape.Text(query)).Scan(&count); err != nil {
 				return 0, err
 			}
 			return count, nil

@@ -4,14 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type MutationOwner string
@@ -53,7 +51,7 @@ func SQLDatabase(db *sql.DB) Database {
 	}
 }
 
-func PostgresDatabase(db postgres.DB) Database {
+func PostgresDatabase(db dbport.DB) Database {
 	return Database{
 		query: func(ctx context.Context, query string, args ...any) (rows, error) {
 			return db.Query(ctx, query, args...)
@@ -153,20 +151,8 @@ SELECT event_kind,
        before_json,
        after_json
   FROM deployment_admin_audit_events`
-	args := make([]any, 0, 2)
-	clauses := make([]string, 0, 2)
-	if selector.IncidentID != "" {
-		args = append(args, selector.IncidentID)
-		clauses = append(clauses, fmt.Sprintf("incident_id::text = $%d", len(args)))
-	}
-	if selector.ClientTxnID != "" {
-		args = append(args, selector.ClientTxnID)
-		clauses = append(clauses, fmt.Sprintf("client_txn_id = $%d", len(args)))
-	}
-	if len(clauses) > 0 {
-		query += "\n WHERE " + strings.Join(clauses, " AND ")
-	}
-	query += "\n ORDER BY created_at ASC"
+	query += ` WHERE ($1::text = '' OR incident_id::text = $1) AND ($2::text = '' OR client_txn_id = $2) ORDER BY created_at ASC`
+	args := []any{selector.IncidentID, selector.ClientTxnID}
 
 	rows, err := db.query(context.Background(), query, args...)
 	if err != nil {

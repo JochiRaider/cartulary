@@ -13,7 +13,8 @@ import (
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 var (
@@ -35,7 +36,7 @@ func SeedAssessment(
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorUserID, assessmentID, "assessment")
 	assessedAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	if _, err := execDB(db, `
+	if _, err := execDB(db, sqlshape.Command(`
 INSERT INTO assessments (
     record_id,
     incident_id,
@@ -47,7 +48,7 @@ INSERT INTO assessments (
     assessed_at
 )
 VALUES ($1, $2, $3, $4, $5, 'Seeded test assessment rationale.', $6, $7)
-`, assessmentID, incidentID, subjectID, subjectType, state, actorUserID, assessedAt); err != nil {
+`), assessmentID, incidentID, subjectID, subjectType, state, actorUserID, assessedAt); err != nil {
 		t.Fatalf("seed assessment: %v", err)
 	}
 	ctx := context.Background()
@@ -69,7 +70,7 @@ VALUES ($1, $2, $3, $4, $5, 'Seeded test assessment rationale.', $6, $7)
 		},
 	}
 	switch database := db.(type) {
-	case postgres.DB:
+	case dbport.DB:
 		tx, err := database.BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
 			t.Fatalf("begin seeded assessment projection: %v", err)
@@ -105,9 +106,9 @@ VALUES ($1, $2, $3, $4, $5, 'Seeded test assessment rationale.', $6, $7)
 func LookupAssessmentSubject(t testing.TB, db any, assessmentID uuid.UUID) uuid.UUID {
 	t.Helper()
 	var subjectID string
-	if err := queryRowDB(db, `
+	if err := queryRowDB(db, sqlshape.Literal(`
 SELECT subject_record_id::text FROM assessments WHERE record_id = $1
-`, assessmentID).Scan(&subjectID); err != nil {
+`), assessmentID).Scan(&subjectID); err != nil {
 		t.Fatalf("lookup assessment subject: %v", err)
 	}
 	return uuid.MustParse(subjectID)
@@ -117,23 +118,23 @@ type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-func queryRowDB(db any, query string, args ...any) rowScanner {
+func queryRowDB(db any, query sqlshape.Fragment, args ...any) rowScanner {
 	switch typed := db.(type) {
-	case postgres.DB:
-		return typed.QueryRow(context.Background(), query, args...)
+	case dbport.DB:
+		return typed.QueryRow(context.Background(), sqlshape.Text(query), args...)
 	case *sql.DB:
-		return typed.QueryRowContext(context.Background(), query, args...)
+		return typed.QueryRowContext(context.Background(), sqlshape.Text(query), args...)
 	default:
 		panic(fmt.Sprintf("unsupported Assessments test database %T", db))
 	}
 }
 
-func execDB(db any, query string, args ...any) (any, error) {
+func execDB(db any, query sqlshape.Statement, args ...any) (any, error) {
 	switch typed := db.(type) {
-	case postgres.DB:
-		return typed.Exec(context.Background(), query, args...)
+	case dbport.DB:
+		return typed.Exec(context.Background(), sqlshape.CommandText(query), args...)
 	case *sql.DB:
-		return typed.ExecContext(context.Background(), query, args...)
+		return typed.ExecContext(context.Background(), sqlshape.CommandText(query), args...)
 	default:
 		return nil, fmt.Errorf("unsupported Assessments test database %T", db)
 	}

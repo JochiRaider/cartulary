@@ -8,10 +8,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
-type storePostgresStub struct{ postgres.DB }
+type storePostgresStub struct{ dbport.DB }
 type storeProjectionMutationRowsStub struct{ projectionports.MutationRows }
 type storeProjectionQueryReaderStub struct{ projectionports.QueryReader }
 type storeIdempotencyStub struct{ conflicts.IdempotencyPort }

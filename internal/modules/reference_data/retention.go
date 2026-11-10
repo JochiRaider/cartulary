@@ -6,10 +6,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // SetBinding is retained with a consumer artifact. Provenance is the immutable
@@ -42,7 +43,7 @@ type retention struct {
 	integrity  *integrityService
 }
 
-func NewRetention(pool postgres.DB, storage ArtifactStorage, now func() time.Time, integrity IntegrityOptions) (Retention, error) {
+func NewRetention(pool dbport.DB, storage ArtifactStorage, now func() time.Time, integrity IntegrityOptions) (Retention, error) {
 	if pool == nil || storage == nil {
 		return nil, errors.New("reference pack: incomplete retention dependencies")
 	}

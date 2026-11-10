@@ -7,12 +7,13 @@ import (
 	"slices"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 type NoteAssociationCommand struct {
@@ -86,7 +87,7 @@ func (o *NoteAssociations) Apply(ctx context.Context, command NoteAssociationCom
 	}
 	slices.SortFunc(ids, func(a, b uuid.UUID) int { return slices.Compare(a[:], b[:]) })
 	ids = slices.Compact(ids)
-	envelopes := make(map[uuid.UUID]records.Envelope, len(ids))
+	envelopes := make(map[uuid.UUID]recordenvelope.Envelope, len(ids))
 	for _, id := range ids {
 		envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, id, true)
 		if err != nil {
@@ -233,7 +234,7 @@ func (o *NoteAssociations) Apply(ctx context.Context, command NoteAssociationCom
 func invalidAssociationAction() error {
 	return &ValidationError{Field: "actions", ReasonCode: "invalid_value"}
 }
-func (o *NoteAssociations) loadAffectedRowTx(ctx context.Context, tx pgx.Tx, record records.Envelope) (map[string]any, error) {
+func (o *NoteAssociations) loadAffectedRowTx(ctx context.Context, tx pgx.Tx, record recordenvelope.Envelope) (map[string]any, error) {
 	if record.RecordType == "evidence" {
 		return o.rows.LoadEvidenceTx(ctx, tx, record.RecordID)
 	}

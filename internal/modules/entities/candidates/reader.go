@@ -6,10 +6,11 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type Candidate struct {
@@ -36,9 +37,9 @@ type Page struct {
 type PageReader interface {
 	Page(context.Context, Request) (Page, error)
 }
-type Reader struct{ db postgres.DB }
+type Reader struct{ db dbport.DB }
 
-func NewReader(db postgres.DB) *Reader { return &Reader{db: db} }
+func NewReader(db dbport.DB) *Reader { return &Reader{db: db} }
 
 // Page retains at most limit+1 matches and one bounded source batch. A sparse
 // predicate scans until exhaustion; cancellation never becomes an empty result.

@@ -7,7 +7,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestAssessmentAssemblyConstructorsRejectInvalidDependencies(t *testing.T) {
@@ -17,29 +17,29 @@ func TestAssessmentAssemblyConstructorsRejectInvalidDependencies(t *testing.T) {
 	for _, constructor := range []struct {
 		name      string
 		wantError string
-		construct func(postgres.DB) (any, error)
+		construct func(dbport.DB) (any, error)
 	}{
 		{
 			name: "subject validator", wantError: "compose assessment subject validator: database is required",
-			construct: func(database postgres.DB) (any, error) {
+			construct: func(database dbport.DB) (any, error) {
 				return assessmentassembly.NewSubjectValidator(database, hostidentity.NewSourceFacts())
 			},
 		},
 		{
 			name: "assessor validator", wantError: "compose assessment assessor validator: database is required",
-			construct: func(database postgres.DB) (any, error) {
+			construct: func(database dbport.DB) (any, error) {
 				return assessmentassembly.NewAssessorValidator(database)
 			},
 		},
 		{
 			name: "support-target validator", wantError: "compose assessment support-target validator: database is required",
-			construct: func(database postgres.DB) (any, error) {
+			construct: func(database dbport.DB) (any, error) {
 				return assessmentassembly.NewSupportTargetValidator(database)
 			},
 		},
 		{
 			name: "record-envelope creator", wantError: "compose assessment record-envelope creator: database is required",
-			construct: func(database postgres.DB) (any, error) {
+			construct: func(database dbport.DB) (any, error) {
 				return assessmentassembly.NewRecordEnvelopeCreator(database)
 			},
 		},
@@ -47,7 +47,7 @@ func TestAssessmentAssemblyConstructorsRejectInvalidDependencies(t *testing.T) {
 		constructor := constructor
 		t.Run(constructor.name, func(t *testing.T) {
 			t.Parallel()
-			for _, database := range []postgres.DB{nil, (*typedNilAssemblyDatabase)(nil)} {
+			for _, database := range []dbport.DB{nil, (*typedNilAssemblyDatabase)(nil)} {
 				value, err := constructor.construct(database)
 				if value != nil || err == nil || err.Error() != constructor.wantError {
 					t.Fatalf("construction = value:%v err:%v, want nil and %q", value, err, constructor.wantError)
@@ -96,8 +96,8 @@ func TestAssessmentMergeAssemblyRejectsNilAndTypedNilDependencies(t *testing.T) 
 	}
 }
 
-type assessmentAssemblyDatabase struct{ postgres.DB }
-type typedNilAssemblyDatabase struct{ postgres.DB }
+type assessmentAssemblyDatabase struct{ dbport.DB }
+type typedNilAssemblyDatabase struct{ dbport.DB }
 type assessmentAssemblyRows struct{ assessmentprojection.Rows }
 type typedNilAssessmentRows struct{ assessmentprojection.Rows }
 type typedNilAssemblySnapshots struct {

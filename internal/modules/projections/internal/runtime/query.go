@@ -9,6 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -54,7 +55,7 @@ func (s *Store) queryRowsPage(ctx context.Context, reader interface {
 	if err != nil {
 		return querypage.Result{}, err
 	}
-	rows, err := reader.Query(ctx, sqlText, args...)
+	rows, err := reader.Query(ctx, sqlshape.Text(sqlText), args...)
 	if err != nil {
 		return querypage.Result{}, fmt.Errorf("query workbook rows: %w", err)
 	}

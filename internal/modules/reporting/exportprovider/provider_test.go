@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func TestProviderOutputValidateAndBindings(t *testing.T) {
@@ -256,7 +258,7 @@ func assertExplicitOwnerConstruction(t *testing.T) {
 
 func assertOwnerQueryBinding(t *testing.T) {
 	t.Helper()
-	query := []FieldQuery{{Prefix: "nested/selector", SQL: "owner query"}}
+	query := []FieldQuery{{Prefix: "nested/selector", SQL: sqlshape.Literal("owner query")}}
 	for name, raw := range map[string]string{
 		"exact integer":    `{"counter":9223372036854775807}`,
 		"duplicate member": `{"counter":1,"counter":2}`,

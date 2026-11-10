@@ -30,6 +30,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -287,7 +288,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 func createImportedAssessmentProjectionRow(
 	t testing.TB,
 	ctx context.Context,
-	db postgres.DB,
+	db dbport.DB,
 	rows assessmentprojection.Rows,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
@@ -377,7 +378,7 @@ func requireProjectionRow(t testing.TB, rows []map[string]any, recordID uuid.UUI
 	return nil
 }
 
-func loadProjectionRowTx(t testing.TB, ctx context.Context, db postgres.DB, store revisions.LiveRecordReader, viewSchemaID string, recordID uuid.UUID) map[string]any {
+func loadProjectionRowTx(t testing.TB, ctx context.Context, db dbport.DB, store revisions.LiveRecordReader, viewSchemaID string, recordID uuid.UUID) map[string]any {
 	t.Helper()
 
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})

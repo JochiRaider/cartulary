@@ -17,7 +17,7 @@ import (
 	privatestream "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
@@ -130,7 +130,7 @@ func requeueFailureKind(err error) collaboration.RequeueFailureKind {
 }
 
 type requeueCommitFailureDB struct {
-	postgres.DB
+	dbport.DB
 }
 
 func (db requeueCommitFailureDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
@@ -193,7 +193,7 @@ type recordingBroadcaster struct {
 }
 
 func newDispatcherForTest(
-	db postgres.DB,
+	db dbport.DB,
 	broadcaster interface {
 		DeliverReplayable(collabprotocol.Message) error
 	},
@@ -210,7 +210,7 @@ func newDispatcherForTest(
 	return dispatcher
 }
 
-func newPostgresStreamForTest(t testing.TB, db postgres.DB) *privatestream.PostgresStream {
+func newPostgresStreamForTest(t testing.TB, db dbport.DB) *privatestream.PostgresStream {
 	t.Helper()
 	store, err := privatestream.NewPostgresStream(db)
 	if err != nil {

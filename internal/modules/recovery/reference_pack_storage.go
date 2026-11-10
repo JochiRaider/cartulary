@@ -4,8 +4,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // RootObjectStorage confines recovery to an explicitly admitted filesystem root.
@@ -22,5 +23,5 @@ type RootObjectStorage interface {
 type ReferencePackStorage interface {
 	RootObjectStorage
 	AdmitRestoredState(context.Context, pgx.Tx) error
-	ValidateHistoricalState(context.Context, postgres.DB) error
+	ValidateHistoricalState(context.Context, dbport.DB) error
 }

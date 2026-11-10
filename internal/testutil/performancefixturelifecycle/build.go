@@ -18,12 +18,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
-type AssemblerFactory func(postgres.DB, objectstore.Store, authn.UserRecord, string, performancefixtureprofile.Profile) (*fixture.Assembler, error)
+type AssemblerFactory func(dbport.DB, objectstore.Store, authn.UserRecord, string, performancefixtureprofile.Profile) (*fixture.Assembler, error)
 
 func Build(
 	ctx context.Context,

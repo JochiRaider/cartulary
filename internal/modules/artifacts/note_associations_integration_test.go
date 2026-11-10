@@ -12,19 +12,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 type associationEvidenceRows interface {
@@ -36,14 +37,14 @@ type associationTestRows struct {
 	associationEvidenceRows
 }
 
-func (associationTestRows) LabelTx(_ context.Context, _ pgx.Tx, r records.Envelope) (string, error) {
+func (associationTestRows) LabelTx(_ context.Context, _ pgx.Tx, r recordenvelope.Envelope) (string, error) {
 	return r.RecordType + " " + r.RecordID.String(), nil
 }
 
 // Receipt reads must use the admitted transaction. A second pool checkout can
 // deadlock when concurrent callers hold all connections awaiting the same key.
 type associationConnectionObserver struct {
-	postgres.DB
+	dbport.DB
 	active  atomic.Int32
 	escaped atomic.Int32
 }

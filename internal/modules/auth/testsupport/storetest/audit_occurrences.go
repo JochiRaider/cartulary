@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // AuditOccurrenceSelector selects committed source-owner audit records. An exact
@@ -16,7 +17,7 @@ type AuditOccurrenceSelector struct {
 	EventCode, ResourceID, ClientTxnID, RequestID string
 }
 
-func CountAuditOccurrences(ctx context.Context, db postgres.DB, s AuditOccurrenceSelector) (int, error) {
+func CountAuditOccurrences(ctx context.Context, db dbport.DB, s AuditOccurrenceSelector) (int, error) {
 	if s.ActorID == uuid.Nil || s.IncidentID == uuid.Nil || s.EventCode == "" || (s.ClientTxnID == "" && s.RequestID == "") {
 		return 0, errors.New("audit occurrence selector requires actor, incident, event and operation correlation")
 	}

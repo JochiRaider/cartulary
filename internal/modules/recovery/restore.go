@@ -19,9 +19,11 @@ import (
 
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/platform/maintenancequery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
@@ -73,7 +75,7 @@ type RestoreTarget struct {
 	RestoreOperationID uuid.UUID
 	TargetGenerationID uuid.UUID
 	ProofScratch       *os.Root // borrowed; caller closes after the operation
-	Postgres           postgres.DB
+	Postgres           dbport.DB
 	ObjectStore        objectstore.Store
 	ReferencePacks     ReferencePackStorage
 	ExportOutputs      RootObjectStorage
@@ -268,7 +270,11 @@ func (runner *RestoreRunner) runVNextProjectionRebuilds(ctx context.Context, tar
 	}
 	for _, table := range graphTables {
 		var populated bool
-		if err := target.Postgres.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+pgx.Identifier{"public", table}.Sanitize()+")").Scan(&populated); err != nil {
+		from, fromErr := maintenancequery.From(table)
+		if fromErr != nil {
+			return result, fromErr
+		}
+		if err := target.Postgres.QueryRow(ctx, sqlshape.Text(sqlshape.Format("SELECT EXISTS(SELECT 1 %s)", from))).Scan(&populated); err != nil {
 			return result, err
 		}
 		if populated {
@@ -349,7 +355,7 @@ type vNextRestoreMutation struct {
 }
 
 type restoreInsertPlan struct {
-	query     string
+	query     sqlshape.Statement
 	writable  []string
 	fields    []string
 	generated bool
@@ -368,7 +374,7 @@ func (mutation *vNextRestoreMutation) insertPlan(ctx context.Context, tableName 
 		return restoreInsertPlan{}, err
 	}
 	var plan restoreInsertPlan
-	var columns []string
+	var columns []sqlshape.Fragment
 	for rows.Next() {
 		var name string
 		var generated bool
@@ -382,7 +388,7 @@ func (mutation *vNextRestoreMutation) insertPlan(ctx context.Context, tableName 
 			continue
 		}
 		plan.writable = append(plan.writable, name)
-		columns = append(columns, pgx.Identifier{name}.Sanitize())
+		columns = append(columns, sqlshape.Identifier(name))
 	}
 	err = rows.Err()
 	rows.Close()
@@ -392,10 +398,9 @@ func (mutation *vNextRestoreMutation) insertPlan(ctx context.Context, tableName 
 	if len(columns) == 0 {
 		return plan, fmt.Errorf("%w: restore table has no writable columns", ErrInvalidBackupArtifact)
 	}
-	list := strings.Join(columns, ",")
-	plan.query = fmt.Sprintf("INSERT INTO %s (%s) SELECT %s FROM jsonb_populate_record(NULL::%s, $1::jsonb)", identifier, list, list, identifier)
-	if plan.generated {
-		plan.query = fmt.Sprintf("WITH restored AS (INSERT INTO %s (%s) SELECT %s FROM jsonb_populate_record(NULL::%s, $1::jsonb) RETURNING *) SELECT (to_jsonb(restored)-$2::text[]) IS NOT DISTINCT FROM ($1::jsonb-$2::text[]) FROM restored", identifier, list, list, identifier)
+	plan.query, err = maintenancequery.Insert(tableName, sqlshape.Join(columns, sqlshape.Literal(",")), plan.generated)
+	if err != nil {
+		return plan, err
 	}
 	if mutation.insertPlans == nil {
 		mutation.insertPlans = map[string]restoreInsertPlan{}
@@ -418,10 +423,11 @@ func (mutation *vNextRestoreMutation) PreparePostgresTables(
 	if len(tableNames) == 0 {
 		return fmt.Errorf("%w: restore catalog has no tables", ErrVNextBackup)
 	}
-	if _, err := mutation.tx.Exec(
-		ctx,
-		"TRUNCATE "+sanitizedTableList(tableNames)+" CASCADE",
-	); err != nil {
+	command, err := maintenancequery.TruncateRestore(tableNames)
+	if err != nil {
+		return err
+	}
+	if _, err = mutation.tx.Exec(ctx, sqlshape.CommandText(command)); err != nil {
 		return fmt.Errorf("truncate vNext restore target: %w", err)
 	}
 	return nil
@@ -447,7 +453,7 @@ func (mutation *vNextRestoreMutation) InsertPostgresRow(
 	}
 	if plan.generated {
 		var valid bool
-		if err := mutation.tx.QueryRow(ctx, plan.query, string(row), plan.writable).Scan(&valid); err != nil {
+		if err := mutation.tx.QueryRow(ctx, sqlshape.CommandText(plan.query), string(row), plan.writable).Scan(&valid); err != nil {
 			return fmt.Errorf("restore vNext table %s: %w", tableName, err)
 		}
 		if !valid {
@@ -455,7 +461,7 @@ func (mutation *vNextRestoreMutation) InsertPostgresRow(
 		}
 		return nil
 	}
-	if _, err := mutation.tx.Exec(ctx, plan.query, string(row)); err != nil {
+	if _, err := mutation.tx.Exec(ctx, sqlshape.CommandText(plan.query), string(row)); err != nil {
 		return fmt.Errorf("restore vNext table %s: %w", tableName, err)
 	}
 	return nil
@@ -522,8 +528,12 @@ func vNextConsistencyReport(
 	var authoritativeCount int
 	for _, tableName := range stateCatalog.RequiredTableNames() {
 		var count int
-		query := fmt.Sprintf("SELECT COUNT(*) FROM %s", pgx.Identifier{tableName}.Sanitize())
-		if err := target.Postgres.QueryRow(ctx, query).Scan(&count); err != nil {
+		from, fromErr := maintenancequery.From(tableName)
+		if fromErr != nil {
+			return RestoreConsistencyReport{}, fromErr
+		}
+		query := sqlshape.Format("SELECT COUNT(*) %s", from)
+		if err := target.Postgres.QueryRow(ctx, sqlshape.Text(query)).Scan(&count); err != nil {
 			return RestoreConsistencyReport{}, fmt.Errorf("count restored vNext table %s: %w", tableName, err)
 		}
 		authoritativeCount += count
@@ -595,8 +605,12 @@ func requireEmptyRestoreTargetWithReader(ctx context.Context, target RestoreTarg
 			continue
 		}
 		var count int64
-		query := fmt.Sprintf("SELECT COUNT(*) FROM %s", pgx.Identifier{tableName}.Sanitize())
-		if err := db.QueryRow(ctx, query).Scan(&count); err != nil {
+		from, fromErr := maintenancequery.From(tableName)
+		if fromErr != nil {
+			return fromErr
+		}
+		query := sqlshape.Format("SELECT COUNT(*) %s", from)
+		if err := db.QueryRow(ctx, sqlshape.Text(query)).Scan(&count); err != nil {
 			return fmt.Errorf("inspect restore target table %s: %w", tableName, err)
 		}
 		if count != 0 {
@@ -739,11 +753,12 @@ func ResetRestoreVerificationTarget(ctx context.Context, capability TargetContro
 	if err != nil {
 		return err
 	}
-	if len(tableNames) > 0 {
-		query := "TRUNCATE " + sanitizedTableList(tableNames) + " CASCADE"
-		if _, err := tx.Exec(ctx, query); err != nil {
-			return fmt.Errorf("truncate restore verification target: %w", err)
-		}
+	command, err := maintenancequery.TruncateVerification(tableNames)
+	if err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, sqlshape.CommandText(command)); err != nil {
+		return fmt.Errorf("truncate restore verification target: %w", err)
 	}
 	profileIDs := make([]string, 0, len(catalog.pristineMetadataRows))
 	for profileID := range catalog.pristineMetadataRows {
@@ -803,14 +818,6 @@ INSERT INTO extension_state_metadata (
 	return err
 }
 
-func sanitizedTableList(tableNames []string) string {
-	parts := make([]string, 0, len(tableNames))
-	for _, tableName := range tableNames {
-		parts = append(parts, pgx.Identifier{tableName}.Sanitize())
-	}
-	return strings.Join(parts, ", ")
-}
-
 func resetOwnedSequences(ctx context.Context, tx pgx.Tx, tableName string) error {
 	rows, err := tx.Query(ctx, `
 SELECT column_name
@@ -847,11 +854,14 @@ ORDER BY ordinal_position ASC
 		if !sequenceName.Valid || sequenceName.String == "" {
 			continue
 		}
-		identifier := pgx.Identifier{tableName}.Sanitize()
-		columnIdentifier := pgx.Identifier{columnName}.Sanitize()
+		from, fromErr := maintenancequery.From(tableName)
+		if fromErr != nil {
+			return fromErr
+		}
+		columnIdentifier := sqlshape.Identifier(columnName)
 		var nextValue int64
-		query := fmt.Sprintf("SELECT COALESCE(MAX(%s), 0)::bigint + 1 FROM %s", columnIdentifier, identifier)
-		if err := tx.QueryRow(ctx, query).Scan(&nextValue); err != nil {
+		query := sqlshape.Format("SELECT COALESCE(MAX(%s), 0)::bigint + 1 %s", columnIdentifier, from)
+		if err := tx.QueryRow(ctx, sqlshape.Text(query)).Scan(&nextValue); err != nil {
 			return fmt.Errorf("compute postgres restore sequence value for %s.%s: %w", tableName, columnName, err)
 		}
 		if _, err := tx.Exec(ctx, `SELECT setval($1, $2, false)`, sequenceName.String, nextValue); err != nil {

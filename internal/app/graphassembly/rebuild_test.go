@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/graphfixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -111,7 +112,7 @@ func claimedGraphRequest(ctx context.Context) graphrestore.RestoreRebuildRequest
 	}
 }
 
-func seedClaimedGraphResult(t *testing.T, db postgres.DB) {
+func seedClaimedGraphResult(t *testing.T, db dbport.DB) {
 	t.Helper()
 	result := graphfixture.Result(t, graphfixture.ResultOptions{
 		GraphViewID: "nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", SourceOwnerID: "network_flow_activity",
@@ -138,7 +139,7 @@ func seedClaimedGraphResult(t *testing.T, db postgres.DB) {
 	}
 }
 
-func claimedGraphState(t *testing.T, db postgres.DB) string {
+func claimedGraphState(t *testing.T, db dbport.DB) string {
 	t.Helper()
 	var state string
 	if err := db.QueryRow(t.Context(), `SELECT jsonb_build_array(
@@ -157,7 +158,7 @@ func claimedGraphState(t *testing.T, db postgres.DB) string {
 // This witness observes actual managed PostgreSQL calls across the application
 // boundary; a pool read cannot masquerade as the reconstruction transaction.
 type graphSourceTransactionWitness struct {
-	postgres.DB
+	dbport.DB
 	transactions, sourceOutside, sourceTransaction, clearTransaction int
 	commitAttempts, rollbackCalls                                    int
 	sourceBeforeClear, clearConfirmed, rollbackSucceeded             bool

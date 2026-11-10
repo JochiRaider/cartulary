@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	entityfacts "github.com/JochiRaider/cartulary/internal/modules/entities/timelinefacts"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	evidencefacts "github.com/JochiRaider/cartulary/internal/modules/evidence/timelinefacts"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/collectionfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
@@ -19,27 +19,26 @@ import (
 // Timeline's declared source-authority readers.
 func NewSource(linkReader collectionfacts.LinkReader) *workbookprojection.Source {
 	return workbookprojection.NewSource(
-		timelineEnvelopeReader{store: records.NewStore()},
+		timelineEnvelopeReader{store: recordenvelope.Reader{}},
 		collectionfacts.New(
 			entityfacts.Reader{},
 			linkReader,
-			evidence.TimelineFactReader{},
+			evidencefacts.TimelineFactReader{},
 		),
 	)
 }
 
 type timelineEnvelopeReader struct {
-	store *records.Store
+	store recordenvelope.Reader
 }
 
 func (reader timelineEnvelopeReader) LoadEnvelopeTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	recordID uuid.UUID,
-	lock bool,
 ) (sourcerepository.Envelope, error) {
-	envelope, err := reader.store.LoadEnvelopeTx(ctx, tx, recordID, lock)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	envelope, err := reader.store.LoadEnvelopeTx(ctx, tx, recordID)
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return sourcerepository.Envelope{}, sourcerepository.ErrEnvelopeNotFound
 	}
 	return projectionTimelineEnvelope(envelope), err
@@ -49,9 +48,8 @@ func (reader timelineEnvelopeReader) LoadEnvelopesTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	recordIDs []uuid.UUID,
-	lock bool,
 ) (map[uuid.UUID]sourcerepository.Envelope, error) {
-	envelopes, err := reader.store.LoadEnvelopesTx(ctx, tx, recordIDs, lock)
+	envelopes, err := reader.store.LoadEnvelopesTx(ctx, tx, recordIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +60,7 @@ func (reader timelineEnvelopeReader) LoadEnvelopesTx(
 	return result, nil
 }
 
-func projectionTimelineEnvelope(envelope records.Envelope) sourcerepository.Envelope {
+func projectionTimelineEnvelope(envelope recordenvelope.Envelope) sourcerepository.Envelope {
 	return sourcerepository.Envelope{
 		RecordID:        envelope.RecordID,
 		IncidentID:      envelope.IncidentID,

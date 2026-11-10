@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 // Reader grants inspection only; owners cannot mutate through this port.
@@ -27,15 +28,18 @@ func (incompatible) Error() string {
 }
 func (incompatible) ReasonCode() string { return "reference_pack_contract_state_incompatible" }
 
-type check struct{ query, kind string }
+type check struct {
+	query sqlshape.Fragment
+	kind  string
+}
 
 var checks = []check{
-	{"SELECT v.manifest_bytes,c.distribution_kind FROM public.reference_pack_versions v JOIN public.reference_pack_candidates c USING(pack_key,pack_version)", "manifest"},
-	{"SELECT canonical_set,pack_set_id,pack_set_sha256 FROM public.reference_pack_sets", "set"},
-	{"SELECT canonical_references FROM public.reference_pack_portable_catalogs", "references"},
-	{"SELECT canonical_references FROM public.reference_pack_portable_preparations", "references"},
-	{"SELECT canonical_prepared FROM public.reference_pack_attempt_members WHERE canonical_prepared IS NOT NULL", "prepared"},
-	{"SELECT frozen_input FROM public.reference_pack_operations", "pending"},
+	{sqlshape.Literal("SELECT v.manifest_bytes,c.distribution_kind FROM public.reference_pack_versions v JOIN public.reference_pack_candidates c USING(pack_key,pack_version)"), "manifest"},
+	{sqlshape.Literal("SELECT canonical_set,pack_set_id,pack_set_sha256 FROM public.reference_pack_sets"), "set"},
+	{sqlshape.Literal("SELECT canonical_references FROM public.reference_pack_portable_catalogs"), "references"},
+	{sqlshape.Literal("SELECT canonical_references FROM public.reference_pack_portable_preparations"), "references"},
+	{sqlshape.Literal("SELECT canonical_prepared FROM public.reference_pack_attempt_members WHERE canonical_prepared IS NOT NULL"), "prepared"},
+	{sqlshape.Literal("SELECT frozen_input FROM public.reference_pack_operations"), "pending"},
 }
 
 func validate(kind string, b []byte) error {
@@ -65,7 +69,7 @@ func Validate(ctx context.Context, db Reader) error {
 		return errors.New("reference pack admission database unavailable")
 	}
 	for _, c := range checks {
-		rows, err := db.Query(ctx, c.query)
+		rows, err := db.Query(ctx, sqlshape.Text(c.query))
 		if err != nil {
 			return err
 		}

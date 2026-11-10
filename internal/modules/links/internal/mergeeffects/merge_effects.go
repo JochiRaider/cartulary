@@ -12,7 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/mutationvalue"
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/valuecodec"
-	"github.com/JochiRaider/cartulary/internal/modules/links/internal/vocabulary"
+	"github.com/JochiRaider/cartulary/internal/modules/links/vocabulary"
 )
 
 type RepointLinksCommand struct {

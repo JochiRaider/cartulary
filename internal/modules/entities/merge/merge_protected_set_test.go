@@ -13,14 +13,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type mergeProjectionWriterStub struct {
 	projectionports.MutationRows
 }
 
-type mergeStorePostgresStub struct{ postgres.DB }
+type mergeStorePostgresStub struct{ dbport.DB }
 type mergeTimelineEffectsStub struct{ TimelineEffectsPort }
 type mergeCollaborationStub struct {
 	collaboration.RecordChangedAppender

@@ -8,12 +8,13 @@ import (
 	"io"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 )
 
 type RecoveryStorage struct {
@@ -135,7 +136,7 @@ func (s *RecoveryStorage) ResetVerificationTarget(ctx context.Context) error {
 	return nil
 }
 
-func (s *RecoveryStorage) ValidateHistoricalState(ctx context.Context, db postgres.DB) error {
+func (s *RecoveryStorage) ValidateHistoricalState(ctx context.Context, db dbport.DB) error {
 	return reference_data.RestoreHistoricalState(ctx, db, s.storage, s.limits, s.lifetime)
 }
 

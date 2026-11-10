@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // blobSlotRepository owns pending-slot persistence inside a caller transaction.
@@ -37,7 +37,7 @@ INSERT INTO object_blobs (
 // The signed capability is useful only when its digest and every binding agree
 // with this server-side record.
 type uploadLeaseRepository struct {
-	db postgres.DB
+	db dbport.DB
 }
 
 func (uploadLeaseRepository) insertTx(
@@ -163,7 +163,7 @@ UPDATE evidence_object_upload_leases
 // with blobLifecycleRepository so storage identity and state changes are not
 // conflated.
 type blobRepository struct {
-	db postgres.DB
+	db dbport.DB
 }
 
 func (repository blobRepository) load(ctx context.Context, objectBlobID uuid.UUID) (blobRecord, error) {
@@ -233,7 +233,7 @@ UPDATE evidence
 // blobLifecycleRepository owns blob-state transitions and cleanup selection.
 // Callers retain transaction orchestration and object-store byte deletion.
 type blobLifecycleRepository struct {
-	db postgres.DB
+	db dbport.DB
 }
 
 func (blobLifecycleRepository) failTx(

@@ -13,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
@@ -230,8 +231,8 @@ func (compositionOperations) InsertTx(context.Context, pgx.Tx, records.InsertPar
 func (compositionOperations) AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error) {
 	return 1, nil
 }
-func (compositionOperations) LoadEnvelope(context.Context, uuid.UUID) (records.Envelope, error) {
-	return records.Envelope{}, nil
+func (compositionOperations) LoadEnvelope(context.Context, uuid.UUID) (recordenvelope.Envelope, error) {
+	return recordenvelope.Envelope{}, nil
 }
 func (compositionOperations) RefreshPartyTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
 func (compositionOperations) LoadPartyTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {

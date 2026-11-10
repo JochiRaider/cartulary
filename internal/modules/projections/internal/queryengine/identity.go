@@ -3,23 +3,23 @@ package queryengine
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type IdentityReader struct {
-	db postgres.DB
+	db dbport.DB
 }
 
-func NewIdentityReader(db postgres.DB) *IdentityReader {
+func NewIdentityReader(db dbport.DB) *IdentityReader {
 	return &IdentityReader{db: db}
 }
 
@@ -36,7 +36,7 @@ func (reader *IdentityReader) SelectIdentityQueryProjections(
 	if err != nil {
 		return nil, err
 	}
-	rows, err := reader.db.Query(ctx, sqlText, args...)
+	rows, err := reader.db.Query(ctx, sqlshape.Text(sqlText), args...)
 	if err != nil {
 		return nil, fmt.Errorf("query identity projections: %w", err)
 	}
@@ -70,7 +70,7 @@ func (reader *IdentityReader) SelectIdentityQueryProjectionsTx(
 	if err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, sqlText, args...)
+	rows, err := tx.Query(ctx, sqlshape.Text(sqlText), args...)
 	if err != nil {
 		return nil, fmt.Errorf("query identity projections: %w", err)
 	}
@@ -150,28 +150,28 @@ SELECT i.record_id, jsonb_build_object(
 	return facts, nil
 }
 
-var identitySortExpressions = map[string]string{
-	"record_id":                   "p.record_id",
-	"identity.display_name":       "p.display_name",
-	"identity.upn":                "p.upn",
-	"identity.email":              "p.email",
-	"identity.sam_account_name":   "p.sam_account_name",
-	"identity.identity_state":     "p.identity_state",
-	"identity.linked_event_count": "p.linked_event_count",
-	"identity.evidence_count":     "p.evidence_count",
-	"identity.privilege_level":    "p.privilege_level",
-	"identity.mfa_state":          "p.mfa_state",
-	"identity.reset_status":       "p.reset_status",
-	"identity.edited_at":          "p.edited_at",
+var identitySortExpressions = map[string]sqlshape.Fragment{
+	"record_id":                   sqlshape.Literal("p.record_id"),
+	"identity.display_name":       sqlshape.Literal("p.display_name"),
+	"identity.upn":                sqlshape.Literal("p.upn"),
+	"identity.email":              sqlshape.Literal("p.email"),
+	"identity.sam_account_name":   sqlshape.Literal("p.sam_account_name"),
+	"identity.identity_state":     sqlshape.Literal("p.identity_state"),
+	"identity.linked_event_count": sqlshape.Literal("p.linked_event_count"),
+	"identity.evidence_count":     sqlshape.Literal("p.evidence_count"),
+	"identity.privilege_level":    sqlshape.Literal("p.privilege_level"),
+	"identity.mfa_state":          sqlshape.Literal("p.mfa_state"),
+	"identity.reset_status":       sqlshape.Literal("p.reset_status"),
+	"identity.edited_at":          sqlshape.Literal("p.edited_at"),
 }
 
 func buildIdentityQueryPageSQL(
 	incidentID uuid.UUID,
 	query viewschema.QueryMeta,
 	window querypage.Window,
-) (string, []any, error) {
-	var builder strings.Builder
-	builder.WriteString(`
+) (sqlshape.Fragment, []any, error) {
+	var builder sqlshape.Builder
+	builder.Write(sqlshape.Literal(`
 SELECT
     p.record_id,
     p.identity_state,
@@ -186,29 +186,29 @@ SELECT
    AND r.incident_id = p.incident_id
  WHERE p.incident_id = $1
    AND r.deleted_at IS NULL
-   AND p.identity_state IN ('stub', 'canonical')`)
+   AND p.identity_state IN ('stub', 'canonical')`))
 	args := []any{incidentID}
 	if window.TargetRecordID != "" {
 		args = append(args, window.TargetRecordID)
-		builder.WriteString(" AND p.record_id = $2::uuid")
+		builder.Write(sqlshape.Literal(" AND p.record_id = $2::uuid"))
 	}
 
 	for _, filter := range query.Filters {
-		var expression string
+		var expression sqlshape.Fragment
 		switch filter.FieldKey {
 		case "identity.identity_state":
-			expression = "p.identity_state"
+			expression = sqlshape.Literal("p.identity_state")
 		case "identity.privilege_level":
-			expression = "p.privilege_level"
+			expression = sqlshape.Literal("p.privilege_level")
 		case "identity.mfa_state":
-			expression = "p.mfa_state"
+			expression = sqlshape.Literal("p.mfa_state")
 		case "identity.reset_status":
-			expression = "p.reset_status"
+			expression = sqlshape.Literal("p.reset_status")
 		default:
-			return "", nil, fmt.Errorf("identity query filter field %q not mapped", filter.FieldKey)
+			return sqlshape.Fragment{}, nil, fmt.Errorf("identity query filter field %q not mapped", filter.FieldKey)
 		}
 		if err := appendEntityQueryTextClause(&builder, &args, expression, filter); err != nil {
-			return "", nil, err
+			return sqlshape.Fragment{}, nil, err
 		}
 	}
 
@@ -223,15 +223,15 @@ SELECT
 		entityPageFields(identitySortExpressions),
 		window.Position,
 	); err != nil {
-		return "", nil, err
+		return sqlshape.Fragment{}, nil, err
 	}
 	if err := appendEntityOrderBy(&builder, query.Sort, identitySortExpressions, window.Before); err != nil {
-		return "", nil, err
+		return sqlshape.Fragment{}, nil, err
 	}
 	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
-		return "", nil, err
+		return sqlshape.Fragment{}, nil, err
 	}
-	return builder.String(), args, nil
+	return builder.Fragment(), args, nil
 }
 
 func scanIdentityQueryProjection(scanner interface{ Scan(...any) error }) (entityports.IdentityQueryProjection, error) {

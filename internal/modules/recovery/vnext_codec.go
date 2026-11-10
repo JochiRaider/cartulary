@@ -20,6 +20,7 @@ import (
 	contractrecovery "github.com/JochiRaider/cartulary/internal/gen/contractrecovery"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const (
@@ -49,7 +50,7 @@ type VNextSnapshot interface {
 		tableName string,
 		visit func(json.RawMessage) error,
 	) error
-	QueryRows(context.Context, string, ...any) (VNextRows, error)
+	QueryRows(context.Context, sqlshape.Fragment, ...any) (VNextRows, error)
 }
 
 type VNextRows interface {

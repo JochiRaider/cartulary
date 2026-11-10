@@ -11,7 +11,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -87,7 +87,7 @@ INSERT INTO public.entity_aliases (
 	}
 }
 
-func seedAliasHeadHost(t *testing.T, db postgres.DB) (uuid.UUID, uuid.UUID, uuid.UUID) {
+func seedAliasHeadHost(t *testing.T, db dbport.DB) (uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
 	actor := authstoretest.SeedActor(t, db, authstoretest.ActorAttributes{Email: "alias-head@example.test", DisplayName: "Alias Head"})
 	incidentID := uuid.New()
@@ -104,7 +104,7 @@ INSERT INTO public.incidents (
 	return actor.ID, incidentID, recordID
 }
 
-func insertAliasHeadRow(t *testing.T, db postgres.DB, aliasID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, text string) {
+func insertAliasHeadRow(t *testing.T, db dbport.DB, aliasID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, text string) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), `
 INSERT INTO public.entity_aliases (

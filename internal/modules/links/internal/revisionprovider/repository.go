@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/valuecodec"
-	"github.com/JochiRaider/cartulary/internal/modules/links/internal/vocabulary"
+	"github.com/JochiRaider/cartulary/internal/modules/links/vocabulary"
 )
 
 func loadRecordLinkMutationValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (valuecodec.RecordLinkMutationValue, error) {

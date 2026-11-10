@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -27,18 +28,18 @@ const (
 
 type Field struct {
 	Key      string
-	Expr     string
-	SortExpr string
+	Expr     sqlshape.Fragment
+	SortExpr sqlshape.Fragment
 	Kind     FieldKind
 	Ordered  bool
 }
 
 type Surface struct {
 	ViewSchemaID   string
-	FromSQL        string
-	RecordExpr     string
-	IncidentExpr   string
-	WhereSQL       string
+	FromSQL        sqlshape.Fragment
+	RecordExpr     sqlshape.Fragment
+	IncidentExpr   sqlshape.Fragment
+	WhereSQL       sqlshape.Fragment
 	Fields         []Field
 	GroupingFields []string
 }
@@ -49,7 +50,7 @@ func CompileSurface(surface Surface) (Surface, error) {
 	if strings.TrimSpace(surface.ViewSchemaID) == "" {
 		return Surface{}, fmt.Errorf("empty view_schema_id")
 	}
-	for member, fragment := range map[string]string{
+	for member, fragment := range map[string]sqlshape.Fragment{
 		"from_sql":      surface.FromSQL,
 		"record_expr":   surface.RecordExpr,
 		"incident_expr": surface.IncidentExpr,
@@ -115,8 +116,8 @@ func CompileSurface(surface Surface) (Surface, error) {
 	}, nil
 }
 
-func validateCompiledSQLFragment(viewSchemaID string, member string, value string, allowEmpty bool) error {
-	trimmed := strings.TrimSpace(value)
+func validateCompiledSQLFragment(viewSchemaID string, member string, value sqlshape.Fragment, allowEmpty bool) error {
+	trimmed := strings.TrimSpace(sqlshape.Text(value))
 	if trimmed == "" {
 		if allowEmpty {
 			return nil
@@ -152,8 +153,8 @@ func (d Surface) Field(key string) (Field, bool) {
 	return Field{}, false
 }
 
-func (f Field) OrderExpr() string {
-	if f.SortExpr != "" {
+func (f Field) OrderExpr() sqlshape.Fragment {
+	if !f.SortExpr.Empty() {
 		return f.SortExpr
 	}
 	return f.Expr
@@ -187,24 +188,24 @@ func LoadRowTx(
 	definition Surface,
 	recordID uuid.UUID,
 ) (map[string]any, error) {
-	var builder strings.Builder
-	builder.WriteString("SELECT ")
-	builder.WriteString(definition.RecordExpr)
-	builder.WriteString(", r.row_version")
+	var builder sqlshape.Builder
+	builder.Write(sqlshape.Literal("SELECT "))
+	builder.Write(definition.RecordExpr)
+	builder.Write(sqlshape.Literal(", r.row_version"))
 	for _, field := range definition.Fields {
-		builder.WriteString(", ")
-		builder.WriteString(field.Expr)
+		builder.Write(sqlshape.Literal(", "))
+		builder.Write(field.Expr)
 	}
-	builder.WriteString(" ")
-	builder.WriteString(definition.FromSQL)
-	builder.WriteString(" WHERE ")
-	builder.WriteString(definition.RecordExpr)
-	builder.WriteString(" = $1 AND r.deleted_at IS NULL")
-	if definition.WhereSQL != "" {
-		builder.WriteString(" AND ")
-		builder.WriteString(definition.WhereSQL)
+	builder.Write(sqlshape.Literal(" "))
+	builder.Write(definition.FromSQL)
+	builder.Write(sqlshape.Literal(" WHERE "))
+	builder.Write(definition.RecordExpr)
+	builder.Write(sqlshape.Literal(" = $1 AND r.deleted_at IS NULL"))
+	if !definition.WhereSQL.Empty() {
+		builder.Write(sqlshape.Literal(" AND "))
+		builder.Write(definition.WhereSQL)
 	}
-	row := tx.QueryRow(ctx, builder.String(), recordID)
+	row := tx.QueryRow(ctx, sqlshape.Text(builder.Fragment()), recordID)
 	values := make([]any, len(definition.Fields)+2)
 	scanTargets := make([]any, len(values))
 	for index := range values {
@@ -216,48 +217,48 @@ func LoadRowTx(
 	return BuildRow(definition, values)
 }
 
-func BuildQueryPageSQL(incidentID uuid.UUID, definition Surface, query viewschema.QueryMeta, window querypage.Window) (string, []any, error) {
-	var builder strings.Builder
-	builder.WriteString("SELECT ")
-	builder.WriteString(definition.RecordExpr)
-	builder.WriteString(", r.row_version")
+func BuildQueryPageSQL(incidentID uuid.UUID, definition Surface, query viewschema.QueryMeta, window querypage.Window) (sqlshape.Fragment, []any, error) {
+	var builder sqlshape.Builder
+	builder.Write(sqlshape.Literal("SELECT "))
+	builder.Write(definition.RecordExpr)
+	builder.Write(sqlshape.Literal(", r.row_version"))
 	for _, field := range definition.Fields {
-		builder.WriteString(", ")
-		builder.WriteString(field.Expr)
+		builder.Write(sqlshape.Literal(", "))
+		builder.Write(field.Expr)
 	}
-	builder.WriteString(" ")
-	builder.WriteString(definition.FromSQL)
-	builder.WriteString(" WHERE ")
-	builder.WriteString(definition.IncidentExpr)
-	builder.WriteString(" = $1 AND r.deleted_at IS NULL")
-	if definition.WhereSQL != "" {
-		builder.WriteString(" AND ")
-		builder.WriteString(definition.WhereSQL)
+	builder.Write(sqlshape.Literal(" "))
+	builder.Write(definition.FromSQL)
+	builder.Write(sqlshape.Literal(" WHERE "))
+	builder.Write(definition.IncidentExpr)
+	builder.Write(sqlshape.Literal(" = $1 AND r.deleted_at IS NULL"))
+	if !definition.WhereSQL.Empty() {
+		builder.Write(sqlshape.Literal(" AND "))
+		builder.Write(definition.WhereSQL)
 	}
 	args := []any{incidentID}
 	if window.TargetRecordID != "" {
 		args = append(args, window.TargetRecordID)
-		builder.WriteString(" AND " + definition.RecordExpr + " = $2::uuid")
+		builder.Write(sqlshape.Format(" AND %s = $2::uuid", definition.RecordExpr))
 	}
 
 	for _, filter := range query.Filters {
 		if err := appendGenericFilter(&builder, &args, definition, filter); err != nil {
-			return "", nil, err
+			return sqlshape.Fragment{}, nil, err
 		}
 	}
 	pageFields := make(map[string]querypage.Field, len(definition.Fields)+1)
-	pageFields["record_id"] = querypage.Field{Expression: definition.RecordExpr, Cast: "uuid"}
+	pageFields["record_id"] = querypage.Field{Expression: definition.RecordExpr, Cast: sqlshape.Literal("uuid")}
 	for _, field := range definition.Fields {
-		cast := ""
+		var cast sqlshape.Fragment
 		switch field.Kind {
 		case FieldKindTimestamp:
-			cast = "timestamptz"
+			cast = sqlshape.Literal("timestamptz")
 		case FieldKindDate:
-			cast = "date"
+			cast = sqlshape.Literal("date")
 		case FieldKindNumber:
-			cast = "numeric"
+			cast = sqlshape.Literal("numeric")
 		case FieldKindBool:
-			cast = "boolean"
+			cast = sqlshape.Literal("boolean")
 		}
 		pageFields[field.Key] = querypage.Field{Expression: field.OrderExpr(), Cast: cast}
 	}
@@ -266,43 +267,43 @@ func BuildQueryPageSQL(incidentID uuid.UUID, definition Surface, query viewschem
 		appendPosition = querypage.AppendBefore
 	}
 	if err := appendPosition(&builder, &args, query.Sort, pageFields, window.Position); err != nil {
-		return "", nil, err
+		return sqlshape.Fragment{}, nil, err
 	}
 
-	builder.WriteString(" ORDER BY ")
+	builder.Write(sqlshape.Literal(" ORDER BY "))
 	for index, entry := range query.Sort {
 		if index > 0 {
-			builder.WriteString(", ")
+			builder.Write(sqlshape.Literal(", "))
 		}
 		field, ok := definition.Field(entry.FieldKey)
 		if !ok {
-			return "", nil, fmt.Errorf("sort field %q not mapped for %s", entry.FieldKey, definition.ViewSchemaID)
+			return sqlshape.Fragment{}, nil, fmt.Errorf("sort field %q not mapped for %s", entry.FieldKey, definition.ViewSchemaID)
 		}
-		builder.WriteString(field.OrderExpr())
+		builder.Write(field.OrderExpr())
 		if (entry.Direction == "desc") != window.Before {
-			builder.WriteString(" DESC")
+			builder.Write(sqlshape.Literal(" DESC"))
 		} else {
-			builder.WriteString(" ASC")
+			builder.Write(sqlshape.Literal(" ASC"))
 		}
 		if window.Before {
-			builder.WriteString(" NULLS FIRST")
+			builder.Write(sqlshape.Literal(" NULLS FIRST"))
 		} else {
-			builder.WriteString(" NULLS LAST")
+			builder.Write(sqlshape.Literal(" NULLS LAST"))
 		}
 	}
 	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
-		return "", nil, err
+		return sqlshape.Fragment{}, nil, err
 	}
-	return builder.String(), args, nil
+	return builder.Fragment(), args, nil
 }
 
-func appendGenericFilter(builder *strings.Builder, args *[]any, definition Surface, filter viewschema.Filter) error {
+func appendGenericFilter(builder *sqlshape.Builder, args *[]any, definition Surface, filter viewschema.Filter) error {
 	if filter.FieldKey == "note.full_text" {
 		query, _ := filter.Arg["query"].(string)
 		for _, token := range strings.Fields(query) {
-			builder.WriteString("\n   AND ")
-			builder.WriteString(bind(args, token))
-			builder.WriteString(" = ANY(regexp_split_to_array(lower(coalesce(p.title, '') || ' ' || coalesce(p.body, '')), '[^[:alnum:]]+'))")
+			builder.Write(sqlshape.Literal("\n   AND "))
+			builder.Write(bind(args, token))
+			builder.Write(sqlshape.Literal(" = ANY(regexp_split_to_array(lower(coalesce(p.title, '') || ' ' || coalesce(p.body, '')), '[^[:alnum:]]+'))"))
 		}
 		return nil
 	}
@@ -322,12 +323,12 @@ func appendGenericFilter(builder *strings.Builder, args *[]any, definition Surfa
 	case "prefix":
 		value, _ := filter.Arg["value"].(string)
 		value = strings.ToLower(value)
-		builder.WriteString("\n   AND left(lower(coalesce((")
-		builder.WriteString(field.Expr)
-		builder.WriteString(")::text, '')), char_length(")
-		builder.WriteString(bind(args, value))
-		builder.WriteString(")) = ")
-		builder.WriteString(bind(args, value))
+		builder.Write(sqlshape.Literal("\n   AND left(lower(coalesce(("))
+		builder.Write(field.Expr)
+		builder.Write(sqlshape.Literal(")::text, '')), char_length("))
+		builder.Write(bind(args, value))
+		builder.Write(sqlshape.Literal(")) = "))
+		builder.Write(bind(args, value))
 		return nil
 	case "range":
 		return appendRangeFilter(builder, args, field, filter.Arg)
@@ -336,7 +337,7 @@ func appendGenericFilter(builder *strings.Builder, args *[]any, definition Surfa
 	}
 }
 
-func appendTagFilter(builder *strings.Builder, args *[]any, recordExpr string, filter viewschema.Filter) error {
+func appendTagFilter(builder *sqlshape.Builder, args *[]any, recordExpr sqlshape.Fragment, filter viewschema.Filter) error {
 	values, _ := filter.Arg["values"].([]any)
 	textValues := make([]string, 0, len(values))
 	for _, value := range values {
@@ -346,23 +347,11 @@ func appendTagFilter(builder *strings.Builder, args *[]any, recordExpr string, f
 	}
 	switch filter.Op {
 	case "contains_any":
-		builder.WriteString("\n   AND EXISTS (SELECT 1 FROM ")
-		builder.WriteString("active_record_tags_v1 rt")
-		builder.WriteString(" WHERE rt.record_id = ")
-		builder.WriteString(recordExpr)
-		builder.WriteString(" AND rt.normalized_tag_name = ANY(")
-		builder.WriteString(bind(args, textValues))
-		builder.WriteString("::text[]))")
+		builder.Write(sqlshape.Format("\n   AND EXISTS (SELECT 1 FROM active_record_tags_v1 rt WHERE rt.record_id = %s AND rt.normalized_tag_name = ANY(%s::text[]))", recordExpr, bind(args, textValues)))
 		return nil
 	case "contains_all":
 		for _, value := range values {
-			builder.WriteString("\n   AND EXISTS (SELECT 1 FROM ")
-			builder.WriteString("active_record_tags_v1 rt")
-			builder.WriteString(" WHERE rt.record_id = ")
-			builder.WriteString(recordExpr)
-			builder.WriteString(" AND rt.normalized_tag_name = ")
-			builder.WriteString(bind(args, value))
-			builder.WriteString(")")
+			builder.Write(sqlshape.Format("\n   AND EXISTS (SELECT 1 FROM active_record_tags_v1 rt WHERE rt.record_id = %s AND rt.normalized_tag_name = %s)", recordExpr, bind(args, value)))
 		}
 		return nil
 	default:
@@ -370,30 +359,30 @@ func appendTagFilter(builder *strings.Builder, args *[]any, recordExpr string, f
 	}
 }
 
-func appendEqualityFilter(builder *strings.Builder, args *[]any, field Field, arg map[string]any) error {
+func appendEqualityFilter(builder *sqlshape.Builder, args *[]any, field Field, arg map[string]any) error {
 	if value, ok := arg["value"]; ok {
-		builder.WriteString("\n   AND ")
+		builder.Write(sqlshape.Literal("\n   AND "))
 		if value == nil {
-			builder.WriteString(field.Expr)
-			builder.WriteString(" IS NULL")
+			builder.Write(field.Expr)
+			builder.Write(sqlshape.Literal(" IS NULL"))
 			return nil
 		}
 		appendComparableExpr(builder, field)
-		builder.WriteString(" = ")
-		builder.WriteString(bindWithFieldCast(args, comparableFilterValue(field, value), field))
+		builder.Write(sqlshape.Literal(" = "))
+		builder.Write(bindWithFieldCast(args, comparableFilterValue(field, value), field))
 		return nil
 	}
 	values, _ := arg["values"].([]any)
-	builder.WriteString("\n   AND (")
+	builder.Write(sqlshape.Literal("\n   AND ("))
 	for index, value := range values {
 		if index > 0 {
-			builder.WriteString(" OR ")
+			builder.Write(sqlshape.Literal(" OR "))
 		}
 		appendComparableExpr(builder, field)
-		builder.WriteString(" = ")
-		builder.WriteString(bindWithFieldCast(args, comparableFilterValue(field, value), field))
+		builder.Write(sqlshape.Literal(" = "))
+		builder.Write(bindWithFieldCast(args, comparableFilterValue(field, value), field))
 	}
-	builder.WriteString(")")
+	builder.Write(sqlshape.Literal(")"))
 	return nil
 }
 
@@ -407,53 +396,53 @@ func comparableFilterValue(field Field, value any) any {
 	return value
 }
 
-func appendRangeFilter(builder *strings.Builder, args *[]any, field Field, arg map[string]any) error {
+func appendRangeFilter(builder *sqlshape.Builder, args *[]any, field Field, arg map[string]any) error {
 	for _, bound := range []struct {
 		key string
-		op  string
+		op  sqlshape.Fragment
 	}{
-		{key: "gt", op: ">"},
-		{key: "gte", op: ">="},
-		{key: "lt", op: "<"},
-		{key: "lte", op: "<="},
+		{key: "gt", op: sqlshape.Literal(">")},
+		{key: "gte", op: sqlshape.Literal(">=")},
+		{key: "lt", op: sqlshape.Literal("<")},
+		{key: "lte", op: sqlshape.Literal("<=")},
 	} {
 		value, ok := arg[bound.key]
 		if !ok {
 			continue
 		}
-		builder.WriteString("\n   AND ")
-		builder.WriteString(field.Expr)
-		builder.WriteByte(' ')
-		builder.WriteString(bound.op)
-		builder.WriteByte(' ')
-		builder.WriteString(bindWithFieldCast(args, value, field))
+		builder.Write(sqlshape.Literal("\n   AND "))
+		builder.Write(field.Expr)
+		builder.Write(sqlshape.Literal(" "))
+		builder.Write(bound.op)
+		builder.Write(sqlshape.Literal(" "))
+		builder.Write(bindWithFieldCast(args, value, field))
 	}
 	return nil
 }
 
-func appendComparableExpr(builder *strings.Builder, field Field) {
+func appendComparableExpr(builder *sqlshape.Builder, field Field) {
 	switch field.Kind {
 	case FieldKindText:
-		builder.WriteString("lower(coalesce((")
-		builder.WriteString(field.Expr)
-		builder.WriteString(")::text, ''))")
+		builder.Write(sqlshape.Literal("lower(coalesce(("))
+		builder.Write(field.Expr)
+		builder.Write(sqlshape.Literal(")::text, ''))"))
 	default:
-		builder.WriteString(field.Expr)
+		builder.Write(field.Expr)
 	}
 }
 
-func bind(args *[]any, value any) string {
+func bind(args *[]any, value any) sqlshape.Fragment {
 	*args = append(*args, value)
-	return fmt.Sprintf("$%d", len(*args))
+	return sqlshape.Parameter(len(*args))
 }
 
-func bindWithFieldCast(args *[]any, value any, field Field) string {
+func bindWithFieldCast(args *[]any, value any, field Field) sqlshape.Fragment {
 	placeholder := bind(args, value)
 	switch field.Kind {
 	case FieldKindTimestamp:
-		return placeholder + "::timestamptz"
+		return sqlshape.Concat(placeholder, sqlshape.Literal("::timestamptz"))
 	case FieldKindDate:
-		return placeholder + "::date"
+		return sqlshape.Concat(placeholder, sqlshape.Literal("::date"))
 	default:
 		return placeholder
 	}

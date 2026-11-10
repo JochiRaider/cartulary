@@ -1,9 +1,14 @@
 package runtime
 
 import (
+	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
@@ -14,11 +19,11 @@ import (
 	projectionstorage "github.com/JochiRaider/cartulary/internal/modules/projections/internal/storage"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-type catalogDB struct{ postgres.DB }
+type catalogDB struct{ dbport.DB }
 
 func TestCanonicalCatalogIsExecutableRuntimeGraph(t *testing.T) {
 	t.Parallel()
@@ -61,13 +66,36 @@ func TestCanonicalRuntimeServicesShareOneStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construct physical store: %v", err)
 	}
-	store, err := NewStore(db, catalog, physical)
+	store, err := NewStore(db, catalog, physical, inertEndpointLocker)
 	if err != nil {
 		t.Fatalf("construct canonical Store: %v", err)
 	}
 	if store.registry != catalog.registry || store.physical != physical {
 		t.Fatalf("canonical store is incomplete: %#v", store)
 	}
+
+	t.Run("linked refresh preserves endpoint lock boundary", func(t *testing.T) {
+		incidentID, recordID := uuid.New(), uuid.New()
+		sentinel := errors.New("endpoint failure")
+		calls := 0
+		store.lockEndpoints = func(gotContext context.Context, gotTx pgx.Tx, gotIncident uuid.UUID, gotIDs []uuid.UUID) ([]providercontract.RecordEndpoint, error) {
+			calls++
+			if gotContext != context.Background() || gotTx != nil || gotIncident != incidentID || len(gotIDs) != 1 || gotIDs[0] != recordID {
+				t.Fatal("endpoint lock inputs changed")
+			}
+			return nil, sentinel
+		}
+		if err := store.RefreshLinkedRecordsTx(context.Background(), nil, incidentID, []uuid.UUID{recordID}); !errors.Is(err, sentinel) || calls != 1 {
+			t.Fatalf("lock error=%v calls=%d", err, calls)
+		}
+		store.lockEndpoints = func(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) ([]providercontract.RecordEndpoint, error) {
+			return nil, nil
+		}
+		if err := store.RefreshLinkedRecordsTx(context.Background(), nil, incidentID, []uuid.UUID{recordID}); err == nil || !strings.Contains(err.Error(), "missing incident endpoint") {
+			t.Fatalf("missing endpoint=%v", err)
+		}
+		store.lockEndpoints = inertEndpointLocker
+	})
 
 	timelineRows := NewTimelineRowsFromStore(store)
 	entityMutationRows, entityQueryReader, entityReportingReader :=
@@ -103,9 +131,10 @@ func TestCanonicalStoreRejectsIncompleteConstruction(t *testing.T) {
 		t.Fatalf("NewCatalog: %v", err)
 	}
 	for name, build := range map[string]func() error{
-		"database": func() error { _, err := NewStore(nil, catalog, physical); return err },
-		"catalog":  func() error { _, err := NewStore(db, nil, physical); return err },
-		"physical": func() error { _, err := NewStore(db, catalog, nil); return err },
+		"endpoint locker": func() error { _, err := NewStore(db, catalog, physical, nil); return err },
+		"database":        func() error { _, err := NewStore(nil, catalog, physical, inertEndpointLocker); return err },
+		"catalog":         func() error { _, err := NewStore(db, nil, physical, inertEndpointLocker); return err },
+		"physical":        func() error { _, err := NewStore(db, catalog, nil, inertEndpointLocker); return err },
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := build(); err == nil {
@@ -448,4 +477,8 @@ func mutateCanonicalDescriptor(
 		}
 	}
 	panic("missing projection descriptor fixture " + providerID)
+}
+
+func inertEndpointLocker(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) ([]providercontract.RecordEndpoint, error) {
+	return nil, nil
 }

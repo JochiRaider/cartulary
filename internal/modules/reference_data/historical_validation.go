@@ -5,16 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission"
 	"io"
 	"reflect"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission"
+	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 var errHistoricalIntegrity = errors.New("reference pack: retained historical integrity check failed")
@@ -22,7 +23,7 @@ var errHistoricalIntegrity = errors.New("reference pack: retained historical int
 // ValidateRequiredState runs before serving traffic. It authenticates retained
 // success at its recorded verification instant, including expired historical
 // pins, without advancing trust or changing health or administrative intent.
-func ValidateRequiredState(ctx context.Context, db postgres.DB, storage ArtifactStorage, limits Limits, lifetime *VerificationLifetime) error {
+func ValidateRequiredState(ctx context.Context, db dbport.DB, storage ArtifactStorage, limits Limits, lifetime *VerificationLifetime) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(limits.ReferencePacks.MaxVerificationSeconds)*time.Second)
 	defer cancel()
 	return lifetime.Run(ctx, func(ctx context.Context) error { return validateHistoricalState(ctx, db, storage, limits, true, false) })
@@ -32,11 +33,11 @@ func ValidateRequiredState(ctx context.Context, db postgres.DB, storage Artifact
 // after authoritative rows and bytes have been restored. Indexes are derived
 // afresh; signatures and freshness are checked at each envelope's successful
 // instant, never at the restore clock. No success or provenance is invented.
-func RestoreHistoricalState(ctx context.Context, db postgres.DB, storage ArtifactStorage, limits Limits, lifetime *VerificationLifetime) error {
+func RestoreHistoricalState(ctx context.Context, db dbport.DB, storage ArtifactStorage, limits Limits, lifetime *VerificationLifetime) error {
 	return lifetime.Run(ctx, func(ctx context.Context) error { return validateHistoricalState(ctx, db, storage, limits, false, true) })
 }
 
-func validateHistoricalState(ctx context.Context, db postgres.DB, storage ArtifactStorage, limits Limits, requiredOnly, rebuild bool) error {
+func validateHistoricalState(ctx context.Context, db dbport.DB, storage ArtifactStorage, limits Limits, requiredOnly, rebuild bool) error {
 	if db == nil || storage == nil {
 		return errors.New("reference pack: historical validation dependencies required")
 	}
@@ -129,7 +130,7 @@ func validateHistoricalState(ctx context.Context, db postgres.DB, storage Artifa
 	return validateHistoricalSets(ctx, db, requiredOnly)
 }
 
-func validateHistoricalAttestations(ctx context.Context, db postgres.DB) error {
+func validateHistoricalAttestations(ctx context.Context, db dbport.DB) error {
 	rows, err := db.Query(ctx, `SELECT e.attestation_id,e.event_kind,e.pack_key,e.pack_version,e.canonical_attestation,o.operation_id,o.actor_kind,o.actor_user_id FROM reference_pack_events e JOIN reference_pack_operations o USING(operation_id) ORDER BY operation_id,attestation_id COLLATE "C"`)
 	if err != nil {
 		return err
@@ -158,7 +159,7 @@ func validateHistoricalAttestations(ctx context.Context, db postgres.DB) error {
 	return rows.Err()
 }
 
-func validateHistoricalSets(ctx context.Context, db postgres.DB, requiredOnly bool) error {
+func validateHistoricalSets(ctx context.Context, db dbport.DB, requiredOnly bool) error {
 	after := ""
 	for {
 		var id, digest string
@@ -212,7 +213,7 @@ func validateHistoricalSets(ctx context.Context, db postgres.DB, requiredOnly bo
 	}
 }
 
-func validateRootHistory(ctx context.Context, db postgres.DB) error {
+func validateRootHistory(ctx context.Context, db dbport.DB) error {
 	var missing bool
 	if err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM reference_pack_repositories p WHERE NOT EXISTS(SELECT 1 FROM reference_pack_roots r WHERE r.repository_id=p.repository_id AND r.root_version=p.root_version))`).Scan(&missing); err != nil {
 		return err
@@ -282,7 +283,7 @@ func (discardContentRows) Append(ctx context.Context, _ packformat.ContentRow) e
 	return ctx.Err()
 }
 
-func validateHistoricalEnvelope(ctx context.Context, db postgres.DB, storage ArtifactStorage, limits Limits, id string, data []byte, rebuild bool) error {
+func validateHistoricalEnvelope(ctx context.Context, db dbport.DB, storage ArtifactStorage, limits Limits, id string, data []byte, rebuild bool) error {
 	envelope, err := decodeSuccessfulEnvelope(data)
 	if err != nil {
 		return errHistoricalIntegrity
@@ -420,7 +421,7 @@ func validateHistoricalEnvelope(ctx context.Context, db postgres.DB, storage Art
 }
 
 type retainedContentSource struct {
-	db           postgres.DB
+	db           dbport.DB
 	storage      VerificationStorage
 	key, version string
 }

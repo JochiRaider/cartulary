@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -168,7 +168,7 @@ func requireGraphResultCount(t testing.TB, db interface {
 
 // Commit failures may follow a server commit. The sweep must not infer success.
 type cleanupCommitFailureDB struct {
-	postgres.DB
+	dbport.DB
 	begins, failAt int
 	indeterminate  bool
 }

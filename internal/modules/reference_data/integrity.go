@@ -5,9 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // IntegrityOptions makes consumer-detected loss an application operation even
@@ -23,7 +24,7 @@ type integrityService struct {
 	actionFinalizer ActionFinalizer
 }
 
-func newIntegrityService(pool postgres.DB, storage ArtifactStorage, now func() time.Time, options IntegrityOptions) (*integrityService, error) {
+func newIntegrityService(pool dbport.DB, storage ArtifactStorage, now func() time.Time, options IntegrityOptions) (*integrityService, error) {
 	if pool == nil || storage == nil || now == nil || options.Finalizer == nil || options.Limits.ReferencePacks.MaxVerificationSeconds < 60 || options.Limits.ReferencePacks.MaxVerificationSeconds > 86400 {
 		return nil, errors.New("reference pack: incomplete integrity dependencies")
 	}

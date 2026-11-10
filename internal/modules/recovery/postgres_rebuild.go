@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 // ErrUnsupportedPostgresRebuild rejects algorithms outside the existing
@@ -25,14 +27,14 @@ func RebuildPostgresDerivedState(ctx context.Context, tx pgx.Tx, algorithmID str
 // PostgresDerivedRebuild resolves a supported algorithm before a caller mutates
 // source rows. SQL and validation remain owned by this same Recovery boundary.
 func PostgresDerivedRebuild(algorithmID string) (func(context.Context, pgx.Tx) error, error) {
-	var rebuildSQL, validateSQL string
+	var rebuildSQL, validateSQL sqlshape.Fragment
 	switch algorithmID {
 	case "entities.restore_active_identifier_claims.v1":
-		rebuildSQL = `SELECT public.entities_rebuild_active_identifier_claims_v1()`
-		validateSQL = `SELECT public.entities_active_identifier_claims_are_valid_v1()`
+		rebuildSQL = sqlshape.Literal(`SELECT public.entities_rebuild_active_identifier_claims_v1()`)
+		validateSQL = sqlshape.Literal(`SELECT public.entities_active_identifier_claims_are_valid_v1()`)
 	case "parties.restore_active_key_claims.v1":
-		rebuildSQL = `SELECT public.parties_rebuild_active_key_claims_v1()`
-		validateSQL = `SELECT public.parties_active_key_claims_are_valid_v1()`
+		rebuildSQL = sqlshape.Literal(`SELECT public.parties_rebuild_active_key_claims_v1()`)
+		validateSQL = sqlshape.Literal(`SELECT public.parties_active_key_claims_are_valid_v1()`)
 	default:
 		return nil, ErrUnsupportedPostgresRebuild
 	}
@@ -41,11 +43,11 @@ func PostgresDerivedRebuild(algorithmID string) (func(context.Context, pgx.Tx) e
 			return errors.New("recovery rebuild transaction is unavailable")
 		}
 		var rebuilt int64
-		if err := tx.QueryRow(ctx, rebuildSQL).Scan(&rebuilt); err != nil {
+		if err := tx.QueryRow(ctx, sqlshape.Text(rebuildSQL)).Scan(&rebuilt); err != nil {
 			return fmt.Errorf("rebuild PostgreSQL derived state: %w", err)
 		}
 		var valid bool
-		if err := tx.QueryRow(ctx, validateSQL).Scan(&valid); err != nil {
+		if err := tx.QueryRow(ctx, sqlshape.Text(validateSQL)).Scan(&valid); err != nil {
 			return fmt.Errorf("validate PostgreSQL derived state: %w", err)
 		}
 		if !valid {

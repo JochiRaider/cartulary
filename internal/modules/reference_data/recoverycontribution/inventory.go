@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func VNextRecoveryObjectInventory(
@@ -15,13 +16,13 @@ func VNextRecoveryObjectInventory(
 		"reference_packs.members",
 		"reference_data.snapshot_member_inventory.v4",
 		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
-			rows, err := snapshot.QueryRows(ctx, `
+			rows, err := snapshot.QueryRows(ctx, sqlshape.Literal(`
 SELECT o.object_id::text, o.storage_ref, o.sha256, o.size_bytes
   FROM reference_pack_objects o
  WHERE EXISTS (SELECT 1 FROM reference_pack_object_refs r WHERE r.object_id=o.object_id)
  OR EXISTS (SELECT 1 FROM reference_pack_envelopes e WHERE e.container_ref=o.storage_ref)
  ORDER BY o.object_id
-`)
+`))
 			if err != nil {
 				return nil, fmt.Errorf("inventory Reference Pack members: %w", err)
 			}

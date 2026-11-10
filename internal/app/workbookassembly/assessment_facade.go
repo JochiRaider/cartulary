@@ -19,7 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type assessmentIdempotencyAdapter struct {
@@ -141,7 +141,7 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 }
 
 func NewAssessmentMutationContribution(
-	pool postgres.DB,
+	pool dbport.DB,
 	projectionRows assessmentprojection.Rows,
 	linkRows links.ProjectionRows,
 	entitySourceFacts *hostidentity.SourceFacts,

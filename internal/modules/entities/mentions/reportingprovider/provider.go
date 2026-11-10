@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type provider struct{}
@@ -18,7 +19,7 @@ func (provider) ProviderKey() string { return "entities.mentions" }
 func (p provider) CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) (exportprovider.ProviderOutput, error) {
 	return exportprovider.CollectQueryProviderOutputTx(ctx, tx, incidentID, p.ProviderKey(), supportRefs, []exportprovider.FieldQuery{{
 		Prefix: "entity_mentions",
-		SQL: `SELECT em.entity_mention_id::text, 'entity_mention'::text, 'entity_mention'::text, 'source_evidence'::text, jsonb_build_object(
+		SQL: sqlshape.Literal(`SELECT em.entity_mention_id::text, 'entity_mention'::text, 'entity_mention'::text, 'source_evidence'::text, jsonb_build_object(
        'entity_mention_id', em.entity_mention_id,
        'source_record_id', em.source_record_id,
        'entity_type', em.entity_type,
@@ -39,6 +40,6 @@ func (p provider) CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid
    )
   FROM entity_mentions em
   JOIN records r ON r.record_id = em.source_record_id AND r.deleted_at IS NULL
- WHERE r.incident_id = $1`,
+ WHERE r.incident_id = $1`),
 	}})
 }

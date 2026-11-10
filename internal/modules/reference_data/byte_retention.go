@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 const byteRetentionNamespace = "cartulary/reference-data/byte-retention/v1"
@@ -16,7 +17,7 @@ const byteRetentionNamespace = "cartulary/reference-data/byte-retention/v1"
 // AcquireBackupRetention must precede creation of the repeatable-read backup
 // snapshot, and remain held through object streaming. Acquiring inside that
 // snapshot could select rows from before a collector that the lock waited for.
-func AcquireBackupRetention(ctx context.Context, db postgres.DB) (io.Closer, error) {
+func AcquireBackupRetention(ctx context.Context, db dbport.DB) (io.Closer, error) {
 	return acquireByteRetention(ctx, db, false)
 }
 
@@ -37,7 +38,7 @@ func (l *byteRetentionLease) Close() error {
 	})
 	return l.err
 }
-func acquireByteRetention(ctx context.Context, db postgres.DB, exclusive bool) (io.Closer, error) {
+func acquireByteRetention(ctx context.Context, db dbport.DB, exclusive bool) (io.Closer, error) {
 	if db == nil {
 		return nil, errors.New("reference pack: retention database required")
 	}

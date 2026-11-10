@@ -11,7 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 var (
@@ -21,7 +21,7 @@ var (
 
 type Store struct {
 	*mutationCore
-	pool             postgres.DB
+	pool             dbport.DB
 	authStore        *authn.Store
 	incidentAccess   *admission.Checker
 	keepSaved        conflicts.IdempotencyPort
@@ -35,7 +35,7 @@ type mutationCore struct {
 }
 
 type StoreDependencies struct {
-	Postgres               postgres.DB
+	Postgres               dbport.DB
 	Revisions              *revisions.Appender
 	ProjectionMutationRows projectionports.MutationRows
 	ProjectionQueryReader  projectionports.QueryReader

@@ -8,8 +8,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/links/internal/vocabulary"
+	"github.com/JochiRaider/cartulary/internal/modules/links/vocabulary"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 )
 
 type Store struct {
@@ -120,7 +121,7 @@ func validateActiveLinkEndpointsTx(ctx context.Context, tx pgx.Tx, incidentID uu
 	return nil
 }
 
-func activeIncidentEnvelope(envelope records.Envelope, incidentID uuid.UUID) bool {
+func activeIncidentEnvelope(envelope recordenvelope.Envelope, incidentID uuid.UUID) bool {
 	return envelope.RecordID != uuid.Nil && envelope.IncidentID == incidentID && envelope.DeletedAt == nil
 }
 

@@ -10,16 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type HostReader struct {
-	db postgres.DB
+	db dbport.DB
 }
 
-func NewHostReader(db postgres.DB) *HostReader {
+func NewHostReader(db dbport.DB) *HostReader {
 	return &HostReader{db: db}
 }
 
@@ -36,7 +37,7 @@ func (reader *HostReader) SelectHostQueryProjections(
 	if err != nil {
 		return nil, err
 	}
-	rows, err := reader.db.Query(ctx, sqlText, args...)
+	rows, err := reader.db.Query(ctx, sqlshape.Text(sqlText), args...)
 	if err != nil {
 		return nil, fmt.Errorf("query host projections: %w", err)
 	}
@@ -70,7 +71,7 @@ func (reader *HostReader) SelectHostQueryProjectionsTx(
 	if err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, sqlText, args...)
+	rows, err := tx.Query(ctx, sqlshape.Text(sqlText), args...)
 	if err != nil {
 		return nil, fmt.Errorf("query host projections: %w", err)
 	}
@@ -150,28 +151,28 @@ SELECT h.record_id, jsonb_build_object(
 	return facts, nil
 }
 
-var hostSortExpressions = map[string]string{
-	"record_id":               "p.record_id",
-	"host.display_name":       "p.display_name",
-	"host.hostname":           "p.hostname",
-	"host.host_state":         "p.host_state",
-	"host.linked_event_count": "p.linked_event_count",
-	"host.evidence_count":     "p.evidence_count",
-	"host.location":           "p.location",
-	"host.os_platform":        "p.os_platform",
-	"host.business_owner":     "p.business_owner",
-	"host.criticality":        "p.criticality",
-	"host.containment_status": "p.containment_status",
-	"host.edited_at":          "p.edited_at",
+var hostSortExpressions = map[string]sqlshape.Fragment{
+	"record_id":               sqlshape.Literal("p.record_id"),
+	"host.display_name":       sqlshape.Literal("p.display_name"),
+	"host.hostname":           sqlshape.Literal("p.hostname"),
+	"host.host_state":         sqlshape.Literal("p.host_state"),
+	"host.linked_event_count": sqlshape.Literal("p.linked_event_count"),
+	"host.evidence_count":     sqlshape.Literal("p.evidence_count"),
+	"host.location":           sqlshape.Literal("p.location"),
+	"host.os_platform":        sqlshape.Literal("p.os_platform"),
+	"host.business_owner":     sqlshape.Literal("p.business_owner"),
+	"host.criticality":        sqlshape.Literal("p.criticality"),
+	"host.containment_status": sqlshape.Literal("p.containment_status"),
+	"host.edited_at":          sqlshape.Literal("p.edited_at"),
 }
 
 func buildHostQueryPageSQL(
 	incidentID uuid.UUID,
 	query viewschema.QueryMeta,
 	window querypage.Window,
-) (string, []any, error) {
-	var builder strings.Builder
-	builder.WriteString(`
+) (sqlshape.Fragment, []any, error) {
+	var builder sqlshape.Builder
+	builder.Write(sqlshape.Literal(`
 SELECT
     p.record_id,
     p.host_state,
@@ -188,33 +189,33 @@ SELECT
    AND r.incident_id = p.incident_id
  WHERE p.incident_id = $1
    AND r.deleted_at IS NULL
-   AND p.host_state IN ('stub', 'canonical')`)
+   AND p.host_state IN ('stub', 'canonical')`))
 	args := []any{incidentID}
 	if window.TargetRecordID != "" {
 		args = append(args, window.TargetRecordID)
-		builder.WriteString(" AND p.record_id = $2::uuid")
+		builder.Write(sqlshape.Literal(" AND p.record_id = $2::uuid"))
 	}
 
 	for _, filter := range query.Filters {
-		var expression string
+		var expression sqlshape.Fragment
 		switch filter.FieldKey {
 		case "host.host_state":
-			expression = "p.host_state"
+			expression = sqlshape.Literal("p.host_state")
 		case "host.location":
-			expression = "p.location"
+			expression = sqlshape.Literal("p.location")
 		case "host.os_platform":
-			expression = "p.os_platform"
+			expression = sqlshape.Literal("p.os_platform")
 		case "host.business_owner":
-			expression = "p.business_owner"
+			expression = sqlshape.Literal("p.business_owner")
 		case "host.criticality":
-			expression = "p.criticality"
+			expression = sqlshape.Literal("p.criticality")
 		case "host.containment_status":
-			expression = "p.containment_status"
+			expression = sqlshape.Literal("p.containment_status")
 		default:
-			return "", nil, fmt.Errorf("host query filter field %q not mapped", filter.FieldKey)
+			return sqlshape.Fragment{}, nil, fmt.Errorf("host query filter field %q not mapped", filter.FieldKey)
 		}
 		if err := appendEntityQueryTextClause(&builder, &args, expression, filter); err != nil {
-			return "", nil, err
+			return sqlshape.Fragment{}, nil, err
 		}
 	}
 
@@ -229,15 +230,15 @@ SELECT
 		entityPageFields(hostSortExpressions),
 		window.Position,
 	); err != nil {
-		return "", nil, err
+		return sqlshape.Fragment{}, nil, err
 	}
 	if err := appendEntityOrderBy(&builder, query.Sort, hostSortExpressions, window.Before); err != nil {
-		return "", nil, err
+		return sqlshape.Fragment{}, nil, err
 	}
 	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
-		return "", nil, err
+		return sqlshape.Fragment{}, nil, err
 	}
-	return builder.String(), args, nil
+	return builder.Fragment(), args, nil
 }
 
 func scanHostQueryProjection(scanner interface{ Scan(...any) error }) (entityports.HostQueryProjection, error) {
@@ -274,17 +275,17 @@ func scanHostQueryProjection(scanner interface{ Scan(...any) error }) (entitypor
 	return row, nil
 }
 
-func entityPageFields(expressions map[string]string) map[string]querypage.Field {
+func entityPageFields(expressions map[string]sqlshape.Fragment) map[string]querypage.Field {
 	fields := make(map[string]querypage.Field, len(expressions))
 	for key, expression := range expressions {
-		cast := ""
+		var cast sqlshape.Fragment
 		switch {
 		case key == "record_id":
-			cast = "uuid"
+			cast = sqlshape.Literal("uuid")
 		case strings.HasSuffix(key, "_count"):
-			cast = "bigint"
+			cast = sqlshape.Literal("bigint")
 		case strings.HasSuffix(key, ".edited_at"):
-			cast = "timestamptz"
+			cast = sqlshape.Literal("timestamptz")
 		}
 		fields[key] = querypage.Field{Expression: expression, Cast: cast}
 	}
@@ -292,39 +293,39 @@ func entityPageFields(expressions map[string]string) map[string]querypage.Field 
 }
 
 func appendEntityOrderBy(
-	builder *strings.Builder,
+	builder *sqlshape.Builder,
 	sortEntries []viewschema.SortEntry,
-	expressions map[string]string,
+	expressions map[string]sqlshape.Fragment,
 	before bool,
 ) error {
-	builder.WriteString(" ORDER BY ")
+	builder.Write(sqlshape.Literal(" ORDER BY "))
 	for index, sortEntry := range sortEntries {
 		if index > 0 {
-			builder.WriteString(", ")
+			builder.Write(sqlshape.Literal(", "))
 		}
 		expression, ok := expressions[sortEntry.FieldKey]
 		if !ok {
 			return fmt.Errorf("query sort field %q not mapped", sortEntry.FieldKey)
 		}
-		builder.WriteString(expression)
+		builder.Write(expression)
 		if (sortEntry.Direction == "desc") != before {
-			builder.WriteString(" DESC")
+			builder.Write(sqlshape.Literal(" DESC"))
 		} else {
-			builder.WriteString(" ASC")
+			builder.Write(sqlshape.Literal(" ASC"))
 		}
 		if before {
-			builder.WriteString(" NULLS FIRST")
+			builder.Write(sqlshape.Literal(" NULLS FIRST"))
 		} else {
-			builder.WriteString(" NULLS LAST")
+			builder.Write(sqlshape.Literal(" NULLS LAST"))
 		}
 	}
 	return nil
 }
 
 func appendEntityQueryTextClause(
-	builder *strings.Builder,
+	builder *sqlshape.Builder,
 	args *[]any,
-	expression string,
+	expression sqlshape.Fragment,
 	filter viewschema.Filter,
 ) error {
 	switch filter.Op {
@@ -332,12 +333,12 @@ func appendEntityQueryTextClause(
 		return appendEntityCaseFoldedEqualityClause(builder, args, expression, filter.Arg)
 	case "prefix":
 		value, _ := filter.Arg["value"].(string)
-		builder.WriteString("\n   AND left(lower(coalesce((")
-		builder.WriteString(expression)
-		builder.WriteString(")::text, '')), char_length(")
-		builder.WriteString(bindEntityQueryValue(args, value))
-		builder.WriteString(")) = ")
-		builder.WriteString(bindEntityQueryValue(args, value))
+		builder.Write(sqlshape.Literal("\n   AND left(lower(coalesce(("))
+		builder.Write(expression)
+		builder.Write(sqlshape.Literal(")::text, '')), char_length("))
+		builder.Write(bindEntityQueryValue(args, value))
+		builder.Write(sqlshape.Literal(")) = "))
+		builder.Write(bindEntityQueryValue(args, value))
 		return nil
 	default:
 		return fmt.Errorf("text filter operator %q not mapped", filter.Op)
@@ -345,45 +346,45 @@ func appendEntityQueryTextClause(
 }
 
 func appendEntityCaseFoldedEqualityClause(
-	builder *strings.Builder,
+	builder *sqlshape.Builder,
 	args *[]any,
-	expression string,
+	expression sqlshape.Fragment,
 	arg map[string]any,
 ) error {
 	if value, ok := arg["value"]; ok {
 		if value == nil {
-			builder.WriteString("\n   AND ")
-			builder.WriteString(expression)
-			builder.WriteString(" IS NULL")
+			builder.Write(sqlshape.Literal("\n   AND "))
+			builder.Write(expression)
+			builder.Write(sqlshape.Literal(" IS NULL"))
 			return nil
 		}
-		builder.WriteString("\n   AND lower(coalesce((")
-		builder.WriteString(expression)
-		builder.WriteString(")::text, '')) = ")
-		builder.WriteString(bindEntityQueryValue(args, value))
+		builder.Write(sqlshape.Literal("\n   AND lower(coalesce(("))
+		builder.Write(expression)
+		builder.Write(sqlshape.Literal(")::text, '')) = "))
+		builder.Write(bindEntityQueryValue(args, value))
 		return nil
 	}
 	values, ok := arg["values"].([]any)
 	if !ok || len(values) == 0 {
-		return fmt.Errorf("missing equality values for %s", expression)
+		return fmt.Errorf("missing equality values for %s", sqlshape.Text(expression))
 	}
-	builder.WriteString("\n   AND (")
+	builder.Write(sqlshape.Literal("\n   AND ("))
 	for index, value := range values {
 		if index > 0 {
-			builder.WriteString(" OR ")
+			builder.Write(sqlshape.Literal(" OR "))
 		}
-		builder.WriteString("lower(coalesce((")
-		builder.WriteString(expression)
-		builder.WriteString(")::text, '')) = ")
-		builder.WriteString(bindEntityQueryValue(args, value))
+		builder.Write(sqlshape.Literal("lower(coalesce(("))
+		builder.Write(expression)
+		builder.Write(sqlshape.Literal(")::text, '')) = "))
+		builder.Write(bindEntityQueryValue(args, value))
 	}
-	builder.WriteString(")")
+	builder.Write(sqlshape.Literal(")"))
 	return nil
 }
 
-func bindEntityQueryValue(args *[]any, value any) string {
+func bindEntityQueryValue(args *[]any, value any) sqlshape.Fragment {
 	*args = append(*args, value)
-	return fmt.Sprintf("$%d", len(*args))
+	return sqlshape.Parameter(len(*args))
 }
 
 func queryTextPointer(value pgtype.Text) *string {

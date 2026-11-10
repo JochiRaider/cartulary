@@ -15,7 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 var ErrNotFound = errors.New("authn: not found")
@@ -44,7 +44,7 @@ var ErrAuthBindingProviderSubjectInUse = errors.New("authn: auth binding provide
 var ErrAuthBindingProviderAlreadyLinkedForUser = errors.New("authn: auth binding provider already linked for user")
 
 type Store struct {
-	pool postgres.DB
+	pool dbport.DB
 }
 
 type UserRecord struct {
@@ -293,7 +293,7 @@ type EnterpriseAuthBindingResult struct {
 	StatusCode        int
 }
 
-func NewStore(pool postgres.DB) *Store {
+func NewStore(pool dbport.DB) *Store {
 	return &Store{pool: pool}
 }
 

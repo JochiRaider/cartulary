@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 	"slices"
 	"testing"
 	"time"
@@ -16,8 +15,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
 
 func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T) {
@@ -85,14 +86,14 @@ func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T
 			}
 		})
 	}
-	facts, err := (links.FactReader{}).LoadIncidentTx(context.Background(), tx, incident.ID)
+	facts, err := (linkfacts.FactReader{}).LoadIncidentTx(context.Background(), tx, incident.ID)
 	if err != nil {
 		t.Fatalf("load empty active fact set: %v", err)
 	}
 	if facts.RecordLinks == nil || facts.RecordTags == nil || len(facts.RecordLinks) != 0 || len(facts.RecordTags) != 0 {
 		t.Fatalf("empty active facts lost non-nil collection posture: %#v", facts)
 	}
-	recordFacts, err := (links.FactReader{}).LoadRecordTx(context.Background(), tx, incident.ID, src)
+	recordFacts, err := (linkfacts.FactReader{}).LoadRecordTx(context.Background(), tx, incident.ID, src)
 	if err != nil {
 		t.Fatalf("load empty record fact set: %v", err)
 	}
@@ -102,9 +103,9 @@ func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T
 	if err := tx.Rollback(context.Background()); err != nil {
 		t.Fatalf("close active fact reader transaction: %v", err)
 	}
-	reader := links.FactReader{}
+	reader := linkfacts.FactReader{}
 	closedIncidentFacts, err := reader.LoadIncidentTx(context.Background(), tx, incident.ID)
-	var readFailure *links.FactReadError
+	var readFailure *linkfacts.FactReadError
 	if !errors.As(err, &readFailure) || closedIncidentFacts.RecordLinks != nil || closedIncidentFacts.RecordTags != nil {
 		t.Fatalf("incident fact failure = (%#v, %T %[2]v), want FactReadError without partial facts", closedIncidentFacts, err)
 	}

@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestStreamingDefaultGraphV2Metadata_Unit(t *testing.T) {
@@ -249,7 +249,7 @@ func TestStreamingGraphDatabaseErrorsRemainVisible_Unit(t *testing.T) {
 }
 
 type graphQueryErrorDB struct {
-	postgres.DB
+	dbport.DB
 	queryErr error
 }
 
@@ -257,7 +257,7 @@ func (db *graphQueryErrorDB) Query(context.Context, string, ...any) (pgx.Rows, e
 	return nil, db.queryErr
 }
 
-var _ postgres.DB = (*graphQueryErrorDB)(nil)
+var _ dbport.DB = (*graphQueryErrorDB)(nil)
 
 func composeGraphObjectsForTest(incidentID uuid.UUID, rows []flowRow, tableByID map[string]tableRecord, composition *graphComposition) *semanticFailure {
 	for _, row := range rows {

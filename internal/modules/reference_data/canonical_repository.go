@@ -9,12 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // canonicalRepository is private owner persistence behind consumer and
@@ -36,7 +37,7 @@ type canonicalRepository struct {
 // Callers must not hold source/publication guards while using this consumer.
 // Use NewRegistryAssignments for source transactions so definitive loss releases
 // the entire transaction before independent integrity publication acquires guards.
-func NewConsumer(pool postgres.DB, storage ArtifactStorage, codec *pagination.Codec, now func() time.Time, integrity IntegrityOptions) (Consumer, error) {
+func NewConsumer(pool dbport.DB, storage ArtifactStorage, codec *pagination.Codec, now func() time.Time, integrity IntegrityOptions) (Consumer, error) {
 	if pool == nil || storage == nil || codec == nil || now == nil {
 		return nil, errors.New("reference pack: incomplete consumer dependencies")
 	}

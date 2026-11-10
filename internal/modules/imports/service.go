@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
@@ -15,9 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type service struct {
@@ -66,7 +67,7 @@ type ApplyTransactions interface {
 
 type ModuleDependencies struct {
 	ImportedAttributions      revisions.ImportedAttributionResolver
-	Postgres                  postgres.DB
+	Postgres                  dbport.DB
 	ApplyTransactions         ApplyTransactions
 	AnalyticalTransactions    *crossownertransaction.Coordinator
 	JobTransactions           importJobTransactions

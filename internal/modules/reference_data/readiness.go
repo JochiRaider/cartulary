@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // CheckReadyState checks committed availability without re-verifying historical
@@ -12,7 +12,7 @@ import (
 // trust; consumer detection commits definitive loss through the coordinator.
 // Administrative disablement and expired metadata do not invalidate historical
 // pins. Current selections must satisfy the stronger live eligibility rule.
-func CheckReadyState(ctx context.Context, db postgres.DB) error {
+func CheckReadyState(ctx context.Context, db dbport.DB) error {
 	if db == nil {
 		return errors.New("reference pack: readiness persistence unavailable")
 	}

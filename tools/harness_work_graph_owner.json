@@ -1828,6 +1828,16 @@
       "resource_profile_id": "harness_contract",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    "harness.projection_sql_check": {
+      "needs": [
+        "harness.sourcecheck_build"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   },
   "evidence_estimates_ms": {
@@ -6001,6 +6011,27 @@
           "tools/harness/static-analysis/tests/test-markdown-biome.mjs"
         ],
         "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.projection_sql_check": {
+      "report_key": "projection-sql-check",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "projection-sql-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/static-analysis/projection-sql-check-cli.mjs"
+        ],
+        "test_target": "self",
+        "graph_entry": true,
+        "env": {
+          "CARTULARY_SOURCECHECK_BIN": "$(SOURCECHECK_BIN)"
+        }
       },
       "kind": "policy"
     }

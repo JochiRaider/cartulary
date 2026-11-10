@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 )
 
@@ -120,7 +120,7 @@ func (*terminalMutationCoordinatorStub) CoordinateMembershipDeletion(
 
 // Embedding an unimplemented port makes any unexpected database access fail.
 // Unauthenticated, malformed-path and unsupported-method cases need no storage.
-type routeRegistrationDB struct{ postgres.DB }
+type routeRegistrationDB struct{ dbport.DB }
 
 func incidentRouteTestDependencies() (httpapi.DependencySet, Dependencies) {
 	env := map[string]string{}

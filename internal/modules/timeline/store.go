@@ -12,9 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcelocking"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 var (
@@ -53,7 +54,7 @@ func (e *RowVersionConflictError) Details() map[string]any {
 }
 
 type store struct {
-	pool              postgres.DB
+	pool              dbport.DB
 	idempotencyStore  IdempotencyPort
 	incidentAccess    IncidentPort
 	recordStore       RecordPort
@@ -66,7 +67,7 @@ type store struct {
 	evidenceStore     EvidencePort
 	collectionReader  CollectionFactPort
 	collaboration     CollaborationPort
-	sourceRepository  *sourcerepository.Repository
+	sourceRepository  *sourcelocking.Repository
 	conflictTokens    conflicttokens.ConflictTokenCodec
 	conflictSnapshots conflicttokens.RevisionSnapshotProjector
 	conflictFields    conflicttokens.FieldDescriptorSet
@@ -97,7 +98,7 @@ type TimeConversionProfile struct {
 	UpdatedByUserID    *uuid.UUID
 }
 
-func newStore(pool postgres.DB, collaborators Collaborators, conflictTokens conflicttokens.ConflictTokenCodec) *store {
+func newStore(pool dbport.DB, collaborators Collaborators, conflictTokens conflicttokens.ConflictTokenCodec) *store {
 	return &store{
 		pool:              pool,
 		idempotencyStore:  collaborators.Core.Idempotency,
@@ -112,7 +113,7 @@ func newStore(pool postgres.DB, collaborators Collaborators, conflictTokens conf
 		evidenceStore:     collaborators.Collections.Evidence,
 		collectionReader:  collaborators.Collections.Facts,
 		collaboration:     collaborators.Commit.Collaboration,
-		sourceRepository:  sourcerepository.New(collaborators.Core.Records),
+		sourceRepository:  sourcelocking.New(collaborators.Core.Records),
 		conflictTokens:    conflictTokens,
 		conflictSnapshots: newTimelineConflictSnapshotProjector(),
 		conflictFields:    collaborators.Core.ConflictFields,

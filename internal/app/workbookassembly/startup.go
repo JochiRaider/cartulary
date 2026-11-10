@@ -12,7 +12,7 @@ import (
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func NewStartupStoreFromDependencies(deps httpapi.DependencySet) (*workbookstartup.Store, error) {
@@ -22,7 +22,7 @@ func NewStartupStoreFromDependencies(deps httpapi.DependencySet) (*workbookstart
 	)
 }
 
-func NewStartupStore(db postgres.DB, workspaceResolver workbookstartup.WorkspaceResolver) (*workbookstartup.Store, error) {
+func NewStartupStore(db dbport.DB, workspaceResolver workbookstartup.WorkspaceResolver) (*workbookstartup.Store, error) {
 	if isNilDependency(db) {
 		return nil, fmt.Errorf("compose workbook startup store: PostgreSQL is required")
 	}
@@ -39,7 +39,7 @@ func NewStartupStore(db postgres.DB, workspaceResolver workbookstartup.Workspace
 }
 
 type startupUnitOfWork struct {
-	db postgres.DB
+	db dbport.DB
 }
 
 func (u startupUnitOfWork) Run(

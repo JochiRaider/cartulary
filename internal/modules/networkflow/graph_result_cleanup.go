@@ -10,7 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 const (
@@ -35,13 +35,13 @@ type graphResultCleanupSweeper interface {
 }
 
 type graphResultCleanupService struct {
-	db              postgres.DB
+	db              dbport.DB
 	declarations    *store
 	maximumResults  int
 	maximumDuration time.Duration
 }
 
-func newGraphResultCleanupService(db postgres.DB, declarations *store) (*graphResultCleanupService, error) {
+func newGraphResultCleanupService(db dbport.DB, declarations *store) (*graphResultCleanupService, error) {
 	if db == nil || declarations == nil {
 		return nil, errors.New("compose Network Flow graph-result cleanup: persistence is required")
 	}

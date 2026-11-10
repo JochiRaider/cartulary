@@ -9,14 +9,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	recoverycontract "github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type provider struct {
-	db postgres.DB
+	db dbport.DB
 }
 
-func New(db postgres.DB) recoverycontract.EvidenceRecoveryProvider {
+func New(db dbport.DB) recoverycontract.EvidenceRecoveryProvider {
 	return &provider{db: db}
 }
 
@@ -79,7 +79,7 @@ SELECT b.object_blob_id,
 	return objects, nil
 }
 
-func nilDatabase(database postgres.DB) bool {
+func nilDatabase(database dbport.DB) bool {
 	if database == nil {
 		return true
 	}

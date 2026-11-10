@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestTransactionLifecycle(t *testing.T) {
@@ -21,7 +21,7 @@ func TestTransactionLifecycle(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		db        postgres.DB
+		db        dbport.DB
 		operation func(pgx.Tx) error
 		wantErr   error
 		wantCalls []string
@@ -95,7 +95,7 @@ func TestTransactionLifecycle(t *testing.T) {
 }
 
 type transactionLifecycleDB struct {
-	postgres.DB
+	dbport.DB
 	tx       pgx.Tx
 	beginErr error
 	calls    []string

@@ -30,8 +30,8 @@ type Envelope struct {
 }
 
 type EnvelopeReader interface {
-	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (Envelope, error)
-	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]Envelope, error)
+	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID) (Envelope, error)
+	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID) (map[uuid.UUID]Envelope, error)
 }
 
 type Snapshot struct {
@@ -76,22 +76,14 @@ func New(envelopes EnvelopeReader) *Repository {
 }
 
 func (r *Repository) LoadTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (Snapshot, error) {
-	return r.loadTx(ctx, tx, nil, recordID, true)
-}
-
-func (r *Repository) LoadUnlockedTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (Snapshot, error) {
-	return r.loadTx(ctx, tx, nil, recordID, false)
-}
-
-func (r *Repository) LoadForIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (Snapshot, error) {
-	return r.loadTx(ctx, tx, &incidentID, recordID, true)
+	return r.loadTx(ctx, tx, nil, recordID)
 }
 
 func (r *Repository) ListIncidentPageTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, afterRecordID *uuid.UUID, limit int) (Page, error) {
 	if limit < 1 {
 		return Page{}, fmt.Errorf("timeline source page limit must be positive")
 	}
-	rows, err := tx.Query(ctx, sourceSelect+`
+	rows, err := tx.Query(ctx, SelectSQL+`
  WHERE incident_id = $1
    AND ($2::uuid IS NULL OR record_id > $2)
  ORDER BY record_id
@@ -103,7 +95,7 @@ func (r *Repository) ListIncidentPageTx(ctx context.Context, tx pgx.Tx, incident
 	defer rows.Close()
 	snapshots := make([]Snapshot, 0, limit+1)
 	for rows.Next() {
-		snapshot, err := scanSource(rows)
+		snapshot, err := ScanSource(rows)
 		if err != nil {
 			return Page{}, err
 		}
@@ -120,17 +112,17 @@ func (r *Repository) ListIncidentPageTx(ctx context.Context, tx pgx.Tx, incident
 	for _, snapshot := range snapshots {
 		recordIDs = append(recordIDs, snapshot.RecordID)
 	}
-	envelopes, err := r.envelopes.LoadEnvelopesTx(ctx, tx, recordIDs, false)
+	envelopes, err := r.envelopes.LoadEnvelopesTx(ctx, tx, recordIDs)
 	if err != nil {
 		return Page{}, err
 	}
 	filtered := snapshots[:0]
 	for _, snapshot := range snapshots {
 		envelope, ok := envelopes[snapshot.RecordID]
-		if !ok || !eligibleEnvelope(snapshot, envelope, &incidentID) {
+		if !ok || !EligibleEnvelope(snapshot, envelope, &incidentID) {
 			continue
 		}
-		applyEnvelope(&snapshot, envelope)
+		ApplyEnvelope(&snapshot, envelope)
 		filtered = append(filtered, snapshot)
 	}
 	page := Page{Snapshots: filtered}
@@ -141,38 +133,35 @@ func (r *Repository) ListIncidentPageTx(ctx context.Context, tx pgx.Tx, incident
 	return page, nil
 }
 
-func (r *Repository) loadTx(ctx context.Context, tx pgx.Tx, incidentID *uuid.UUID, recordID uuid.UUID, lock bool) (Snapshot, error) {
-	query := sourceSelect + "\n WHERE record_id = $1"
+func (r *Repository) loadTx(ctx context.Context, tx pgx.Tx, incidentID *uuid.UUID, recordID uuid.UUID) (Snapshot, error) {
+	query := SelectSQL + "\n WHERE record_id = $1"
 	args := []any{recordID}
 	if incidentID != nil {
 		query += "\n   AND incident_id = $2"
 		args = append(args, *incidentID)
 	}
-	if lock {
-		query += "\n FOR UPDATE"
-	}
-	snapshot, err := scanSource(tx.QueryRow(ctx, query, args...))
+	snapshot, err := ScanSource(tx.QueryRow(ctx, query, args...))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Snapshot{}, ErrNotFound
 		}
 		return Snapshot{}, err
 	}
-	envelope, err := r.envelopes.LoadEnvelopeTx(ctx, tx, recordID, lock)
+	envelope, err := r.envelopes.LoadEnvelopeTx(ctx, tx, recordID)
 	if err != nil {
 		if errors.Is(err, ErrEnvelopeNotFound) {
 			return Snapshot{}, ErrNotFound
 		}
 		return Snapshot{}, err
 	}
-	if !eligibleEnvelope(snapshot, envelope, incidentID) {
+	if !EligibleEnvelope(snapshot, envelope, incidentID) {
 		return Snapshot{}, ErrNotFound
 	}
-	applyEnvelope(&snapshot, envelope)
+	ApplyEnvelope(&snapshot, envelope)
 	return snapshot, nil
 }
 
-const sourceSelect = `
+const SelectSQL = `
 SELECT
     record_id,
     incident_id,
@@ -202,7 +191,7 @@ type rowScanner interface {
 	Scan(...any) error
 }
 
-func scanSource(row rowScanner) (Snapshot, error) {
+func ScanSource(row rowScanner) (Snapshot, error) {
 	var snapshot Snapshot
 	if err := row.Scan(
 		&snapshot.RecordID,
@@ -237,14 +226,14 @@ func scanSource(row rowScanner) (Snapshot, error) {
 	return snapshot, nil
 }
 
-func eligibleEnvelope(snapshot Snapshot, envelope Envelope, incidentID *uuid.UUID) bool {
+func EligibleEnvelope(snapshot Snapshot, envelope Envelope, incidentID *uuid.UUID) bool {
 	if envelope.RecordType != timelineRecordType || envelope.DeletedAt != nil || envelope.IncidentID != snapshot.IncidentID {
 		return false
 	}
 	return incidentID == nil || envelope.IncidentID == *incidentID
 }
 
-func applyEnvelope(snapshot *Snapshot, envelope Envelope) {
+func ApplyEnvelope(snapshot *Snapshot, envelope Envelope) {
 	snapshot.RowVersion = envelope.RowVersion
 	snapshot.CreatedByUserID = envelope.CreatedByUserID
 	snapshot.UpdatedByUserID = envelope.UpdatedByUserID

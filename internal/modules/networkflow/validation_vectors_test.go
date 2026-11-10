@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type endpointValidationVectors struct {
@@ -67,7 +67,7 @@ func TestNetworkFlowCanonicalEndpointVectors(t *testing.T) {
 }
 
 // Both adapters consume independently authored expectations, not each other's output.
-func AssertCanonicalEndpointSQLVectors(t testing.TB, db postgres.DB) {
+func AssertCanonicalEndpointSQLVectors(t testing.TB, db dbport.DB) {
 	t.Helper()
 	var vectors endpointValidationVectors
 	readValidationVectors(t, "endpoints", &vectors)

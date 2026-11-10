@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -31,12 +29,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/browserbuild"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
 )
@@ -258,7 +258,7 @@ func TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration(t *testi
 }
 
 type collaborationSeedFailureDB struct {
-	postgres.DB
+	dbport.DB
 }
 
 func (collaborationSeedFailureDB) Query(context.Context, string, ...any) (pgx.Rows, error) {

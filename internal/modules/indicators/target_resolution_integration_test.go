@@ -12,7 +12,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -169,7 +169,7 @@ func createTargetRoleIndicator(t testing.TB, application *indicators.Application
 	return result.RecordID
 }
 
-func deleteTargetRoleEnvelope(t testing.TB, db postgres.DB, recordID uuid.UUID, actorID uuid.UUID, deletedAt time.Time) {
+func deleteTargetRoleEnvelope(t testing.TB, db dbport.DB, recordID uuid.UUID, actorID uuid.UUID, deletedAt time.Time) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), `
 UPDATE records
@@ -193,7 +193,7 @@ type indicatorMutationFootprint struct {
 	Idempotency       int64
 }
 
-func loadIndicatorMutationFootprint(t testing.TB, db postgres.DB) indicatorMutationFootprint {
+func loadIndicatorMutationFootprint(t testing.TB, db dbport.DB) indicatorMutationFootprint {
 	t.Helper()
 	var result indicatorMutationFootprint
 	if err := db.QueryRow(context.Background(), `

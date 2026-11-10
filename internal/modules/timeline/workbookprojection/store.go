@@ -98,7 +98,7 @@ func (s *Source) BuildProjectionMutationTx(ctx context.Context, tx pgx.Tx, recor
 	if s == nil || s.repository == nil || s.collections == nil {
 		return ProjectionMutation{}, errors.New("timeline projection source dependencies are required")
 	}
-	snapshot, err := s.repository.LoadUnlockedTx(ctx, tx, recordID)
+	snapshot, err := s.repository.LoadTx(ctx, tx, recordID)
 	if errors.Is(err, sourcerepository.ErrNotFound) {
 		return ProjectionMutation{Kind: ProjectionMutationDelete, RecordID: recordID}, nil
 	}

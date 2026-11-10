@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -520,7 +520,7 @@ func TestRunnerNamedCompositionRejectsInvalidAndDuplicateRegistration(t *testing
 	// Construction and registration must not use persistence. Any DB operation
 	// on this inert dependency fails immediately instead of acquiring a service.
 	manager, err := jobs.NewManager(jobs.ManagerOptions{
-		Postgres: struct{ postgres.DB }{}, Catalog: catalog,
+		Postgres: struct{ dbport.DB }{}, Catalog: catalog,
 		Transactions: collaborationsupport.NewJobTransactionsForCatalog(catalog),
 		Policy:       jobs.ProductionRuntimePolicy(),
 	})
@@ -656,14 +656,14 @@ func newJobsHarnessWithPool(
 // newJobsStoreHarness owns one rollback transaction and never starts a runner or
 // registers asynchronous metric callbacks. Concurrency and telemetry tests use
 // the pool-backed fixture instead.
-func newJobsStoreHarness(t testing.TB, prefix string, now func() time.Time) (*jobs.Manager, uuid.UUID, uuid.UUID, postgres.DB) {
+func newJobsStoreHarness(t testing.TB, prefix string, now func() time.Time) (*jobs.Manager, uuid.UUID, uuid.UUID, dbport.DB) {
 	t.Helper()
 	db := pgtest.Start(t).BeginRollbackDBT(t, prefix)
 	manager, actorID, incidentID := newJobsHarnessWithDB(t, db, now, "")
 	return manager, actorID, incidentID, db
 }
 
-func newJobsHarnessWithDB(t testing.TB, db postgres.DB, now func() time.Time, serviceVersion string) (*jobs.Manager, uuid.UUID, uuid.UUID) {
+func newJobsHarnessWithDB(t testing.TB, db dbport.DB, now func() time.Time, serviceVersion string) (*jobs.Manager, uuid.UUID, uuid.UUID) {
 	t.Helper()
 
 	actorID := uuid.New()
@@ -707,7 +707,7 @@ VALUES ($1, $2, 'admin', $2, $2)
 type testJobComposition struct {
 	catalog      *jobs.Catalog
 	transactions *jobs.TransactionService
-	db           postgres.DB
+	db           dbport.DB
 	now          func() time.Time
 }
 

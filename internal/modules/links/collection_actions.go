@@ -3,6 +3,7 @@ package links
 import (
 	"context"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/links/partyassignment"
 	"time"
 
 	"github.com/google/uuid"
@@ -138,7 +139,7 @@ func validateLinkCollectionPolicy(fieldKey string, linkType LinkType) error {
 	if linkType.String() == "" {
 		return collectionValidationError(fieldKey)
 	}
-	if IsPartyAssignmentField(fieldKey) && linkType != LinkTypeReferencesRecord {
+	if partyassignment.IsField(fieldKey) && linkType != LinkTypeReferencesRecord {
 		return collectionValidationError(fieldKey)
 	}
 	return nil

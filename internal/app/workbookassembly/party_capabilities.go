@@ -21,7 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type partyIdempotency struct {
@@ -203,7 +203,7 @@ type partyReplayMetadataLoader interface {
 	Load(context.Context, uuid.UUID, uuid.UUID) (partyReplayMetadata, error)
 }
 
-type postgresPartyReplayMetadata struct{ pool postgres.DB }
+type postgresPartyReplayMetadata struct{ pool dbport.DB }
 
 func (loader postgresPartyReplayMetadata) Load(
 	ctx context.Context,
@@ -315,7 +315,7 @@ func (a partyRevisions) LoadRevisionWindowTx(
 }
 
 func newPartyMutationDependencies(
-	pool postgres.DB,
+	pool dbport.DB,
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	projectionRows partyprojection.Rows,
@@ -336,7 +336,7 @@ func newPartyMutationDependencies(
 }
 
 func NewPartyMutationContribution(
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,

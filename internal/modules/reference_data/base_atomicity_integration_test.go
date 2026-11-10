@@ -11,17 +11,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestBaseReconciliationAtomicPublication_Integration(t *testing.T) {
@@ -235,7 +236,7 @@ func testBaseInterruptionWithPinnedState(t *testing.T) {
 
 // Capture full retained row values, including existing pointer/revision and pin
 // provenance. Counts alone cannot detect updates that escape a failed attempt.
-func baseAtomicState(t testing.TB, db postgres.DB) map[string]string {
+func baseAtomicState(t testing.TB, db dbport.DB) map[string]string {
 	t.Helper()
 	state := map[string]string{}
 	for _, table := range []string{"reference_pack_operations", "reference_pack_index_generations", "reference_pack_indexes", "reference_pack_lookup_keys", "reference_pack_versions", "reference_pack_candidates", "reference_pack_envelopes", "reference_pack_release_bindings", "reference_pack_sets", "reference_pack_set_members", "reference_pack_pins", "reference_pack_current_set", "reference_pack_events", "reference_pack_objects", "reference_pack_object_refs", "reference_pack_key_state", "reference_pack_registry_usage"} {
@@ -249,7 +250,7 @@ func baseAtomicState(t testing.TB, db postgres.DB) map[string]string {
 }
 
 type baseFaultDB struct {
-	postgres.DB
+	dbport.DB
 	mode           string
 	hit, committed bool
 }
@@ -407,7 +408,7 @@ func TestCurrentRetainedStructureAcrossConsumersAndRecovery_Integration(t *testi
 			if err := contractadmission.ValidateBinding(t.Context(), tx, binding); !contractadmission.IsIncompatible(err) {
 				t.Fatal("Reporting binding admitted malformed or misbound local set", err)
 			}
-			for _, check := range []func(context.Context, postgres.DB, ArtifactStorage, Limits, *VerificationLifetime) error{ValidateRequiredState, RestoreHistoricalState} {
+			for _, check := range []func(context.Context, dbport.DB, ArtifactStorage, Limits, *VerificationLifetime) error{ValidateRequiredState, RestoreHistoricalState} {
 				if err := check(t.Context(), baseTestTxDB{tx}, storage, DefaultLimits(), testVerificationLifetime(t)); !contractadmission.IsIncompatible(err) {
 					t.Fatal("recovery failed to reject malformed set before rebuild", err)
 				}

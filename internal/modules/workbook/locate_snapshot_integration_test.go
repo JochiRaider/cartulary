@@ -7,19 +7,20 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/jackc/pgx/v5"
 )
 
 // The wrapper observes the production catalog's database boundary. A write
 // after the first SELECT closes is deterministic and requires no timing sleeps.
 type locatorReadDB struct {
-	postgres.DB
+	dbport.DB
 	afterRead                    func()
 	once                         sync.Once
 	beginErr, readErr, commitErr error

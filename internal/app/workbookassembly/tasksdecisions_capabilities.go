@@ -21,7 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type taskDecisionIdempotency struct {
@@ -287,7 +287,7 @@ func (a taskDecisionRevisions) LoadRevisionWindowTx(
 }
 
 func newTaskDecisionMutationDependencies(
-	pool postgres.DB,
+	pool dbport.DB,
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	projectionRows taskdecisionprojection.MutationRows,
@@ -314,7 +314,7 @@ func newTaskDecisionMutationDependencies(
 }
 
 func NewTaskDecisionMutationContribution(
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,

@@ -12,14 +12,14 @@ import (
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
-	platformpostgres "github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type Repository struct {
-	db platformpostgres.DB
+	db dbport.DB
 }
 
-func NewRepository(db platformpostgres.DB) *Repository {
+func NewRepository(db dbport.DB) *Repository {
 	return &Repository{db: db}
 }
 

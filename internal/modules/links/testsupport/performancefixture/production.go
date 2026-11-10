@@ -6,14 +6,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type ProductionApplication struct {
-	pool postgres.DB
+	pool dbport.DB
 }
 
-func NewProductionApplication(pool postgres.DB) (*ProductionApplication, error) {
+func NewProductionApplication(pool dbport.DB) (*ProductionApplication, error) {
 	if pool == nil {
 		return nil, fmt.Errorf("links performance fixture Postgres is required")
 	}

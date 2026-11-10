@@ -12,11 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 )
 
 type LinksProvider struct {
-	reader                 links.FactReader
+	reader                 linkfacts.FactReader
 	logicalTargetProviders []exportprovider.LogicalSupportTargetProvider
 }
 
@@ -40,7 +41,7 @@ func NewLinksProvider(logicalTargetProviders ...exportprovider.LogicalSupportTar
 		return providers[i].ProviderKey() < providers[j].ProviderKey()
 	})
 	return LinksProvider{
-		reader:                 links.FactReader{},
+		reader:                 linkfacts.FactReader{},
 		logicalTargetProviders: providers,
 	}, nil
 }
@@ -78,7 +79,7 @@ func (provider LinksProvider) CollectSupportRefsTx(
 	return supportRefsForLinks(facts.RecordLinks, targets), nil
 }
 
-func supportRefsForLinks(facts []links.RecordLinkFact, targets map[string]string) map[string][]string {
+func supportRefsForLinks(facts []linkfacts.RecordLinkFact, targets map[string]string) map[string][]string {
 	result := map[string][]string{}
 	for _, fact := range facts {
 		switch fact.LinkType {

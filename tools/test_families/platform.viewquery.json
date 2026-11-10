@@ -176,6 +176,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "platform.viewquery.unit.closed_sql_fragments",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/sqlshape",
+        "tests": [
+          "TestClosedSQLFragments"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "platform.viewquery.unit.decode_defaults_to_schema_meta_0c64ab2f71",
       "owner_id": "platform.viewquery",
       "family_id": "platform.viewquery.unit",
@@ -248,6 +273,31 @@
         "package": "./internal/platform/querypage",
         "tests": [
           "TestPredecessorNullBoundary_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "platform.viewquery.unit.maintenance_sql_capabilities",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewquery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/maintenancequery",
+        "tests": [
+          "TestMaintenanceSQLCapabilities"
         ]
       },
       "evidence_class": "unit",

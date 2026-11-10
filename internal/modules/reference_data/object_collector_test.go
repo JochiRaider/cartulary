@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // Test-only access to the scheduler seam; production always uses one minute.
-func NewTestObjectCollector(t testing.TB, db postgres.DB, storage CollectionStorage, workspaces WorkspaceReconciler, observer OperationObserver, ticks <-chan time.Time) *ObjectCollector {
+func NewTestObjectCollector(t testing.TB, db dbport.DB, storage CollectionStorage, workspaces WorkspaceReconciler, observer OperationObserver, ticks <-chan time.Time) *ObjectCollector {
 	t.Helper()
 	c, err := NewObjectCollector(db, storage, workspaces, observer)
 	if err != nil {

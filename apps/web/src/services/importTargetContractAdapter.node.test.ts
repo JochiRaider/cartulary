@@ -1,17 +1,17 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { workbookMappingRequest } from "../imports/workbookImportMapping";
+import {
+  importTestPreview,
+  importTestUnit,
+} from "../testing/workbookImportTestSupport";
 import {
   importTargetRegistryDigest,
   importTargetSemantics,
   requireClaimGatedAnalyticalImportTarget,
   selectableViewImportTargets,
+  workbookImportTargets,
 } from "./importTargetContractAdapter";
 import { networkFlowMappingMetadata } from "./networkFlowContractAdapter";
-
-const servicesDirectory = path.dirname(fileURLToPath(import.meta.url));
-const sourceDirectory = path.resolve(servicesDirectory, "..");
 
 describe("generated import target frontend semantics", () => {
   it("partitions all 18 generated rows without a client fallback registry", () => {
@@ -49,40 +49,63 @@ describe("generated import target frontend semantics", () => {
     ).toThrow("invalid analytical import target binding");
   });
 
-  it("keeps generated identity consumption in the shared adapter", () => {
-    const assistant = readFileSync(
-      path.join(
-        sourceDirectory,
-        "workbook/features/ImportAssistantFeature.tsx",
+  it("maps selectable targets and policies through the workbook consumer", () => {
+    const unit = importTestUnit();
+    for (const target of workbookImportTargets) {
+      const columns = target.fields.map((field, index) => ({
+        source_column_ordinal: index + 1,
+        source_header_text: field.label,
+      }));
+      const preview = { ...importTestPreview(unit), columns };
+      const fields = Object.fromEntries(
+        target.fields.map((field, index) => [index + 1, field.fieldKey]),
+      );
+      const request = workbookMappingRequest(
+        unit,
+        preview,
+        {
+          targetViewSchemaId: target.contract.viewSchemaId,
+          fields,
+          dirty: true,
+        },
+        "consumer-mapping",
+      );
+      expect(request).toMatchObject({
+        target_view_schema_id: target.semantics.target_view_schema_id,
+        unknown_column_policy: target.semantics.default_unknown_column_policy,
+      });
+      expect(request?.source_columns.map((column) => column.field_key)).toEqual(
+        target.fields.map((field) => field.fieldKey),
+      );
+    }
+    for (const target of importTargetSemantics.filter(
+      (row) => row.public_projection_disposition !== "selectable",
+    )) {
+      expect(
+        workbookMappingRequest(
+          unit,
+          importTestPreview(unit),
+          {
+            targetViewSchemaId:
+              target.target_view_schema_id ?? target.target_kind,
+            fields: {},
+            dirty: true,
+          },
+          "blocked",
+        ),
+      ).toBeNull();
+    }
+    expect(
+      workbookMappingRequest(
+        unit,
+        importTestPreview(unit),
+        {
+          targetViewSchemaId: "unknown-future-target",
+          fields: {},
+          dirty: true,
+        },
+        "unknown",
       ),
-      "utf8",
-    );
-    const networkFlowController = readFileSync(
-      path.join(sourceDirectory, "networkFlow/NetworkFlowImportController.ts"),
-      "utf8",
-    );
-
-    const adapter = readFileSync(
-      path.join(servicesDirectory, "importTargetContractAdapter.ts"),
-      "utf8",
-    );
-    const mapping = readFileSync(
-      path.join(sourceDirectory, "imports/workbookImportMapping.ts"),
-      "utf8",
-    );
-    expect(adapter).toContain("selectableViewImportTargets");
-    expect(mapping).toContain("workbookImportTargets");
-    expect(mapping).not.toMatch(/cartulary\.view\.[a-z_]+\.v[0-9]+/u);
-    expect(assistant).not.toContain("importableViewSchemaIds");
-    expect(assistant).not.toMatch(/cartulary\.view\.[a-z_]+\.v[0-9]+/u);
-    expect(networkFlowController).toContain(
-      "requireClaimGatedAnalyticalImportTarget(",
-    );
-    expect(networkFlowController).not.toContain(
-      'targetKind: "network_flow_table"',
-    );
-    expect(networkFlowController).not.toContain(
-      'extensionProfileId: "network_flow_activity"',
-    );
+    ).toBeNull();
   });
 });

@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -32,7 +33,7 @@ func TestCaptureTargetAdmissionUsesSnapshotAndRejectsBeforeArtifacts_Integration
 		if _, err := controlDB.ExecContext(ctx, `UPDATE public.recovery_target_state SET state='unproven',revision=revision+1`); err != nil {
 			return err
 		}
-		rows, err := snapshot.QueryRows(ctx, `SELECT state FROM public.recovery_target_state WHERE singleton`)
+		rows, err := snapshot.QueryRows(ctx, sqlshape.Literal(`SELECT state FROM public.recovery_target_state WHERE singleton`))
 		if err != nil {
 			return err
 		}

@@ -17,11 +17,11 @@ import (
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
-func newIndicatorTestApplication(t testing.TB, db postgres.DB, appender *revisions.Appender) *indicators.Application {
+func newIndicatorTestApplication(t testing.TB, db dbport.DB, appender *revisions.Appender) *indicators.Application {
 	t.Helper()
 	projection, err := projectionassembly.Build(db)
 	if err != nil {
@@ -45,7 +45,7 @@ func newIndicatorTestApplication(t testing.TB, db postgres.DB, appender *revisio
 	return application
 }
 
-func newIndicatorTestProjectionRows(t testing.TB, db postgres.DB) indicatorprojection.Rows {
+func newIndicatorTestProjectionRows(t testing.TB, db dbport.DB) indicatorprojection.Rows {
 	t.Helper()
 	projection, err := projectionassembly.Build(db)
 	if err != nil {
@@ -89,7 +89,7 @@ type indicatorProjectionRow struct {
 	SupportingLinkCount int
 }
 
-func lookupIndicatorProjection(t testing.TB, db postgres.DB, recordID uuid.UUID) indicatorProjectionRow {
+func lookupIndicatorProjection(t testing.TB, db dbport.DB, recordID uuid.UUID) indicatorProjectionRow {
 	t.Helper()
 	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {

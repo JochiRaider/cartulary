@@ -1,8 +1,7 @@
 package queryengine
 
 import (
-	"strconv"
-	"strings"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const assessmentsViewSchemaID = "cartulary.view.assessments.v1"
@@ -10,7 +9,7 @@ const assessmentsViewSchemaID = "cartulary.view.assessments.v1"
 func AssessmentPlans() []Surface {
 	return []Surface{{
 		ViewSchemaID: assessmentsViewSchemaID,
-		FromSQL: `FROM assessment_grid_projection a
+		FromSQL: sqlshape.Literal(`FROM assessment_grid_projection a
 JOIN records r ON r.record_id = a.record_id
 LEFT JOIN LATERAL (
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
@@ -31,36 +30,20 @@ LEFT JOIN LATERAL (
      WHERE rl.incident_id = a.incident_id
        AND rl.src_record_id = a.record_id
        AND rl.link_type = 'supported_by'
-) support ON true`,
-		RecordExpr:   "a.record_id",
-		IncidentExpr: "a.incident_id",
+) support ON true`),
+		RecordExpr:   sqlshape.Literal("a.record_id"),
+		IncidentExpr: sqlshape.Literal("a.incident_id"),
 		Fields: []Field{
-			{Key: "assessment.subject_ref", Expr: "a.subject_ref", Kind: FieldKindText},
-			{Key: "assessment.subject_type", Expr: "a.subject_type", Kind: FieldKindText},
-			{Key: "assessment.assessment_state", Expr: "a.assessment_state", Kind: FieldKindText},
-			{Key: "assessment.confidence_band", Expr: "a.confidence_band", SortExpr: assessmentEnumSortExpr("a.confidence_band", "unset", "low", "medium", "high"), Kind: FieldKindText},
-			{Key: "assessment.confidence_score", Expr: "a.confidence_score", Kind: FieldKindNumber},
-			{Key: "assessment.rationale", Expr: "a.rationale", Kind: FieldKindText},
-			{Key: "assessment.assessor", Expr: "a.assessor", Kind: FieldKindText},
-			{Key: "assessment.assessed_at", Expr: "a.assessed_at", Kind: FieldKindTimestamp},
-			{Key: "assessment.support_refs", Expr: "support.support_refs", Kind: FieldKindCollection},
-			{Key: "assessment.supporting_link_count", Expr: "a.supporting_link_count", Kind: FieldKindNumber},
+			{Key: "assessment.subject_ref", Expr: sqlshape.Literal("a.subject_ref"), Kind: FieldKindText},
+			{Key: "assessment.subject_type", Expr: sqlshape.Literal("a.subject_type"), Kind: FieldKindText},
+			{Key: "assessment.assessment_state", Expr: sqlshape.Literal("a.assessment_state"), Kind: FieldKindText},
+			{Key: "assessment.confidence_band", Expr: sqlshape.Literal("a.confidence_band"), SortExpr: enumSortExpr(sqlshape.Literal("a.confidence_band"), "unset", "low", "medium", "high"), Kind: FieldKindText},
+			{Key: "assessment.confidence_score", Expr: sqlshape.Literal("a.confidence_score"), Kind: FieldKindNumber},
+			{Key: "assessment.rationale", Expr: sqlshape.Literal("a.rationale"), Kind: FieldKindText},
+			{Key: "assessment.assessor", Expr: sqlshape.Literal("a.assessor"), Kind: FieldKindText},
+			{Key: "assessment.assessed_at", Expr: sqlshape.Literal("a.assessed_at"), Kind: FieldKindTimestamp},
+			{Key: "assessment.support_refs", Expr: sqlshape.Literal("support.support_refs"), Kind: FieldKindCollection},
+			{Key: "assessment.supporting_link_count", Expr: sqlshape.Literal("a.supporting_link_count"), Kind: FieldKindNumber},
 		},
 	}}
-}
-
-func assessmentEnumSortExpr(expr string, values ...string) string {
-	var builder strings.Builder
-	builder.WriteString("CASE ")
-	builder.WriteString(expr)
-	for index, value := range values {
-		builder.WriteString(" WHEN '")
-		builder.WriteString(value)
-		builder.WriteString("' THEN ")
-		builder.WriteString(strconv.Itoa(index))
-	}
-	builder.WriteString(" ELSE ")
-	builder.WriteString(strconv.Itoa(len(values)))
-	builder.WriteString(" END")
-	return builder.String()
 }

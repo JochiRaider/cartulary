@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 )
 
 var (
@@ -41,7 +43,7 @@ func LockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, rec
 				return &DestructiveOperationRecordLockedError{RecordID: ordered[i]}
 			}
 			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrEnvelopeNotFound
+				return recordenvelope.ErrEnvelopeNotFound
 			}
 			return err
 		}

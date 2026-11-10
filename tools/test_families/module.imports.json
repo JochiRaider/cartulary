@@ -364,7 +364,7 @@
       "selector": {
         "file": "apps/web/src/services/importTargetContractAdapter.node.test.ts",
         "titles": [
-          "generated import target frontend semantics keeps generated identity consumption in the shared adapter",
+          "generated import target frontend semantics maps selectable targets and policies through the workbook consumer",
           "generated import target frontend semantics partitions all 18 generated rows without a client fallback registry"
         ],
         "project_id": "node-unit"

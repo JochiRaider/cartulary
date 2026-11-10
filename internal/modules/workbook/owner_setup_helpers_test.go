@@ -15,13 +15,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/workbookroutetest"
 )
 
-func mustCreatePartyFor(t testing.TB, pool postgres.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, displayName string) uuid.UUID {
+func mustCreatePartyFor(t testing.TB, pool dbport.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, displayName string) uuid.UUID {
 	t.Helper()
 	admission, apiErr := parties.AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
 		`{"client_txn_id":%q,"party.display_name":%q,"party.party_kind":"organization"}`,
@@ -44,7 +44,7 @@ func mustCreatePartyFor(t testing.TB, pool postgres.DB, actor authn.UserRecord, 
 	return result.RecordID
 }
 
-func mustCreateEvidenceFor(t testing.TB, pool postgres.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
+func mustCreateEvidenceFor(t testing.TB, pool dbport.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
 	t.Helper()
 	request, admissionFailure := evidence.AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
 		`{"client_txn_id":%q,"evidence.title":%q}`,

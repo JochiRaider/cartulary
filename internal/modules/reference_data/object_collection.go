@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // CollectUnreferencedObjects reclaims byte copies, never immutable logical
@@ -13,7 +14,7 @@ import (
 // tombstone is durable collection work; no in-memory scheduling is required.
 // Successful envelopes retain their exact signed containers for historical
 // authentication. Extracted copies of removed versions have no consumer use.
-func CollectUnreferencedObjects(ctx context.Context, db postgres.DB, storage CollectionStorage) error {
+func CollectUnreferencedObjects(ctx context.Context, db dbport.DB, storage CollectionStorage) error {
 	if db == nil || storage == nil {
 		return errors.New("reference pack: incomplete collection dependencies")
 	}
@@ -47,7 +48,7 @@ func CollectUnreferencedObjects(ctx context.Context, db postgres.DB, storage Col
 	})
 }
 
-func retireUnneededObjects(ctx context.Context, db postgres.DB) error {
+func retireUnneededObjects(ctx context.Context, db dbport.DB) error {
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return err

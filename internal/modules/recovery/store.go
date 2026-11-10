@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 const (
@@ -41,7 +41,7 @@ var (
 type VerificationState string
 
 type Store struct {
-	pool postgres.DB
+	pool dbport.DB
 }
 
 type BackupSet struct {
@@ -138,7 +138,7 @@ func (err *LatestSuccessfulBackupStaleError) Unwrap() error {
 	return ErrLatestSuccessfulBackupStale
 }
 
-func NewStore(pool postgres.DB) *Store {
+func NewStore(pool dbport.DB) *Store {
 	return &Store{pool: pool}
 }
 

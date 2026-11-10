@@ -6,17 +6,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
-	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestRestoreRejectsBypassedReferentialIntegrity_Integration(t *testing.T) {
-	newTarget := func(t *testing.T, name string) (recovery.VNextRestoreTarget, postgres.DB) {
+	newTarget := func(t *testing.T, name string) (recovery.VNextRestoreTarget, dbport.DB) {
 		t.Helper()
 		fixture := newRestoreProjectionContractFixture(t, t.Context(), "restore-integrity-"+name, uuid.New())
 		projection, err := projectionassembly.Build(fixture.Target.Postgres)

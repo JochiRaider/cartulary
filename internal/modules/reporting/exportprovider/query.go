@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 // FieldQuery is an owner-authored query returning source ID, source family,
@@ -15,14 +16,14 @@ import (
 // only the selector namespace; it cannot supply source identity or type.
 type FieldQuery struct {
 	Prefix                       string
-	SQL                          string
+	SQL                          sqlshape.Fragment
 	DisclosurePartitionRefPrefix string
 }
 
 func CollectQueryProviderOutputTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, providerKey string, supportRefs map[string][]string, queries []FieldQuery) (ProviderOutput, error) {
 	fields := []BoundField{}
 	for _, query := range queries {
-		rows, err := tx.Query(ctx, query.SQL, incidentID)
+		rows, err := tx.Query(ctx, sqlshape.Text(query.SQL), incidentID)
 		if err != nil {
 			return ProviderOutput{}, err
 		}

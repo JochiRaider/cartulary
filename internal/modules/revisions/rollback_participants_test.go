@@ -15,14 +15,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 type rollbackTransactionWitness struct {
-	postgres.DB
+	dbport.DB
 	tx        pgx.Tx
 	committed int
 }

@@ -7,13 +7,14 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
@@ -151,7 +152,7 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer func() { _ = tx.Rollback(context.Background()) }()
-			facts, err := (links.FactReader{}).LoadPartyAssignmentsForRecords(context.Background(), tx, incidentID, []uuid.UUID{appsupport.MustUUID(t, id)})
+			facts, err := (linkfacts.FactReader{}).LoadPartyAssignmentsForRecords(context.Background(), tx, incidentID, []uuid.UUID{appsupport.MustUUID(t, id)})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -161,7 +162,7 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 			remove := map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{{"op": "remove_party_ref", "item_ref": "party_ref:" + a}}}
 			removed := send(patch("assignment-remove-"+family, 3, []map[string]any{change(field("observer"), remove)}), http.StatusOK)
 			assertEntityPartyItems(t, removed["row"].(map[string]any), field("observer"), nil)
-			retained, err := (links.FactReader{}).LoadPartyAssignmentsForRecords(context.Background(), tx, incidentID, []uuid.UUID{appsupport.MustUUID(t, id)})
+			retained, err := (linkfacts.FactReader{}).LoadPartyAssignmentsForRecords(context.Background(), tx, incidentID, []uuid.UUID{appsupport.MustUUID(t, id)})
 			if err != nil || !reflect.DeepEqual(facts, retained) {
 				t.Fatal("source snapshot changed with later removal", err)
 			}

@@ -10,12 +10,13 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresrestore"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 //go:embed testdata/reverse-input.json
@@ -39,7 +40,7 @@ type labelMigration struct {
 	ReadableBefore bool
 }
 
-func checkReverseReconstruction(t *testing.T, db postgres.DB) {
+func checkReverseReconstruction(t *testing.T, db dbport.DB) {
 	ctx := t.Context()
 	req := claimedGraphRequest(ctx)
 	projected, err := graphprojection.ProjectV2(ctx, graphprojection.InvocationContextV2{GraphViewID: "mixed-graph", SourceOwnerID: "network_flow_activity"}, reverseInput)

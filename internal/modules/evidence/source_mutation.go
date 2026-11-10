@@ -6,7 +6,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type sourceMutationService struct {
@@ -15,7 +15,7 @@ type sourceMutationService struct {
 }
 
 func newSourceMutationService(
-	pool postgres.DB,
+	pool dbport.DB,
 	projectionRows evidenceprojection.MutationRows,
 	appender *revisions.Appender,
 	intents collaboration.RecordChangedAppender,

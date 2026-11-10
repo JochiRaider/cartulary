@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // TimelineAttachmentContribution is the narrow Evidence-owned capability used
@@ -39,7 +39,7 @@ type TimelineAttachmentContribution interface {
 // OwnerRuntime is the immutable application-facing Evidence capability set.
 // It intentionally exposes no Store or database handle.
 type OwnerRuntime struct {
-	postgres     postgres.DB
+	postgres     dbport.DB
 	objectStore  objectstore.TypedStore
 	now          func() time.Time
 	routes       routeService
@@ -49,7 +49,7 @@ type OwnerRuntime struct {
 }
 
 type OwnerRuntimeDependencies struct {
-	Postgres        postgres.DB
+	Postgres        dbport.DB
 	ConflictTokens  *conflicttokens.ConflictTokenCodec
 	Revisions       *revisions.Appender
 	Collaboration   collaboration.RecordChangedAppender

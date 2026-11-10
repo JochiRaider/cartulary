@@ -3,8 +3,11 @@ package networkflow
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 // GraphRestoreReadSession borrows the caller's snapshot without granting
@@ -84,55 +87,52 @@ func (s *graphSourceReadStore) IterateGraphContributorRows(ctx context.Context, 
 	if len(tableIDs) == 0 {
 		return nil
 	}
-	base := `
-SELECT ` + flowRowColumnList() + `
-  FROM unnest($2::text[]) WITH ORDINALITY AS selected(selected_table_id, table_rank)
-  JOIN network_flow_rows
-    ON incident_id = $1
-   AND network_flow_table_id = selected.selected_table_id
- WHERE `
-	var query string
+	base := sqlshape.Format(`SELECT %s
+ FROM unnest($2::text[]) WITH ORDINALITY AS selected(selected_table_id,table_rank)
+ JOIN network_flow_rows ON incident_id=$1 AND network_flow_table_id=selected.selected_table_id
+ WHERE`, sqlshape.Literal(flowRowColumnList()))
+	var query sqlshape.Fragment
 	var args []any
 	switch predicate.Kind {
 	case "vertex":
-		query = base + `(endpoint_a_ip = $3 OR endpoint_b_ip = $3)`
+		query = sqlshape.Concat(base, sqlshape.Literal(`(endpoint_a_ip = $3 OR endpoint_b_ip = $3)`))
 		args = []any{incidentID, tableIDs, predicate.EndpointValue}
 	case "default_edge", "time_bucket_edge":
 		key := predicate.Semantics
 		if !key.valid() {
 			return fmt.Errorf("invalid graph contributor semantics")
 		}
-		firstIP, secondIP := "endpoint_a_ip::inet", "endpoint_b_ip::inet"
-		secondPort := "endpoint_b_port"
+		firstIP, secondIP := sqlshape.Literal("endpoint_a_ip::inet"), sqlshape.Literal("endpoint_b_ip::inet")
+		secondPort := sqlshape.Literal("endpoint_b_port")
 		if key.DirectionKind != directionUnknown {
 			firstIP, _ = rowSQLExpression(fieldFromIP)
 			secondIP, _ = rowSQLExpression(fieldToIP)
 			secondPort, _ = rowSQLExpression(fieldToPort)
 		}
-		query = base + "direction_kind = $3 AND ip_protocol = $4 AND " + firstIP + " = $5::inet AND " + secondIP + " = $6::inet AND " + secondPort + " IS NOT DISTINCT FROM $7::integer"
+		query = sqlshape.Concat(base, sqlshape.Format("direction_kind = $3 AND ip_protocol = $4 AND %s = $5::inet AND %s = $6::inet AND %s IS NOT DISTINCT FROM $7::integer", firstIP, secondIP, secondPort))
 		args = []any{incidentID, tableIDs, key.DirectionKind, key.Protocol, key.First.IP, key.Second.IP, key.Second.Port}
 		if key.DirectionKind == directionUnknown {
-			query += " AND endpoint_a_port IS NOT DISTINCT FROM $8::integer"
+			query = sqlshape.Concat(query, sqlshape.Literal(" AND endpoint_a_port IS NOT DISTINCT FROM $8::integer"))
 		} else {
-			query += " AND $8::integer IS NULL"
+			query = sqlshape.Concat(query, sqlshape.Literal(" AND $8::integer IS NULL"))
 		}
 		args = append(args, key.First.Port)
-		query += " AND EXISTS (SELECT 1 FROM network_flow_tables t WHERE t.incident_id=network_flow_rows.incident_id AND t.network_flow_table_id=network_flow_rows.network_flow_table_id AND t.source_profile_id=ANY($9::text[]))"
+		query = sqlshape.Concat(query, sqlshape.Literal(" AND EXISTS (SELECT 1 FROM network_flow_tables t WHERE t.incident_id=network_flow_rows.incident_id AND t.network_flow_table_id=network_flow_rows.network_flow_table_id AND t.source_profile_id=ANY($9::text[]))"))
 		args = append(args, sourceProfilesForCounterSemantics(key.CounterSemantics))
 		if predicate.Kind == "time_bucket_edge" {
 			if predicate.BucketStartUTC == nil || predicate.BucketEndUTC == nil {
 				return fmt.Errorf("incomplete time-bucket graph contributor predicate")
 			}
-			query += " AND flow_start_utc >= $10 AND flow_start_utc < $11"
+			query = sqlshape.Concat(query, sqlshape.Literal(" AND flow_start_utc >= $10 AND flow_start_utc < $11"))
 			args = append(args, predicate.BucketStartUTC.UTC(), predicate.BucketEndUTC.UTC())
 		}
 	default:
 		return fmt.Errorf("unknown graph contributor predicate")
 	}
-	query += `
+	query = sqlshape.Concat(query, sqlshape.Literal(`
  ORDER BY selected.table_rank ASC, flow_start_utc ASC, flow_end_utc ASC,
-          source_row_number ASC, network_flow_row_id ASC`
-	rows, err := s.reader.Query(ctx, query, args...)
+          source_row_number ASC, network_flow_row_id ASC`))
+	rows, err := s.reader.Query(ctx, sqlshape.Text(query), args...)
 	if err != nil {
 		return fmt.Errorf("iterate graph contributor rows: %w", err)
 	}

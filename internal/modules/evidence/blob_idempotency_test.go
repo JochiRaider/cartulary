@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestBlobCreateIdempotency_Unit(t *testing.T) {
@@ -128,7 +128,7 @@ func testBlobSlotParams(request blobCreateRequest, actorID uuid.UUID, incidentID
 	}
 }
 
-func seedBlobCreateTestSession(t testing.TB, harness postgres.DB, userID uuid.UUID) {
+func seedBlobCreateTestSession(t testing.TB, harness dbport.DB, userID uuid.UUID) {
 	t.Helper()
 	now := time.Date(2026, 5, 4, 12, 0, 0, 0, time.UTC)
 	fingerprint := sha256.Sum256([]byte("session:" + userID.String()))
@@ -164,7 +164,7 @@ func requireStableBlobPayload(t testing.TB, got map[string]any, want map[string]
 	}
 }
 
-func countObjectBlobsInStore(t testing.TB, harness postgres.DB, incidentID uuid.UUID) int {
+func countObjectBlobsInStore(t testing.TB, harness dbport.DB, incidentID uuid.UUID) int {
 	t.Helper()
 	var count int
 	if err := harness.QueryRow(context.Background(), `SELECT count(*) FROM object_blobs WHERE incident_id = $1`, incidentID).Scan(&count); err != nil {

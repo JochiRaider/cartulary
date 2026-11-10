@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -211,7 +211,7 @@ SELECT count(*)
 	return nil
 }
 
-func requireIndicatorContractConstraintsValidated(t testing.TB, db postgres.DB) {
+func requireIndicatorContractConstraintsValidated(t testing.TB, db dbport.DB) {
 	t.Helper()
 	var invalidCount int
 	if err := db.QueryRow(context.Background(), `

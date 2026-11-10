@@ -1,14 +1,8 @@
-import {
-  lstatSync,
-  readdirSync,
-  readFileSync,
-  realpathSync,
-} from "node:fs";
 import path from "node:path";
+import { createSourceAdmission, validateRepositoryRelativePath } from "./source-admission.mjs";
+export { validateRepositoryRelativePath } from "./source-admission.mjs";
 
 const sourceExtensions = new Set([".go", ".mjs", ".js", ".sh", ".sql"]);
-const globSyntax = /[*?[\]{}]/u;
-const windowsDrive = /^[A-Za-z]:\//u;
 
 function requireNonemptyString(value, label) {
   if (typeof value !== "string" || value.length === 0 || value.trim() !== value) {
@@ -31,27 +25,6 @@ function requireUniqueStrings(value, label, { paths = false } = {}) {
     throw new Error(`${label} must contain unique values`);
   }
   return result;
-}
-
-export function validateRepositoryRelativePath(value, label = "path") {
-  const candidate = requireNonemptyString(value, label);
-  if (candidate.includes("\\")) {
-    throw new Error(`${label} must use repository-relative forward slashes`);
-  }
-  if (path.posix.isAbsolute(candidate) || windowsDrive.test(candidate)) {
-    throw new Error(`${label} must be repository-relative`);
-  }
-  if (globSyntax.test(candidate)) {
-    throw new Error(`${label} must be an exact path without glob syntax`);
-  }
-  const segments = candidate.split("/");
-  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
-    throw new Error(`${label} must be normalized without empty, '.' or '..' segments`);
-  }
-  if (path.posix.normalize(candidate) !== candidate) {
-    throw new Error(`${label} must be normalized`);
-  }
-  return candidate;
 }
 
 export function normalizeExactFileSets(rawSets) {
@@ -98,97 +71,40 @@ export function normalizeExactFileSets(rawSets) {
   return sets;
 }
 
-function containedRelative(root, absolute, label) {
-  const relative = path.relative(root, absolute);
-  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-    throw new Error(`${label} escapes the repository root`);
-  }
-}
-
-function resolveWithoutSymlinks(root, relative, expectedKind, label) {
-  const rootReal = realpathSync(root);
-  let current = rootReal;
-  const segments = relative.split("/");
-  for (let index = 0; index < segments.length; index += 1) {
-    current = path.join(current, segments[index]);
-    let stat;
-    try {
-      stat = lstatSync(current);
-    } catch (error) {
-      if (error?.code === "ENOENT") {
-        throw new Error(`${label} does not exist`);
-      }
-      throw error;
-    }
-    if (stat.isSymbolicLink()) {
-      throw new Error(`${label} must not contain a symlink component`);
-    }
-    if (index < segments.length - 1 && !stat.isDirectory()) {
-      throw new Error(`${label} has a non-directory parent component`);
-    }
-    if (index === segments.length - 1) {
-      const expected = expectedKind === "file" ? stat.isFile() : stat.isDirectory();
-      if (!expected) {
-        throw new Error(`${label} must resolve to a regular ${expectedKind}`);
-      }
-    }
-  }
-  containedRelative(rootReal, realpathSync(current), label);
-  return current;
-}
-
-function discoverFiles(root, exactSet) {
+function discoverFiles(admission, exactSet) {
   const discovered = new Set();
   for (let rootIndex = 0; rootIndex < exactSet.discovery.scanRoots.length; rootIndex += 1) {
     const relativeRoot = exactSet.discovery.scanRoots[rootIndex];
     const label = `exact_file_sets.${exactSet.id}.discovery.scan_roots[${rootIndex + 1}]`;
-    const absoluteRoot = resolveWithoutSymlinks(root, relativeRoot, "directory", label);
-    walkDiscoveryRoot(root, absoluteRoot, exactSet, discovered);
+    admission.directory(relativeRoot, label);
+    walkDiscoveryRoot(admission, relativeRoot, exactSet, discovered);
   }
   return [...discovered].sort((left, right) => left.localeCompare(right));
 }
 
-function walkDiscoveryRoot(root, directory, exactSet, discovered) {
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const absolute = path.join(directory, entry.name);
-    const relative = path.relative(root, absolute).split(path.sep).join("/");
-    if (entry.isSymbolicLink()) {
-      throw new Error(`exact_file_sets.${exactSet.id}.discovery found symlink ${relative}`);
-    }
-    if (entry.isDirectory()) {
-      walkDiscoveryRoot(root, absolute, exactSet, discovered);
-      continue;
-    }
-    if (!entry.isFile()) {
-      throw new Error(`exact_file_sets.${exactSet.id}.discovery found non-regular path ${relative}`);
-    }
-    if (!sourceExtensions.has(path.extname(entry.name))) {
-      continue;
-    }
-    if (exactSet.discovery.productionOnly && relative.endsWith("_test.go")) {
-      continue;
-    }
-    const content = readFileSync(absolute, "utf8");
-    if (exactSet.discovery.tokens.some((token) => content.includes(token))) {
-      discovered.add(relative);
-    }
+function walkDiscoveryRoot(admission, directory, exactSet, discovered) {
+  const label = `exact_file_sets.${exactSet.id}.discovery`;
+  for (const entry of admission.entries(directory, label)) {
+    const relative = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) { walkDiscoveryRoot(admission, relative, exactSet, discovered); continue; }
+    if (!sourceExtensions.has(path.extname(entry.name))) continue;
+    if (exactSet.discovery.productionOnly && relative.endsWith("_test.go")) continue;
+    const {content} = admission.file(relative, label);
+    if (exactSet.discovery.tokens.some(token => content.includes(token))) discovered.add(relative);
   }
 }
 
-export function resolveExactFileSets(root, exactSets) {
-  const rootAbsolute = path.resolve(root);
-  const rootReal = realpathSync(rootAbsolute);
+export function resolveExactFileSets(root, exactSets, admission = createSourceAdmission(root)) {
   const resolved = new Map();
   for (const exactSet of exactSets) {
     const files = exactSet.paths.map((relative, index) => {
       const label = `exact_file_sets.${exactSet.id}.paths[${index + 1}]`;
-      const absolute = resolveWithoutSymlinks(rootReal, relative, "file", label);
-      return { absolute, relative, content: readFileSync(absolute, "utf8") };
+      return admission.file(relative, label);
     });
     if (files.length === 0) {
       throw new Error(`exact_file_sets.${exactSet.id} resolved no files`);
     }
-    const discovered = discoverFiles(rootReal, exactSet);
+    const discovered = discoverFiles(admission, exactSet);
     if (discovered.length === 0) {
       throw new Error(`exact_file_sets.${exactSet.id} discovery resolved no files`);
     }

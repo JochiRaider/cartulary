@@ -10,7 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const LinkProvenanceAutoMatch = "auto_match"
@@ -67,13 +68,13 @@ func SeedRecordLink(
 	confidence *int,
 ) {
 	t.Helper()
-	if _, err := execDB(db, `
+	if _, err := execDB(db, sqlshape.Command(`
 INSERT INTO record_links (
     record_link_id, incident_id, src_record_id, dst_record_id, link_type,
     provenance, confidence, owner_user_id, created_by_user_id, decided_at, created_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, now(), now())
-`, recordLinkID, incidentID, srcRecordID, dstRecordID, linkType, provenance, confidence, actorUserID); err != nil {
+`), recordLinkID, incidentID, srcRecordID, dstRecordID, linkType, provenance, confidence, actorUserID); err != nil {
 		t.Fatalf("seed record link: %v", err)
 	}
 }
@@ -88,10 +89,10 @@ func SeedRecordTag(
 	tagName string,
 ) {
 	t.Helper()
-	if _, err := execDB(db, `
+	if _, err := execDB(db, sqlshape.Command(`
 INSERT INTO record_tags (record_tag_id, incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
 VALUES ($1, $2, $3, $4, $5, $6)
-`, recordTagID, incidentID, recordID, tagName, tagName, actorUserID); err != nil {
+`), recordTagID, incidentID, recordID, tagName, tagName, actorUserID); err != nil {
 		t.Fatalf("seed record tag: %v", err)
 	}
 }
@@ -115,13 +116,13 @@ func LookupActiveLink(
 		sourceRaw   string
 		targetRaw   string
 	)
-	if err := queryRowDB(db, `
+	if err := queryRowDB(db, sqlshape.Literal(`
 SELECT record_link_id::text, incident_id::text, src_record_id::text, dst_record_id::text,
        link_type, provenance, confidence, deleted_at
   FROM record_links
  WHERE incident_id = $1 AND src_record_id = $2 AND dst_record_id = $3
    AND link_type = $4 AND deleted_at IS NULL
-`, incidentID, sourceID, targetID, linkType).Scan(
+`), incidentID, sourceID, targetID, linkType).Scan(
 		&recordLink,
 		&incidentRaw,
 		&sourceRaw,
@@ -152,23 +153,23 @@ type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-func queryRowDB(db any, query string, args ...any) rowScanner {
+func queryRowDB(db any, query sqlshape.Fragment, args ...any) rowScanner {
 	switch typed := db.(type) {
-	case postgres.DB:
-		return typed.QueryRow(context.Background(), query, args...)
+	case dbport.DB:
+		return typed.QueryRow(context.Background(), sqlshape.Text(query), args...)
 	case *sql.DB:
-		return typed.QueryRowContext(context.Background(), query, args...)
+		return typed.QueryRowContext(context.Background(), sqlshape.Text(query), args...)
 	default:
 		panic(fmt.Sprintf("unsupported Links test database %T", db))
 	}
 }
 
-func execDB(db any, query string, args ...any) (any, error) {
+func execDB(db any, query sqlshape.Statement, args ...any) (any, error) {
 	switch typed := db.(type) {
-	case postgres.DB:
-		return typed.Exec(context.Background(), query, args...)
+	case dbport.DB:
+		return typed.Exec(context.Background(), sqlshape.CommandText(query), args...)
 	case *sql.DB:
-		return typed.ExecContext(context.Background(), query, args...)
+		return typed.ExecContext(context.Background(), sqlshape.CommandText(query), args...)
 	default:
 		return nil, fmt.Errorf("unsupported Links test database %T", db)
 	}

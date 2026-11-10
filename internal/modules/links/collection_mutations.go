@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/links/partyassignment"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,7 +26,7 @@ func (result CollectionMutationResult) Mutations() []Mutation {
 func (s *Store) SyncFieldReferenceWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command SyncFieldReferenceCommand) (CollectionMutationResult, error) {
 	// Assignment fields are collections, never scalar references. A scalar
 	// replacement would silently remove other assignments of the same kind.
-	if IsPartyAssignmentField(command.FieldKey) {
+	if partyassignment.IsField(command.FieldKey) {
 		return CollectionMutationResult{}, collectionValidationError(command.FieldKey)
 	}
 	if err := validateLinkCollectionPolicy(command.FieldKey, command.LinkType); err != nil {
@@ -145,7 +146,7 @@ func (s *Store) applyReferenceCollectionWithMutationValuesTx(ctx context.Context
 	if command.incidentID == uuid.Nil || command.sourceRecordID == uuid.Nil || command.actorUserID == uuid.Nil || command.now.IsZero() {
 		return CollectionMutationResult{}, collectionValidationError(command.fieldKey)
 	}
-	if family, _, assignment := partyAssignmentField(command.fieldKey); assignment {
+	if family, _, assignment := partyassignment.Field(command.fieldKey); assignment {
 		if command.linkType != LinkTypeReferencesRecord || command.expectedTargetType != "party" {
 			return CollectionMutationResult{}, collectionValidationError(command.fieldKey)
 		}

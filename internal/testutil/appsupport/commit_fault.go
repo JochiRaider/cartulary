@@ -13,7 +13,7 @@ import (
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -44,7 +44,7 @@ func (c *IncidentCreateCommitFaultCapability) Create(
 }
 
 type incidentCreateCommitFaultDB struct {
-	postgres.DB
+	dbport.DB
 }
 
 func (db incidentCreateCommitFaultDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
@@ -67,7 +67,7 @@ func (tx incidentCreateCommitFaultTx) Commit(ctx context.Context) error {
 func newIncidentCreateCommitFaultCapability(
 	env map[string]string,
 	mode httptestx.TestRouteMode,
-	db postgres.DB,
+	db dbport.DB,
 ) (*IncidentCreateCommitFaultCapability, error) {
 	if mode != httptestx.TestRouteModeHarnessOwned && mode != httptestx.TestRouteModeCustomEnv {
 		return nil, fmt.Errorf("incident create commit fault requires an admitted test-runtime mode, got %q", mode)
@@ -98,7 +98,7 @@ func newIncidentCreateCommitFaultCapability(
 	return &IncidentCreateCommitFaultCapability{application: application}, nil
 }
 
-func isNilIncidentCreateCommitFaultDB(db postgres.DB) bool {
+func isNilIncidentCreateCommitFaultDB(db dbport.DB) bool {
 	if db == nil {
 		return true
 	}

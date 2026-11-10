@@ -49,6 +49,9 @@ export function registerBoundariesTests() {
       emptyPolicy({ forbidden_source_tokens: [{ ...tokenRule(undefined), exact_file_set_id: "unknown" }] }),
       emptyPolicy({ forbidden_go_imports: [{ id: "import", imports: ["example/private"], scan_paths: ["src/**"], allowed_paths: [], production_only: true }] }),
       emptyPolicy({ forbidden_go_calls: [{ id: "call", symbols: ["Forbidden("], allowed_paths: [], production_only: true }] }),
+      ...["SELECT * FROM records", "SET ROLE cartulary_runtime;SELECT * FROM records", ""].map(sql => emptyPolicy({ sql_control_capabilities: [{ package: "src/session", declaration: "Open", sql }] })),
+      ...["*", "Open()", "Reader.*", " Open"].map(declaration => emptyPolicy({ sql_forwarding_capabilities: [{ package: "src/transport", declaration, test_support: false }] })),
+      emptyPolicy({ sql_forwarding_capabilities: [{ package: "src/**", declaration: "Exec", test_support: false }] }),
     ];
     const fixture = createFixture(t);
     for (const value of invalidPolicies) {
@@ -83,8 +86,10 @@ export function registerBoundariesTests() {
 
   test("backend paths: subtree excludes prune descendants and preserve siblings", (t) => {
     const fixture = createFixture(t);
+    fixture.write("internal/gen/fixture/types.go", "package fixture");
     fixture.write("policy.json", emptyPolicy({ scan_roots: ["src"], scan_excludes: ["src/generated/**"], forbidden_source_tokens: [tokenRule(["src/**"])] }));
     fixture.write("support.json", { schema_id: "cartulary.test_support_inventory.v1", go_support_roots: [{ path: "support", runtime_scan: "excluded", support_scan: "included" }] });
+    fixture.write("support/helper.go", "package support");
     fixture.write("src/generated/nested/skip.go", "package fixture\n// forbidden");
     fixture.write("src/generatedpeer/check.go", "package fixture\n// forbidden");
     const result = inspectBackendBoundaries({ root: fixture.root, manifest: path.join(fixture.root, "policy.json"), supportInventory: "support.json" });
@@ -147,11 +152,11 @@ export function registerBoundariesTests() {
     for (const [relative, sql, count] of [
       ["internal/modules/timeline/incident_bundle_source_port.go", "SELECT * FROM records", 0],
       ["internal/modules/timeline/incident_bundle_source_port.go", "UPDATE records SET row_version = 2", 1],
-      ["internal/modules/timeline/unapproved.go", "SELECT * FROM records", 1],
+      ["internal/modules/timeline/peer/unapproved.go", "SELECT * FROM records", 1],
     ]) assert.equal(inspect([{ relative, content: `package timeline\nconst query = \`${sql}\`` }], { sqlTableAccess: records }).length, count, relative + sql);
   });
 
-  test("backend policy: Recovery imports enforce current boundaries and exact adapter permission", () => {
+  test("backend policy: Recovery imports enforce current boundaries and exact adapter-package permission", () => {
     const manifest = repositoryPolicy();
     const prefix = "github.com/JochiRaider/cartulary/";
     for (const [id, relative, imported, count] of [
@@ -159,7 +164,7 @@ export function registerBoundariesTests() {
       ["recovery-application-no-operator-transport-imports", "internal/modules/recovery/application/restore.go", "internal/app/operator/internal/recoverycli", 1],
       ["recovery-application-no-operator-transport-imports", "internal/modules/recovery/application/restore.go", "internal/app/operatorpeer", 0],
       ["recovery-sqlc-confined-to-private-store-adapter", "internal/modules/recovery/store.go", "internal/gen/sql", 0],
-      ["recovery-sqlc-confined-to-private-store-adapter", "internal/modules/recovery/another_store.go", "internal/gen/sql", 1],
+      ["recovery-sqlc-confined-to-private-store-adapter", "internal/modules/recovery/another_store.go", "internal/gen/sql", 0],
       ["recovery-application-no-audit-adapter-import", "internal/modules/recovery/application/restore.go", "internal/platform/administrativeaudit", 1],
       ["recovery-application-no-audit-adapter-import", "internal/modules/recovery/application/restore.go", "internal/platform/administrativeaudit/private", 1],
       ["recovery-application-no-audit-adapter-import", "internal/modules/recovery/application/restore.go", "internal/platform/postgres", 0],
@@ -173,8 +178,9 @@ export function registerBoundariesTests() {
   });
 
   test("backend admission: optional SQL permissions retain their distinct meanings", () => {
-    const rule = { id: "owner-projection-storage-access", table: "records", scan_paths: ["src/**"], read_allowed_paths: ["src/read.go"], write_allowed_paths: [] };
+    const rule = { id: "owner-projection-storage-access", table: "records", scan_paths: ["src/**"], read_allowed_paths: ["src/*.go"], write_allowed_paths: [] };
     const files = [{ relative: "src/read.go", content: "package fixture\nconst sql = `SELECT * FROM records FOR UPDATE`" }];
+    assert.throws(()=>prepareBoundaryPolicy(emptyPolicy({sql_table_access:[{...rule,read_allowed_paths:["src/read.go"]}]})),/exact package capabilities/);
     const omitted = prepareBoundaryPolicy(emptyPolicy({ sql_table_access: [rule] }));
     assert.deepEqual(evaluateBoundaryPolicy(omitted, { files }).violations, []);
     const forbidden = prepareBoundaryPolicy(emptyPolicy({ sql_table_access: [{ ...rule, lock_allowed_paths: [] }] }));

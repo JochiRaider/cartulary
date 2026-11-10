@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type Provider struct{}
@@ -19,7 +20,7 @@ func (*Provider) CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.
 	output, err := exportprovider.CollectQueryProviderOutputTx(ctx, tx, incidentID, "parties", supportRefs, []exportprovider.FieldQuery{{
 		Prefix:                       "parties",
 		DisclosurePartitionRefPrefix: "party:",
-		SQL: `SELECT p.record_id::text, 'party'::text, r.record_type::text, 'source_evidence'::text, jsonb_build_object(
+		SQL: sqlshape.Literal(`SELECT p.record_id::text, 'party'::text, r.record_type::text, 'source_evidence'::text, jsonb_build_object(
        'record_id', p.record_id,
        'display_name', p.display_name,
        'party_kind', p.party_kind,
@@ -34,7 +35,7 @@ func (*Provider) CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.
    )
   FROM parties p
   JOIN records r ON r.incident_id = p.incident_id AND r.record_id = p.record_id AND r.deleted_at IS NULL
- WHERE p.incident_id = $1`,
+ WHERE p.incident_id = $1`),
 	}})
 	if err != nil {
 		return exportprovider.ProviderOutput{}, err

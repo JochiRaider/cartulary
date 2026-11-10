@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	evidencefacts "github.com/JochiRaider/cartulary/internal/modules/evidence/timelinefacts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
@@ -33,7 +33,7 @@ func TestReaderMapsFactsLosslesslyInOrder(t *testing.T) {
 		AttachedEvidenceIDs: append([]uuid.UUID(nil), evidenceIDs...),
 		ReplacementRecordID: &replacementID,
 	}
-	evidenceFacts := []evidence.TimelineFact{
+	evidenceFacts := []evidencefacts.TimelineFact{
 		{RecordID: evidenceIDs[0], Title: "Disk image", LifecycleState: "available", UploadState: "available"},
 		{RecordID: evidenceIDs[1], Title: "Memory capture", LifecycleState: "quarantined", UploadState: "quarantined"},
 	}
@@ -178,11 +178,11 @@ type evidenceReaderStub struct {
 	events    *[]string
 	tx        pgx.Tx
 	recordIDs []uuid.UUID
-	facts     []evidence.TimelineFact
+	facts     []evidencefacts.TimelineFact
 	err       error
 }
 
-func (reader *evidenceReaderStub) LoadTx(_ context.Context, tx pgx.Tx, _ uuid.UUID, recordIDs []uuid.UUID) ([]evidence.TimelineFact, error) {
+func (reader *evidenceReaderStub) LoadTx(_ context.Context, tx pgx.Tx, _ uuid.UUID, recordIDs []uuid.UUID) ([]evidencefacts.TimelineFact, error) {
 	if reader.events != nil {
 		*reader.events = append(*reader.events, "evidence")
 	}

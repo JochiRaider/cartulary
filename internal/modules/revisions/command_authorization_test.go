@@ -11,12 +11,12 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
 type commandTransactionWitness struct {
-	postgres.DB
+	dbport.DB
 	tx     *commandObservedTx
 	begins int
 }

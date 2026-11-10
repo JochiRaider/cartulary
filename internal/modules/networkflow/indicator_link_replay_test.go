@@ -11,13 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // The authenticated route fixture supplies a real committed receipt and owners.
@@ -257,7 +258,7 @@ func (p *linkReplayAdmissionProbe) Check(ctx context.Context, incident, actor uu
 }
 
 type linkReplayReceiptDB struct {
-	postgres.DB
+	dbport.DB
 	calls              int
 	hideFirst, hideAll bool
 }
@@ -275,7 +276,7 @@ type missingLinkReceiptRow struct{}
 func (missingLinkReceiptRow) Scan(...any) error { return pgx.ErrNoRows }
 
 type linkReplayBackend struct {
-	db                                 postgres.DB
+	db                                 dbport.DB
 	err                                error
 	change                             func()
 	beforeRollback                     func()

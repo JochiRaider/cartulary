@@ -9,7 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type CreateRequest = createRequest
@@ -34,7 +34,7 @@ type Store struct {
 	application *savedViewApplication
 }
 
-func NewStore(pool postgres.DB) *Store {
+func NewStore(pool dbport.DB) *Store {
 	return &Store{application: newSavedViewApplication(newPostgresSavedViewRepository(pool))}
 }
 

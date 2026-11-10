@@ -19,6 +19,14 @@
       ]
     },
     {
+      "verification_id": "module.reporting.verification.owner_boundaries",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
       "verification_id": "module.reporting.verification.render_progress_measurement",
       "behavior_class": "product",
       "profile": "extension.snapshot_reporting",

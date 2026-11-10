@@ -1,36 +1,14 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { createSourceAdmission } from "./source-admission.mjs";
 import path from "node:path";
 import { backendRuntimeExcludePatterns, readSupportInventory } from "./support-inventory-profiles.mjs";
 import { normalizeExactFileSets, resolveExactFileSets, validateRepositoryRelativePath } from "./exact-file-sets.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
-import { inspectGoImports } from "./go-import-inspection.mjs";
-import { sqlStatements } from "./sql-relations.mjs";
+import { inspectGoImports, inspectGoSQL } from "./go-import-inspection.mjs";
+import { sqlStatements, analyzedSQLStatements } from "./sql-relations.mjs";
 
 const manifestSchemaID = "cartulary.backend_module_boundaries.v4";
 const sourceExtensions = new Set([".go", ".mjs", ".js", ".sh", ".sql"]);
-const ignoredDirectoryNames = new Set([
-  ".cache",
-  ".git",
-  "coverage",
-  "dist",
-  "node_modules",
-  "playwright-report",
-  "test-results",
-  "tmp",
-]);
-
-function resolvePath(root, value) {
-  return path.isAbsolute(value) ? value : path.join(root, value);
-}
-
-function normalizePath(value) {
-  return value.split(path.sep).join("/");
-}
-
-function repoRelative(root, value) {
-  return normalizePath(path.relative(root, value));
-}
-
 function strings(values) {
   return values.map((value) => value.trim());
 }
@@ -53,10 +31,25 @@ function prepareImportRule(rule) {
   };
 }
 
+function declarationCapability(entry) {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?$/u.test(entry.declaration)) {
+    throw new Error("SQL capability requires an exact declaration identity");
+  }
+  return { package: validateRepositoryRelativePath(entry.package), declaration: entry.declaration };
+}
+
 export function prepareBoundaryPolicy(raw) {
   validateSchemaSync(manifestSchemaID, raw);
   const manifest = {
     scanRoots: roots(raw.scan_roots), scanExcludes: paths(raw.scan_excludes),
+    sqlControlCapabilities: raw.sql_control_capabilities.map((entry) => {
+      const statements = sqlStatements(entry.sql);
+      if (statements.length !== 1 || statements[0].dynamic || statements[0].controls.length === 0 || statements[0].accesses.length !== 0) {
+        throw new Error("SQL control capability requires a static control-only command");
+      }
+      return { ...declarationCapability(entry), key: statements[0].key };
+    }),
+    sqlForwardingCapabilities: raw.sql_forwarding_capabilities.map((entry) => ({ ...declarationCapability(entry), testSupport: entry.test_support })),
     exactFileSets: normalizeExactFileSets(raw.exact_file_sets),
     migrationSourceBoundary: {
       scanRoots: roots(raw.migration_source_boundary.scan_roots),
@@ -103,7 +96,7 @@ export function prepareBoundaryPolicy(raw) {
         if (statement.length !== 1 || statement[0].dynamic || !statement[0].accesses.some((access) => access.table === rule.table && access.operation === "read") || statement[0].accesses.some((access) => access.table === rule.table && access.operation !== "read")) {
           throw new Error(`${rule.id}: statement grant must declare a static read of ${rule.table}`);
         }
-        return { path: validateRepositoryRelativePath(entry.path), key: statement[0].key };
+        return { ...declarationCapability(entry), key: statement[0].key };
       }),
       lockAllowedPaths: rule.lock_allowed_paths === undefined ? null : paths(rule.lock_allowed_paths),
     })),
@@ -132,12 +125,20 @@ export function prepareBoundaryPolicy(raw) {
     }
   }
   for (const rule of manifest.sqlTableAccess) {
+    if (rule.id.endsWith("-projection-storage-access") || rule.id.startsWith("reporting-external-") || ["records-current-envelope-access","timeline-source-owner-access"].includes(rule.id)) {
+      for (const grant of [...rule.readAllowedPaths, ...rule.writeAllowedPaths, ...(rule.lockAllowedPaths ?? [])]) {
+        if (!grant.endsWith("/*.go") || grant.slice(0, -5).includes("*")) {
+          throw new Error(`${rule.id}: production SQL grants require exact package capabilities`);
+        }
+      }
+    }
     const seen = new Set();
     for (const entry of rule.readAllowedStatements) {
-      if (entry.path.includes('*') || !pathMatchesAny(entry.path, rule.scanPaths) || pathMatchesAny(entry.path, rule.readAllowedPaths)) {
-        throw new Error(`${rule.id}: statement grant requires an exact scanned path without a blanket read grant`);
+      const candidate = `${entry.package}/capability.go`;
+      if (entry.package.includes('*') || !pathMatchesAny(candidate, rule.scanPaths) || pathMatchesAny(candidate, rule.readAllowedPaths)) {
+        throw new Error(`${rule.id}: statement grant requires an exact scanned package without a blanket read grant`);
       }
-      const identity = `${entry.path}:${entry.key}`;
+      const identity = `${entry.package}:${entry.declaration}:${entry.key}`;
       if (seen.has(identity)) throw new Error(`${rule.id}: duplicate statement grant`);
       seen.add(identity);
     }
@@ -145,37 +146,38 @@ export function prepareBoundaryPolicy(raw) {
   return manifest;
 }
 
-function collectFiles(root, roots, excludes) {
-  const files = [];
-  for (const scanRoot of roots) {
-    const absolute = resolvePath(root, scanRoot);
-    if (!existsSync(absolute)) {
-      continue;
+function collectFiles(admission, roots, excludes, label) {
+  const files = new Map();
+  function walk(directory) {
+    for (const entry of admission.entries(directory, label)) {
+      const relative = `${directory}/${entry.name}`;
+      if (isExcluded(relative, excludes)) continue;
+      if (entry.isDirectory()) { walk(relative); continue; }
+      if (sourceExtensions.has(path.extname(entry.name))) files.set(relative, admission.file(relative, label));
     }
-    walk(root, absolute, excludes, files);
   }
-  return files.sort((left, right) => left.relative.localeCompare(right.relative));
+  for (const scanRoot of roots) {
+    admission.directory(scanRoot, label);
+    walk(scanRoot);
+  }
+  return [...files.values()].sort((a,b)=>a.relative.localeCompare(b.relative));
 }
 
-function walk(root, directory, excludes, files) {
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const absolute = path.join(directory, entry.name);
-    const relative = repoRelative(root, absolute);
-    if (entry.isDirectory()) {
-      if (ignoredDirectoryNames.has(entry.name) || isExcluded(relative, excludes)) {
-        continue;
-      }
-      walk(root, absolute, excludes, files);
-      continue;
+// Generated Go still defines executable types and SQL. Its exclusion from
+// authored-source architecture rules must not remove it from SQL analysis.
+export function collectGeneratedSQLSources(root, admission = createSourceAdmission(root)) {
+  const files=[];
+  function visit(directory) {
+    for(const entry of admission.entries(directory, "generated SQL source")) {
+      const relative=`${directory}/${entry.name}`;
+      if(entry.isDirectory()) {visit(relative);continue;}
+      if(!entry.name.endsWith('.go') || entry.name.endsWith('_test.go')) continue;
+      const {content}=admission.file(relative, "generated SQL source");
+      files.push({relative,content});
     }
-    if (!entry.isFile() || !sourceExtensions.has(path.extname(entry.name))) {
-      continue;
-    }
-    if (isExcluded(relative, excludes)) {
-      continue;
-    }
-    files.push({ absolute, relative, content: readFileSync(absolute, "utf8") });
   }
+  visit('internal/gen');
+  return files.sort((a,b)=>a.relative.localeCompare(b.relative));
 }
 
 function isExcluded(relative, patterns) {
@@ -387,7 +389,7 @@ function checkSourceTableAccess(files, rules, sql) {
         continue;
       }
       for (const table of rule.tables) {
-        if (sql.relations(file.content).some((access) => access.table === table)) {
+        if (sql.relations(file).some((access) => access.table === table)) {
           violations.push(violation("source_table_access", file, table));
         }
       }
@@ -431,7 +433,7 @@ function checkSQLTableAllowlists(files, rules, sql) {
       if (!rule.scanPaths.some((pattern) => matchesPattern(file.relative, pattern))) {
         continue;
       }
-      for (const table of [...new Set(sql.relations(file.content).map((access) => access.table))].sort()) {
+      for (const table of [...new Set(sql.relations(file).map((access) => access.table))].sort()) {
         if (!rule.allowedTables.has(table)) {
           violations.push(violation("sql_table_allowlist", file, table));
         }
@@ -454,18 +456,13 @@ function checkSQLTableAccess(files, rules, sql, accessScope = "production", comp
       if (!pathMatchesAny(file.relative, rule.scanPaths)) {
         continue;
       }
-      const grants = accessScope === "production" ? (rule.readAllowedStatements ?? []).filter((entry) => entry.path === file.relative) : [];
-      const statements = sql.statements(file.content);
-      for (const grant of grants) {
-        if (!statements.some((statement) => !statement.dynamic && statement.key === grant.key)) {
-          violations.push(violation("sql_statement_grant_stale", file, rule.table, { rule_id: rule.id }));
-        }
-      }
+      const grants = accessScope === "production" ? (rule.readAllowedStatements ?? []).filter((entry) => entry.package === path.posix.dirname(file.relative)) : [];
+      const statements = sql.statements(file);
       for (const statement of statements) {
         if (grants.length && statement.accesses.some((access) => access.dynamic)) {
           violations.push(violation("sql_statement_dynamic", file, rule.table, { rule_id: rule.id }));
         }
-        const granted = !statement.dynamic && grants.some((entry) => entry.key === statement.key);
+        const granted = !statement.dynamic && grants.some((entry) => entry.key === statement.key && entry.declaration === statement.declaration);
         for (const access of statement.accesses) {
           if (access.table !== rule.table || access.operation === "lock") continue;
           const allowedPaths = access.operation === "read"
@@ -484,7 +481,7 @@ function checkSQLTableAccess(files, rules, sql, accessScope = "production", comp
       const lockAllowedPaths = accessScope === "test_fixture" ? [] : rule.lockAllowedPaths;
       if (
         lockAllowedPaths !== null &&
-        sql.relations(file.content).some((access) => access.table === rule.table && access.operation === "lock") &&
+        sql.relations(file).some((access) => access.table === rule.table && access.operation === "lock") &&
         !pathMatchesAny(file.relative, lockAllowedPaths)
       ) {
         violations.push(
@@ -496,10 +493,18 @@ function checkSQLTableAccess(files, rules, sql, accessScope = "production", comp
       }
     }
   }
-  if (completeSourceSet && accessScope === "production") {
+  if (accessScope === "production") {
+    if (completeSourceSet) for (const rule of rules) {
+      for (const grant of new Set([...rule.readAllowedPaths, ...rule.writeAllowedPaths, ...(rule.lockAllowedPaths ?? [])])) {
+        if (grant.endsWith("/*.go") && !sourceFiles.some(file=>matchesPattern(file.relative,grant))) {
+          violations.push(violation("sql_package_grant_stale", {relative:grant.slice(0,-5)}, rule.table, {rule_id:rule.id}));
+        }
+      }
+    }
     for (const rule of rules) for (const entry of rule.readAllowedStatements ?? []) {
-      if (!sourceFiles.some((file) => file.relative === entry.path)) {
-        violations.push(violation("sql_statement_grant_stale", { relative: entry.path }, rule.table, { rule_id: rule.id }));
+      const candidates = sourceFiles.filter(file => path.posix.dirname(file.relative) === entry.package);
+      if ((completeSourceSet || candidates.length > 0) && !candidates.some(file => sql.statements(file).some(statement => !statement.dynamic && statement.key === entry.key && statement.declaration === entry.declaration))) {
+        violations.push(violation("sql_statement_grant_stale", { relative: entry.package }, rule.table, { rule_id: rule.id, declaration: entry.declaration }));
       }
     }
   }
@@ -724,16 +729,46 @@ function checkForbiddenTestBuildTokens(files, tokens) {
 
 /** Evaluate explicit source collections; no filesystem or process side effects. */
 export function evaluateBoundaryPolicy(manifest, {
-  files = [], migrationBoundaryFiles = [], testSupportFiles = [], exactFilesByID = new Map(), importsByPath = new Map(), completeSourceSet = false,
+  files = [], migrationBoundaryFiles = [], testSupportFiles = [], sqlAdditionalFiles = [], exactFilesByID = new Map(), importsByPath = new Map(), sqlByPath = new Map(), completeSourceSet = false,
 } = {}) {
+  const sqlFiles=[...files,...sqlAdditionalFiles];
   const cache = new Map();
+  const constructionFailures = [];
+  const usedForwarders = new Set();
+  const usedControls = new Set();
   const sql = {
-    statements(content) {
-      if (!cache.has(content)) cache.set(content, sqlStatements(content));
-      return cache.get(content);
+    statements(file) {
+      if (!cache.has(file.relative)) {
+        if (file.relative.endsWith(".go")) {
+          if (!sqlByPath.has(file.relative)) throw new Error(`missing parsed SQL for ${file.relative}`);
+          const statements=[];
+          for (const entry of sqlByPath.get(file.relative)) {
+            try {
+              const grant=manifest.sqlForwardingCapabilities?.find(cap=>path.posix.dirname(file.relative)===cap.package && entry.name===cap.declaration && cap.testSupport===testSupportFiles.some(support=>support.relative===file.relative));
+              const qualified=entry.sql.filter(expression=>{
+                if(expression.kind!=="forward" || !grant) return true;
+                usedForwarders.add(grant);
+                return false;
+              });
+              for(const statement of analyzedSQLStatements([{...entry,sql:qualified}])) {
+                if(statement.controls?.length){
+                  const authority=manifest.sqlControlCapabilities?.find(cap=>cap.package===path.posix.dirname(file.relative)&&cap.declaration===entry.name&&cap.key===statement.key);
+                  if(!authority) constructionFailures.push(violation("sql_control_access",file,entry.name));
+                  else usedControls.add(authority);
+                }
+                statements.push(statement);
+              }
+            }
+            catch(error) { constructionFailures.push(violation("sql_construction_unresolved",file,entry.name,{detail:error.message})); }
+          }
+          cache.set(file.relative,statements);
+        } else cache.set(file.relative,sqlStatements(file.content));
+      }
+      return cache.get(file.relative);
     },
-    relations(content) { return this.statements(content).flatMap((statement) => statement.accesses); },
+    relations(file) { return this.statements(file).flatMap(statement=>statement.accesses); },
   };
+  if (completeSourceSet || manifest.sqlForwardingCapabilities?.length || sqlAdditionalFiles.length) for (const file of sqlFiles) if (file.relative.endsWith(".go") && !file.relative.endsWith("_test.go")) sql.statements(file);
   const projectionStorageRules = manifest.sqlTableAccess.filter((rule) =>
     rule.id.endsWith("-projection-storage-access"),
   );
@@ -743,10 +778,10 @@ export function evaluateBoundaryPolicy(manifest, {
     ...checkForbiddenRouteDependencies(files, manifest.forbiddenRouteDependencies, importsByPath),
     ...checkForbiddenGoImports(files, manifest.forbiddenGoImports, importsByPath),
     ...checkGoImportAllowlists(files, manifest.goImportAllowlists, importsByPath),
-    ...checkSourceTableAccess(files, manifest.sourceTableAccess, sql),
+    ...checkSourceTableAccess(sqlFiles, manifest.sourceTableAccess, sql),
     ...checkForbiddenSourceMappings(files, manifest.forbiddenSourceMappings),
-    ...checkSQLTableAllowlists(files, manifest.sqlTableAllowlists, sql),
-    ...checkSQLTableAccess(files, manifest.sqlTableAccess, sql, "production", completeSourceSet),
+    ...checkSQLTableAllowlists(sqlFiles, manifest.sqlTableAllowlists, sql),
+    ...checkSQLTableAccess(sqlFiles, manifest.sqlTableAccess, sql, "production", completeSourceSet),
     ...checkSQLTableAccess(testSupportFiles, projectionStorageRules, sql, "test_fixture"),
     ...checkForbiddenGoCalls(files, manifest.forbiddenGoCalls),
     ...checkCommandRootShape(files, manifest.commandRootShape),
@@ -763,6 +798,9 @@ export function evaluateBoundaryPolicy(manifest, {
       manifest.migrationSourceBoundary.forbiddenDeclarations,
     ),
     ...checkExactGoCalls(migrationBoundaryFiles, manifest.migrationSourceBoundary.exactCalls),
+    ...constructionFailures,
+    ...(completeSourceSet ? (manifest.sqlControlCapabilities??[]).filter(grant=>!usedControls.has(grant)).map(grant=>({code:"stale_sql_control_grant",path:grant.package,symbol_or_import:grant.declaration})) : []),
+    ...(completeSourceSet ? (manifest.sqlForwardingCapabilities??[]).filter(grant=>!usedForwarders.has(grant)).map(grant=>({code:"stale_sql_forwarder",path:grant.package,symbol_or_import:grant.declaration})) : []),
   ].sort((left, right) => {
     return (
       left.code.localeCompare(right.code) ||
@@ -773,8 +811,8 @@ export function evaluateBoundaryPolicy(manifest, {
   return {
     violations,
     // Dynamic targets are unproven observations, never physical table names.
-    dynamicRelationSources: files.filter((file) => cache.has(file.content))
-      .flatMap((file) => sql.relations(file.content).filter((access) => access.dynamic)
+    dynamicRelationSources: sqlFiles.filter((file) => cache.has(file.relative))
+      .flatMap((file) => sql.relations(file).filter((access) => access.dynamic)
         .map((access) => ({ path: file.relative, operation: access.operation }))),
   };
 }
@@ -785,23 +823,26 @@ export function inspectBackendBoundaries(options) {
   const supportInventory = readSupportInventory(options.root, options.supportInventory);
   const inventoryScanExcludes = backendRuntimeExcludePatterns(supportInventory);
   const scanExcludes = appendUnique(manifest.scanExcludes, inventoryScanExcludes);
-  const files = collectFiles(options.root, manifest.scanRoots, scanExcludes);
-  const exactFilesByID = resolveExactFileSets(options.root, manifest.exactFileSets);
+  const admission = createSourceAdmission(options.root);
+  const files = collectFiles(admission, manifest.scanRoots, scanExcludes, "backend source root");
+  const exactFilesByID = resolveExactFileSets(options.root, manifest.exactFileSets, admission);
   const migrationBoundaryFiles = collectFiles(
-    options.root,
+    admission,
     manifest.migrationSourceBoundary.scanRoots,
     scanExcludes,
+    "migration source root",
   );
   const testSupportRoots = supportInventory.roots
     .filter((entry) => entry.runtimeScan === "excluded" && entry.supportScan === "included")
     .map((entry) => entry.path);
-  const testSupportFiles = collectFiles(options.root, testSupportRoots, manifest.scanExcludes);
+  const testSupportFiles = collectFiles(admission, testSupportRoots, manifest.scanExcludes, "support source root");
+  const sqlAdditionalFiles=collectGeneratedSQLSources(options.root, admission);
   return {
     manifestRawContent,
     supportInventoryRaw: supportInventory.raw,
     effectiveScanExcludes: scanExcludes,
-    ...evaluateBoundaryPolicy(manifest, { files, migrationBoundaryFiles, testSupportFiles, exactFilesByID,
-      importsByPath: inspectGoImports([files, migrationBoundaryFiles]), completeSourceSet: true,
+    ...evaluateBoundaryPolicy(manifest, { files, migrationBoundaryFiles, testSupportFiles, sqlAdditionalFiles, exactFilesByID,
+      importsByPath: inspectGoImports([files, migrationBoundaryFiles]), sqlByPath: inspectGoSQL([[...files,...testSupportFiles,...sqlAdditionalFiles].filter(file=>!file.relative.endsWith("_test.go"))]), completeSourceSet: true,
     }),
   };
 }

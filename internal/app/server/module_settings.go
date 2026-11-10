@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type applicationSettingsProjection struct {
@@ -25,7 +25,7 @@ func newApplicationSettingsProjection(cfg configassembly.Deployment) application
 }
 
 func (projection applicationSettingsProjection) Collaboration(
-	db postgres.DB,
+	db dbport.DB,
 	transport collaborationSocketTransport,
 	now func() time.Time,
 ) collaboration.Options {

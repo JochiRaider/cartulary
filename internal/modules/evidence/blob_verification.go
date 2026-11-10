@@ -15,7 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 const blobVerificationJobKind = "evidence.verify_blob_v1"
@@ -48,7 +48,7 @@ type blobVerificationRunner interface {
 	Notify(uuid.UUID)
 }
 type blobVerificationService struct {
-	db           postgres.DB
+	db           dbport.DB
 	objects      blobVerificationObjectReader
 	transactions blobVerificationTransactions
 	manager      blobVerificationManager

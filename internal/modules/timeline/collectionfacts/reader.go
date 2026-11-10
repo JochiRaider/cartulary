@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	evidencefacts "github.com/JochiRaider/cartulary/internal/modules/evidence/timelinefacts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
@@ -39,7 +39,7 @@ type LinkReader interface {
 }
 
 type EvidenceReader interface {
-	LoadTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) ([]evidence.TimelineFact, error)
+	LoadTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) ([]evidencefacts.TimelineFact, error)
 }
 
 // Reader loads Timeline collection facts in their authoritative dependency

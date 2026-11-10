@@ -14,7 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -34,7 +34,7 @@ type ownerApplication interface {
 }
 
 type recordEnvelopeReader interface {
-	LoadEnvelope(context.Context, uuid.UUID) (records.Envelope, error)
+	LoadEnvelope(context.Context, uuid.UUID) (recordenvelope.Envelope, error)
 }
 
 type incidentAdmission interface {
@@ -386,20 +386,20 @@ func (s *service) authenticate(w http.ResponseWriter, r *http.Request, changing 
 	return principal, true
 }
 
-func (s *service) visibleEnvelope(ctx context.Context, actorID uuid.UUID, recordID uuid.UUID, expectedType string, mutation bool) (records.Envelope, *platformhttpapi.APIError) {
+func (s *service) visibleEnvelope(ctx context.Context, actorID uuid.UUID, recordID uuid.UUID, expectedType string, mutation bool) (recordenvelope.Envelope, *platformhttpapi.APIError) {
 	envelope, err := s.records.LoadEnvelope(ctx, recordID)
 	if err != nil || envelope.DeletedAt != nil || (expectedType != "" && envelope.RecordType != expectedType) {
 		if expectedType == "indicator" {
-			return records.Envelope{}, indicatorNotFoundError()
+			return recordenvelope.Envelope{}, indicatorNotFoundError()
 		}
-		return records.Envelope{}, indicatorSourceNotFoundError()
+		return recordenvelope.Envelope{}, indicatorSourceNotFoundError()
 	}
 	if mutation {
 		if _, apiErr := requireIncidentAdmission(ctx, s.incidents, envelope.IncidentID, actorID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
-			return records.Envelope{}, apiErr
+			return recordenvelope.Envelope{}, apiErr
 		}
 	} else if _, apiErr := requireIncidentAdmission(ctx, s.incidents, envelope.IncidentID, actorID, admission.RolesMember, "member"); apiErr != nil {
-		return records.Envelope{}, apiErr
+		return recordenvelope.Envelope{}, apiErr
 	}
 	return envelope, nil
 }

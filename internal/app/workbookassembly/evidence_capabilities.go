@@ -20,7 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type evidenceIdempotency struct {
@@ -108,7 +108,7 @@ func evidenceLifecycleStatus(operation evidence.LifecycleOperationID) (int, bool
 	}
 }
 
-func NewEvidenceLifecycleIdempotencyCapability(pool postgres.DB) evidence.LifecycleIdempotencyCapability {
+func NewEvidenceLifecycleIdempotencyCapability(pool dbport.DB) evidence.LifecycleIdempotencyCapability {
 	return evidenceLifecycleIdempotency{store: authn.NewStore(pool)}
 }
 
@@ -309,7 +309,7 @@ func (adapter evidenceRevisions) LoadRevisionWindowTx(ctx context.Context, tx pg
 }
 
 func NewEvidenceMutationDependencies(
-	pool postgres.DB,
+	pool dbport.DB,
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,
 	keepSaved conflicttokens.IdempotencyPort,

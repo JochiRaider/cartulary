@@ -10,15 +10,17 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/platform/maintenancequery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type VNextSnapshotRepository struct {
-	db postgres.DB
+	db dbport.DB
 }
 
-func NewVNextSnapshotRepository(db postgres.DB) *VNextSnapshotRepository {
+func NewVNextSnapshotRepository(db dbport.DB) *VNextSnapshotRepository {
 	return &VNextSnapshotRepository{db: db}
 }
 
@@ -67,12 +69,12 @@ func (snapshot vNextSnapshot) StreamCanonicalTableRows(
 	if visit == nil {
 		return fmt.Errorf("%w: row visitor is required", recovery.ErrVNextBackup)
 	}
-	identifier := pgx.Identifier{tableName}.Sanitize()
-	query := fmt.Sprintf(
-		"SELECT to_jsonb(snapshot_row) FROM %s snapshot_row ORDER BY to_jsonb(snapshot_row)::text ASC",
-		identifier,
-	)
-	rows, err := snapshot.tx.Query(ctx, query)
+	from, err := maintenancequery.From(tableName)
+	if err != nil {
+		return err
+	}
+	query := sqlshape.Format("SELECT to_jsonb(snapshot_row) %s snapshot_row ORDER BY to_jsonb(snapshot_row)::text ASC", from)
+	rows, err := snapshot.tx.Query(ctx, sqlshape.Text(query))
 	if err != nil {
 		return fmt.Errorf("query vNext snapshot table %s: %w", tableName, err)
 	}
@@ -94,10 +96,10 @@ func (snapshot vNextSnapshot) StreamCanonicalTableRows(
 
 func (snapshot vNextSnapshot) QueryRows(
 	ctx context.Context,
-	query string,
+	query sqlshape.Fragment,
 	args ...any,
 ) (recovery.VNextRows, error) {
-	return snapshot.tx.Query(ctx, query, args...)
+	return snapshot.tx.Query(ctx, sqlshape.Text(query), args...)
 }
 
 type VNextObjectSource struct {

@@ -11,7 +11,7 @@ import (
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
@@ -27,7 +27,7 @@ type Owners struct {
 // NewOwners composes owner mutation and query facades for a harness-owned
 // database through the same revision, projection, and conflict boundaries as
 // production application assembly, without starting HTTP transport.
-func NewOwners(pool postgres.DB, objects objectstore.TypedStore, conflictTokens conflicttokens.ConflictTokenCodec) (*Owners, error) {
+func NewOwners(pool dbport.DB, objects objectstore.TypedStore, conflictTokens conflicttokens.ConflictTokenCodec) (*Owners, error) {
 	intents := collaborationsupport.NewRecordChangedAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {

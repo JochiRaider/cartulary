@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	recordsmodule "github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
@@ -331,7 +331,7 @@ func loadSupersedeRecordMetaForUpdateTx(
 	recordID uuid.UUID,
 ) (supersedeRecordMeta, error) {
 	envelope, err := envelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
-	if errors.Is(err, recordsmodule.ErrEnvelopeNotFound) {
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return supersedeRecordMeta{}, pgx.ErrNoRows
 	}
 	if err != nil {

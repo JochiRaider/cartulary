@@ -9,17 +9,18 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 )
 
 type targetServingAdmission struct {
 	admission *processlease.RecoveryTargetAdmission
-	database  postgres.DB
+	database  dbport.DB
 	ctx       context.Context
 	cancel    context.CancelCauseFunc
 }
 
-func (admission *targetServingAdmission) TargetDatabase() postgres.DB {
+func (admission *targetServingAdmission) TargetDatabase() dbport.DB {
 	if admission == nil {
 		return nil
 	}

@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
@@ -29,7 +29,7 @@ const (
 )
 
 type revisionsPortabilityHarness struct {
-	db         postgres.DB
+	db         dbport.DB
 	actor      authn.UserRecord
 	incidentID uuid.UUID
 	recordID   uuid.UUID

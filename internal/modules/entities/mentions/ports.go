@@ -20,19 +20,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	mentioneffects "github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
 type Store struct {
-	pool           postgres.DB
+	pool           dbport.DB
 	authStore      *authn.Store
 	incidentAccess *admission.Checker
 	ports          storePorts
 }
 
 type StoreDependencies struct {
-	Postgres      postgres.DB
+	Postgres      dbport.DB
 	Revisions     *revisions.Appender
 	Links         LinkOperationsPort
 	Projections   projectionports.MutationRows

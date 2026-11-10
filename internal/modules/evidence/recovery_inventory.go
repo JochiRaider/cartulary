@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func VNextRecoveryObjectInventory(
@@ -15,7 +16,7 @@ func VNextRecoveryObjectInventory(
 		"evidence.blobs",
 		"evidence.snapshot_blob_inventory.v1",
 		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
-			rows, err := snapshot.QueryRows(ctx, `
+			rows, err := snapshot.QueryRows(ctx, sqlshape.Literal(`
 SELECT object_blob_id::text, storage_key,
        COALESCE(observed_content_type, content_type_hint, 'application/octet-stream'),
        observed_size, observed_sha256_hex
@@ -24,7 +25,7 @@ SELECT object_blob_id::text, storage_key,
    AND observed_size IS NOT NULL
    AND observed_sha256_hex IS NOT NULL
  ORDER BY object_blob_id ASC
-`)
+`))
 			if err != nil {
 				return nil, fmt.Errorf("inventory Evidence recovery objects: %w", err)
 			}

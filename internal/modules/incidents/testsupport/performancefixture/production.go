@@ -12,7 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type ProductionApplication struct {
@@ -20,7 +20,7 @@ type ProductionApplication struct {
 	incidents *incidents.Application
 }
 
-func NewProductionApplication(pool postgres.DB, actor authn.UserRecord) (*ProductionApplication, error) {
+func NewProductionApplication(pool dbport.DB, actor authn.UserRecord) (*ProductionApplication, error) {
 	if pool == nil {
 		return nil, fmt.Errorf("incidents performance fixture Postgres is required")
 	}

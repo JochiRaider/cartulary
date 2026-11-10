@@ -103,6 +103,7 @@
           "Network Flow import ownership admits one upload synchronously and keeps preview separate from durable approval",
           "Network Flow import ownership blocks changed profiles and incomplete mappings while keeping preview rejection counts separate",
           "Network Flow import ownership discards stale preview success and failure after a candidate changes",
+          "Network Flow import ownership gates actual discovery on availability and consumes generated target identity",
           "Network Flow import ownership invalidates approval applicability on fingerprint mismatch without selecting or applying",
           "Network Flow import ownership preserves copyable drafts on write loss and closure and purges replaced authority",
           "Network Flow import ownership retains the immutable submitted candidate and typed definite rejection"

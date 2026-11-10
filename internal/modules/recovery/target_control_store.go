@@ -3,11 +3,11 @@ package recovery
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
-	"strings"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 var ErrTargetControlConflict = errors.New("recovery: target control changed")
@@ -146,16 +146,16 @@ func advanceTargetControlInTransaction(ctx context.Context, tx TargetControlTran
 	}
 	values := targetControlValues(next)
 	count := len(values)
-	assign, compare := make([]string, count), make([]string, count)
+	assign, compare := make([]sqlshape.Fragment, count), make([]sqlshape.Fragment, count)
 	for i := range count {
-		assign[i] = fmt.Sprintf("$%d", i+1)
-		compare[i] = fmt.Sprintf("$%d", count+i+1)
+		assign[i] = sqlshape.Parameter(i + 1)
+		compare[i] = sqlshape.Parameter(count + i + 1)
 	}
-	query := fmt.Sprintf(`UPDATE public.recovery_target_state SET (%s)=(%s)
+	query := sqlshape.Command(`UPDATE public.recovery_target_state SET (%s)=(%s)
  WHERE singleton AND (%s) IS NOT DISTINCT FROM (%s)
- AND (SELECT count(*) FROM public.recovery_target_state)=1`, targetControlColumns, strings.Join(assign, ","), targetControlColumns, strings.Join(compare, ","))
+ AND (SELECT count(*) FROM public.recovery_target_state)=1`, sqlshape.Literal(targetControlColumns), sqlshape.Join(assign, sqlshape.Literal(",")), sqlshape.Literal(targetControlColumns), sqlshape.Join(compare, sqlshape.Literal(",")))
 	values = append(values, targetControlValues(expected)...)
-	tag, err := tx.Exec(ctx, query, values...)
+	tag, err := tx.Exec(ctx, sqlshape.CommandText(query), values...)
 	if err != nil {
 		return TargetControl{}, err
 	}

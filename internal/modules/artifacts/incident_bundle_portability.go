@@ -6,9 +6,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"fmt"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func exportIncidentBundleFiles(ctx context.Context, input sourceport.ExportContext) error {
@@ -25,7 +25,10 @@ func exportIncidentBundleFiles(ctx context.Context, input sourceport.ExportConte
 			return errInvalidSourceStateManifest
 		}
 		identity := relation.stableIdentity[0]
-		query := fmt.Sprintf("SELECT to_jsonb(t) FROM %s t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128", quoteSourceStateIdentifier(relation.tableName), quoteSourceStateIdentifier(identity), quoteSourceStateIdentifier(identity))
+		query, err := sourceExportQuery(relation.tableName, identity)
+		if err != nil {
+			return err
+		}
 		if err := sourceport.ExportAttributedRows(ctx, input, sourceport.AttributedRows{Path: relation.logicalBundlePath, Table: relation.tableName, Identity: identity, ActorColumns: actors[relation.tableName], Query: query}); err != nil {
 			return err
 		}
@@ -45,4 +48,22 @@ func importIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files incidentp
 		}
 	}
 	return nil
+}
+
+func sourceExportQuery(table, identity string) (sqlshape.Fragment, error) {
+	column := sqlshape.Identifier(identity)
+	switch table {
+	case "artifacts":
+		return sqlshape.Format(`SELECT to_jsonb(t) FROM "artifacts" t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128`, column, column), nil
+	case "artifact_findings":
+		return sqlshape.Format(`SELECT to_jsonb(t) FROM "artifact_findings" t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128`, column, column), nil
+	case "artifact_investigative_queries":
+		return sqlshape.Format(`SELECT to_jsonb(t) FROM "artifact_investigative_queries" t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128`, column, column), nil
+	case "artifact_forensic_keywords":
+		return sqlshape.Format(`SELECT to_jsonb(t) FROM "artifact_forensic_keywords" t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128`, column, column), nil
+	case "handoff_risk_refs":
+		return sqlshape.Format(`SELECT to_jsonb(t) FROM "handoff_risk_refs" t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128`, column, column), nil
+	default:
+		return sqlshape.Fragment{}, errInvalidSourceStateManifest
+	}
 }

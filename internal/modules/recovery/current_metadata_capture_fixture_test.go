@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 )
 
@@ -67,7 +68,7 @@ func (emptyMetadataSnapshot) StreamCanonicalTableRows(ctx context.Context, _ str
 	return ctx.Err()
 }
 
-func (emptyMetadataSnapshot) QueryRows(ctx context.Context, _ string, _ ...any) (recovery.VNextRows, error) {
+func (emptyMetadataSnapshot) QueryRows(ctx context.Context, _ sqlshape.Fragment, _ ...any) (recovery.VNextRows, error) {
 	return emptyMetadataRows{}, ctx.Err()
 }
 

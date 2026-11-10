@@ -8,6 +8,7 @@
       "profile": "support",
       "evidence_kinds": [
         "go_test",
+        "shell",
         "static_check"
       ]
     },
@@ -41,6 +42,7 @@
       "profile": "support",
       "evidence_kinds": [
         "go_test",
+        "shell",
         "static_check"
       ]
     }

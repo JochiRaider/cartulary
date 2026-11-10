@@ -7,7 +7,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestAssessmentFacadeConstructionRejectsNilAndTypedNilDependencies(t *testing.T) {
@@ -126,7 +126,7 @@ func TestAssessmentFacadeConstructionRejectsNilAndTypedNilDependencies(t *testin
 		}
 	}
 
-	for _, database := range []postgres.DB{nil, (*typedNilDatabase)(nil)} {
+	for _, database := range []dbport.DB{nil, (*typedNilDatabase)(nil)} {
 		facade, err := assessments.NewFacade(database, validAssessmentFacadeDependencies())
 		if facade != nil || err == nil || err.Error() != "construct assessment facade: database is required" {
 			t.Fatalf("database construction = facade:%v err:%v", facade, err)
@@ -312,7 +312,7 @@ func validAssessmentImportDependencies() assessments.ImportCreateDependencies {
 	}
 }
 
-type assessmentConstructorDB struct{ postgres.DB }
+type assessmentConstructorDB struct{ dbport.DB }
 type assessmentConstructorLiveRevisions struct {
 	*revisions.Appender
 }
@@ -320,7 +320,7 @@ type assessmentConstructorPublications struct {
 	collaboration.RecordChangedAppender
 }
 
-type typedNilDatabase struct{ postgres.DB }
+type typedNilDatabase struct{ dbport.DB }
 type typedNilCreateIdempotency struct {
 	assessments.CreateIdempotencyPort
 }

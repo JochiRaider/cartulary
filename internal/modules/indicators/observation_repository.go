@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func insertIndicatorObservationTx(ctx context.Context, tx pgx.Tx, evaluate identity.Evaluator, actorUserID uuid.UUID, params IndicatorObservationCreateParams, createdAt time.Time) (IndicatorObservationRecord, error) {
@@ -157,22 +158,22 @@ UPDATE indicator_observations
 func listSourceRecordIndicatorObservations(ctx context.Context, db interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, sourceRecordID uuid.UUID, afterCreatedAt *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorObservationRecord, error) {
-	return listObservationRows(ctx, db, `o.source_record_id = $1`, sourceRecordID, afterCreatedAt, afterID, limit)
+	return listObservationRows(ctx, db, sqlshape.Literal(`o.source_record_id = $1`), sourceRecordID, afterCreatedAt, afterID, limit)
 }
 
 func listResolvedIndicatorObservations(ctx context.Context, db interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, indicatorID uuid.UUID, afterCreatedAt *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorObservationRecord, error) {
-	return listObservationRows(ctx, db, `o.resolved_indicator_record_id = $1`, indicatorID, afterCreatedAt, afterID, limit)
+	return listObservationRows(ctx, db, sqlshape.Literal(`o.resolved_indicator_record_id = $1`), indicatorID, afterCreatedAt, afterID, limit)
 }
 
 func listObservationRows(ctx context.Context, db interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
-}, predicate string, recordID uuid.UUID, afterCreatedAt *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorObservationRecord, error) {
+}, predicate sqlshape.Fragment, recordID uuid.UUID, afterCreatedAt *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorObservationRecord, error) {
 	if limit < 1 {
 		return nil, ErrInvalidCreateRequest
 	}
-	rows, err := db.Query(ctx, `
+	rows, err := db.Query(ctx, sqlshape.Text(sqlshape.Format(`
 SELECT
     o.indicator_observation_id, o.incident_id, o.source_record_id, o.source_field_key,
     o.origin_kind, o.origin_locator, o.observed_text, o.parsed_indicator_type,
@@ -180,12 +181,12 @@ SELECT
     o.row_version, o.created_by_user_id, o.created_at, o.resolved_by_user_id,
     o.resolved_at, o.resolution_method, o.deleted_at, o.deleted_by_user_id
   FROM indicator_observations o
- WHERE `+predicate+`
+ WHERE %s
    AND o.deleted_at IS NULL
    AND ($2::timestamptz IS NULL OR (o.created_at, o.indicator_observation_id) < ($2, $3))
  ORDER BY o.created_at DESC, o.indicator_observation_id DESC
  LIMIT $4
-`, recordID, afterCreatedAt, afterID, limit)
+`, predicate)), recordID, afterCreatedAt, afterID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list indicator observations: %w", err)
 	}

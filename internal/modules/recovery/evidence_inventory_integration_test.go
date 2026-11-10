@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -178,8 +179,8 @@ func (snapshot evidenceInventorySnapshot) StreamCanonicalTableRows(
 	return fmt.Errorf("table streaming is outside the Evidence inventory fixture")
 }
 
-func (snapshot evidenceInventorySnapshot) QueryRows(ctx context.Context, query string, args ...any) (recovery.VNextRows, error) {
-	return snapshot.tx.Query(ctx, query, args...)
+func (snapshot evidenceInventorySnapshot) QueryRows(ctx context.Context, query sqlshape.Fragment, args ...any) (recovery.VNextRows, error) {
+	return snapshot.tx.Query(ctx, sqlshape.Text(query), args...)
 }
 
 type evidenceInventoryObjectSource struct{}

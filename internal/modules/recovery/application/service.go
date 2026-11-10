@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
@@ -29,7 +30,7 @@ const (
 var ErrTargetMarkerRequiresFilesystemStorage = errors.New("restore target marker requires filesystem backup storage")
 
 type PostgresPool interface {
-	postgres.DB
+	dbport.DB
 	Close()
 }
 
@@ -63,10 +64,10 @@ func (deployment Deployment) TargetBindings() recovery.TargetBindingDigests {
 }
 
 type DeploymentLoader func(string) (Deployment, error)
-type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error)
-type EvidenceRecoveryProviderFactory func(postgres.DB) recovery.EvidenceRecoveryProvider
+type ProjectionServicesFactory func(dbport.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error)
+type EvidenceRecoveryProviderFactory func(dbport.DB) recovery.EvidenceRecoveryProvider
 type FailureEvidenceProjector func(FailureKind) (code string, reasonCode string)
-type RecoveryStateCoverageValidator func(context.Context, postgres.DB, *recoverystate.Catalog) error
+type RecoveryStateCoverageValidator func(context.Context, dbport.DB, *recoverystate.Catalog) error
 type VNextCaptureFactory func(
 	PostgresPool,
 	objectstore.Store,
@@ -819,14 +820,14 @@ func (service Service) openRestoreRuntime(ctx context.Context, parsed operationR
 	return sourceDeployment, targetDeployment, sourcePool, targetPool, sourceObjectStore, targetObjectStore, backupStorage, nil
 }
 
-func (service Service) restoreTarget(targetCfg Deployment, targetPool postgres.DB, targetObjectStore objectstore.Store, restoreOperationID, targetGenerationID uuid.UUID) (recovery.RestoreTarget, error) {
+func (service Service) restoreTarget(targetCfg Deployment, targetPool dbport.DB, targetObjectStore objectstore.Store, restoreOperationID, targetGenerationID uuid.UUID) (recovery.RestoreTarget, error) {
 	target, err := service.restoreVerificationTarget(targetCfg, targetPool, targetObjectStore, restoreOperationID, targetGenerationID)
 	return target.RestoreTarget, err
 }
 
 func (service Service) restoreVerificationTarget(
 	targetCfg Deployment,
-	targetPool postgres.DB,
+	targetPool dbport.DB,
 	targetObjectStore objectstore.Store,
 	restoreOperationID uuid.UUID,
 	targetGenerationID uuid.UUID,
@@ -879,7 +880,7 @@ func (service Service) restoreVerificationTarget(
 	}, Probe: recovery.RestoreVerificationWorkbookProbe{Executor: query}}, nil
 }
 
-func (service Service) preflightRestoreTarget(ctx context.Context, sourceConfigPath string, targetConfigPath string, sourceDeployment Deployment, targetDeployment Deployment, targetPool postgres.DB, targetObjectStore objectstore.Store) error {
+func (service Service) preflightRestoreTarget(ctx context.Context, sourceConfigPath string, targetConfigPath string, sourceDeployment Deployment, targetDeployment Deployment, targetPool dbport.DB, targetObjectStore objectstore.Store) error {
 	if err := requireDistinctRestoreTarget(sourceConfigPath, targetConfigPath, sourceDeployment, targetDeployment); err != nil {
 		return err
 	}
@@ -896,7 +897,7 @@ func (service Service) requireStoppedTarget(ctx context.Context, target Postgres
 	return nil
 }
 
-func (service Service) inspectPristineTarget(ctx context.Context, deployment Deployment, pool postgres.DB, objects objectstore.Store) error {
+func (service Service) inspectPristineTarget(ctx context.Context, deployment Deployment, pool dbport.DB, objects objectstore.Store) error {
 	if deployment.OpenReferencePacks == nil || deployment.OpenExportOutputs == nil {
 		return NewFailure(FailureTargetDatabaseNotFresh, errors.New("complete restore target roots are required"))
 	}
@@ -1530,7 +1531,7 @@ func (service Service) newBackupStorage(deployment Deployment) (recovery.BackupS
 	return deployment.OpenBackup()
 }
 
-func (service Service) newProjectionServices(db postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
+func (service Service) newProjectionServices(db dbport.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
 	if service.NewProjectionServices == nil {
 		return nil, nil, errors.New("operator recovery requires projection services")
 	}
@@ -1547,7 +1548,7 @@ func (service Service) newProjectionServices(db postgres.DB) (restorecontract.Pr
 	return rebuilder, query, nil
 }
 
-func (service Service) newEvidenceProvider(db postgres.DB) (recovery.EvidenceRecoveryProvider, error) {
+func (service Service) newEvidenceProvider(db dbport.DB) (recovery.EvidenceRecoveryProvider, error) {
 	if service.NewEvidenceProvider == nil {
 		return nil, errors.New("operator recovery requires Evidence recovery provider")
 	}

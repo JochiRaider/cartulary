@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
@@ -334,8 +335,9 @@ func AssertKeysetAndCursorRuntime(t *testing.T) {
 		t.Fatalf("invalid cursor: %s %v", encoded, err)
 	}
 	args := []any{}
-	clause, err := appendRowKeysetSQL(position.EffectiveSort, position, &args)
-	if err != nil || !strings.Contains(clause, "$1::") || strings.Contains(clause, position.NetworkFlowRowID) {
+	fragment, err := appendRowKeysetSQL(position.EffectiveSort, position, &args)
+	clause := sqlshape.Text(fragment)
+	if err != nil || !strings.Contains(strings.ReplaceAll(clause, " ", ""), "$1::") || strings.Contains(clause, position.NetworkFlowRowID) {
 		t.Fatalf("keyset SQL must be whitelisted and parameterized: clause=%q args=%#v err=%v", clause, args, err)
 	}
 

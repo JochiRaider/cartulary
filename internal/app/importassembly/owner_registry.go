@@ -21,11 +21,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type OwnerRegistryDependencies struct {
-	Postgres                postgres.DB
+	Postgres                dbport.DB
 	RevisionAppender        *revisions.Appender
 	Collaboration           collaboration.RecordChangedAppender
 	Timeline                ownerfacade.ImportOwnerCreateTx

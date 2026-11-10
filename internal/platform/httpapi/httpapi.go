@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
@@ -28,7 +28,7 @@ type DependencySet struct {
 	Telemetry           TelemetrySettings
 	Env                 map[string]string
 	Postgres            *pgxpool.Pool
-	PostgresDB          postgres.DB
+	PostgresDB          dbport.DB
 	ObjectStore         objectstore.Store
 	CursorCodec         *pagination.Codec
 	ExtensionDiscovery  ExtensionDiscoveryProvider
@@ -48,7 +48,7 @@ type TelemetrySettings struct {
 	ServiceVersion string
 }
 
-func (deps DependencySet) PostgresHandle() postgres.DB {
+func (deps DependencySet) PostgresHandle() dbport.DB {
 	if deps.PostgresDB != nil {
 		return deps.PostgresDB
 	}

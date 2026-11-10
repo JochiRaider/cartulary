@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -15,8 +14,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/maintenancequery"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const (
@@ -178,7 +179,11 @@ func resetAdmittedDatabase(ctx context.Context, recovery *pgxpool.Pool, plan Dat
 		return result, newResetFailure("recovery_reset_metadata_inventory_failed", errors.New("unresolved Recovery control"))
 	}
 	sort.Strings(protected)
-	if _, err := tx.Exec(ctx, "LOCK TABLE "+pgx.Identifier{"public", controlTable}.Sanitize()+" IN SHARE MODE"); err != nil {
+	controlLock, err := maintenancequery.LockShare(controlTable)
+	if err != nil {
+		return result, newResetFailure("recovery_reset_lock_failed", err)
+	}
+	if _, err := tx.Exec(ctx, sqlshape.CommandText(controlLock)); err != nil {
 		return result, newResetFailure("recovery_reset_lock_failed", err)
 	}
 	if checked, err := plan.InspectRecoveryControl(ctx, tx); err != nil || checked != controlTable {
@@ -193,20 +198,22 @@ func resetAdmittedDatabase(ctx context.Context, recovery *pgxpool.Pool, plan Dat
 	if err != nil {
 		return result, newResetFailure("recovery_reset_metadata_inventory_failed", err)
 	}
-	identifiers := make([]string, len(tables))
-	for i, table := range tables {
-		identifiers[i] = pgx.Identifier{"public", table}.Sanitize()
+	command, err := maintenancequery.LockMutable(tables)
+	if err != nil {
+		return result, newResetFailure("recovery_reset_lock_failed", err)
 	}
-	if len(identifiers) > 0 {
-		if _, err := tx.Exec(ctx, "LOCK TABLE "+strings.Join(identifiers, ", ")+" IN ACCESS EXCLUSIVE MODE"); err != nil {
-			return result, newResetFailure("recovery_reset_lock_failed", err)
-		}
+	if _, err = tx.Exec(ctx, sqlshape.CommandText(command)); err != nil {
+		return result, newResetFailure("recovery_reset_lock_failed", err)
 	}
 	if _, err := tx.Exec(ctx, `SET LOCAL row_security = off; SET LOCAL session_replication_role = replica`); err != nil {
 		return result, newResetFailure("recovery_reset_clear_failed", err)
 	}
 	for _, table := range writable {
-		if _, err := tx.Exec(ctx, "DELETE FROM "+pgx.Identifier{"public", table}.Sanitize()); err != nil {
+		command, err := maintenancequery.Delete(table)
+		if err != nil {
+			return result, newResetFailure("recovery_reset_clear_failed", err)
+		}
+		if _, err := tx.Exec(ctx, sqlshape.CommandText(command)); err != nil {
 			return result, newResetFailure("recovery_reset_clear_failed", err)
 		}
 	}
@@ -333,12 +340,16 @@ WHERE n.nspname='public' AND c.relkind IN ('r','p','f') ORDER BY c.relname COLLA
 }
 
 func resetMetadataSnapshot(ctx context.Context, db resetDB, tables []string) (string, error) {
-	selections := make([]string, len(tables))
+	selections := make([]sqlshape.Fragment, len(tables))
 	for i, table := range tables {
-		selections[i] = `(SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text COLLATE "C"),'[]'::jsonb) FROM ` + pgx.Identifier{"public", table}.Sanitize() + ` t)`
+		from, err := maintenancequery.From(table)
+		if err != nil {
+			return "", err
+		}
+		selections[i] = sqlshape.Format(`(SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text COLLATE "C"),'[]'::jsonb) %s t)`, from)
 	}
 	var snapshot string
-	err := db.QueryRow(ctx, "SELECT jsonb_build_array("+strings.Join(selections, ",")+")::text").Scan(&snapshot)
+	err := db.QueryRow(ctx, sqlshape.Text(sqlshape.Format("SELECT jsonb_build_array(%s)::text", sqlshape.Join(selections, sqlshape.Literal(","))))).Scan(&snapshot)
 	return snapshot, err
 }
 
@@ -405,7 +416,11 @@ func NewDatabaseResetFailure(stage string, cause error) *DatabaseResetFailure {
 
 func countTableRows(ctx context.Context, db resetDB, table string) (int, error) {
 	var count int
-	err := db.QueryRow(ctx, "SELECT COUNT(*) FROM "+pgx.Identifier{"public", table}.Sanitize()).Scan(&count)
+	from, err := maintenancequery.From(table)
+	if err != nil {
+		return 0, err
+	}
+	err = db.QueryRow(ctx, sqlshape.Text(sqlshape.Format("SELECT COUNT(*) %s", from))).Scan(&count)
 	return count, err
 }
 

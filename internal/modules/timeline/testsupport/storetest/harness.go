@@ -6,12 +6,12 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 type StoreHarness struct {
-	DB        postgres.DB
+	DB        dbport.DB
 	Incidents *incidents.Application
 }
 

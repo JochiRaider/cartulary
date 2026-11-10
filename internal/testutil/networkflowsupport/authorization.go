@@ -8,10 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	hc "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // AuthorizationBinding resolves symbolic control references only to rows verified
@@ -25,13 +26,13 @@ type AuthorizationBinding struct {
 type AuthorizationFixture struct {
 	mu         sync.Mutex
 	registry   *hc.NetworkFlowAuthTransitionRegistry
-	db         postgres.DB
+	db         dbport.DB
 	binding    AuthorizationBinding
 	membership json.RawMessage
 	now        func() time.Time
 }
 
-func NewAuthorizationFixture(ctx context.Context, registry *hc.NetworkFlowAuthTransitionRegistry, db postgres.DB, b AuthorizationBinding, now func() time.Time) (*AuthorizationFixture, error) {
+func NewAuthorizationFixture(ctx context.Context, registry *hc.NetworkFlowAuthTransitionRegistry, db dbport.DB, b AuthorizationBinding, now func() time.Time) (*AuthorizationFixture, error) {
 	if registry == nil || db == nil || now == nil || b.ActorID == uuid.Nil || b.IncidentID == uuid.Nil {
 		return nil, errors.New("authorization fixture dependencies required")
 	}

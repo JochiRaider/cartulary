@@ -15,13 +15,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type store struct {
 	*graphSourceReadStore
 	tableIDEntropy       io.Reader
-	pool                 postgres.DB
+	pool                 dbport.DB
 	limits               EffectiveLimits
 	incidentLocks        IncidentLockPort
 	auditAppender        AdministrativeAuditPort
@@ -183,7 +183,7 @@ type retainedCounts struct {
 	Retained int64
 }
 
-func newStore(pool postgres.DB, limits EffectiveLimits, options ...storeOption) *store {
+func newStore(pool dbport.DB, limits EffectiveLimits, options ...storeOption) *store {
 	store := &store{
 		graphSourceReadStore: &graphSourceReadStore{reader: pool},
 		pool:                 pool,

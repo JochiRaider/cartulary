@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 )
 
@@ -21,7 +22,7 @@ func TestIndicatorTargetEnvelopeRoleClassification(t *testing.T) {
 	sourceID := uuid.New()
 	indicatorID := uuid.New()
 	deletedAt := time.Date(2026, 8, 3, 11, 0, 0, 0, time.UTC)
-	envelopes := map[uuid.UUID]records.Envelope{
+	envelopes := map[uuid.UUID]recordenvelope.Envelope{
 		sourceID:    {RecordID: sourceID, IncidentID: incidentID, RecordType: "timeline_event", RowVersion: 7},
 		indicatorID: {RecordID: indicatorID, IncidentID: incidentID, RecordType: "indicator", RowVersion: 3},
 	}
@@ -41,35 +42,35 @@ func TestIndicatorTargetEnvelopeRoleClassification(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		envelope  records.Envelope
-		validate  func(map[uuid.UUID]records.Envelope) error
+		envelope  recordenvelope.Envelope
+		validate  func(map[uuid.UUID]recordenvelope.Envelope) error
 		wantError error
 	}{
-		{name: "missing source", validate: func(values map[uuid.UUID]records.Envelope) error {
+		{name: "missing source", validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
 			return validateObservationSourceEnvelope(values, incidentID, uuid.New(), 1)
 		}, wantError: ErrIndicatorSourceNotFound},
-		{name: "foreign source", envelope: records.Envelope{RecordID: sourceID, IncidentID: otherIncidentID, RecordType: "timeline_event", RowVersion: 7}, validate: func(values map[uuid.UUID]records.Envelope) error {
+		{name: "foreign source", envelope: recordenvelope.Envelope{RecordID: sourceID, IncidentID: otherIncidentID, RecordType: "timeline_event", RowVersion: 7}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
 			return validateObservationSourceEnvelope(values, incidentID, sourceID, 7)
 		}, wantError: ErrIndicatorSourceNotFound},
-		{name: "deleted source", envelope: records.Envelope{RecordID: sourceID, IncidentID: incidentID, RecordType: "timeline_event", RowVersion: 7, DeletedAt: &deletedAt}, validate: func(values map[uuid.UUID]records.Envelope) error {
+		{name: "deleted source", envelope: recordenvelope.Envelope{RecordID: sourceID, IncidentID: incidentID, RecordType: "timeline_event", RowVersion: 7, DeletedAt: &deletedAt}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
 			return validateObservationSourceEnvelope(values, incidentID, sourceID, 7)
 		}, wantError: ErrIndicatorSourceNotFound},
-		{name: "stale source", envelope: envelopes[sourceID], validate: func(values map[uuid.UUID]records.Envelope) error {
+		{name: "stale source", envelope: envelopes[sourceID], validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
 			return validateObservationSourceEnvelope(values, incidentID, sourceID, 6)
 		}, wantError: ErrRowVersionConflict},
-		{name: "wrong resolved target type", envelope: records.Envelope{RecordID: indicatorID, IncidentID: incidentID, RecordType: "timeline_event"}, validate: func(values map[uuid.UUID]records.Envelope) error {
+		{name: "wrong resolved target type", envelope: recordenvelope.Envelope{RecordID: indicatorID, IncidentID: incidentID, RecordType: "timeline_event"}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
 			return validateResolvedIndicatorEnvelope(values, incidentID, indicatorID)
 		}, wantError: ErrResolvedIndicatorNotFound},
-		{name: "foreign resolved target", envelope: records.Envelope{RecordID: indicatorID, IncidentID: otherIncidentID, RecordType: "indicator"}, validate: func(values map[uuid.UUID]records.Envelope) error {
+		{name: "foreign resolved target", envelope: recordenvelope.Envelope{RecordID: indicatorID, IncidentID: otherIncidentID, RecordType: "indicator"}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
 			return validateResolvedIndicatorEnvelope(values, incidentID, indicatorID)
 		}, wantError: ErrResolvedIndicatorNotFound},
-		{name: "wrong addressed target type", envelope: records.Envelope{RecordID: indicatorID, IncidentID: incidentID, RecordType: "timeline_event"}, validate: func(values map[uuid.UUID]records.Envelope) error {
+		{name: "wrong addressed target type", envelope: recordenvelope.Envelope{RecordID: indicatorID, IncidentID: incidentID, RecordType: "timeline_event"}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
 			return validateAddressedIndicatorEnvelope(values, incidentID, indicatorID)
 		}, wantError: ErrIndicatorNotFound},
-		{name: "foreign addressed target", envelope: records.Envelope{RecordID: indicatorID, IncidentID: otherIncidentID, RecordType: "indicator"}, validate: func(values map[uuid.UUID]records.Envelope) error {
+		{name: "foreign addressed target", envelope: recordenvelope.Envelope{RecordID: indicatorID, IncidentID: otherIncidentID, RecordType: "indicator"}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
 			return validateAddressedIndicatorEnvelope(values, incidentID, indicatorID)
 		}, wantError: ErrIndicatorNotFound},
-		{name: "foreign support", envelope: records.Envelope{RecordID: sourceID, IncidentID: otherIncidentID, RecordType: "timeline_event"}, validate: func(values map[uuid.UUID]records.Envelope) error {
+		{name: "foreign support", envelope: recordenvelope.Envelope{RecordID: sourceID, IncidentID: otherIncidentID, RecordType: "timeline_event"}, validate: func(values map[uuid.UUID]recordenvelope.Envelope) error {
 			return validateLifecycleSupportEnvelopes(values, incidentID, []uuid.UUID{sourceID})
 		}, wantError: ErrInvalidCreateRequest},
 	}
@@ -77,7 +78,7 @@ func TestIndicatorTargetEnvelopeRoleClassification(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			values := map[uuid.UUID]records.Envelope{}
+			values := map[uuid.UUID]recordenvelope.Envelope{}
 			if test.envelope.RecordID != uuid.Nil {
 				values[test.envelope.RecordID] = test.envelope
 			}
@@ -88,7 +89,7 @@ func TestIndicatorTargetEnvelopeRoleClassification(t *testing.T) {
 	}
 
 	prior := IndicatorObservationRecord{IncidentID: incidentID, SourceRecordID: sourceID, ResolvedIndicatorRecordID: &indicatorID}
-	for name, values := range map[string]map[uuid.UUID]records.Envelope{
+	for name, values := range map[string]map[uuid.UUID]recordenvelope.Envelope{
 		"missing source":    {indicatorID: envelopes[indicatorID]},
 		"missing Indicator": {sourceID: envelopes[sourceID]},
 		"wrong Indicator": {
@@ -119,7 +120,7 @@ func (store failingIndicatorRecordStore) InsertTx(context.Context, pgx.Tx, recor
 	panic("unexpected InsertTx")
 }
 
-func (store failingIndicatorRecordStore) LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]records.Envelope, error) {
+func (store failingIndicatorRecordStore) LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]recordenvelope.Envelope, error) {
 	return nil, store.err
 }
 

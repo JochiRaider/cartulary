@@ -17,8 +17,16 @@ func TouchSourceRowTx(ctx context.Context, tx pgx.Tx, catalog *sourcecatalog.Cat
 	if !ok {
 		return &policy.ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
 	}
-	table := pgx.Identifier{surface.SourceTable}.Sanitize()
-	if _, err := tx.Exec(ctx, fmt.Sprintf("UPDATE %s SET updated_at = $2 WHERE record_id = $1", table), recordID, now); err != nil {
+	var query string
+	switch surface.SourceTable {
+	case "task_requests":
+		query = "UPDATE task_requests SET updated_at = $2 WHERE record_id = $1"
+	case "decisions":
+		query = "UPDATE decisions SET updated_at = $2 WHERE record_id = $1"
+	default:
+		return &policy.ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
+	}
+	if _, err := tx.Exec(ctx, query, recordID, now); err != nil {
 		return fmt.Errorf("touch Tasks/Decisions source row: %w", err)
 	}
 	return nil

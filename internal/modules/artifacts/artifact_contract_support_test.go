@@ -18,7 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -307,7 +307,7 @@ func (artifactImportActiveUserLookup) IsActiveUserTx(ctx context.Context, tx pgx
 	return active, err
 }
 
-func artifactImportDependencies(database postgres.DB, appender *revisions.Appender) artifacts.ImportDependencies {
+func artifactImportDependencies(database dbport.DB, appender *revisions.Appender) artifacts.ImportDependencies {
 	return artifacts.ImportDependencies{
 		RecordEnvelopes: records.NewStore(),
 		ActiveUsers:     artifactImportActiveUserLookup{},
@@ -342,7 +342,7 @@ func artifactTypeForTestView(viewSchemaID string) string {
 
 func mustArtifactMutationFacade(
 	t testing.TB,
-	pool postgres.DB,
+	pool dbport.DB,
 	codec conflicts.ConflictTokenCodec,
 ) *artifacts.MutationFacade {
 	t.Helper()

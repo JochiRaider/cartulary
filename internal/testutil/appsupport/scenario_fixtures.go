@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -31,7 +31,7 @@ func CreateIncident(t testing.TB, server *httptestx.Server, admin authcookietest
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func CreateIncidentInStore(t testing.TB, pool postgres.DB, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
+func CreateIncidentInStore(t testing.TB, pool dbport.DB, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
 	t.Helper()
 
 	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
@@ -72,10 +72,10 @@ func QueryCount(t testing.TB, db any, query string, args ...any) int {
 	switch typed := db.(type) {
 	case *sql.DB:
 		err = typed.QueryRowContext(context.Background(), query, args...).Scan(&count)
-	case postgres.DB:
+	case dbport.DB:
 		err = typed.QueryRow(context.Background(), query, args...).Scan(&count)
 	default:
-		t.Fatalf("query count requires *sql.DB or postgres.DB, got %T", db)
+		t.Fatalf("query count requires *sql.DB or dbport.DB, got %T", db)
 	}
 	if err != nil {
 		t.Fatalf("query count: %v", err)

@@ -3,20 +3,22 @@ package appsupport
 import (
 	"context"
 	"database/sql"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	workbookstoretest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
-	"testing"
-	"time"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // SeedMembership composes owner fixtures for a usable application member.
-func SeedMembership(t testing.TB, db postgres.DB, incidentID, userID uuid.UUID, role string, addedByUserID uuid.UUID) {
+func SeedMembership(t testing.TB, db dbport.DB, incidentID, userID uuid.UUID, role string, addedByUserID uuid.UUID) {
 	t.Helper()
 	incidentstoretest.SeedMembership(t, db, incidentID, userID, role, addedByUserID)
 	workbookstoretest.SeedUserPreferences(t, db, incidentID, userID)
@@ -31,7 +33,7 @@ func SeedMembershipSQL(t testing.TB, db *sql.DB, incidentID, userID uuid.UUID, r
 
 func CreateMembershipInStore(
 	t testing.TB,
-	pool postgres.DB,
+	pool dbport.DB,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	targetUser authn.UserRecord,

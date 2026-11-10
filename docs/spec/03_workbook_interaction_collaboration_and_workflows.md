@@ -566,7 +566,7 @@ NOT end the account session. Transient recovery failure retains suspension and
 permits read-only retry. Automatic reconnect and resume MUST remain suppressed
 until applicable authorization and refresh requirements are satisfied.
 Profiles: base
-Verified by: AC-483, AC-484
+Verified by: AC-598, AC-484
 
 ### 2.4 Startup and default surface selection
 
@@ -3207,7 +3207,7 @@ The base profile MUST support:
 - `Esc` to close the inspector and return focus to the prior cell, after
   higher-priority local cancellation and §13.4's grid-owned range collapse.
 Profiles: base
-Verified by: AC-005, AC-231, AC-538
+Verified by: AC-005, AC-231, AC-600
 
 Application shortcut consumption MUST use the exhaustive matrix below. `Grid navigation owns focus` means the semantic grid cell is active and no editor, menu, popover, dialog, or inspector control owns the keyboard event.
 

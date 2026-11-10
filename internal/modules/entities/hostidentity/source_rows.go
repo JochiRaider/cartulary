@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -276,13 +275,13 @@ func loadEntityAliasesByRecord(ctx context.Context, querier entityAliasQueryer, 
 	if len(recordIDs) == 0 {
 		return map[uuid.UUID][]AliasValue{}, nil
 	}
-	args := []any{incidentID, entityType}
+	args := []any{incidentID, entityType, recordIDs}
 	rows, err := querier.Query(ctx, `
 SELECT record_id, entity_alias_id, normalized_text::text
   FROM entity_aliases
  WHERE incident_id = $1
    AND entity_type = $2
-   AND record_id IN (`+bindUUIDList(&args, recordIDs)+`)
+   AND record_id = ANY($3::uuid[])
    AND deleted_at IS NULL
  ORDER BY record_id ASC, normalized_text ASC, created_at ASC, entity_alias_id ASC
 `, args...)
@@ -313,7 +312,7 @@ func loadEntityReusableIdentifiersByRecord(ctx context.Context, querier entityAl
 	if len(recordIDs) == 0 {
 		return map[uuid.UUID][]ReusableIdentifier{}, nil
 	}
-	args := []any{incidentID, entityType}
+	args := []any{incidentID, entityType, recordIDs}
 	rows, err := querier.Query(ctx, `
 SELECT
     record_id,
@@ -324,7 +323,7 @@ SELECT
   FROM entity_preserved_identifiers
  WHERE incident_id = $1
    AND entity_type = $2
-   AND record_id IN (`+bindUUIDList(&args, recordIDs)+`)
+   AND record_id = ANY($3::uuid[])
    AND classification = 'exact_match_reuse'
    AND deleted_at IS NULL
  ORDER BY record_id ASC, identifier_type ASC, normalized_value ASC, created_at ASC, entity_preserved_identifier_id ASC
@@ -349,15 +348,6 @@ SELECT
 		return nil, fmt.Errorf("iterate entity reusable identifiers by record: %w", err)
 	}
 	return identifiersByRecord, nil
-}
-
-func bindUUIDList(args *[]any, recordIDs []uuid.UUID) string {
-	placeholders := make([]string, 0, len(recordIDs))
-	for _, recordID := range recordIDs {
-		*args = append(*args, recordID)
-		placeholders = append(placeholders, fmt.Sprintf("$%d", len(*args)))
-	}
-	return strings.Join(placeholders, ", ")
 }
 
 func loadEntityReusableIdentifiersTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) ([]ReusableIdentifier, error) {

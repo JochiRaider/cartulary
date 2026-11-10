@@ -9,14 +9,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 	runtimeType := reflect.TypeOf(Runtime{})
 	forbidden := []reflect.Type{
 		reflect.TypeOf((*evidence.OwnerRuntime)(nil)), reflect.TypeOf((*evidence.SourceRuntime)(nil)),
-		reflect.TypeOf((*postgres.DB)(nil)).Elem(), reflect.TypeOf((*objectstore.TypedStore)(nil)).Elem(),
+		reflect.TypeOf((*dbport.DB)(nil)).Elem(), reflect.TypeOf((*objectstore.TypedStore)(nil)).Elem(),
 	}
 	if violations := runtimeFieldBoundaryViolations(runtimeType, forbidden...); len(violations) != 0 {
 		t.Fatalf("server retains exposed storage or construction capabilities: %v", violations)
@@ -29,7 +29,7 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 	}{}), forbidden...); len(got) != 0 {
 		t.Fatal("private implementation extraction rejected", got)
 	}
-	for _, candidate := range []any{struct{ Exposed int }{}, struct{ db postgres.DB }{}, struct{ owner *evidence.OwnerRuntime }{}} {
+	for _, candidate := range []any{struct{ Exposed int }{}, struct{ db dbport.DB }{}, struct{ owner *evidence.OwnerRuntime }{}} {
 		if got := runtimeFieldBoundaryViolations(reflect.TypeOf(candidate), forbidden...); len(got) == 0 {
 			t.Fatal("prohibited runtime capability escaped", reflect.TypeOf(candidate))
 		}

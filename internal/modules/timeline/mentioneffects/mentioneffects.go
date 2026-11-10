@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcelocking"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
@@ -20,7 +21,8 @@ import (
 var ErrSourceRecordNotFound = errors.New("timeline mention effects: source record not found")
 
 type RecordPort interface {
-	sourcerepository.EnvelopeReader
+	sourcelocking.EnvelopeReader
+	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]sourcerepository.Envelope, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
 }
@@ -33,7 +35,7 @@ type Provider struct {
 	records          RecordPort
 	collections      CollectionPort
 	projections      workbookprojection.Writer
-	source           *sourcerepository.Repository
+	source           *sourcelocking.Repository
 	projectionSource *workbookprojection.Source
 }
 
@@ -42,9 +44,20 @@ func NewProvider(records RecordPort, collections CollectionPort, projections wor
 		records:          records,
 		collections:      collections,
 		projections:      projections,
-		source:           sourcerepository.New(records),
-		projectionSource: workbookprojection.NewSource(records, collections),
+		source:           sourcelocking.New(records),
+		projectionSource: workbookprojection.NewSource(readEnvelopes{records}, collections),
 	}
+}
+
+// The mutation coordinator retains locks; its projection read receives only the
+// unlocked envelope operations over the same borrowed transaction.
+type readEnvelopes struct{ records RecordPort }
+
+func (reader readEnvelopes) LoadEnvelopeTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (sourcerepository.Envelope, error) {
+	return reader.records.LoadEnvelopeTx(ctx, tx, id, false)
+}
+func (reader readEnvelopes) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, ids []uuid.UUID) (map[uuid.UUID]sourcerepository.Envelope, error) {
+	return reader.records.LoadEnvelopesTx(ctx, tx, ids, false)
 }
 
 type ActionState struct {

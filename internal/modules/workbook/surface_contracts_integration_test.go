@@ -154,45 +154,91 @@ func TestWorkbookSurfaceContracts_Integration(t *testing.T) {
 }
 
 func TestWorkbookPatchSurfaceContracts_Integration(t *testing.T) {
-	for _, name := range []string{"timeline", "parties"} {
-		t.Run(name, func(t *testing.T) {
-			harness, admin, adminID, incidentID := ConflictFixture(t, "workbook-patch-"+name, "PATCH-"+name)
-			actor := authflowtest.SeedLocalUserRecord(t, harness.DB, "patch-"+name+"@example.test", "Patch actor", "SurfaceContracts1!", false, false, true)
+
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{Prefix: "workbook-patch-contracts", TestRouteMode: httptestx.TestRouteModeDisabled})
+	admin, adminID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+	actor := authflowtest.SeedLocalUserRecord(t, harness.DB, "patch-contracts@example.test", "Patch actor", "SurfaceContracts1!", false, false, true)
+	login := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, actor.Email, "SurfaceContracts1!", nil)
+	for _, tc := range []struct {
+		name, surface, field string
+		create               map[string]any
+		value, divergent     any
+	}{
+		{"timeline", "timeline", "", map[string]any{"timeline.activity_synopsis_text": "Patch event"}, nil, nil},
+		{"parties-email", "parties", "party.primary_email", map[string]any{"party.display_name": "Patch party", "party.party_kind": "organization"}, "support@example.test", "changed@example.test"},
+		{"parties", "parties", "party.notes", map[string]any{"party.display_name": "Patch party", "party.party_kind": "team"}, "Party route edit", "Denied party edit"},
+		{"task_requests", "task_requests", "task.priority", map[string]any{"task.title": "Patch task", "task.task_kind": "follow_up"}, "high", "urgent"},
+		{"decisions", "decisions", "decision.status", map[string]any{"decision.summary": "Patch decision", "decision.decision_type": "containment", "decision.rationale": "Decision rationale"}, "approved", "proposed"},
+		{"comm_log", "comm_log", "comm_log.summary", map[string]any{"comm_log.comm_type": "briefing", "comm_log.audience": "leadership", "comm_log.channel_or_meeting": "Bridge", "comm_log.summary": "Communication"}, "Edited communication", "Denied communication"},
+		{"handoff", "handoff", "handoff.next_checks", map[string]any{"handoff.current_state_summary": "Handoff state", "handoff.incoming_owner_user_id": actor.ID.String()}, "Verify owner handoff", "Denied handoff"},
+		{"status_review", "status_review", "status_review.active_risks_summary", map[string]any{"status_review.current_state_summary": "Review state"}, "Risk review", "Denied risks"},
+		{"lesson", "lesson", "lesson.closure_state", map[string]any{"lesson.summary": "Public lesson"}, "closed", "open"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			incident := appsupport.CreateIncident(t, harness.Server, admin, map[string]any{"client_txn_id": "incident-" + tc.name, "incident_key": "PATCH-" + tc.name, "title": "Patch " + tc.name})
+			incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 			appsupport.SeedMembershipSQL(t, harness.DB, incidentID, actor.ID, "editor", adminID)
-			login := authflowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, actor.Email, "SurfaceContracts1!", nil)
-			view := "cartulary.view." + name + ".v1"
-			if name == "timeline" {
+			view := "cartulary.view." + tc.surface + ".v1"
+			if tc.surface == "timeline" {
 				view = "cartulary.view.timeline.v2"
 			}
-			create := map[string]any{"client_txn_id": "create", "party.display_name": "Patch party", "party.party_kind": "organization"}
-			if name == "timeline" {
-				create = map[string]any{"client_txn_id": "create", "timeline.activity_synopsis_text": "Patch event"}
-			}
+			create := maps.Clone(tc.create)
+			create["client_txn_id"] = "create"
 			data := requireWorkbookCreate(t, harness, login, incidentID, view, create)
-			id := appsupport.MustUUID(t, data["row"].(map[string]any)["record_id"].(string))
-			body := map[string]any{"view_schema_id": view, "base_row_version": 1, "client_txn_id": "patch", "changes": []map[string]any{{"field_key": "party.primary_email", "value": "support@example.test"}}}
+			createdRow := data["row"].(map[string]any)
+			id := appsupport.MustUUID(t, createdRow["record_id"].(string))
+			readRow := func() map[string]any {
+				envelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), view, login)
+				contractassert.RequireDefaultQueryMeta(t, envelope, view)
+				rows := []map[string]any{}
+				for _, item := range envelope["data"].(map[string]any)["rows"].([]any) {
+					rows = append(rows, item.(map[string]any))
+				}
+				return workbookscenariotest.FindRow(t, rows, id.String())
+			}
+			initial := readRow()
+			version := initial["row_version"].(float64)
+			if version < 1 || version > 9007199254740991 || version != float64(int64(version)) {
+				t.Fatalf("unsafe row version: %v", version)
+			}
+			if initial["row_version"] != createdRow["row_version"] {
+				t.Fatalf("create/query version mismatch: %#v %#v", createdRow, initial)
+			}
+			body := map[string]any{"view_schema_id": view, "base_row_version": initial["row_version"], "client_txn_id": "patch", "changes": []map[string]any{{"field_key": tc.field, "value": tc.value}}}
 			divergent := maps.Clone(body)
-			divergent["changes"] = []map[string]any{{"field_key": "party.primary_email", "value": "changed@example.test"}}
-			if name == "timeline" {
+			divergent["changes"] = []map[string]any{{"field_key": tc.field, "value": tc.divergent}}
+			if tc.surface == "timeline" {
 				host, other := uuid.New(), uuid.New()
 				entitytest.SeedHostRecord(t, harness.DB, incidentID, actor.ID, host, "WS-023", "WS-023", "", "")
 				entitytest.SeedHostRecord(t, harness.DB, incidentID, actor.ID, other, "WS-024", "WS-024", "", "")
 				body = timelinetest.TimelineCollectionPatchPayload(timelinetest.FieldHostRefs, 1, "patch", timelinetest.CollectionActions(timelinetest.AddResolvedRefAction("WS-023", host)))
 				divergent = timelinetest.TimelineCollectionPatchPayload(timelinetest.FieldHostRefs, 1, "patch", timelinetest.CollectionActions(timelinetest.AddResolvedRefAction("WS-024", other)))
 			}
+
 			url := harness.Server.HTTP.URL + "/api/v1/records/" + id.String()
 			httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, url, body, httptestx.WithCookies(login.Session, login.CSRF)), http.StatusForbidden, "csrf_verification_failed")
 			first := httptestx.RequireSuccessData(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, body), http.StatusOK)
+			patched := first["row"].(map[string]any)
+			if patched["record_id"] != id.String() || patched["row_version"].(float64) <= initial["row_version"].(float64) || first["change_set_id"] == nil || first["change_set_id"] == "" {
+				t.Fatalf("invalid patch identity/version: %#v", first)
+			}
+			if tc.field != "" && !reflect.DeepEqual(patched["cells"].(map[string]any)[tc.field].(map[string]any)["value"], tc.value) {
+				t.Fatalf("patch field %s: %#v", tc.field, patched)
+			}
+
 			before := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
 			sourceBefore := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), id)
 			query := func() map[string]any {
 				if got := revisionsupport.SnapshotRecords(t, harness.Pool, harness.Revisions.Appender(), id); !reflect.DeepEqual(sourceBefore, got) {
 					t.Fatal("patch source changed during replay or rejection")
 				}
-				return workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), view, admin), id.String())
+				return readRow()
 			}
 			projected := query()
-			contractassert.RequireFieldKeyConformance(t, workbookscenariotest.SortedRowFieldKeys(t, projected), workbookscenariotest.AllowedFieldKeys(t, name, view))
+			if patched["row_version"] != projected["row_version"] || (tc.field != "" && !reflect.DeepEqual(projected["cells"].(map[string]any)[tc.field].(map[string]any)["value"], tc.value)) {
+				t.Fatalf("patch/read-back mismatch: %#v %#v", patched, projected)
+			}
+			contractassert.RequireFieldKeyConformance(t, workbookscenariotest.SortedRowFieldKeys(t, projected), workbookscenariotest.AllowedFieldKeys(t, tc.surface, view))
 			replay := httptestx.RequireSuccessData(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, body), http.StatusOK)
 			if replay["change_set_id"] != first["change_set_id"] || !reflect.DeepEqual(first["row"], replay["row"]) {
 				t.Fatalf("patch replay changed result: %#v %#v", first, replay)
@@ -206,20 +252,45 @@ func TestWorkbookPatchSurfaceContracts_Integration(t *testing.T) {
 				t.Fatalf("patch replay changed history: %+v -> %+v", before, got)
 			}
 			contractassert.RequireProjectionDeterminism(t, projected, query())
-			if name == "timeline" {
+			if tc.surface == "timeline" {
 				if err := harness.Projections.RebuildIncident(context.Background(), incidentID); err != nil {
 					t.Fatal(err)
 				}
 				contractassert.RequireProjectionDeterminism(t, projected["cells"], query()["cells"])
 			}
-			if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role='viewer', membership_version=membership_version+1 WHERE incident_id=$1 AND user_id=$2`, incidentID, actor.ID); err != nil {
-				t.Fatal(err)
+
+			membershipsURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/memberships"
+			memberships := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, membershipsURL, nil, httptestx.WithCookies(admin.Session)), http.StatusOK)["memberships"].([]any)
+			var membershipVersion any
+			for _, entry := range memberships {
+				m := entry.(map[string]any)
+				if m["user_id"] == actor.ID.String() {
+					membershipVersion = m["membership_version"]
+				}
 			}
-			denied := maps.Clone(body)
+			if membershipVersion == nil {
+				t.Fatal("missing editor membership")
+			}
+			demoted := httptestx.RequireSuccessData(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, membershipsURL+"/"+actor.ID.String(), map[string]any{"base_membership_version": membershipVersion, "role": "viewer"}, httptestx.WithCookies(admin.Session, admin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRF.Value)), http.StatusOK)
+			if demoted["role"] != "viewer" || demoted["membership_version"].(float64) <= membershipVersion.(float64) {
+				t.Fatalf("demotion result: %#v", demoted)
+			}
+			// The original editor session must observe its new role without re-login.
+			viewerRow := query()
+			if viewerRow["row_version"] != projected["row_version"] {
+				t.Fatal("demotion changed record version")
+			}
+			contractassert.RequireProjectionDeterminism(t, projected["cells"], viewerRow["cells"])
+			before = workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+			denied := maps.Clone(divergent)
 			denied["client_txn_id"] = "denied"
-			denied["base_row_version"] = 2
-			httptestx.RequireErrorEnvelope(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, denied), http.StatusForbidden, "authorization_denied")
-			contractassert.RequireProjectionDeterminism(t, projected["cells"], query()["cells"])
+			denied["base_row_version"] = patched["row_version"]
+			rejected := httptestx.RequireErrorEnvelope(t, doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", id, denied), http.StatusForbidden, "authorization_denied")
+			if rejected["error"].(map[string]any)["details"].(map[string]any)["required_role"] != "editor|reviewer|admin" {
+				t.Fatalf("authorization details: %#v", rejected)
+			}
+
+			contractassert.RequireProjectionDeterminism(t, viewerRow, query())
 			if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
 				t.Fatalf("denied patch changed history: %+v -> %+v", before, got)
 			}

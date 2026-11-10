@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func VNextRecoveryObjectInventory(
@@ -15,11 +16,11 @@ func VNextRecoveryObjectInventory(
 		"incident_bundles.files",
 		"incidentbundles.snapshot_file_inventory.v1",
 		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
-			rows, err := snapshot.QueryRows(ctx, `
+			rows, err := snapshot.QueryRows(ctx, sqlshape.Literal(`
 SELECT bundle_id::text, bundle_storage_ref, bundle_byte_size, bundle_sha256
   FROM incident_bundle_exports
  ORDER BY bundle_id ASC
-`)
+`))
 			if err != nil {
 				return nil, fmt.Errorf("inventory Incident Bundle files: %w", err)
 			}

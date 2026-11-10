@@ -20,7 +20,7 @@ import (
 	projectionsfixture "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport/performancefixture"
 	timelinefixture "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 )
 
@@ -73,7 +73,7 @@ func evidenceHeavyContract(profile performancefixtureprofile.Profile) (evidenceH
 	return w, nil
 }
 
-func newEvidenceHeavyProduction(pool postgres.DB, actor authn.UserRecord, profile performancefixtureprofile.Profile, owners *Owners) (*fixture.Assembler, error) {
+func newEvidenceHeavyProduction(pool dbport.DB, actor authn.UserRecord, profile performancefixtureprofile.Profile, owners *Owners) (*fixture.Assembler, error) {
 	workload, err := evidenceHeavyContract(profile)
 	if err != nil {
 		return nil, err
@@ -152,7 +152,7 @@ func newEvidenceHeavyProduction(pool postgres.DB, actor authn.UserRecord, profil
 }
 
 type evidenceHeavyValidator struct {
-	pool     postgres.DB
+	pool     dbport.DB
 	workload evidenceHeavyWorkload
 	evidence *evidencefixture.Provider
 	timeline *timelinefixture.InspectorProvider

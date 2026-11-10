@@ -5,19 +5,20 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 // Re-import into a rolled-back transaction so the test never rewrites retained
 // history or receipts. Links owns canonical source-state portability.
-func RequireLinksPortableRoundTrip(t testing.TB, db postgres.DB, incidentID, actorID uuid.UUID) {
+func RequireLinksPortableRoundTrip(t testing.TB, db dbport.DB, incidentID, actorID uuid.UUID) {
 	t.Helper()
 	ctx := context.Background()
 	port, err := links.NewIncidentBundleSourcePort()

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -37,7 +38,7 @@ func TestArtifactProjectionProviderSurfaceContractMatrix(t *testing.T) {
 			t.Fatalf("projection provider duplicated artifact surface %q", surface.ViewSchemaID)
 		}
 		seen[surface.ViewSchemaID] = struct{}{}
-		if got, expected := surface.WhereSQL, fmt.Sprintf("p.artifact_type = '%s'", artifactType); got != expected {
+		if got, expected := sqlshape.Text(surface.WhereSQL), fmt.Sprintf("p.artifact_type = E'%s'", artifactType); got != expected {
 			t.Fatalf("%s WhereSQL = %q, want %q", surface.ViewSchemaID, got, expected)
 		}
 		schema, ok := viewschema.Lookup(surface.ViewSchemaID)

@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts"
@@ -116,7 +117,7 @@ type IdempotencyCapability interface {
 type RecordEnvelopeCapability interface {
 	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
-	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (records.Envelope, error)
+	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (recordenvelope.Envelope, error)
 }
 
 // LinkCapability groups only the fixed link operations consumed by

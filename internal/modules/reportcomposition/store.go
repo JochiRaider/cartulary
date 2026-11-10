@@ -15,7 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 var (
@@ -26,10 +26,10 @@ var (
 )
 
 type Store struct {
-	db postgres.DB
+	db dbport.DB
 }
 
-func NewStore(db postgres.DB) *Store {
+func NewStore(db dbport.DB) *Store {
 	return &Store{db: db}
 }
 

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type RuntimePolicy struct {
@@ -58,7 +58,7 @@ func cloneRuntimePolicy(policy RuntimePolicy) RuntimePolicy {
 }
 
 type ManagerOptions struct {
-	Postgres                postgres.DB
+	Postgres                dbport.DB
 	Transactions            *TransactionService
 	Catalog                 *Catalog
 	Policy                  RuntimePolicy
@@ -69,7 +69,7 @@ type ManagerOptions struct {
 // Manager is the immutable Jobs facade. Persistence and policy remain private
 // package concerns; consumers receive narrower interfaces during assembly.
 type Manager struct {
-	db                  postgres.DB
+	db                  dbport.DB
 	now                 func() time.Time
 	transactions        *TransactionService
 	serviceVersion      string

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -81,9 +82,9 @@ INSERT INTO records (
 		_ = checkTx.Rollback(ctx)
 		t.Fatalf("empty destructive lock: %v", err)
 	}
-	if err := LockDestructiveOperationRecordsNowaitTx(ctx, checkTx, []uuid.UUID{uuid.New()}); !errors.Is(err, ErrEnvelopeNotFound) {
+	if err := LockDestructiveOperationRecordsNowaitTx(ctx, checkTx, []uuid.UUID{uuid.New()}); !errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		_ = checkTx.Rollback(ctx)
-		t.Fatalf("missing destructive-lock envelope error = %v; want %v", err, ErrEnvelopeNotFound)
+		t.Fatalf("missing destructive-lock envelope error = %v; want %v", err, recordenvelope.ErrEnvelopeNotFound)
 	}
 	_ = checkTx.Rollback(ctx)
 }

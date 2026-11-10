@@ -11,7 +11,7 @@ import (
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type Facade struct {
@@ -20,7 +20,7 @@ type Facade struct {
 
 var errRequestFingerprintRequired = errors.New("timeline mutation request fingerprint is required")
 
-func NewFacade(pool postgres.DB, collaborators Collaborators, conflictTokens conflicttokens.ConflictTokenCodec) *Facade {
+func NewFacade(pool dbport.DB, collaborators Collaborators, conflictTokens conflicttokens.ConflictTokenCodec) *Facade {
 	return &Facade{store: newStore(pool, collaborators, conflictTokens)}
 }
 

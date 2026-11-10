@@ -10,14 +10,14 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type conflictIdempotencyAdapter struct {
 	store *authn.Store
 }
 
-func NewConflictIdempotencyPort(database postgres.DB) conflicts.IdempotencyPort {
+func NewConflictIdempotencyPort(database dbport.DB) conflicts.IdempotencyPort {
 	return conflictIdempotencyAdapter{store: authn.NewStore(database)}
 }
 

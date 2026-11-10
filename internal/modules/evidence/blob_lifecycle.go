@@ -8,7 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 var (
@@ -53,7 +53,7 @@ func (e AttachRejectedError) Unwrap() error {
 // blobLifecycleService owns object-blob slot, lease, attach, finalization, and
 // quarantine behavior. It has no access-handle or cleanup surface.
 type blobLifecycleService struct {
-	pool           postgres.DB
+	pool           dbport.DB
 	idempotency    LifecycleIdempotencyCapability
 	incidentAccess evidenceIncidentAdmissionPort
 	records        evidenceRecordEnvelopePort
@@ -69,7 +69,7 @@ type blobLifecycleService struct {
 }
 
 type blobLifecycleDependencies struct {
-	Postgres        postgres.DB
+	Postgres        dbport.DB
 	Revisions       revisionAppendPort
 	Projections     evidenceprojection.MutationRows
 	SupportEffects  evidenceprojection.AssociationEffects

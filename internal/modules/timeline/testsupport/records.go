@@ -10,7 +10,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const (
@@ -46,24 +47,24 @@ func SeedTimelineRecordWithSourceText(
 ) {
 	t.Helper()
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
-	if err := execDB(db, `
+	if err := execDB(db, sqlshape.Command(`
 INSERT INTO timeline_events (
     record_id, incident_id, activity_synopsis_text, raw_activity_text, capture_state,
     created_by_user_id, updated_by_user_id
 )
 VALUES ($1, $2, $3, $3, 'reviewed', $4, $4)
-`, recordID, incidentID, sourceText, actorUserID); err != nil {
+`), recordID, incidentID, sourceText, actorUserID); err != nil {
 		t.Fatalf("seed timeline record: %v", err)
 	}
 }
 
-func execDB(db any, query string, args ...any) error {
+func execDB(db any, query sqlshape.Statement, args ...any) error {
 	switch typed := db.(type) {
-	case postgres.DB:
-		_, err := typed.Exec(context.Background(), query, args...)
+	case dbport.DB:
+		_, err := typed.Exec(context.Background(), sqlshape.CommandText(query), args...)
 		return err
 	case *sql.DB:
-		_, err := typed.ExecContext(context.Background(), query, args...)
+		_, err := typed.ExecContext(context.Background(), sqlshape.CommandText(query), args...)
 		return err
 	default:
 		return fmt.Errorf("unsupported Timeline test database %T", db)

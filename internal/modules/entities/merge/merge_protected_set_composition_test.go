@@ -3,7 +3,6 @@ package merge_test
 import (
 	"context"
 	"errors"
-	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"slices"
 	"strings"
 	"testing"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/entitymergeassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	entitymerge "github.com/JochiRaider/cartulary/internal/modules/entities/merge"
@@ -22,7 +22,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
@@ -220,12 +220,12 @@ func (composedMergeTimelineEffects) RefreshTimelineProjectionRowsTx(context.Cont
 	return nil
 }
 
-func seedComposedMergeUser(t testing.TB, db postgres.DB) authn.UserRecord {
+func seedComposedMergeUser(t testing.TB, db dbport.DB) authn.UserRecord {
 	t.Helper()
 	return authstoretest.SeedActor(t, db, authstoretest.ActorAttributes{Email: "merge-protected-composition@example.test", DisplayName: "Merge Protected", DeploymentAdmin: true})
 }
 
-func createComposedMergeIncident(t testing.TB, db postgres.DB, actor authn.UserRecord) incidents.IncidentRecord {
+func createComposedMergeIncident(t testing.TB, db dbport.DB, actor authn.UserRecord) incidents.IncidentRecord {
 	t.Helper()
 	application, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            db,
@@ -251,7 +251,7 @@ func createComposedMergeIncident(t testing.TB, db postgres.DB, actor authn.UserR
 	return result.Incident
 }
 
-func seedComposedMergeHost(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, hostname string) {
+func seedComposedMergeHost(t testing.TB, db dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, hostname string) {
 	t.Helper()
 	seedComposedMergeRecord(t, db, incidentID, actorID, recordID, "host")
 	if _, err := db.Exec(context.Background(), `
@@ -262,7 +262,7 @@ VALUES ($1, $2, $3, $4, 'canonical', $5, $5)
 	}
 }
 
-func seedComposedMergeAssessment(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, assessmentID uuid.UUID, subjectID uuid.UUID) {
+func seedComposedMergeAssessment(t testing.TB, db dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, assessmentID uuid.UUID, subjectID uuid.UUID) {
 	t.Helper()
 	seedComposedMergeRecord(t, db, incidentID, actorID, assessmentID, "assessment")
 	if _, err := db.Exec(context.Background(), `
@@ -273,7 +273,7 @@ VALUES ($1, $2, $3, 'host', 'confirmed', 'Seeded merge protected set assessment.
 	}
 }
 
-func seedComposedMergeRecord(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, recordType string) {
+func seedComposedMergeRecord(t testing.TB, db dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, recordType string) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), `
 INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)

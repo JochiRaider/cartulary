@@ -13,7 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/graphfixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -38,7 +38,7 @@ func (reconcile derivedStateReconcilerFunc) ReconcileGraphProjectionDerivedState
 }
 
 type restoreDBWrapper struct {
-	postgres.DB
+	dbport.DB
 	wrapTx   func(pgx.Tx) pgx.Tx
 	queryErr error
 }
@@ -231,12 +231,12 @@ func TestGraphRestoreWriterReconcilesBeforeCommitAndReturnsExactCounts_Integrati
 func TestGraphRestoreWriterCommitAndPostcommitFailuresAreIndeterminate_Integration(t *testing.T) {
 	tests := []struct {
 		name         string
-		wrapper      func(postgres.DB) restoreDBWrapper
+		wrapper      func(dbport.DB) restoreDBWrapper
 		wantRestored bool
 	}{
 		{
 			name: "commit before outcome",
-			wrapper: func(db postgres.DB) restoreDBWrapper {
+			wrapper: func(db dbport.DB) restoreDBWrapper {
 				return restoreDBWrapper{DB: db, wrapTx: func(tx pgx.Tx) pgx.Tx {
 					return &restoreFailureTx{Tx: tx, commitErr: errors.New("injected commit failure")}
 				}}
@@ -244,7 +244,7 @@ func TestGraphRestoreWriterCommitAndPostcommitFailuresAreIndeterminate_Integrati
 		},
 		{
 			name: "commit acknowledged as failure after write",
-			wrapper: func(db postgres.DB) restoreDBWrapper {
+			wrapper: func(db dbport.DB) restoreDBWrapper {
 				return restoreDBWrapper{DB: db, wrapTx: func(tx pgx.Tx) pgx.Tx {
 					return &restoreFailureTx{Tx: tx, commitAfterWrite: true, commitErr: errors.New("injected ambiguous commit result")}
 				}}
@@ -253,7 +253,7 @@ func TestGraphRestoreWriterCommitAndPostcommitFailuresAreIndeterminate_Integrati
 		},
 		{
 			name: "postcommit verification",
-			wrapper: func(db postgres.DB) restoreDBWrapper {
+			wrapper: func(db dbport.DB) restoreDBWrapper {
 				return restoreDBWrapper{DB: db, queryErr: errors.New("injected postcommit verification failure")}
 			},
 			wantRestored: true,
@@ -295,7 +295,7 @@ func restorePlanWithFreshResult(t testing.TB) graphrestore.RestorePublicationPla
 	return plan
 }
 
-func assertRestoreRollbackState(t testing.TB, ctx context.Context, db postgres.DB) {
+func assertRestoreRollbackState(t testing.TB, ctx context.Context, db dbport.DB) {
 	t.Helper()
 	var stale, restored int
 	if err := db.QueryRow(ctx, `SELECT count(*) FROM graph_projection_results WHERE projection_result_id = $1`, restoreResultIDA).Scan(&stale); err != nil {
@@ -309,7 +309,7 @@ func assertRestoreRollbackState(t testing.TB, ctx context.Context, db postgres.D
 	}
 }
 
-func seedStaleGraphState(t *testing.T, ctx context.Context, db postgres.DB) {
+func seedStaleGraphState(t *testing.T, ctx context.Context, db dbport.DB) {
 	t.Helper()
 	commands := []string{
 		`INSERT INTO graph_projection_results (projection_result_id, graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id, projection_version, normalized_configuration_sha256, normalized_source_sha256, canonical_output_sha256, vertex_count, edge_count, result_json, published_at) VALUES ('` + restoreResultIDA + `', 'nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'network_flow_activity', 'snapshot-stale', 'graph_projection.v2', 'network_flow_activity.v2', '` + strings.Repeat("a", 64) + `', '` + strings.Repeat("b", 64) + `', '` + strings.Repeat("c", 64) + `', 2, 1, '{}', '2026-05-30T00:00:00Z')`,
@@ -326,7 +326,7 @@ func seedStaleGraphState(t *testing.T, ctx context.Context, db postgres.DB) {
 	}
 }
 
-func assertV2GraphTableCounts(t *testing.T, ctx context.Context, db postgres.DB, want []int) {
+func assertV2GraphTableCounts(t *testing.T, ctx context.Context, db dbport.DB, want []int) {
 	t.Helper()
 	var edges, vertices, results int
 	if err := db.QueryRow(ctx, `SELECT (SELECT COUNT(*) FROM graph_projection_result_edges), (SELECT COUNT(*) FROM graph_projection_result_vertices), (SELECT COUNT(*) FROM graph_projection_results)`).Scan(&edges, &vertices, &results); err != nil {
@@ -354,7 +354,7 @@ func restorePublicationPlan(staged []graphrestore.RestoreStagedProjection) graph
 	return graphrestore.RestorePublicationPlan{RestoreOperationID: uuid.MustParse("00000000-0000-0000-0000-000000008001"), TargetGenerationID: uuid.MustParse("00000000-0000-0000-0000-000000008002"), ClearedTableIDs: graphrestore.RestoreGraphTableIDs(), Projections: staged, RebuiltViews: []graphrestore.RestoreRebuiltView{}, PostconditionSHA256: strings.Repeat("d", 64)}
 }
 
-func newTestWriter(t *testing.T, db postgres.DB, reconciler DerivedStateReconciler) (*Writer, error) {
+func newTestWriter(t *testing.T, db dbport.DB, reconciler DerivedStateReconciler) (*Writer, error) {
 	t.Helper()
 	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {

@@ -10380,19 +10380,19 @@ Legacy tests that characterize a repository implementation requiring `deployment
 Verified by: TH-HARNESS-AC-043
 
 **TH-HARNESS-REQ-655**
-Operator recovery conformance rows MUST map implementation-owned executable or wrapper behavior to exactly one Core logical command from Core 01 §12.2.1 before product assertions execute.
+Operator recovery conformance evidence MUST map each executable or wrapper
+invocation to exactly one Core logical command from Core 01 §12.2.1 before
+product assertions execute. Core 01 alone owns the accepted grammar and
+operation tokens; this harness specification does not copy or freeze that set.
 
-The current valid conformance command set is closed:
+One workflow row MAY invoke multiple logical commands when each invocation has
+its own command mapping and owner-required assertions for result, progress,
+exit status and effects. A row label or another invocation's success does not
+establish that mapping or close an unasserted operation.
 
-| Logical command | Operation token |
-| --- | --- |
-| `operator backup inspect latest` | `backup_inspect_latest` |
-| `operator backup create` | `backup_create` |
-| `operator restore latest` | `restore_latest` |
-| `operator restore-verify latest` | `restore_verify_latest` |
-| `operator restore-verify due` | `restore_verify_due` |
-
-Compatibility aliases are not a second public recovery contract. A recovery invocation that is not one of the five canonical logical commands is negative evidence only and MUST fail current conformance routing.
+Compatibility aliases are not a second public recovery contract. Invocations
+outside Core 01's current canonical grammar are negative evidence only and
+MUST NOT count as successful recovery conformance.
 
 Verified by: TH-HARNESS-AC-044
 
@@ -11076,3 +11076,187 @@ rejects publication packages, producer modules, source corpora and signing input
 in the transitive application import/embedding closure. Negative fixtures cover
 both dependency directions and archive input admission. These helper results
 supplement independently selected product tests.
+
+
+## SQL architecture analysis completeness
+
+Architecture checks that inspect SQL embedded in Go MUST use Go AST analysis for
+complete construction expressions and a shared SQL classifier for physical
+relations and read/write/lock operations. Their accepted construction language
+MUST be bounded and fixture-qualified. Unsupported SQL at execution or composition
+boundaries MUST fail with declaration-local diagnostics, never disappear as an
+empty successful analysis. Go lexical string scanning is not an alternate path.
+
+Production source discovery MUST account for repository-local dependency closure,
+including build-constrained source, and reject missing, unreadable or linked inputs.
+Every declared scan root MUST exist as a directory; an existing empty directory
+is distinct from a missing root and remains subject to its consumer's coverage
+requirements. Admission MUST reject symlink components and nonregular source
+inputs before reading, and propagate directory, metadata and read failures.
+Collectors MUST NOT publish a complete source set after partial admission.
+Authored, generated and support scopes retain their separate authority; incidental
+directory names MUST NOT silently exclude otherwise in-scope executable source.
+Generated executable dependencies and foreign-library boundaries MUST have explicit
+dispositions. Test/support scopes remain separate. Provider source coverage MUST
+not be satisfied solely by projection storage declarations. Policies MUST preserve
+consumer-specific authority through shared dependencies and reject stale grants.
+Equivalent allowed file renames and splits MUST produce equivalent decisions in
+all enforcing checks. Specification, adoption, tracker and README prose MUST NOT
+become executable inputs to these checks.
+
+The bounded language MUST resolve names by Go scope and account for finite
+construction alternatives, native execution/preparation/batch/copy boundaries,
+and SQL-producing declarations. Formatting support MUST reject unqualified verbs,
+indexes, flags and argument-count mismatches. Closed structural fragments MUST
+preserve token boundaries and prohibit dynamic relation substitution; mutable
+commands require separately qualified complete templates. Transparent database
+transports MAY forward an unchanged SQL parameter only under an exact
+package/declaration capability, never a construction exemption. Session-control
+commands require exact package/declaration and complete-command grants. Neither
+capability is available to projection provider dependency paths. Physical
+maintenance SQL MUST derive its closed relation sets from canonical machine
+catalogs, remain executable source subject to ownership checks, and reject
+unknown or incomplete sets.
+
+
+SQL candidate discovery MUST traverse expression children independently of bounded
+evaluation support, including field/index assignments, nested calls, control-flow
+expressions and function literals. Every candidate MUST carry a source location
+and an analyzed, rejected, or explicit unchanged-transport disposition. Transport
+candidates still require the exact policy grant above. An unsupported parent MUST
+NOT suppress its children. Native boundaries MUST resolve type and signature identity and
+explicit SQL/relation argument positions. Unqualified pipeline, named prepared
+execution, statement-description execution, textual low-level COPY and raw
+protocol access MUST fail explicitly. Pinned native API changes MUST require
+an admission review; same-named application methods confer no SQL capability.
+
+Closed SQL constructors MUST share lexical admission with source inspection.
+Comments outside quoted data are forbidden in closed templates. Formatting holes
+MUST occur between complete tokens in ordinary SQL code, never inside quoted
+values, identifiers or partial tokens. Literal construction performs no
+substitution. Unterminated or unsupported lexical forms MUST fail. This contract
+does not prohibit comments in ordinary raw SQL or require balanced parentheses
+across independent fragments. Invalid authored templates MUST fail construction;
+static qualification MUST report the same failure before execution.
+
+Raw mutable string builders MUST NOT establish qualified SQL construction.
+Their output at execution or structural composition boundaries MUST be rejected;
+immutable analyzable expressions and sealed SQL fragments remain supported.
+Ordinary text construction and values supplied as bound parameters are outside
+this restriction. Discovery MUST still inspect children of unsupported builders.
+
+Native and repository-port signatures MUST resolve aliases by declaration identity
+in their defining scopes, including parameter and result aliases. Defined types
+retain their own identity and method semantics. Unresolved or conflicting type
+identity MUST NOT establish a non-SQL disposition; build alternatives MUST agree
+on boundary classification and argument position or fail explicitly.
+Every result position MUST participate in repository-port admission; moving a
+database result after a data result MUST NOT conceal execution. The qualified
+result inventory MUST cover the outputs of admitted native SQL APIs, including
+pgconn readers, and drift MUST fail native API assurance.
+
+SQL classification MUST account for every admitted query operand, including TABLE
+after WITH and within parenthesized/set-operation expressions. Each operand MUST
+retain its command and relation/alias scope. CTE visibility MUST follow query
+scope and MUST NOT conceal qualified physical relations. Unsupported operand
+structures MUST fail rather than yield a successful partial access inventory.
+
+Generated Go dependencies MUST participate in SQL type resolution and executable
+SQL checks. Exclusions used by authored-source architecture rules MUST NOT exempt
+generated SQL from applicable table capabilities. Missing or linked generated
+inputs MUST fail. Independently versioned modules sharing the repository's
+namespace MUST retain an explicit foreign-library disposition; namespace spelling
+alone MUST NOT treat them as missing repository-local packages.
+
+SQL execution function values MUST be rejected on invocation, extraction or
+transfer, including function-valued fields, parameters, locals, indexed and
+returned values. Callable classification MUST resolve inline, aliased, imported
+and defined function signatures through the same declaration-aware path. Direct
+native calls, narrow interface ports and exact admitted transports remain the
+execution surfaces. Ordinary application callbacks MAY contain independently
+qualified direct SQL calls; their names alone confer no SQL identity.
+
+Closure analysis MUST establish capture stability independently of evaluation.
+Constants and local raw SQL with one explicit reaching initialization MAY retain
+analysis only when the binding has no reassignment, address escape or nested
+writer. Unknown immutable input MUST remain unknown. Captured globals, named
+results and mutable field/index state MUST NOT establish inferred raw SQL.
+Nested writers and address escapes MUST invalidate inferred SQL at affected outer
+boundaries too. Captured prepared/batch handles MUST NOT inherit local provenance.
+Ordinary DB type identity and sealed SQL qualification remain intact. These rules
+apply equally to immediate, deferred, concurrent and escaped callbacks; callback
+invocation timing MUST NOT be guessed.
+
+SQL-analysis input admission MUST reject every dot import with a file/import
+location and package diagnostic, including generated and build-constrained input.
+Named imports and aliases remain supported. Import-only inspection MAY report dot
+imports without applying SQL admission; it does not confer execution authority.
+
+Generic function-value admission MUST distinguish unbound type parameters from proven
+non-SQL results. A function value with a possible raw SQL argument and an unbound result
+MUST fail until its signature is qualified; type-parameter identity alone MUST NOT
+establish a non-SQL disposition. Callable constraints MUST participate in the same
+admission as named function types. No generic specialization or call-graph inference
+is required to admit ordinary domain callbacks without a possible SQL argument.
+Direct calls to repository-declared helpers remain subject to analysis of each
+helper body under its own declaration authority; extraction is function-value
+admission and MUST NOT inherit that direct-call disposition.
+
+Closure qualification MUST isolate collection and return-value evaluation state as
+well as scalar bindings and native provenance. Captured collections MUST NOT supply
+finite raw-SQL alternatives. Local finite collection inference MUST reject nested
+writers, mutable fields/indices, address escapes and uses that may expose aliases;
+unsupported collections at SQL boundaries MUST remain explicit unresolved inputs.
+
+
+### SQL execution-state completeness
+
+Raw helper-result inference MUST require a uniquely resolved local helper with
+exactly one supported string result and an explicitly complete return summary.
+Every admitted return path contributes its reaching value. A bare return reads
+the named result, initialized to the Go zero value; finding some explicit returns
+MUST NOT establish completeness. Nested functions have independent return contexts.
+Unsupported select, jump, label or fallthrough control flow MUST make a raw helper
+summary unresolved at execution and composition boundaries. Conservative loop
+handling MUST NOT establish a complete summary when an exit remains unproven.
+Raw tuple-result inference, general control-flow and callback-timing solvers are
+not required. Independent discovery still inspects rejected helper bodies.
+
+A recovered panic can return a result without reaching an explicit or bare return
+statement. A raw helper summary MUST therefore be unresolved if the helper's own
+body contains any defer. This admission rule applies to named and unnamed results,
+every return form, conditional defers and syntactically present defers on apparently
+unreachable paths. It does not depend on recognizing panic sources, recover calls,
+deferred callees or harmless cleanup. Nested function bodies have independent defer
+admission; their defers do not disqualify the enclosing helper, while their captured
+binding effects remain subject to the existing mutation rules. Independent SQL
+discovery MUST continue inside rejected helpers and their nested functions.
+
+A named raw-string result with a nested writer, address escape or other external
+mutation MUST NOT establish helper-result qualification, including when an explicit
+return expression is a literal. The result destination, not only the expression,
+MUST be checked. Immediate, deferred, concurrent and escaping callbacks follow
+this same conservative rule. Ordinary direct assignments, immutable expressions
+and bound parameter values remain supported. Cleanup defers remain supported in
+ordinary functions and independently qualified SQL constructions outside raw
+helper-result inference; they cannot exempt a raw helper from defer admission.
+
+Every admitted SQL execution or composition boundary MUST conservatively account
+for its reaching values. Branch joins MUST include scalar values, finite collection
+values and native qualification/provenance from every continuing path, including
+an omitted alternative. Collection elements MUST retain their construction-time
+values, never be re-evaluated using later bindings. Unknown, absent, empty and
+proven finite values are distinct; analysis bounds reject rather than truncate.
+
+Every non-blank assignment destination MUST receive its corresponding analyzed
+result or explicit unknown state. This includes reassignment, short declarations,
+variable declarations and every position of a multi-result expression. Unsupported
+result positions MUST NOT retain prior scalar, collection or provenance state.
+
+Repeated execution MUST account for loop-carried writes before qualifying SQL in
+conditions, bodies or post statements. Unsupported loop-carried construction MUST
+reject explicitly. Break, continue and return MUST NOT allow unreachable writes
+to restore qualification. Zero-iteration and early-exit paths MUST participate in
+post-loop handling. Immutable per-iteration construction and ordinary bound data
+remain supported; general iteration-count, heap and fixed-point inference are not
+required. Discovering a syntax node does not establish its execution-time values.

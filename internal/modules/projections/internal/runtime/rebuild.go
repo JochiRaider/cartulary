@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type RestoreRebuilder struct {
@@ -199,9 +200,12 @@ func validateRestoreProjectionRebuildRequest(request restorecontract.ProjectionR
 func restoreProjectionProviderTableResults(ctx context.Context, tx pgx.Tx, tableFamilies []string) ([]restorecontract.ProjectionTableResult, error) {
 	results := make([]restorecontract.ProjectionTableResult, 0, len(tableFamilies))
 	for _, tableFamily := range tableFamilies {
-		query := fmt.Sprintf("SELECT count(*) FROM %s", pgx.Identifier{tableFamily}.Sanitize())
+		query, err := projectionCountQuery(tableFamily)
+		if err != nil {
+			return nil, err
+		}
 		var count int64
-		if err := tx.QueryRow(ctx, query).Scan(&count); err != nil {
+		if err := tx.QueryRow(ctx, sqlshape.Text(query)).Scan(&count); err != nil {
 			return nil, fmt.Errorf("count %s rows: %w", tableFamily, err)
 		}
 		results = append(results, restorecontract.ProjectionTableResult{
@@ -250,4 +254,33 @@ func listRestoreProjectionIncidentIDs(ctx context.Context, tx pgx.Tx) ([]uuid.UU
 		return nil, fmt.Errorf("iterate restore projection incidents: %w", err)
 	}
 	return incidentIDs, nil
+}
+
+// projectionCountQuery is the closed maintenance capability. Adding a table
+// requires a descriptor and a statically reviewed count statement.
+func projectionCountQuery(table string) (sqlshape.Fragment, error) {
+	switch table {
+	case "artifact_grid_projection":
+		return sqlshape.Literal("SELECT count(*) FROM artifact_grid_projection"), nil
+	case "assessment_grid_projection":
+		return sqlshape.Literal("SELECT count(*) FROM assessment_grid_projection"), nil
+	case "decision_grid_projection":
+		return sqlshape.Literal("SELECT count(*) FROM decision_grid_projection"), nil
+	case "evidence_grid_projection":
+		return sqlshape.Literal("SELECT count(*) FROM evidence_grid_projection"), nil
+	case "host_grid_projection":
+		return sqlshape.Literal("SELECT count(*) FROM host_grid_projection"), nil
+	case "identity_grid_projection":
+		return sqlshape.Literal("SELECT count(*) FROM identity_grid_projection"), nil
+	case "indicator_grid_projection":
+		return sqlshape.Literal("SELECT count(*) FROM indicator_grid_projection"), nil
+	case "party_grid_projection":
+		return sqlshape.Literal("SELECT count(*) FROM party_grid_projection"), nil
+	case "task_request_grid_projection":
+		return sqlshape.Literal("SELECT count(*) FROM task_request_grid_projection"), nil
+	case "timeline_grid_projection":
+		return sqlshape.Literal("SELECT count(*) FROM timeline_grid_projection"), nil
+	default:
+		return sqlshape.Fragment{}, fmt.Errorf("projection table %q has no count capability", table)
+	}
 }

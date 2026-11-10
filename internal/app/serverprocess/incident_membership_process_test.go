@@ -1,11 +1,14 @@
 package serverprocess
 
 import (
+	"encoding/json"
 	"net/http"
+	"reflect"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 )
@@ -68,6 +71,10 @@ func TestIncidentValidationAndPatch_Process(t *testing.T) {
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, invalidCreate, http.StatusBadRequest, "invalid_incident_create")
+	unknownCreate := doJSON(t, server, http.MethodPost, "/api/v1/incidents", map[string]any{
+		"client_txn_id": "txn-e-2-02-unknown", "incident_key": "IR-E202UNKNOWN", "title": "Invalid", "unexpected": true,
+	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+	requireProcessErrorDetails(t, httptestx.RequireErrorEnvelope(t, unknownCreate, http.StatusBadRequest, "invalid_incident_create"), map[string]any{"field": "unexpected", "reason_code": "unknown_field"})
 
 	created := createIncident(t, server, adminLogin.Session, adminLogin.CSRF, map[string]any{
 		"client_txn_id": "txn-e-2-02-create",
@@ -88,7 +95,7 @@ func TestIncidentValidationAndPatch_Process(t *testing.T) {
 		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
-	httptestx.RequireErrorEnvelope(t, invalidPatch, http.StatusBadRequest, "invalid_incident_patch")
+	requireProcessErrorDetails(t, httptestx.RequireErrorEnvelope(t, invalidPatch, http.StatusBadRequest, "invalid_incident_patch"), map[string]any{"field": "title", "reason_code": "forbidden_field"})
 
 	patchResp := doJSON(
 		t,
@@ -268,10 +275,31 @@ func TestExtensionDiscoveryAndReservedRoutes_Process(t *testing.T) {
 
 	extensions := doJSON(t, server, http.MethodGet, "/api/v1/extensions", nil, httptestx.WithCookies(userLogin.Session))
 	extensionsBody := httptestx.RequireSuccessEnvelope(t, extensions, http.StatusOK)["data"].(map[string]any)
-	if len(extensionsBody["extensions"].([]any)) != 6 {
-		t.Fatalf("unexpected extensions payload: %#v", extensionsBody)
+	// This is the default deployed profile, matching the retained landing browser.
+	// Compare the entire seven-member resource and its canonical registry order.
+	expected := []map[string]any{}
+	for _, profile := range contracttest.CurrentProfileExtensions(t) {
+		claimed := profile.ProfileID == "import" || profile.ProfileID == "incident_portability" || profile.ProfileID == "snapshot_reporting" || profile.ProfileID == "reference_pack"
+		expected = append(expected, map[string]any{"profile_id": profile.ProfileID, "claimed": claimed, "claimable": profile.Claimable, "contract_major": profile.ContractMajor, "route_families": profile.RouteFamilies, "workspace_keys": profile.WorkspaceKeys, "capabilities": profile.CapabilityIDs})
 	}
-	requireSmokeExtensionClaim(t, extensionsBody, "network_flow_activity", false)
+	encoded, err := json.Marshal(map[string]any{"extensions": expected})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var normalized map[string]any
+	if err := json.Unmarshal(encoded, &normalized); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(extensionsBody, normalized) {
+		t.Fatalf("discovery=%#v want %#v", extensionsBody, normalized)
+	}
+	session := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, httptestx.WithCookies(userLogin.Session))
+	sessionData := httptestx.RequireSuccessEnvelope(t, session, http.StatusOK)["data"].(map[string]any)
+	if len(sessionData["memberships"].([]any)) != 0 {
+		t.Fatalf("discovery fixture must have zero memberships: %#v", sessionData)
+	}
+	pagination := doJSON(t, server, http.MethodGet, "/api/v1/extensions?cursor_token=opaque", nil, httptestx.WithCookies(userLogin.Session))
+	requireProcessErrorDetails(t, httptestx.RequireErrorEnvelope(t, pagination, http.StatusBadRequest, "invalid_pagination_request"), map[string]any{"reason_code": "pagination_not_supported"})
 
 	rootReserved := doJSON(t, server, http.MethodGet, "/api/v1/auth/providers", nil, httptestx.WithCookies(userLogin.Session))
 	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
@@ -282,20 +310,6 @@ func TestExtensionDiscoveryAndReservedRoutes_Process(t *testing.T) {
 
 	nestedReserved := doJSON(t, server, http.MethodGet, "/api/v1/users/"+userID+"/auth-bindings", nil, httptestx.WithCookies(userLogin.Session))
 	httptestx.RequireErrorEnvelope(t, nestedReserved, http.StatusNotFound, "extension_profile_not_claimed")
-}
-
-func requireSmokeExtensionClaim(t testing.TB, body map[string]any, profileID string, claimed bool) {
-	t.Helper()
-	for _, item := range body["extensions"].([]any) {
-		extension := item.(map[string]any)
-		if extension["profile_id"] == profileID {
-			if extension["claimed"] != claimed {
-				t.Fatalf("extension %s claimed=%#v want %v in %#v", profileID, extension["claimed"], claimed, body)
-			}
-			return
-		}
-	}
-	t.Fatalf("extension %s missing from %#v", profileID, body)
 }
 
 func TestDeploymentAdminBoundary_Process(t *testing.T) {
@@ -341,4 +355,15 @@ func createIncident(t testing.TB, server *processtest.Server, adminSession *http
 		httptestx.WithHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+}
+
+func requireProcessErrorDetails(t testing.TB, body map[string]any, expected map[string]any) {
+	t.Helper()
+	actual := body["error"].(map[string]any)["details"].(map[string]any)
+	// Error details may contain additive members; assert each required value.
+	for key, value := range expected {
+		if !reflect.DeepEqual(actual[key], value) {
+			t.Fatalf("error details[%s]=%#v want %#v", key, actual[key], value)
+		}
+	}
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/versionid"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
@@ -47,7 +47,7 @@ func SQLDatabase(db *sql.DB) Database {
 	}
 }
 
-func PostgresDatabase(db postgres.DB) Database {
+func PostgresDatabase(db dbport.DB) Database {
 	return Database{
 		collaborationDB: db,
 		queryRow: func(ctx context.Context, query string, args ...any) rowScanner {

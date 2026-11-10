@@ -16,25 +16,11 @@ func (s *Store) RefreshLinkedRecordsTx(ctx context.Context, tx pgx.Tx, incidentI
 	if err != nil {
 		return err
 	}
-	rows, err := tx.Query(ctx, `SELECT record_id, record_type FROM records WHERE incident_id=$1 AND record_id=ANY($2::uuid[]) ORDER BY record_id FOR NO KEY UPDATE`, incidentID, ids)
+	if s.lockEndpoints == nil {
+		return fmt.Errorf("record endpoint locker is required")
+	}
+	endpoints, err := s.lockEndpoints(ctx, tx, incidentID, ids)
 	if err != nil {
-		return err
-	}
-	type endpoint struct {
-		id   uuid.UUID
-		kind string
-	}
-	var endpoints []endpoint
-	for rows.Next() {
-		var value endpoint
-		if err := rows.Scan(&value.id, &value.kind); err != nil {
-			rows.Close()
-			return err
-		}
-		endpoints = append(endpoints, value)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
 		return err
 	}
 	if len(endpoints) != len(ids) {
@@ -42,11 +28,11 @@ func (s *Store) RefreshLinkedRecordsTx(ctx context.Context, tx pgx.Tx, incidentI
 	}
 	for _, endpoint := range endpoints {
 		for _, provider := range registry.providers {
-			if !slices.Contains(provider.descriptor.SourceRecordTypes, endpoint.kind) {
+			if !slices.Contains(provider.descriptor.SourceRecordTypes, endpoint.RecordType) {
 				continue
 			}
 			if provider.descriptor.Capabilities.RefreshRow && provider.refreshRowTx != nil {
-				if err := provider.refreshRowTx(ctx, s, tx, endpoint.id); err != nil {
+				if err := provider.refreshRowTx(ctx, s, tx, endpoint.RecordID); err != nil {
 					return err
 				}
 			}

@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/gen/administrativeauditregistry"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 const (
@@ -208,7 +208,7 @@ func AppendRawTx(ctx context.Context, tx pgx.Tx, raw RawEvent) (uuid.UUID, error
 	return appendRawTx(ctx, tx, raw)
 }
 
-func Append(ctx context.Context, db postgres.DB, raw RawEvent, event Event) (uuid.UUID, error) {
+func Append(ctx context.Context, db dbport.DB, raw RawEvent, event Event) (uuid.UUID, error) {
 	if db == nil {
 		return uuid.Nil, fmt.Errorf("%w: database is required", ErrInvalidEvent)
 	}
@@ -229,7 +229,7 @@ func Append(ctx context.Context, db postgres.DB, raw RawEvent, event Event) (uui
 	return eventID, nil
 }
 
-func AppendRaw(ctx context.Context, db postgres.DB, raw RawEvent) (uuid.UUID, error) {
+func AppendRaw(ctx context.Context, db dbport.DB, raw RawEvent) (uuid.UUID, error) {
 	if db == nil {
 		return uuid.Nil, fmt.Errorf("%w: database is required", ErrInvalidEvent)
 	}

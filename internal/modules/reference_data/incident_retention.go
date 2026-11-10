@@ -10,12 +10,13 @@ import (
 	"slices"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // IncidentReferences retains source references as historical evidence. It does
@@ -48,7 +49,7 @@ type portableExecutionGuard interface {
 
 type IncidentReferenceOptions struct {
 	Lifetime      *VerificationLifetime
-	Postgres      postgres.DB
+	Postgres      dbport.DB
 	Storage       ArtifactStorage
 	Configuration Configuration
 	Limits        Limits
@@ -59,7 +60,7 @@ type IncidentReferenceOptions struct {
 }
 
 type incidentReferences struct {
-	pool       postgres.DB
+	pool       dbport.DB
 	storage    ArtifactStorage
 	verifier   *verificationService
 	executions portableExecutionGuard

@@ -6,15 +6,16 @@ import (
 	"io"
 	"strings"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type NoteAssociationProjectionRows interface {
@@ -30,7 +31,7 @@ func (a noteAssociationRows) LoadEvidenceTx(ctx context.Context, tx pgx.Tx, id u
 func (a noteAssociationRows) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 	return a.projections.RefreshRowTx(ctx, tx, "cartulary.view.evidence.v1", id)
 }
-func (a noteAssociationRows) LabelTx(ctx context.Context, tx pgx.Tx, record records.Envelope) (string, error) {
+func (a noteAssociationRows) LabelTx(ctx context.Context, tx pgx.Tx, record recordenvelope.Envelope) (string, error) {
 	switch record.RecordType {
 	case "host", "identity":
 		return hostidentity.ReadRecordLabelTx(ctx, tx, record.RecordType, record.RecordID)
@@ -57,7 +58,7 @@ func (a noteAssociationRows) LabelTx(ctx context.Context, tx pgx.Tx, record reco
 
 type noteAssociationProvider struct{ owner *artifacts.NoteAssociations }
 
-func NewNoteAssociationProvider(pool postgres.DB, mutations *artifacts.MutationFacade, rows NoteAssociationProjectionRows) (workbook.NoteAssociationProvider, error) {
+func NewNoteAssociationProvider(pool dbport.DB, mutations *artifacts.MutationFacade, rows NoteAssociationProjectionRows) (workbook.NoteAssociationProvider, error) {
 	if isNilDependency(pool) || isNilDependency(rows) {
 		return nil, errors.New("note association projection dependencies are required")
 	}

@@ -9,7 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -60,6 +61,29 @@ func TestEnvelopeStoreContract_Integration(t *testing.T) {
 		t.Fatal("generated record id is nil")
 	}
 
+	t.Run("incident endpoint lock borrows transaction and orders identities", func(t *testing.T) {
+		identities, err := LockIncidentEnvelopeIdentitiesTx(ctx, tx, incidentID, []uuid.UUID{generatedRecordID, suppliedRecordID, uuid.New()})
+		if err != nil || len(identities) != 2 {
+			t.Fatalf("identities=%v err=%v", identities, err)
+		}
+		if identities[0].RecordID.String() >= identities[1].RecordID.String() {
+			t.Fatal("endpoint order is not deterministic")
+		}
+		kinds := map[uuid.UUID]string{}
+		for _, identity := range identities {
+			kinds[identity.RecordID] = identity.RecordType
+		}
+		if kinds[generatedRecordID] != "host" || kinds[suppliedRecordID] != "timeline_event" {
+			t.Fatalf("kinds=%v", kinds)
+		}
+		hidden, err := LockIncidentEnvelopeIdentitiesTx(ctx, tx, uuid.New(), []uuid.UUID{suppliedRecordID})
+		if err != nil || len(hidden) != 0 {
+			t.Fatalf("foreign incident identities=%v err=%v", hidden, err)
+		}
+		if _, err := tx.Exec(ctx, "SELECT 1"); err != nil {
+			t.Fatalf("borrowed transaction closed: %v", err)
+		}
+	})
 	supplied, err := store.LoadEnvelopeTx(ctx, tx, suppliedRecordID, false)
 	if err != nil {
 		t.Fatalf("load supplied envelope: %v", err)
@@ -154,21 +178,21 @@ func TestEnvelopeStoreContract_Integration(t *testing.T) {
 		t.Fatalf("restored envelope retained delete tuple: %#v", restored)
 	}
 
-	if _, err := store.LoadEnvelopeTx(ctx, tx, uuid.New(), false); !errors.Is(err, ErrEnvelopeNotFound) {
-		t.Fatalf("missing envelope error = %v; want %v", err, ErrEnvelopeNotFound)
+	if _, err := store.LoadEnvelopeTx(ctx, tx, uuid.New(), false); !errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		t.Fatalf("missing envelope error = %v; want %v", err, recordenvelope.ErrEnvelopeNotFound)
 	}
-	if _, err := store.LoadRowVersionTx(ctx, tx, uuid.New()); !errors.Is(err, ErrEnvelopeNotFound) {
-		t.Fatalf("missing row-version error = %v; want %v", err, ErrEnvelopeNotFound)
+	if _, err := store.LoadRowVersionTx(ctx, tx, uuid.New()); !errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		t.Fatalf("missing row-version error = %v; want %v", err, recordenvelope.ErrEnvelopeNotFound)
 	}
-	if _, err := store.AdvanceVersionTx(ctx, tx, uuid.New(), actorID, advancedAt); !errors.Is(err, ErrEnvelopeNotFound) {
-		t.Fatalf("missing advance-version error = %v; want %v", err, ErrEnvelopeNotFound)
+	if _, err := store.AdvanceVersionTx(ctx, tx, uuid.New(), actorID, advancedAt); !errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		t.Fatalf("missing advance-version error = %v; want %v", err, recordenvelope.ErrEnvelopeNotFound)
 	}
-	if _, err := store.SetDeleteStateTx(ctx, tx, uuid.New(), actorID, deletedAt, true); !errors.Is(err, ErrEnvelopeNotFound) {
-		t.Fatalf("missing delete-state error = %v; want %v", err, ErrEnvelopeNotFound)
+	if _, err := store.SetDeleteStateTx(ctx, tx, uuid.New(), actorID, deletedAt, true); !errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		t.Fatalf("missing delete-state error = %v; want %v", err, recordenvelope.ErrEnvelopeNotFound)
 	}
 }
 
-func seedEnvelopeOwnerContext(t testing.TB, db postgres.DB, label string) (uuid.UUID, uuid.UUID) {
+func seedEnvelopeOwnerContext(t testing.TB, db dbport.DB, label string) (uuid.UUID, uuid.UUID) {
 	t.Helper()
 	ctx := context.Background()
 	actorID := uuid.New()

@@ -33,6 +33,31 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.projections.architecture.sql_declaration_ownership",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.architecture",
+      "collaborator_ids": [
+        "harness.evidence_accounting"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture",
+        "module.projections.verification.storage_ownership"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.projection_sql_check"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.projections.assembly.catalog_and_source_ownership_927c3f08ce",
       "owner_id": "module.projections",
       "family_id": "module.projections.assembly",
@@ -49,9 +74,7 @@
         "tests": [
           "TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable",
           "TestProjectionProviderManifestMirrorsCodeBackedRegistry",
-          "TestProjectionProviderSQLSourceOwnership",
-          "TestProjectionTableOwnershipSetsAreExactlyEqual",
-          "TestValidateProjectionProviderSQLReference"
+          "TestProjectionTableOwnershipSetsAreExactlyEqual"
         ]
       },
       "evidence_class": "static",

@@ -12,6 +12,13 @@ import (
 
 func validateProvider(provider Provider) error {
 	descriptor := provider.descriptor
+	if descriptor.RestoreRebuild == providercontract.RestoreRebuildRequired {
+		for _, table := range descriptor.ProjectionTableIDs {
+			if _, err := projectionCountQuery(table); err != nil {
+				return err
+			}
+		}
+	}
 	if descriptor.Capabilities.RefreshRow && provider.refreshRowTx == nil {
 		return fmt.Errorf("projection provider %q declares refresh support without implementation", descriptor.ProviderID)
 	}

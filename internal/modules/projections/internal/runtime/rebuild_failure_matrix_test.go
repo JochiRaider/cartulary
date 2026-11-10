@@ -13,7 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -284,7 +284,7 @@ func mustCharacterizationCatalog(t testing.TB, providers []Provider) *Catalog {
 	return catalog
 }
 
-func newCharacterizationRebuilder(db postgres.DB, catalog *Catalog) *RestoreRebuilder {
+func newCharacterizationRebuilder(db dbport.DB, catalog *Catalog) *RestoreRebuilder {
 	return NewRestoreRebuilderFromStore(&Store{pool: db, registry: catalog.registry})
 }
 

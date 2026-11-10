@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -186,7 +186,7 @@ func patchPartyRefResultFor(t testing.TB, store *workbook.WorkbookContributionCa
 	}))
 }
 
-func mustLoadPartyRefState(t testing.TB, db postgres.DB, recordID uuid.UUID, fieldKey string) (any, int64) {
+func mustLoadPartyRefState(t testing.TB, db dbport.DB, recordID uuid.UUID, fieldKey string) (any, int64) {
 	t.Helper()
 	table, column := u911TableColumn(t, fieldKey)
 	var (

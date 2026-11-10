@@ -8,15 +8,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type CurrentRestoreParams struct {
-	Source   postgres.DB
+	Source   dbport.DB
 	Target   recovery.RestoreTarget
 	Runner   *recovery.RestoreRunner
 	Catalog  *recovery.BackupCatalog

@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	telemetrytest "github.com/JochiRaider/cartulary/internal/platform/telemetry/testsupport"
 )
 
@@ -142,7 +142,7 @@ func maintenanceProviders(rebuild func(string, pgx.Tx) error) []Provider {
 }
 
 type trackingMaintenanceDB struct {
-	postgres.DB
+	dbport.DB
 	begins    int
 	commits   int
 	rollbacks int
@@ -176,7 +176,7 @@ func (tx *trackingMaintenanceTx) Rollback(ctx context.Context) error {
 }
 
 type beginFailMaintenanceDB struct {
-	postgres.DB
+	dbport.DB
 	err error
 }
 

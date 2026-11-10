@@ -9,6 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/extensions/validation"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/extensioncodec"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const bindingRestoreResultSchemaID = "cartulary.extension_binding_restore_validation_result.v1"
@@ -94,8 +95,8 @@ func classifyBindingRestoreResult(bindingID string, result bindingRestoreResult,
 }
 
 func (mutation *vNextRestoreMutation) ValidatePostgresBinding(ctx context.Context, binding ExtensionBackupBinding, expected PostgresBindingProof) error {
-	entries := logicalBindingEntries(ctx, binding.CurrentCodec.Postgres, func(ctx context.Context, query string, args ...any) (VNextRows, error) {
-		return mutation.tx.Query(ctx, query, args...)
+	entries := logicalBindingEntries(ctx, binding.CurrentCodec.Postgres, func(ctx context.Context, query sqlshape.Fragment, args ...any) (VNextRows, error) {
+		return mutation.tx.Query(ctx, sqlshape.Text(query), args...)
 	})
 	result := validatePostgresBinding(ctx, binding, expected, entries, mutation.proofScratch)
 	return classifyBindingRestoreResult(binding.BindingID, result, ctx.Err())

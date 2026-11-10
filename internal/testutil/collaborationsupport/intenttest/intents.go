@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type IntentRecord struct {
@@ -51,7 +51,7 @@ SELECT count(*)
 	return count
 }
 
-func LoadBySourceIdentity(t testing.TB, db postgres.DB, sourceIdentity string) IntentRecord {
+func LoadBySourceIdentity(t testing.TB, db dbport.DB, sourceIdentity string) IntentRecord {
 	t.Helper()
 	var record IntentRecord
 	if err := db.QueryRow(context.Background(), `

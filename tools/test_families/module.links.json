@@ -223,7 +223,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/links/internal/vocabulary",
+        "package": "./internal/modules/links/vocabulary",
         "tests": [
           "TestLinkVocabularyExactRoundTrips",
           "TestLinkVocabularyRejectsNonExactTokens"

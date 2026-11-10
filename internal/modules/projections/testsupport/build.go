@@ -6,11 +6,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // MustBuild delegates to the sole production Projections assembly path.
-func MustBuild(t testing.TB, db postgres.DB) *projectionassembly.Runtime {
+func MustBuild(t testing.TB, db dbport.DB) *projectionassembly.Runtime {
 	t.Helper()
 	runtime, err := projectionassembly.Build(db)
 	if err != nil {

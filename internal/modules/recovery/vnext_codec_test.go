@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 	"io"
 	"slices"
 	"sort"
@@ -19,6 +18,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
+	"github.com/JochiRaider/cartulary/internal/testutil/recoverytest"
 )
 
 func TestCurrentCaptureRestoreUsesExactCatalogAndCodecs_Unit(t *testing.T) {
@@ -230,7 +231,7 @@ func (snapshot vNextSnapshotFake) StreamCanonicalTableRows(
 
 func (vNextSnapshotFake) QueryRows(
 	context.Context,
-	string,
+	sqlshape.Fragment,
 	...any,
 ) (recovery.VNextRows, error) {
 	return nil, errors.New("unexpected owner query")

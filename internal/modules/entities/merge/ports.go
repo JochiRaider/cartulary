@@ -12,8 +12,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type entityStorePorts struct {
@@ -125,7 +126,7 @@ type entityMutationParams struct {
 	AfterValue      any
 }
 
-var errEntityRecordEnvelopeNotFound = records.ErrEnvelopeNotFound
+var errEntityRecordEnvelopeNotFound = recordenvelope.ErrEnvelopeNotFound
 
 type entityRecordLockedError struct {
 	RecordID uuid.UUID
@@ -136,7 +137,7 @@ func (e *entityRecordLockedError) Error() string {
 }
 
 func newEntityStorePorts(
-	pool postgres.DB,
+	pool dbport.DB,
 	appender *revisions.Appender,
 	projectionRows projectionports.MutationRows,
 ) entityStorePorts {

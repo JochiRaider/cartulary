@@ -17,7 +17,7 @@ import (
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
@@ -54,7 +54,7 @@ func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 		case "ReferencePacks":
 			deps.ReferencePacks, _ = value.(reference_data.RegistryAssignments)
 		case "Postgres":
-			deps.Postgres, _ = value.(postgres.DB)
+			deps.Postgres, _ = value.(dbport.DB)
 		case "Idempotency":
 			deps.Idempotency, _ = value.(IdempotencyPort)
 		case "IncidentState":

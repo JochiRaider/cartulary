@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
@@ -95,7 +95,7 @@ func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
 	}
 }
 
-func linkEvidenceBlobInStore(t testing.TB, db postgres.DB, recordID uuid.UUID, blobID uuid.UUID) {
+func linkEvidenceBlobInStore(t testing.TB, db dbport.DB, recordID uuid.UUID, blobID uuid.UUID) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), `
 UPDATE evidence
@@ -155,7 +155,7 @@ func handleFromAccess(access evidenceAccessRecord, kind string) handleRecord {
 	}
 }
 
-func updateEvidenceLifecycleInStore(t testing.TB, db postgres.DB, recordID uuid.UUID, lifecycleState string) {
+func updateEvidenceLifecycleInStore(t testing.TB, db dbport.DB, recordID uuid.UUID, lifecycleState string) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), `
 UPDATE evidence
@@ -167,7 +167,7 @@ UPDATE evidence
 	}
 }
 
-func incrementRecordVersionInStore(t testing.TB, db postgres.DB, recordID uuid.UUID) {
+func incrementRecordVersionInStore(t testing.TB, db dbport.DB, recordID uuid.UUID) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), `
 UPDATE records

@@ -13,7 +13,7 @@ import { AccountSettings } from "./pages/accountSettings";
 import { DeploymentAdministration } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
 
-test("Verify bootstrap route selectors and error-state selectors use stable test-id builders.", async ({
+test("renders stable selectors across landing, account, administration and login states", async ({
   page,
 }) => {
   await new IncidentDirectory(page).goto();
@@ -34,13 +34,10 @@ test("Verify bootstrap route selectors and error-state selectors use stable test
   ).toBeAttached();
   await new DeploymentAdministration(page).open();
   await expect(page.getByTestId(deploymentAdminTestId("status"))).toBeVisible();
-  expect(authTestId("bootstrap-setup-key")).toBe("auth-bootstrap-setup-key");
 
   await page.context().clearCookies();
   await page.goto("/");
 
   await expect(page.getByTestId(authTestId("login-username"))).toBeVisible();
   await expect(page.getByTestId(authTestId("feedback"))).toBeVisible();
-  await expect(page.getByTestId(authTestId("feedback"))).toBeAttached();
-  await expect(page.getByTestId(authTestId("feedback"))).toBeAttached();
 });

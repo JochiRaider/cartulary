@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 
-	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type TerminalJobReader interface {
@@ -17,7 +18,7 @@ type TerminalJobReader interface {
 // ReconcileTerminalJobs runs before readiness, including with the profile
 // unclaimed. It repairs only terminal lifecycle facts proved by Jobs; queued or
 // recoverable executions retain their exact frozen input and preparation.
-func ReconcileTerminalJobs(ctx context.Context, pool postgres.DB, reader TerminalJobReader, finalizer ActionFinalizer) error {
+func ReconcileTerminalJobs(ctx context.Context, pool dbport.DB, reader TerminalJobReader, finalizer ActionFinalizer) error {
 	if pool == nil || reader == nil || finalizer == nil {
 		return errors.New("reference pack: incomplete terminal reconciliation dependencies")
 	}
@@ -53,7 +54,7 @@ func ReconcileTerminalJobs(ctx context.Context, pool postgres.DB, reader Termina
 		}
 	}
 }
-func reconcileTerminalJob(ctx context.Context, pool postgres.DB, reader TerminalJobReader, finalizer ActionFinalizer, operation, job uuid.UUID) error {
+func reconcileTerminalJob(ctx context.Context, pool dbport.DB, reader TerminalJobReader, finalizer ActionFinalizer, operation, job uuid.UUID) error {
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err

@@ -82,6 +82,65 @@ compatibility alias.
 Profiles: base, incident_portability
 Verified by: AC-509, AC-510, AC-511, AC-512, AC-515
 
+### 2.1 Internal capability ownership
+
+**REQ-01-690**
+The following durable capability rules replace the unavailable implementation
+decisions formerly referenced by Core 00 REQ-00-070–075. Application assembly
+constructs concrete cross-owner adapters and supplies narrow consumer-owned
+ports. A package capability grant applies to the exact package, including file
+renames and splits; it MUST NOT implicitly grant descendants, peers, tests, or
+production consumers of test support. Machine policies project these rules and
+MUST NOT invent broader authority. File identity is not a capability boundary.
+
+| Owner | Required boundary |
+| --- | --- |
+| Workbook-grid Projections | Source owners supply authoritative facts and semantic query intent. Provider contracts, private storage and query implementations remain separate. All projection-table reads, writes, locks, cleanup and counts belong to Projections storage/query capabilities. Writers borrow transactions and do not authorize, mutate source/history, or publish Collaboration. The root has no production API. Application projection assembly composes the provider catalog; recovery consumes deterministic rebuild capabilities. |
+| Revisions | Generic history, selectors, conflict mechanics and rollback coordination depend on immutable application-composed source-provider catalogs. Source owners retain current-state, snapshot, inverse and association semantics. Records owns current envelopes. Revisions neither constructs Records nor imports source owners, HTTP or application assembly, and captures no ambient process environment. |
+| Workbook | A private application facade owns route and immutable contribution-catalog orchestration. Application workbook assembly constructs concrete source adapters. Generic Workbook imports only incident admission and Projections provider contracts across module boundaries; source admission, fields, normalization, source mutation, history and publication facts stay with source owners. |
+| Entities | The root owns source orchestration and HTTP adaptation; children own bounded admission, query, mutation, import, merge and source-fact capabilities. Children do not import the root or assembly to recover dependencies. Separate mutation, query and Reporting ports expose Projections; no aggregate concrete runtime crosses the boundary. Timeline owns automatic-resolution policy and its transaction. |
+| Indicators | The bounded source-owner root orchestrates create, observation, transition, lifecycle and list behavior. Owner-local admission and HTTP adapters may import root contracts; private source-state, identity, origin and vocabulary packages may not. Assembly injects Auth, Incidents, Records, Revisions and projection capabilities; construction rejects missing or typed-nil required dependencies without fallback or partial success. |
+| Collaboration | The runtime facade composes private protocol, route/hub, stream store and dispatcher capabilities; recovery and test support remain separate capabilities. Source owners independently supply Revisions facts and public Collaboration effects through separate consumer ports in one borrowed transaction. Neither consumer derives from or imports the other's representation. Collaboration is an implementation capability, not a new domain context. |
+
+Borrowed transactions MUST NOT be begun, committed, rolled back, nested or
+detached by participants. Source owners retain source meaning and admission;
+application composition does not transfer that authority. Runtime-excluded test
+support grants no production permission. Closed positive local policies and
+cross-owner negative policies are complementary evidence. Compatibility aliases,
+forwarding packages, ambient registries and filename-specific grants MUST NOT
+be retained solely to accommodate earlier internal layouts. Generated-contract
+families are accessed only by declared consumer packages; a new family or
+consumer requires an explicit capability assignment, including an explicit
+no-production-consumer disposition where appropriate.
+
+SQL capability grants MUST use exact package identity. Narrow exceptions MAY
+add declaration identity and an exact statement shape, but MUST NOT depend on
+source filename. A provider's source-read authority applies through its complete
+repository-local dependency closure; helper extraction or shared package placement
+MUST NOT widen that authority. Shared read capabilities MUST satisfy each receiving
+provider independently. Source-owned mutation and locking capabilities MUST remain
+separate from provider read capabilities; a source-owner permission is not a
+provider exception. All SQL accesses, including constructed statements and locks,
+MUST be accounted for or rejected as unclassified.
+
+Core §12's physical recovery operations and the harness's admitted database reset
+have separate maintenance capabilities over the frozen machine-readable relation
+catalog. These capabilities MAY read, restore, clear and lock the catalog's
+explicit relation sets, including derived projection storage, only within their
+existing recovery/reset transaction and fencing contracts. They MUST NOT create
+provider authority, accept unrestricted relation names, or become ordinary
+source/query capabilities. Aggregate restore and reset operations MUST validate
+their complete relation sets; source-owner semantics and projection rebuild
+ownership remain unchanged.
+
+Graph Projection engine and restore construction are owned by Graph Projection
+NLSpec §8.1. SQLC remains private to designated storage adapters, including the
+Recovery root package; permission does not propagate to child packages. Existing
+public behavior, source meaning, privacy and transaction guarantees remain
+owned by their behavioral sections, not by these topology rules.
+Profiles: base, incident_portability, network_flow_activity, snapshot_reporting
+Verified by: AC-529, AC-539, AC-552, AC-558, AC-560, AC-564, AC-568
+
 ### 2.1A Schema ownership and migration history policy
 
 `db/migrations` is schema-evolution and database-contract infrastructure for the modular monolith. It is not a domain module and it MUST NOT become a second source of product behavior outside the owning Core or adopted subsystem specification.
@@ -177,7 +236,7 @@ Testing Harness owner and MUST NOT create a production rollback contract.
 Physical package placement, migration SQL placement, test placement, and
 verification routing do not transfer this lifecycle ownership.
 Profiles: base
-Verified by: AC-537
+Verified by: AC-599
 
 **REQ-01-661**
 The current pre-production Production DDL Rebaseline v4 baseline MUST contain exactly 29
@@ -8653,7 +8712,7 @@ A completed exact retry validates the unchanged proof at its original admission
 instant under a new exclusive lease; expiry alone neither invalidates completion
 nor authorizes renewal of a non-pristine target.
 Profiles: base
-Verified by: AC-539
+Verified by: AC-601
 
 ### 12.2.2 Deployment-local Collaboration requeue CLI contract
 

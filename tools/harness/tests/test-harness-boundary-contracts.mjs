@@ -1,3 +1,4 @@
+import { registerBoundariesTests as registerProjectionSQLTests } from "../static-analysis/tests/test-projection-sql.mjs";
 import { registerBoundariesTests as registerGoImportInspectionTests } from "../static-analysis/tests/test-go-import-inspection.mjs";
 import { registerBoundariesTests as registerSQLRelationsTests } from "../static-analysis/tests/test-sql-relations.mjs";
 import { registerBoundariesTests as registerBackendMechanicsTests } from "../static-analysis/tests/test-backend-boundary-mechanics.mjs";
@@ -36,3 +37,5 @@ registerBackendCLITests();
 registerBackendAdmissionTests();
 
 registerGoImportInspectionTests();
+
+registerProjectionSQLTests();

@@ -1,7 +1,11 @@
 package projectionassembly
 
 import (
+	"context"
 	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelinefactassembly"
@@ -12,20 +16,22 @@ import (
 	indicatorowner "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineprovider "github.com/JochiRaider/cartulary/internal/modules/timeline/projectionprovider"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	workbookrestoreprobe "github.com/JochiRaider/cartulary/internal/modules/workbook/restoreprobe"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
 // Build is the sole global application constructor for the Projections
 // subsystem. It constructs source-owner contributions and delegates the
 // executable module graph to adapters.New.
-func Build(db postgres.DB) (*Runtime, error) {
+func Build(db dbport.DB) (*Runtime, error) {
 	if isNilDependency(db) {
 		return nil, fmt.Errorf("assemble projections: postgres is required")
 	}
@@ -62,15 +68,16 @@ func Build(db postgres.DB) (*Runtime, error) {
 		return nil, fmt.Errorf("assemble Tasks/Decisions projection contribution: %w", err)
 	}
 	ports, err := projectionadapters.New(projectionadapters.Dependencies{
-		Postgres:       db,
-		Timeline:       timelineContribution,
-		Entities:       entitiesContribution,
-		Indicators:     indicatorsContribution,
-		Assessments:    assessmentsContribution,
-		Artifacts:      artifactsContribution,
-		Evidence:       evidenceContribution,
-		Parties:        partiesContribution,
-		TasksDecisions: taskDecisionContribution,
+		Postgres:            db,
+		LockRecordEndpoints: lockRecordEndpoints,
+		Timeline:            timelineContribution,
+		Entities:            entitiesContribution,
+		Indicators:          indicatorsContribution,
+		Assessments:         assessmentsContribution,
+		Artifacts:           artifactsContribution,
+		Evidence:            evidenceContribution,
+		Parties:             partiesContribution,
+		TasksDecisions:      taskDecisionContribution,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("assemble Projections runtime: %w", err)
@@ -78,7 +85,7 @@ func Build(db postgres.DB) (*Runtime, error) {
 	return &Runtime{ports: ports}, nil
 }
 
-func NewRecoveryServices(db postgres.DB) (
+func NewRecoveryServices(db dbport.DB) (
 	restorecontract.ProjectionRebuilder,
 	workbookprobe.Executor,
 	error,
@@ -96,4 +103,16 @@ func NewRecoveryServices(db postgres.DB) (
 		return nil, nil, fmt.Errorf("assemble restore workbook probe registry: %w", err)
 	}
 	return recovery.Rebuilder, registry, nil
+}
+
+func lockRecordEndpoints(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, ids []uuid.UUID) ([]providercontract.RecordEndpoint, error) {
+	envelopes, err := records.LockIncidentEnvelopeIdentitiesTx(ctx, tx, incidentID, ids)
+	if err != nil {
+		return nil, err
+	}
+	endpoints := make([]providercontract.RecordEndpoint, len(envelopes))
+	for i, envelope := range envelopes {
+		endpoints[i] = providercontract.RecordEndpoint{RecordID: envelope.RecordID, RecordType: envelope.RecordType}
+	}
+	return endpoints, nil
 }

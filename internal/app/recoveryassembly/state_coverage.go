@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
 func ValidateRecoveryStateDatabaseCoverage(
 	ctx context.Context,
-	pool postgres.DB,
+	pool dbport.DB,
 	catalog *recoverystate.Catalog,
 ) error {
 	if pool == nil {

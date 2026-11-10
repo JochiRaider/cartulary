@@ -16,13 +16,13 @@ import (
 	timelinefixture "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 )
 
 func NewProduction(
-	pool postgres.DB,
+	pool dbport.DB,
 	objects objectstore.Store,
 	actor authn.UserRecord,
 	conflictTokenSeed string,
@@ -78,7 +78,7 @@ func NewProduction(
 }
 
 type productionSemanticValidator struct {
-	pool    postgres.DB
+	pool    dbport.DB
 	profile performancefixtureprofile.Profile
 }
 

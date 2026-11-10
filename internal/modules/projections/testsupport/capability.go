@@ -18,12 +18,12 @@ import (
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	projectionstorage "github.com/JochiRaider/cartulary/internal/modules/projections/internal/storage"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func ApplyAssessmentFixtureMutationTx(
 	ctx context.Context,
-	db postgres.DB,
+	db dbport.DB,
 	tx pgx.Tx,
 	mutation assessmentprojection.ProjectionMutation,
 ) error {

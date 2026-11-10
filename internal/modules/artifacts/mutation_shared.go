@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
@@ -30,8 +31,8 @@ type MemberReferenceCapability interface {
 type RecordEnvelopeCapability interface {
 	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
-	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (records.Envelope, error)
-	LoadEnvelopeForShareTx(context.Context, pgx.Tx, uuid.UUID) (records.Envelope, error)
+	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (recordenvelope.Envelope, error)
+	LoadEnvelopeForShareTx(context.Context, pgx.Tx, uuid.UUID) (recordenvelope.Envelope, error)
 }
 
 type LinkCapability interface {
@@ -187,7 +188,7 @@ func (f *MutationFacade) loadArtifactRecordMetaForUpdateTx(
 	recordID uuid.UUID,
 ) (artifactRecordMeta, error) {
 	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return artifactRecordMeta{}, pgx.ErrNoRows
 	}
 	if err != nil {

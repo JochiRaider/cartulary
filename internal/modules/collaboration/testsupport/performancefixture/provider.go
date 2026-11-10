@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/stream"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 )
 
@@ -20,12 +20,12 @@ import (
 // restored servers start at the construction high-water mark rather than
 // dispatching old fixture mutations as new live traffic.
 type Provider struct {
-	db         postgres.DB
+	db         dbport.DB
 	stream     *stream.PostgresStream
 	descriptor fixture.Descriptor
 }
 
-func New(db postgres.DB, descriptor fixture.Descriptor) (*Provider, error) {
+func New(db dbport.DB, descriptor fixture.Descriptor) (*Provider, error) {
 	if descriptor.OwnerID != "module.collaboration" || len(descriptor.ExpectedCounts) != 1 {
 		return nil, errors.New("collaboration fixture descriptor is incompatible")
 	}

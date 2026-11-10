@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -267,7 +267,7 @@ func (a *failNthRecordChangedAppender) AppendRecordChangedTx(
 
 func requireSupersessionPublicationRollback(
 	t *testing.T,
-	pool postgres.DB,
+	pool dbport.DB,
 	successOwner *tasksdecisions.MutationFacade,
 	codec conflicttokens.ConflictTokenCodec,
 	actor authn.UserRecord,

@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func collectionItems(t testing.TB, row map[string]any, fieldKey string) []map[string]any {
@@ -97,7 +97,7 @@ func stringScalar(t testing.TB, db *sql.DB, query string, args ...any) string {
 	return value
 }
 
-func stringScalarPG(t testing.TB, db postgres.DB, query string, args ...any) string {
+func stringScalarPG(t testing.TB, db dbport.DB, query string, args ...any) string {
 	t.Helper()
 	var value string
 	if err := db.QueryRow(context.Background(), query, args...).Scan(&value); err != nil {
@@ -106,7 +106,7 @@ func stringScalarPG(t testing.TB, db postgres.DB, query string, args ...any) str
 	return value
 }
 
-func columnNamesPG(t testing.TB, db postgres.DB, tableName string) []string {
+func columnNamesPG(t testing.TB, db dbport.DB, tableName string) []string {
 	t.Helper()
 	rows, err := db.Query(context.Background(), `
 SELECT column_name

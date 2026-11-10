@@ -4,6 +4,8 @@ import (
 	"errors"
 	"slices"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func testSourceStateManifestRejectsMalformedRelations(t *testing.T) {
@@ -194,7 +196,7 @@ func testSourceStateManifestDerivesExactRecoveryAndPortabilityState(t *testing.T
 			specification.AttributionTable != wantTable ||
 			!slices.Equal(specification.StableIdentity, []string{wantPaths[index].stableIdentity}) ||
 			!slices.Equal(specification.RequiredColumns, wantRequiredColumns[index]) ||
-			specification.InsertSQL != wantInsertSQL {
+			sqlshape.CommandText(specification.InsertSQL) != wantInsertSQL {
 			t.Fatalf("import specification %d = %#v", index, specification)
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	decisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionports"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const decisionsViewSchemaID = "cartulary.view.decisions.v1"
@@ -70,22 +71,22 @@ SELECT d.record_id, jsonb_build_object(
 func DecisionPlans() []Surface {
 	return []Surface{{
 		ViewSchemaID: decisionsViewSchemaID,
-		FromSQL:      "FROM decision_grid_projection p JOIN records r ON r.record_id = p.record_id",
-		RecordExpr:   "p.record_id",
-		IncidentExpr: "p.incident_id",
+		FromSQL:      sqlshape.Literal("FROM decision_grid_projection p JOIN records r ON r.record_id = p.record_id"),
+		RecordExpr:   sqlshape.Literal("p.record_id"),
+		IncidentExpr: sqlshape.Literal("p.incident_id"),
 		Fields: []Field{
-			{Key: "decision.summary", Expr: "p.summary", Kind: FieldKindText},
-			{Key: "decision.status", Expr: "p.status", Kind: FieldKindText},
-			{Key: "decision.owner_user_id", Expr: "p.owner_user_id", Kind: FieldKindText},
-			{Key: "decision.decision_type", Expr: "p.decision_type", Kind: FieldKindText},
-			{Key: "decision.decided_at", Expr: "p.decided_at", Kind: FieldKindTimestamp},
-			{Key: "decision.rationale", Expr: "p.rationale", Kind: FieldKindText},
-			{Key: "decision.support_refs", Expr: taskRecordRefCollectionExpr("p", "decision.support_refs", "supported_by"), Kind: FieldKindCollection},
-			{Key: "decision.affected_record_ids", Expr: taskRecordRefCollectionExpr("p", "decision.affected_record_ids", "references_record"), Kind: FieldKindCollection},
-			{Key: "decision.affected_record_count", Expr: "p.affected_record_count", Kind: FieldKindNumber},
-			{Key: "decision.supersedes_record_id", Expr: "p.supersedes_record_id", Kind: FieldKindText},
-			{Key: "decision.updated_at", Expr: "p.updated_at", Kind: FieldKindTimestamp},
-			{Key: "decision.is_superseded", Expr: "p.is_superseded", Kind: FieldKindBool},
+			{Key: "decision.summary", Expr: sqlshape.Literal("p.summary"), Kind: FieldKindText},
+			{Key: "decision.status", Expr: sqlshape.Literal("p.status"), Kind: FieldKindText},
+			{Key: "decision.owner_user_id", Expr: sqlshape.Literal("p.owner_user_id"), Kind: FieldKindText},
+			{Key: "decision.decision_type", Expr: sqlshape.Literal("p.decision_type"), Kind: FieldKindText},
+			{Key: "decision.decided_at", Expr: sqlshape.Literal("p.decided_at"), Kind: FieldKindTimestamp},
+			{Key: "decision.rationale", Expr: sqlshape.Literal("p.rationale"), Kind: FieldKindText},
+			{Key: "decision.support_refs", Expr: taskRecordRefCollectionExpr("decision.support_refs", "supported_by"), Kind: FieldKindCollection},
+			{Key: "decision.affected_record_ids", Expr: taskRecordRefCollectionExpr("decision.affected_record_ids", "references_record"), Kind: FieldKindCollection},
+			{Key: "decision.affected_record_count", Expr: sqlshape.Literal("p.affected_record_count"), Kind: FieldKindNumber},
+			{Key: "decision.supersedes_record_id", Expr: sqlshape.Literal("p.supersedes_record_id"), Kind: FieldKindText},
+			{Key: "decision.updated_at", Expr: sqlshape.Literal("p.updated_at"), Kind: FieldKindTimestamp},
+			{Key: "decision.is_superseded", Expr: sqlshape.Literal("p.is_superseded"), Kind: FieldKindBool},
 		},
 	}}
 }

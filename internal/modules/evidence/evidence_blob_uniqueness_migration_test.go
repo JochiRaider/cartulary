@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -72,7 +72,7 @@ INSERT INTO public.evidence (
 	}
 }
 
-func requireEvidenceBlobIndexState(t testing.TB, db postgres.DB, uniquePresent bool, supersededPresent bool) {
+func requireEvidenceBlobIndexState(t testing.TB, db dbport.DB, uniquePresent bool, supersededPresent bool) {
 	t.Helper()
 	for indexName, want := range map[string]bool{
 		"evidence_object_blob_unique_idx": uniquePresent,

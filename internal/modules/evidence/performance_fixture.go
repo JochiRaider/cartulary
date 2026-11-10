@@ -16,19 +16,19 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // PerformanceFixtureContribution is an isolated fixture capability. It is not
 // exposed by HTTP or generic Workbook dispatch. The builder owns the entire
 // disposable database and object namespace, including partial construction.
 type PerformanceFixtureContribution struct {
-	postgres    postgres.DB
+	postgres    dbport.DB
 	objectStore objectstore.TypedStore
 	source      *SourceRuntime
 }
 
-func NewPerformanceFixtureContribution(db postgres.DB, objects objectstore.TypedStore, source *SourceRuntime) *PerformanceFixtureContribution {
+func NewPerformanceFixtureContribution(db dbport.DB, objects objectstore.TypedStore, source *SourceRuntime) *PerformanceFixtureContribution {
 	if isNilMutationCapability(db) || isNilMutationCapability(objects) || source == nil {
 		return nil
 	}

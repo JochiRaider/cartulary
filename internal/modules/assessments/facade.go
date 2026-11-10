@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	assessmentpolicy "github.com/JochiRaider/cartulary/internal/modules/assessments/internal/policy"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type CreateOutcome string
@@ -136,7 +136,7 @@ type FacadeDependencies struct {
 }
 
 type Facade struct {
-	pool         postgres.DB
+	pool         dbport.DB
 	idempotency  CreateIdempotencyPort
 	support      SupportTargetValidator
 	supportLinks InitialSupportLinkApplier
@@ -144,7 +144,7 @@ type Facade struct {
 	creator      assessmentCreateService
 }
 
-func NewFacade(pool postgres.DB, dependencies FacadeDependencies) (*Facade, error) {
+func NewFacade(pool dbport.DB, dependencies FacadeDependencies) (*Facade, error) {
 	switch {
 	case isNilDependency(pool):
 		return nil, errors.New("construct assessment facade: database is required")

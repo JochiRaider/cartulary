@@ -13,19 +13,49 @@ import { prepareBoundaryPolicy } from "../backend-module-boundary-check.mjs";
 import { sqlStatements } from "../sql-relations.mjs";
 
 export function registerBoundariesTests() {
+  test("backend policy: package capabilities survive rename and split without granting descendants", () => {
+    const manifest = repositoryPolicy();
+    for (const id of ["evidence-private-projection-provider-import", "indicator-projection-provider-import", "party-projection-provider-import", "tasks-decisions-projection-provider-import"]) {
+      const rule = manifest.ownerPortOnlyImports.find((entry) => entry.id === id);
+      assert.ok(rule, id);
+      const owner = rule.import.split("/internal/providers/projection")[0].split("cartulary/")[1];
+      for (const name of ["renamed.go", "split.go"]) {
+        assert.deepEqual(checkOwnerPortOnlyImports([{relative: `${owner}/${name}`, content: `package fixture\nimport alias "${rule.import}"`}], [rule]), []);
+      }
+      for (const relative of [`${owner}/child/bypass.go`, "internal/app/projectionassembly/bypass.go", "internal/modules/peer/bypass.go"]) {
+        assert.ok(checkOwnerPortOnlyImports([{relative, content: `package fixture\nimport "${rule.import}"`}], [rule]).length > 0, relative);
+      }
+    }
+    for (const id of ["entities-projectioncontract-direct-consumers", "entities-projectionports-direct-consumers"]) {
+      const rule = manifest.forbiddenGoImports.find((entry) => entry.id === id);
+      for (const pattern of rule.allowedPaths) {
+        const owner = pattern.slice(0, -"/*.go".length);
+        for (const [relative, rejected] of [[`${owner}/renamed.go`, false], [`${owner}/split.go`, false], [`${owner}/child/bypass.go`, true], ["internal/modules/peer/use.go", true]]) {
+          const violations = checkForbiddenGoImports([{relative, content: `package fixture\nimport "${rule.imports[0]}"`}], [rule]);
+          assert.equal(violations.length > 0, rejected, `${id}: ${relative}`);
+        }
+      }
+    }
+    const rule = manifest.forbiddenGoImports.find((entry) => entry.id === "recovery-sqlc-confined-to-private-store-adapter");
+    for (const [relative, rejected] of [["internal/modules/recovery/renamed.go", false], ["internal/modules/recovery/split.go", false], ["internal/modules/recovery/child/bypass.go", true]]) {
+      const violations = checkForbiddenGoImports([{relative, content: 'package recovery\nimport sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"'}], [rule]);
+      assert.equal(violations.length > 0, rejected, relative);
+    }
+  });
+
   test("backend policy: Links Records grants constrain exact SQL shapes", () => {
     const rule = repositoryPolicy().sqlTableAccess.find((entry) => entry.id === "records-current-envelope-access");
     assert.equal(rule.readAllowedStatements.length, 3);
     assert.ok(!rule.readAllowedPaths.some((entry) => entry.startsWith("internal/modules/links/")));
     const rawRule = {
-      id: "exact-records", table: "records", scan_paths: ["internal/modules/links/**"],
+      id: "exact-records", table: "records", scan_paths: ["internal/modules/**"],
       read_allowed_paths: [], write_allowed_paths: [],
-      read_allowed_statements: [{ path: "internal/modules/links/field_refs.go", sql: "UPDATE record_links SET deleted_at = $2 WHERE EXISTS (SELECT 1 FROM public.\"records\" r WHERE r.record_id = $1 AND r.record_type = 'party')" }],
+      read_allowed_statements: [{ package: "internal/modules/links", declaration: "query", sql: "UPDATE record_links SET deleted_at = $2 WHERE EXISTS (SELECT 1 FROM public.\"records\" r WHERE r.record_id = $1 AND r.record_type = 'party')" }],
     };
     const prepare = (value) => prepareBoundaryPolicy(emptyPolicy({ sql_table_access: [value] })).sqlTableAccess;
     const rules = prepare(rawRule);
     const query = rawRule.read_allowed_statements[0].sql;
-    const evaluate = (content, relative = rawRule.read_allowed_statements[0].path) => inspect([{ relative, content }], { sqlTableAccess: rules });
+    const evaluate = (content, relative = `${rawRule.read_allowed_statements[0].package}/field_refs.go`) => inspect([{ relative, content }], { sqlTableAccess: rules });
     const go = (sql) => `package fixture\nconst query = ${JSON.stringify(sql)}`;
     assert.deepEqual(evaluate(go(query.replace('SELECT 1', 'select /* reviewed */ 1').replace('WHERE EXISTS', 'WHERE\n EXISTS'))), []);
     for (const sql of [
@@ -35,23 +65,26 @@ export function registerBoundariesTests() {
       'SELECT * FROM public."records"', 'UPDATE records SET row_version = 1',
       query.replace('SELECT 1', 'SELECT (SELECT count(*) FROM records)'),
     ]) assert.ok(evaluate(go(sql)).length > 0, sql);
-    assert.ok(evaluate(go(query), 'internal/modules/links/renamed.go').some((entry) => entry.code === 'sql_table_read_access'));
+    assert.deepEqual(evaluate(go(query), 'internal/modules/links/renamed.go'), []);
+    assert.deepEqual(evaluate(go(query), 'internal/modules/links/split.go'), []);
+    for (const file of ['internal/modules/links/child/read.go', 'internal/modules/peer/read.go']) assert.ok(evaluate(go(query), file).some(entry=>entry.code==='sql_table_read_access'));
+    assert.ok(evaluate(go(query).replace('const query', 'const extracted')).some(entry=>entry.code==='sql_statement_grant_stale'));
     for (const content of [
       `package fixture\nconst query = ${JSON.stringify(query)} + fragment`,
       `package fixture\nconst query = fragment + ${JSON.stringify(query)}`,
-      `package fixture\nvar query = ${JSON.stringify(query)}\nquery += fragment`,
+      `package fixture\nfunc Read() { query := ${JSON.stringify(query)}; query += fragment; _ = query }`,
       `package fixture\nconst template = ${JSON.stringify(query)}\nvar query = template + fragment`,
-      `package fixture\nconst query = ${JSON.stringify(query.replace('SELECT 1', 'SELECT %s'))}`,
-    ]) assert.ok(evaluate(content).some((entry) => entry.code === 'sql_statement_grant_stale'), content);
+    ]) assert.ok(evaluate(content).some(entry=>entry.code==='sql_construction_unresolved'),content);
+    assert.ok(evaluate(go(query.replace('SELECT 1', 'SELECT %s'))).some(entry=>entry.code==='sql_statement_grant_stale'));
     assert.ok(evaluate('package fixture').some((entry) => entry.code === 'sql_statement_grant_stale'));
     assert.ok(inspect([], { sqlTableAccess: rules }, { completeSourceSet: true }).some((entry) => entry.code === 'sql_statement_grant_stale'));
     assert.ok(evaluate(go(query.replace("'party')", "'party' FOR UPDATE OF r)"))).some((entry) => entry.code === 'sql_table_lock_access'));
     for (const sql of ['SELECT * FROM records FOR UPDATE', 'UPDATE records SET row_version = 1', 'SELECT * FROM %s']) {
-      assert.throws(() => prepare({ ...rawRule, read_allowed_statements: [{ path: rawRule.read_allowed_statements[0].path, sql }] }));
+      assert.throws(() => prepare({ ...rawRule, read_allowed_statements: [{ ...rawRule.read_allowed_statements[0], sql }] }));
     }
     assert.throws(() => prepare({ ...rawRule, read_allowed_paths: ['internal/modules/links/**'] }));
     assert.throws(() => prepare({ ...rawRule, read_allowed_statements: [rawRule.read_allowed_statements[0], rawRule.read_allowed_statements[0]] }));
-    assert.throws(() => prepare({ ...rawRule, read_allowed_statements: [{ path: 'internal/modules/links/**', sql: query }] }));
+    assert.throws(() => prepare({ ...rawRule, read_allowed_statements: [{ package: 'internal/modules/links/**', declaration: 'query', sql: query }] }));
   });
   test("backend policy: normalized SQL preserves literals, parameters and boundaries", () => {
     const key = (sql) => sqlStatements(sql)[0].key;
@@ -88,9 +121,12 @@ export function registerBoundariesTests() {
       const file = table === "route_idempotency" ? "store.go" : "cutover.go";
       for (const [sql,code] of [[`UPDATE ${table} SET id=1`,"sql_table_write_access"],[`SELECT * FROM ${table} x FOR UPDATE OF x`,"sql_table_lock_access"]])
         assert.ok(evaluate(`internal/modules/reporting/${file}`,sql).some((entry)=>entry.code===code),sql);
-      assert.ok(evaluate("internal/modules/reporting/renamed.go",`SELECT * FROM ${table}`).some((entry)=>entry.code==="sql_table_read_access"));
+      assert.deepEqual(evaluate("internal/modules/reporting/renamed.go",`SELECT * FROM ${table}`),[]);
+      assert.deepEqual(evaluate("internal/modules/reporting/split.go",`SELECT * FROM ${table}`),[]);
+      assert.ok(evaluate("internal/modules/reporting/child/read.go",`SELECT * FROM ${table}`).some((entry)=>entry.code==="sql_table_read_access"));
     }
-    assert.ok(evaluate("internal/modules/entities/merge/renamed.go","SELECT * FROM records").some((entry)=>entry.code==="sql_table_read_access"));
+    assert.deepEqual(evaluate("internal/modules/entities/merge/renamed.go","SELECT * FROM records"),[]);
+    assert.ok(evaluate("internal/modules/entities/merge/child/read.go","SELECT * FROM records").some(entry=>entry.code==="sql_table_read_access"));
     assert.deepEqual(evaluate("internal/modules/reporting/renamed.go","SELECT 'FROM records' /* JOIN timeline_events */ FROM reporting_snapshots"),[]);
   });
 
@@ -135,7 +171,7 @@ export function registerBoundariesTests() {
     {
       label: "unapproved source-owner read join",
       file: {
-        relative: "internal/modules/entities/fixture_query.go",
+        relative: "internal/modules/entities/peer/fixture_query.go",
         content: "package entities\nconst sql = `SELECT r.record_id FROM records r`",
       },
       wantCode: "sql_table_read_access",
@@ -904,4 +940,23 @@ export function registerBoundariesTests() {
     }
   }
   });
+test('SQL forwarding is exact declaration transport authority, never construction authority',()=>{
+ const sqlForwardingCapabilities=[{package:'internal/platform/transport',declaration:'Forward',testSupport:false}];
+ const file=body=>({relative:'internal/platform/transport/renamed.go',content:`package transport\nimport "github.com/jackc/pgx/v5"\nfunc Forward(tx pgx.Tx,query string){tx.Query(ctx,${body})}`});
+ assert.deepEqual(inspect([file('query')],{sqlForwardingCapabilities}),[]);
+ for(const body of ['query+` UNION SELECT * FROM users`','opaque(query)']) assert.ok(inspect([file(body)],{sqlForwardingCapabilities}).some(v=>v.code==='sql_construction_unresolved'));
+ assert.ok(inspect([{...file('query'),relative:'internal/platform/transport/child/read.go'}],{sqlForwardingCapabilities}).some(v=>v.code==='sql_construction_unresolved'));
+ assert.ok(inspect([file('query')],{},{completeSourceSet:true}).some(v=>v.code==='sql_construction_unresolved'));
+ assert.ok(inspect([],{sqlForwardingCapabilities},{completeSourceSet:true}).some(v=>v.code==='stale_sql_forwarder'));
+});
+
+  test('SQL session authority requires the exact package, declaration and complete command',()=>{
+    const grant={package:'internal/platform/session',declaration:'Initialize',sql:'SET ROLE cartulary_runtime'};
+    const policy=prepareBoundaryPolicy(emptyPolicy({sql_control_capabilities:[grant]}));
+    const file=sql=>({relative:'internal/platform/session/renamed.go',content:`package session\nimport "github.com/jackc/pgx/v5"\nfunc Initialize(tx pgx.Tx){tx.Exec(ctx,${JSON.stringify(sql)})}`});
+    assert.deepEqual(inspect([file(grant.sql)],policy,{completeSourceSet:true}),[]);
+    for(const sql of ['SET ROLE cartulary_schema_owner','SET ROLE cartulary_runtime;SET LOCAL row_security = off']) assert.ok(inspect([file(sql)],policy,{completeSourceSet:true}).some(v=>v.code==='sql_control_access'));
+    assert.ok(inspect([{...file(grant.sql),relative:'internal/platform/session/child/read.go'}],policy,{completeSourceSet:true}).some(v=>v.code==='sql_control_access'));
+  });
+
 }

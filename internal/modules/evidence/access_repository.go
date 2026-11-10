@@ -9,13 +9,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // accessHandleRepository owns Evidence access snapshots and opaque handle
 // persistence. It has no route, authorization, or object-store dependency.
 type accessHandleRepository struct {
-	db postgres.DB
+	db dbport.DB
 }
 
 func (repository accessHandleRepository) loadEvidence(

@@ -11,10 +11,10 @@ import (
 
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
-type graphActivationNoIO struct{ postgres.DB }
+type graphActivationNoIO struct{ dbport.DB }
 
 func graphActivationControl() recovery.TargetControl {
 	text := func(s string) *string { return &s }

@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { builtinModules } from "node:module";
 import path from "node:path";
 import ts from "typescript";
+import { createFrontendModuleResolver } from "./frontend-module-resolution.mjs";
 import { loadDesignTokenDocument } from "./contracts/frontend-design.mjs";
 
 const schemaID = "cartulary.frontend_import_boundaries.v2";
@@ -377,7 +378,8 @@ function collectImports(sourceFile) {
   return imports;
 }
 
-function resolveInternalSourceFile(importerFile, specifier, graphFiles) {
+function resolveInternalSourceFile(importerFile, specifier, graphFiles, resolvedPath) {
+  if (resolvedPath && graphFiles.has(resolvedPath)) return resolvedPath;
   if (!specifier.startsWith(".") && !path.isAbsolute(specifier)) {
     return null;
   }
@@ -483,6 +485,7 @@ function evaluateAcyclicImportGraphs(root, config, fileImportEntries) {
           file,
           imported.specifier,
           graphFiles,
+          imported.resolvedPath,
         );
         if (dependency !== null) {
           adjacency.get(file).add(dependency);
@@ -517,7 +520,8 @@ function isPackageRestricted(restriction, specifier) {
   return specifier === restriction.name;
 }
 
-function resolvedRelativeImport(root, importerFile, specifier) {
+function resolvedRelativeImport(root, importerFile, specifier, resolvedPath) {
+  if (resolvedPath) return repoRelative(root,resolvedPath);
   if (specifier.startsWith(".")) {
     return repoRelative(root, path.resolve(path.dirname(importerFile), specifier));
   }
@@ -622,11 +626,11 @@ function hydrateWorkspacePackageRestrictions(root, config) {
   return config;
 }
 
-function isPathPrefixRestricted(root, importerFile, restriction, specifier) {
+function isPathPrefixRestricted(root, importerFile, restriction, specifier, resolvedPath) {
   const stripModuleExtension = (value) =>
     value.replace(/\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/u, "");
   const resolved = stripModuleExtension(
-    resolvedRelativeImport(root, importerFile, specifier),
+    resolvedRelativeImport(root, importerFile, specifier, resolvedPath),
   );
   const restrictedPath = stripModuleExtension(restriction.path);
   return (
@@ -665,19 +669,16 @@ function workspacePackageForPath(workspacePackages, relativePath) {
   );
 }
 
-function isWorkspacePackageFacadeRestricted(root, importerFile, restriction, specifier) {
+function isWorkspacePackageFacadeRestricted(root, importerFile, restriction, specifier, resolvedPath) {
   const parsedPackage = parsePackageSpecifier(specifier);
   if (parsedPackage !== null) {
     const workspacePackage = restriction.workspacePackages.find(
       (candidate) => candidate.name === parsedPackage.name,
     );
-    return (
-      workspacePackage !== undefined &&
-      !isDeclaredPackageExport(workspacePackage, parsedPackage.subpath)
-    );
+    if (workspacePackage !== undefined) return !isDeclaredPackageExport(workspacePackage, parsedPackage.subpath);
   }
 
-  const resolved = resolvedRelativeImport(root, importerFile, specifier);
+  const resolved = resolvedRelativeImport(root, importerFile, specifier, resolvedPath);
   if (!resolved) {
     return false;
   }
@@ -698,18 +699,21 @@ function isWorkspacePackageFacadeRestricted(root, importerFile, restriction, spe
   );
 }
 
-function matchesRestriction(root, importerFile, restriction, specifier) {
+function matchesRestriction(root, importerFile, restriction, imported) {
+  const {specifier,resolvedPath,resolvedPackageName,resolvedPackageSpecifiers} = imported;
   if (restriction.kind === "package") {
-    return isPackageRestricted(restriction, specifier);
+    return isPackageRestricted(restriction, specifier) ||
+      (restriction.includeSubpaths && resolvedPackageName === restriction.name) ||
+      resolvedPackageSpecifiers.has(restriction.name);
   }
   if (restriction.kind === "path_prefix") {
-    return isPathPrefixRestricted(root, importerFile, restriction, specifier);
+    return isPathPrefixRestricted(root, importerFile, restriction, specifier, resolvedPath);
   }
   if (restriction.kind === "node_builtin") {
     return isNodeBuiltinRestricted(restriction, specifier);
   }
   if (restriction.kind === "workspace_package_facade") {
-    return isWorkspacePackageFacadeRestricted(root, importerFile, restriction, specifier);
+    return isWorkspacePackageFacadeRestricted(root, importerFile, restriction, specifier, resolvedPath);
   }
   return false;
 }
@@ -773,7 +777,7 @@ function evaluateFile(root, config, file, imports) {
         continue;
       }
       const restricted = rule.restrictedImports.some((restriction) =>
-        matchesRestriction(root, file, restriction, imported.specifier),
+        matchesRestriction(root, file, restriction, imported),
       );
       if (!restricted) {
         continue;
@@ -887,6 +891,7 @@ function evaluateProtocolTSEntrypointAllowlists(root, fileImportEntries) {
         root,
         absoluteAuthoredPath,
         imported.specifier,
+        imported.resolvedPath,
       );
       const generatedModule = withoutModuleExtension(resolved);
       if (
@@ -1020,7 +1025,16 @@ export function checkFrontendImportBoundaries({ root, config: rawConfig }) {
   root = path.resolve(root);
   const config = hydrateWorkspacePackageRestrictions(root, normalizeConfig(rawConfig));
   const files = collectSourceFiles(root, config);
-  const fileImportEntries = files.map(sourceRecord);
+  const resolution = createFrontendModuleResolver(root);
+  const packageRestrictions = [...new Set(config.rules.flatMap(rule=>rule.restrictedImports.filter(entry=>entry.kind === "package").map(entry=>entry.name)))];
+  const fileImportEntries = files.map(file=>{
+    const record = sourceRecord(file);
+    return {...record,imports:record.imports.map(imported=>{
+      const resolvedPath = imported.ambiguous ? null : resolution.resolve(file,imported.specifier);
+      return {...imported,resolvedPath,resolvedPackageName:resolution.packageName(resolvedPath),
+        resolvedPackageSpecifiers:new Set(resolvedPath ? packageRestrictions.filter(name=>resolution.resolve(file,name)===resolvedPath) : [])};
+    })};
+  });
   const diagnostics = [
     ...fileImportEntries.flatMap(({ file, imports }) =>
       evaluateFile(root, config, file, imports),

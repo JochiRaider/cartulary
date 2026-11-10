@@ -10,13 +10,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func newAssessmentImportCreateFacade(
 	targetViewSchemaID string,
 	facadeID string,
-	pool postgres.DB,
+	pool dbport.DB,
 	projectionRows assessmentprojection.Rows,
 	appender *revisions.Appender,
 	publications collaboration.RecordChangedAppender,

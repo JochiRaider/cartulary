@@ -73,6 +73,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
@@ -83,13 +84,13 @@ import (
 // networkFlowComposition decorates owner dependencies before any worker starts.
 // Ordinary composition leaves this nil; no control registry is a runtime dependency.
 type networkFlowComposition interface {
-	WrapDatabase(postgres.DB) postgres.DB
+	WrapDatabase(dbport.DB) dbport.DB
 	ConfigureNetworkFlow(networkflow.ModuleDependencies) networkflow.ModuleDependencies
 	WrapImportFacade(imports.ExtensionImportFacade) imports.ExtensionImportFacade
 }
 
 // referenceDataComposition decorates this runtime's owner database before construction.
-type referenceDataComposition interface{ WrapDatabase(postgres.DB) postgres.DB }
+type referenceDataComposition interface{ WrapDatabase(dbport.DB) dbport.DB }
 
 type Options struct {
 	immediateFatal            func(processlifecycle.FatalSignal)
@@ -1833,7 +1834,7 @@ func deploymentRevisionsConflictTokenError(err error) error {
 	})
 }
 
-func instrumentedPostgres(enabled bool, serviceVersion string, pool postgres.DB) postgres.DB {
+func instrumentedPostgres(enabled bool, serviceVersion string, pool dbport.DB) dbport.DB {
 	if pool == nil || !enabled {
 		return pool
 	}
@@ -1847,7 +1848,7 @@ func instrumentedObjectStore(enabled bool, serviceVersion string, store objectst
 	return objectstore.InstrumentStore(store, serviceVersion)
 }
 
-type referencePackReadinessProbe struct{ db postgres.DB }
+type referencePackReadinessProbe struct{ db dbport.DB }
 
 func (referencePackReadinessProbe) ReadinessName() string { return "reference_packs" }
 func (probe referencePackReadinessProbe) CheckReadinessDependency(ctx context.Context) error {

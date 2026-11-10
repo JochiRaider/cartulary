@@ -13,8 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -216,7 +215,7 @@ type BlobOptions struct {
 	PendingExpiresAt    time.Time
 }
 
-func seedEvidenceAttachmentRecord(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, lifecycleState string) uuid.UUID {
+func seedEvidenceAttachmentRecord(t testing.TB, db dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, lifecycleState string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
 	now := time.Now().UTC()
@@ -235,7 +234,7 @@ VALUES ($1, $2, 'Evidence evidence', $3, 'pending', $4, $4, $4)
 	return recordID
 }
 
-func seedBlob(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, uploadState string, options BlobOptions) uuid.UUID {
+func seedBlob(t testing.TB, db dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, uploadState string, options BlobOptions) uuid.UUID {
 	t.Helper()
 	blobID := uuid.New()
 	now := time.Now().UTC()
@@ -298,7 +297,7 @@ VALUES ($1, $2, $3, $4, $5, $2, $6, $7, 'PUT', '{}'::jsonb, $3, 'completed', $6,
 	return blobID
 }
 
-func requireEvidenceState(t testing.TB, db postgres.DB, recordID uuid.UUID, wantLifecycle string, wantUpload string, wantBlobID uuid.UUID) {
+func requireEvidenceState(t testing.TB, db dbport.DB, recordID uuid.UUID, wantLifecycle string, wantUpload string, wantBlobID uuid.UUID) {
 	t.Helper()
 	var lifecycle string
 	var upload string
@@ -326,7 +325,7 @@ SELECT e.lifecycle_state, e.upload_state, e.object_blob_id
 
 // Finalization must revalidate even a corrupted retained proof. These store-level
 // adversarial fixtures are independent of the real-worker route tests.
-func seedRetainedObservation(t testing.TB, db postgres.DB, blobID uuid.UUID, size int64, sha string) {
+func seedRetainedObservation(t testing.TB, db dbport.DB, blobID uuid.UUID, size int64, sha string) {
 	t.Helper()
 	_, err := db.Exec(context.Background(), `INSERT INTO evidence_blob_verifications(object_blob_id,upload_lease_id,job_id,verified_at,observed_size,observed_content_type,observed_sha256_hex)
     SELECT object_blob_id,lease_id,$2,now(),$3,'text/plain',$4 FROM evidence_object_upload_leases WHERE object_blob_id=$1`, blobID, uuid.New(), size, sha)
@@ -334,7 +333,7 @@ func seedRetainedObservation(t testing.TB, db postgres.DB, blobID uuid.UUID, siz
 		t.Fatal(err)
 	}
 }
-func requireBlobFailure(t testing.TB, db postgres.DB, blobID uuid.UUID, wantReason string) {
+func requireBlobFailure(t testing.TB, db dbport.DB, blobID uuid.UUID, wantReason string) {
 	t.Helper()
 	var state, reason string
 	var failed, cleanup *time.Time
@@ -345,7 +344,7 @@ func requireBlobFailure(t testing.TB, db postgres.DB, blobID uuid.UUID, wantReas
 		t.Fatalf("failure state=%s reason=%s failed=%v cleanup=%v", state, reason, failed, cleanup)
 	}
 }
-func requirePendingBlob(t testing.TB, db postgres.DB, blobID uuid.UUID) {
+func requirePendingBlob(t testing.TB, db dbport.DB, blobID uuid.UUID) {
 	t.Helper()
 	var state string
 	var reason *string
@@ -368,7 +367,7 @@ func requireAttachRejectedReason(t testing.TB, err error, want string) {
 	}
 }
 
-func requireChangeSetCount(t testing.TB, db postgres.DB, recordID uuid.UUID, want int) {
+func requireChangeSetCount(t testing.TB, db dbport.DB, recordID uuid.UUID, want int) {
 	t.Helper()
 	var count int
 	if err := db.QueryRow(context.Background(), `
@@ -432,7 +431,7 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 		t.Fatalf("open concurrent association pool: %v", err)
 	}
 	t.Cleanup(pool.Close)
-	var harness postgres.DB = pool
+	var harness dbport.DB = pool
 	store := newTestBlobLifecycleService(t, harness)
 	actor := authstoretest.SeedActor(t, harness, authstoretest.ActorAttributes{Email: "evidence-association-race@example.test", DisplayName: "Evidence Association Race"})
 	incident := createTestIncident(t, harness, actor, "txn-evidence-association-race-incident", "IR-EVIDENCE-ASSOCIATION-RACE", "Evidence association race")
@@ -496,7 +495,7 @@ type DurableCounts struct {
 	BlobLinks  int
 }
 
-func DurableAttachCounts(t testing.TB, db postgres.DB, recordID uuid.UUID) DurableCounts {
+func DurableAttachCounts(t testing.TB, db dbport.DB, recordID uuid.UUID) DurableCounts {
 	t.Helper()
 	var counts DurableCounts
 	if err := db.QueryRow(context.Background(), `

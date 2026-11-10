@@ -13,6 +13,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -521,7 +522,7 @@ func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 	requireCanonicalRecordTagMutationValue(t, mutationMap(t, tagDeleteMutations[0].BeforeValue()))
 	requireCanonicalRecordTagMutationValue(t, mutationMap(t, tagDeleteMutations[0].AfterValue()))
 
-	factReader := links.FactReader{}
+	factReader := linkfacts.FactReader{}
 	recordFacts, err := factReader.LoadRecordTx(ctx, tx, incident.ID, src)
 	if err != nil {
 		t.Fatalf("load record-scoped facts: %v", err)

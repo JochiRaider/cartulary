@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -29,7 +30,7 @@ func TestGenericProjectionPageSQLIsKeysetBounded(t *testing.T) {
 			if err != nil {
 				t.Fatalf("build generic page SQL: %v", err)
 			}
-			if !strings.Contains(sqlText, "record_id >") || !strings.Contains(sqlText, " LIMIT $") || strings.Contains(strings.ToUpper(sqlText), "OFFSET") {
+			if !strings.Contains(sqlshape.Text(sqlText), "record_id >") || !strings.Contains(sqlshape.Text(sqlText), " LIMIT $") || strings.Contains(strings.ToUpper(sqlshape.Text(sqlText)), "OFFSET") {
 				t.Fatalf("generic page SQL is not bounded keyset retrieval: %s", sqlText)
 			}
 			if got := args[len(args)-1]; got != 26 {
@@ -240,7 +241,7 @@ func TestArtifactProjectionSurfacesUseContractFilters(t *testing.T) {
 			if !ok || filter.Kind != "artifact_type" || filter.Field != "artifact_type" || filter.Value != artifactType {
 				t.Fatalf("%s canonical artifact filter got %#v want artifact_type=%q", viewSchemaID, filter, artifactType)
 			}
-			if !strings.Contains(surface.WhereSQL, "p.artifact_type = '"+artifactType+"'") {
+			if !strings.Contains(sqlshape.Text(surface.WhereSQL), "p.artifact_type = E'"+artifactType+"'") {
 				t.Fatalf("%s whereSQL does not use contract artifact filter: %q", viewSchemaID, surface.WhereSQL)
 			}
 		})
@@ -277,7 +278,7 @@ func TestGenericProjectionGroupedRowIsFullViewRow(t *testing.T) {
 	groupBy := "host.host_state"
 	row, err := queryengine.BuildRow(queryengine.Surface{
 		ViewSchemaID:   "cartulary.view.hosts.v1",
-		RecordExpr:     "h.record_id",
+		RecordExpr:     sqlshape.Literal("h.record_id"),
 		GroupingFields: []string{"host.host_state", "host.criticality"},
 		Fields: []queryengine.Field{
 			{Key: "host.display_name", Kind: queryengine.FieldKindText},
@@ -342,7 +343,7 @@ func TestGenericProjectionCollectionAcceptsDecodedJSONB(t *testing.T) {
 	}}
 	row, err := queryengine.BuildRow(queryengine.Surface{
 		ViewSchemaID: "cartulary.view.timeline.v2",
-		RecordExpr:   "t.record_id",
+		RecordExpr:   sqlshape.Literal("t.record_id"),
 		Fields: []queryengine.Field{{
 			Key:     "timeline.host_refs",
 			Kind:    queryengine.FieldKindCollection,

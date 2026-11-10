@@ -1,4 +1,4 @@
-package links
+package facts
 
 import (
 	"context"
@@ -7,15 +7,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/JochiRaider/cartulary/internal/modules/links/vocabulary"
 )
 
 type RecordLinkFact struct {
 	RecordLinkID    uuid.UUID
 	SrcRecordID     uuid.UUID
 	DstRecordID     uuid.UUID
-	LinkType        LinkType
+	LinkType        vocabulary.LinkType
 	FieldKey        *string
-	Provenance      LinkProvenance
+	Provenance      vocabulary.LinkProvenance
 	Confidence      *int
 	OwnerUserID     uuid.UUID
 	CreatedByUserID uuid.UUID
@@ -127,12 +129,12 @@ SELECT
 			rows.Close()
 			return ActiveFacts{}, &FactReadError{err: err}
 		}
-		parsedLinkType, err := ParseLinkType(linkType)
+		parsedLinkType, err := vocabulary.ParseLinkType(linkType)
 		if err != nil {
 			rows.Close()
 			return ActiveFacts{}, &FactReadError{err: err}
 		}
-		parsedProvenance, err := ParseLinkProvenance(provenance)
+		parsedProvenance, err := vocabulary.ParseLinkProvenance(provenance)
 		if err != nil {
 			rows.Close()
 			return ActiveFacts{}, &FactReadError{err: err}

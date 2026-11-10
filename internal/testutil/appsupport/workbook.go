@@ -25,21 +25,21 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
-func ArtifactProjectionRows(pool postgres.DB) artifactprojection.Rows {
+func ArtifactProjectionRows(pool dbport.DB) artifactprojection.Rows {
 	return mustBuildProjectionRuntime(pool).ArtifactPorts().Rows
 }
 
-func EvidenceProjectionRows(pool postgres.DB) evidenceprojection.MutationRows {
+func EvidenceProjectionRows(pool dbport.DB) evidenceprojection.MutationRows {
 	return mustBuildProjectionRuntime(pool).EvidenceMutationRows()
 }
 
 func NewEvidenceSourceRuntime(
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	intents collaboration.RecordChangedAppender,
@@ -73,7 +73,7 @@ func NewEvidenceSourceRuntime(
 }
 
 func NewEvidenceSourceRuntimeForTimeline(
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	intents collaboration.RecordChangedAppender,
@@ -97,7 +97,7 @@ func NewEvidenceSourceRuntimeForTimeline(
 // NewEvidenceMutationOwner composes the Evidence mutation owner for tests that
 // exercise source-owner semantics directly.
 func NewEvidenceMutationOwner(
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 ) evidence.MutationContribution {
 	intents := collaborationsupport.NewRecordChangedAppender()
@@ -124,7 +124,7 @@ func NewEvidenceMutationOwner(
 
 // NewTaskDecisionOwner composes the source-owner mutation facade for tests
 // that verify Task/Decision lifecycle behavior directly.
-func NewTaskDecisionOwner(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *tasksdecisions.MutationFacade {
+func NewTaskDecisionOwner(pool dbport.DB, conflictTokens conflicttokens.ConflictTokenCodec) *tasksdecisions.MutationFacade {
 	intents := collaborationsupport.NewRecordChangedAppender()
 	return NewTaskDecisionOwnerWithPublications(pool, conflictTokens, intents)
 }
@@ -133,7 +133,7 @@ func NewTaskDecisionOwner(pool postgres.DB, conflictTokens conflicttokens.Confli
 // facade with a caller-supplied Collaboration appender for transaction-bound
 // failure and publication characterization tests.
 func NewTaskDecisionOwnerWithPublications(
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	intents collaboration.RecordChangedAppender,
 ) *tasksdecisions.MutationFacade {
@@ -162,7 +162,7 @@ func NewTaskDecisionOwnerWithPublications(
 
 // NewWorkbookCatalog composes the same immutable provider catalog used by the
 // server for focused generic coordination tests.
-func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *workbook.WorkbookContributionCatalog {
+func NewWorkbookCatalog(pool dbport.DB, conflictTokens conflicttokens.ConflictTokenCodec) *workbook.WorkbookContributionCatalog {
 	intents := collaborationsupport.NewRecordChangedAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
@@ -266,7 +266,7 @@ func NewWorkbookCatalog(pool postgres.DB, conflictTokens conflicttokens.Conflict
 
 // NewAssessmentOwner composes the Assessment owner for tests that exercise
 // source semantics through its owner facade.
-func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
+func NewAssessmentOwner(pool dbport.DB) *assessments.Facade {
 	intents := collaborationsupport.NewRecordChangedAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
@@ -294,7 +294,7 @@ func NewAssessmentOwner(pool postgres.DB) *assessments.Facade {
 // NewPartyOwner composes the Party mutation owner for tests that exercise
 // Party source semantics directly.
 func NewPartyOwner(
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 ) *parties.MutationFacade {
 	intents := collaborationsupport.NewRecordChangedAppender()
@@ -321,7 +321,7 @@ func NewPartyOwner(
 	return owner
 }
 
-func mustBuildProjectionRuntime(pool postgres.DB) *projectionassembly.Runtime {
+func mustBuildProjectionRuntime(pool dbport.DB) *projectionassembly.Runtime {
 	runtime, err := projectionassembly.Build(pool)
 	if err != nil {
 		panic(err)
@@ -329,6 +329,6 @@ func mustBuildProjectionRuntime(pool postgres.DB) *projectionassembly.Runtime {
 	return runtime
 }
 
-func LinkProjectionRows(pool postgres.DB) links.ProjectionRows {
+func LinkProjectionRows(pool dbport.DB) links.ProjectionRows {
 	return mustBuildProjectionRuntime(pool).LinkRows()
 }

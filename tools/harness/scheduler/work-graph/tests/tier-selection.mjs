@@ -7,6 +7,26 @@ import { loadExecutionTopology, executionTopologySchemaID } from "../../../gener
 import { WorkGraphCompiler, validateWorkGraph } from "../index.mjs";
 // Reviewed full-tier assurance sentinels, independent of the configuration under test.
 const fullTierSelfTests = [
+  "app.server.integration.application_fixtures_own_independent_databases_a_04455c6902",
+  "app.server.integration.borrowed_application_fixtures_and_deployment_byt_f2fa662581",
+  "app.server.support_unit.application_fixture_admission_validates_complete_2e28540399",
+  "harness.browser.boundary_support.ir_fixture_admission",
+  "harness.browser.boundary_support.node_fixture_admission_seals_verified_inputs_and_d6cec88240",
+  "harness.browser.boundary_support.timelineworkbooktestsupport_replaces_controlled_77b04cd969",
+  "harness.browser.boundary_support.timelineworkbooktestsupport_waits_for_delayed_wo_8de9145b31",
+  "harness.browser.boundary_support.workbookinspectortestsupport_suite_b85a10b67a",
+  "harness.browser.unit.web_socket_transport_helpers_preserve_frames_jso_8a5d84ce04",
+  "harness.command_surface.behavior.reference_pack_module_archives",
+  "harness.command_surface.unit.go_import_inspection_distinguishes_declarations_8c659e57a3",
+  "harness.evidence_accounting.behavior.invocation_accounting_rejects_malformed_counters_5eb3794701",
+  "harness.evidence_accounting.behavior.local_migration_activities",
+  "harness.evidence_accounting.behavior.native_collection",
+  "harness.evidence_accounting.behavior.native_observation",
+  "harness.evidence_accounting.behavior.native_schema",
+  "harness.evidence_accounting.behavior.native_session",
+  "harness.evidence_accounting.behavior.observation_admission",
+  "harness.evidence_accounting.behavior.secure_snapshot_reads_preserve_atomic_replacemen_421c103fc2",
+
   "harness.command_surface.behavior.go_scanner_wrappers",
   "harness.browser.boundary_support.atomic_private_harness_state_publication_and_val_6e8cd66ca6",
   "harness.browser.boundary_support.autosave_feedback_diagnostics",
@@ -73,12 +93,6 @@ function rowIDs(graph) {
 }
 export function assertHarnessTierRouting(context, plans) {
   const compiler = context.compiler;
-  for (const rowID of [
-    "web.architecture.boundary_support.timelineworkbooktestsupport_waits_for_delayed_wo_8de9145b31",
-    "web.architecture.boundary_support.workbookinspectortestsupport_suite_b85a10b67a",
-  ]) {
-    assert.equal(compiler.catalog.rowByID.get(rowID)?.aggregate_placement, "standard", rowID);
-  }
   for (const rowID of fullTierSelfTests) {
     assert.equal(compiler.catalog.rowByID.get(rowID)?.aggregate_placement, "full", rowID);
   }

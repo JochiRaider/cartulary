@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type Provider struct{}
@@ -81,7 +82,7 @@ UPDATE artifacts
 }
 
 func restoreCommLogTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest, source map[string]any) error {
-	if err := checkImmutableTextTx(ctx, tx, `SELECT comm_id FROM artifacts WHERE record_id = $1`, request.RecordID, source, "comm_id"); err != nil {
+	if err := checkImmutableTextTx(ctx, tx, sqlshape.Literal(`SELECT comm_id FROM artifacts WHERE record_id = $1`), request.RecordID, source, "comm_id"); err != nil {
 		return err
 	}
 	values, err := typedPairs(source, []typedField{
@@ -108,7 +109,7 @@ UPDATE artifacts
 }
 
 func restoreHandoffTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest, source map[string]any) error {
-	if err := checkImmutableTextTx(ctx, tx, `SELECT handoff_id FROM artifacts WHERE record_id = $1`, request.RecordID, source, "handoff_id"); err != nil {
+	if err := checkImmutableTextTx(ctx, tx, sqlshape.Literal(`SELECT handoff_id FROM artifacts WHERE record_id = $1`), request.RecordID, source, "handoff_id"); err != nil {
 		return err
 	}
 	values, err := typedPairs(source, []typedField{
@@ -133,7 +134,7 @@ UPDATE artifacts
 }
 
 func restoreStatusReviewTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest, source map[string]any) error {
-	if err := checkImmutableTextTx(ctx, tx, `SELECT status_review_id FROM artifacts WHERE record_id = $1`, request.RecordID, source, "status_review_id"); err != nil {
+	if err := checkImmutableTextTx(ctx, tx, sqlshape.Literal(`SELECT status_review_id FROM artifacts WHERE record_id = $1`), request.RecordID, source, "status_review_id"); err != nil {
 		return err
 	}
 	values, err := typedPairs(source, []typedField{
@@ -157,7 +158,7 @@ UPDATE artifacts
 }
 
 func restoreLessonTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest, source map[string]any) error {
-	if err := checkImmutableTextTx(ctx, tx, `SELECT lesson_id FROM artifacts WHERE record_id = $1`, request.RecordID, source, "lesson_id"); err != nil {
+	if err := checkImmutableTextTx(ctx, tx, sqlshape.Literal(`SELECT lesson_id FROM artifacts WHERE record_id = $1`), request.RecordID, source, "lesson_id"); err != nil {
 		return err
 	}
 	values, err := typedPairs(source, []typedField{
@@ -208,7 +209,7 @@ UPDATE artifact_findings
 }
 
 func restoreInvestigativeQueryTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest, source map[string]any) error {
-	if err := checkImmutableTextTx(ctx, tx, `SELECT query_id FROM artifact_investigative_queries WHERE record_id = $1`, request.RecordID, source, "query_id"); err != nil {
+	if err := checkImmutableTextTx(ctx, tx, sqlshape.Literal(`SELECT query_id FROM artifact_investigative_queries WHERE record_id = $1`), request.RecordID, source, "query_id"); err != nil {
 		return err
 	}
 	values, err := typedPairs(source, []typedField{{"platform", kindText}, {"purpose", kindText}, {"query_text", kindText}})
@@ -234,7 +235,7 @@ UPDATE artifact_investigative_queries
 }
 
 func restoreForensicKeywordTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest, source map[string]any) error {
-	if err := checkImmutableTextTx(ctx, tx, `SELECT keyword_id FROM artifact_forensic_keywords WHERE record_id = $1`, request.RecordID, source, "keyword_id"); err != nil {
+	if err := checkImmutableTextTx(ctx, tx, sqlshape.Literal(`SELECT keyword_id FROM artifact_forensic_keywords WHERE record_id = $1`), request.RecordID, source, "keyword_id"); err != nil {
 		return err
 	}
 	values, err := typedPairs(source, []typedField{
@@ -332,7 +333,7 @@ func rawPair(source map[string]any, key string) (bool, any) {
 	return present, value
 }
 
-func checkImmutableTextTx(ctx context.Context, tx pgx.Tx, query string, recordID uuid.UUID, source map[string]any, key string) error {
+func checkImmutableTextTx(ctx context.Context, tx pgx.Tx, query sqlshape.Fragment, recordID uuid.UUID, source map[string]any, key string) error {
 	retained, present := source[key]
 	if !present {
 		return nil
@@ -342,7 +343,7 @@ func checkImmutableTextTx(ctx context.Context, tx pgx.Tx, query string, recordID
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	var current string
-	if err := tx.QueryRow(ctx, query, recordID).Scan(&current); err != nil {
+	if err := tx.QueryRow(ctx, sqlshape.Text(query), recordID).Scan(&current); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return rollbackcontract.ErrTargetNotFound
 		}

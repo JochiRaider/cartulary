@@ -607,6 +607,13 @@
         ".json"
       ],
       "required_marker": "^\\{"
+    },
+    {
+      "path": "internal/platform/maintenancequery/catalog_generated.go",
+      "allowed_extensions": [
+        ".go"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     }
   ],
   "lint_scope_checks": {

@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 )
 
@@ -465,7 +466,7 @@ func collaborationV2TestRunner(
 			newOperationID: func() uuid.UUID {
 				return operationID
 			},
-			newRecoveryPort: func(postgres.DB) collaborationRecoveryPort {
+			newRecoveryPort: func(dbport.DB) collaborationRecoveryPort {
 				if port == nil {
 					return collaborationRecoveryPortFunc(func(context.Context, collaboration.RequeueRequest) (collaboration.RequeueResult, error) {
 						return collaboration.RequeueResult{}, errors.New("missing test recovery port")

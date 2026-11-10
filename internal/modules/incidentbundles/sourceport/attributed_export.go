@@ -7,16 +7,19 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 // AttributedRows is authored by the source owner. Query selects one JSON object
 // per row, ordered by its UUID identity, with incident and exclusive-after UUID
 // parameters ($1, $2). No serialized field-name inference defines actor meaning.
 type AttributedRows struct {
-	Path, Table, Identity, Query string
-	ActorColumns                 []string
+	Path, Table, Identity string
+	Query                 sqlshape.Fragment
+	ActorColumns          []string
 }
 
 func ExportAttributedRows(ctx context.Context, input ExportContext, spec AttributedRows) error {
@@ -26,7 +29,7 @@ func ExportAttributedRows(ctx context.Context, input ExportContext, spec Attribu
 	return incidentportability.WriteMemberFrom(ctx, input.Members, spec.Path, func(ctx context.Context, output io.Writer) error {
 		var after *uuid.UUID
 		for {
-			rows, err := input.Query.Query(ctx, spec.Query, input.IncidentID, after)
+			rows, err := input.Query.Query(ctx, sqlshape.Text(spec.Query), input.IncidentID, after)
 			if err != nil {
 				return err
 			}

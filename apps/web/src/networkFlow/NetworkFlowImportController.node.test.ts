@@ -12,6 +12,7 @@ import type {
   ImportJobResource,
   ImportSelectionReceipt,
 } from "../services/importContractAdapter";
+import { requireClaimGatedAnalyticalImportTarget } from "../services/importTargetContractAdapter";
 import {
   decodeNetworkFlowImportPreviewResult,
   decodeNetworkFlowSourceInspection,
@@ -273,6 +274,28 @@ function harness() {
 }
 
 describe("Network Flow import ownership", () => {
+  it("gates actual discovery on availability and consumes generated target identity", async () => {
+    const h = harness();
+    h.binding({ available: false });
+    await h.upload();
+    expect(h.client.send).not.toHaveBeenCalled();
+    expect(h.client.inspectSource).not.toHaveBeenCalled();
+    h.binding({ available: true });
+    await h.upload();
+    const target = requireClaimGatedAnalyticalImportTarget(
+      networkFlowMappingMetadata.target_kind,
+      networkFlowMappingMetadata.profile_id,
+    );
+    expect(h.client.inspectSource).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        target_kind: target.target_kind,
+        extension_profile_id: target.extension_profile_id,
+      },
+      expect.any(AbortSignal),
+    );
+  });
+
   it("admits one upload synchronously and keeps preview separate from durable approval", async () => {
     const h = harness();
     await Promise.all([h.upload(), h.upload()]);

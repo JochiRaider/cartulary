@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 )
 
 type ContextualNoteCreateCommand struct {
@@ -48,7 +48,7 @@ func (f *MutationFacade) contextIncidentTx(
 	sourceRecordID uuid.UUID,
 ) (uuid.UUID, error) {
 	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, sourceRecordID, false)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return uuid.UUID{}, pgx.ErrNoRows
 	}
 	if err != nil {

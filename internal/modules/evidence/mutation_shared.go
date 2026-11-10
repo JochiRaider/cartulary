@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
@@ -105,7 +105,7 @@ type evidenceRecordMeta struct {
 
 func (f *mutationFacade) loadEvidenceRecordMetaForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (evidenceRecordMeta, error) {
 	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return evidenceRecordMeta{}, pgx.ErrNoRows
 	}
 	if err != nil {

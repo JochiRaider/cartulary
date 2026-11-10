@@ -12,7 +12,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -370,7 +370,7 @@ type optionalSurfaceDurableState struct {
 	ForensicKeywords     int
 }
 
-func countOptionalSurfaceDurableState(t testing.TB, db postgres.DB, incidentID uuid.UUID) optionalSurfaceDurableState {
+func countOptionalSurfaceDurableState(t testing.TB, db dbport.DB, incidentID uuid.UUID) optionalSurfaceDurableState {
 	t.Helper()
 	var state optionalSurfaceDurableState
 	if err := db.QueryRow(context.Background(), `
@@ -397,7 +397,7 @@ SELECT COUNT(*)
 	return state
 }
 
-func requireOptionalSurfaceDurableState(t testing.TB, db postgres.DB, incidentID uuid.UUID, want optionalSurfaceDurableState, context string) {
+func requireOptionalSurfaceDurableState(t testing.TB, db dbport.DB, incidentID uuid.UUID, want optionalSurfaceDurableState, context string) {
 	t.Helper()
 	got := countOptionalSurfaceDurableState(t, db, incidentID)
 	if got != want {

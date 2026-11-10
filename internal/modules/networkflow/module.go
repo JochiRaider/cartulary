@@ -18,7 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // ImportSourcePort is the Network Flow consumer-owned source capability. The
@@ -32,7 +32,7 @@ type ImportSourcePort interface {
 
 type ModuleDependencies struct {
 	TableIDEntropy       io.Reader
-	Postgres             postgres.DB
+	Postgres             dbport.DB
 	ImportSources        ImportSourcePort
 	ImportedAttributions sourceport.PortableAttributionResolver
 	KeyRings             *KeyRings

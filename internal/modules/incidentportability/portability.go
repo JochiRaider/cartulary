@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type Queryer interface {
@@ -36,7 +38,7 @@ type FixedImportSpec struct {
 	StableIdentity    []string
 	RequiredColumns   []string
 	AllowedColumns    []string
-	InsertSQL         string
+	InsertSQL         sqlshape.Statement
 }
 
 type UnexpectedColumnsError struct{}
@@ -96,7 +98,7 @@ func ImportFixedRows(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, rows 
 		strings.TrimSpace(spec.AttributionTable) == "" ||
 		len(spec.StableIdentity) == 0 ||
 		len(spec.RequiredColumns) == 0 ||
-		strings.TrimSpace(spec.InsertSQL) == "" {
+		strings.TrimSpace(sqlshape.CommandText(spec.InsertSQL)) == "" {
 		return &VerificationFailure{ReasonCode: "malformed_manifest"}
 	}
 	for _, row := range rows {
@@ -120,7 +122,7 @@ func ImportFixedRows(ctx context.Context, tx pgx.Tx, spec FixedImportSpec, rows 
 		if err != nil {
 			return err
 		}
-		tag, err := tx.Exec(ctx, spec.InsertSQL, raw)
+		tag, err := tx.Exec(ctx, sqlshape.CommandText(spec.InsertSQL), raw)
 		if err != nil {
 			return err
 		}

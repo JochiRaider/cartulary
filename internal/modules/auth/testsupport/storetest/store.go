@@ -12,7 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/internal/actorfixture"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type SessionRow struct {
@@ -39,14 +39,14 @@ type AuditEventRecord struct {
 	After        map[string]any
 }
 
-func SeedLocalUser(t testing.TB, db postgres.DB, email string, displayName string, password string, mfaRequired bool) string {
+func SeedLocalUser(t testing.TB, db dbport.DB, email string, displayName string, password string, mfaRequired bool) string {
 	t.Helper()
 	return SeedLocalUserFlags(t, db, email, displayName, password, mfaRequired, false, true)
 }
 
 func SeedLocalUserRecord(
 	t testing.TB,
-	db postgres.DB,
+	db dbport.DB,
 	email string,
 	displayName string,
 	password string,
@@ -69,7 +69,7 @@ type ActorAttributes = actorfixture.Attributes
 
 // SeedActor creates an independent user for non-authentication assertions. The
 // returned actor omits credential material; authentication tests use SeedLocalUserRecord.
-func SeedActor(t testing.TB, db postgres.DB, attributes ActorAttributes) authn.UserRecord {
+func SeedActor(t testing.TB, db dbport.DB, attributes ActorAttributes) authn.UserRecord {
 	t.Helper()
 	hash, err := actorfixture.Credential()
 	if err != nil {
@@ -84,7 +84,7 @@ func SeedActor(t testing.TB, db postgres.DB, attributes ActorAttributes) authn.U
 	return actor
 }
 
-func seedUserRecord(t testing.TB, db postgres.DB, id uuid.UUID, email, displayName, hash string, mfaRequired, isDeploymentAdmin, isActive bool) authn.UserRecord {
+func seedUserRecord(t testing.TB, db dbport.DB, id uuid.UUID, email, displayName, hash string, mfaRequired, isDeploymentAdmin, isActive bool) authn.UserRecord {
 	t.Helper()
 	var record authn.UserRecord
 	if err := db.QueryRow(context.Background(), `
@@ -116,7 +116,7 @@ RETURNING id, email, display_name, password_hash, password_changed_at, mfa_requi
 
 func SeedLocalUserFlags(
 	t testing.TB,
-	db postgres.DB,
+	db dbport.DB,
 	email string,
 	displayName string,
 	password string,
@@ -130,7 +130,7 @@ func SeedLocalUserFlags(
 
 func SeedLocalUserWithActiveTOTP(
 	t testing.TB,
-	db postgres.DB,
+	db dbport.DB,
 	email string,
 	displayName string,
 	password string,
@@ -145,7 +145,7 @@ func SeedLocalUserWithActiveTOTP(
 
 func SeedLocalUserWithActiveTOTPRecord(
 	t testing.TB,
-	db postgres.DB,
+	db dbport.DB,
 	email string,
 	displayName string,
 	password string,
@@ -203,7 +203,7 @@ RETURNING id, email, display_name, password_hash, password_changed_at, mfa_requi
 
 func SeedSession(
 	t testing.TB,
-	db postgres.DB,
+	db dbport.DB,
 	keys authn.MasterKeys,
 	userID uuid.UUID,
 	sessionToken string,
@@ -263,7 +263,7 @@ RETURNING id, user_id, authenticated_at, last_qualifying_activity_at, idle_expir
 
 func SeedPendingTOTPEnrollment(
 	t testing.TB,
-	db postgres.DB,
+	db dbport.DB,
 	keys authn.MasterKeys,
 	userID uuid.UUID,
 	sessionID *uuid.UUID,
@@ -333,7 +333,7 @@ RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootst
 	return record
 }
 
-func QuerySessionRow(t testing.TB, db postgres.DB, userID string) SessionRow {
+func QuerySessionRow(t testing.TB, db dbport.DB, userID string) SessionRow {
 	t.Helper()
 	return QuerySingleSession(
 		t,
@@ -343,7 +343,7 @@ func QuerySessionRow(t testing.TB, db postgres.DB, userID string) SessionRow {
 	)
 }
 
-func QuerySessionByID(t testing.TB, db postgres.DB, sessionID string) SessionRow {
+func QuerySessionByID(t testing.TB, db dbport.DB, sessionID string) SessionRow {
 	t.Helper()
 	return QuerySingleSession(
 		t,
@@ -353,7 +353,7 @@ func QuerySessionByID(t testing.TB, db postgres.DB, sessionID string) SessionRow
 	)
 }
 
-func QuerySingleSession(t testing.TB, db postgres.DB, query string, args ...any) SessionRow {
+func QuerySingleSession(t testing.TB, db dbport.DB, query string, args ...any) SessionRow {
 	t.Helper()
 
 	var row SessionRow
@@ -372,7 +372,7 @@ func QuerySingleSession(t testing.TB, db postgres.DB, query string, args ...any)
 	return row
 }
 
-func QueryCount(t testing.TB, db postgres.DB, query string, args ...any) int {
+func QueryCount(t testing.TB, db dbport.DB, query string, args ...any) int {
 	t.Helper()
 
 	var count int
@@ -382,7 +382,7 @@ func QueryCount(t testing.TB, db postgres.DB, query string, args ...any) int {
 	return count
 }
 
-func LookupUserAuditEvents(t testing.TB, db postgres.DB, targetUserID string) []AuditEventRecord {
+func LookupUserAuditEvents(t testing.TB, db dbport.DB, targetUserID string) []AuditEventRecord {
 	t.Helper()
 
 	rows, err := db.Query(context.Background(), `

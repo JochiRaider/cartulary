@@ -23,7 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -33,7 +33,7 @@ type projectionQueryCatalog interface {
 }
 
 type ContributionDependencies struct {
-	Postgres              postgres.DB
+	Postgres              dbport.DB
 	ProjectionDescriptors providercontract.DescriptorSet
 	ProjectionQueries     projectionQueryCatalog
 	EntityMutationRows    entityports.MutationRows
@@ -169,7 +169,7 @@ func isNilDependency(dependency any) bool {
 }
 
 type contributionAssemblyInput struct {
-	pool                  postgres.DB
+	pool                  dbport.DB
 	projectionDescriptors providercontract.DescriptorSet
 	projectionQueries     projectionQueryCatalog
 	entityStore           *hostidentity.Store

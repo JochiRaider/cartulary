@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type sqlValueExpression struct {
-	expression string
-	cast       string
+	expression sqlshape.Fragment
+	cast       sqlshape.Fragment
 	value      any
 	nullable   bool
 	direction  string
@@ -23,7 +24,7 @@ func (s *store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, tableID
 		return []flowRow{}, false, nil
 	}
 	args := []any{incidentID, tableIDs}
-	where := []string{"incident_id = $1", "network_flow_table_id = ANY($2::text[])"}
+	where := []sqlshape.Fragment{sqlshape.Literal("incident_id = $1"), sqlshape.Literal("network_flow_table_id = ANY($2::text[])")}
 	for _, filter := range filters {
 		clause, err := appendRowFilterSQL(filter, &args)
 		if err != nil {
@@ -39,22 +40,22 @@ func (s *store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, tableID
 		}
 		where = append(where, clause)
 	}
-	order := make([]string, 0, len(effective)+2)
+	order := make([]sqlshape.Fragment, 0, len(effective)+2)
 	for _, spec := range effective {
 		expression, ok := rowSQLExpression(spec.FieldKey)
 		if !ok {
 			return nil, false, fmt.Errorf("unsupported Network Flow sort field %q", spec.FieldKey)
 		}
-		order = append(order, expression+" "+strings.ToUpper(spec.Direction)+" NULLS LAST")
+		direction := sqlshape.Literal("ASC")
+		if spec.Direction == "desc" {
+			direction = sqlshape.Literal("DESC")
+		}
+		order = append(order, sqlshape.Format("%s %s NULLS LAST", expression, direction))
 	}
-	order = append(order, `network_flow_table_id COLLATE "C" ASC`, `network_flow_row_id COLLATE "C" ASC`)
+	order = append(order, sqlshape.Literal(`network_flow_table_id COLLATE "C" ASC`), sqlshape.Literal(`network_flow_row_id COLLATE "C" ASC`))
 	args = append(args, limit+1)
-	query := `SELECT ` + flowRowColumnList() + `
-  FROM network_flow_rows
- WHERE ` + strings.Join(where, "\n   AND ") + `
- ORDER BY ` + strings.Join(order, ", ") + `
- LIMIT $` + fmt.Sprint(len(args))
-	rows, err := s.pool.Query(ctx, query, args...)
+	query := sqlshape.Format(`SELECT %s FROM network_flow_rows WHERE %s ORDER BY %s LIMIT %s`, sqlshape.Literal(flowRowColumnList()), sqlshape.Join(where, sqlshape.Literal("AND")), sqlshape.Join(order, sqlshape.Literal(",")), sqlshape.Parameter(len(args)))
+	rows, err := s.pool.Query(ctx, sqlshape.Text(query), args...)
 	if err != nil {
 		return nil, false, fmt.Errorf("query Network Flow row page: %w", err)
 	}
@@ -81,59 +82,33 @@ func (s *store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, tableID
 	return result, hasMore, nil
 }
 
-func appendRowKeysetSQL(effective []sortSpec, position rowCursorPosition, args *[]any) (string, error) {
+func appendRowKeysetSQL(effective []sortSpec, position rowCursorPosition, args *[]any) (sqlshape.Fragment, error) {
 	if !sameSortSpecs(effective, position.EffectiveSort) || len(position.Values) != len(effective) {
-		return "", fmt.Errorf("network flow cursor sort tuple mismatch")
+		return sqlshape.Fragment{}, fmt.Errorf("network flow cursor sort tuple mismatch")
 	}
 	components := make([]sqlValueExpression, 0, len(effective)+2)
 	for index, spec := range effective {
 		expression, ok := rowSQLExpression(spec.FieldKey)
 		if !ok {
-			return "", fmt.Errorf("unsupported Network Flow cursor field %q", spec.FieldKey)
+			return sqlshape.Fragment{}, fmt.Errorf("unsupported Network Flow cursor field %q", spec.FieldKey)
 		}
-		value, cast, err := rowSQLCursorValue(spec.FieldKey, position.Values[index])
+		value, _, err := rowSQLCursorValue(spec.FieldKey, position.Values[index])
 		if err != nil {
-			return "", err
+			return sqlshape.Fragment{}, err
 		}
-		components = append(components, sqlValueExpression{expression: expression, cast: cast, value: value, nullable: rowSQLFieldNullable(spec.FieldKey), direction: spec.Direction})
+		components = append(components, sqlValueExpression{expression: expression, cast: sqlshape.Literal(rowSQLCast(spec.FieldKey)), value: value, nullable: rowSQLFieldNullable(spec.FieldKey), direction: spec.Direction})
 	}
 	components = append(components,
-		sqlValueExpression{expression: `network_flow_table_id COLLATE "C"`, cast: "text", value: position.NetworkFlowTableID, direction: "asc"},
-		sqlValueExpression{expression: `network_flow_row_id COLLATE "C"`, cast: "text", value: position.NetworkFlowRowID, direction: "asc"},
+		sqlValueExpression{expression: sqlshape.Literal(`network_flow_table_id COLLATE "C"`), cast: sqlshape.Literal("text"), value: position.NetworkFlowTableID, direction: "asc"},
+		sqlValueExpression{expression: sqlshape.Literal(`network_flow_row_id COLLATE "C"`), cast: sqlshape.Literal("text"), value: position.NetworkFlowRowID, direction: "asc"},
 	)
-	prefix := make([]string, 0, len(components))
-	disjunction := make([]string, 0, len(components))
-	for _, component := range components {
-		placeholder := "$" + fmt.Sprint(len(*args)+1) + "::" + component.cast
-		*args = append(*args, component.value)
-		equal := component.expression + " IS NOT DISTINCT FROM " + placeholder
-		if component.value != nil {
-			operator := ">"
-			if component.direction == "desc" {
-				operator = "<"
-			}
-			after := component.expression + " " + operator + " " + placeholder
-			if component.nullable {
-				after = "(" + after + " OR " + component.expression + " IS NULL)"
-			}
-			term := after
-			if len(prefix) > 0 {
-				term = "(" + strings.Join(prefix, " AND ") + " AND " + after + ")"
-			}
-			disjunction = append(disjunction, term)
-		}
-		prefix = append(prefix, equal)
-	}
-	if len(disjunction) == 0 {
-		return "FALSE", nil
-	}
-	return "(" + strings.Join(disjunction, " OR ") + ")", nil
+	return appendSQLKeysetComponents(components, args)
 }
 
-func appendRowFilterSQL(filter queryFilter, args *[]any) (clause string, err error) {
+func appendRowFilterSQL(filter queryFilter, args *[]any) (clause sqlshape.Fragment, err error) {
 	defer func() {
 		if err == nil && directionalQueryField(filter.FieldKey) {
-			clause = "(direction_kind <> 'unknown' AND (" + clause + "))"
+			clause = sqlshape.Format("(direction_kind <> 'unknown' AND (%s))", clause)
 		}
 	}()
 
@@ -142,138 +117,139 @@ func appendRowFilterSQL(filter queryFilter, args *[]any) (clause string, err err
 	}
 	expression, ok := rowSQLExpression(filter.FieldKey)
 	if !ok {
-		return "", fmt.Errorf("unsupported Network Flow filter field %q", filter.FieldKey)
+		return sqlshape.Fragment{}, fmt.Errorf("unsupported Network Flow filter field %q", filter.FieldKey)
 	}
-	cast := rowSQLCast(filter.FieldKey)
-	appendValue := func(value any) string {
+	cast := sqlshape.Literal(rowSQLCast(filter.FieldKey))
+	expr := expression
+	appendValue := func(value any) sqlshape.Fragment {
 		*args = append(*args, rowSQLArgument(filter.FieldKey, value))
-		return "$" + fmt.Sprint(len(*args)) + "::" + cast
+		return sqlshape.Format("%s::%s", sqlshape.Parameter(len(*args)), cast)
 	}
 	switch filter.Op {
 	case "is_null":
-		return expression + " IS NULL", nil
+		return sqlshape.Format("%s IS NULL", expr), nil
 	case "not_null":
-		return expression + " IS NOT NULL", nil
+		return sqlshape.Format("%s IS NOT NULL", expr), nil
 	case "eq":
-		return expression + " = " + appendValue(filter.Value), nil
+		return sqlshape.Format("%s = %s", expr, appendValue(filter.Value)), nil
 	case "in":
 		values, ok := filter.Value.([]any)
 		if !ok || len(values) == 0 {
-			return "", fmt.Errorf("invalid Network Flow in filter")
+			return sqlshape.Fragment{}, fmt.Errorf("invalid Network Flow in filter")
 		}
-		clauses := make([]string, 0, len(values))
+		clauses := make([]sqlshape.Fragment, 0, len(values))
 		for _, value := range values {
-			clauses = append(clauses, expression+" = "+appendValue(value))
+			clauses = append(clauses, sqlshape.Format("%s = %s", expr, appendValue(value)))
 		}
-		return "(" + strings.Join(clauses, " OR ") + ")", nil
+		return sqlshape.Format("(%s)", sqlshape.Join(clauses, sqlshape.Literal("OR"))), nil
 	case "range":
 		object, ok := filter.Value.(map[string]any)
 		if !ok {
-			return "", fmt.Errorf("invalid Network Flow range filter")
+			return sqlshape.Fragment{}, fmt.Errorf("invalid Network Flow range filter")
 		}
-		clauses := []string{}
+		clauses := []sqlshape.Fragment{}
 		if value, exists := object["gte"]; exists && value != nil {
-			clauses = append(clauses, expression+" >= "+appendValue(value))
+			clauses = append(clauses, sqlshape.Format("%s >= %s", expr, appendValue(value)))
 		}
 		if value, exists := object["lte"]; exists && value != nil {
-			clauses = append(clauses, expression+" <= "+appendValue(value))
+			clauses = append(clauses, sqlshape.Format("%s <= %s", expr, appendValue(value)))
 		}
 		if value, exists := object["lt"]; exists && value != nil {
-			clauses = append(clauses, expression+" < "+appendValue(value))
+			clauses = append(clauses, sqlshape.Format("%s < %s", expr, appendValue(value)))
 		}
 		if len(clauses) == 0 {
-			return "", fmt.Errorf("empty Network Flow range filter")
+			return sqlshape.Fragment{}, fmt.Errorf("empty Network Flow range filter")
 		}
-		return "(" + strings.Join(clauses, " AND ") + ")", nil
+		return sqlshape.Format("(%s)", sqlshape.Join(clauses, sqlshape.Literal("AND"))), nil
 	case "prefix":
-		return "left(" + expression + ", char_length(" + appendValue(filter.Value) + ")) = " + "$" + fmt.Sprint(len(*args)) + "::" + cast, nil
+		return sqlshape.Format("left(%s,char_length(%s)) = %s::%s", expr, appendValue(filter.Value), sqlshape.Parameter(len(*args)), cast), nil
 	case "contains":
-		return "strpos(" + expression + ", " + appendValue(filter.Value) + ") > 0", nil
+		return sqlshape.Format("strpos(%s,%s) > 0", expr, appendValue(filter.Value)), nil
 	case "cidr_contains":
 		*args = append(*args, filter.Value)
-		return expression + " <<= $" + fmt.Sprint(len(*args)) + "::cidr", nil
+		return sqlshape.Format("%s <<= %s::cidr", expr, sqlshape.Parameter(len(*args))), nil
 	default:
-		return "", fmt.Errorf("unsupported Network Flow filter operator %q", filter.Op)
+		return sqlshape.Fragment{}, fmt.Errorf("unsupported Network Flow filter operator %q", filter.Op)
 	}
 }
 
-func appendEndpointFilterSQL(filter queryFilter, args *[]any) (string, error) {
+func appendEndpointFilterSQL(filter queryFilter, args *[]any) (sqlshape.Fragment, error) {
 	if filter.Op == "in" {
 		values, ok := filter.Value.([]any)
 		if !ok || len(values) == 0 {
-			return "", fmt.Errorf("invalid Network Flow endpoint in filter")
+			return sqlshape.Fragment{}, fmt.Errorf("invalid Network Flow endpoint in filter")
 		}
-		clauses := make([]string, 0, len(values))
+		clauses := make([]sqlshape.Fragment, 0, len(values))
 		for _, value := range values {
 			*args = append(*args, value)
-			placeholder := "$" + fmt.Sprint(len(*args)) + "::inet"
-			clauses = append(clauses, "(endpoint_a_ip::inet = "+placeholder+" OR endpoint_b_ip::inet = "+placeholder+")")
+			placeholder := sqlshape.Format("%s::inet", sqlshape.Parameter(len(*args)))
+			clauses = append(clauses, sqlshape.Format("(endpoint_a_ip::inet = %s OR endpoint_b_ip::inet = %s)", placeholder, placeholder))
 		}
-		return "(" + strings.Join(clauses, " OR ") + ")", nil
+		return sqlshape.Format("(%s)", sqlshape.Join(clauses, sqlshape.Literal("OR"))), nil
 	}
 	*args = append(*args, filter.Value)
-	placeholder := "$" + fmt.Sprint(len(*args))
+	placeholder := sqlshape.Parameter(len(*args))
 	switch filter.Op {
 	case "eq":
-		return "(endpoint_a_ip::inet = " + placeholder + "::inet OR endpoint_b_ip::inet = " + placeholder + "::inet)", nil
+		return sqlshape.Format("(endpoint_a_ip::inet = %s::inet OR endpoint_b_ip::inet = %s::inet)", placeholder, placeholder), nil
 	case "cidr_contains":
-		return "(endpoint_a_ip::inet <<= " + placeholder + "::cidr OR endpoint_b_ip::inet <<= " + placeholder + "::cidr)", nil
+		return sqlshape.Format("(endpoint_a_ip::inet <<= %s::cidr OR endpoint_b_ip::inet <<= %s::cidr)", placeholder, placeholder), nil
 	default:
-		return "", fmt.Errorf("unsupported Network Flow endpoint operator %q", filter.Op)
+		return sqlshape.Fragment{}, fmt.Errorf("unsupported Network Flow endpoint operator %q", filter.Op)
 	}
 }
 
-func rowSQLExpression(field string) (string, bool) {
+func rowSQLExpression(field string) (sqlshape.Fragment, bool) {
 	if directionalQueryField(field) {
-		first, second := "endpoint_a_ip::inet", "endpoint_b_ip::inet"
+		first, second := sqlshape.Literal("endpoint_a_ip::inet"), sqlshape.Literal("endpoint_b_ip::inet")
 		if field == fieldFromPort || field == fieldToPort {
-			first, second = "endpoint_a_port", "endpoint_b_port"
+			first, second = sqlshape.Literal("endpoint_a_port"), sqlshape.Literal("endpoint_b_port")
 		}
 		if field == fieldToIP || field == fieldToPort {
 			first, second = second, first
 		}
-		return "(CASE from_endpoint WHEN 'a' THEN " + first + " WHEN 'b' THEN " + second + " ELSE NULL END)", true
+		return sqlshape.Format("(CASE from_endpoint WHEN 'a' THEN %s WHEN 'b' THEN %s ELSE NULL END)", first, second), true
 	}
 	if field == fieldDirectionKind {
-		return `direction_kind COLLATE "C"`, true
+		return sqlshape.Literal(`direction_kind COLLATE "C"`), true
 	}
 	if field == fieldDirectionReason {
-		return `NULLIF(direction_reason,'') COLLATE "C"`, true
+		return sqlshape.Literal(`NULLIF(direction_reason,'') COLLATE "C"`), true
 	}
 
 	switch field {
 	case fieldEndpointAIP:
-		return "endpoint_a_ip::inet", true
+		return sqlshape.Literal("endpoint_a_ip::inet"), true
 	case fieldEndpointBIP:
-		return "endpoint_b_ip::inet", true
+		return sqlshape.Literal("endpoint_b_ip::inet"), true
 	case fieldEndpointAPort:
-		return "endpoint_a_port", true
+		return sqlshape.Literal("endpoint_a_port"), true
 	case fieldEndpointBPort:
-		return "endpoint_b_port", true
+		return sqlshape.Literal("endpoint_b_port"), true
 	case fieldIPProtocol:
-		return "ip_protocol", true
+		return sqlshape.Literal("ip_protocol"), true
 	case fieldFlowStartUTC:
-		return "flow_start_utc", true
+		return sqlshape.Literal("flow_start_utc"), true
 	case fieldFlowEndUTC:
-		return "flow_end_utc", true
+		return sqlshape.Literal("flow_end_utc"), true
 	case fieldBytesCount:
-		return "bytes_count::numeric", true
+		return sqlshape.Literal("bytes_count::numeric"), true
 	case fieldPacketsCount:
-		return "packets_count::numeric", true
+		return sqlshape.Literal("packets_count::numeric"), true
 	case fieldExporterID:
-		return `exporter_id COLLATE "C"`, true
+		return sqlshape.Literal(`exporter_id COLLATE "C"`), true
 	case fieldInputInterface:
-		return `input_interface COLLATE "C"`, true
+		return sqlshape.Literal(`input_interface COLLATE "C"`), true
 	case fieldOutputInterface:
-		return `output_interface COLLATE "C"`, true
+		return sqlshape.Literal(`output_interface COLLATE "C"`), true
 	case "source_row_number":
-		return "source_row_number", true
+		return sqlshape.Literal("source_row_number"), true
 	case "network_flow_row_id":
-		return `network_flow_row_id COLLATE "C"`, true
+		return sqlshape.Literal(`network_flow_row_id COLLATE "C"`), true
 	case "network_flow_table_id":
-		return `network_flow_table_id COLLATE "C"`, true
+		return sqlshape.Literal(`network_flow_table_id COLLATE "C"`), true
 	default:
-		return "", false
+		return sqlshape.Fragment{}, false
 	}
 }
 
@@ -341,31 +317,31 @@ func flowRowColumnList() string {
 
 func (s *store) QueryRejectedDiagnosticsPage(ctx context.Context, incidentID uuid.UUID, tableID string, request rejectedRowsQueryRequest, position *diagnosticCursorPosition, limit int) ([]rejectedRowDiagnostic, bool, error) {
 	args := []any{incidentID, tableID}
-	where := []string{"incident_id = $1", "network_flow_table_id = $2"}
+	where := []sqlshape.Fragment{sqlshape.Literal("incident_id = $1"), sqlshape.Literal("network_flow_table_id = $2")}
 	if len(request.ErrorCodes) > 0 {
 		args = append(args, request.ErrorCodes)
-		where = append(where, "error_code = ANY($"+fmt.Sprint(len(args))+"::text[])")
+		where = append(where, sqlshape.Format("error_code = ANY(%s::text[])", sqlshape.Parameter(len(args))))
 	}
 	if len(request.FieldKeys) > 0 {
 		args = append(args, request.FieldKeys)
-		where = append(where, "field_key = ANY($"+fmt.Sprint(len(args))+"::text[])")
+		where = append(where, sqlshape.Format("field_key = ANY(%s::text[])", sqlshape.Parameter(len(args))))
 	}
 	if request.SourceRowGTE != nil {
 		args = append(args, *request.SourceRowGTE)
-		where = append(where, "source_row_number >= $"+fmt.Sprint(len(args))+"::bigint")
+		where = append(where, sqlshape.Format("source_row_number >= %s::bigint", sqlshape.Parameter(len(args))))
 	}
 	if request.SourceRowLTE != nil {
 		args = append(args, *request.SourceRowLTE)
-		where = append(where, "source_row_number <= $"+fmt.Sprint(len(args))+"::bigint")
+		where = append(where, sqlshape.Format("source_row_number <= %s::bigint", sqlshape.Parameter(len(args))))
 	}
 	if position != nil {
 		components := []sqlValueExpression{
-			{expression: "source_row_number", cast: "bigint", value: position.SourceRowNumber},
-			{expression: "source_column_ordinal", cast: "bigint", value: pointerValue(position.SourceColumnOrdinal), nullable: true},
-			{expression: `field_key COLLATE "C"`, cast: "text", value: pointerValue(position.FieldKey), nullable: true},
-			{expression: `error_code COLLATE "C"`, cast: "text", value: position.ErrorCode},
-			{expression: `reason_code COLLATE "C"`, cast: "text", value: position.ReasonCode},
-			{expression: `diagnostic_id COLLATE "C"`, cast: "text", value: position.DiagnosticID},
+			{expression: sqlshape.Literal("source_row_number"), cast: sqlshape.Literal("bigint"), value: position.SourceRowNumber},
+			{expression: sqlshape.Literal("source_column_ordinal"), cast: sqlshape.Literal("bigint"), value: pointerValue(position.SourceColumnOrdinal), nullable: true},
+			{expression: sqlshape.Literal(`field_key COLLATE "C"`), cast: sqlshape.Literal("text"), value: pointerValue(position.FieldKey), nullable: true},
+			{expression: sqlshape.Literal(`error_code COLLATE "C"`), cast: sqlshape.Literal("text"), value: position.ErrorCode},
+			{expression: sqlshape.Literal(`reason_code COLLATE "C"`), cast: sqlshape.Literal("text"), value: position.ReasonCode},
+			{expression: sqlshape.Literal(`diagnostic_id COLLATE "C"`), cast: sqlshape.Literal("text"), value: position.DiagnosticID},
 		}
 		clause, err := appendSQLKeysetComponents(components, &args)
 		if err != nil {
@@ -374,16 +350,16 @@ func (s *store) QueryRejectedDiagnosticsPage(ctx context.Context, incidentID uui
 		where = append(where, clause)
 	}
 	args = append(args, limit+1)
-	query := `SELECT diagnostic_id, source_row_number, source_column_ordinal, raw_header_sha256,
+	query := sqlshape.Format(`SELECT diagnostic_id, source_row_number, source_column_ordinal, raw_header_sha256,
        field_key, error_code, reason_code, safe_sample, raw_value_sha256, message_key,
        message_args, message, limit_name, limit_value, actual_value
   FROM network_flow_rejected_row_diagnostics
- WHERE ` + strings.Join(where, "\n   AND ") + `
+ WHERE %s
  ORDER BY source_row_number ASC, source_column_ordinal ASC NULLS LAST,
           field_key COLLATE "C" ASC NULLS LAST, error_code COLLATE "C" ASC,
           reason_code COLLATE "C" ASC, diagnostic_id COLLATE "C" ASC
- LIMIT $` + fmt.Sprint(len(args))
-	rows, err := s.pool.Query(ctx, query, args...)
+ LIMIT %s`, sqlshape.Join(where, sqlshape.Literal("AND")), sqlshape.Parameter(len(args)))
+	rows, err := s.pool.Query(ctx, sqlshape.Text(query), args...)
 	if err != nil {
 		return nil, false, fmt.Errorf("query Network Flow diagnostic page: %w", err)
 	}
@@ -406,29 +382,33 @@ func (s *store) QueryRejectedDiagnosticsPage(ctx context.Context, incidentID uui
 	return result, hasMore, nil
 }
 
-func appendSQLKeysetComponents(components []sqlValueExpression, args *[]any) (string, error) {
-	prefix := []string{}
-	disjunction := []string{}
+func appendSQLKeysetComponents(components []sqlValueExpression, args *[]any) (sqlshape.Fragment, error) {
+	prefix := []sqlshape.Fragment{}
+	disjunction := []sqlshape.Fragment{}
 	for _, component := range components {
-		placeholder := "$" + fmt.Sprint(len(*args)+1) + "::" + component.cast
+		placeholder := sqlshape.Format("%s::%s", sqlshape.Parameter(len(*args)+1), component.cast)
 		*args = append(*args, component.value)
-		equal := component.expression + " IS NOT DISTINCT FROM " + placeholder
+		equal := sqlshape.Format("%s IS NOT DISTINCT FROM %s", component.expression, placeholder)
 		if component.value != nil {
-			after := component.expression + " > " + placeholder
+			operator := sqlshape.Literal(">")
+			if component.direction == "desc" {
+				operator = sqlshape.Literal("<")
+			}
+			after := sqlshape.Format("%s %s %s", component.expression, operator, placeholder)
 			if component.nullable {
-				after = "(" + after + " OR " + component.expression + " IS NULL)"
+				after = sqlshape.Format("(%s OR %s IS NULL)", after, component.expression)
 			}
 			if len(prefix) > 0 {
-				after = "(" + strings.Join(prefix, " AND ") + " AND " + after + ")"
+				after = sqlshape.Format("(%s AND %s)", sqlshape.Join(prefix, sqlshape.Literal("AND")), after)
 			}
 			disjunction = append(disjunction, after)
 		}
 		prefix = append(prefix, equal)
 	}
 	if len(disjunction) == 0 {
-		return "FALSE", nil
+		return sqlshape.Literal("FALSE"), nil
 	}
-	return "(" + strings.Join(disjunction, " OR ") + ")", nil
+	return sqlshape.Format("(%s)", sqlshape.Join(disjunction, sqlshape.Literal("OR"))), nil
 }
 
 func pointerValue[T any](value *T) any {

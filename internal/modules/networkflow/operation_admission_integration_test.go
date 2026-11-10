@@ -6,14 +6,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/JochiRaider/cartulary/internal/gen/networkflowroutes"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/google/uuid"
 )
 
-func assertMajor7AdmissionMatrix(t *testing.T, base string, db postgres.DB, incident, actor uuid.UUID, session, csrf *http.Cookie) {
+func assertMajor7AdmissionMatrix(t *testing.T, base string, db dbport.DB, incident, actor uuid.UUID, session, csrf *http.Cookie) {
 	ctx := context.Background()
 	options := []func(*http.Request){httptestx.WithCookies(session, csrf), httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value)}
 	routes := networkflowroutes.All()

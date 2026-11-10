@@ -10,12 +10,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type importJobSuccessFinalizer struct {
 	finalizer    *extensionstore.OwnerFinalizer
-	pool         postgres.DB
+	pool         dbport.DB
 	transactions importTerminalCompleter
 	now          func() time.Time
 }
@@ -29,7 +29,7 @@ type importTerminalCompleter interface {
 
 func NewImportJobSuccessFinalizer(
 	finalizer *extensionstore.OwnerFinalizer,
-	pool postgres.DB,
+	pool dbport.DB,
 	transactions importTerminalCompleter,
 	now func() time.Time,
 ) imports.JobSuccessFinalizer {

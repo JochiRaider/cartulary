@@ -602,6 +602,40 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.browser.boundary_support.ir_fixture_admission",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "module.imports",
+        "module.networkflow",
+        "web.architecture"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/irFixtureSupport.node.test.ts",
+        "titles": [
+          "IR fixture admission verifies the shared originals and dependencies before browser setup"
+        ],
+        "project_id": "node-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none",
+      "fixture_input_roots": [
+        "fixtures/ir-incident/v1",
+        "fixtures/network-flow-orientation/v1"
+      ]
+    },
+    {
       "row_id": "harness.browser.boundary_support.local_session",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -682,6 +716,37 @@
       "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.node_fixture_admission_seals_verified_inputs_and_d6cec88240",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "web.architecture"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/networkFlowFixtureSupport.node.test.ts",
+        "titles": [
+          "Node fixture admission seals verified inputs and retains bounded comparison evidence"
+        ],
+        "project_id": "node-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none",
+      "fixture_input_roots": [
+        "fixtures/network-flow"
+      ]
     },
     {
       "row_id": "harness.browser.boundary_support.ownercharacterization_suite_3242ca020b",
@@ -1113,6 +1178,65 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.browser.boundary_support.timelineworkbooktestsupport_replaces_controlled_77b04cd969",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "web.architecture"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/timelineWorkbookTestSupport.test.tsx",
+        "titles": [
+          "timeline workbook test support replaces controlled input values without interleaving with the existing value"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.timelineworkbooktestsupport_waits_for_delayed_wo_8de9145b31",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "web.architecture"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/timelineWorkbookTestSupport.test.tsx",
+        "titles": [
+          "timeline workbook test support rejects a matching row on the wrong surface until the correct surface hydrates",
+          "timeline workbook test support times out persistent row mismatch within the configured budget without payload values",
+          "timeline workbook test support waits for delayed workbook row identity with the shared bounded helper",
+          "timeline workbook test support waits for row identity despite identical text without changing focus or dispatching actions"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.browser.boundary_support.timingsupport_dom_suite_6614d14ea5",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -1439,6 +1563,41 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "explicit_only",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.workbookinspectortestsupport_suite_b85a10b67a",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "web.architecture",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/workbookInspectorTestSupport.test.tsx",
+        "titles": [
+          "workbook inspector test support diagnoses expected and mounted inspector subjects without row payloads",
+          "workbook inspector test support observes readiness without changing focus or dispatching actions",
+          "workbook inspector test support requires the exact inspector version rather than a version floor",
+          "workbook inspector test support times out a non-ready subject with bounded payload-free diagnostics",
+          "workbook inspector test support waits for delayed entity inspector readiness by stable subject identity",
+          "workbook inspector test support waits for the expected inspector surface despite matching record and version",
+          "workbook inspector test support waits for the expected record despite identical inspector text"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
@@ -2878,7 +3037,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "aggregate_placement": "fast",
+      "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
     }

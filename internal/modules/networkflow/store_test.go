@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	importsfixture "github.com/JochiRaider/cartulary/internal/modules/imports/testsupport"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"strconv"
 	"strings"
 	"testing"
@@ -28,7 +29,6 @@ import (
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/networkflowsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -43,7 +43,7 @@ const (
 
 func newTestNetworkFlowStore(
 	t testing.TB,
-	db postgres.DB,
+	db dbport.DB,
 	appender *revisions.Appender,
 	options ...StoreOption,
 ) *Store {
@@ -578,7 +578,7 @@ func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) 
 }
 
 type rowLookupOnlyDB struct {
-	postgres.DB
+	dbport.DB
 	deleteBeforeRead bool
 	t                testing.TB
 }
@@ -610,12 +610,12 @@ func startNetworkFlowStoreTest(t testing.TB, prefix string) (*storetest.StoreHar
 	return harness, actor, result.Incident.ID
 }
 
-func seedImportSessionUnit(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, originalFilename string) (uuid.UUID, uuid.UUID) {
+func seedImportSessionUnit(t testing.TB, db dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, originalFilename string) (uuid.UUID, uuid.UUID) {
 	t.Helper()
 	return seedImportSessionUnitForSequence(t, db, incidentID, actorID, originalFilename, 1)
 }
 
-func createTestTable(t testing.TB, db postgres.DB, store *Store, actorID uuid.UUID, incidentID uuid.UUID, filename string, displayNameOverride *string, sequence int) TableRecord {
+func createTestTable(t testing.TB, db dbport.DB, store *Store, actorID uuid.UUID, incidentID uuid.UUID, filename string, displayNameOverride *string, sequence int) TableRecord {
 	t.Helper()
 	table, err := createTestTableResult(t, db, store, actorID, incidentID, filename, displayNameOverride, sequence)
 	if err != nil {
@@ -624,7 +624,7 @@ func createTestTable(t testing.TB, db postgres.DB, store *Store, actorID uuid.UU
 	return table
 }
 
-func createTestTableResult(t testing.TB, db postgres.DB, store *Store, actorID uuid.UUID, incidentID uuid.UUID, filename string, displayNameOverride *string, sequence int) (TableRecord, error) {
+func createTestTableResult(t testing.TB, db dbport.DB, store *Store, actorID uuid.UUID, incidentID uuid.UUID, filename string, displayNameOverride *string, sequence int) (TableRecord, error) {
 	t.Helper()
 	sessionID, unitID := seedImportSessionUnitForSequence(t, db, incidentID, actorID, filename, sequence)
 	return store.CreateTable(context.Background(), CreateTableParams{
@@ -645,7 +645,7 @@ func createTestTableResult(t testing.TB, db postgres.DB, store *Store, actorID u
 	})
 }
 
-func seedImportSessionUnitForSequence(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, filename string, sequence int) (uuid.UUID, uuid.UUID) {
+func seedImportSessionUnitForSequence(t testing.TB, db dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, filename string, sequence int) (uuid.UUID, uuid.UUID) {
 	t.Helper()
 	sessionID := uuid.New()
 	unitID := uuid.New()

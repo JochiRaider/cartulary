@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -29,8 +30,8 @@ type Result struct {
 }
 
 type Field struct {
-	Expression string
-	Cast       string
+	Expression sqlshape.Fragment
+	Cast       sqlshape.Fragment
 }
 
 func Finish(rows []map[string]any, limit int) Result {
@@ -40,25 +41,25 @@ func Finish(rows []map[string]any, limit int) Result {
 	return Result{Rows: rows[:limit], HasMore: true}
 }
 
-func AppendKeyset(builder *strings.Builder, args *[]any, sort []viewschema.SortEntry, fields map[string]Field, position map[string]string) error {
+func AppendKeyset(builder *sqlshape.Builder, args *[]any, sort []viewschema.SortEntry, fields map[string]Field, position map[string]string) error {
 	return appendKeyset(builder, args, sort, fields, position, false)
 }
 
 // AppendBefore selects positions strictly before the boundary in the ordinary
 // NULLS LAST comparator. Callers reverse ORDER BY with NULLS FIRST.
-func AppendBefore(builder *strings.Builder, args *[]any, sort []viewschema.SortEntry, fields map[string]Field, position map[string]string) error {
+func AppendBefore(builder *sqlshape.Builder, args *[]any, sort []viewschema.SortEntry, fields map[string]Field, position map[string]string) error {
 	return appendKeyset(builder, args, sort, fields, position, true)
 }
 
-func appendKeyset(builder *strings.Builder, args *[]any, sort []viewschema.SortEntry, fields map[string]Field, position map[string]string, before bool) error {
+func appendKeyset(builder *sqlshape.Builder, args *[]any, sort []viewschema.SortEntry, fields map[string]Field, position map[string]string, before bool) error {
 	if len(position) == 0 {
 		return nil
 	}
 	values := make([]any, len(sort))
-	placeholders := make([]string, len(sort))
+	placeholders := make([]sqlshape.Fragment, len(sort))
 	for index, entry := range sort {
 		field, ok := fields[entry.FieldKey]
-		if !ok || strings.TrimSpace(field.Expression) == "" {
+		if !ok || field.Expression.Empty() {
 			return fmt.Errorf("query page sort field %q not mapped", entry.FieldKey)
 		}
 		encoded, ok := position[entry.FieldKey]
@@ -71,65 +72,65 @@ func appendKeyset(builder *strings.Builder, args *[]any, sort []viewschema.SortE
 			return fmt.Errorf("%w: field %q: %v", ErrInvalidPosition, entry.FieldKey, err)
 		}
 		*args = append(*args, values[index])
-		placeholders[index] = fmt.Sprintf("$%d", len(*args))
-		if field.Cast != "" {
-			placeholders[index] += "::" + field.Cast
+		placeholders[index] = sqlshape.Parameter(len(*args))
+		if !field.Cast.Empty() {
+			placeholders[index] = sqlshape.Concat(placeholders[index], sqlshape.Literal("::"), field.Cast)
 		}
 	}
 
-	builder.WriteString("\n   AND (")
+	builder.Write(sqlshape.Literal("\n   AND ("))
 	wroteBranch := false
 	for index, entry := range sort {
 		if values[index] == nil && !before {
 			continue
 		}
 		if wroteBranch {
-			builder.WriteString(" OR ")
+			builder.Write(sqlshape.Literal(" OR "))
 		}
-		builder.WriteByte('(')
+		builder.Write(sqlshape.Literal("("))
 		for previous := 0; previous < index; previous++ {
 			if previous > 0 {
-				builder.WriteString(" AND ")
+				builder.Write(sqlshape.Literal(" AND "))
 			}
-			builder.WriteString(fields[sort[previous].FieldKey].Expression)
-			builder.WriteString(" IS NOT DISTINCT FROM ")
-			builder.WriteString(placeholders[previous])
+			builder.Write(fields[sort[previous].FieldKey].Expression)
+			builder.Write(sqlshape.Literal(" IS NOT DISTINCT FROM "))
+			builder.Write(placeholders[previous])
 		}
 		if index > 0 {
-			builder.WriteString(" AND ")
+			builder.Write(sqlshape.Literal(" AND "))
 		}
 		expr := fields[entry.FieldKey].Expression
-		builder.WriteByte('(')
-		builder.WriteString(expr)
+		builder.Write(sqlshape.Literal("("))
+		builder.Write(expr)
 		if values[index] == nil {
-			builder.WriteString(" IS NOT NULL")
+			builder.Write(sqlshape.Literal(" IS NOT NULL"))
 		} else {
 			if (entry.Direction == "desc") != before {
-				builder.WriteString(" < ")
+				builder.Write(sqlshape.Literal(" < "))
 			} else {
-				builder.WriteString(" > ")
+				builder.Write(sqlshape.Literal(" > "))
 			}
-			builder.WriteString(placeholders[index])
+			builder.Write(placeholders[index])
 			if !before {
-				builder.WriteString(" OR " + expr + " IS NULL")
+				builder.Write(sqlshape.Format(" OR %s IS NULL", expr))
 			}
 		}
-		builder.WriteByte(')')
-		builder.WriteByte(')')
+		builder.Write(sqlshape.Literal(")"))
+		builder.Write(sqlshape.Literal(")"))
 		wroteBranch = true
 	}
 	if !wroteBranch {
-		builder.WriteString("FALSE")
+		builder.Write(sqlshape.Literal("FALSE"))
 	}
-	builder.WriteByte(')')
+	builder.Write(sqlshape.Literal(")"))
 	return nil
 }
 
-func AppendLimit(builder *strings.Builder, args *[]any, limit int) error {
+func AppendLimit(builder *sqlshape.Builder, args *[]any, limit int) error {
 	if limit < 1 {
 		return fmt.Errorf("query page limit must be positive")
 	}
 	*args = append(*args, limit+1)
-	builder.WriteString(fmt.Sprintf(" LIMIT $%d", len(*args)))
+	builder.Write(sqlshape.Format(" LIMIT %s", sqlshape.Parameter(len(*args))))
 	return nil
 }

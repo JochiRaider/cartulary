@@ -13,9 +13,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linkvocabulary "github.com/JochiRaider/cartulary/internal/modules/links/vocabulary"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type subjectValidator struct {
@@ -24,7 +26,7 @@ type subjectValidator struct {
 }
 
 func NewSubjectValidator(
-	pool postgres.DB,
+	pool dbport.DB,
 	entities *hostidentity.SourceFacts,
 ) (assessments.SubjectValidator, error) {
 	if isNilDependency(pool) {
@@ -47,7 +49,7 @@ func (a subjectValidator) ValidateAssessmentSubjectTx(
 	recordID uuid.UUID,
 ) (bool, error) {
 	envelope, err := a.records.LoadEnvelopeTx(ctx, tx, recordID, false)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return false, nil
 	}
 	if err != nil {
@@ -76,7 +78,7 @@ type assessorValidator struct {
 	incidents *admission.Checker
 }
 
-func NewAssessorValidator(pool postgres.DB) (assessments.AssessorValidator, error) {
+func NewAssessorValidator(pool dbport.DB) (assessments.AssessorValidator, error) {
 	if isNilDependency(pool) {
 		return nil, errors.New("compose assessment assessor validator: database is required")
 	}
@@ -115,7 +117,7 @@ type supportTargetValidator struct {
 }
 
 func NewSupportTargetValidator(
-	pool postgres.DB,
+	pool dbport.DB,
 ) (assessments.SupportTargetValidator, error) {
 	if isNilDependency(pool) {
 		return nil, errors.New("compose assessment support-target validator: database is required")
@@ -150,7 +152,7 @@ type recordEnvelopeCreator struct {
 }
 
 func NewRecordEnvelopeCreator(
-	pool postgres.DB,
+	pool dbport.DB,
 ) (assessments.RecordEnvelopeCreator, error) {
 	if isNilDependency(pool) {
 		return nil, errors.New("compose assessment record-envelope creator: database is required")
@@ -201,8 +203,8 @@ func (a supportLinkApplier) ApplyInitialAssessmentSupportLinksTx(
 			IncidentID:  incidentID,
 			SrcRecordID: assessmentID,
 			DstRecordID: supportRecordID,
-			LinkType:    links.LinkTypeSupportedBy,
-			Provenance:  links.LinkProvenanceManual,
+			LinkType:    linkvocabulary.LinkTypeSupportedBy,
+			Provenance:  linkvocabulary.LinkProvenanceManual,
 			OwnerUserID: actorUserID,
 			Now:         now,
 		})

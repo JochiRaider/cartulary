@@ -7,12 +7,13 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) (exportprovider.ProviderOutput, error) {
 	output, err := exportprovider.CollectQueryProviderOutputTx(ctx, tx, incidentID, "records", supportRefs, []exportprovider.FieldQuery{{
 		Prefix: "record_envelopes",
-		SQL: `SELECT r.record_id::text, 'record_envelope'::text, r.record_type::text, 'derived_analytic'::text, jsonb_build_object(
+		SQL: sqlshape.Literal(`SELECT r.record_id::text, 'record_envelope'::text, r.record_type::text, 'derived_analytic'::text, jsonb_build_object(
        'record_id', r.record_id,
        'record_type', r.record_type,
        'created_by_user_id', r.created_by_user_id,
@@ -22,7 +23,7 @@ func CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, suppor
        'row_version', r.row_version
    )
   FROM records r
- WHERE r.incident_id = $1 AND r.deleted_at IS NULL`,
+ WHERE r.incident_id = $1 AND r.deleted_at IS NULL`),
 	}})
 	if err != nil {
 		return exportprovider.ProviderOutput{}, err

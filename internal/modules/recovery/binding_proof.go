@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
-
-	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/extensioncodec"
+	"github.com/JochiRaider/cartulary/internal/platform/maintenancequery"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const PostgresBindingProofV1SchemaID = "cartulary.extension_postgres_binding_proof.v1"
@@ -29,7 +28,7 @@ type PostgresBindingProof struct {
 	BindingDigest               string `json:"binding_digest"`
 }
 
-type bindingQuery func(context.Context, string, ...any) (VNextRows, error)
+type bindingQuery func(context.Context, sqlshape.Fragment, ...any) (VNextRows, error)
 
 // logicalBindingEntries confines a reader to the admitted mapping. Only the
 // selected logical fields cross this boundary; no transaction or SQL port does.
@@ -39,16 +38,23 @@ func logicalBindingEntries(ctx context.Context, codec *extensioncodec.Postgres, 
 			return ErrExtensionBindingInvalid
 		}
 		mapping, family := codec.Mapping(), codec.Family()
-		columns := make([]string, len(mapping.Columns))
+		columns := make([]sqlshape.Fragment, len(mapping.Columns))
 		for i, column := range mapping.Columns {
-			columns[i] = pgx.Identifier{column.ColumnName}.Sanitize()
+			columns[i] = sqlshape.Identifier(column.ColumnName)
 			// Preserve original JSON numbers. Driver decoding into interface values
 			// would otherwise convert JSON numbers through floating point.
 			if family.Fields[i].ValueKind == "json" {
-				columns[i] += "::text"
+				columns[i] = sqlshape.Concat(columns[i], sqlshape.Literal("::text"))
 			}
 		}
-		rows, err := query(ctx, "SELECT "+strings.Join(columns, ",")+" FROM "+pgx.Identifier{mapping.SchemaName, mapping.TableName}.Sanitize())
+		if mapping.SchemaName != "public" {
+			return ErrExtensionBindingInvalid
+		}
+		from, err := maintenancequery.From(mapping.TableName)
+		if err != nil {
+			return err
+		}
+		rows, err := query(ctx, sqlshape.Format("SELECT %s %s", sqlshape.Join(columns, sqlshape.Literal(",")), from))
 		if err != nil {
 			return err
 		}
@@ -116,11 +122,18 @@ func inspectPostgresBindingMappings(ctx context.Context, db restoreTargetReader,
 	}
 	for _, binding := range catalog.Bindings() {
 		mapping := binding.CurrentCodec.Postgres.Mapping()
-		columns := make([]string, len(mapping.Columns))
+		columns := make([]sqlshape.Fragment, len(mapping.Columns))
 		for i, column := range mapping.Columns {
-			columns[i] = pgx.Identifier{column.ColumnName}.Sanitize()
+			columns[i] = sqlshape.Identifier(column.ColumnName)
 		}
-		rows, err := db.Query(ctx, "SELECT "+strings.Join(columns, ",")+" FROM "+pgx.Identifier{mapping.SchemaName, mapping.TableName}.Sanitize()+" LIMIT 0")
+		if mapping.SchemaName != "public" {
+			return ErrExtensionBindingInvalid
+		}
+		from, err := maintenancequery.From(mapping.TableName)
+		if err != nil {
+			return err
+		}
+		rows, err := db.Query(ctx, sqlshape.Text(sqlshape.Format("SELECT %s %s LIMIT 0", sqlshape.Join(columns, sqlshape.Literal(",")), from)))
 		if err != nil {
 			return fmt.Errorf("%w: binding mapping unavailable", ErrExtensionBindingInvalid)
 		}

@@ -3,11 +3,11 @@ package entities_test
 import (
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
-func requireColumns(t testing.TB, db postgres.DB, table string, columns ...string) {
+func requireColumns(t testing.TB, db dbport.DB, table string, columns ...string) {
 	t.Helper()
 	for _, column := range columns {
 		assertCount(t, db, `
@@ -20,7 +20,7 @@ SELECT COUNT(*)
 	}
 }
 
-func requireNoColumns(t testing.TB, db postgres.DB, column string, tables ...string) {
+func requireNoColumns(t testing.TB, db dbport.DB, column string, tables ...string) {
 	t.Helper()
 	for _, table := range tables {
 		assertCount(t, db, `
@@ -33,7 +33,7 @@ SELECT COUNT(*)
 	}
 }
 
-func requireGenericRecordFKsDoNotTargetTimeline(t testing.TB, db postgres.DB) {
+func requireGenericRecordFKsDoNotTargetTimeline(t testing.TB, db dbport.DB) {
 	t.Helper()
 	assertCount(t, db, `
 SELECT COUNT(*)
@@ -46,7 +46,7 @@ SELECT COUNT(*)
 `, 0)
 }
 
-func assertCount(t testing.TB, db postgres.DB, query string, want int, args ...any) {
+func assertCount(t testing.TB, db dbport.DB, query string, want int, args ...any) {
 	t.Helper()
 	got := appsupport.QueryCount(t, db, query, args...)
 	if got != want {

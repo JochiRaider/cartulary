@@ -18,7 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 var errNotFound = errors.New("imports: not found")
@@ -51,7 +51,7 @@ func (e *applyBlockedError) Unwrap() error {
 }
 
 type store struct {
-	db               postgres.DB
+	db               dbport.DB
 	incidentAccess   *admission.Checker
 	revisionAppender *revisions.Appender
 	jobTransactions  importJobTransactions
@@ -186,7 +186,7 @@ type applyJournalParams struct {
 }
 
 func newStore(
-	db postgres.DB,
+	db dbport.DB,
 	appender *revisions.Appender,
 	jobTransactions importJobTransactions,
 ) *store {

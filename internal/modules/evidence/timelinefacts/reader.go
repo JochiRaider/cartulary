@@ -1,4 +1,4 @@
-package evidence
+package timelinefacts
 
 import (
 	"context"
@@ -20,19 +20,6 @@ type TimelineFact struct {
 type TimelineFactReader struct{}
 
 func (TimelineFactReader) LoadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) ([]TimelineFact, error) {
-	return (sourceReadRepository{}).loadTimelineFactsTx(ctx, tx, incidentID, recordIDs)
-}
-
-// sourceReadRepository contains transaction-supplied source reads used by
-// Evidence-owned consumer contributions.
-type sourceReadRepository struct{}
-
-func (sourceReadRepository) loadTimelineFactsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	recordIDs []uuid.UUID,
-) ([]TimelineFact, error) {
 	if len(recordIDs) == 0 {
 		return []TimelineFact{}, nil
 	}

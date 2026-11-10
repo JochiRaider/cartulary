@@ -53,6 +53,19 @@ func TestUnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot_Integra
 		t.Fatalf("unexpected reserved descendant dispatch details: %#v", descendantDetails)
 	}
 
+	ready := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/readyz", nil, httptestx.WithCookies(userLogin.Session))
+	if body := string(httptestx.ReadResponseBody(t, ready, http.StatusOK)); !strings.Contains(body, "ready") {
+		t.Fatalf("ready response: %q", body)
+	}
+	// Exercise the actual templated enterprise family, independently of its OIDC root.
+	for _, family := range enterpriseProfile.RouteFamilies {
+		if !strings.Contains(family, "{user_id}") {
+			continue
+		}
+		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+strings.ReplaceAll(family, "{user_id}", adminID.String())+"/provider", nil, httptestx.WithCookies(userLogin.Session))
+		requireProcessErrorDetails(t, httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "extension_profile_not_claimed"), map[string]any{"profile_id": enterpriseProfile.ProfileID, "route_family": family})
+	}
+
 	outsideReserved := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/outside-reserved-families", nil, httptestx.WithCookies(userLogin.Session))
 	bodyText := string(httptestx.ReadResponseBody(t, outsideReserved, http.StatusNotFound))
 	if strings.Contains(bodyText, "extension_profile_not_claimed") {

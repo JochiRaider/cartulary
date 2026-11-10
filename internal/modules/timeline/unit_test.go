@@ -2,6 +2,7 @@ package timeline_test
 
 import (
 	"context"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"testing"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -269,7 +269,7 @@ type resolutionTimelineCommands struct {
 	facade *Facade
 }
 
-func newResolutionTimelineCommands(t testing.TB, pool postgres.DB) *resolutionTimelineCommands {
+func newResolutionTimelineCommands(t testing.TB, pool dbport.DB) *resolutionTimelineCommands {
 	t.Helper()
 	return &resolutionTimelineCommands{
 		facade: newTestTimelineBundle(t, pool, conflicttest.NewCodec("timeline")).Facade,

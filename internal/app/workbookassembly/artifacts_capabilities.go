@@ -18,10 +18,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type artifactIdempotency struct {
@@ -31,16 +32,18 @@ type artifactIdempotency struct {
 
 func (a artifactIdempotency) Get(ctx context.Context, key artifacts.IdempotencyKey, requestHash []byte) (artifacts.StoredMutationResult, bool, error) {
 	record, err := a.store.GetRouteIdempotency(ctx, artifactRouteKey(key))
-	return decodeArtifactIdempotency(key, requestHash, record, err, func(id uuid.UUID) (records.Envelope, error) { return a.records.LoadEnvelope(ctx, id) })
+	return decodeArtifactIdempotency(key, requestHash, record, err, func(id uuid.UUID) (recordenvelope.Envelope, error) { return a.records.LoadEnvelope(ctx, id) })
 }
 func (a artifactIdempotency) GetTx(ctx context.Context, tx pgx.Tx, key artifacts.IdempotencyKey, requestHash []byte) (artifacts.StoredMutationResult, bool, error) {
 	record, err := authn.GetRouteIdempotencyTx(ctx, tx, artifactRouteKey(key))
-	return decodeArtifactIdempotency(key, requestHash, record, err, func(id uuid.UUID) (records.Envelope, error) { return a.records.LoadEnvelopeTx(ctx, tx, id, false) })
+	return decodeArtifactIdempotency(key, requestHash, record, err, func(id uuid.UUID) (recordenvelope.Envelope, error) {
+		return a.records.LoadEnvelopeTx(ctx, tx, id, false)
+	})
 }
 func artifactRouteKey(key artifacts.IdempotencyKey) authn.RouteIdempotencyKey {
 	return authn.RouteIdempotencyKey{RouteKey: string(key.OperationID), ActorUserID: key.ActorUserID, ScopeKey: key.ScopeKey, ClientTxnID: key.ClientTxnID}
 }
-func decodeArtifactIdempotency(key artifacts.IdempotencyKey, requestHash []byte, record authn.RouteIdempotencyRecord, err error, loadEnvelope func(uuid.UUID) (records.Envelope, error)) (artifacts.StoredMutationResult, bool, error) {
+func decodeArtifactIdempotency(key artifacts.IdempotencyKey, requestHash []byte, record authn.RouteIdempotencyRecord, err error, loadEnvelope func(uuid.UUID) (recordenvelope.Envelope, error)) (artifacts.StoredMutationResult, bool, error) {
 	if errors.Is(err, authn.ErrNotFound) {
 		return artifacts.StoredMutationResult{}, false, nil
 	}
@@ -302,7 +305,7 @@ func (a artifactRevisions) LoadRevisionWindowTx(ctx context.Context, tx pgx.Tx, 
 }
 
 func NewArtifactMutationContribution(
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	conflictFields conflicttokens.FieldResolver,

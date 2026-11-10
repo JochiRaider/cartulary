@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestPostgresStreamAndDispatcherRejectIncompleteConstruction_Unit(t *testing.T) {
 	if stream, err := NewPostgresStream(nil); err == nil || stream != nil {
 		t.Fatalf("PostgresStream = %#v, error = %v; want missing database rejection", stream, err)
 	}
-	db := struct{ postgres.DB }{}
+	db := struct{ dbport.DB }{}
 	stream, err := NewPostgresStream(db)
 	if err != nil {
 		t.Fatal(err)

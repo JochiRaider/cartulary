@@ -12,7 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/graphassembly"
 	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // A claim activation owns one reconstruction attempt. Recovery completion is
@@ -29,7 +29,7 @@ type claimedGraphActivation struct {
 	closed         bool
 }
 
-func newClaimedGraphActivation(db postgres.DB, control recovery.TargetControl, claimed bool, now func() time.Time, fatal func()) (*claimedGraphActivation, error) {
+func newClaimedGraphActivation(db dbport.DB, control recovery.TargetControl, claimed bool, now func() time.Time, fatal func()) (*claimedGraphActivation, error) {
 	if err := control.Validate(); err != nil || (control.State != recovery.TargetInitialized && control.State != recovery.TargetComplete) || fatal == nil || now == nil || db == nil {
 		return nil, errors.New("graph claim activation requires an admitted serving target")
 	}

@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -118,7 +118,7 @@ func mustCreateDecision(t testing.TB, owner *tasksdecisions.MutationFacade, acto
 	return mustCreateDecisionWithCollections(t, owner, actor, incidentID, clientTxnID, status, summary, nil).RecordID
 }
 
-func mustCreateEvidence(t testing.TB, pool postgres.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
+func mustCreateEvidence(t testing.TB, pool dbport.DB, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
 	t.Helper()
 	request, admissionFailure := evidence.AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
 		`{"client_txn_id":%q,"evidence.title":%q}`,

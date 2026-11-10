@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -24,10 +25,10 @@ func TestIdentityPageSQLIsKeysetBoundedAndProjectionOwned(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build identity page SQL: %v", err)
 	}
-	if !strings.Contains(sqlText, "identity_grid_projection") || strings.Contains(sqlText, "FROM identities") {
+	if !strings.Contains(sqlshape.Text(sqlText), "identity_grid_projection") || strings.Contains(sqlshape.Text(sqlText), "FROM identities") {
 		t.Fatalf("identity page selection does not isolate projection storage: %s", sqlText)
 	}
-	if !strings.Contains(sqlText, "record_id >") || !strings.Contains(sqlText, " LIMIT $") || strings.Contains(strings.ToUpper(sqlText), "OFFSET") {
+	if !strings.Contains(sqlshape.Text(sqlText), "record_id >") || !strings.Contains(sqlshape.Text(sqlText), " LIMIT $") || strings.Contains(strings.ToUpper(sqlshape.Text(sqlText)), "OFFSET") {
 		t.Fatalf("identity page SQL is not bounded keyset retrieval: %s", sqlText)
 	}
 	if got := args[len(args)-1]; got != 26 {

@@ -1018,7 +1018,7 @@
         "module.reference_data"
       ],
       "verification_ids": [
-        "module.reporting.verification.behavior_contract"
+        "module.reporting.verification.owner_boundaries"
       ],
       "runner": "go",
       "selector": {

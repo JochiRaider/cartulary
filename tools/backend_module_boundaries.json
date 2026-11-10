@@ -633,7 +633,7 @@
       "id": "evidence-private-projection-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/providers/projection",
       "allowed_importers": [
-        "internal/modules/evidence/projection_contribution.go"
+        "internal/modules/evidence/*.go"
       ]
     },
     {
@@ -703,7 +703,7 @@
       "id": "indicator-projection-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/projection",
       "allowed_importers": [
-        "internal/modules/indicators/projection_provider_contribution.go"
+        "internal/modules/indicators/*.go"
       ]
     },
     {
@@ -738,7 +738,7 @@
       "id": "party-projection-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/parties/internal/providers/projection",
       "allowed_importers": [
-        "internal/modules/parties/provider_contributions.go"
+        "internal/modules/parties/*.go"
       ]
     },
     {
@@ -780,7 +780,7 @@
       "id": "tasks-decisions-projection-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/projection",
       "allowed_importers": [
-        "internal/modules/tasksdecisions/projection_contribution.go"
+        "internal/modules/tasksdecisions/*.go"
       ]
     },
     {
@@ -1046,16 +1046,11 @@
         "internal/modules/**"
       ],
       "allowed_paths": [
-        "internal/app/projectionassembly/build.go",
-        "internal/modules/entities/hostidentity/projectionprovider/host_source.go",
-        "internal/modules/entities/hostidentity/projectionprovider/identity_source.go",
-        "internal/modules/projections/adapters/adapters.go",
-        "internal/modules/projections/internal/runtime/catalog_builder.go",
-        "internal/modules/projections/internal/runtime/entity_grids.go",
-        "internal/modules/projections/internal/runtime/owner_adapters.go",
-        "internal/modules/projections/internal/runtime/provider_factories.go",
-        "internal/modules/projections/internal/storage/host.go",
-        "internal/modules/projections/internal/storage/identity.go"
+        "internal/app/projectionassembly/*.go",
+        "internal/modules/entities/hostidentity/projectionprovider/*.go",
+        "internal/modules/projections/adapters/*.go",
+        "internal/modules/projections/internal/runtime/*.go",
+        "internal/modules/projections/internal/storage/*.go"
       ],
       "production_only": true
     },
@@ -1070,22 +1065,17 @@
         "internal/modules/**"
       ],
       "allowed_paths": [
-        "internal/app/importassembly/owner_registry.go",
-        "internal/app/projectionassembly/catalog.go",
-        "internal/app/timelineassembly/assembly.go",
-        "internal/app/workbookassembly/catalog.go",
-        "internal/modules/entities/hostidentity/construction.go",
-        "internal/modules/entities/hostidentity/import_create.go",
-        "internal/modules/entities/hostidentity/ports.go",
-        "internal/modules/entities/hostidentity/query.go",
-        "internal/modules/entities/hostidentity/reportingprovider/provider.go",
-        "internal/modules/entities/mentions/ports.go",
-        "internal/modules/entities/merge/ports.go",
-        "internal/modules/entities/merge/store.go",
-        "internal/modules/projections/adapters/adapters.go",
-        "internal/modules/projections/internal/queryengine/host.go",
-        "internal/modules/projections/internal/queryengine/identity.go",
-        "internal/modules/projections/internal/runtime/owner_adapters.go"
+        "internal/app/importassembly/*.go",
+        "internal/app/projectionassembly/*.go",
+        "internal/app/timelineassembly/*.go",
+        "internal/app/workbookassembly/*.go",
+        "internal/modules/entities/hostidentity/*.go",
+        "internal/modules/entities/hostidentity/reportingprovider/*.go",
+        "internal/modules/entities/mentions/*.go",
+        "internal/modules/entities/merge/*.go",
+        "internal/modules/projections/adapters/*.go",
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/runtime/*.go"
       ],
       "production_only": true
     },
@@ -1714,7 +1704,7 @@
         "internal/modules/recovery/**"
       ],
       "allowed_paths": [
-        "internal/modules/recovery/store.go"
+        "internal/modules/recovery/*.go"
       ],
       "production_only": true,
       "match_kind": "exact"
@@ -1746,6 +1736,23 @@
         "internal/**"
       ],
       "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "maintenance-sql-capability",
+      "match_kind": "exact",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/maintenancequery"
+      ],
+      "scan_paths": [
+        "internal/**",
+        "cmd/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/recovery/*.go",
+        "internal/app/recoveryassembly/*.go",
+        "internal/platform/harnessruntime/*.go"
+      ],
       "production_only": true
     }
   ],
@@ -1799,7 +1806,8 @@
         "github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
-        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source",
+        "github.com/JochiRaider/cartulary/internal/platform/sqlshape"
       ]
     },
     {
@@ -1813,7 +1821,8 @@
       "allowed_imports": [
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
-        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog",
+        "github.com/JochiRaider/cartulary/internal/platform/sqlshape"
       ]
     },
     {
@@ -1917,8 +1926,9 @@
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
         "github.com/JochiRaider/cartulary/internal/platform/authn",
-        "github.com/JochiRaider/cartulary/internal/platform/postgres",
-        "github.com/JochiRaider/cartulary/internal/platform/viewschema"
+        "github.com/JochiRaider/cartulary/internal/platform/postgres/dbport",
+        "github.com/JochiRaider/cartulary/internal/platform/viewschema",
+        "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
       ]
     },
     {
@@ -2010,7 +2020,8 @@
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract",
-        "github.com/JochiRaider/cartulary/internal/modules/tabularingest"
+        "github.com/JochiRaider/cartulary/internal/modules/tabularingest",
+        "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
       ]
     },
     {
@@ -2088,20 +2099,13 @@
         "task_requests"
       ],
       "allowed_paths": [
-        "internal/modules/tasksdecisions/internal/providers/deleterestore/provider.go",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/export.go",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/import_apply.go",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/subtype_presence.go",
-        "internal/modules/tasksdecisions/internal/providers/projection/task_source.go",
-        "internal/modules/tasksdecisions/internal/providers/projection/decision_source.go",
-        "internal/modules/tasksdecisions/internal/source/direct_updates.go",
-        "internal/modules/tasksdecisions/internal/source/facts.go",
-        "internal/modules/tasksdecisions/internal/source/inserts.go",
-        "internal/modules/tasksdecisions/internal/source/lifecycle.go",
-        "internal/modules/tasksdecisions/internal/providers/rollback/decision_provider.go",
-        "internal/modules/tasksdecisions/internal/providers/rollback/task_provider.go",
-        "internal/modules/parties/internal/providers/deleterestore/provider.go"
+        "internal/modules/parties/internal/providers/deleterestore/*.go",
+        "internal/modules/tasksdecisions/internal/providers/deleterestore/*.go",
+        "internal/modules/tasksdecisions/internal/providers/incidentbundle/*.go",
+        "internal/modules/tasksdecisions/internal/providers/projection/*.go",
+        "internal/modules/tasksdecisions/internal/providers/rollback/*.go",
+        "internal/modules/tasksdecisions/internal/source/*.go",
+        "internal/platform/maintenancequery/*.go"
       ]
     },
     {
@@ -2111,7 +2115,11 @@
         "record_tags"
       ],
       "allowed_paths": [
-        "internal/modules/links/**"
+        "internal/modules/links/*.go",
+        "internal/modules/links/internal/sourcestate/*.go",
+        "internal/modules/links/internal/mergeeffects/*.go",
+        "internal/modules/links/internal/revisionprovider/*.go",
+        "internal/platform/maintenancequery/*.go"
       ]
     },
     {
@@ -2143,7 +2151,9 @@
         "task_requests",
         "timeline_events"
       ],
-      "allowed_paths": [],
+      "allowed_paths": [
+        "internal/platform/maintenancequery/*.go"
+      ],
       "scan_paths": [
         "internal/modules/revisions/**"
       ]
@@ -2204,7 +2214,8 @@
         "internal/modules/timeline/rollbackprovider/**",
         "internal/modules/timeline/sourcerepository/**",
         "internal/modules/timeline/workbookprojection/derivation.go",
-        "internal/modules/timeline/workbookprojection/store.go"
+        "internal/modules/timeline/workbookprojection/store.go",
+        "internal/modules/timeline/sourcelocking/*.go"
       ]
     },
     {
@@ -2262,16 +2273,20 @@
       "id": "jobs-storage-owner-write-and-lock-access",
       "table": "jobs",
       "scan_paths": [
-        "internal/**"
+        "internal/**",
+        "internal/platform/maintenancequery/*.go"
       ],
       "read_allowed_paths": [
-        "internal/**"
+        "internal/**",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/platform/jobs/**"
+        "internal/platform/jobs/**",
+        "internal/platform/maintenancequery/*.go"
       ],
       "lock_allowed_paths": [
-        "internal/platform/jobs/**"
+        "internal/platform/jobs/**",
+        "internal/platform/maintenancequery/*.go"
       ]
     },
     {
@@ -2338,289 +2353,393 @@
       "id": "timeline-projection-storage-access",
       "table": "timeline_grid_projection",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/projections/internal/queryengine/timeline.go",
-        "internal/modules/projections/internal/storage/timeline.go"
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/projections/internal/storage/timeline.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "test_read_allowed_paths": [
         "internal/modules/timeline/testsupport/asserttest/assertions.go"
       ],
       "test_write_allowed_paths": [],
       "lock_allowed_paths": [
-        "internal/modules/projections/internal/storage/timeline.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "read_allowed_statements": [
+        {
+          "package": "internal/modules/projections/internal/runtime",
+          "declaration": "projectionCountQuery",
+          "sql": "SELECT count(*) FROM timeline_grid_projection"
+        }
       ]
     },
     {
       "id": "host-projection-storage-access",
       "table": "host_grid_projection",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/projections/internal/queryengine/host.go",
-        "internal/modules/projections/internal/storage/host.go"
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/projections/internal/storage/host.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "test_read_allowed_paths": [],
       "test_write_allowed_paths": [],
       "lock_allowed_paths": [
-        "internal/modules/projections/internal/storage/host.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "read_allowed_statements": [
+        {
+          "package": "internal/modules/projections/internal/runtime",
+          "declaration": "projectionCountQuery",
+          "sql": "SELECT count(*) FROM host_grid_projection"
+        }
       ]
     },
     {
       "id": "identity-projection-storage-access",
       "table": "identity_grid_projection",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/projections/internal/queryengine/identity.go",
-        "internal/modules/projections/internal/storage/identity.go"
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/projections/internal/storage/identity.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "test_read_allowed_paths": [],
       "test_write_allowed_paths": [],
       "lock_allowed_paths": [
-        "internal/modules/projections/internal/storage/identity.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "read_allowed_statements": [
+        {
+          "package": "internal/modules/projections/internal/runtime",
+          "declaration": "projectionCountQuery",
+          "sql": "SELECT count(*) FROM identity_grid_projection"
+        }
       ]
     },
     {
       "id": "indicator-projection-storage-access",
       "table": "indicator_grid_projection",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/projections/internal/queryengine/indicator.go",
-        "internal/modules/projections/internal/storage/indicator.go"
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/projections/internal/storage/indicator.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "test_read_allowed_paths": [],
       "test_write_allowed_paths": [],
       "lock_allowed_paths": [
-        "internal/modules/projections/internal/storage/indicator.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "read_allowed_statements": [
+        {
+          "package": "internal/modules/projections/internal/runtime",
+          "declaration": "projectionCountQuery",
+          "sql": "SELECT count(*) FROM indicator_grid_projection"
+        }
       ]
     },
     {
       "id": "assessment-projection-storage-access",
       "table": "assessment_grid_projection",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/projections/internal/queryengine/assessment.go",
-        "internal/modules/projections/internal/storage/assessment.go"
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/projections/internal/storage/assessment.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "test_read_allowed_paths": [],
       "test_write_allowed_paths": [
         "internal/modules/projections/testsupport/capability.go"
       ],
       "lock_allowed_paths": [
-        "internal/modules/projections/internal/storage/assessment.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "read_allowed_statements": [
+        {
+          "package": "internal/modules/projections/internal/runtime",
+          "declaration": "projectionCountQuery",
+          "sql": "SELECT count(*) FROM assessment_grid_projection"
+        }
       ]
     },
     {
       "id": "artifact-projection-storage-access",
       "table": "artifact_grid_projection",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/projections/internal/queryengine/artifact.go",
-        "internal/modules/projections/internal/storage/artifact.go"
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/projections/internal/storage/artifact.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "test_read_allowed_paths": [],
       "test_write_allowed_paths": [],
       "lock_allowed_paths": [
-        "internal/modules/projections/internal/storage/artifact.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "read_allowed_statements": [
+        {
+          "package": "internal/modules/projections/internal/runtime",
+          "declaration": "projectionCountQuery",
+          "sql": "SELECT count(*) FROM artifact_grid_projection"
+        }
       ]
     },
     {
       "id": "evidence-projection-storage-access",
       "table": "evidence_grid_projection",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/projections/internal/queryengine/evidence.go",
-        "internal/modules/projections/internal/storage/evidence.go"
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/projections/internal/storage/evidence.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "test_read_allowed_paths": [],
       "test_write_allowed_paths": [],
       "lock_allowed_paths": [
-        "internal/modules/projections/internal/storage/evidence.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "read_allowed_statements": [
+        {
+          "package": "internal/modules/projections/internal/runtime",
+          "declaration": "projectionCountQuery",
+          "sql": "SELECT count(*) FROM evidence_grid_projection"
+        }
       ]
     },
     {
       "id": "party-projection-storage-access",
       "table": "party_grid_projection",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/projections/internal/queryengine/party.go",
-        "internal/modules/projections/internal/storage/party.go"
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/projections/internal/storage/party.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "test_read_allowed_paths": [],
       "test_write_allowed_paths": [],
       "lock_allowed_paths": [
-        "internal/modules/projections/internal/storage/party.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "read_allowed_statements": [
+        {
+          "package": "internal/modules/projections/internal/runtime",
+          "declaration": "projectionCountQuery",
+          "sql": "SELECT count(*) FROM party_grid_projection"
+        }
       ]
     },
     {
       "id": "task-request-projection-storage-access",
       "table": "task_request_grid_projection",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/projections/internal/queryengine/task_request.go",
-        "internal/modules/projections/internal/storage/task_request.go"
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/projections/internal/storage/task_request.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "test_read_allowed_paths": [],
       "test_write_allowed_paths": [],
       "lock_allowed_paths": [
-        "internal/modules/projections/internal/storage/task_request.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "read_allowed_statements": [
+        {
+          "package": "internal/modules/projections/internal/runtime",
+          "declaration": "projectionCountQuery",
+          "sql": "SELECT count(*) FROM task_request_grid_projection"
+        }
       ]
     },
     {
       "id": "decision-projection-storage-access",
       "table": "decision_grid_projection",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/projections/internal/queryengine/decision.go",
-        "internal/modules/projections/internal/storage/decision.go"
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/projections/internal/storage/decision.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "test_read_allowed_paths": [],
       "test_write_allowed_paths": [],
       "lock_allowed_paths": [
-        "internal/modules/projections/internal/storage/decision.go"
+        "internal/modules/projections/internal/storage/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "read_allowed_statements": [
+        {
+          "package": "internal/modules/projections/internal/runtime",
+          "declaration": "projectionCountQuery",
+          "sql": "SELECT count(*) FROM decision_grid_projection"
+        }
       ]
     },
     {
       "id": "records-current-envelope-access",
       "table": "records",
       "scan_paths": [
-        "internal/modules/**"
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/artifacts/incident_bundle_source_port.go",
-        "internal/modules/artifacts/internal/providers/deleterestore/provider.go",
-        "internal/modules/artifacts/internal/providers/projection/source.go",
-        "internal/modules/assessments/internal/providers/deleterestore/provider.go",
-        "internal/modules/assessments/internal/providers/incidentbundle/source_port.go",
-        "internal/modules/assessments/internal/providers/projection/provider.go",
-        "internal/modules/assessments/internal/providers/rollback/provider.go",
-        "internal/modules/entities/candidates/reader.go",
-        "internal/modules/entities/hostidentity/deleterestore/provider.go",
-        "internal/modules/entities/hostidentity/exact_match.go",
-        "internal/modules/entities/hostidentity/patch_store.go",
-        "internal/modules/entities/hostidentity/projectionprovider/host_source.go",
-        "internal/modules/entities/hostidentity/projectionprovider/identity_source.go",
-        "internal/modules/entities/hostidentity/query.go",
-        "internal/modules/entities/hostidentity/rollbackprovider/collections.go",
-        "internal/modules/entities/hostidentity/source_rows.go",
-        "internal/modules/entities/incident_bundle_portability.go",
-        "internal/modules/entities/incident_bundle_portable_apply.go",
-        "internal/modules/entities/incident_bundle_portable_staging.go",
-        "internal/modules/entities/incident_bundle_source_port.go",
-        "internal/modules/entities/mentions/mention_lifecycle.go",
-        "internal/modules/entities/mentions/reportingprovider/provider.go",
-        "internal/modules/entities/mentions/rollbackprovider/mention.go",
-        "internal/modules/entities/merge/admission.go",
-        "internal/modules/entities/merge/transaction.go",
-        "internal/modules/evidence/access_repository.go",
-        "internal/modules/evidence/blob_persistence.go",
-        "internal/modules/evidence/blob_projection_effects.go",
-        "internal/modules/evidence/blob_quarantine.go",
-        "internal/modules/evidence/incident_bundle_source_port.go",
-        "internal/modules/evidence/internal/providers/deleterestore/provider.go",
-        "internal/modules/evidence/internal/providers/projection/source.go",
-        "internal/modules/evidence/internal/providers/reporting/provider.go",
-        "internal/modules/evidence/mutation_create.go",
-        "internal/modules/evidence/mutation_patch.go",
-        "internal/modules/evidence/mutation_shared.go",
-        "internal/modules/evidence/timeline_port.go",
-        "internal/modules/indicators/internal/providers/deleterestore/provider.go",
-        "internal/modules/indicators/internal/providers/incidentbundle/**",
-        "internal/modules/indicators/internal/providers/projection/source.go",
-        "internal/modules/indicators/internal/providers/rollback/children.go",
-        "internal/modules/indicators/network_flow_participant.go",
-        "internal/modules/indicators/observation_repository.go",
-        "internal/modules/indicators/source_repository.go",
-        "internal/modules/parties/cutover.go",
-        "internal/modules/parties/internal/providers/deleterestore/provider.go",
-        "internal/modules/parties/internal/providers/incidentbundle/portability.go",
-        "internal/modules/parties/internal/providers/incidentbundle/source_port.go",
-        "internal/modules/parties/internal/providers/projection/source.go",
-        "internal/modules/parties/internal/providers/reporting/provider.go",
-        "internal/modules/parties/internal/source/facts.go",
-        "internal/modules/parties/references/labels.go",
-        "internal/modules/projections/internal/queryengine/**",
-        "internal/modules/projections/internal/queryengine/assessment.go",
-        "internal/modules/projections/internal/queryengine/indicator.go",
-        "internal/modules/projections/internal/runtime/link_effects.go",
-        "internal/modules/records/**",
-        "internal/modules/recovery/application/service.go",
-        "internal/modules/tasksdecisions/internal/providers/deleterestore/provider.go",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go",
-        "internal/modules/tasksdecisions/internal/providers/projection/decision_source.go",
-        "internal/modules/tasksdecisions/internal/providers/projection/task_source.go",
-        "internal/modules/tasksdecisions/internal/providers/rollback/task_provider.go",
-        "internal/modules/tasksdecisions/internal/source/facts.go",
-        "internal/modules/tasksdecisions/internal/source/references.go",
-        "internal/modules/tasksdecisions/mutation_supersede.go",
-        "internal/modules/timeline/deleterestore/provider.go",
-        "internal/modules/timeline/incident_bundle_portability.go",
-        "internal/modules/timeline/incident_bundle_source_port.go",
-        "internal/modules/timeline/reportingprovider/provider.go"
+        "internal/modules/artifacts/*.go",
+        "internal/modules/artifacts/internal/providers/deleterestore/*.go",
+        "internal/modules/artifacts/internal/providers/projection/*.go",
+        "internal/modules/assessments/internal/providers/deleterestore/*.go",
+        "internal/modules/assessments/internal/providers/incidentbundle/*.go",
+        "internal/modules/assessments/internal/providers/projection/*.go",
+        "internal/modules/assessments/internal/providers/rollback/*.go",
+        "internal/modules/entities/*.go",
+        "internal/modules/entities/candidates/*.go",
+        "internal/modules/entities/hostidentity/*.go",
+        "internal/modules/entities/hostidentity/deleterestore/*.go",
+        "internal/modules/entities/hostidentity/projectionprovider/*.go",
+        "internal/modules/entities/hostidentity/rollbackprovider/*.go",
+        "internal/modules/entities/mentions/*.go",
+        "internal/modules/entities/mentions/reportingprovider/*.go",
+        "internal/modules/entities/mentions/rollbackprovider/*.go",
+        "internal/modules/entities/merge/*.go",
+        "internal/modules/evidence/*.go",
+        "internal/modules/evidence/internal/providers/deleterestore/*.go",
+        "internal/modules/evidence/internal/providers/projection/*.go",
+        "internal/modules/evidence/internal/providers/reporting/*.go",
+        "internal/modules/indicators/*.go",
+        "internal/modules/indicators/internal/providers/deleterestore/*.go",
+        "internal/modules/indicators/internal/providers/incidentbundle/*.go",
+        "internal/modules/indicators/internal/providers/projection/*.go",
+        "internal/modules/indicators/internal/providers/rollback/*.go",
+        "internal/modules/parties/*.go",
+        "internal/modules/parties/internal/providers/deleterestore/*.go",
+        "internal/modules/parties/internal/providers/incidentbundle/*.go",
+        "internal/modules/parties/internal/providers/projection/*.go",
+        "internal/modules/parties/internal/providers/reporting/*.go",
+        "internal/modules/parties/internal/source/*.go",
+        "internal/modules/parties/references/*.go",
+        "internal/modules/projections/internal/queryengine/*.go",
+        "internal/modules/records/*.go",
+        "internal/modules/recovery/application/*.go",
+        "internal/modules/tasksdecisions/*.go",
+        "internal/modules/tasksdecisions/internal/providers/deleterestore/*.go",
+        "internal/modules/tasksdecisions/internal/providers/incidentbundle/*.go",
+        "internal/modules/tasksdecisions/internal/providers/projection/*.go",
+        "internal/modules/tasksdecisions/internal/providers/rollback/*.go",
+        "internal/modules/tasksdecisions/internal/source/*.go",
+        "internal/modules/timeline/*.go",
+        "internal/modules/timeline/deleterestore/*.go",
+        "internal/modules/timeline/reportingprovider/*.go",
+        "internal/modules/records/reportingprovider/*.go",
+        "internal/modules/records/enveloperead/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/records/**"
+        "internal/modules/records/*.go",
+        "internal/platform/maintenancequery/*.go"
       ],
       "read_allowed_statements": [
         {
-          "path": "internal/modules/links/field_refs.go",
-          "sql": "UPDATE record_links\n   SET deleted_at = $3,\n       deleted_by_user_id = $2\n WHERE record_link_id = $1\n   AND deleted_at IS NULL\n   AND field_key IS NOT NULL\n   AND EXISTS (\n       SELECT 1\n         FROM records dst\n        WHERE dst.incident_id = record_links.incident_id\n          AND dst.record_id = record_links.dst_record_id\n          AND dst.deleted_at IS NULL\n          AND ($4::text = '' OR dst.record_type = $4)\n   )\nRETURNING\n    record_link_id, incident_id, src_record_id, dst_record_id, link_type,\n    field_key, provenance, confidence, owner_user_id, created_by_user_id,\n    decided_at, created_at, deleted_at, deleted_by_user_id"
+          "sql": "UPDATE record_links\n   SET deleted_at = $3,\n       deleted_by_user_id = $2\n WHERE record_link_id = $1\n   AND deleted_at IS NULL\n   AND field_key IS NOT NULL\n   AND EXISTS (\n       SELECT 1\n         FROM records dst\n        WHERE dst.incident_id = record_links.incident_id\n          AND dst.record_id = record_links.dst_record_id\n          AND dst.deleted_at IS NULL\n          AND ($4::text = '' OR dst.record_type = $4)\n   )\nRETURNING\n    record_link_id, incident_id, src_record_id, dst_record_id, link_type,\n    field_key, provenance, confidence, owner_user_id, created_by_user_id,\n    decided_at, created_at, deleted_at, deleted_by_user_id",
+          "package": "internal/modules/links",
+          "declaration": "tombstoneFieldReferenceStateTx"
         },
         {
-          "path": "internal/modules/links/internal/sourcestate/port.go",
-          "sql": "SELECT\n   EXISTS (SELECT 1 FROM public.links_bundle_validation_links l\n    LEFT JOIN public.records src ON src.record_id = l.src_record_id AND src.incident_id = $1\n    LEFT JOIN public.records dst ON dst.record_id = l.dst_record_id AND dst.incident_id = $1\n    WHERE l.incident_id <> $1 OR src.record_id IS NULL OR dst.record_id IS NULL)\n   OR EXISTS (SELECT 1 FROM public.links_bundle_validation_tags t\n    LEFT JOIN public.records r ON r.record_id = t.record_id AND r.incident_id = $1\n    WHERE t.incident_id <> $1 OR r.record_id IS NULL)"
+          "sql": "SELECT\n   EXISTS (SELECT 1 FROM public.links_bundle_validation_links l\n    LEFT JOIN public.records src ON src.record_id = l.src_record_id AND src.incident_id = $1\n    LEFT JOIN public.records dst ON dst.record_id = l.dst_record_id AND dst.incident_id = $1\n    WHERE l.incident_id <> $1 OR src.record_id IS NULL OR dst.record_id IS NULL)\n   OR EXISTS (SELECT 1 FROM public.links_bundle_validation_tags t\n    LEFT JOIN public.records r ON r.record_id = t.record_id AND r.incident_id = $1\n    WHERE t.incident_id <> $1 OR r.record_id IS NULL)",
+          "package": "internal/modules/links/internal/sourcestate",
+          "declaration": "validateDatabasePreconditions"
         },
         {
-          "path": "internal/modules/links/internal/sourcestate/port.go",
-          "sql": "SELECT\n    EXISTS (\n        SELECT 1 FROM record_links link\n        LEFT JOIN records source\n          ON source.incident_id = link.incident_id AND source.record_id = link.src_record_id\n        LEFT JOIN records target\n          ON target.incident_id = link.incident_id AND target.record_id = link.dst_record_id\n        WHERE link.incident_id = $1\n          AND (source.record_id IS NULL OR target.record_id IS NULL)\n    )\n    OR EXISTS (\n        SELECT 1 FROM record_tags tag\n        LEFT JOIN records record\n          ON record.incident_id = tag.incident_id AND record.record_id = tag.record_id\n        WHERE tag.incident_id = $1\n          AND record.record_id IS NULL\n    )"
+          "sql": "SELECT\n    EXISTS (\n        SELECT 1 FROM record_links link\n        LEFT JOIN records source\n          ON source.incident_id = link.incident_id AND source.record_id = link.src_record_id\n        LEFT JOIN records target\n          ON target.incident_id = link.incident_id AND target.record_id = link.dst_record_id\n        WHERE link.incident_id = $1\n          AND (source.record_id IS NULL OR target.record_id IS NULL)\n    )\n    OR EXISTS (\n        SELECT 1 FROM record_tags tag\n        LEFT JOIN records record\n          ON record.incident_id = tag.incident_id AND record.record_id = tag.record_id\n        WHERE tag.incident_id = $1\n          AND record.record_id IS NULL\n    )",
+          "package": "internal/modules/links/internal/sourcestate",
+          "declaration": "validateDatabaseScope"
         }
       ]
     },
@@ -2628,10 +2747,10 @@
       "id": "reporting-external-route-idempotency-read-only",
       "table": "route_idempotency",
       "scan_paths": [
-        "internal/modules/reporting/*.go"
+        "internal/modules/reporting/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/reporting/store.go"
+        "internal/modules/reporting/*.go"
       ],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -2640,11 +2759,10 @@
       "id": "reporting-external-jobs-read-only",
       "table": "jobs",
       "scan_paths": [
-        "internal/modules/reporting/*.go"
+        "internal/modules/reporting/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/reporting/cutover.go",
-        "internal/modules/reporting/graph_source.go"
+        "internal/modules/reporting/*.go"
       ],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -2653,10 +2771,10 @@
       "id": "reporting-external-pg-constraint-read-only",
       "table": "pg_constraint",
       "scan_paths": [
-        "internal/modules/reporting/*.go"
+        "internal/modules/reporting/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/reporting/cutover.go"
+        "internal/modules/reporting/*.go"
       ],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -2665,10 +2783,10 @@
       "id": "reporting-external-pg-class-read-only",
       "table": "pg_class",
       "scan_paths": [
-        "internal/modules/reporting/*.go"
+        "internal/modules/reporting/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/reporting/cutover.go"
+        "internal/modules/reporting/*.go"
       ],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -2677,10 +2795,10 @@
       "id": "reporting-external-pg-namespace-read-only",
       "table": "pg_namespace",
       "scan_paths": [
-        "internal/modules/reporting/*.go"
+        "internal/modules/reporting/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/reporting/cutover.go"
+        "internal/modules/reporting/*.go"
       ],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
@@ -2689,13 +2807,43 @@
       "id": "reporting-external-report-composition-preview-attempts-read-only",
       "table": "report_composition_preview_attempts",
       "scan_paths": [
-        "internal/modules/reporting/*.go"
+        "internal/modules/reporting/**"
       ],
       "read_allowed_paths": [
-        "internal/modules/reporting/cutover.go"
+        "internal/modules/reporting/*.go"
       ],
       "write_allowed_paths": [],
       "lock_allowed_paths": []
+    },
+    {
+      "id": "timeline-source-owner-access",
+      "table": "timeline_events",
+      "scan_paths": [
+        "internal/modules/**",
+        "internal/platform/maintenancequery/*.go",
+        "internal/gen/**"
+      ],
+      "read_allowed_paths": [
+        "internal/modules/timeline/*.go",
+        "internal/modules/timeline/sourcerepository/*.go",
+        "internal/modules/timeline/sourcelocking/*.go",
+        "internal/modules/timeline/mentioneffects/*.go",
+        "internal/modules/timeline/rollbackprovider/*.go",
+        "internal/modules/timeline/deleterestore/*.go",
+        "internal/modules/timeline/reportingprovider/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "write_allowed_paths": [
+        "internal/modules/timeline/*.go",
+        "internal/modules/timeline/mentioneffects/*.go",
+        "internal/modules/timeline/rollbackprovider/*.go",
+        "internal/modules/timeline/deleterestore/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ],
+      "lock_allowed_paths": [
+        "internal/modules/timeline/sourcelocking/*.go",
+        "internal/platform/maintenancequery/*.go"
+      ]
     }
   ],
   "forbidden_go_calls": [
@@ -3083,7 +3231,8 @@
         "internal/modules/recovery/operatortest/operator_process_test.go",
         "internal/platform/postgres/postgres_role_integration_test.go",
         "internal/platform/recoverystate/**",
-        "internal/testutil/collaborationsupport/**"
+        "internal/testutil/collaborationsupport/**",
+        "internal/platform/maintenancequery/*.go"
       ],
       "production_only": false,
       "match_kind": "source_text"
@@ -4481,5 +4630,164 @@
       "WriteFile"
     ],
     "allowed_paths": []
-  }
+  },
+  "sql_forwarding_capabilities": [
+    {
+      "package": "internal/platform/postgres",
+      "declaration": "admittedPool.Exec",
+      "test_support": false
+    },
+    {
+      "package": "internal/platform/postgres",
+      "declaration": "admittedPool.Query",
+      "test_support": false
+    },
+    {
+      "package": "internal/platform/postgres",
+      "declaration": "admittedPool.QueryRow",
+      "test_support": false
+    },
+    {
+      "package": "internal/platform/postgres",
+      "declaration": "telemetryDB.Exec",
+      "test_support": false
+    },
+    {
+      "package": "internal/platform/postgres",
+      "declaration": "telemetryDB.Query",
+      "test_support": false
+    },
+    {
+      "package": "internal/platform/postgres",
+      "declaration": "telemetryDB.QueryRow",
+      "test_support": false
+    },
+    {
+      "package": "internal/platform/extensionstore",
+      "declaration": "Tx.Exec",
+      "test_support": false
+    },
+    {
+      "package": "internal/platform/extensionstore",
+      "declaration": "Tx.Query",
+      "test_support": false
+    },
+    {
+      "package": "internal/platform/extensionstore",
+      "declaration": "Tx.QueryRow",
+      "test_support": false
+    },
+    {
+      "package": "internal/modules/auth/testsupport/flowtest",
+      "declaration": "QueryCount",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/auth/testsupport/flowtest",
+      "declaration": "QuerySingleSession",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/auth/testsupport/storetest",
+      "declaration": "QueryCount",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/auth/testsupport/storetest",
+      "declaration": "QuerySingleSession",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/incidents/testsupport/mutationtest",
+      "declaration": "PostgresDatabase",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/incidents/testsupport/mutationtest",
+      "declaration": "SQLDatabase",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/incidents/testsupport/storetest",
+      "declaration": "PostgresReplayDatabase",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/incidents/testsupport/storetest",
+      "declaration": "SQLReplayDatabase",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/incidents/testsupport/storetest",
+      "declaration": "QueryCount",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/incidents/testsupport/storetest",
+      "declaration": "SeedMembership",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/incidents/testsupport/storetest",
+      "declaration": "SeedMembershipSQL",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/timeline/testsupport/asserttest",
+      "declaration": "PostgresDatabase",
+      "test_support": true
+    },
+    {
+      "package": "internal/modules/timeline/testsupport/asserttest",
+      "declaration": "SQLDatabase",
+      "test_support": true
+    }
+  ],
+  "sql_control_capabilities": [
+    {
+      "package": "internal/platform/postgres",
+      "declaration": "connectionInitializer",
+      "sql": "SET ROLE cartulary_runtime"
+    },
+    {
+      "package": "internal/platform/postgres",
+      "declaration": "connectionInitializer",
+      "sql": "SET ROLE cartulary_schema_owner"
+    },
+    {
+      "package": "internal/platform/postgres",
+      "declaration": "connectionInitializer",
+      "sql": "SET ROLE cartulary_recovery"
+    },
+    {
+      "package": "internal/platform/harnessruntime",
+      "declaration": "resetAdmittedDatabase",
+      "sql": "SET LOCAL row_security = off; SET LOCAL session_replication_role = replica"
+    },
+    {
+      "package": "internal/platform/harnessruntime",
+      "declaration": "resetAdmittedDatabase",
+      "sql": "SET LOCAL session_replication_role = origin"
+    },
+    {
+      "package": "internal/modules/recovery",
+      "declaration": "beginRestoreTargetTransaction",
+      "sql": "SET LOCAL row_security = off"
+    },
+    {
+      "package": "internal/modules/recovery",
+      "declaration": "vNextRestoreTarget.WithAtomicRestore",
+      "sql": "SET LOCAL session_replication_role = replica"
+    },
+    {
+      "package": "internal/modules/recovery",
+      "declaration": "vNextRestoreTarget.WithAtomicRestore",
+      "sql": "SET LOCAL session_replication_role = origin"
+    },
+    {
+      "package": "internal/modules/collaboration/internal/stream",
+      "declaration": "Dispatcher.listenReplayNotifications",
+      "sql": "LISTEN cartulary_collaboration_replay"
+    }
+  ]
 }

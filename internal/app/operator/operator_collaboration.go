@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 const (
@@ -62,10 +63,10 @@ type collaborationExecutor struct {
 	setupPostgres   func(context.Context, postgres.Settings) (operatorPostgresPool, error)
 	now             func() time.Time
 	newOperationID  func() uuid.UUID
-	newRecoveryPort func(postgres.DB) collaborationRecoveryPort
+	newRecoveryPort func(dbport.DB) collaborationRecoveryPort
 }
 
-func newCollaborationRecoveryPort(db postgres.DB) collaborationRecoveryPort {
+func newCollaborationRecoveryPort(db dbport.DB) collaborationRecoveryPort {
 	return collaboration.NewRecoveryCapability(db)
 }
 

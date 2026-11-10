@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type ProductionApplication struct {
@@ -18,7 +18,7 @@ type ProductionApplication struct {
 	now   func() time.Time
 }
 
-func NewProductionApplication(pool postgres.DB, actor authn.UserRecord) (*ProductionApplication, error) {
+func NewProductionApplication(pool dbport.DB, actor authn.UserRecord) (*ProductionApplication, error) {
 	if pool == nil {
 		return nil, fmt.Errorf("auth performance fixture Postgres is required")
 	}

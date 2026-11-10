@@ -15,7 +15,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
@@ -403,7 +403,7 @@ func (p *assessmentFacadePorts) call(participant string) {
 
 func newAssessmentFacadeForTest(
 	t *testing.T,
-	database postgres.DB,
+	database dbport.DB,
 	ports *assessmentFacadePorts,
 ) *assessments.Facade {
 	t.Helper()

@@ -3,6 +3,8 @@ package queryengine
 import (
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func TestCompileSurfaceOwnsExecutablePlanValidation(t *testing.T) {
@@ -20,15 +22,15 @@ func TestCompileSurfaceOwnsExecutablePlanValidation(t *testing.T) {
 			want:   "no registered view schema",
 		},
 		"empty from": {
-			mutate: func(surface *Surface) { surface.FromSQL = "" },
+			mutate: func(surface *Surface) { surface.FromSQL = sqlshape.Literal("") },
 			want:   "empty from_sql",
 		},
 		"statement separator": {
-			mutate: func(surface *Surface) { surface.WhereSQL = "TRUE; DROP TABLE projection" },
+			mutate: func(surface *Surface) { surface.WhereSQL = sqlshape.Literal("TRUE; DROP TABLE projection") },
 			want:   "forbidden SQL token",
 		},
 		"placeholder": {
-			mutate: func(surface *Surface) { surface.RecordExpr = "$1" },
+			mutate: func(surface *Surface) { surface.RecordExpr = sqlshape.Literal("$1") },
 			want:   "forbidden SQL token",
 		},
 		"empty fields": {

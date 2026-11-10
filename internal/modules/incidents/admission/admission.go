@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type Role uint8
@@ -100,10 +100,10 @@ func IsDenied(err error, code DenialCode) bool {
 }
 
 type Checker struct {
-	db postgres.DB
+	db dbport.DB
 }
 
-func NewChecker(db postgres.DB) *Checker {
+func NewChecker(db dbport.DB) *Checker {
 	return &Checker{db: db}
 }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 )
 
 const handoffOpenRiskRefsFieldKey = "handoff.open_risk_refs"
@@ -112,7 +112,7 @@ UPDATE handoff_risk_refs
 
 func validateHandoffRiskRefOwnerTx(ctx context.Context, tx pgx.Tx, envelopes RecordEnvelopeCapability, incidentID uuid.UUID, handoffRecordID uuid.UUID) error {
 	envelope, err := envelopes.LoadEnvelopeTx(ctx, tx, handoffRecordID, false)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return riskRefValidationError()
 	}
 	if err != nil {

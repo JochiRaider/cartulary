@@ -5,9 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestRoleSetsAreExactAndNonOrdinal(t *testing.T) {
@@ -60,7 +61,7 @@ func TestInvalidRequirementsAndStoredEnumsFailAsInternalErrors(t *testing.T) {
 
 func TestNilDependenciesFailAsInternalErrors(t *testing.T) {
 	var nilPool *pgxpool.Pool
-	var typedNil postgres.DB = nilPool
+	var typedNil dbport.DB = nilPool
 	requirement := Requirement{AllowedRoles: RolesMember, Lifecycle: LifecycleAny}
 	for _, checker := range []*Checker{nil, NewChecker(nil), NewChecker(typedNil)} {
 		if _, err := checker.Check(context.Background(), uuid.New(), uuid.New(), requirement); err == nil {

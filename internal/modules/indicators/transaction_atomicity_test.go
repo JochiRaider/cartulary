@@ -20,7 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -185,7 +185,7 @@ func (transactionTestSourceTextPort) RefreshAndLoadRowTx(context.Context, pgx.Tx
 	return map[string]any{"view_schema_id": "cartulary.view.timeline.v2", "cells": map[string]any{}}, nil
 }
 
-func newTransactionTestProjectionPort(t testing.TB, db postgres.DB) indicatorcontract.Rows {
+func newTransactionTestProjectionPort(t testing.TB, db dbport.DB) indicatorcontract.Rows {
 	t.Helper()
 	contribution, err := NewProjectionContribution()
 	if err != nil {
@@ -235,7 +235,7 @@ func (port *failingIndicatorRevisionPort) AppendLiveRevisionTx(_ context.Context
 
 func requireIndicatorAtomicCounts(
 	t testing.TB,
-	db postgres.DB,
+	db dbport.DB,
 	incidentID uuid.UUID,
 	clientTxnID string,
 	recordsWant int,
@@ -266,7 +266,7 @@ func requireIndicatorAtomicCounts(
 	}
 }
 
-func countIndicatorRows(t testing.TB, db postgres.DB, query string, args ...any) int {
+func countIndicatorRows(t testing.TB, db dbport.DB, query string, args ...any) int {
 	t.Helper()
 	var got int
 	if err := db.QueryRow(context.Background(), query, args...).Scan(&got); err != nil {

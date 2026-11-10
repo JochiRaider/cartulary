@@ -2,9 +2,12 @@ package incidentportability
 
 import (
 	"context"
+	"io"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"io"
+
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 // Member is bounded metadata for an immutable logical archive member. It never
@@ -26,8 +29,8 @@ type MemberWriter interface {
 
 // ExportNDJSONTo holds at most one canonical source record while the admitted
 // member writer consumes it. The caller's read snapshot remains authoritative.
-func ExportNDJSONTo(ctx context.Context, query Queryer, incidentID uuid.UUID, path, sql string, destination MemberWriter) error {
-	rows, err := query.Query(ctx, sql, incidentID)
+func ExportNDJSONTo(ctx context.Context, query Queryer, incidentID uuid.UUID, path string, sql sqlshape.Fragment, destination MemberWriter) error {
+	rows, err := query.Query(ctx, sqlshape.Text(sql), incidentID)
 	if err != nil {
 		return err
 	}

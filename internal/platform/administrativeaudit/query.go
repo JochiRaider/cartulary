@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 var ErrInvalidListFilter = errors.New("administrative audit list filter is invalid")
@@ -48,7 +48,7 @@ type Record struct {
 	ReasonCode   *string
 }
 
-func List(ctx context.Context, db postgres.DB, filter ListFilter) ([]Record, error) {
+func List(ctx context.Context, db dbport.DB, filter ListFilter) ([]Record, error) {
 	if err := validateListFilter(filter); err != nil {
 		return nil, err
 	}

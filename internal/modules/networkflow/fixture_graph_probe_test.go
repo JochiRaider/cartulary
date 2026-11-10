@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type fixtureGraphReader struct {
@@ -26,7 +27,7 @@ func (r *fixtureGraphReader) IterateRowsForTables(ctx context.Context, incident 
 // CaptureFixtureGraph observes the private production composition boundary over
 // already imported rows. The adapter still invokes the real Graph Projection
 // engine. No production hook or alternative graph implementation is introduced.
-func CaptureFixtureGraph(t testing.TB, db postgres.DB, limits EffectiveLimits, incident uuid.UUID, raw json.RawMessage) map[string]any {
+func CaptureFixtureGraph(t testing.TB, db dbport.DB, limits EffectiveLimits, incident uuid.UUID, raw json.RawMessage) map[string]any {
 	t.Helper()
 	invocations := []map[string]any{}
 	reader := &fixtureGraphReader{store: newStore(db, limits)}

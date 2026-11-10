@@ -24,7 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -32,7 +32,7 @@ import (
 )
 
 type tasksDecisionsImportHarness struct {
-	db         postgres.DB
+	db         dbport.DB
 	actor      authn.UserRecord
 	incidentID uuid.UUID
 	appender   *revisions.Appender
@@ -282,7 +282,7 @@ func seedTasksDecisionsImportUser(t testing.TB, harness tasksDecisionsImportHarn
 	return user
 }
 
-func seedTasksDecisionsMembership(t testing.TB, db postgres.DB, incidentID uuid.UUID, userID uuid.UUID, actorID uuid.UUID) {
+func seedTasksDecisionsMembership(t testing.TB, db dbport.DB, incidentID uuid.UUID, userID uuid.UUID, actorID uuid.UUID) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), `
 WITH issued AS (INSERT INTO incident_membership_versions(incident_id,user_id,last_version) VALUES($1,$2,1) ON CONFLICT DO NOTHING) INSERT INTO incident_memberships (
@@ -417,7 +417,7 @@ type tasksDecisionsImportCounts struct {
 	intents     int
 }
 
-func tasksDecisionsImportEffectCounts(t testing.TB, db postgres.DB, incidentID uuid.UUID) tasksDecisionsImportCounts {
+func tasksDecisionsImportEffectCounts(t testing.TB, db dbport.DB, incidentID uuid.UUID) tasksDecisionsImportCounts {
 	t.Helper()
 	ctx := context.Background()
 	queries := []string{

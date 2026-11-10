@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func NewSourcePort() (sourceport.Port, error) {
@@ -59,17 +60,17 @@ func exportFiles(
 	stateManifest manifest,
 ) error {
 	for _, path := range stateManifest.pathSpecs() {
-		queryText, err := sourceQuery(path.kind, true)
+		query, err := sourceQuery(path.kind, true)
 		if err != nil {
 			return err
 		}
 		switch path.kind {
 		case pathRecordLinks:
-			err = sourceport.ExportAttributedRows(ctx, input, sourceport.AttributedRows{Path: path.logicalPath, Table: "record_links", Identity: "record_link_id", ActorColumns: []string{"owner_user_id", "created_by_user_id", "deleted_by_user_id"}, Query: queryText})
+			err = sourceport.ExportAttributedRows(ctx, input, sourceport.AttributedRows{Path: path.logicalPath, Table: "record_links", Identity: "record_link_id", ActorColumns: []string{"owner_user_id", "created_by_user_id", "deleted_by_user_id"}, Query: query})
 		case pathRecordTags:
-			err = sourceport.ExportAttributedRows(ctx, input, sourceport.AttributedRows{Path: path.logicalPath, Table: "record_tags", Identity: "record_tag_id", ActorColumns: []string{"created_by_user_id", "deleted_by_user_id"}, Query: queryText})
+			err = sourceport.ExportAttributedRows(ctx, input, sourceport.AttributedRows{Path: path.logicalPath, Table: "record_tags", Identity: "record_tag_id", ActorColumns: []string{"created_by_user_id", "deleted_by_user_id"}, Query: query})
 		default:
-			err = incidentportability.ExportNDJSONTo(ctx, input.Query, input.IncidentID, path.logicalPath, queryText, input.Members)
+			err = incidentportability.ExportNDJSONTo(ctx, input.Query, input.IncidentID, path.logicalPath, query, input.Members)
 		}
 		if err != nil {
 			return err
@@ -78,26 +79,26 @@ func exportFiles(
 	return nil
 }
 
-func sourceQuery(kind pathKind, paged bool) (string, error) {
-	pagePredicate, pageLimit := "", ""
+func sourceQuery(kind pathKind, paged bool) (sqlshape.Fragment, error) {
+	var pagePredicate, pageLimit sqlshape.Fragment
 	if paged {
-		pageLimit = " LIMIT 128"
+		pageLimit = sqlshape.Literal(" LIMIT 128")
 	}
 	switch kind {
 	case pathRecordLinks:
 		if paged {
-			pagePredicate = ` AND ($2::uuid IS NULL OR record_link_id>$2)`
+			pagePredicate = sqlshape.Literal(` AND ($2::uuid IS NULL OR record_link_id>$2)`)
 		}
-		return `SELECT to_jsonb(t) FROM record_links t WHERE incident_id = $1` + pagePredicate + ` ORDER BY record_link_id` + pageLimit, nil
+		return sqlshape.Concat(sqlshape.Literal(`SELECT to_jsonb(t) FROM record_links t WHERE incident_id = $1`), pagePredicate, sqlshape.Literal(` ORDER BY record_link_id`), pageLimit), nil
 	case pathTagCatalog:
-		return `SELECT jsonb_build_object('tag_name', tag_name, 'normalized_tag_name', normalized_tag_name) FROM (SELECT DISTINCT tag_name COLLATE "C" AS tag_name, normalized_tag_name COLLATE "C" AS normalized_tag_name FROM record_tags WHERE incident_id = $1 ORDER BY normalized_tag_name, tag_name) tags`, nil
+		return sqlshape.Literal(`SELECT jsonb_build_object('tag_name', tag_name, 'normalized_tag_name', normalized_tag_name) FROM (SELECT DISTINCT tag_name COLLATE "C" AS tag_name, normalized_tag_name COLLATE "C" AS normalized_tag_name FROM record_tags WHERE incident_id = $1 ORDER BY normalized_tag_name, tag_name) tags`), nil
 	case pathRecordTags:
 		if paged {
-			pagePredicate = ` AND ($2::uuid IS NULL OR record_tag_id>$2)`
+			pagePredicate = sqlshape.Literal(` AND ($2::uuid IS NULL OR record_tag_id>$2)`)
 		}
-		return `SELECT to_jsonb(t) FROM record_tags t WHERE incident_id = $1` + pagePredicate + ` ORDER BY record_tag_id` + pageLimit, nil
+		return sqlshape.Concat(sqlshape.Literal(`SELECT to_jsonb(t) FROM record_tags t WHERE incident_id = $1`), pagePredicate, sqlshape.Literal(` ORDER BY record_tag_id`), pageLimit), nil
 	default:
-		return "", manifestError("unknown export path kind")
+		return sqlshape.Fragment{}, manifestError("unknown export path kind")
 	}
 }
 
@@ -194,7 +195,7 @@ func fixedImportSpec(path pathSpec) (incidentportability.FixedImportSpec, error)
 		StableIdentity:    slices.Clone(path.stableIdentity),
 		RequiredColumns:   slices.Clone(path.requiredColumns),
 		AllowedColumns:    slices.Clone(path.allowedColumns),
-		InsertSQL:         insertSQL,
+		InsertSQL:         sqlshape.Command(insertSQL),
 	}, nil
 }
 
@@ -210,12 +211,13 @@ func validateDatabasePreconditions(ctx context.Context, tx pgx.Tx, prepared prep
 		{pathRecordTags, `INSERT INTO public.links_bundle_validation_tags SELECT * FROM jsonb_populate_record(NULL::public.record_tags, $1::jsonb)`},
 		{pathTagCatalog, `INSERT INTO public.links_bundle_validation_catalog SELECT tag_name, normalized_tag_name FROM jsonb_to_record($1::jsonb) AS t(tag_name text, normalized_tag_name text)`},
 	} {
+		statement := item.statement
 		if err := prepared.walk(ctx, item.kind, func(row map[string]any) error {
 			raw, err := json.Marshal(row)
 			if err != nil {
 				return err
 			}
-			_, err = tx.Exec(ctx, item.statement, raw)
+			_, err = tx.Exec(ctx, statement, raw)
 			return err
 		}); err != nil {
 			return "", err
@@ -304,11 +306,7 @@ SELECT
 func validatePersistedState(ctx context.Context, tx pgx.Tx, prepared preparedImport, importContext sourceport.ImportContext, stateManifest manifest) (string, error) {
 	identities, values := map[pathKind]bool{}, map[pathKind]bool{}
 	for _, path := range stateManifest.pathSpecs() {
-		query, err := sourceQuery(path.kind, false)
-		if err != nil {
-			return "", err
-		}
-		sameIDs, sameValues, err := comparePersistedRows(ctx, tx, prepared, importContext, query, path)
+		sameIDs, sameValues, err := comparePersistedRows(ctx, tx, prepared, importContext, path)
 		if err != nil {
 			return "", err
 		}
@@ -340,8 +338,12 @@ func runtimeAttributedRow(row map[string]any, actorUserID uuid.UUID) map[string]
 }
 
 // Merge ordered source and database streams, retaining at most one row each.
-func comparePersistedRows(ctx context.Context, tx pgx.Tx, prepared preparedImport, importContext sourceport.ImportContext, query string, path pathSpec) (bool, bool, error) {
-	rows, err := tx.Query(ctx, query, importContext.IncidentID)
+func comparePersistedRows(ctx context.Context, tx pgx.Tx, prepared preparedImport, importContext sourceport.ImportContext, path pathSpec) (bool, bool, error) {
+	query, err := sourceQuery(path.kind, false)
+	if err != nil {
+		return false, false, err
+	}
+	rows, err := tx.Query(ctx, sqlshape.Text(query), importContext.IncidentID)
 	if err != nil {
 		return false, false, err
 	}

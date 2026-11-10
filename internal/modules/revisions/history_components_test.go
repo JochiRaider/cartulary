@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,8 +16,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/historycontract"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -229,7 +229,7 @@ func TestSemanticHistoryRejectsMalformedCanonicalFactsAndPreservesValues(t *test
 }
 
 type historyRepositoryFixture struct {
-	database      postgres.DB
+	database      dbport.DB
 	record        RecordHistoryRecord
 	changeSetID   uuid.UUID
 	actorID       uuid.UUID
@@ -241,7 +241,7 @@ func newHistoryRepositoryFixture(t *testing.T) historyRepositoryFixture {
 	t.Helper()
 
 	harness := pgtest.Start(t)
-	var database postgres.DB
+	var database dbport.DB
 	if pgtest.ExplicitPostgresFixturePolicyT(t) == pgtest.PostgresFixturePolicyTemplateClone {
 		testDatabase := harness.PrepareIsolatedDatabaseT(t, "revisions-history-repository")
 		pool, err := pgxpool.New(context.Background(), testDatabase.DSN)

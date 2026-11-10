@@ -6,11 +6,13 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type committedSourceRecord struct {
@@ -59,7 +61,7 @@ WHERE incident_id=$1 AND committed_source_id=$2 AND target_kind=$3`, p.incidentI
 			return recordBindingFailure()
 		}
 		envelope, err := records.NewStore().LoadEnvelopeTx(ctx, tx, value.RecordID, false)
-		if errors.Is(err, records.ErrEnvelopeNotFound) {
+		if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 			return recordBindingFailure()
 		}
 		if err != nil {

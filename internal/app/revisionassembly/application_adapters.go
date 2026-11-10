@@ -11,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -100,7 +101,7 @@ func (adapter recordEnvelopeAdapter) RecordTypeTx(
 	}
 	envelope, err := adapter.store.LoadEnvelopeTx(ctx, tx, recordID, false)
 	if err != nil {
-		if errors.Is(err, records.ErrEnvelopeNotFound) {
+		if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 			return "", pgx.ErrNoRows
 		}
 		return "", err
@@ -140,7 +141,7 @@ func (adapter recordEnvelopeAdapter) LockDestructiveRecordsNowaitTx(ctx context.
 	return adaptRecordEnvelopeError(err)
 }
 
-func adaptRecordEnvelope(envelope records.Envelope, err error) (revisions.RecordEnvelope, error) {
+func adaptRecordEnvelope(envelope recordenvelope.Envelope, err error) (revisions.RecordEnvelope, error) {
 	if err != nil {
 		return revisions.RecordEnvelope{}, adaptRecordEnvelopeError(err)
 	}
@@ -159,7 +160,7 @@ func adaptRecordEnvelope(envelope records.Envelope, err error) (revisions.Record
 }
 
 func adaptRecordEnvelopeError(err error) error {
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return revisions.ErrEnvelopeNotFound
 	}
 	return err

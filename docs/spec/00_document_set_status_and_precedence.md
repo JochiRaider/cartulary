@@ -288,14 +288,13 @@ Testing Harness retains execution/evidence accounting. Package location, SQL
 location, test location, and verification routing MUST NOT transfer those
 responsibilities.
 Profiles: base
-Verified by: AC-537
+Verified by: AC-599
 
 **REQ-00-070**
-`docs/decisions/projections-module-boundary.md` is an adopted implementation
-architecture decision for the workbook-grid Projections module only. It owns
-the exact Go package topology, constructor boundary, internal transition order,
-and removal of repository-internal compatibility surfaces named in that
-decision. It MUST NOT define or change public workbook query behavior,
+Core 01 §2.1 is the adopted implementation
+architecture contract for the workbook-grid Projections module only. It owns
+the package capability topology, constructor boundary, and
+repository-internal compatibility posture. It MUST NOT define or change public workbook query behavior,
 `view_row_v1`, saved-view behavior, cursor semantics, authorization,
 Collaboration publication, restore result vocabulary, projection descriptor
 wire shape, database schema, or source-owner semantics.
@@ -303,18 +302,17 @@ wire shape, database schema, or source-owner semantics.
 Core 01 remains the behavioral owner for workbook-grid projections, provider
 descriptors, query behavior, physical projection storage, and restore rebuilds.
 Core 04 remains the conformance owner. The adopted Graph Projection NLSpec
-remains authoritative only for the graph-projection subsystem. The adopted
-implementation decision MUST be revised or withdrawn when it conflicts with a
+remains authoritative only for the graph-projection subsystem. The architecture contract MUST be revised or withdrawn when it conflicts with a
 later adopted behavioral owner; implementation or tracker text MUST NOT be used
 to settle such a conflict.
 Profiles: base
 Verified by: AC-539
 
 **REQ-00-071**
-`docs/decisions/revisions-module-boundary.md` is an adopted implementation
-architecture decision for Revisions only. It owns the exact internal
-composition boundary, provider/catalog topology, transition order, and removal
-of repository-internal compatibility paths named in that decision. It MUST NOT
+Core 01 §2.1 is the adopted implementation
+architecture contract for Revisions only. It owns the exact internal
+composition boundary, provider/catalog topology, and removal
+of repository-internal compatibility paths defined by that owner. It MUST NOT
 redefine public history, delete, restore, rollback, conflict, WebSocket, or
 Incident Bundle behavior; source-owned current state; history and snapshot
 meaning; or security and conformance.
@@ -323,7 +321,7 @@ Core 01 remains authoritative for application, route, portability, and storage
 boundaries. Core 02 remains authoritative for canonical snapshots, mutation
 targets, history association, selector meaning, and rollback semantics. Core
 03 remains authoritative for Collaboration consequences. Core 04 remains
-authoritative for security and conformance. The decision MUST be revised or
+authoritative for security and conformance. The architecture contract MUST be revised or
 withdrawn when it conflicts with a later adopted behavioral owner; an
 implementation, contract projection, test, tracker, or generated artifact MUST
 NOT settle such a conflict.
@@ -331,11 +329,11 @@ Profiles: base, incident_portability
 Verified by: AC-529
 
 **REQ-00-072**
-`docs/decisions/workbook-module-boundary.md` is an adopted implementation
-architecture decision for the backend Workbook module only. It owns the exact
+Core 01 §2.1 is the adopted implementation
+architecture contract for the backend Workbook module only. It owns the exact
 internal application-facade boundary, consumer-owned contribution topology,
-application-composed source adapters, transition order, and removal of
-repository-internal compatibility paths named in that decision. It MUST NOT
+application-composed source adapters and removal of
+repository-internal compatibility paths defined by that owner. It MUST NOT
 redefine public Workbook routes or payloads, startup, query, cursor, mutation,
 history, projection, Collaboration, restore-verification, source-state,
 security, or conformance behavior.
@@ -345,18 +343,18 @@ mutation, projection, storage-boundary, and restore-probe behavior. Core 02
 remains authoritative for source state, record envelopes, history, and
 rollback meaning. Core 03 remains authoritative for Workbook interaction and
 Collaboration consequences. Core 04 remains authoritative for security and
-conformance. The decision MUST be revised or withdrawn when it conflicts with
+conformance. The architecture contract MUST be revised or withdrawn when it conflicts with
 a later adopted behavioral owner; an implementation, tracker, test, contract
 projection, or generated artifact MUST NOT settle such a conflict.
 Profiles: base
 Verified by: AC-552
 
 **REQ-00-073**
-`docs/decisions/entities-module-boundary.md` is an adopted implementation
-architecture decision for the Entities module only. It owns the bounded-root
+Core 01 §2.1 is the adopted implementation
+architecture contract for the Entities module only. It owns the bounded-root
 responsibility whitelist, direct-consumer and import topology, typed
 cross-owner port boundary, caller-transaction borrowing rule, construction
-rules, and repository-internal compatibility posture named in that decision.
+rules, and repository-internal compatibility posture defined by that owner.
 It MUST NOT redefine public entity routes or payloads, view schemas, query or
 mutation behavior, source records and identifiers, history or rollback
 meaning, Timeline automatic-resolution policy or source transaction,
@@ -367,19 +365,19 @@ mutation, storage, import, recovery, and portability behavior. Core 02 remains
 authoritative for record, identifier, history, and rollback meaning. Core 03
 remains authoritative for Timeline interaction and Collaboration
 consequences. Core 04 remains authoritative for security and conformance. The
-decision MUST be revised or withdrawn when it conflicts with a later adopted
+architecture contract MUST be revised or withdrawn when it conflicts with a later adopted
 behavioral owner; an implementation, tracker, test, contract projection, or
 generated artifact MUST NOT settle such a conflict.
 Profiles: base
 Verified by: AC-558
 
 **REQ-00-074**
-`docs/decisions/indicators-module-boundary.md` is an adopted implementation
-architecture decision for the Indicators module only. It owns the bounded
+Core 01 §2.1 is the adopted implementation
+architecture contract for the Indicators module only. It owns the bounded
 source-owner responsibility whitelist, owner-local package and import
 topology, caller-transaction borrowing, construction posture, immutable
 vocabulary and source-state placement, and repository-internal compatibility
-contraction named in that decision. It MUST NOT redefine public Indicator
+contraction defined by that owner. It MUST NOT redefine public Indicator
 routes or payloads, view schemas, canonical identity, observation or lifecycle
 meaning, history or rollback behavior, source storage, portability, Recovery,
 Workbook or Collaboration consequences, Network Flow behavior, security, or
@@ -390,7 +388,7 @@ mutation, storage, import, recovery, and portability behavior. Core 02 remains
 authoritative for Indicator identity, observation, lifecycle, history,
 rollback, and closed-vocabulary meaning. Core 03 remains authoritative for
 Workbook interaction and Collaboration consequences. Core 04 remains
-authoritative for security and conformance. The decision MUST be revised or
+authoritative for security and conformance. The architecture contract MUST be revised or
 withdrawn when it conflicts with a later adopted behavioral owner; an
 implementation, tracker, test, contract projection, or generated artifact
 MUST NOT settle such a conflict.
@@ -398,12 +396,12 @@ Profiles: base
 Verified by: AC-560
 
 **REQ-00-075**
-`docs/decisions/collaboration-module-boundary.md` is an adopted implementation
-architecture decision for the Collaboration capability only. It owns the
+Core 01 §2.1 is the adopted implementation
+architecture contract for the Collaboration capability only. It owns the
 exact runtime-facade, protocol, private route/hub, stream-store, dispatcher,
 recovery, test-support, import-direction, application-composition,
 source-owner fact-port, transition, and repository-internal compatibility
-topology named in that decision. It MUST NOT create a Collaboration domain
+topology defined by that owner. It MUST NOT create a Collaboration domain
 bounded context or redefine public WebSocket, view-row, replay, job,
 extension-event, recovery CLI, history, conflict, portability, authorization,
 storage-schema, or telemetry behavior.
@@ -421,7 +419,7 @@ rather than a bounded context.
 Source owners derive private Revisions facts and public Collaboration effects
 independently and pass them through separate consumer-owned ports in one
 borrowed source transaction. Revisions and Collaboration MUST NOT derive from,
-import, call, or translate one another's representations. The decision MUST be
+import, call, or translate one another's representations. The architecture contract MUST be
 revised or withdrawn when it conflicts with a later adopted behavioral owner;
 an implementation, tracker, test, contract projection, or generated artifact
 MUST NOT settle such a conflict.
@@ -429,12 +427,12 @@ Profiles: base, incident_portability
 Verified by: AC-564
 
 **REQ-00-076**
-`docs/decisions/graphprojection-module-boundary.md` is an adopted
-implementation architecture decision for Graph Projection only. It owns the
+Graph Projection NLSpec §8.1 is the adopted
+implementation architecture contract for Graph Projection only. It owns the
 pure root package, Graph-owned restore subpackage, positive import/export and
 construction allowlists, consumer-owned port posture, mandatory restore
 reconciliation dependency, application-composition path, and
-repository-internal compatibility removal named in that decision. It MUST NOT
+repository-internal compatibility removal defined by that owner. It MUST NOT
 redefine Graph Projection v2 protocol or result identity, Network Flow saved
 graph or public behavior, Reporting consumption, Recovery selection and target
 lifecycle, database schemas, authorization, jobs, public routes, or domain
@@ -446,7 +444,7 @@ graph-view identity, materialization, and public resources. Recovery remains
 authoritative for selection, binding admission, orchestration, and target
 lifecycle. Reporting remains authoritative for release jobs and exact leased
 consumption. Core 04 remains authoritative for security and conformance. The
-decision MUST be revised or withdrawn when it conflicts with a later adopted
+architecture contract MUST be revised or withdrawn when it conflicts with a later adopted
 behavioral owner; an implementation, tracker, test, contract projection, or
 generated artifact MUST NOT settle such a conflict.
 Profiles: base, network_flow_activity, snapshot_reporting
@@ -467,18 +465,18 @@ Verified by: AC-596
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
 | Investigation workbench | Core 01 §3.3.4.3; Core 03 §2.5; Core 04 §2.2 | Design §§7–8; Domain vocabulary; Appendices D/H | Wire, interaction, security and design remain separate owners; supporting prose and typed projections do not create a second authority. | REQ-00-077 | base | AC-572–597 |
-| Graph Projection implementation topology, pure root, restore placement, narrow ports, mandatory construction, positive boundary, and repository-internal compatibility removal | `docs/decisions/graphprojection-module-boundary.md` for implementation structure; Graph Projection NLSpec for engine and restore behavior | Network Flow for saved graphs and graph-view identity; Recovery for orchestration; Reporting for consumption; Core 04 for security/conformance; `docs/domain.md` vocabulary; implementation tracker | The adopted decision owns internal package, constructor, import, port, and compatibility topology only. It cannot redefine Graph protocol/result identity, saved-graph/public behavior, Recovery target lifecycle, Reporting meaning, storage schema, authorization, jobs, routes, or vocabulary. | REQ-00-076 | base, network_flow_activity, snapshot_reporting | AC-568 |
-| Collaboration implementation topology, runtime lifecycle, private stream/recovery placement, independent source-owner fact ports, test-support placement, and repository-internal compatibility removal | `docs/decisions/collaboration-module-boundary.md` for implementation structure; Core 01 and Core 03 for public and interaction behavior | Core 02 history/conflict meaning; Core 04 security/conformance; `docs/domain.md` vocabulary; Revisions decision for the separate private-fact consumer; implementation trackers | The adopted decision owns internal package, constructor, lifecycle, import, port, and compatibility topology only. It cannot create a domain context or redefine public WebSocket, view-row, stream, recovery, history, portability, authorization, schema, or telemetry behavior. | REQ-00-075 | base, incident_portability | AC-564 |
-| Indicators implementation topology, bounded source-owner responsibilities, Records capability boundary, immutable vocabulary and source-state placement, caller-transaction borrowing, and repository-internal compatibility contraction | `docs/decisions/indicators-module-boundary.md` for implementation structure; Core 01 and Core 02 for application and source behavior | Core 03 Workbook/Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary navigation; implementation trackers | The adopted decision owns internal package, constructor, import, and port topology only. It cannot redefine public Indicator behavior, identity, observation or lifecycle meaning, history, projections, portability, recovery, Network Flow behavior, or security. | REQ-00-074 | base | AC-560 |
-| Entities implementation topology, bounded-root responsibilities, direct-consumer and import boundaries, typed cross-owner ports, caller-transaction borrowing, and repository-internal compatibility posture | `docs/decisions/entities-module-boundary.md` for implementation structure; Core 01 for application and source behavior | Core 02 record/history meaning; Core 03 Timeline and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package, constructor, and port topology only. It cannot redefine public entity behavior, source meaning, Timeline policy, history, projections, portability, recovery, or security. | REQ-00-073 | base | AC-558 |
-| Backend Workbook implementation topology, contribution composition, source-adapter placement, and repository-internal compatibility removal | `docs/decisions/workbook-module-boundary.md` for implementation structure; Core 01 for application behavior | Core 02 source/history meaning; Core 03 interaction and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package, provider, and constructor structure only. It cannot redefine public Workbook behavior, source state, history, projections, restore results, or security. | REQ-00-072 | base | AC-552 |
-| Revisions implementation topology, source-provider composition, and repository-internal compatibility removal | `docs/decisions/revisions-module-boundary.md` for implementation structure; Core 01 and Core 02 for behavior | Core 03 Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package and constructor structure only. It cannot redefine source state, retained-history meaning, public contracts, portability, or conformance. | REQ-00-071 | base, incident_portability | AC-529 |
-| Workbook-grid Projections implementation topology and repository-internal compatibility removal | `docs/decisions/projections-module-boundary.md` for implementation structure; Core 01 §8 and §12.2 for behavior | Core 04 §9.1A; Appendix I; implementation guides and trackers | The adopted decision owns exact package and constructor structure only. It cannot redefine projection behavior, storage meaning, source semantics, public contracts, or conformance. | REQ-00-070 | base | AC-539 |
+| Graph Projection implementation topology, pure root, restore placement, narrow ports, mandatory construction, positive boundary, and repository-internal compatibility removal | Graph Projection NLSpec §8.1 for implementation structure; Graph Projection NLSpec for engine and restore behavior | Network Flow for saved graphs and graph-view identity; Recovery for orchestration; Reporting for consumption; Core 04 for security/conformance; `docs/domain.md` vocabulary; implementation tracker | The architecture owner governs internal package, constructor, import, port, and compatibility topology only. It cannot redefine Graph protocol/result identity, saved-graph/public behavior, Recovery target lifecycle, Reporting meaning, storage schema, authorization, jobs, routes, or vocabulary. | REQ-00-076 | base, network_flow_activity, snapshot_reporting | AC-568 |
+| Collaboration implementation topology, runtime lifecycle, private stream/recovery placement, independent source-owner fact ports, test-support placement, and repository-internal compatibility removal | Core 01 §2.1 for implementation structure; Core 01 and Core 03 for public and interaction behavior | Core 02 history/conflict meaning; Core 04 security/conformance; `docs/domain.md` vocabulary; Core 01 §2.1 for the separate private-fact consumer; implementation trackers | The architecture owner governs internal package, constructor, lifecycle, import, port, and compatibility topology only. It cannot create a domain context or redefine public WebSocket, view-row, stream, recovery, history, portability, authorization, schema, or telemetry behavior. | REQ-00-075 | base, incident_portability | AC-564 |
+| Indicators implementation topology, bounded source-owner responsibilities, Records capability boundary, immutable vocabulary and source-state placement, caller-transaction borrowing, and repository-internal compatibility contraction | Core 01 §2.1 for implementation structure; Core 01 and Core 02 for application and source behavior | Core 03 Workbook/Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary navigation; implementation trackers | The architecture owner governs internal package, constructor, import, and port topology only. It cannot redefine public Indicator behavior, identity, observation or lifecycle meaning, history, projections, portability, recovery, Network Flow behavior, or security. | REQ-00-074 | base | AC-560 |
+| Entities implementation topology, bounded-root responsibilities, direct-consumer and import boundaries, typed cross-owner ports, caller-transaction borrowing, and repository-internal compatibility posture | Core 01 §2.1 for implementation structure; Core 01 for application and source behavior | Core 02 record/history meaning; Core 03 Timeline and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The architecture owner governs internal package, constructor, and port topology only. It cannot redefine public entity behavior, source meaning, Timeline policy, history, projections, portability, recovery, or security. | REQ-00-073 | base | AC-558 |
+| Backend Workbook implementation topology, contribution composition, source-adapter placement, and repository-internal compatibility removal | Core 01 §2.1 for implementation structure; Core 01 for application behavior | Core 02 source/history meaning; Core 03 interaction and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The architecture owner governs internal package, provider, and constructor structure only. It cannot redefine public Workbook behavior, source state, history, projections, restore results, or security. | REQ-00-072 | base | AC-552 |
+| Revisions implementation topology, source-provider composition, and repository-internal compatibility removal | Core 01 §2.1 for implementation structure; Core 01 and Core 02 for behavior | Core 03 Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The architecture owner governs internal package and constructor structure only. It cannot redefine source state, retained-history meaning, public contracts, portability, or conformance. | REQ-00-071 | base, incident_portability | AC-529 |
+| Workbook-grid Projections implementation topology and repository-internal compatibility removal | Core 01 §2.1 for implementation structure; Core 01 §8 and §12.2 for behavior | Core 04 §9.1A; Appendix I; implementation guides and trackers | The architecture owner governs exact package and constructor structure only. It cannot redefine projection behavior, storage meaning, source semantics, public contracts, or conformance. | REQ-00-070 | base | AC-539 |
 | Current record-envelope authority versus retained record history | Core 02 §3 for envelope meaning and record-type membership; Core 01 §1 and §12.3 for implementation ownership and portability | Core 01 record mutation/history routes; Core 02 history substrate; Core 04 conformance; `docs/domain.md` for vocabulary only | The current-envelope owner controls current envelope persistence and transaction ports. Revisions controls history and destructive coordination but MUST NOT become current-envelope authority. | REQ-00-067 | base, incident_portability | AC-509..AC-512, AC-514 |
 | Collaboration stream-quarantine requeue transition | Core 03 §4.3.3 | Core 01 §12.2.2 transport; Core 04 §2 security and conformance; `docs/domain.md` vocabulary; implementation guide | Core 03 alone owns admission, repaired-state proof, locking, preserved/reset fields, atomic journal participation, concurrency, typed semantic outcomes, and forbidden semantic effects. | REQ-00-068 | base | AC-535 |
 | Collaboration requeue deployment-local CLI grammar, result envelope, and error/exit registry | Core 01 §12.2.2 | Core 03 §4.3.3 transition; Core 04 §2 security and conformance; typed projections under `contracts/collaboration` | Core 01 alone owns accepted tokens and values, config/timeout flags, schema/member/order rules, closed code/reason pairs, stream behavior, and exit mapping. The typed contract family is a projection, not an owner. | REQ-00-068 | base | AC-535 |
 | Collaboration requeue local authority, redaction, private journal, timeout/cancellation safety, and negative surfaces | Core 04 §2 | Core 01 §12.2.2 transport; Core 03 §4.3.3 transition; Core 04 conformance | Core 04 alone owns the local trust boundary, forbidden values, journal visibility, resource closure, and the absence of browser, HTTP, WebSocket, job, session, CSRF, bearer, and public audit surfaces. | REQ-00-068 | base | AC-535 |
-| Database migration lifecycle, readiness, remediation, evidence, and recovery metadata | Core 01 §2.1A | Core 04 security and conformance; source-owner specifications; OpenTelemetry NLSpec; Testing Harness NLSpec; implementation guides | Core 01 owns the typed lifecycle boundary. PostgreSQL connectivity and secrets remain in the platform adapter; source owners retain schema meaning; authored SQL and evidence routing do not transfer lifecycle ownership. | REQ-00-069 | base | AC-537 |
+| Database migration lifecycle, readiness, remediation, evidence, and recovery metadata | Core 01 §2.1A | Core 04 security and conformance; source-owner specifications; OpenTelemetry NLSpec; Testing Harness NLSpec; implementation guides | Core 01 owns the typed lifecycle boundary. PostgreSQL connectivity and secrets remain in the platform adapter; source owners retain schema meaning; authored SQL and evidence routing do not transfer lifecycle ownership. | REQ-00-069 | base | AC-599 |
 | Extension-profile recognition, claimability, current major, primary owner, dependencies, and adopted-document status | Core 00 §4.2 and §5 | Core 01 extension discovery; Core 04 claim authorization and conformance; adopted Extensions NLSpec | Core 00 alone owns whether an extension identity is recognized and claimable/current and assigns its current major, primary owner, and dependencies. Core 01 enumerates only Core-00-recognized identities and owns the public discovery shape. Core 04 owns authorization and lifecycle consequences. The Extensions NLSpec owns shared mechanics only after coordinated adoption and cannot create recognition. | REQ-00-064, REQ-00-065 | base | AC-231, EXT-AC-145, EXT-AC-146, EXT-AC-157 |
 | Adopted subsystem NLSpec deployment-config namespace | Adopted subsystem NLSpec for namespace-local keys; Core 04 §12 for artifact, discovery, overlay, unknown-key, and startup validation mechanics | Core 04 §12, subsystem NLSpec | Core 04 owns the deployment-config container and fail-closed validation mechanics. The adopted subsystem NLSpec owns only its closed key namespace and namespace-local cross-key rules. | REQ-00-052 | base | AC-231 |
 | Public success/error envelope and public error-code and reason-code registries | Core 01 §3.3.6, §3.3.6.1, and §3.3.6.2 | Core 03 §3.3.4; Core 04 §9.6, §9.9, and §9.10 | Secondary sections MAY require a specific code or payload member but MUST NOT assign a conflicting meaning, transport status, or retry hint. | REQ-00-006 | base | AC-231 |

@@ -136,7 +136,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "aggregate_placement": "fast",
+      "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
@@ -291,9 +291,11 @@
       "selector": {
         "package": "./internal/testutil/sourcecheck",
         "tests": [
+          "TestAnalyzeSQL",
           "TestParseImports",
           "TestReadImports",
-          "TestReadImportsFailures"
+          "TestReadImportsFailures",
+          "TestSQLImportedDatabaseTypes"
         ]
       },
       "evidence_class": "unit",
@@ -302,7 +304,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "aggregate_placement": "fast",
+      "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },

@@ -12,17 +12,18 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
 type telemetryDB struct {
-	inner          DB
+	inner          dbport.DB
 	serviceVersion string
 	tracer         trace.Tracer
 	duration       metric.Float64Histogram
 }
 
-func InstrumentDB(inner DB, serviceVersion string) DB {
+func InstrumentDB(inner dbport.DB, serviceVersion string) dbport.DB {
 	if inner == nil {
 		return nil
 	}

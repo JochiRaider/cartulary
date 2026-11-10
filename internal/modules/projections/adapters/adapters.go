@@ -27,20 +27,21 @@ import (
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookrestoreprobe "github.com/JochiRaider/cartulary/internal/modules/workbook/restoreprobe"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 )
 
 type Dependencies struct {
-	Postgres       postgres.DB
-	Timeline       timelineprojection.Contribution
-	Entities       entitycontract.Contribution
-	Indicators     indicatorprojection.Contribution
-	Assessments    assessmentprojection.Contribution
-	Artifacts      artifactprojection.Contribution
-	Evidence       evidencecontract.Contribution
-	Parties        partyprojection.Contribution
-	TasksDecisions taskdecisioncontract.Contribution
+	Postgres            dbport.DB
+	LockRecordEndpoints providercontract.LockRecordEndpoints
+	Timeline            timelineprojection.Contribution
+	Entities            entitycontract.Contribution
+	Indicators          indicatorprojection.Contribution
+	Assessments         assessmentprojection.Contribution
+	Artifacts           artifactprojection.Contribution
+	Evidence            evidencecontract.Contribution
+	Parties             partyprojection.Contribution
+	TasksDecisions      taskdecisioncontract.Contribution
 }
 
 type MaintenanceRebuilder interface {
@@ -73,6 +74,9 @@ type Ports struct {
 func New(dependencies Dependencies) (Ports, error) {
 	if dependencies.Postgres == nil {
 		return Ports{}, fmt.Errorf("compose Projections: Postgres is required")
+	}
+	if dependencies.LockRecordEndpoints == nil {
+		return Ports{}, fmt.Errorf("compose Projections: record endpoint locker is required")
 	}
 	contributions := []struct {
 		name     string
@@ -116,7 +120,7 @@ func New(dependencies Dependencies) (Ports, error) {
 	if err != nil {
 		return Ports{}, fmt.Errorf("compose Projections storage: %w", err)
 	}
-	store, err := projectionruntime.NewStore(dependencies.Postgres, catalog, physical)
+	store, err := projectionruntime.NewStore(dependencies.Postgres, catalog, physical, dependencies.LockRecordEndpoints)
 	if err != nil {
 		return Ports{}, fmt.Errorf("compose Projections store: %w", err)
 	}

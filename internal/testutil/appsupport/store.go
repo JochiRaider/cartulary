@@ -6,14 +6,14 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 // StoreHarness supplies an owner-neutral transaction-scoped database for
 // module tests that do not need a running application server.
 type StoreHarness struct {
-	DB postgres.DB
+	DB dbport.DB
 }
 
 func StartStore(t testing.TB, prefix string) *StoreHarness {

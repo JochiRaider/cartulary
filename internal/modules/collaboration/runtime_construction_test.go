@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
 type failingSeedRuntimeDB struct {
-	postgres.DB
+	dbport.DB
 	err error
 }
 
@@ -42,7 +42,7 @@ func runtimeConstructionCatalog(t testing.TB) *PublicationCatalog {
 	return catalog
 }
 
-func runtimeConstructionOptions(t testing.TB, db postgres.DB, onLoss func()) Options {
+func runtimeConstructionOptions(t testing.TB, db dbport.DB, onLoss func()) Options {
 	t.Helper()
 	return Options{
 		Postgres: db,

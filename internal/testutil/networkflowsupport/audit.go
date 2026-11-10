@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/google/uuid"
+
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	hc "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type AuditBinding struct {
@@ -21,7 +22,7 @@ type AuditBinding struct {
 type AuditFixture struct {
 	mu       sync.Mutex
 	registry *hc.NetworkFlowAuditAssertionRegistry
-	db       postgres.DB
+	db       dbport.DB
 	binding  AuditBinding
 	baseline int
 	verified bool
@@ -30,7 +31,7 @@ type AuditFixture struct {
 // NewAuditFixture binds scope and observes the committed baseline before the
 // operation. A newly allocated resource may be supplied to Verify from its real
 // response; its operation must have an empty baseline until that identity exists.
-func NewAuditFixture(ctx context.Context, registry *hc.NetworkFlowAuditAssertionRegistry, db postgres.DB, b AuditBinding) (*AuditFixture, error) {
+func NewAuditFixture(ctx context.Context, registry *hc.NetworkFlowAuditAssertionRegistry, db dbport.DB, b AuditBinding) (*AuditFixture, error) {
 	if registry == nil || db == nil {
 		return nil, errors.New("audit fixture dependencies required")
 	}

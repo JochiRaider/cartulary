@@ -1,21 +1,13 @@
 package queryengine
 
-func activeRecordLinksAlias(alias string) string {
-	return "active_record_links_v1 " + alias
-}
+import "github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 
-func activeRecordTagsAlias(alias string) string {
-	return "active_record_tags_v1 " + alias
+func recordRefItemRefSQL(recordIDExpr sqlshape.Fragment) sqlshape.Fragment {
+	return sqlshape.Format("'record_ref:' || %s::text", recordIDExpr)
 }
-
-func recordRefItemRefSQL(recordIDExpr string) string {
-	return "'record_ref:' || " + recordIDExpr + "::text"
+func partyRefItemRefSQL(recordIDExpr sqlshape.Fragment) sqlshape.Fragment {
+	return sqlshape.Format("'party_ref:' || %s::text", recordIDExpr)
 }
-
-func partyRefItemRefSQL(recordIDExpr string) string {
-	return "'party_ref:' || " + recordIDExpr + "::text"
-}
-
-func recordTagItemRefSQL(recordIDExpr string, recordTagIDExpr string) string {
-	return "'record_tag:' || " + recordIDExpr + "::text || ':' || " + recordTagIDExpr + "::text"
+func recordTagItemRefSQL(recordIDExpr, recordTagIDExpr sqlshape.Fragment) sqlshape.Fragment {
+	return sqlshape.Format("'record_tag:' || %s::text || ':' || %s::text", recordIDExpr, recordTagIDExpr)
 }

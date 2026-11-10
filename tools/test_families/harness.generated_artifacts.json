@@ -221,7 +221,7 @@
           "TestRuntimeGoFilesDoNotImportInternalTestutil"
         ]
       },
-      "evidence_class": "unit",
+      "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

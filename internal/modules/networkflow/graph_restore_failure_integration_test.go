@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -102,7 +103,7 @@ func TestNetworkFlowGraphReconstructionBindingFailureRollsBack_Integration(t *te
 	}
 }
 
-func networkFlowReconstructionState(t *testing.T, db postgres.DB) string {
+func networkFlowReconstructionState(t *testing.T, db dbport.DB) string {
 	t.Helper()
 	var state string
 	if err := db.QueryRow(t.Context(), `SELECT jsonb_build_array(
@@ -119,7 +120,7 @@ func networkFlowReconstructionState(t *testing.T, db postgres.DB) string {
 }
 
 type networkFlowReconstructionWitness struct {
-	postgres.DB
+	dbport.DB
 	transactions, commits, rollbacks, sourceOutside  int
 	cleared, enumeratedAfterClear, rollbackSucceeded bool
 	isolation, role                                  string

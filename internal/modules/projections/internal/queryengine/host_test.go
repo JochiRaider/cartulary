@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -24,10 +25,10 @@ func TestHostPageSQLIsKeysetBoundedAndProjectionOwned(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build host page SQL: %v", err)
 	}
-	if !strings.Contains(sqlText, "host_grid_projection") || strings.Contains(sqlText, "FROM hosts") {
+	if !strings.Contains(sqlshape.Text(sqlText), "host_grid_projection") || strings.Contains(sqlshape.Text(sqlText), "FROM hosts") {
 		t.Fatalf("host page selection does not isolate projection storage: %s", sqlText)
 	}
-	if !strings.Contains(sqlText, "record_id >") || !strings.Contains(sqlText, " LIMIT $") || strings.Contains(strings.ToUpper(sqlText), "OFFSET") {
+	if !strings.Contains(sqlshape.Text(sqlText), "record_id >") || !strings.Contains(sqlshape.Text(sqlText), " LIMIT $") || strings.Contains(strings.ToUpper(sqlshape.Text(sqlText)), "OFFSET") {
 		t.Fatalf("host page SQL is not bounded keyset retrieval: %s", sqlText)
 	}
 	if got := args[len(args)-1]; got != 26 {

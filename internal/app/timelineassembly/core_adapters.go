@@ -12,6 +12,7 @@ import (
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -102,7 +103,7 @@ func (a recordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, recordID
 
 func (a recordAdapter) LoadEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (sourcerepository.Envelope, error) {
 	envelope, err := a.store.LoadEnvelopeTx(ctx, tx, recordID, lock)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return sourcerepository.Envelope{}, sourcerepository.ErrEnvelopeNotFound
 	}
 	return timelineEnvelope(envelope), err
@@ -120,7 +121,7 @@ func (a recordAdapter) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, recordIDs
 	return result, nil
 }
 
-func timelineEnvelope(envelope records.Envelope) sourcerepository.Envelope {
+func timelineEnvelope(envelope recordenvelope.Envelope) sourcerepository.Envelope {
 	return sourcerepository.Envelope{
 		RecordID:        envelope.RecordID,
 		IncidentID:      envelope.IncidentID,

@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func VNextRecoveryObjectInventory() recovery.VNextObjectInventoryProvider {
@@ -15,12 +16,12 @@ func VNextRecoveryObjectInventory() recovery.VNextObjectInventoryProvider {
 		"imports.source_streams",
 		"imports.snapshot_source_stream_inventory.v1",
 		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
-			rows, err := snapshot.QueryRows(ctx, `
+			rows, err := snapshot.QueryRows(ctx, sqlshape.Literal(`
 SELECT source_stream_ref, source_media_type, source_byte_size,
        source_content_sha256, source_bytes
   FROM import_source_streams
  ORDER BY source_stream_ref ASC
-`)
+`))
 			if err != nil {
 				return nil, fmt.Errorf("inventory Import source streams: %w", err)
 			}
@@ -58,7 +59,7 @@ SELECT source_stream_ref, source_media_type, source_byte_size,
 func VNextCommittedSourceInventory() recovery.VNextObjectInventoryProvider {
 	return recovery.NewVNextObjectInventoryProvider("module.imports", "imports.committed_sources", "imports.snapshot_committed_source_inventory.v1",
 		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
-			rows, err := snapshot.QueryRows(ctx, `SELECT content_sha256,byte_size FROM import_committed_source_blobs ORDER BY content_sha256`)
+			rows, err := snapshot.QueryRows(ctx, sqlshape.Literal(`SELECT content_sha256,byte_size FROM import_committed_source_blobs ORDER BY content_sha256`))
 			if err != nil {
 				return nil, fmt.Errorf("inventory committed source blobs: %w", err)
 			}
@@ -75,7 +76,7 @@ func VNextCommittedSourceInventory() recovery.VNextObjectInventoryProvider {
 					Open: func(readCtx context.Context) (io.ReadCloser, error) {
 						reader := newSourceReader(readCtx, nil, ImportSourceCapability{SourceStreamRef: digest, SourceContentSHA256: digest, SourceByteSize: size}, false)
 						reader.readChunk = func(offset, length int64) ([]byte, error) {
-							chunks, err := snapshot.QueryRows(readCtx, committedBlobChunkQuery, digest, offset, length)
+							chunks, err := snapshot.QueryRows(readCtx, sqlshape.Literal(committedBlobChunkQuery), digest, offset, length)
 							if err != nil {
 								return nil, err
 							}

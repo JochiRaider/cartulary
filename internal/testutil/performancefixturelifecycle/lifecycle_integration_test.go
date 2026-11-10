@@ -18,7 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	appfixture "github.com/JochiRaider/cartulary/internal/testutil/appsupport/performancefixture"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -67,7 +67,7 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 		}
 	})
 	ctx := context.Background()
-	build, err := Build(ctx, env, profile, args, func(db postgres.DB, objects objectstore.Store, actor authn.UserRecord, key string, profile performancefixtureprofile.Profile) (*fixture.Assembler, error) {
+	build, err := Build(ctx, env, profile, args, func(db dbport.DB, objects objectstore.Store, actor authn.UserRecord, key string, profile performancefixtureprofile.Profile) (*fixture.Assembler, error) {
 		// A generic binary contribution exercises the lifecycle independently of an
 		// Evidence workload. The product fixture still goes through its real owners.
 		if err := objects.PutObject(ctx, "snapshot/payload", strings.NewReader("fixture bytes"), 13, "text/plain"); err != nil {

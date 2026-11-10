@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type sourceStore struct {
@@ -209,7 +210,21 @@ func (s *sourceStore) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, record
 		return false, fmt.Errorf("artifacts: unsupported field key %q", fieldKey)
 	}
 	dbValue := directDBValue(value)
-	tag, err := tx.Exec(ctx, fmt.Sprintf(`UPDATE %s SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2`, table, column, column), recordID, dbValue, now)
+	var query sqlshape.Statement
+	quoted := sqlshape.Identifier(column)
+	switch table {
+	case "artifacts":
+		query = sqlshape.Command("UPDATE artifacts SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2", quoted, quoted)
+	case "artifact_findings":
+		query = sqlshape.Command("UPDATE artifact_findings SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2", quoted, quoted)
+	case "artifact_investigative_queries":
+		query = sqlshape.Command("UPDATE artifact_investigative_queries SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2", quoted, quoted)
+	case "artifact_forensic_keywords":
+		query = sqlshape.Command("UPDATE artifact_forensic_keywords SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2", quoted, quoted)
+	default:
+		return false, fmt.Errorf("artifacts: unsupported source table %q", table)
+	}
+	tag, err := tx.Exec(ctx, sqlshape.CommandText(query), recordID, dbValue, now)
 	if err != nil {
 		return false, fmt.Errorf("apply artifact direct change: %w", err)
 	}

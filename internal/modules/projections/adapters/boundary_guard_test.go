@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/sourcecheck"
 )
 
 func TestLegacyProjectionMaintenanceHasNoProductionCallerOutsideProjections(t *testing.T) {
@@ -251,16 +253,15 @@ func checkProjectionImports(t *testing.T, repoRoot, filePath string) {
 	}
 	relPath = filepath.ToSlash(relPath)
 
-	parsed, err := parser.ParseFile(token.NewFileSet(), filePath, nil, parser.ImportsOnly)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
-		t.Fatalf("parse imports for %s: %v", relPath, err)
+		t.Fatal(err)
 	}
-
-	for _, importSpec := range parsed.Imports {
-		importPath, err := strconv.Unquote(importSpec.Path.Value)
-		if err != nil {
-			t.Fatalf("unquote import in %s: %v", relPath, err)
-		}
+	imports, err := sourcecheck.ParseImports(relPath, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, importPath := range imports {
 		switch {
 		case importPath == projectionsImportPath:
 			t.Fatalf("%s imports the removed Projections root package", relPath)

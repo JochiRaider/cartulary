@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"net/http"
 	"reflect"
 	"testing"
@@ -18,7 +19,6 @@ import (
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -242,7 +242,7 @@ func (notificationTestRunner) RegisterHandlerWhenReady(string, jobs.HandlerFunc,
 func (r notificationTestRunner) Notify(id uuid.UUID) { r.notify(id) }
 
 type notificationTestDB struct {
-	postgres.DB
+	dbport.DB
 	failCommit, committed bool
 }
 

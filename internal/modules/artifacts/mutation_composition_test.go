@@ -7,10 +7,10 @@ import (
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
-type artifactCompositionDB struct{ postgres.DB }
+type artifactCompositionDB struct{ dbport.DB }
 type artifactIncidentStateStub struct{ IncidentStateCapability }
 type artifactMemberReferencesStub struct{ MemberReferenceCapability }
 type artifactIdempotencyStub struct{ IdempotencyCapability }

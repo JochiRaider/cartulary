@@ -6,7 +6,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type RouteTarget struct {
@@ -17,10 +18,10 @@ type RouteTarget struct {
 }
 
 type RouteTargetResolver struct {
-	db postgres.DB
+	db dbport.DB
 }
 
-func NewRouteTargetResolver(db postgres.DB) *RouteTargetResolver {
+func NewRouteTargetResolver(db dbport.DB) *RouteTargetResolver {
 	return &RouteTargetResolver{db: db}
 }
 
@@ -48,7 +49,7 @@ func (r *RouteTargetResolver) ResolveTx(ctx context.Context, tx pgx.Tx, recordID
 	return routeTargetFromEnvelope(envelope), nil
 }
 
-func routeTargetFromEnvelope(envelope Envelope) RouteTarget {
+func routeTargetFromEnvelope(envelope recordenvelope.Envelope) RouteTarget {
 	return RouteTarget{
 		IncidentID: envelope.IncidentID,
 		RecordType: envelope.RecordType,

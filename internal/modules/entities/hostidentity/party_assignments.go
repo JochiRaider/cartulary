@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
 	partyreferences "github.com/JochiRaider/cartulary/internal/modules/parties/references"
 )
 
@@ -82,7 +83,7 @@ func applyPartyAssignmentAddsTx(ctx context.Context, tx pgx.Tx, incidentID, reco
 }
 
 func loadPartyAssignmentReferences(ctx context.Context, query entityAliasQueryer, incidentID uuid.UUID, recordIDs []uuid.UUID) (map[uuid.UUID]map[string][]PartyReference, error) {
-	facts, err := (links.FactReader{}).LoadPartyAssignmentsForRecords(ctx, query, incidentID, recordIDs)
+	facts, err := (linkfacts.FactReader{}).LoadPartyAssignmentsForRecords(ctx, query, incidentID, recordIDs)
 	if err != nil {
 		return nil, err
 	}

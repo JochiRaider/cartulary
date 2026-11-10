@@ -10,14 +10,14 @@ import (
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type membershipAuditReader struct {
-	db postgres.DB
+	db dbport.DB
 }
 
-func newMembershipAuditReader(db postgres.DB) (*membershipAuditReader, error) {
+func newMembershipAuditReader(db dbport.DB) (*membershipAuditReader, error) {
 	if isNilRouteDependency(db) {
 		return nil, errors.New("incidents: PostgreSQL dependency is required for membership audit reading")
 	}

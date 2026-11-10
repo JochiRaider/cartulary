@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
@@ -23,7 +24,7 @@ type IncidentStateCapability interface {
 type RecordEnvelopeCapability interface {
 	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
-	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (records.Envelope, error)
+	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (recordenvelope.Envelope, error)
 }
 
 type RevisionCapability interface {

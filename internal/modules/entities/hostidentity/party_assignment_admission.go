@@ -2,12 +2,13 @@ package hostidentity
 
 import (
 	"encoding/json"
+	"github.com/JochiRaider/cartulary/internal/modules/links/partyassignment"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/google/uuid"
 )
 
-func isPartyAssignmentField(field string) bool { return links.IsPartyAssignmentField(field) }
+func isPartyAssignmentField(field string) bool { return partyassignment.IsField(field) }
 
 func decodePartyAssignmentActions(raw json.RawMessage) ([]CollectionAction, bool) {
 	var payload map[string]json.RawMessage

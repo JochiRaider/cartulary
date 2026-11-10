@@ -3,7 +3,7 @@
   "owner_id": "app.server",
   "rows": [
     {
-      "row_id": "app.server.browser_support.supports_zero_membership_extension_discovery_and_2d096f2dcd",
+      "row_id": "app.server.browser_support.zero_membership_landing",
       "owner_id": "app.server",
       "family_id": "app.server.browser_support",
       "collaborator_ids": [
@@ -21,10 +21,10 @@
         "project_id": "chromium",
         "stage": "support",
         "scenario_ids": [
-          "scenario_92e9762b99a1"
+          "scenario_zero_membership_landing"
         ],
         "titles": [
-          "supports zero-membership extension discovery and singleton pagination rejection through browser-authenticated request probes"
+          "renders the empty incident directory for an authenticated user with no memberships"
         ]
       },
       "evidence_class": "browser",
@@ -95,7 +95,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "standard",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -123,7 +123,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "standard",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
       ],
@@ -1099,7 +1099,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "aggregate_placement": "fast",
+      "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },

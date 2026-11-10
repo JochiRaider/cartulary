@@ -8,17 +8,18 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/JochiRaider/cartulary/internal/modules/imports"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/imports"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 const SourceBytes = "flow\nfixture\n"
 
 // RetainUnitSource retains a small, actual source for an already seeded unit.
 // It never creates users, incidents, workflows, target rows or services.
-func RetainUnitSource(ctx context.Context, db postgres.DB, unitID uuid.UUID) error {
+func RetainUnitSource(ctx context.Context, db dbport.DB, unitID uuid.UUID) error {
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err

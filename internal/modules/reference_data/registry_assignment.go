@@ -6,9 +6,10 @@ import (
 	"slices"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/pagination"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 var mandatoryRegistryKeys = []string{"type_registry.evidence", "type_registry.host", "type_registry.indicator"}
@@ -52,7 +53,7 @@ type registryAssignment struct {
 	recorded map[string]bool
 }
 
-func NewRegistryAssignments(pool postgres.DB, storage ArtifactStorage, codec *pagination.Codec, now func() time.Time, integrity IntegrityOptions) (RegistryAssignments, error) {
+func NewRegistryAssignments(pool dbport.DB, storage ArtifactStorage, codec *pagination.Codec, now func() time.Time, integrity IntegrityOptions) (RegistryAssignments, error) {
 	if storage == nil || codec == nil || now == nil {
 		return nil, errors.New("reference pack: incomplete registry assignment dependencies")
 	}

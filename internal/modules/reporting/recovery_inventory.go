@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func VNextRecoveryObjectInventory(
@@ -15,7 +16,7 @@ func VNextRecoveryObjectInventory(
 		"reporting.render_preview_members",
 		"reporting.snapshot_output_inventory.v1",
 		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
-			rows, err := snapshot.QueryRows(ctx, `
+			rows, err := snapshot.QueryRows(ctx, sqlshape.Literal(`
 SELECT logical_id, object_ref, media_type, size_bytes, file_sha256
   FROM (
         SELECT 'render:' || release_id::text || ':' || bundle_path AS logical_id,
@@ -29,7 +30,7 @@ SELECT logical_id, object_ref, media_type, size_bytes, file_sha256
          WHERE storage_kind = 'object_store'
        ) members
  ORDER BY logical_id ASC
-`)
+`))
 			if err != nil {
 				return nil, fmt.Errorf("inventory Reporting output members: %w", err)
 			}

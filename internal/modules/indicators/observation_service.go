@@ -12,7 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -343,7 +343,7 @@ func (s *Application) beforeObservationAffectedRowsTx(ctx context.Context, tx pg
 	return rows, nil
 }
 
-func (s *Application) afterObservationAffectedRowsTx(ctx context.Context, tx pgx.Tx, sourceRecordID uuid.UUID, sourceFieldKey string, envelopes map[uuid.UUID]records.Envelope, affectedIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
+func (s *Application) afterObservationAffectedRowsTx(ctx context.Context, tx pgx.Tx, sourceRecordID uuid.UUID, sourceFieldKey string, envelopes map[uuid.UUID]recordenvelope.Envelope, affectedIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
 	rows := make(map[uuid.UUID]map[string]any, len(affectedIDs))
 	for _, recordID := range affectedIDs {
 		var (

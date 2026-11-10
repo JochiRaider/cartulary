@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"time"
-
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/jackc/pgx/v5"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestJobInternalErrorDoesNotRetainPrivateCause(t *testing.T) {
@@ -28,7 +29,7 @@ func TestJobInternalErrorDoesNotRetainPrivateCause(t *testing.T) {
 	}
 }
 
-type failingJobRouteDB struct{ postgres.DB }
+type failingJobRouteDB struct{ dbport.DB }
 type failingJobRouteRow struct{}
 
 func (failingJobRouteDB) QueryRow(context.Context, string, ...any) pgx.Row {

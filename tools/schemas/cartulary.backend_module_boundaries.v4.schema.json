@@ -22,7 +22,9 @@
     "command_root_shape",
     "forbidden_source_tokens",
     "forbidden_test_build_tokens",
-    "generated_root_writes"
+    "generated_root_writes",
+    "sql_forwarding_capabilities",
+    "sql_control_capabilities"
   ],
   "properties": {
     "schema_id": {
@@ -181,6 +183,59 @@
         },
         "allowed_paths": {
           "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "sql_forwarding_capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "package",
+          "declaration",
+          "test_support"
+        ],
+        "properties": {
+          "package": {
+            "type": "string",
+            "minLength": 1
+          },
+          "declaration": {
+            "type": "string",
+            "minLength": 1
+          },
+          "test_support": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "sql_control_capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "package",
+          "declaration",
+          "sql"
+        ],
+        "properties": {
+          "package": {
+            "type": "string",
+            "minLength": 1
+          },
+          "declaration": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sql": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }
@@ -567,17 +622,22 @@
             "type": "object",
             "additionalProperties": false,
             "required": [
-              "path",
+              "package",
+              "declaration",
               "sql"
             ],
             "properties": {
-              "path": {
-                "type": "string",
-                "minLength": 1
-              },
               "sql": {
                 "type": "string",
                 "minLength": 1
+              },
+              "package": {
+                "type": "string",
+                "minLength": 1
+              },
+              "declaration": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)?$"
               }
             }
           }

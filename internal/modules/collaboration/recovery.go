@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	privaterecovery "github.com/JochiRaider/cartulary/internal/modules/collaboration/internal/recovery"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type RequeueFailureKind string
@@ -63,7 +63,7 @@ type recoveryCapability struct {
 	delegate privaterecovery.Capability
 }
 
-func NewRecoveryCapability(db postgres.DB) RecoveryCapability {
+func NewRecoveryCapability(db dbport.DB) RecoveryCapability {
 	return &recoveryCapability{delegate: privaterecovery.NewAdapter(db)}
 }
 

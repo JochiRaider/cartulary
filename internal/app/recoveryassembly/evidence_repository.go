@@ -13,11 +13,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type recoveryEvidenceRepository struct {
-	db      postgres.DB
+	db      dbport.DB
 	loadKey func() (recovery.RecoveryEncryptionKey, error)
 }
 
@@ -49,7 +49,7 @@ type recoveryAuditSummary struct {
 }
 
 func NewRecoveryEvidenceRepository(
-	db postgres.DB,
+	db dbport.DB,
 	loadKey func() (recovery.RecoveryEncryptionKey, error),
 ) (application.RecoveryEvidenceRepository, error) {
 	if db == nil {

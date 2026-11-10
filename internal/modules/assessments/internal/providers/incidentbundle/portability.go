@@ -8,10 +8,11 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func exportIncidentBundleFiles(ctx context.Context, input sourceport.ExportContext) error {
-	return sourceport.ExportAttributedRows(ctx, input, sourceport.AttributedRows{Path: assessmentsBundlePath, Table: "assessments", Identity: "record_id", ActorColumns: []string{"assessor_user_id", "deleted_by_user_id"}, Query: `SELECT to_jsonb(t) FROM assessments t WHERE incident_id=$1 AND ($2::uuid IS NULL OR record_id>$2) ORDER BY record_id LIMIT 128`})
+	return sourceport.ExportAttributedRows(ctx, input, sourceport.AttributedRows{Path: assessmentsBundlePath, Table: "assessments", Identity: "record_id", ActorColumns: []string{"assessor_user_id", "deleted_by_user_id"}, Query: sqlshape.Literal(`SELECT to_jsonb(t) FROM assessments t WHERE incident_id=$1 AND ($2::uuid IS NULL OR record_id>$2) ORDER BY record_id LIMIT 128`)})
 }
 
 func importIncidentBundleFilesTx(
@@ -26,6 +27,6 @@ func importIncidentBundleFilesTx(
 		AttributionTable:  "assessments",
 		StableIdentity:    []string{"record_id"},
 		RequiredColumns:   []string{"record_id", "incident_id"},
-		InsertSQL:         `INSERT INTO assessments SELECT * FROM jsonb_populate_record(NULL::assessments, $1::jsonb)`,
+		InsertSQL:         sqlshape.Command(`INSERT INTO assessments SELECT * FROM jsonb_populate_record(NULL::assessments, $1::jsonb)`),
 	}, files, actorUserID, attributions)
 }

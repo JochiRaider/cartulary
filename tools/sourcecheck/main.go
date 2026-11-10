@@ -17,10 +17,19 @@ type inputFile struct {
 	Source string `json:"source"`
 }
 type request struct {
-	Files []inputFile `json:"files"`
+	Files               []inputFile `json:"files"`
+	IncludeDeclarations bool        `json:"include_declarations,omitempty"`
+	IncludeSQL          bool        `json:"include_sql,omitempty"`
 }
+type outputFile struct {
+	Path         string                        `json:"path"`
+	Imports      []string                      `json:"imports"`
+	Declarations *[]sourcecheck.Declaration    `json:"declarations,omitempty"`
+	SQL          *[]sourcecheck.SQLDeclaration `json:"sql,omitempty"`
+}
+
 type response struct {
-	Files []sourcecheck.FileImports `json:"files"`
+	Files []outputFile `json:"files"`
 }
 
 func run(input io.Reader, output io.Writer) error {
@@ -37,18 +46,45 @@ func run(input io.Reader, output io.Writer) error {
 	if batch.Files == nil {
 		return fmt.Errorf("import batch requires files")
 	}
-	result := response{Files: make([]sourcecheck.FileImports, 0, len(batch.Files))}
+	result := response{Files: make([]outputFile, 0, len(batch.Files))}
 	seen := make(map[string]bool, len(batch.Files))
 	for _, file := range batch.Files {
 		if !fs.ValidPath(file.Path) || strings.ContainsAny(file.Path, "\\\x00") || !strings.HasSuffix(file.Path, ".go") || seen[file.Path] {
 			return fmt.Errorf("invalid or duplicate import path %q", file.Path)
 		}
 		seen[file.Path] = true
+
+	}
+	var sql map[string][]sourcecheck.SQLDeclaration
+	if batch.IncludeSQL {
+		sources := map[string]string{}
+		for _, file := range batch.Files {
+			sources[file.Path] = file.Source
+		}
+		var err error
+		sql, err = sourcecheck.AnalyzeSQL(sources)
+		if err != nil {
+			return err
+		}
+	}
+	for _, file := range batch.Files {
 		imports, err := sourcecheck.ParseImports(file.Path, []byte(file.Source))
 		if err != nil {
 			return err
 		}
-		result.Files = append(result.Files, sourcecheck.FileImports{Path: file.Path, Imports: imports})
+		entry := outputFile{Path: file.Path, Imports: imports}
+		if batch.IncludeSQL {
+			declarations := sql[file.Path]
+			entry.SQL = &declarations
+		}
+		if batch.IncludeDeclarations {
+			declarations, err := sourcecheck.ParseDeclarations(file.Path, []byte(file.Source))
+			if err != nil {
+				return err
+			}
+			entry.Declarations = &declarations
+		}
+		result.Files = append(result.Files, entry)
 	}
 	return json.NewEncoder(output).Encode(result)
 }

@@ -9,10 +9,10 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
-type mentionStorePostgresStub struct{ postgres.DB }
+type mentionStorePostgresStub struct{ dbport.DB }
 type mentionLinkOperationsStub struct{ LinkOperationsPort }
 type mentionTimelineEffectsStub struct{ TimelineEffectsPort }
 type mentionCollaborationStub struct {

@@ -15,6 +15,7 @@ import (
 	entityports "github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	entityfacts "github.com/JochiRaider/cartulary/internal/modules/entities/timelinefacts"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	evidencefacts "github.com/JochiRaider/cartulary/internal/modules/evidence/timelinefacts"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -25,11 +26,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type Dependencies struct {
-	Postgres            postgres.DB
+	Postgres            dbport.DB
 	ConflictTokens      conflicttokens.ConflictTokenCodec
 	ConflictFields      conflicttokens.FieldResolver
 	Revisions           *revisions.Appender
@@ -136,7 +137,7 @@ func compose(dependencies Dependencies) (composition, error) {
 	collectionFacts := collectionfacts.New(
 		entityfacts.Reader{},
 		timelinefactassembly.NewLinkReader(),
-		evidence.TimelineFactReader{},
+		evidencefacts.TimelineFactReader{},
 	)
 	timelineWriter := dependencies.TimelineProjection
 	entityProjectionWriter := dependencies.EntityProjection

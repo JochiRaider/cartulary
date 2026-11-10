@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
@@ -85,7 +86,7 @@ type IdempotencyCapability interface {
 type RecordEnvelopeCapability interface {
 	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
-	LoadEnvelope(context.Context, uuid.UUID) (records.Envelope, error)
+	LoadEnvelope(context.Context, uuid.UUID) (recordenvelope.Envelope, error)
 }
 
 type RevisionCapability interface {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // accessHandleService owns Evidence access snapshots and opaque handle state.
@@ -56,7 +56,7 @@ type handleRecord struct {
 	ConsumedAt             *time.Time
 }
 
-func newAccessHandleService(pool postgres.DB) (*accessHandleService, error) {
+func newAccessHandleService(pool dbport.DB) (*accessHandleService, error) {
 	if pool == nil {
 		return nil, errors.New("compose Evidence access handles: Postgres is required")
 	}

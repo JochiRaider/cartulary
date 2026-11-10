@@ -6,12 +6,12 @@ package storetest
 import (
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 type StoreHarness struct {
-	DB postgres.DB
+	DB dbport.DB
 }
 
 func StartStore(t testing.TB, prefix string) *StoreHarness {

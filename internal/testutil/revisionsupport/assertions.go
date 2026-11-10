@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
@@ -36,7 +36,7 @@ func RequireOneRecordChangeIntentPerRevisionSQL(t testing.TB, db *sql.DB, change
 	collaborationsupport.RequireOneRecordChangeIntentPerRevision(t, db, changeSetID)
 }
 
-func RequireOneRecordChangeIntentPerRevisionPostgres(t testing.TB, db postgres.DB, changeSetID string) {
+func RequireOneRecordChangeIntentPerRevisionPostgres(t testing.TB, db dbport.DB, changeSetID string) {
 	t.Helper()
 	collaborationsupport.RequireOneRecordChangeIntentPerRevision(t, db, changeSetID)
 }

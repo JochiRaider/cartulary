@@ -10,14 +10,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/gen/contractreferencepacks"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packstate"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type builtinRelease struct {
@@ -158,7 +159,7 @@ type BaseReleaseOptions struct {
 	Limits         Limits
 }
 
-func ReconcileBaseRelease(ctx context.Context, pool postgres.DB, storage ArtifactStorage, options BaseReleaseOptions, at time.Time) (resultErr error) {
+func ReconcileBaseRelease(ctx context.Context, pool dbport.DB, storage ArtifactStorage, options BaseReleaseOptions, at time.Time) (resultErr error) {
 	ctx, end := observeReferenceOperation(ctx, options.Observer, "reference_pack.reconcile")
 	defer func() { end(referenceOutcome(resultErr)) }()
 	if pool == nil || storage == nil || options.Finalizer == nil || at.IsZero() {

@@ -8,17 +8,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/app/reportingassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
 	"github.com/JochiRaider/cartulary/internal/modules/links/partyassignment"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 func TestPartyAssignmentSnapshotSource(t *testing.T) {
@@ -28,7 +30,7 @@ func TestPartyAssignmentSnapshotSource(t *testing.T) {
 	testPartyAssignmentFacts(t, harness.DB, incident.ID, actor.ID)
 }
 
-func testPartyAssignmentFacts(t *testing.T, db postgres.DB, incident, actor uuid.UUID) {
+func testPartyAssignmentFacts(t *testing.T, db dbport.DB, incident, actor uuid.UUID) {
 	t.Run("state version contract", testPartyAssignmentStateContract)
 	ctx := context.Background()
 	now := time.Date(2026, 10, 15, 12, 0, 0, 123456000, time.UTC)
@@ -84,7 +86,7 @@ func testPartyAssignmentFacts(t *testing.T, db postgres.DB, incident, actor uuid
 	for family, id := range map[string]uuid.UUID{"host": host, "identity": identity} {
 		for _, suffix := range []string{"subject_party_ids", "responsible_party_ids", "observer_party_ids"} {
 			field := family + "." + suffix
-			if !links.IsPartyAssignmentField(field) {
+			if !partyassignment.IsField(field) {
 				t.Fatal("owned assignment field was not recognized", field)
 			}
 			_, err := store.ApplyPartyRefCollectionWithMutationValuesTx(ctx, tx, links.PartyRefCollectionCommand{
@@ -100,11 +102,11 @@ func testPartyAssignmentFacts(t *testing.T, db postgres.DB, incident, actor uuid
 		t.Fatal(err)
 	}
 	for _, field := range []string{"comm_log.audience_party_ids", "host.party_ids", "host.subject_party_ids ", "party.subject_party_ids", "host.subject_party_ids.extra", ""} {
-		if links.IsPartyAssignmentField(field) {
+		if partyassignment.IsField(field) {
 			t.Fatal("unowned collection became an assignment", field)
 		}
 	}
-	reader := links.FactReader{}
+	reader := linkfacts.FactReader{}
 	frozen, err := db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		t.Fatal(err)

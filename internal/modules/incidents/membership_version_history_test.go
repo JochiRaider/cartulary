@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -28,7 +28,7 @@ func TestMembershipVersionHistorySurvivesDeletionAndRollback_Integration(t *test
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	newApplication := func(db postgres.DB) *incidents.Application {
+	newApplication := func(db dbport.DB) *incidents.Application {
 		a, err := incidents.NewApplication(incidents.ApplicationDependencies{Postgres: db, PreferenceBootstrap: workbookstartuppostgres.NewWriter(), Now: time.Now})
 		if err != nil {
 			t.Fatal(err)
@@ -100,7 +100,7 @@ func TestMembershipVersionHistorySurvivesDeletionAndRollback_Integration(t *test
 
 var errAuditUnavailable = errors.New("test: audit storage unavailable")
 
-type auditFailureDB struct{ postgres.DB }
+type auditFailureDB struct{ dbport.DB }
 
 func (db auditFailureDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
 	tx, err := db.DB.BeginTx(ctx, options)

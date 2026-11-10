@@ -10,14 +10,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	projectionstorage "github.com/JochiRaider/cartulary/internal/modules/projections/internal/storage"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type Store struct {
-	pool     postgres.DB
-	registry *providerRegistry
-	physical *projectionstorage.Store
+	pool          dbport.DB
+	registry      *providerRegistry
+	physical      *projectionstorage.Store
+	lockEndpoints providercontract.LockRecordEndpoints
 }
 
 type TimelineSource interface {
@@ -26,9 +28,10 @@ type TimelineSource interface {
 }
 
 func NewStore(
-	pool postgres.DB,
+	pool dbport.DB,
 	catalog *Catalog,
 	physical *projectionstorage.Store,
+	lockEndpoints providercontract.LockRecordEndpoints,
 ) (*Store, error) {
 	if pool == nil {
 		return nil, errors.New("projection database is required")
@@ -39,7 +42,10 @@ func NewStore(
 	if physical == nil {
 		return nil, errors.New("projection physical storage is required")
 	}
-	return &Store{pool: pool, registry: catalog.registry, physical: physical}, nil
+	if lockEndpoints == nil {
+		return nil, errors.New("record endpoint locker is required")
+	}
+	return &Store{pool: pool, registry: catalog.registry, physical: physical, lockEndpoints: lockEndpoints}, nil
 }
 
 func (s *Store) upsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input timelineprojection.ProjectionInput) error {

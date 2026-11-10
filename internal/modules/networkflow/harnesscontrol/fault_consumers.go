@@ -12,7 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // Faults are consumed before their effect. Correlation is the import-unit ID or
@@ -47,7 +47,7 @@ func (c *Controls) fault(ctx context.Context, cancel context.CancelFunc, boundar
 }
 
 type faultDatabase struct {
-	postgres.DB
+	dbport.DB
 	controls *Controls
 }
 type faultTransaction struct {
@@ -56,7 +56,7 @@ type faultTransaction struct {
 	correlation string
 }
 
-func (c *Controls) WrapDatabase(db postgres.DB) postgres.DB {
+func (c *Controls) WrapDatabase(db dbport.DB) dbport.DB {
 	return &faultDatabase{DB: db, controls: c}
 }
 func (db *faultDatabase) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {

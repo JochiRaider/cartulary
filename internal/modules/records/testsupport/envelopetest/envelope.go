@@ -8,7 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func RequireRowVersionStable(t testing.TB, before int64, after int64) {
@@ -28,22 +29,22 @@ func SeedRecordEnvelope(
 ) {
 	t.Helper()
 
-	if err := execDB(db, `
+	if err := execDB(db, sqlshape.Command(`
 INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, $3, $4, $4)
 ON CONFLICT (record_id) DO NOTHING
-`, recordID, incidentID, recordType, actorUserID); err != nil {
+`), recordID, incidentID, recordType, actorUserID); err != nil {
 		t.Fatalf("seed record envelope: %v", err)
 	}
 }
 
-func execDB(db any, query string, args ...any) error {
+func execDB(db any, query sqlshape.Statement, args ...any) error {
 	switch typed := db.(type) {
-	case postgres.DB:
-		_, err := typed.Exec(context.Background(), query, args...)
+	case dbport.DB:
+		_, err := typed.Exec(context.Background(), sqlshape.CommandText(query), args...)
 		return err
 	case *sql.DB:
-		_, err := typed.ExecContext(context.Background(), query, args...)
+		_, err := typed.ExecContext(context.Background(), sqlshape.CommandText(query), args...)
 		return err
 	default:
 		return fmt.Errorf("unsupported Records test database %T", db)

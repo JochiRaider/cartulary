@@ -7,11 +7,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 )
 
 type NoteAssociationAccess interface {
@@ -28,7 +29,7 @@ type NoteAssociationLinks interface {
 // Counterpart rows are contributed by their source/projection owners. Artifacts
 // never queries or mutates another owner's source tables.
 type NoteAssociationRows interface {
-	LabelTx(context.Context, pgx.Tx, records.Envelope) (string, error)
+	LabelTx(context.Context, pgx.Tx, recordenvelope.Envelope) (string, error)
 	LoadEvidenceTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
 	RefreshEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error
 }
@@ -104,16 +105,16 @@ func associationView(recordType string) string {
 	}
 }
 
-func (o *NoteAssociations) noteTx(ctx context.Context, tx pgx.Tx, incidentID, noteID uuid.UUID) (records.Envelope, error) {
+func (o *NoteAssociations) noteTx(ctx context.Context, tx pgx.Tx, incidentID, noteID uuid.UUID) (recordenvelope.Envelope, error) {
 	note, err := o.mutations.recordEnvelopes.LoadEnvelopeTx(ctx, tx, noteID, false)
 	if err != nil {
-		return records.Envelope{}, err
+		return recordenvelope.Envelope{}, err
 	}
 	if note.IncidentID != incidentID || note.RecordType != "artifact" || note.DeletedAt != nil {
-		return records.Envelope{}, pgx.ErrNoRows
+		return recordenvelope.Envelope{}, pgx.ErrNoRows
 	}
 	if err := validateArtifactViewRecordTx(ctx, tx, noteID, NotesViewSchemaID); err != nil {
-		return records.Envelope{}, err
+		return recordenvelope.Envelope{}, err
 	}
 	return note, nil
 }
@@ -154,7 +155,7 @@ func (o *NoteAssociations) List(ctx context.Context, request NoteAssociationRead
 	for _, fact := range facts {
 		page.LastTime, page.LastID = fact.CreatedAt, fact.ID
 		counterpart, err := o.mutations.recordEnvelopes.LoadEnvelopeTx(ctx, tx, fact.CounterpartID, false)
-		if errors.Is(err, records.ErrEnvelopeNotFound) {
+		if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 			continue
 		}
 		if err != nil {
@@ -183,21 +184,21 @@ func (o *NoteAssociations) List(ctx context.Context, request NoteAssociationRead
 	return page, tx.Commit(ctx)
 }
 
-func (o *NoteAssociations) validateCounterpartTx(ctx context.Context, tx pgx.Tx, note records.Envelope, kind NoteAssociationKind, id uuid.UUID) (records.Envelope, error) {
+func (o *NoteAssociations) validateCounterpartTx(ctx context.Context, tx pgx.Tx, note recordenvelope.Envelope, kind NoteAssociationKind, id uuid.UUID) (recordenvelope.Envelope, error) {
 	_, types := associationSemantics(kind)
 	other, err := o.mutations.recordEnvelopes.LoadEnvelopeTx(ctx, tx, id, false)
-	if err != nil && !errors.Is(err, records.ErrEnvelopeNotFound) {
-		return records.Envelope{}, err
+	if err != nil && !errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		return recordenvelope.Envelope{}, err
 	}
 	if err != nil || other.IncidentID != note.IncidentID || other.DeletedAt != nil || id == note.RecordID || !slices.Contains(types, other.RecordType) {
-		return records.Envelope{}, &ValidationError{Field: "actions", ReasonCode: "invalid_value"}
+		return recordenvelope.Envelope{}, &ValidationError{Field: "actions", ReasonCode: "invalid_value"}
 	}
 	if kind == NoteAssociationRelatedNote {
 		if err := validateArtifactViewRecordTx(ctx, tx, id, NotesViewSchemaID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return records.Envelope{}, &ValidationError{Field: "actions", ReasonCode: "invalid_value"}
+				return recordenvelope.Envelope{}, &ValidationError{Field: "actions", ReasonCode: "invalid_value"}
 			}
-			return records.Envelope{}, err
+			return recordenvelope.Envelope{}, err
 		}
 	}
 	return other, nil

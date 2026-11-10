@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const (
@@ -43,9 +44,9 @@ var timelineBundleProvenanceFields = fieldSet(
 func ExportIncidentBundleFiles(ctx context.Context, input sourceport.ExportContext) error {
 	specs := []struct {
 		path  string
-		query string
+		query sqlshape.Fragment
 	}{
-		{timelineBundleProfilesPath, `
+		{timelineBundleProfilesPath, sqlshape.Literal(`
 SELECT jsonb_build_object(
     'incident_id', profile.incident_id,
     'enabled', profile.enabled,
@@ -57,8 +58,8 @@ SELECT jsonb_build_object(
 )
   FROM timeline_time_conversion_profiles AS profile
  WHERE profile.incident_id = $1 AND ($2::uuid IS NULL OR profile.incident_id>$2)
- ORDER BY profile.incident_id LIMIT 128`},
-		{timelineBundleRecordsPath, `
+ ORDER BY profile.incident_id LIMIT 128`)},
+		{timelineBundleRecordsPath, sqlshape.Literal(`
 SELECT jsonb_build_object(
     'record_id', event.record_id,
     'incident_id', event.incident_id,
@@ -83,8 +84,8 @@ SELECT jsonb_build_object(
 )
   FROM timeline_events AS event
  WHERE event.incident_id = $1 AND ($2::uuid IS NULL OR event.record_id>$2)
- ORDER BY event.record_id LIMIT 128`},
-		{timelineBundleProvenancePath, `
+ ORDER BY event.record_id LIMIT 128`)},
+		{timelineBundleProvenancePath, sqlshape.Literal(`
 SELECT jsonb_build_object(
     'record_id', provenance.record_id,
     'source_identity_sha256', encode(provenance.source_identity_hash, 'hex'),
@@ -101,7 +102,7 @@ SELECT jsonb_build_object(
   JOIN timeline_events AS event ON event.record_id = provenance.record_id
  WHERE event.incident_id = $1
  ORDER BY provenance.record_id, provenance.source_row_ordinal,
-          provenance.source_column_ordinal, provenance.source_identity_hash`},
+          provenance.source_column_ordinal, provenance.source_identity_hash`)},
 	}
 	for _, spec := range specs {
 		var err error

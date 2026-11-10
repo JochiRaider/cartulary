@@ -6,11 +6,11 @@ import (
 	"io"
 	"log/slog"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type operatorPostgresPool interface {
-	postgres.DB
+	dbport.DB
 	Close()
 }
 

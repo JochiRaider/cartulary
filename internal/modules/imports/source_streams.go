@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 const sourceStreamRefPrefix = "impsrc_"
@@ -42,11 +42,11 @@ type ExtensionSourcePort interface {
 }
 
 type extensionSourcePort struct {
-	db             postgres.DB
+	db             dbport.DB
 	incidentAccess *admission.Checker
 }
 
-func NewExtensionSourcePort(db postgres.DB) (ExtensionSourcePort, error) {
+func NewExtensionSourcePort(db dbport.DB) (ExtensionSourcePort, error) {
 	if nilInterface(db) {
 		return nil, errors.New("imports extension source port requires PostgreSQL")
 	}

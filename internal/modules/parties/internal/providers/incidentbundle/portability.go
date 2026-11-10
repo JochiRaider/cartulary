@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/parties/internal/policy"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const partyIncidentBundlePath = "data/parties.ndjson"
@@ -59,7 +60,7 @@ func exportIncidentBundleFiles(
 	incidentID uuid.UUID,
 	members incidentportability.MemberWriter,
 ) error {
-	err := incidentportability.ExportNDJSONTo(ctx, q, incidentID, partyIncidentBundlePath, `
+	err := incidentportability.ExportNDJSONTo(ctx, q, incidentID, partyIncidentBundlePath, sqlshape.Literal(`
 SELECT jsonb_build_object(
            'record_id', record_id,
            'incident_id', incident_id,
@@ -74,7 +75,7 @@ SELECT jsonb_build_object(
        )
   FROM parties
  WHERE incident_id = $1
- ORDER BY record_id`, members)
+ ORDER BY record_id`), members)
 	if err != nil {
 		return err
 	}

@@ -9,12 +9,13 @@ import (
 	"slices"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // Coordinator owns Reference Data application operations. Transport adapters
@@ -23,7 +24,7 @@ import (
 type referenceDependencies struct {
 	lifetime      *VerificationLifetime
 	observer      OperationObserver
-	pool          postgres.DB
+	pool          dbport.DB
 	storage       ArtifactStorage
 	configuration Configuration
 	limits        Limits
@@ -56,7 +57,7 @@ type referenceJobExecutionGuard interface {
 type CoordinatorOptions struct {
 	Lifetime          *VerificationLifetime
 	Observer          OperationObserver
-	Postgres          postgres.DB
+	Postgres          dbport.DB
 	Storage           ArtifactStorage
 	Configuration     Configuration
 	Limits            Limits
@@ -74,7 +75,7 @@ type ImportAdmission interface {
 type ImportAdmissionOptions struct {
 	Lifetime      *VerificationLifetime
 	Observer      OperationObserver
-	Postgres      postgres.DB
+	Postgres      dbport.DB
 	Storage       ArtifactStorage
 	Configuration Configuration
 	Limits        Limits

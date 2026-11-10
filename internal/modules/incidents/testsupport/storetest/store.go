@@ -15,7 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/admissiontest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type IncidentCreateReplaySelector struct {
@@ -51,7 +51,7 @@ func SQLReplayDatabase(db *sql.DB) ReplayDatabase {
 	}
 }
 
-func PostgresReplayDatabase(db postgres.DB) ReplayDatabase {
+func PostgresReplayDatabase(db dbport.DB) ReplayDatabase {
 	return ReplayDatabase{
 		queryRow: func(ctx context.Context, query string, args ...any) rowScanner {
 			return db.QueryRow(ctx, query, args...)
@@ -87,7 +87,7 @@ func CreateIncidentInStore(
 	return result
 }
 
-func LookupUserByID(t testing.TB, pool postgres.DB, userID uuid.UUID) authn.UserRecord {
+func LookupUserByID(t testing.TB, pool dbport.DB, userID uuid.UUID) authn.UserRecord {
 	t.Helper()
 
 	store := authn.NewStore(pool)
@@ -100,7 +100,7 @@ func LookupUserByID(t testing.TB, pool postgres.DB, userID uuid.UUID) authn.User
 
 func GetMembership(
 	t testing.TB,
-	db postgres.DB,
+	db dbport.DB,
 	incidentID uuid.UUID,
 	userID uuid.UUID,
 ) incidents.MembershipRecord {
@@ -226,7 +226,7 @@ func queryReplayCount(t testing.TB, db ReplayDatabase, query string, args ...any
 	return count
 }
 
-func QueryCount(t testing.TB, db postgres.DB, query string, args ...any) int {
+func QueryCount(t testing.TB, db dbport.DB, query string, args ...any) int {
 	t.Helper()
 
 	var count int
@@ -236,7 +236,7 @@ func QueryCount(t testing.TB, db postgres.DB, query string, args ...any) int {
 	return count
 }
 
-func SeedMembership(t testing.TB, db postgres.DB, incidentID, userID uuid.UUID, role string, addedByUserID uuid.UUID) {
+func SeedMembership(t testing.TB, db dbport.DB, incidentID, userID uuid.UUID, role string, addedByUserID uuid.UUID) {
 	t.Helper()
 	seedMembership(t, func(query string, args ...any) error {
 		_, err := db.Exec(context.Background(), query, args...)

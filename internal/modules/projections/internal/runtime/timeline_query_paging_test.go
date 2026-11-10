@@ -8,6 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -26,7 +27,7 @@ func TestTimelinePageSQLIsKeysetBounded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build timeline page SQL: %v", err)
 	}
-	if !strings.Contains(sqlText, "record_id >") || !strings.Contains(sqlText, " LIMIT $") || strings.Contains(strings.ToUpper(sqlText), "OFFSET") {
+	if !strings.Contains(sqlshape.Text(sqlText), "record_id >") || !strings.Contains(sqlshape.Text(sqlText), " LIMIT $") || strings.Contains(strings.ToUpper(sqlshape.Text(sqlText)), "OFFSET") {
 		t.Fatalf("timeline page SQL is not bounded keyset retrieval: %s", sqlText)
 	}
 	if got := args[len(args)-1]; got != 26 {

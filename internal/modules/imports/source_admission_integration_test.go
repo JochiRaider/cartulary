@@ -15,20 +15,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtureartifacts"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/jackc/pgx/v5"
 )
 
 const sourceAdmissionHeader = "Source IP Address,Destination IP Address,Source Port,Destination Port,Protocol,Bytes,Packets,Flow Start Time,Flow End Time,Input Interface,Output Interface\n"
@@ -50,7 +51,7 @@ type sourceAdmissionDiagnostics struct {
 	timing *sourceAdmissionTiming
 }
 
-func (d sourceAdmissionDiagnostics) WrapDatabase(db postgres.DB) postgres.DB { return db }
+func (d sourceAdmissionDiagnostics) WrapDatabase(db dbport.DB) dbport.DB { return db }
 
 // Observe the real Imports-owned reader, including time between reads. This
 // distinguishes source I/O from normalization and writes without logging data.

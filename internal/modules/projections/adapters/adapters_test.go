@@ -1,10 +1,14 @@
 package adapters_test
 
 import (
+	"context"
 	"reflect"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
@@ -16,11 +20,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectioncontract"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type inertDB struct {
-	postgres.DB
+	dbport.DB
 }
 
 type inertTimelineSource struct {
@@ -56,6 +60,11 @@ func TestNewRejectsMissingDependencies(t *testing.T) {
 		requireCompositionError(t, dependencies, "Postgres is required")
 	})
 
+	t.Run("Record endpoint locker", func(t *testing.T) {
+		dependencies := valid
+		dependencies.LockRecordEndpoints = nil
+		requireCompositionError(t, dependencies, "record endpoint locker is required")
+	})
 	tests := map[string]func(*adapters.Dependencies){
 		"Timeline": func(dependencies *adapters.Dependencies) {
 			dependencies.Timeline = timelineprojection.Contribution{}
@@ -186,7 +195,10 @@ func TestFoundationProviderContractContainsNoPhysicalQueryFields(t *testing.T) {
 func validDependencies(t testing.TB) adapters.Dependencies {
 	t.Helper()
 	return adapters.Dependencies{
-		Postgres:       &inertDB{},
+		Postgres: &inertDB{},
+		LockRecordEndpoints: func(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) ([]providercontract.RecordEndpoint, error) {
+			return nil, nil
+		},
 		Timeline:       mustTimelineContribution(t),
 		Entities:       mustEntitiesContribution(t),
 		Indicators:     mustIndicatorsContribution(t),

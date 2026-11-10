@@ -582,3 +582,43 @@ test("frontend policy: non-design generated contracts retain their owner", (t) =
   const result = checkFrontendImportBoundaries({ root: fixture.root, config: { ...owner, scan_roots: ["apps/web", "packages"] } });
   assert.equal(result.errorCount, 0, JSON.stringify(result.diagnostics));
 });
+
+for (const source of [
+  'import { request as alias } from "@transport/rawPublicJson";',
+  'import * as transport from "@transport/rawPublicJson";',
+  'export * from "@transport/rawPublicJson";',
+  'void import("@transport/rawPublicJson");',
+  'import type { Request } from "@transport/rawPublicJson";',
+  'const transport = require("@transport/rawPublicJson");',
+]) test(`frontend resolution: inherited paths preserve boundary for ${source}`, (t) => {
+  const fixture = frontendFixture(t);
+  fixture.write("tsconfig.base.json", {compilerOptions:{moduleResolution:"Bundler",baseUrl:"./apps/web",paths:{"@transport/*":["e2e/support/transport/*"]}}});
+  fixture.write("apps/web/tsconfig.json", {extends:"../../tsconfig.base.json"});
+  fixture.write("apps/web/e2e/support/transport/rawPublicJson.ts", "export type Request = {}; export const request = 1;");
+  fixture.write("apps/web/e2e/workbook.spec.ts", source);
+  const result=checkFrontendImportBoundaries({root:fixture.root,config:{...owner,scan_roots:["apps/web","packages"]}});
+  assert.ok(result.diagnostics.some(entry=>entry.ruleID==="web-e2e-raw-json-transport-boundary"),JSON.stringify(result.diagnostics));
+});
+
+test("frontend resolution: aliases cannot hide private workspace sources or cycles",(t)=>{
+  const fixture=frontendFixture(t);
+  fixture.write("apps/web/tsconfig.json",{compilerOptions:{moduleResolution:"Bundler",baseUrl:".",paths:{"@private":["../../packages/protocol-ts/src/private.ts"]}}});
+  fixture.write("packages/protocol-ts/src/private.ts","export const secret = 1;");
+  fixture.write("apps/web/src/leak.ts",'import { secret } from "@private";');
+  fixture.write("packages/test-utils/tsconfig.json",{compilerOptions:{moduleResolution:"Bundler",baseUrl:".",paths:{"@utils/*":["src/*"]}}});
+  fixture.write("packages/test-utils/src/grid.ts",'import { action } from "@utils/actions"; export const grid=action;');
+  fixture.write("packages/test-utils/src/actions.ts",'import { grid } from "@utils/grid"; export const action=grid;');
+  const result=checkFrontendImportBoundaries({root:fixture.root,config:{...owner,scan_roots:["apps/web","packages"]}});
+  assert.ok(result.diagnostics.some(entry=>entry.file==="apps/web/src/leak.ts"),JSON.stringify(result.diagnostics));
+  assert.ok(result.diagnostics.some(entry=>entry.ruleID==="frontend-test-utils-production-acyclic-import-graph"),JSON.stringify(result.diagnostics));
+});
+
+test("frontend resolution: package aliases retain vendor restrictions",(t)=>{
+  const fixture=frontendFixture(t);
+  fixture.write("apps/web/tsconfig.json",{compilerOptions:{moduleResolution:"Bundler",baseUrl:".",paths:{"@vendor":["../../node_modules/react-data-grid/index.d.ts"]}}});
+  fixture.write("node_modules/react-data-grid/package.json",{name:"react-data-grid",version:"1.0.0",types:"index.d.ts"});
+  fixture.write("node_modules/react-data-grid/index.d.ts","export declare const Grid: unknown;");
+  fixture.write("apps/web/src/leak.ts",'import { Grid } from "@vendor";');
+  const result=checkFrontendImportBoundaries({root:fixture.root,config:{...owner,scan_roots:["apps/web","packages"]}});
+  assert.ok(result.diagnostics.some(entry=>entry.ruleID==="frontend-grid-vendor-boundary"),JSON.stringify(result.diagnostics));
+});

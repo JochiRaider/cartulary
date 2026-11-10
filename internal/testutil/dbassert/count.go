@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func CountSQL(t testing.TB, db *sql.DB, query string, args ...any) int {
@@ -18,7 +18,7 @@ func CountSQL(t testing.TB, db *sql.DB, query string, args ...any) int {
 	return count
 }
 
-func CountPostgres(t testing.TB, db postgres.DB, query string, args ...any) int {
+func CountPostgres(t testing.TB, db dbport.DB, query string, args ...any) int {
 	t.Helper()
 
 	var count int

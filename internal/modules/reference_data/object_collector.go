@@ -6,14 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // ObjectCollector retries abandoned scratch, tombstones and unreferenced objects once a
 // minute. Collection is maintenance, not part of an administrative mutation's
 // outcome. Failure retains bytes and cannot reverse an acknowledged removal.
 type ObjectCollector struct {
-	db         postgres.DB
+	db         dbport.DB
 	storage    CollectionStorage
 	workspaces WorkspaceReconciler
 	ticker     func(time.Duration) (<-chan time.Time, func())
@@ -24,7 +24,7 @@ type ObjectCollector struct {
 	closed     bool
 }
 
-func NewObjectCollector(db postgres.DB, storage CollectionStorage, workspaces WorkspaceReconciler, observer OperationObserver) (*ObjectCollector, error) {
+func NewObjectCollector(db dbport.DB, storage CollectionStorage, workspaces WorkspaceReconciler, observer OperationObserver) (*ObjectCollector, error) {
 	if db == nil || storage == nil || workspaces == nil {
 		return nil, errors.New("reference pack: incomplete collector dependencies")
 	}

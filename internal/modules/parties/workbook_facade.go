@@ -16,11 +16,11 @@ import (
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type MutationFacade struct {
-	pool              postgres.DB
+	pool              dbport.DB
 	idempotency       IdempotencyCapability
 	incidentAccess    IncidentStateCapability
 	recordStore       RecordEnvelopeCapability
@@ -108,7 +108,7 @@ type SameFieldConflict struct {
 }
 
 func NewMutationContribution(
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	dependencies MutationDependencies,
 ) (*MutationFacade, error) {

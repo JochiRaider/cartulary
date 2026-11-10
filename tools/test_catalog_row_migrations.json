@@ -2,6 +2,14 @@
   "schema_id": "cartulary.test_catalog_row_migration.v1",
   "migrations": [
     {
+      "retired_row_id": "app.server.browser_support.supports_zero_membership_extension_discovery_and_2d096f2dcd",
+      "replacement_row_ids": [
+        "app.server.browser_support.zero_membership_landing",
+        "app.server.process.process_smoke_exercises_incident_creation_valida_541e2263d1"
+      ],
+      "reason": "Complete default-profile discovery, zero membership and exact pagination error details move to the assembled process witness; the browser retains the actual rendered empty directory."
+    },
+    {
       "retired_row_id": "harness.browser.integration.managed_service_assertions_for_postgres_cleanup_760004b502",
       "replacement_row_ids": [
         "harness.browser.integration.postgre_sql_cleanup_coordinates_real_database_dr_8a5f7f8277",
@@ -156,6 +164,21 @@
         "module.graphprojection.storage.service_free_contract_assertions_for_result_v2_a_4661600b77"
       ],
       "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.incidents.browser_support.supports_reserved_family_dispatch_precedence_pro_d831d613fa",
+      "replacement_row_ids": [
+        "app.server.browser_support.zero_membership_landing",
+        "app.server.integration.unclaimed_reserved_extension_families_return_can_57db0f8a45"
+      ],
+      "reason": "Move API-only incident validation or reserved-dispatch assertions to qualified assembled HTTP evidence; retain the zero-membership DOM observation independently."
+    },
+    {
+      "retired_row_id": "module.incidents.browser_support.supports_route_owned_incident_validation_errors_c277ce45ee",
+      "replacement_row_ids": [
+        "app.server.process.process_smoke_exercises_incident_creation_valida_541e2263d1"
+      ],
+      "reason": "Move API-only incident validation or reserved-dispatch assertions to qualified assembled HTTP evidence; retain the zero-membership DOM observation independently."
     },
     {
       "retired_row_id": "module.incidents.integration.one_same_session_role_progression_no_membership_6df5c1b9fb",
@@ -437,6 +460,13 @@
       "reason": "Query and Timeline mutation scenarios preserve permission outcomes, editor denials and superseding reviewed targets; independent Timeline lifecycle and atomicity evidence remains."
     },
     {
+      "retired_row_id": "module.workbook.browser_stateful.verify_coordination_rows_can_be_queried_and_edit_77783541c2",
+      "replacement_row_ids": [
+        "module.workbook.support_integration.workbook_surface_create_query_and_patch_contract_ae5c34d894"
+      ],
+      "reason": "All seven coordination patches, query/read-back versions and values, public API role demotion, same-session read/write authorization, required-role errors and unchanged rejected-write effects are qualified by the assembled HTTP surface contract. The retired scenario performed no UI interaction."
+    },
+    {
       "retired_row_id": "module.workbook.browser_stateful.workbook_save_status_preserves_authoritative_tra_0fa8b0b16c",
       "replacement_row_ids": [
         "module.workbook.browser_stateful.save_status_fifo_blocker",
@@ -536,6 +566,41 @@
         "module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79"
       ],
       "reason": "Exact full-title resolution identified duplicate selection. The existing subsystem-owned row retains the assertion and its earliest assurance tier; the redundant web regression selector is retired without forwarding aliases."
+    },
+    {
+      "retired_row_id": "web.architecture.boundary_support.ir_fixture_admission",
+      "replacement_row_ids": [
+        "harness.browser.boundary_support.ir_fixture_admission"
+      ],
+      "reason": "Fixture admission and DOM observation-helper self-regressions belong to the harness support owner and full tier; source architecture gates remain in their owner-selected tiers. Cases and profiles are unchanged."
+    },
+    {
+      "retired_row_id": "web.architecture.boundary_support.node_fixture_admission_seals_verified_inputs_and_d6cec88240",
+      "replacement_row_ids": [
+        "harness.browser.boundary_support.node_fixture_admission_seals_verified_inputs_and_d6cec88240"
+      ],
+      "reason": "Fixture admission and DOM observation-helper self-regressions belong to the harness support owner and full tier; source architecture gates remain in their owner-selected tiers. Cases and profiles are unchanged."
+    },
+    {
+      "retired_row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_replaces_controlled_77b04cd969",
+      "replacement_row_ids": [
+        "harness.browser.boundary_support.timelineworkbooktestsupport_replaces_controlled_77b04cd969"
+      ],
+      "reason": "Fixture admission and DOM observation-helper self-regressions belong to the harness support owner and full tier; source architecture gates remain in their owner-selected tiers. Cases and profiles are unchanged."
+    },
+    {
+      "retired_row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_waits_for_delayed_wo_8de9145b31",
+      "replacement_row_ids": [
+        "harness.browser.boundary_support.timelineworkbooktestsupport_waits_for_delayed_wo_8de9145b31"
+      ],
+      "reason": "Fixture admission and DOM observation-helper self-regressions belong to the harness support owner and full tier; source architecture gates remain in their owner-selected tiers. Cases and profiles are unchanged."
+    },
+    {
+      "retired_row_id": "web.architecture.boundary_support.workbookinspectortestsupport_suite_b85a10b67a",
+      "replacement_row_ids": [
+        "harness.browser.boundary_support.workbookinspectortestsupport_suite_b85a10b67a"
+      ],
+      "reason": "Fixture admission and DOM observation-helper self-regressions belong to the harness support owner and full tier; source architecture gates remain in their owner-selected tiers. Cases and profiles are unchanged."
     },
     {
       "retired_row_id": "web.workbook.regression.workbook_query_controls_preserve_ordered_chip_ca_0fc544e3c5",

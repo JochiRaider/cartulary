@@ -22,12 +22,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	workbookstartuppostgres "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func newTestStore(t testing.TB, prefix string) postgres.DB {
+func newTestStore(t testing.TB, prefix string) dbport.DB {
 	t.Helper()
 	harness := pgtest.Start(t)
 	if pgtest.ExplicitPostgresFixturePolicyT(t) == pgtest.PostgresFixturePolicyTemplateClone {
@@ -44,7 +44,7 @@ func newTestStore(t testing.TB, prefix string) postgres.DB {
 
 func createTestIncident(
 	t testing.TB,
-	database postgres.DB,
+	database dbport.DB,
 	actor authn.UserRecord,
 	clientTxnID string,
 	incidentKey string,
@@ -60,7 +60,7 @@ func createTestIncident(
 	return incidentstoretest.CreateIncidentInStore(t, application, actor, clientTxnID, incidentKey, title).Incident
 }
 
-func newTestBlobLifecycleService(t testing.TB, database postgres.DB) *blobLifecycleService {
+func newTestBlobLifecycleService(t testing.TB, database dbport.DB) *blobLifecycleService {
 	t.Helper()
 	projectionContribution, err := NewProjectionContribution()
 	if err != nil {
@@ -82,7 +82,7 @@ func newTestBlobLifecycleService(t testing.TB, database postgres.DB) *blobLifecy
 	return service
 }
 
-func newTestRouteOperations(t testing.TB, database postgres.DB) *routeOperations {
+func newTestRouteOperations(t testing.TB, database dbport.DB) *routeOperations {
 	t.Helper()
 	blobs := newTestBlobLifecycleService(t, database)
 	access, err := newAccessHandleService(database)

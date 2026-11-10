@@ -6,10 +6,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
-func withinTransaction(ctx context.Context, db postgres.DB, options pgx.TxOptions, operation func(pgx.Tx) error) error {
+func withinTransaction(ctx context.Context, db dbport.DB, options pgx.TxOptions, operation func(pgx.Tx) error) error {
 	if db == nil {
 		return fmt.Errorf("network flow PostgreSQL transaction unavailable")
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
@@ -82,10 +83,10 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 				defer storage.Close()
 				return storage.WriteTargetMarker(ctx, previous.MarkerBody, previous.GenerationBody, next.MarkerBody, next.GenerationBody)
 			},
-			NewProjectionServices: func(db postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
+			NewProjectionServices: func(db dbport.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
 				return projectionassembly.NewRecoveryServices(db)
 			},
-			NewEvidenceProvider: func(db postgres.DB) recovery.EvidenceRecoveryProvider {
+			NewEvidenceProvider: func(db dbport.DB) recovery.EvidenceRecoveryProvider {
 				return evidence.NewRecoveryProvider(db)
 			},
 			NewEvidenceRepository: func(pool application.PostgresPool) (application.RecoveryEvidenceRepository, error) {

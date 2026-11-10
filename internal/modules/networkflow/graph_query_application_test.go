@@ -9,12 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type queryCompletionProbe struct {
@@ -30,7 +31,7 @@ type queryCompletionProbe struct {
 	pending                                    bool
 }
 type queryCompletionDB struct {
-	postgres.DB
+	dbport.DB
 	probe *queryCompletionProbe
 }
 

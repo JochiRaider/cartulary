@@ -25,7 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -61,7 +61,7 @@ func CurrentProviderContributions(assignments reference_data.RegistryAssignments
 	}, nil
 }
 
-func NewRecordEnvelopeReader(db postgres.DB) revisions.RecordEnvelopeReader {
+func NewRecordEnvelopeReader(db dbport.DB) revisions.RecordEnvelopeReader {
 	return recordEnvelopeAdapter{store: records.NewStore(db)}
 }
 
@@ -133,7 +133,7 @@ func (r *Runtime) IncidentBundleSourcePort() sourceport.Port {
 }
 
 func (r *Runtime) NewCommandService(
-	db postgres.DB,
+	db dbport.DB,
 	transactions revisions.TransactionRunner,
 	attributionResolver revisions.ImportedAttributionResolver,
 	projections revisions.ProjectionRefresher,

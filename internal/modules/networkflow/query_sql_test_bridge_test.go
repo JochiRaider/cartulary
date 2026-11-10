@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 // Called by the authenticated pagination integration fixture using its live DB.
@@ -111,7 +114,7 @@ func assertOrientationSQLParity(t *testing.T, store *store) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		rows, err := store.pool.Query(t.Context(), cte+"SELECT idx,coalesce(("+clause+"),false) FROM observations ORDER BY idx", args...)
+		rows, err := store.pool.Query(t.Context(), cte+"SELECT idx,coalesce(("+sqlshape.Text(clause)+"),false) FROM observations ORDER BY idx", args...)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -146,12 +149,12 @@ func assertOrientationSQLParity(t *testing.T, store *store) {
 				if !ok {
 					t.Fatal("invalid sort")
 				}
-				orders = append(orders, expression+" "+strings.ToUpper(spec.Direction)+" NULLS LAST")
+				orders = append(orders, sqlshape.Text(expression)+" "+strings.ToUpper(spec.Direction)+" NULLS LAST")
 			}
 			orders = append(orders, `network_flow_table_id COLLATE "C" ASC`, `network_flow_row_id COLLATE "C" ASC`)
 			for page := 0; page < len(expected); page++ {
 				args := append([]any(nil), baseArgs...)
-				where := "TRUE"
+				where := sqlshape.Literal("TRUE")
 				if page > 0 {
 					var err error
 					where, err = appendRowKeysetSQL(effectiveSort(specs), newRowCursorPosition(expected[page-1], specs), &args)
@@ -160,7 +163,7 @@ func assertOrientationSQLParity(t *testing.T, store *store) {
 					}
 				}
 				var index int
-				if err := store.pool.QueryRow(t.Context(), cte+"SELECT idx FROM observations WHERE "+where+" ORDER BY "+strings.Join(orders, ",")+" LIMIT 1", args...).Scan(&index); err != nil {
+				if err := store.pool.QueryRow(t.Context(), cte+"SELECT idx FROM observations WHERE "+sqlshape.Text(where)+" ORDER BY "+strings.Join(orders, ",")+" LIMIT 1", args...).Scan(&index); err != nil {
 					t.Fatal(err)
 				}
 				if examples[index].RowID != expected[page].RowID {

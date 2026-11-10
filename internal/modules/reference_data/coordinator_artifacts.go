@@ -6,15 +6,16 @@ import (
 	"io"
 	"slices"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // retainAttemptObject records ownership immediately after an immutable byte
 // object is complete. These preparation references are backup/cleanup inputs,
 // never evidence that content has passed or become consumer-visible.
-func retainAttemptObject(ctx context.Context, pool postgres.DB, storage ArtifactStorage, operationID, attemptID uuid.UUID, path, digest string, size int64, reader io.Reader) (preparedObject, error) {
+func retainAttemptObject(ctx context.Context, pool dbport.DB, storage ArtifactStorage, operationID, attemptID uuid.UUID, path, digest string, size int64, reader io.Reader) (preparedObject, error) {
 	ref, lease, err := storage.PublishStream(ctx, digest, size, reader)
 	if err != nil {
 		return preparedObject{}, err
@@ -43,7 +44,7 @@ func retainAttemptObject(ctx context.Context, pool postgres.DB, storage Artifact
 	return object, nil
 }
 
-func prepareVerifiedObjects(ctx context.Context, pool postgres.DB, storage ArtifactStorage, operationID, attemptID uuid.UUID, attempt verificationAttempt, content *verifiedContent, indexID uuid.UUID) (preparedVersion, error) {
+func prepareVerifiedObjects(ctx context.Context, pool dbport.DB, storage ArtifactStorage, operationID, attemptID uuid.UUID, attempt verificationAttempt, content *verifiedContent, indexID uuid.UUID) (preparedVersion, error) {
 	p := preparedVersion{Content: content, IndexID: indexID}
 	paths := []string{"manifest.json"}
 	for _, file := range content.Manifest.Files {

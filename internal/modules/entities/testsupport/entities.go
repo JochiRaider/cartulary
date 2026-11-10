@@ -12,7 +12,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 const (
@@ -110,7 +111,7 @@ func SeedHostRecord(
 	if aadDeviceID != "" {
 		aadDeviceValue = aadDeviceID
 	}
-	if _, err := execDB(db, `
+	if _, err := execDB(db, sqlshape.Command(`
 INSERT INTO hosts (
     record_id, incident_id, display_name, hostname, fqdn, aad_device_id,
     host_state, row_version, created_at, updated_at,
@@ -121,7 +122,7 @@ SELECT $1, $2, $3, $4, $5, $6, 'canonical',
        r.created_by_user_id, r.updated_by_user_id
   FROM records r
  WHERE r.record_id = $1
-`, recordID, incidentID, displayName, hostname, fqdnValue, aadDeviceValue); err != nil {
+`), recordID, incidentID, displayName, hostname, fqdnValue, aadDeviceValue); err != nil {
 		t.Fatalf("seed host record: %v", err)
 	}
 }
@@ -139,7 +140,7 @@ func SeedIdentityRecord(
 ) {
 	t.Helper()
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "identity")
-	if _, err := execDB(db, `
+	if _, err := execDB(db, sqlshape.Command(`
 INSERT INTO identities (
     record_id, incident_id, display_name, upn, email, sam_account_name,
     identity_state, row_version, created_at, updated_at,
@@ -150,7 +151,7 @@ SELECT $1, $2, $3, $4, $5, $6, 'canonical',
        r.created_by_user_id, r.updated_by_user_id
   FROM records r
  WHERE r.record_id = $1
-`, recordID, incidentID, displayName, upn, email, samAccountName); err != nil {
+`), recordID, incidentID, displayName, upn, email, samAccountName); err != nil {
 		t.Fatalf("seed identity record: %v", err)
 	}
 }
@@ -169,13 +170,13 @@ func SeedEntityAlias(
 	if !ok {
 		t.Fatalf("normalize entity alias %q", rawText)
 	}
-	if _, err := execDB(db, `
+	if _, err := execDB(db, sqlshape.Command(`
 INSERT INTO entity_aliases (
     incident_id, record_id, entity_type, raw_text, normalized_text,
     classification, created_by_user_id, created_at
 )
 VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, now())
-`, incidentID, recordID, entityType, rawText, normalized, actorUserID); err != nil {
+`), incidentID, recordID, entityType, rawText, normalized, actorUserID); err != nil {
 		t.Fatalf("seed entity alias: %v", err)
 	}
 }
@@ -229,7 +230,7 @@ func SeedMention(
 		resolvedAt = time.Now().UTC()
 		methodValue = resolutionMethod
 	}
-	if _, err := execDB(db, `
+	if _, err := execDB(db, sqlshape.Command(`
 INSERT INTO entity_mentions (
     entity_mention_id, source_record_id, entity_type, source_field_key,
     origin_kind, origin_locator, raw_text, normalized_text, resolution_status,
@@ -238,7 +239,7 @@ INSERT INTO entity_mentions (
 )
 VALUES ($1, $2, $3, $4, 'manual_entry', 'entities-test-support', $5, $6, $7,
         1, 1, $8, $9, $10, $11, $12)
-`, mentionID, sourceRecordID, entityType, sourceFieldKey, rawText,
+`), mentionID, sourceRecordID, entityType, sourceFieldKey, rawText,
 		strings.ToLower(strings.TrimSpace(rawText)), resolutionStatus, actorUserID,
 		resolvedRecordID, resolvedByUserID, resolvedAt, methodValue); err != nil {
 		t.Fatalf("seed mention: %v", err)
@@ -254,11 +255,11 @@ func LookupHostState(t testing.TB, db any, recordID uuid.UUID) (string, *uuid.UU
 		rowVersion    int64
 		fqdn          sql.NullString
 	)
-	if err := queryRowDB(db, `
+	if err := queryRowDB(db, sqlshape.Literal(`
 SELECT host_state, merged_into_record_id::text, row_version, COALESCE(fqdn, '')
   FROM hosts
  WHERE record_id = $1
-`, recordID).Scan(&state, &mergedIntoRaw, &rowVersion, &fqdn); err != nil {
+`), recordID).Scan(&state, &mergedIntoRaw, &rowVersion, &fqdn); err != nil {
 		t.Fatalf("lookup host state: %v", err)
 	}
 	var mergedInto *uuid.UUID
@@ -281,13 +282,13 @@ func LookupMention(t testing.TB, db any, mentionID uuid.UUID) MentionFixture {
 		resolvedAt       sql.NullTime
 		resolutionMethod sql.NullString
 	)
-	if err := queryRowDB(db, `
+	if err := queryRowDB(db, sqlshape.Literal(`
 SELECT entity_mention_id::text, source_record_id::text, raw_text, resolution_status,
        row_version, resolved_record_id::text, resolved_by_user_id::text,
        resolved_at, resolution_method
   FROM entity_mentions
  WHERE entity_mention_id = $1
-`, mentionID).Scan(
+`), mentionID).Scan(
 		&mentionIDRaw,
 		&sourceRecordID,
 		&mention.RawText,
@@ -367,23 +368,23 @@ type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-func queryRowDB(db any, query string, args ...any) rowScanner {
+func queryRowDB(db any, query sqlshape.Fragment, args ...any) rowScanner {
 	switch typed := db.(type) {
-	case postgres.DB:
-		return typed.QueryRow(context.Background(), query, args...)
+	case dbport.DB:
+		return typed.QueryRow(context.Background(), sqlshape.Text(query), args...)
 	case *sql.DB:
-		return typed.QueryRowContext(context.Background(), query, args...)
+		return typed.QueryRowContext(context.Background(), sqlshape.Text(query), args...)
 	default:
 		panic(fmt.Sprintf("unsupported Entities test database %T", db))
 	}
 }
 
-func execDB(db any, query string, args ...any) (any, error) {
+func execDB(db any, query sqlshape.Statement, args ...any) (any, error) {
 	switch typed := db.(type) {
-	case postgres.DB:
-		return typed.Exec(context.Background(), query, args...)
+	case dbport.DB:
+		return typed.Exec(context.Background(), sqlshape.CommandText(query), args...)
 	case *sql.DB:
-		return typed.ExecContext(context.Background(), query, args...)
+		return typed.ExecContext(context.Background(), sqlshape.CommandText(query), args...)
 	default:
 		return nil, fmt.Errorf("unsupported Entities test database %T", db)
 	}

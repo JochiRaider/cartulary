@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type fieldContribution struct{}
@@ -25,7 +26,7 @@ func (fieldContribution) CollectFactsTx(
 ) (exportprovider.ProviderOutput, error) {
 	return exportprovider.CollectQueryProviderOutputTx(ctx, tx, incidentID, "evidence", supportRefs, []exportprovider.FieldQuery{{
 		Prefix: "evidence",
-		SQL: `SELECT e.record_id::text, 'evidence'::text, r.record_type::text, 'source_evidence'::text,
+		SQL: sqlshape.Literal(`SELECT e.record_id::text, 'evidence'::text, r.record_type::text, 'source_evidence'::text,
        jsonb_build_object(
            'record_id', e.record_id,
            'title', e.title,
@@ -42,7 +43,7 @@ func (fieldContribution) CollectFactsTx(
        )
   FROM evidence e
   JOIN records r ON r.incident_id = e.incident_id AND r.record_id = e.record_id AND r.deleted_at IS NULL
- WHERE e.incident_id = $1`,
+ WHERE e.incident_id = $1`),
 	}})
 }
 

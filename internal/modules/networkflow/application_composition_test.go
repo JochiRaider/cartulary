@@ -1,19 +1,20 @@
 package networkflow
 
 import (
+	"net/http"
+	"testing"
+	"time"
+
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"net/http"
-	"testing"
-	"time"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 // Nil embedded ports panic on any I/O: construction must only retain them.
 type constructionPorts struct {
-	postgres.DB
+	dbport.DB
 	ImportSourcePort
 	sourceport.PortableAttributionResolver
 	IncidentLockPort

@@ -6,14 +6,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func newTestTimelineBundle(
 	t testing.TB,
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 ) *timelineassembly.Bundle {
 	t.Helper()
@@ -23,7 +23,7 @@ func newTestTimelineBundle(
 
 func newTestTimelineComposition(
 	t testing.TB,
-	pool postgres.DB,
+	pool dbport.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 ) (*timelineassembly.Bundle, *projectionassembly.Runtime) {
 	t.Helper()
@@ -53,7 +53,7 @@ func newTestTimelineComposition(
 	return bundle, projections
 }
 
-func mustBuildProjectionRuntime(t testing.TB, pool postgres.DB) *projectionassembly.Runtime {
+func mustBuildProjectionRuntime(t testing.TB, pool dbport.DB) *projectionassembly.Runtime {
 	t.Helper()
 	runtime, err := projectionassembly.Build(pool)
 	if err != nil {

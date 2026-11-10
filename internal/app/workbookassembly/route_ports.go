@@ -8,20 +8,21 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 type recordTargetAdapter struct{ owner *records.RouteTargetResolver }
 
-func NewRecordTargetResolver(pool postgres.DB) workbook.RecordTargetResolver {
+func NewRecordTargetResolver(pool dbport.DB) workbook.RecordTargetResolver {
 	return recordTargetAdapter{owner: records.NewRouteTargetResolver(pool)}
 }
 
 func (adapter recordTargetAdapter) ResolveRecordTarget(ctx context.Context, recordID uuid.UUID) (workbook.RecordTarget, error) {
 	target, err := adapter.owner.Resolve(ctx, recordID)
-	if errors.Is(err, records.ErrEnvelopeNotFound) || errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) || errors.Is(err, pgx.ErrNoRows) {
 		return workbook.RecordTarget{}, workbook.ErrRecordTargetNotFound
 	}
 	if err != nil {

@@ -3,27 +3,26 @@ package runtime_test
 import (
 	"context"
 	"errors"
-	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelinefactassembly"
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-
 	projections "github.com/JochiRaider/cartulary/internal/modules/projections/internal/runtime"
 	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	timelineprovider "github.com/JochiRaider/cartulary/internal/modules/timeline/projectionprovider"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
@@ -291,7 +290,7 @@ func TestAssessmentProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *t
 }
 
 type commitFailDB struct {
-	postgres.DB
+	dbport.DB
 }
 
 func (db commitFailDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {

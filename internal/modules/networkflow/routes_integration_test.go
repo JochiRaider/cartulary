@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"net/http"
 	"reflect"
 	"slices"
@@ -2181,7 +2182,7 @@ func networkFlowRouteCountRows(t testing.TB, db *sql.DB, query string, args ...a
 
 // Exercise the real NF source contribution and Graph engine, without a fake
 // enumerator. The full atomic Recovery writer is exercised by the lifecycle test.
-func assertRestoreSourceComposition(t *testing.T, db postgres.DB, graphViewID string, expected map[string]any) {
+func assertRestoreSourceComposition(t *testing.T, db dbport.DB, graphViewID string, expected map[string]any) {
 	t.Helper()
 	registration, err := NewGraphRestoreSourceRegistration(db)
 	if err != nil {

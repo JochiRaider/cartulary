@@ -13,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 type Error struct {
@@ -36,7 +37,7 @@ func ApplyTaskDirectChangeTx(
 	if !ok {
 		return false, &policy.ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
 	}
-	tag, err := tx.Exec(ctx, query, recordID, DirectDBValue(value), now.UTC())
+	tag, err := tx.Exec(ctx, sqlshape.CommandText(query), recordID, DirectDBValue(value), now.UTC())
 	if err != nil {
 		return false, &Error{Operation: "apply task direct change", Err: err}
 	}
@@ -56,24 +57,28 @@ func ApplyDecisionDirectChangeTx(
 	if !ok {
 		return false, &policy.ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
 	}
-	tag, err := tx.Exec(ctx, query, recordID, DirectDBValue(value), now.UTC())
+	tag, err := tx.Exec(ctx, sqlshape.CommandText(query), recordID, DirectDBValue(value), now.UTC())
 	if err != nil {
 		return false, &Error{Operation: "apply decision direct change", Err: err}
 	}
 	return tag.RowsAffected() > 0, nil
 }
 
-func directUpdateStatement(catalog *sourcecatalog.Catalog, viewSchemaID string, fieldKey string) (string, bool) {
+func directUpdateStatement(catalog *sourcecatalog.Catalog, viewSchemaID string, fieldKey string) (sqlshape.Statement, bool) {
 	field, ok := catalog.Field(fieldKey)
 	if !ok || field.ViewSchemaID != viewSchemaID || field.Kind != sourcecatalog.FieldKindDirect {
-		return "", false
+		return sqlshape.Statement{}, false
 	}
-	table := pgx.Identifier{field.Storage.Table}.Sanitize()
-	column := pgx.Identifier{field.Storage.Column}.Sanitize()
-	return fmt.Sprintf(
-		"UPDATE %s SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2",
-		table, column, column,
-	), true
+	column := sqlshape.Identifier(field.Storage.Column)
+	switch field.Storage.Table {
+	case "task_requests":
+		return sqlshape.Command("UPDATE task_requests SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2", column, column), true
+	case "decisions":
+		return sqlshape.Command("UPDATE decisions SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2", column, column), true
+	default:
+		return sqlshape.Statement{}, false
+	}
+
 }
 
 func DirectDBValue(value policy.FieldValue) any {

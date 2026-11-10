@@ -12,7 +12,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
 func TestEvidenceDurableCleanupClaimEngine_Integration(t *testing.T) {
@@ -374,7 +374,7 @@ func cleanupKey(label string, blobID uuid.UUID) string {
 	return "evidence_cleanup_claims/" + label + "/" + blobID.String()
 }
 
-func deleteCleanupFixture(t testing.TB, database postgres.DB, blobID uuid.UUID) {
+func deleteCleanupFixture(t testing.TB, database dbport.DB, blobID uuid.UUID) {
 	t.Helper()
 	if _, err := database.Exec(context.Background(), `DELETE FROM object_blobs WHERE object_blob_id = $1`, blobID); err != nil {
 		t.Fatalf("delete cleanup fixture: %v", err)
@@ -383,7 +383,7 @@ func deleteCleanupFixture(t testing.TB, database postgres.DB, blobID uuid.UUID) 
 
 func insertClaim(
 	t testing.TB,
-	database postgres.DB,
+	database dbport.DB,
 	blobID uuid.UUID,
 	state string,
 	attempt int,
@@ -418,7 +418,7 @@ INSERT INTO evidence_blob_cleanup_claims (
 	}
 }
 
-func markCompletedCleanup(t testing.TB, database postgres.DB, blobID uuid.UUID, completedAt time.Time) {
+func markCompletedCleanup(t testing.TB, database dbport.DB, blobID uuid.UUID, completedAt time.Time) {
 	t.Helper()
 	insertClaim(t, database, blobID, "completed", 1, completedAt.Add(-time.Minute), nil, nil, completedAt)
 	if _, err := database.Exec(context.Background(), `
@@ -428,7 +428,7 @@ UPDATE object_blobs SET cleaned_up_at = $2, updated_at = $2 WHERE object_blob_id
 	}
 }
 
-func requireCleanupAttemptCount(t testing.TB, database postgres.DB, blobID uuid.UUID, want int) {
+func requireCleanupAttemptCount(t testing.TB, database dbport.DB, blobID uuid.UUID, want int) {
 	t.Helper()
 	var got int
 	if err := database.QueryRow(context.Background(), `
@@ -441,7 +441,7 @@ SELECT attempt_count FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 	}
 }
 
-func requireCleanupNextAttempt(t testing.TB, database postgres.DB, blobID uuid.UUID, want time.Time) {
+func requireCleanupNextAttempt(t testing.TB, database dbport.DB, blobID uuid.UUID, want time.Time) {
 	t.Helper()
 	var got time.Time
 	if err := database.QueryRow(context.Background(), `
@@ -454,7 +454,7 @@ SELECT next_attempt_at FROM evidence_blob_cleanup_claims WHERE object_blob_id = 
 	}
 }
 
-func requireCleanupFailureClass(t testing.TB, database postgres.DB, blobID uuid.UUID, want string) {
+func requireCleanupFailureClass(t testing.TB, database dbport.DB, blobID uuid.UUID, want string) {
 	t.Helper()
 	var got string
 	if err := database.QueryRow(context.Background(), `
@@ -467,7 +467,7 @@ SELECT last_failure_class FROM evidence_blob_cleanup_claims WHERE object_blob_id
 	}
 }
 
-func requireCleanupDueAt(t testing.TB, database postgres.DB, blobID uuid.UUID, want time.Time) {
+func requireCleanupDueAt(t testing.TB, database dbport.DB, blobID uuid.UUID, want time.Time) {
 	t.Helper()
 	var got time.Time
 	if err := database.QueryRow(context.Background(), `
@@ -480,7 +480,7 @@ SELECT cleanup_due_at FROM object_blobs WHERE object_blob_id = $1
 	}
 }
 
-func requireObjectBlobExists(t testing.TB, database postgres.DB, blobID uuid.UUID, want bool) {
+func requireObjectBlobExists(t testing.TB, database dbport.DB, blobID uuid.UUID, want bool) {
 	t.Helper()
 	var got bool
 	if err := database.QueryRow(context.Background(), `
@@ -493,7 +493,7 @@ SELECT EXISTS (SELECT 1 FROM object_blobs WHERE object_blob_id = $1)
 	}
 }
 
-func insertFailedCleanupBlob(t testing.TB, database postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
+func insertFailedCleanupBlob(t testing.TB, database dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
 	t.Helper()
 	if _, err := database.Exec(context.Background(), `
 INSERT INTO object_blobs (
@@ -514,7 +514,7 @@ INSERT INTO object_blobs (
 	}
 }
 
-func insertExpiredPendingBlob(t testing.TB, database postgres.DB, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
+func insertExpiredPendingBlob(t testing.TB, database dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
 	t.Helper()
 	if _, err := database.Exec(context.Background(), `
 INSERT INTO object_blobs (

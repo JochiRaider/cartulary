@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { prepareBoundaryPolicy, evaluateBoundaryPolicy as evaluateParsedPolicy } from "../backend-module-boundary-check.mjs";
-import { inspectGoImports } from "../go-import-inspection.mjs";
+import { inspectGoImports, inspectGoSQL } from "../go-import-inspection.mjs";
 import { repository } from "./fixtures.mjs";
 
 export function emptyPolicy(overrides = {}) {
   return {
+    sql_forwarding_capabilities: [],sql_control_capabilities: [],
     schema_id: "cartulary.backend_module_boundaries.v4", scan_roots: [], scan_excludes: [], exact_file_sets: [],
     migration_source_boundary: { scan_roots: [], restricted_imports: [], forbidden_declarations: [], exact_calls: [] },
     owner_port_only_imports: [], raw_ndjson_targets: [], forbidden_route_dependencies: [], forbidden_go_imports: [],
@@ -29,7 +30,8 @@ export function inspect(files, overrides, inputs = {}) {
 export function evaluateBoundaryPolicy(policy, inputs = {}) {
   const needsImports = [policy.ownerPortOnlyImports, policy.forbiddenRouteDependencies,
     policy.forbiddenGoImports, policy.goImportAllowlists, policy.migrationSourceBoundary.restrictedImports].some((rules) => rules.length > 0);
-  return evaluateParsedPolicy(policy, { ...inputs,
+  return evaluateParsedPolicy(policy, {
+sqlByPath: (policy.sourceTableAccess.length || policy.sqlTableAllowlists.length || policy.sqlTableAccess.length || policy.sqlForwardingCapabilities.length || inputs.completeSourceSet || inputs.sqlAdditionalFiles?.length) ? inspectGoSQL([[...(inputs.files??[]),...(inputs.testSupportFiles??[]),...(inputs.sqlAdditionalFiles??[])].filter(file=>!file.relative.endsWith("_test.go"))]) : new Map(), ...inputs,
     importsByPath: needsImports ? inspectGoImports([inputs.files ?? [], inputs.migrationBoundaryFiles ?? []]) : new Map(),
   });
 }

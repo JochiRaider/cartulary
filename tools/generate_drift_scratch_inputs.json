@@ -87,6 +87,7 @@
     "internal/gen/performancefixtureprofile",
     "internal/gen/sql",
     "internal/gen/viewschemasource",
+    "internal/platform/maintenancequery/catalog_generated.go",
     "internal/testutil/harnessdiag/command_generated.go",
     "internal/testutil/harnessdiag/testdata/schema-probes.json",
     "internal/testutil/harnessreview/policy_generated.go",
