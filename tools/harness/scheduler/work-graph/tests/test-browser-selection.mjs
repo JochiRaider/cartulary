@@ -35,6 +35,13 @@ test("browser suites project all groups and retained visual finalizers", async (
     });
     const visualUpdateFinalizer = visualUpdateGraph.units.find((unit) => unit.unit_id === "browser_target_summary:browser-e2e-visual-update");
     assert.ok(visualUpdateFinalizer?.current_run_evidence_outputs.includes("browser-e2e-visual-update/frontend-visual-reconciliation.json"), "visual update must reconcile its complete scratch candidate before promotion");
+    const visualUpdateGroups = visualUpdateGraph.units.filter((unit) => unit.unit_id.startsWith("browser_group:visual:"));
+    assert.ok(new Set(visualUpdateGroups.map((unit) => unit.command.environment.CARTULARY_BROWSER_LANE_ID)).size > 1, "visual update cohorts use the lane budget");
+    for (const unit of visualUpdateGroups) {
+        assert.equal(unit.exclusive_locks.includes("browser_snapshots"), false, "update cohorts do not serialize on the snapshot key");
+        assert.ok(unit.shared_locks.includes("browser_snapshots"));
+        assert.ok(visualUpdateFinalizer.needs.includes(unit.unit_id), "promotion waits for every update cohort");
+    }
 });
 test("ordinary browser selection owns cohorts lanes preparation and accounting", async (t) => {
     const compiler = new WorkGraphCompiler(root);

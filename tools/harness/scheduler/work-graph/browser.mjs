@@ -201,17 +201,16 @@ function resetPolicy(root) {
   return policy;
 }
 
-function groupLocks(group, mode) {
+function groupLocks(group) {
   const shared = [];
   const exclusive = [];
   const host = hostLocks(group);
   shared.push(...host.shared);
   exclusive.push(...host.exclusive);
-  if (group.kind === "visual" && mode === "snapshot_update") {
-    exclusive.push("browser_snapshots");
-  } else if (group.kind === "visual") {
-    shared.push("browser_snapshots");
-  }
+  // Update cohorts of one invocation overlap like validation cohorts: each
+  // writes only its own captures into the run-scoped candidate directory, and
+  // the target finalizer alone promotes it after every cohort settles.
+  if (group.kind === "visual") shared.push("browser_snapshots");
   return {
     shared: shared.sort(compareASCII),
     exclusive: exclusive.sort(compareASCII),
@@ -220,7 +219,7 @@ function groupLocks(group, mode) {
 
 function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
   const key = safeID(lifecycleKey(stage, group));
-  const locks = groupLocks(group, mode);
+  const locks = groupLocks(group);
   const target = mode === "snapshot_update" ? "browser-e2e-visual-update" : group.target;
   return {
     renderer_requirement: group.resourceProfileID === "browser_measurement_quiet" ? "dedicated" : "pooled",
@@ -442,7 +441,7 @@ export function compileBrowserStagesUnits(root, owner, stages, {
     throw new Error("selected browser closure has conflicting invocation policies");
   }
   const groups = packBrowserCohorts([...partitions.values()], catalog, policy, owner,
-    (group) => resourceProfile(root, group).runner_timeout_ms ?? owner.default_timeout_ms);
+    (group) => resourceProfile(root, group).runner_timeout_ms ?? owner.default_timeout_ms, { laneLimit: maxLanes });
   const ordinary = groups.filter((group) => group.resourceProfileID === "browser_ordinary");
   const scheduled = ordinary.length ? planBrowserLanes(ordinary, {
     maxLanes, estimateGroup: (group) => group.estimatedWorkMs,

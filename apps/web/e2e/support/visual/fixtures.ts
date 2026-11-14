@@ -5,6 +5,7 @@ import {
   installApplicationAssetMonitor,
 } from "../runtime/applicationReadiness";
 
+import { installVisualFrameSource } from "./applicationTime";
 import { verifyTimelineVisualCores } from "./timelineVisualFixture";
 
 export const test = base.extend<{ timelineCoreReadback: undefined }>({
@@ -56,6 +57,7 @@ export const test = base.extend<{ timelineCoreReadback: undefined }>({
 import type { Page } from "@playwright/test";
 
 export async function initializeVisualPage(page: Page, userId: string) {
+  await installVisualFrameSource(page);
   const preferences = await installVisualPreferences(page, userId);
   const assets = installApplicationAssetMonitor(page);
   return { preferences, assets };

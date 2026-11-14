@@ -85,6 +85,20 @@ assertions remain observation-only. Preserve intentional workbook-grid framing.
 No normalization, arbitrary pixel correction, sleep, retry, or tolerance change
 may repair a mismatch after anchoring.
 
+Every capture parks the pointer at the viewport origin and waits until no grid
+is refreshing. A capture of the refreshing state itself declares
+`transientState: "grid_refreshing"`. Timer-driven presentation, such as the
+delayed initial-loading phase or polled job status, uses the helpers in
+`apps/web/e2e/support/visual/applicationTime.ts`. Install the virtual clock
+before the navigation whose timers matter, hold application time, and advance it
+explicitly with `advanceApplicationTime` or `advanceApplicationTimeUntil`. Never
+wait on wall-clock time. Harness frame waits use the native frame source that
+each visual context records before any clock is installed.
+
+Ordinary browser cohorts are balanced across the `BROWSER_LANES` budget. Use
+`BROWSER_LANES=6` on hosts with capacity to shorten a full Visual run; the
+selection, comparisons and evidence do not change.
+
 Capture intent v3 binds the selected row, stable scenario, actual spec, exact
 report title and project, and records the surface, declared and observed presentation, and
 viewport. Registry v6 contains a profile for each exact golden path, including

@@ -945,8 +945,21 @@ descending predicted selected execution cost with stable project/file identity
 ties. Deterministic first-fit packing places each selection in the first cohort
 whose projected startup, selected execution and cleanup fit the existing work-unit
 timeout envelope. An individually oversized selection remains explicit and MUST
-NOT cause an increased timeout or additional selected cases. The same packing
-rule governs ordinary browser cohorts, using stable semantic row identity ties.
+NOT cause an increased timeout or additional selected cases.
+
+Ordinary browser cohorts instead use bounded balanced packing, so the selected
+`BROWSER_LANES` budget can run independent allocations concurrently. Within each
+compatibility partition the cohort count is the larger of the first-fit count
+above and the smallest of the selected lane limit, the selected row count, and
+the number of cohorts whose predicted selected execution can each cover one
+browser allocation acquisition estimate. Rows are considered in descending
+predicted selected execution cost with stable semantic row identity ties. Each
+row is assigned to the cohort with the lowest projected cost, with stable cohort
+order ties. If a multi-row cohort exceeds the timeout envelope, the count
+increases by one and packing repeats. The count derives only from the
+selection, the lane limit and the existing estimates. It never grants capacity,
+lengthens a deadline, changes worker count or splits a row. Isolated and
+measurement browser rows keep first-fit packing and remain singletons.
 Unit identity, cache semantics and semantic digest bind the exact project, files,
 full selected titles and execution policy. Authoritative runner output MUST resolve
 every selected row exactly once; missing, duplicate, ambiguous, skipped or
@@ -1129,8 +1142,9 @@ canonical selected rows and consuming units without assigning another execution
 identity or running a shared case again. The published work
 graph's row bindings are the sole runtime selection transport. No joined
 row-list environment variable or filename-based sharing fallback is admitted.
-One Playwright worker executes each cohort. The bounded deterministic packing
-rule in REQ-805 applies without lengthening existing deadlines. Shared startup
+One Playwright worker executes each cohort. The bounded balanced packing rule
+for ordinary browser cohorts in REQ-805 applies without lengthening existing
+deadlines. Shared startup
 and teardown are counted once per cohort; selected-work estimates account for
 each exact test in a row. Coordinator and worker processes and CPU remain
 accounted separately from the broker-owned renderer and services. Test completion is published only
@@ -1141,7 +1155,7 @@ settled test outcomes. A failed test stops its cohort, accounts for
 unexecuted rows, and quarantines the allocation before another cohort is
 admitted. Product tests are never retried. Measurement retains
 its dedicated lifetime, sampling and quiet admission; visual updates retain
-exclusive ownership. Stack lanes are broker leases; shell code MUST NOT own
+exclusive promotion ownership in their target finalizer. Stack lanes are broker leases; shell code MUST NOT own
 group order or capacity. One planner normalizes the complete selected ordinary
 browser closure before packing, including selections from different reporting
 suites. Browser execution consists of consuming cohort units and necessary
@@ -1168,8 +1182,12 @@ non-success, and quarantine an unsafe allocation. Finalizers MUST resolve this
 outcome through the canonical cohort/lease and phase evidence, not a reset-unit
 ID convention or inferred missing runner report. Later independent work may
 obtain a fresh allocation after safe settlement; failed work is never retried.
-Read-only visual work MAY overlap; snapshot update work
-claims an exclusive write key for its output. Measurement work is admitted only
+Read-only visual work MAY overlap. Snapshot update cohorts of one update
+invocation MAY also overlap within the lane budget. Each writes only the
+candidate files of its own exact captures into the invocation's run-scoped
+candidate directory, which is staged once atomically. Only the target finalizer
+promotes that candidate, after every update cohort settles and reconciliation
+passes; duplicate or ambiguous capture paths block promotion. Measurement work is admitted only
 when no ordinary unit holds the resources covered by its quiet profile. Every
 executable graph unit that consumes CPU, memory, process, I/O, database,
 object-store, service-stack, or browser resources MUST hold `host_activity` in
@@ -1257,7 +1275,7 @@ runtime/trust/configuration partitions MUST NOT share a physical allocation.
 They queue when the lane budget is occupied rather than requiring one concurrent
 lane per selected partition.
 
-Within each normalized execution partition, bounded first-fit packing follows
+Within each normalized execution partition, bounded balanced packing follows
 REQ-805. Cohort cost includes preparation, startup, selected execution and
 cleanup once under REQ-801. Cohorts are considered in descending cost with stable
 semantic identity ties and assigned deterministically to the least-loaded
@@ -4410,6 +4428,14 @@ comparison. No layout-changing normalization may follow that anchor. The anchor
 relationship, relevant rectangles, and scroll offsets MUST remain correct for
 three consecutive animation frames within the ordinary assertion budget.
 Screenshot pixel stability alone does not prove the intended scroll position.
+The pointer MUST be parked at the viewport origin before every capture so
+hover state left by earlier interactions cannot enter a golden. A capture whose
+presentation depends on an application timer, interval or poll MUST hold
+application time with the browser's virtual clock and advance it explicitly,
+never wait on wall-clock time. Frame observations MUST use the native rendered
+frame source captured before any virtual clock is installed. A capture of an
+intentionally transient refreshing state MUST declare that state; every other
+capture waits until no grid is refreshing.
 Update mode MUST retain goldens that already satisfy ordinary comparison and
 replace only missing or failing captures through the reviewed candidate path.
 Drawer control captures center their declared control in the drawer body,

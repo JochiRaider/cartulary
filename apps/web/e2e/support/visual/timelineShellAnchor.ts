@@ -84,10 +84,14 @@ export async function observeTimelineShellOrigin(page: Page, recordId: string) {
         focused: boolean;
         save: string | null;
       }[] = [];
+      const nextFrame =
+        (
+          globalThis as {
+            __cartularyVisualFrame?: typeof requestAnimationFrame;
+          }
+        ).__cartularyVisualFrame ?? requestAnimationFrame;
       for (let i = 0; i < 3; i++) {
-        await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => resolve()),
-        );
+        await new Promise<void>((resolve) => nextFrame(() => resolve()));
         const element = find(selectors.target);
         const cell = element?.closest<HTMLElement>('[role="gridcell"]') ?? null;
         const row = element?.closest<HTMLElement>("[data-grid-record-id]");

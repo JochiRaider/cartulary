@@ -7,6 +7,11 @@ import {
   openReferencePacks,
 } from "./support/referencePacks";
 import { responseBarrier } from "./support/runtime/cleanup";
+import {
+  holdApplicationTime,
+  installApplicationClock,
+  resumeApplicationTime,
+} from "./support/visual/applicationTime";
 import { assertViewportVisualRegression } from "./support/visual/capture";
 import { test } from "./support/visual/fixtures";
 
@@ -18,8 +23,21 @@ test("Capture Reference Pack catalog selection admission recovery and all job st
     page,
     testActor.user_id,
   );
+  // Job observation polls on an application timer and shows " · Checking
+  // status" while a read is in flight. Job-state captures hold application
+  // time, let any started read settle, and resume polling afterwards.
+  await installApplicationClock(page);
   await page.setViewportSize({ width: 1280, height: 900 });
   const panel = await openReferencePacks(page);
+  const captureJobState = async (name: string) => {
+    await holdApplicationTime(page);
+    try {
+      await expect(panel.getByText(/ · Checking status$/u)).toHaveCount(0);
+      await assertViewportVisualRegression(page, name);
+    } finally {
+      await resumeApplicationTime(page);
+    }
+  };
   await assertViewportVisualRegression(page, "reference-pack-catalog");
   await panel.getByRole("checkbox").first().check();
   await panel.getByLabel("Search reference packs").fill("process");
@@ -78,18 +96,15 @@ test("Capture Reference Pack catalog selection admission recovery and all job st
   });
   await expect(operations.getByText("Queued", { exact: true })).toBeVisible();
   await operations.scrollIntoViewIfNeeded();
-  await assertViewportVisualRegression(page, "reference-pack-queued");
+  await captureJobState("reference-pack-queued");
   fixture.setStatus("running");
   await expect(operations.getByText("Running", { exact: true })).toBeVisible();
-  await assertViewportVisualRegression(page, "reference-pack-running");
+  await captureJobState("reference-pack-running");
   fixture.failReads(true);
   await expect(
     panel.getByRole("button", { name: "Retry observation" }),
   ).toBeVisible();
-  await assertViewportVisualRegression(
-    page,
-    "reference-pack-observation-recovery",
-  );
+  await captureJobState("reference-pack-observation-recovery");
   fixture.failReads(false);
   await panel.getByRole("button", { name: "Retry observation" }).click();
   await expect(
@@ -108,13 +123,13 @@ test("Capture Reference Pack catalog selection admission recovery and all job st
   await operations.evaluate((element) =>
     element.scrollIntoView({ block: "start", behavior: "instant" }),
   );
-  await assertViewportVisualRegression(page, "reference-pack-cancel-requested");
+  await captureJobState("reference-pack-cancel-requested");
   fixture.setStatus("canceled");
   await expect(operations.getByText("Canceled", { exact: true })).toBeVisible();
   await operations.evaluate((element) =>
     element.scrollIntoView({ block: "start", behavior: "instant" }),
   );
-  await assertViewportVisualRegression(page, "reference-pack-canceled");
+  await captureJobState("reference-pack-canceled");
   for (const [status, label, capture] of [
     ["succeeded", "Succeeded", "reference-pack-succeeded"],
     ["failed", "Failed", "reference-pack-failed"],
@@ -126,6 +141,6 @@ test("Capture Reference Pack catalog selection admission recovery and all job st
     fixture.setStatus(status);
     await expect(operations.getByText(label, { exact: true })).toBeVisible();
     await operations.getByText(label, { exact: true }).scrollIntoViewIfNeeded();
-    await assertViewportVisualRegression(page, capture);
+    await captureJobState(capture);
   }
 });

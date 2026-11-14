@@ -165,6 +165,9 @@ export async function assertWorkbookGridVisualRegression(
         ...(options.maxDiffPixels === undefined
           ? {}
           : { maxDiffPixels: options.maxDiffPixels }),
+        ...(options.transientState === undefined
+          ? {}
+          : { transientState: options.transientState }),
         renderSurface: surface,
         verifyFraming: async () => {
           await expect

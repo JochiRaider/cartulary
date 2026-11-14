@@ -1,6 +1,7 @@
 import { applyFilterChip } from "@cartulary/test-utils/grid";
 import {
   cartularyDefaultThemeId,
+  cartularyDesignPresentation,
   gridRowTestId,
   gridShellTestId,
   workbookInlineDraftRowTestId,
@@ -27,6 +28,13 @@ import {
   installOwnedRoute,
   removeOwnedRoute,
 } from "./support/transport/requestInterception";
+import {
+  advanceApplicationTime,
+  advanceApplicationTimeUntil,
+  holdApplicationTime,
+  installApplicationClock,
+  resumeApplicationTime,
+} from "./support/visual/applicationTime";
 import { assertVisualRegression } from "./support/visual/capture";
 import { injectDesignFixture, test } from "./support/visual/fixtures";
 import {
@@ -341,8 +349,19 @@ test("Capture exposed dark_graphite token and theme states with deterministic de
     method: "POST",
     path: `/api/v1/incidents/${loadingIncidentId}/views/${timelineViewSchemaId}/query`,
   });
+  // The delayed-loading phase is a 2,000 ms application timer. Hold virtual
+  // time before navigation and step it only until the initial query starts, so
+  // the immediate phase cannot age during capture; then advance exactly to the
+  // delayed phase.
+  await installApplicationClock(page);
+  await holdApplicationTime(page);
   try {
+    let queryStarted = false;
+    void heldInitialQuery.waitForHit.then(() => {
+      queryStarted = true;
+    });
     await navigateVisualApplication(page, `/?incident_id=${loadingIncidentId}`);
+    await advanceApplicationTimeUntil(page, () => queryStarted);
     await heldInitialQuery.waitForHit;
     const loadingGrid = page.getByTestId(gridShellTestId(timelineViewSchemaId));
     await expect(loadingGrid).toBeVisible();
@@ -365,6 +384,13 @@ test("Capture exposed dark_graphite token and theme states with deterministic de
       { scroll: { top: 0, left: "left" } },
     );
 
+    await expect(initialLoading).not.toContainText(
+      "Still loading this surface",
+    );
+    await advanceApplicationTime(
+      page,
+      cartularyDesignPresentation.initialLoading.delayMs,
+    );
     await expect(initialLoading).toContainText("Still loading this surface");
     await expect(initialLoading.getByRole("button")).toHaveCount(0);
     await assertWorkbookGridVisualRegression(
@@ -379,6 +405,7 @@ test("Capture exposed dark_graphite token and theme states with deterministic de
     await heldInitialQuery.dispose();
   } finally {
     heldInitialQuery.cancel();
+    await resumeApplicationTime(page);
   }
 
   const staleIncidentId = await createRichTimelineIncident(
@@ -447,7 +474,7 @@ test("Capture exposed dark_graphite token and theme states with deterministic de
       page,
       "design-grid-background-refresh",
       timelineViewSchemaId,
-      { scroll: { top: 0, left: "left" } },
+      { scroll: { top: 0, left: "left" }, transientState: "grid_refreshing" },
     );
 
     releaseStaleQuery();

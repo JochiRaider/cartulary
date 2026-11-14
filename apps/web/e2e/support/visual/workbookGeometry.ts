@@ -352,9 +352,12 @@ async function normalizeWorkbookGridAnchorVisualState(
 
 export async function waitForVisualLayoutFrame(page: Page) {
   await page.evaluate(() => {
+    const nextFrame =
+      (globalThis as { __cartularyVisualFrame?: typeof requestAnimationFrame })
+        .__cartularyVisualFrame ?? requestAnimationFrame;
     return new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => resolve());
+      nextFrame(() => {
+        nextFrame(() => resolve());
       });
     });
   });
@@ -661,9 +664,15 @@ async function readWorkbookGridAnchorState(
           visibleFieldKeys,
         };
       };
+      const frameSource =
+        (
+          globalThis as {
+            __cartularyVisualFrame?: typeof requestAnimationFrame;
+          }
+        ).__cartularyVisualFrame ?? requestAnimationFrame;
       const nextFrame = () =>
         new Promise<void>((resolve) => {
-          requestAnimationFrame(() => resolve());
+          frameSource(() => resolve());
         });
       const samples = [readDiagnostics()];
       await nextFrame();
@@ -958,6 +967,7 @@ export async function readWorkbookGridScroll(
 export type GridVisualRegressionOptions = {
   maxDiffPixels?: number;
   testInfo?: TestInfo;
+  transientState?: "grid_refreshing";
 } & (
   | { scroll: GridVisualScrollState; anchor?: never }
   | { anchor: GridVisualAnchor; scroll?: never }

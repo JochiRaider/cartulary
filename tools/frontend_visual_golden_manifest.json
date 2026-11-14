@@ -676,7 +676,7 @@
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-delete-dialog-linux.png",
-      "sha256": "abbdcee1bf20b09342d1fce2dc4c4df3a2b52df4661a2ffba7561e417ad00096"
+      "sha256": "d77a658d8a3f6fa5fb52fc777ed9883807615f1df36503cda483666008202a7b"
     },
     {
       "path": "apps/web/e2e/visual-goldens/network-flow-analysis-filtered-empty-grid-linux.png",

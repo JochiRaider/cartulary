@@ -34,7 +34,38 @@ export function browserCohort(partition, rows, policy) {
   };
 }
 
-export function packBrowserCohorts(partitions, catalog, policy, owner, timeoutFor) {
+const compareItems = (a, b) => b.cost - a.cost || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+// Balanced packing for ordinary browser cohorts. The cohort count is the larger
+// of the first-fit count and the smallest of the lane limit, the selected row
+// count, and the number of cohorts whose selected work can each cover one
+// allocation acquisition. Rows are assigned in descending cost to the cohort
+// with the lowest projected cost; a multi-row cohort beyond the timeout
+// envelope adds one cohort and repeats. Estimates never grant capacity.
+export function packBalancedBrowserCohorts(items, { startup_ms, cleanup_ms }, timeoutMS, { laneLimit, minimumSelectedWorkMs }) {
+  if (!Number.isSafeInteger(laneLimit) || laneLimit < 1) throw new Error("balanced browser packing requires a positive lane limit");
+  if (!Number.isSafeInteger(minimumSelectedWorkMs) || minimumSelectedWorkMs < 1) {
+    throw new Error("balanced browser packing requires a positive minimum selected work estimate");
+  }
+  if (!items.length) return [];
+  const ordered = [...items].sort(compareItems);
+  const overhead = startup_ms + cleanup_ms;
+  const selectedWork = ordered.reduce((total, item) => total + item.cost, 0);
+  const useful = Math.max(1, Math.floor(selectedWork / minimumSelectedWorkMs));
+  const firstFit = packInvocationCohorts(ordered, { startup_ms, cleanup_ms }, timeoutMS).length;
+  for (let count = Math.max(firstFit, Math.min(laneLimit, ordered.length, useful)); count <= ordered.length; count += 1) {
+    const cohorts = Array.from({ length: count }, () => ({ cost: overhead, items: [] }));
+    for (const item of ordered) {
+      const cohort = cohorts.reduce((lowest, candidate) => candidate.cost < lowest.cost ? candidate : lowest);
+      cohort.items.push(item);
+      cohort.cost += item.cost;
+    }
+    if (cohorts.every((cohort) => cohort.items.length === 1 || cohort.cost <= timeoutMS)) return cohorts;
+  }
+  throw new Error("balanced browser packing could not place the selection");
+}
+
+export function packBrowserCohorts(partitions, catalog, policy, owner, timeoutFor, { laneLimit = 1 } = {}) {
   return partitions.flatMap((partition) => {
     const items = partition.selectedRowIDs.map((id) => {
       const row = catalog.rowByID.get(id);
@@ -46,9 +77,15 @@ export function packBrowserCohorts(partitions, catalog, policy, owner, timeoutFo
     // for every candidate; the compiler charges them only at their actual ends.
     const headroom = Math.max(owner.lifecycle_estimates_ms.browser_allocation_acquire, owner.lifecycle_estimates_ms.browser_reset) +
       owner.lifecycle_estimates_ms.browser_allocation_release;
-    return packInvocationCohorts(items, policy, timeoutFor(partition) - headroom).map((packed) => ({
-      ...browserCohort(partition, packed.items.map((item) => item.row), policy),
-      estimatedWorkMs: packed.cost,
+    const envelope = timeoutFor(partition) - headroom;
+    const packed = partition.resourceProfileID === "browser_ordinary"
+      ? packBalancedBrowserCohorts(items, policy, envelope, {
+        laneLimit, minimumSelectedWorkMs: owner.lifecycle_estimates_ms.browser_allocation_acquire,
+      })
+      : packInvocationCohorts(items, policy, envelope);
+    return packed.map((cohort) => ({
+      ...browserCohort(partition, cohort.items.map((item) => item.row), policy),
+      estimatedWorkMs: cohort.cost,
     }));
   });
 }

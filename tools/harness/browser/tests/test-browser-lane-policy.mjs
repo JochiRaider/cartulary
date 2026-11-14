@@ -231,6 +231,29 @@ test("browser cohorts bind exact cases and execution compatibility independently
   assert.deepEqual(packBrowserCohorts([partition], catalog, policy, owner, () => 110)
     .map((cohort) => cohort.selectedRowIDs.length), [1, 1, 1], "allocation headroom cannot enlarge the existing envelope");
   assert.deepEqual(packBrowserCohorts([], catalog, policy, owner, () => 130), []);
+  const balanced = packBrowserCohorts([partition], catalog, policy, owner, () => 130, { laneLimit: 3 });
+  assert.deepEqual(balanced.map((cohort) => cohort.estimatedWorkMs), [70, 70, 70], "the lane budget splits an ordinary partition evenly");
+  assert.deepEqual(packBrowserCohorts([{ ...partition, selectedRowIDs: [...partition.selectedRowIDs].reverse() }], catalog, policy, owner, () => 130, { laneLimit: 3 }), balanced);
+  assert.deepEqual(packBrowserCohorts([partition], catalog, policy, owner, () => 130, { laneLimit: 6 })
+    .map((cohort) => cohort.selectedRowIDs.length), [1, 1, 1], "cohorts never exceed selected rows");
+  const expensiveAcquire = { ...owner, lifecycle_estimates_ms: { ...owner.lifecycle_estimates_ms, browser_allocation_acquire: 50 } };
+  assert.deepEqual(packBrowserCohorts([partition], catalog, policy, expensiveAcquire, () => 260, { laneLimit: 3 })
+    .map((cohort) => cohort.selectedRowIDs.length), [2, 1], "a cohort must carry at least one acquisition of selected work");
+  const isolatedCatalog = { rowByID: new Map(rows.map((row) => [row.row_id, { ...row, resource_profile_id: "browser_isolated" }])) };
+  assert.deepEqual(packBrowserCohorts([{ ...partition, resourceProfileID: "browser_isolated" }], isolatedCatalog, policy, owner, () => 130, { laneLimit: 3 })
+    .map((cohort) => cohort.selectedRowIDs.length), [2, 1], "non-ordinary profiles keep first-fit packing");
+  const { packBalancedBrowserCohorts } = await import("../browser-cohorts.mjs");
+  const shape = (cohorts) => cohorts.map((cohort) => [cohort.cost, cohort.items.map((item) => item.id)]);
+  const unit = { laneLimit: 1, minimumSelectedWorkMs: 1 };
+  assert.deepEqual(shape(packBalancedBrowserCohorts([{ id: "c", cost: 25 }, { id: "a", cost: 50 }, { id: "d", cost: 25 }, { id: "b", cost: 50 }],
+    { startup_ms: 10, cleanup_ms: 5 }, 90, unit)), [[90, ["a", "c"]], [90, ["b", "d"]]], "balanced packing keeps the first-fit count");
+  const tight = ["a", "b", "c", "d", "e"].map((id, index) => ({ id, cost: index < 2 ? 3 : 2 }));
+  assert.deepEqual(shape(packBalancedBrowserCohorts(tight, { startup_ms: 0, cleanup_ms: 0 }, 6, unit)),
+    [[5, ["a", "e"]], [3, ["b"]], [4, ["c", "d"]]], "an over-envelope balanced cohort adds one cohort");
+  assert.deepEqual(shape(packBalancedBrowserCohorts([{ id: "oversized", cost: 100 }], { startup_ms: 10, cleanup_ms: 5 }, 90, { ...unit, laneLimit: 4 })),
+    [[115, ["oversized"]]], "an oversized row remains explicit");
+  assert.deepEqual(packBalancedBrowserCohorts([], { startup_ms: 0, cleanup_ms: 0 }, 6, unit), []);
+  assert.throws(() => packBalancedBrowserCohorts(tight, { startup_ms: 0, cleanup_ms: 0 }, 6, { ...unit, laneLimit: 0 }), /positive lane limit/u);
   const subset = browserCohort(partition, [rows[1]], policy);
   for (const key of ["frontendArtifactID", "config", "runtimeKind", "keyRingManifestPath", "serviceRequirement"]) {
     assert.notEqual(subset.name, browserCohort({ ...partition, [key]: "changed" }, [rows[1]], policy).name, key);

@@ -16,7 +16,8 @@ export type VisualAnchor = {
 export async function settleVisualGeometry(page: Page, anchor?: VisualAnchor) {
   const target = anchor?.locator ?? page.locator("body");
   await expect(target).toBeVisible();
-  if (anchor) await page.mouse.move(0, 0);
+  // Park the pointer for every capture so earlier clicks cannot leave hover state.
+  await page.mouse.move(0, 0);
   if (anchor?.focus) {
     await target.evaluate((element) =>
       (element as HTMLElement).focus({ preventScroll: true }),
@@ -193,10 +194,16 @@ export async function verifyVisualGeometry(page: Page, anchor?: VisualAnchor) {
                   anchorCorrect,
                 };
               };
+              const nextFrame =
+                (
+                  globalThis as {
+                    __cartularyVisualFrame?: typeof requestAnimationFrame;
+                  }
+                ).__cartularyVisualFrame ?? requestAnimationFrame;
               const frames = [];
               for (let frame = 0; frame < 3; frame++) {
                 await new Promise<void>((resolve) =>
-                  requestAnimationFrame(() => resolve()),
+                  nextFrame(() => resolve()),
                 );
                 frames.push(observe());
               }
@@ -285,10 +292,15 @@ async function visualCaptureStep<T>(
   });
 }
 
+// A capture of an intentionally transient application state declares it;
+// otherwise the pipeline waits until no grid is refreshing.
+export type VisualTransientState = "grid_refreshing";
+
 type CaptureOptions = {
   renderSurface?: string;
   anchor?: VisualAnchor;
   verifyFraming?: () => Promise<void>;
+  transientState?: VisualTransientState;
 };
 type CaptureMode =
   | {
@@ -353,6 +365,21 @@ async function captureVisual(
     await visualCaptureStep(name, "presentation and font readiness", () =>
       prepareVisualPresentation(page),
     );
+    await visualCaptureStep(name, "settled application state", async () => {
+      const nativeFrames = await page.evaluate(
+        () =>
+          (globalThis as { __cartularyVisualFrameNative?: boolean })
+            .__cartularyVisualFrameNative,
+      );
+      if (nativeFrames === false)
+        throw new Error(
+          "Visual frame source captured a replaced requestAnimationFrame; capture frame waits would follow virtual time",
+        );
+      const refreshing = page.locator('[data-grid-data-state="refreshing"]');
+      if (options.transientState === "grid_refreshing")
+        await expect(refreshing.first()).toBeVisible();
+      else await expect(refreshing).toHaveCount(0);
+    });
     if (mode.kind === "locator")
       await visualCaptureStep(name, "prepare declared surface", async () => {
         await mode.prepareState?.();
