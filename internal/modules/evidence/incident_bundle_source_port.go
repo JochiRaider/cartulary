@@ -5,12 +5,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/sourcevalue"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-func NewIncidentBundleSourcePort() sourceport.Port {
-	descriptor := sourceport.Descriptor{
+func incidentBundleSourceDescriptor() sourceport.Descriptor {
+	return sourceport.Descriptor{
 		FamilyID: "evidence", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.evidence", OwnerRelationIDs: []string{"evidence-source-and-handles"},
 		Dependencies: []string{"tasks_decisions"},
@@ -25,18 +25,32 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			"evidence.lifecycle_legal", "evidence.staged_bytes_digest",
 			"evidence.custody_ordered", "evidence.custody_same_incident",
 			"evidence.source_identity_admitted",
+			"evidence.row_shape_exact", "evidence.attribution_exact", "evidence.source_state_exact",
+			"evidence.references_same_incident",
 		},
 	}
+}
+
+func NewIncidentBundleSourcePort() sourceport.Port {
+	binding := &evidencePreparationBinding{contractMajor: sourceport.ContractMajor}
+	descriptor := incidentBundleSourceDescriptor()
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: exportIncidentBundleFiles,
-		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareMembers(ctx, descriptor, bundle, importContext.BundleVersion)
+		Prepare: func(ctx context.Context, bundle sourceport.Bundle, input sourceport.ImportContext) (any, error) {
+			return prepareEvidenceImport(ctx, bundle, input, descriptor, binding)
 		},
-		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			files := value.(*incidentportability.BoundMembers)
-			return importIncidentBundleFilesTx(ctx, tx, files, importContext.RewrittenObjectBlobs, importContext.ActorUserID, importContext.Attributions)
+		Apply: func(ctx context.Context, tx pgx.Tx, value any, input sourceport.ImportContext) error {
+			prepared, ok := value.(preparedEvidenceImport)
+			if !ok || !prepared.matches(input, binding) || tx == nil {
+				return sourceport.ErrPreparedBinding
+			}
+			return prepared.apply(ctx, tx, input, descriptor)
 		},
-		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
+		Validate: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
+			prepared, ok := value.(preparedEvidenceImport)
+			if !ok || !prepared.matches(importContext, binding) || tx == nil {
+				return sourceport.ErrPreparedBinding
+			}
 			var invalid bool
 			if err := tx.QueryRow(ctx, `
 SELECT EXISTS (
@@ -50,7 +64,30 @@ SELECT EXISTS (
 			if invalid {
 				return descriptor.DeclaredFailure("evidence.envelope_type_scope")
 			}
-			return nil
+			if err := prepared.compareRecords(ctx, tx, descriptor); err != nil {
+				return err
+			}
+			if err := prepared.validateRecordAttributions(ctx, importContext.Attributions, descriptor); err != nil {
+				return err
+			}
+			if err := prepared.validatePartyReferences(ctx, tx, descriptor); err != nil {
+				return err
+			}
+			if err := prepared.compareBlobs(ctx, tx, importContext, descriptor); err != nil {
+				return err
+			}
+			if err := prepared.validateBlobAttributions(ctx, importContext.Attributions, descriptor); err != nil {
+				return err
+			}
+			if err := prepared.typed(ctx, descriptor, func(row sourcevalue.Row) error {
+				return prepared.validateBlobAssociation(ctx, tx, row, descriptor)
+			}); err != nil {
+				return err
+			}
+			if err := prepared.compareCustody(ctx, tx, descriptor); err != nil {
+				return err
+			}
+			return prepared.validateCustodyAttributions(ctx, importContext.Attributions, descriptor)
 		},
 	})
 }

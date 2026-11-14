@@ -2,8 +2,11 @@ package performancefixturelifecycle
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+	"testing/synctest"
+	"time"
 )
 
 func TestWaitForNoTemplateConnectionsAllowsOnlyBoundedOwnedDrain(t *testing.T) {
@@ -52,14 +55,39 @@ func TestWaitForNoTemplateConnectionsRejectsUnownedConnectionImmediately(t *test
 
 func TestWaitForNoTemplateConnectionsHonorsDrainDeadline(t *testing.T) {
 	t.Parallel()
-	owned := &ownedConnectionPIDs{}
-	owned.Add(101)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	err := waitForNoTemplateConnections(ctx, owned, func(context.Context) ([]templateConnection, error) {
-		return []templateConnection{{pid: 101, backendType: "client backend"}}, nil
-	}, 0)
-	if err == nil || !strings.Contains(err.Error(), "owned connections did not drain") {
-		t.Fatalf("unexpected drain deadline result: %v", err)
+	for _, cancelled := range []bool{false, true} {
+		name := "deadline"
+		if cancelled {
+			name = "cancellation"
+		}
+		t.Run(name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				owned := &ownedConnectionPIDs{}
+				owned.Add(101)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+				defer cancel()
+				want := context.DeadlineExceeded
+				if cancelled {
+					cancel()
+					want = context.Canceled
+				}
+				calls := 0
+				started := time.Now()
+				err := waitForNoTemplateConnections(ctx, owned, func(context.Context) ([]templateConnection, error) {
+					calls++
+					return []templateConnection{{pid: 101, backendType: "client backend"}}, nil
+				}, time.Millisecond)
+				if !errors.Is(err, want) || !strings.Contains(err.Error(), "owned connections did not drain") {
+					t.Fatalf("unexpected drain result: %v", err)
+				}
+				if cancelled {
+					if calls != 1 || time.Since(started) != 0 {
+						t.Fatal("cancelled drain retried or waited")
+					}
+				} else if calls < 2 || time.Since(started) != 5*time.Millisecond {
+					t.Fatal("owned connection drain did not stop at its deadline")
+				}
+			})
+		})
 	}
 }

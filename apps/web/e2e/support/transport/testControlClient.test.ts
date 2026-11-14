@@ -65,20 +65,34 @@ describe("test-control transport", () => {
 
     await expect(
       client.request({
-        body: { now: "2026-07-17T12:00:00Z" },
-        method: "PUT",
-        path: "/api/v1/test/clock",
+        body: { fixed_now: "2026-07-17T12:00:00Z" },
+        method: "POST",
+        path: "/api/v1/test/clock/set",
       }),
     ).resolves.toMatchObject({ ok: true, status: 202 });
     expect(request.fetch).toHaveBeenCalledWith(
-      "http://127.0.0.1:8080/api/v1/test/clock",
+      "http://127.0.0.1:8080/api/v1/test/clock/set",
       {
-        data: { now: "2026-07-17T12:00:00Z" },
+        data: { fixed_now: "2026-07-17T12:00:00Z" },
         headers: {
           Origin: "http://127.0.0.1:4173",
           "X-Cartulary-Test-Route-Token": "control-token",
         },
-        method: "PUT",
+        method: "POST",
+      },
+    );
+    await client.request({
+      method: "GET",
+      path: "/api/v1/test/runtime/identity?probe=alpha%20beta",
+    });
+    expect(request.fetch).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8080/api/v1/test/runtime/identity?probe=alpha%20beta",
+      {
+        method: "GET",
+        headers: {
+          Origin: "http://127.0.0.1:4173",
+          "X-Cartulary-Test-Route-Token": "control-token",
+        },
       },
     );
     expect(JSON.stringify(client)).not.toContain("control-token");
@@ -99,6 +113,19 @@ describe("test-control transport", () => {
       "/api/v1/incidents",
       "https://attacker.test/api/v1/test/clock",
       "//attacker.test/api/v1/test/clock",
+      "/api/v1/test/../users",
+      "/api/v1/test/%2e%2e/users",
+      "/api/v1/test/.%2e/users",
+      "/api/v1/test/%252e%252e/users",
+      "/api/v1/test/clock/../runtime/identity",
+      "/api/v1/test/clock\\..\\..\\users",
+      "/api/v1/test/%2f..%2fusers",
+      "/api/v1/test/%5c..%5cusers",
+      "/api/v1/test//clock",
+      "/api/v1/test/clock#ignored",
+      "/api/v1/test/\tclock",
+      "/api/v1/test/%00",
+      "/api/v1/test/%zz",
     ]) {
       await expect(client.request({ method: "GET", path })).rejects.toThrow(
         /test-control path/,

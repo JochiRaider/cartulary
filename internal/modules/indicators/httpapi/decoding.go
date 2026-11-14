@@ -163,7 +163,7 @@ func decodeLifecycleAppend(reader io.Reader) (lifecycleAppendRequest, *platformh
 			continue
 		}
 		var value string
-		if json.Unmarshal(raw[field], &value) != nil || value == "" || strings.ContainsRune(value, 0) {
+		if json.Unmarshal(raw[field], &value) != nil || strings.ContainsRune(value, 0) {
 			return lifecycleAppendRequest{}, invalidMutationPayload(field, "invalid_value")
 		}
 		*target = &value

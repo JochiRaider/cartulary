@@ -694,7 +694,7 @@
         "harness.release"
       ],
       "row_ids": [
-        "harness.release.behavior.current_owner_evidence"
+        "harness.release.behavior.package_readiness_contract"
       ]
     },
     {
@@ -755,8 +755,8 @@
         "ReferencePack",
         "Reporting"
       ],
-      "capability": "Entra v2 complete-corpus retention",
-      "expectation": "139-entry canonical corpus retains exact sets and provenance across rendering, format-7 transfer, and recovery; unsupported profiles fail runtime admission before mutation",
+      "capability": "Entra complete-corpus retention",
+      "expectation": "139-entry canonical corpus retains exact sets and provenance across rendering, incident-bundle 8 transfer, and recovery; unsupported profiles fail runtime admission before mutation",
       "owner_ids": [
         "app.operator",
         "app.server",
@@ -772,7 +772,8 @@
         "module.recovery.integration.entra_recovery",
         "module.reference_data.integration.canonical_persistence",
         "module.reference_data.unit.entra_corpus_expectations",
-        "module.reference_data.unit.entra_source_producer",
+        "module.reference_data.unit.independent_entra_producer",
+        "module.reference_data.unit.independent_entra_source_model",
         "module.reference_data.unit.retained_binding_admission",
         "module.reporting.integration.entra_snapshot_binding"
       ]

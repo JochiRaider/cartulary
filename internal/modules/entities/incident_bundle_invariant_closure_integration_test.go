@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -28,6 +29,43 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 	seedEntityPortableEnvelope(t, ctx, db, incidentID, mismatchedRecordID, "identity", actorID, timestamp)
 	importContext := entityPortableTestContext(t, incidentID, actorID, "entities-portable")
 	base := entityPortableTestBundle(t, entityPortableHostMap(hostRecordID, incidentID, actorID, timestamp))
+	t.Run("portable envelope port preserves scope metadata and retained deletion", func(t *testing.T) {
+		tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rollbackEntityPortableProbe(t, tx)
+		for _, fixture := range []struct {
+			id   uuid.UUID
+			kind string
+		}{{hostRecordID, "host"}, {mismatchedRecordID, "identity"}} {
+			want := entityPortableEnvelope{recordID: fixture.id, incidentID: incidentID, recordType: fixture.kind, rowVersion: 1, createdAt: timestamp, updatedAt: timestamp, createdByUserID: actorID, updatedByUserID: actorID}
+			got, present, err := loadEntityPortableEnvelope(ctx, tx, incidentID, fixture.id)
+			got.createdAt, got.updatedAt = got.createdAt.UTC(), got.updatedAt.UTC()
+			if err != nil || !present || !reflect.DeepEqual(got, want) {
+				t.Fatalf("%s envelope=%#v present=%v error=%v", fixture.kind, got, present, err)
+			}
+		}
+		for _, probe := range []struct{ incident, record uuid.UUID }{{uuid.New(), hostRecordID}, {incidentID, uuid.New()}} {
+			got, present, err := loadEntityPortableEnvelope(ctx, tx, probe.incident, probe.record)
+			if err != nil || present || !reflect.DeepEqual(got, entityPortableEnvelope{}) {
+				t.Fatalf("absent/foreign envelope=%#v present=%v error=%v", got, present, err)
+			}
+		}
+		deletedAt := timestamp.Add(time.Minute)
+		if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at=$2,deleted_by_user_id=$3 WHERE record_id=$1`, hostRecordID, deletedAt, actorID); err != nil {
+			t.Fatal(err)
+		}
+		got, present, err := loadEntityPortableEnvelope(ctx, tx, incidentID, hostRecordID)
+		if err != nil || !present || got.recordID != hostRecordID || got.recordType != "host" || got.deletedAt == nil || !got.deletedAt.Equal(deletedAt) || got.rowVersion != 1 {
+			t.Fatalf("retained deleted envelope=%#v present=%v error=%v", got, present, err)
+		}
+		canceled, cancel := context.WithCancel(ctx)
+		cancel()
+		if _, _, err := loadEntityPortableEnvelope(canceled, tx, incidentID, hostRecordID); !errors.Is(err, context.Canceled) {
+			t.Fatalf("lookup cancellation cause=%v", err)
+		}
+	})
 
 	t.Run("valid v2 rows import export byte exactly and reconstruct claims", func(t *testing.T) {
 		attributions := &entityPortableTestAttributions{}
@@ -42,7 +80,7 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("begin valid entity source transaction: %v", err)
 		}
-		defer func() { _ = tx.Rollback(ctx) }()
+		defer rollbackEntityPortableProbe(t, tx)
 		if err := applyPreparedEntityImportTx(ctx, tx, prepared, validContext); err != nil {
 			t.Fatalf("apply valid entity source: %v", err)
 		}
@@ -53,8 +91,25 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("export imported entity source: %v", err)
 		}
+		wantPaths := map[string]bool{
+			"data/entity_mentions.ndjson":              true,
+			"data/hosts.ndjson":                        true,
+			"data/identities.ndjson":                   true,
+			"data/entity_preserved_identifiers.ndjson": true,
+			"data/entity_aliases.ndjson":               true,
+		}
+		if len(files) != len(wantPaths) {
+			t.Fatalf("export member count = %d, want %d", len(files), len(wantPaths))
+		}
 		for _, file := range files {
-			want, _ := base.File(file.Path)
+			if !wantPaths[file.Path] {
+				t.Fatalf("unexpected or duplicate export member %q", file.Path)
+			}
+			delete(wantPaths, file.Path)
+			want, ok := base.File(file.Path)
+			if !ok {
+				t.Fatalf("missing fixture member %q", file.Path)
+			}
 			if !bytes.Equal(file.Payload, want) {
 				t.Fatalf("portable member %s changed across import/export", file.Path)
 			}
@@ -68,6 +123,15 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 		}
 	})
 
+	t.Run("preserved deletion may equal creation", func(t *testing.T) {
+		row := entityPortablePreservedMap(uuid.New(), incidentID, hostRecordID, actorID, timestamp)
+		row["deleted_at"] = entityFormatTimestamp(timestamp)
+		parsed, failures := preparePortablePreserved(row, importContext)
+		if len(failures) != 0 || parsed.DeletedAt == nil || !parsed.DeletedAt.Equal(timestamp) || !parsed.CreatedAt.Equal(timestamp) {
+			t.Fatalf("equal deletion/creation changed or rejected: failures=%v", failures)
+		}
+	})
+
 	prepareFailures := []struct {
 		name, invariant string
 		mutate          func(portabilitysupport.MapBundle)
@@ -76,6 +140,11 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 			row := entityPortableHostMap(hostRecordID, incidentID, actorID, timestamp)
 			row["undeclared"] = true
 			bundle[hostsBundlePath] = entityMarshalPortableRows(t, row)
+		}},
+		{"preserved deletion before creation", entitySourceIdentity, func(bundle portabilitysupport.MapBundle) {
+			row := entityPortablePreservedMap(uuid.New(), incidentID, hostRecordID, actorID, timestamp)
+			row["deleted_at"] = entityFormatTimestamp(timestamp.Add(-time.Microsecond))
+			bundle[preservedIDsBundlePath] = entityMarshalPortableRows(t, row)
 		}},
 		{"mentions observational", entityMentionsObserved, func(bundle portabilitysupport.MapBundle) {
 			row := entityPortableMentionMap(uuid.New(), hostRecordID, actorID, timestamp)
@@ -274,6 +343,7 @@ func requireEntityPortableApplyFailure(t testing.TB, ctx context.Context, db *pg
 	if err != nil {
 		t.Fatalf("begin cross-row entity failure: %v", err)
 	}
+	defer rollbackEntityPortableProbe(t, tx)
 	err = applyPreparedEntityImportTx(ctx, tx, prepared, importContext)
 	requireEntityPortableFailure(t, err, invariant)
 	if err := tx.Rollback(ctx); err != nil {
@@ -326,4 +396,13 @@ func (r *entityPortableTestAttributions) VisitImportedAttributions(table, rowID 
 		}
 	}
 	return nil
+}
+
+func rollbackEntityPortableProbe(t testing.TB, tx pgx.Tx) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+		t.Errorf("roll back entity portable probe: %v", err)
+	}
 }

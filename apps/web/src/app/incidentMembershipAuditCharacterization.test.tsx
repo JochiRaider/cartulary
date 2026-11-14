@@ -92,8 +92,13 @@ describe("Incident membership audit characterization", () => {
   it("does not present initial loading as a successful empty result", async () => {
     const { reads } = setup();
     await waitFor(() => expect(reads).toHaveLength(1));
-    await waitFor(() => expect(reads).toHaveLength(1));
-    expect(screen.queryByText("No membership audit events loaded.")).toBeNull();
+    expect(screen.getByText("Loading membership audit…")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("region", { name: "Incident membership audit browser" })
+        .getAttribute("data-incident-controls-load-state"),
+    ).toBe("loading");
+    expect(screen.queryByText("No membership audit events yet.")).toBeNull();
   });
   it("continues the accepted query despite unsubmitted filter edits", async () => {
     const { reads } = setup();

@@ -37,6 +37,49 @@ func TestCollaborationContractRejectsCompatibilityAndInvalidResultShapes(t *test
 	if err := validateCollaborationResultFixture(load("fixtures/operator-requeue-result.v2.failure.json"), false); err != nil {
 		t.Fatalf("canonical failure fixture: %v", err)
 	}
+	for _, success := range []bool{false, true} {
+		for _, tc := range []struct {
+			name   string
+			mutate func(map[string]any)
+			valid  bool
+		}{
+			{"exact operation", func(value map[string]any) { value["operation"] = "other_operation" }, false},
+			{"null operation", func(value map[string]any) { value["operation"] = nil }, false},
+			{"null incident", func(value map[string]any) {
+				value["incident_id"] = nil
+				if !success {
+					value["error"] = map[string]any{"code": "invalid_operator_request", "reason_code": "missing_required_flag", "message": "Incident ID is required."}
+				}
+			}, !success},
+			{"invalid incident", func(value map[string]any) { value["incident_id"] = "invalid" }, false},
+			{"equal times", func(value map[string]any) { value["completed_at"] = value["started_at"] }, true},
+			{"invalid time", func(value map[string]any) { value["completed_at"] = "invalid" }, false},
+			{"noncanonical UTC time", func(value map[string]any) { value["completed_at"] = "2026-08-06T17:00:01+00:00" }, false},
+			{"reversed times", func(value map[string]any) {
+				value["started_at"], value["completed_at"] = value["completed_at"], value["started_at"]
+			}, false},
+			{"fractional times", func(value map[string]any) {
+				value["started_at"] = "2026-08-06T17:00:00Z"
+				value["completed_at"] = "2026-08-06T17:00:00.1Z"
+			}, true},
+			{"reversed fractional times", func(value map[string]any) {
+				value["started_at"] = "2026-08-06T17:00:00.1Z"
+				value["completed_at"] = "2026-08-06T17:00:00Z"
+			}, false},
+		} {
+			branch := "failure"
+			if success {
+				branch = "success"
+			}
+			t.Run(branch+"/"+tc.name, func(t *testing.T) {
+				value := load("fixtures/operator-requeue-result.v2." + branch + ".json")
+				tc.mutate(value)
+				if err := validateCollaborationResultFixture(value, success); (err == nil) != tc.valid {
+					t.Fatalf("result fixture admission = %v, want valid=%t", err, tc.valid)
+				}
+			})
+		}
+	}
 
 	tests := []struct {
 		name   string

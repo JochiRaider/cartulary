@@ -3,7 +3,7 @@ import { networkAnalysisTestId } from "@cartulary/ui-contracts";
 import { test as base, expect } from "./fixtures";
 import { expectAllInteractiveControlsNamed } from "./support/accessibility/assertions";
 import {
-  expectNoFocusTrap,
+  expectInitialTabRoundTrip,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
 import { withPresentation } from "./support/accessibility/presentation";
@@ -163,7 +163,7 @@ test("a11y.network-analysis.row-01 Verify claimed Network Analysis incident head
   await expect(drawer).toBeVisible();
   await expect(drawer.getByRole("button", { name: /close/i })).toBeVisible();
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
   await expectAndRecordContrast(page, [
     networkAnalysisTestId("workspace"),
     networkAnalysisTestId("mode-graph"),
@@ -294,7 +294,7 @@ test("a11y.network-analysis.row-01 Verify claimed Network Analysis incident head
   );
   await expect(savedContributors).toBeVisible();
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
   await expectAndRecordContrast(page, [
     networkAnalysisTestId("saved-graphs"),
     networkAnalysisTestId("saved-graph-result"),

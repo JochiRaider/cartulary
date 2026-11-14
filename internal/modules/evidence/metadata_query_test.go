@@ -28,7 +28,7 @@ func TestEvidenceMetadataQueryAdmission(t *testing.T) {
 	}
 	for name, body := range map[string]string{
 		"null": "null", "array": "[]", "scalar": "1", "missing": "{}",
-		"null identities": `{"record_ids":null}`, "empty": encode(nil),
+		"null identities": `{"record_ids":null}`, "empty": encode([]string{}),
 		"duplicate member":    `{"record_ids":[],"record_ids":["` + ids[0] + `"]}`,
 		"trailing value":      encode(ids[:1]) + " {}",
 		"unknown member":      `{"record_ids":["` + ids[0] + `"],"unknown":true}`,

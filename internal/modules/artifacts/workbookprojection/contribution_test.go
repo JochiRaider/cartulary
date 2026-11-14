@@ -159,6 +159,18 @@ func TestArtifactProjectionInputClosedVariantMatrix(t *testing.T) {
 		t.Fatalf("valid projection variants = %d, want 8", len(inputs))
 	}
 
+	t.Run("retained Note with both text fields cleared", func(t *testing.T) {
+		cleared := envelope
+		cleared.title, cleared.body = nil, nil
+		input, err := NewNoteProjectionInput(cleared, NoteVariant{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if input.ArtifactType() != "note" || input.Envelope().Title() != nil || input.Envelope().Body() != nil || input.Envelope().RowVersion() != 4 {
+			t.Fatalf("cleared Note projection=%#v", input)
+		}
+	})
+
 	title = "mutated"
 	if got := *inputs[0].Envelope().Title(); got != "Projection title" {
 		t.Fatalf("envelope mutation escaped: %q", got)

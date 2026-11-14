@@ -20,21 +20,15 @@ func TestAssessmentAssemblyConstructorsRejectInvalidDependencies(t *testing.T) {
 		construct func(dbport.DB) (any, error)
 	}{
 		{
-			name: "subject validator", wantError: "compose assessment subject validator: database is required",
+			name: "reference admission", wantError: "compose assessment reference admission: database is required",
 			construct: func(database dbport.DB) (any, error) {
-				return assessmentassembly.NewSubjectValidator(database, hostidentity.NewSourceFacts())
+				return assessmentassembly.NewReferenceAdmission(database, hostidentity.NewSourceFacts())
 			},
 		},
 		{
 			name: "assessor validator", wantError: "compose assessment assessor validator: database is required",
 			construct: func(database dbport.DB) (any, error) {
 				return assessmentassembly.NewAssessorValidator(database)
-			},
-		},
-		{
-			name: "support-target validator", wantError: "compose assessment support-target validator: database is required",
-			construct: func(database dbport.DB) (any, error) {
-				return assessmentassembly.NewSupportTargetValidator(database)
 			},
 		},
 		{
@@ -59,7 +53,7 @@ func TestAssessmentAssemblyConstructorsRejectInvalidDependencies(t *testing.T) {
 		})
 	}
 
-	if value, err := assessmentassembly.NewSubjectValidator(validDatabase, nil); value != nil || err == nil || err.Error() != "compose assessment subject validator: entity source facts are required" {
+	if value, err := assessmentassembly.NewReferenceAdmission(validDatabase, nil); value != nil || err == nil || err.Error() != "compose assessment reference admission: entity source facts are required" {
 		t.Fatalf("nil entity source facts = value:%v err:%v", value, err)
 	}
 

@@ -69,6 +69,7 @@ func snapshotMembershipAuthorization(t testing.TB, f *authorizationFixture, targ
   'closed_at',i.closed_at
  ) FROM incidents i WHERE id::text=$1),
  'target',(SELECT to_jsonb(m) FROM incident_memberships m WHERE incident_id::text=$1 AND user_id::text=$2),
+ 'issued_version',(SELECT to_jsonb(v) FROM incident_membership_versions v WHERE incident_id::text=$1 AND user_id::text=$2),
  'audit',(SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY id),'[]') FROM deployment_admin_audit_events a WHERE incident_id::text=$1)
  )::text`, f.incidentID, target).Scan(&content); err != nil {
 		t.Fatal(err)
@@ -128,6 +129,7 @@ func snapshotIncidentCreationAuthorization(t testing.TB, f *authorizationFixture
   'closed_at',i.closed_at
  ) ORDER BY id),'[]') FROM incidents i),
  'memberships',(SELECT coalesce(jsonb_agg(to_jsonb(m) ORDER BY incident_id,user_id),'[]') FROM incident_memberships m),
+ 'issued_versions',(SELECT coalesce(jsonb_agg(to_jsonb(v) ORDER BY incident_id,user_id),'[]') FROM incident_membership_versions v),
  'defaults',(SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY incident_id),'[]') FROM incident_workbook_preferences p),
  'personal',(SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY incident_id,user_id),'[]') FROM user_workbook_preferences p),
  'receipts',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]') FROM route_idempotency r WHERE client_txn_id=$1),

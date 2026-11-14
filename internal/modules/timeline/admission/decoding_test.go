@@ -11,6 +11,24 @@ import (
 )
 
 func TestPatchPayloadValidation_Unit(t *testing.T) {
+	t.Run("format characters survive tag patch and bulk admission", func(t *testing.T) {
+		const raw = `" \u2003Cafe\u0301\u200d  TAG "`
+		patch, err := DecodeTimelinePatchRequest(strings.NewReader(`{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"format-tag-patch","changes":[{"field_key":"timeline.tags","action_payload":{"kind":"collection_actions_v1","actions":[{"op":"add_tag","tag_name":` + raw + `}]}}]}`))
+		if err != nil {
+			t.Errorf("tag patch rejected: %v", err)
+		} else if len(patch.CanonicalChange) != 1 || patch.CanonicalChange[0].ActionPayload == nil || len(patch.CanonicalChange[0].ActionPayload.Actions) != 1 {
+			t.Errorf("tag patch shape: %#v", patch.CanonicalChange)
+		} else {
+			action := patch.CanonicalChange[0].ActionPayload.Actions[0]
+			if action.RawText != "Café\u200d  TAG" || action.NormalizedText != "café\u200d  tag" {
+				t.Errorf("tag patch normalization: %#v", action)
+			}
+		}
+		bulk, err := DecodeBulkMutationRequest(strings.NewReader(`{"view_schema_id":"cartulary.view.timeline.v2","client_txn_id":"format-tag-bulk","kind":"multi_row_tag_assignment_v1","tag_name":`+raw+`,"targets":[{"record_id":"33333333-3333-4333-8333-333333333333","base_row_version":5}]}`), timeline.TimelineViewSchemaID)
+		if err != nil || bulk.TagName != "Café\u200d  TAG" || bulk.NormalizedTag != "café\u200d  tag" {
+			t.Errorf("tag bulk normalization: %#v error=%v", bulk, err)
+		}
+	})
 	request, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
 		"view_schema_id": "cartulary.view.timeline.v2",
 		"base_row_version": 2,

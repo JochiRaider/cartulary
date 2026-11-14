@@ -2,14 +2,13 @@ package artifacts
 
 import (
 	"encoding/json"
-	"golang.org/x/text/unicode/norm"
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/textpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -61,27 +60,20 @@ func decodeArtifactValue(fieldKey string, field viewschema.Field, raw json.RawMe
 	if json.Unmarshal(raw, &text) != nil {
 		return fieldValue{}, nil, newAdmissionError(fieldKey, admissionInvalidValue)
 	}
-	if !patch && (fieldKey == "note.title" || fieldKey == "note.body") {
-		limit := 512
-		if fieldKey == "note.body" {
-			limit = 16384
-		}
-		normalized, valid := normalizeCreatedNoteText(text, fieldKey == "note.body", limit)
+	if field.StringContractID != nil {
+		normalized, valid := textpolicy.Normalize(text, *field.StringContractID)
 		if !valid {
 			return fieldValue{}, nil, newAdmissionError(fieldKey, admissionInvalidValue)
 		}
 		if normalized == "" {
-			return fieldValue{}, nil, nil
+			if field.Clearable {
+				return fieldValue{}, nil, nil
+			}
+			return fieldValue{}, nil, newAdmissionError(fieldKey, admissionInvalidValue)
 		}
 		return fieldValue{Text: &normalized}, normalized, nil
 	}
-	var normalized string
-	var ok bool
-	if field.StringContractID != nil && *field.StringContractID == "multiline_body_v1" {
-		normalized, ok = fieldnorm.NormalizeNote(text)
-	} else {
-		normalized, ok = fieldnorm.NormalizeLine(text)
-	}
+	normalized, ok := fieldnorm.NormalizeLine(text)
 	if !ok {
 		return fieldValue{}, nil, newAdmissionError(fieldKey, admissionInvalidValue)
 	}
@@ -118,26 +110,4 @@ func decodeArtifactBoolean(raw json.RawMessage) (bool, bool) {
 	default:
 		return false, false
 	}
-}
-
-// Note creation follows its declared optional string contracts. Existing-row
-// editing and other Artifact surfaces retain their separate admission behavior.
-func normalizeCreatedNoteText(raw string, multiline bool, limit int) (string, bool) {
-	if multiline {
-		raw = strings.ReplaceAll(strings.ReplaceAll(raw, "\r\n", "\n"), "\r", "\n")
-	}
-	for _, r := range raw {
-		if (r <= 31 && !(multiline && (r == '\n' || r == '\t'))) || (r >= 127 && r <= 159) {
-			return "", false
-		}
-	}
-	normalized := strings.TrimFunc(norm.NFC.String(raw), unicode.IsSpace)
-	count := 0
-	for range normalized {
-		count++
-		if count > limit {
-			return "", false
-		}
-	}
-	return normalized, true
 }

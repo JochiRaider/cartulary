@@ -4,13 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"slices"
 	"sync"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
-	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 var (
@@ -24,12 +21,10 @@ var (
 )
 
 type sourceStateRelation struct {
-	insertSQL             sqlshape.Statement
-	tableName             string
-	logicalBundlePath     string
-	supportedVersions     []int
-	stableIdentity        []string
-	requiredImportColumns []string
+	tableName         string
+	logicalBundlePath string
+	supportedVersions []int
+	stableIdentity    []string
 }
 
 type sourceStateManifest struct {
@@ -38,39 +33,34 @@ type sourceStateManifest struct {
 
 var authoredSourceStateRelations = []sourceStateRelation{
 	{
-		tableName:             "artifacts",
-		logicalBundlePath:     "data/artifacts.ndjson",
-		supportedVersions:     []int{8},
-		stableIdentity:        []string{"record_id"},
-		requiredImportColumns: []string{"record_id", "incident_id"},
+		tableName:         "artifacts",
+		logicalBundlePath: "data/artifacts.ndjson",
+		supportedVersions: []int{8},
+		stableIdentity:    []string{"record_id"},
 	},
 	{
-		tableName:             "artifact_findings",
-		logicalBundlePath:     "data/artifact_findings.ndjson",
-		supportedVersions:     []int{8},
-		stableIdentity:        []string{"record_id"},
-		requiredImportColumns: []string{"record_id", "incident_id"},
+		tableName:         "artifact_findings",
+		logicalBundlePath: "data/artifact_findings.ndjson",
+		supportedVersions: []int{8},
+		stableIdentity:    []string{"record_id"},
 	},
 	{
-		tableName:             "artifact_investigative_queries",
-		logicalBundlePath:     "data/artifact_investigative_queries.ndjson",
-		supportedVersions:     []int{8},
-		stableIdentity:        []string{"record_id"},
-		requiredImportColumns: []string{"record_id", "incident_id"},
+		tableName:         "artifact_investigative_queries",
+		logicalBundlePath: "data/artifact_investigative_queries.ndjson",
+		supportedVersions: []int{8},
+		stableIdentity:    []string{"record_id"},
 	},
 	{
-		tableName:             "artifact_forensic_keywords",
-		logicalBundlePath:     "data/artifact_forensic_keywords.ndjson",
-		supportedVersions:     []int{8},
-		stableIdentity:        []string{"record_id"},
-		requiredImportColumns: []string{"record_id", "incident_id"},
+		tableName:         "artifact_forensic_keywords",
+		logicalBundlePath: "data/artifact_forensic_keywords.ndjson",
+		supportedVersions: []int{8},
+		stableIdentity:    []string{"record_id"},
 	},
 	{
-		tableName:             "handoff_risk_refs",
-		logicalBundlePath:     "data/handoff_risk_refs.ndjson",
-		supportedVersions:     []int{8},
-		stableIdentity:        []string{"risk_ref_id"},
-		requiredImportColumns: []string{"risk_ref_id", "handoff_record_id"},
+		tableName:         "handoff_risk_refs",
+		logicalBundlePath: "data/handoff_risk_refs.ndjson",
+		supportedVersions: []int{8},
+		stableIdentity:    []string{"risk_ref_id"},
 	},
 }
 
@@ -100,17 +90,17 @@ func newSourceStateManifest(relations []sourceStateRelation) (*sourceStateManife
 			return nil, fmt.Errorf("%w: duplicate logical path %q", errInvalidSourceStateManifest, relation.logicalBundlePath)
 		}
 		logicalPaths[relation.logicalBundlePath] = struct{}{}
-		command, err := sourceImportCommand(relation.tableName)
-		if err != nil {
-			return nil, err
-		}
 		normalized[index] = cloneSourceStateRelation(relation)
-		normalized[index].insertSQL = command
 	}
 	return &sourceStateManifest{relations: normalized}, nil
 }
 
 func validateSourceStateRelation(relation sourceStateRelation) error {
+	switch relation.tableName {
+	case "artifacts", "artifact_findings", "artifact_investigative_queries", "artifact_forensic_keywords", "handoff_risk_refs":
+	default:
+		return fmt.Errorf("unassigned source table %q", relation.tableName)
+	}
 	if !sourceStateIdentifierPattern.MatchString(relation.tableName) {
 		return fmt.Errorf("unsafe or empty table identifier %q", relation.tableName)
 	}
@@ -128,14 +118,7 @@ func validateSourceStateRelation(relation sourceStateRelation) error {
 	if err := validateSourceStateIdentifiers("stable identity", relation.stableIdentity); err != nil {
 		return err
 	}
-	if err := validateSourceStateIdentifiers("required import column", relation.requiredImportColumns); err != nil {
-		return err
-	}
-	for _, identity := range relation.stableIdentity {
-		if !slices.Contains(relation.requiredImportColumns, identity) {
-			return fmt.Errorf("stable identity %q is not a required import column", identity)
-		}
-	}
+
 	return nil
 }
 
@@ -178,40 +161,8 @@ func (manifest *sourceStateManifest) sourcePortPaths() []sourceport.Path {
 	return paths
 }
 
-func (manifest *sourceStateManifest) importSpecifications() []incidentportability.FixedImportSpec {
-	specifications := make([]incidentportability.FixedImportSpec, 0, len(manifest.relations))
-	for _, relation := range manifest.relations {
-		specifications = append(specifications, incidentportability.FixedImportSpec{
-			LogicalBundlePath: relation.logicalBundlePath,
-			AttributionTable:  relation.tableName,
-			StableIdentity:    append([]string(nil), relation.stableIdentity...),
-			RequiredColumns:   append([]string(nil), relation.requiredImportColumns...),
-			InsertSQL:         relation.insertSQL,
-		})
-	}
-	return specifications
-}
-
 func cloneSourceStateRelation(relation sourceStateRelation) sourceStateRelation {
 	relation.supportedVersions = append([]int(nil), relation.supportedVersions...)
 	relation.stableIdentity = append([]string(nil), relation.stableIdentity...)
-	relation.requiredImportColumns = append([]string(nil), relation.requiredImportColumns...)
 	return relation
-}
-
-func sourceImportCommand(table string) (sqlshape.Statement, error) {
-	switch table {
-	case "artifacts":
-		return sqlshape.Command(`INSERT INTO "artifacts" SELECT * FROM jsonb_populate_record(NULL::"artifacts", $1::jsonb)`), nil
-	case "artifact_findings":
-		return sqlshape.Command(`INSERT INTO "artifact_findings" SELECT * FROM jsonb_populate_record(NULL::"artifact_findings", $1::jsonb)`), nil
-	case "artifact_investigative_queries":
-		return sqlshape.Command(`INSERT INTO "artifact_investigative_queries" SELECT * FROM jsonb_populate_record(NULL::"artifact_investigative_queries", $1::jsonb)`), nil
-	case "artifact_forensic_keywords":
-		return sqlshape.Command(`INSERT INTO "artifact_forensic_keywords" SELECT * FROM jsonb_populate_record(NULL::"artifact_forensic_keywords", $1::jsonb)`), nil
-	case "handoff_risk_refs":
-		return sqlshape.Command(`INSERT INTO "handoff_risk_refs" SELECT * FROM jsonb_populate_record(NULL::"handoff_risk_refs", $1::jsonb)`), nil
-	default:
-		return sqlshape.Statement{}, fmt.Errorf("%w: unassigned import table %q", errInvalidSourceStateManifest, table)
-	}
 }

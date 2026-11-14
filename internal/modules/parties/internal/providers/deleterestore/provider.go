@@ -47,6 +47,10 @@ func (Source) PrepareStateTransitionTx(ctx context.Context, tx pgx.Tx, request d
 	if request.Kind == deleterestorecontract.StateTransitionRestore {
 		return preparePartyRestoreClaimsTx(ctx, tx, request)
 	}
+	return deleterestorecontract.StateTransitionPreparation{}, nil
+}
+
+func (Source) ValidateStateTransitionTx(ctx context.Context, tx pgx.Tx, request deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
 	if request.Kind != deleterestorecontract.StateTransitionDelete {
 		return deleterestorecontract.StateTransitionPreparation{}, nil
 	}

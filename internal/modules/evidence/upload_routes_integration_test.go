@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"github.com/google/uuid"
-	"io"
 	"net/http"
 	"testing"
 
@@ -140,10 +139,6 @@ UPDATE incident_memberships
 		"client_txn_id":    "txn-attach-blob",
 	}
 	attachResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", attachBody, authOptions(login)...)
-	if attachResp.StatusCode != http.StatusOK {
-		data, _ := io.ReadAll(attachResp.Body)
-		t.Fatalf("attach status %d: %s", attachResp.StatusCode, string(data))
-	}
 	attachData := httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
 	if attachData["object_blob_id"] != createData["object_blob_id"] {
 		t.Fatalf("attach response object_blob_id mismatch: %#v", attachData)

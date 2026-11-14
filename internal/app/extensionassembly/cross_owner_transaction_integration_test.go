@@ -92,21 +92,11 @@ func (b retirementTestBackend) Begin(ctx context.Context, descriptors []crossown
 func assertPhysicalCompletionRetirement(t *testing.T, pool *pgxpool.Pool, backend *CrossOwnerBackend, registry *extensions.Coordinator) {
 	t.Helper()
 	t.Run("completion panic before driver commit proves absence and retires the connection", func(t *testing.T) {
-		var physical *crossOwnerTransaction
 		var fatal atomic.Bool
 		decorated := retirementTestBackend{backend: backend, configure: func(tx *crossOwnerTransaction) {
-			physical = tx
+			registerPhysicalTransactionCleanup(t, tx.tx)
 			tx.commitFinalized = func(context.Context) (extensionstore.CommitOutcome, error) { panic("private-completion-data") }
 		}}
-		// This is fixture-owned fallback cleanup, independent of the production
-		// assertion; a pre-fix failure must not hang pool teardown.
-		t.Cleanup(func() {
-			if physical != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-				defer cancel()
-				_ = physical.tx.Rollback(ctx)
-			}
-		})
 		coordinator, err := crossownertransaction.New(crossownertransaction.Options{
 			Limits: CrossOwnerLimits(registry), ValidationPolicy: crossOwnerTestValidationPolicy{CrossOwnerValidationPolicy{Coordinator: registry}},
 			Backend: decorated, Catalog: []crossownertransaction.Descriptor{crossOwnerTestDescriptor()},
@@ -149,7 +139,10 @@ func assertPrecommitCancellationRetirement(t *testing.T, pool *pgxpool.Pool, bac
 		defer cancel()
 		var physical *crossOwnerTransaction
 		var fatal atomic.Bool
-		decorated := retirementTestBackend{backend: backend, configure: func(tx *crossOwnerTransaction) { physical = tx }}
+		decorated := retirementTestBackend{backend: backend, configure: func(tx *crossOwnerTransaction) {
+			physical = tx
+			registerPhysicalTransactionCleanup(t, tx.tx)
+		}}
 		coordinator, err := crossownertransaction.New(crossownertransaction.Options{
 			Limits: CrossOwnerLimits(registry), ValidationPolicy: crossOwnerTestValidationPolicy{CrossOwnerValidationPolicy{Coordinator: registry}},
 			Backend: decorated, Catalog: []crossownertransaction.Descriptor{crossOwnerTestDescriptor()},
@@ -209,15 +202,14 @@ func assertPhysicalCompletionOutcomes(t *testing.T, pool *pgxpool.Pool, backend 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			value := "completion-" + test.name
-			var physical *crossOwnerTransaction
 			var fatal atomic.Bool
 			var begins, proofs atomic.Int32
 			decorated := retirementTestBackend{backend: backend, configure: func(tx *crossOwnerTransaction) {
 				begins.Add(1)
-				physical = tx
 				if test.mode == "rollback" {
 					tx.tx = rollbackReplyLostTx{tx.tx}
 				}
+				registerPhysicalTransactionCleanup(t, tx.tx)
 				if test.proof {
 					tx.proveFinalizedCommit = func(proofCtx context.Context) bool {
 						proofs.Add(1)
@@ -247,9 +239,6 @@ func assertPhysicalCompletionOutcomes(t *testing.T, pool *pgxpool.Pool, backend 
 			t.Cleanup(func() {
 				cleanupCtx, stop := context.WithTimeout(context.Background(), time.Second)
 				defer stop()
-				if physical != nil {
-					_ = physical.tx.Rollback(cleanupCtx)
-				}
 				if _, err := pool.Exec(cleanupCtx, `DELETE FROM cross_owner_protocol_test WHERE value=$1`, value); err != nil {
 					t.Error(err)
 				}
@@ -303,7 +292,7 @@ func TestCrossOwnerTransaction_Integration_OrderedAdvisoryLocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _, _ = first.Rollback(context.Background()) })
+	registerProtocolTransactionCleanup(t, first)
 	key := crossownertransaction.OrderedSerializationKey{
 		ParticipantID: "test.participant", KeyKind: "test.key", Key: "shared",
 	}
@@ -314,7 +303,7 @@ func TestCrossOwnerTransaction_Integration_OrderedAdvisoryLocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _, _ = second.Rollback(context.Background()) })
+	registerProtocolTransactionCleanup(t, second)
 	waitCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 	defer cancel()
 	if err := second.AcquireSerializationLock(waitCtx, key); !errors.Is(err, context.DeadlineExceeded) {
@@ -324,12 +313,38 @@ func TestCrossOwnerTransaction_Integration_OrderedAdvisoryLocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _, _ = third.Rollback(context.Background()) }()
+	registerProtocolTransactionCleanup(t, third)
 	distinct := key
 	distinct.Key = "distinct"
 	if err := third.AcquireSerializationLock(ctx, distinct); err != nil {
 		t.Fatalf("distinct serialization key blocked: %v", err)
 	}
+}
+
+// Register immediately after acquisition: failed product assertions must not
+// leave the pool waiting for an owned handle. Closed physical handles are an
+// expected result when the coordinator already completed retirement.
+func registerPhysicalTransactionCleanup(t *testing.T, tx pgx.Tx) {
+	t.Helper()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			t.Errorf("physical transaction cleanup: %v", err)
+		}
+	})
+}
+
+func registerProtocolTransactionCleanup(t *testing.T, tx crossownertransaction.Transaction) {
+	t.Helper()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		outcome, err := tx.Rollback(ctx)
+		if err != nil || outcome != crossownertransaction.CommitAbsent {
+			t.Errorf("protocol transaction cleanup: outcome=%s err=%v", outcome, err)
+		}
+	})
 }
 
 func newCrossOwnerIntegrationPool(t *testing.T, name string) *pgxpool.Pool {

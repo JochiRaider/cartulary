@@ -134,6 +134,8 @@ function boundedGoClaims(claims, requestedParallelism, availablePostgresLanes) {
 }
 
 function policyEvidenceOutputs(target) {
+  if (target === "seaweedfs-compatibility") return ["seaweedfs-compatibility/object-store-compatibility-report.json"];
+  if (target === "seaweedfs-release-gate") return [`${target}/artifacts/release-gate-summary.json`];
   if (target === "visual-registry-check") return ["visual-registry/visual-fixture-matrix.json", "visual-registry/visual-registry-metadata.json"];
   if (target === "release-evidence-verify") return ["release-evidence-verify/closure.json"];
   if (target === "test-evidence-audit") return ["test-evidence-audit/audit.json"];

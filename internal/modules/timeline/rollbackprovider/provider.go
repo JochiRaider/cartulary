@@ -55,7 +55,12 @@ func updateSourceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUse
 	}
 	pairState, ok := stringFromMap(source, "activity_time_pair_state")
 	if !ok || pairState == "" {
-		pairState = "disabled"
+		return rollbackcontract.ErrTargetNotReversible
+	}
+	generatedUTC, utcOK := source["activity_utc_generated"].(bool)
+	generatedLocal, localOK := source["activity_local_generated"].(bool)
+	if !utcOK || !localOK {
+		return rollbackcontract.ErrTargetNotReversible
 	}
 	_, err := tx.Exec(ctx, `
 UPDATE timeline_events
@@ -69,8 +74,8 @@ UPDATE timeline_events
        raw_activity_text = $9,
        activity_synopsis_text = $10,
        data_source_text = $11,
-       activity_utc_generated = false,
-       activity_local_generated = false,
+       activity_utc_generated = $21,
+       activity_local_generated = $22,
        activity_time_pair_state = $12,
        capture_state = $13,
        row_version = $14,
@@ -100,7 +105,9 @@ UPDATE timeline_events
 		nullableUUIDAny(source, "reviewed_by_user_id"),
 		nullableAny(source, "reviewed_at"),
 		nullableUUIDAny(source, "superseded_by_user_id"),
-		nullableAny(source, "superseded_at"))
+		nullableAny(source, "superseded_at"),
+		generatedUTC,
+		generatedLocal)
 	return err
 }
 

@@ -1,6 +1,7 @@
 package database_migrations_test
 
 import (
+	"database/sql"
 	"errors"
 	"testing"
 
@@ -96,6 +97,11 @@ func TestConsolidatedBaselineIntegrity_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			t.Errorf("settle baseline transaction: %v", err)
+		}
+	}()
 	var allocated, next int64
 	if err := tx.QueryRowContext(ctx, `SELECT nextval('public.record_revisions_revision_id_seq')`).Scan(&allocated); err != nil {
 		t.Fatal(err)

@@ -33,14 +33,28 @@ func assertBoundedSourceReaders(t *testing.T, harness *appsupport.ServerHarness,
 	if err != nil {
 		t.Fatal(err)
 	}
-	write := func(content []byte, digest string) {
+	write := func(t *testing.T, content []byte, digest string) {
 		t.Helper()
 		if _, err := harness.DB.ExecContext(ctx, `UPDATE import_source_streams SET source_bytes=$2,source_byte_size=$3,source_content_sha256=$4 WHERE source_stream_ref=$1`, ref, content, len(content), digest); err != nil {
 			t.Fatal(err)
 		}
 	}
 	sum := func(content []byte) string { return fmt.Sprintf("%x", sha256.Sum256(content)) }
-	read := func(reader io.ReadCloser, want []byte) {
+	closeReader := func(t *testing.T, reader io.ReadCloser) {
+		t.Helper()
+		if err := reader.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+	rollback := func(t *testing.T, tx pgx.Tx) {
+		t.Helper()
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := tx.Rollback(cleanupCtx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			t.Error(err)
+		}
+	}
+	read := func(t *testing.T, reader io.ReadCloser, want []byte) {
 		t.Helper()
 		got, err := io.ReadAll(reader)
 		if err != nil || !bytes.Equal(got, want) {
@@ -56,12 +70,13 @@ func assertBoundedSourceReaders(t *testing.T, harness *appsupport.ServerHarness,
 	for _, size := range []int{0, 1, 65535, 65536, 65537, 524288} {
 		t.Run(fmt.Sprintf("bytes_%d", size), func(t *testing.T) {
 			content := bytes.Repeat([]byte{'x'}, size)
-			write(content, sum(content))
+			write(t, content, sum(content))
 			stream, err := port.OpenSourceStream(ctx, ref)
 			if err != nil {
 				t.Fatal(err)
 			}
-			read(stream.Reader, content)
+			defer closeReader(t, stream.Reader)
+			read(t, stream.Reader, content)
 			if pool.Stat().AcquiredConns() != 0 {
 				t.Fatal("EOF leaked owned snapshot")
 			}
@@ -69,21 +84,25 @@ func assertBoundedSourceReaders(t *testing.T, harness *appsupport.ServerHarness,
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer tx.Rollback(ctx)
+			defer rollback(t, tx)
 			guard := &boundedSourceTx{Tx: tx, t: t}
 			stream, err = port.OpenSourceStreamTx(ctx, guard, ref)
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer closeReader(t, stream.Reader)
 			// The connection must be usable between reads and after EOF/close.
 			prefix := make([]byte, min(size, 7))
 			if _, err := io.ReadFull(stream.Reader, prefix); err != nil {
 				t.Fatal(err)
 			}
+			if !bytes.Equal(prefix, content[:len(prefix)]) {
+				t.Fatalf("borrowed reader prefix = %x, want %x", prefix, content[:len(prefix)])
+			}
 			if _, err := tx.Exec(ctx, "SELECT 1"); err != nil {
 				t.Fatal(err)
 			}
-			read(stream.Reader, content[len(prefix):])
+			read(t, stream.Reader, content[len(prefix):])
 			if _, err := tx.Exec(ctx, "SELECT 1"); err != nil {
 				t.Fatalf("reader ended borrowed transaction: %v", err)
 			}
@@ -95,35 +114,39 @@ func assertBoundedSourceReaders(t *testing.T, harness *appsupport.ServerHarness,
 	t.Run("consistent snapshot", func(t *testing.T) {
 		before := bytes.Repeat([]byte{'a'}, 131073)
 		after := bytes.Repeat([]byte{'b'}, len(before))
-		write(before, sum(before))
+		write(t, before, sum(before))
 		stream, err := port.OpenSourceStream(ctx, ref)
 		if err != nil {
 			t.Fatal(err)
 		}
-		write(after, sum(after))
-		read(stream.Reader, before)
+		defer closeReader(t, stream.Reader)
+		write(t, after, sum(after))
+		read(t, stream.Reader, before)
 		stream, err = port.OpenSourceStream(ctx, ref)
 		if err != nil {
 			t.Fatal(err)
 		}
-		read(stream.Reader, after)
+		defer closeReader(t, stream.Reader)
+		read(t, stream.Reader, after)
 	})
 	t.Run("incorrect declared size and slice failures", func(t *testing.T) {
 		content := []byte("exact length")
-		write(content, sum(content))
+		write(t, content, sum(content))
 		for _, delta := range []int64{-1, 1} {
 			tx, err := pool.Begin(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer rollback(t, tx)
 			guard := &boundedSourceTx{Tx: tx, t: t, declaredDelta: delta}
 			stream, err := port.OpenSourceStreamTx(ctx, guard, ref)
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer closeReader(t, stream.Reader)
 			_, readErr := io.Copy(io.Discard, stream.Reader)
 			_ = stream.Reader.Close()
-			_ = tx.Rollback(ctx)
+			rollback(t, tx)
 			if readErr == nil {
 				t.Fatalf("incorrect byte count admitted: %d", delta)
 			}
@@ -132,12 +155,13 @@ func assertBoundedSourceReaders(t *testing.T, harness *appsupport.ServerHarness,
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer tx.Rollback(ctx)
+		defer rollback(t, tx)
 		failure := errors.New("injected slice failure")
 		stream, err := port.OpenSourceStreamTx(ctx, &boundedSourceTx{Tx: tx, t: t, readError: failure}, ref)
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer closeReader(t, stream.Reader)
 		if _, err := io.Copy(io.Discard, stream.Reader); !errors.Is(err, failure) {
 			t.Fatalf("slice failure hidden: %v", err)
 		}
@@ -148,7 +172,7 @@ func assertBoundedSourceReaders(t *testing.T, harness *appsupport.ServerHarness,
 	t.Run("database slice cost observations", func(t *testing.T) {
 		for _, size := range []int{524288, 4194304} {
 			content := bytes.Repeat([]byte{'c'}, size)
-			write(content, sum(content))
+			write(t, content, sum(content))
 			var planJSON []byte
 			if err := harness.DB.QueryRowContext(ctx, `EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT substring(source_bytes FROM 65537 FOR 65536) FROM import_source_streams WHERE source_stream_ref=$1`, ref).Scan(&planJSON); err != nil {
 				t.Fatal(err)
@@ -167,11 +191,12 @@ func assertBoundedSourceReaders(t *testing.T, harness *appsupport.ServerHarness,
 		}
 	})
 	t.Run("integrity failure and early close", func(t *testing.T) {
-		write([]byte("wrong digest"), strings.Repeat("0", 64))
+		write(t, []byte("wrong digest"), strings.Repeat("0", 64))
 		stream, err := port.OpenSourceStream(ctx, ref)
 		if err != nil {
 			t.Fatalf("metadata lookup read content: %v", err)
 		}
+		defer closeReader(t, stream.Reader)
 		if _, err := io.Copy(io.Discard, stream.Reader); err == nil {
 			t.Fatal("digest mismatch accepted")
 		}
@@ -182,6 +207,7 @@ func assertBoundedSourceReaders(t *testing.T, harness *appsupport.ServerHarness,
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer closeReader(t, stream.Reader)
 		if err := stream.Reader.Close(); err != nil {
 			t.Fatal(err)
 		}
@@ -194,10 +220,12 @@ func assertBoundedSourceReaders(t *testing.T, harness *appsupport.ServerHarness,
 	})
 	t.Run("idle cancellation releases single connection", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
 		stream, err := port.OpenSourceStream(cancelCtx, ref)
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer closeReader(t, stream.Reader)
 		cancel()
 		acquireCtx, done := context.WithTimeout(ctx, 2*time.Second)
 		defer done()
@@ -215,11 +243,12 @@ func assertBoundedSourceReaders(t *testing.T, harness *appsupport.ServerHarness,
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer tx.Rollback(ctx)
+		defer rollback(t, tx)
 		stream, err := port.OpenSourceStreamTx(ctx, tx, ref)
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer closeReader(t, stream.Reader)
 		if err := stream.Reader.Close(); err != nil {
 			t.Fatal(err)
 		}

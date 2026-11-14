@@ -202,7 +202,7 @@ func testLifecycleGaps(t *testing.T) {
 		file := filepath.Join(t.TempDir(), "child")
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "/bin/sh", "-c", `sleep 60 </dev/null >/dev/null 2>&1 & echo $! > "$1"; exit 0`, "fixture", file)
+		cmd := exec.Command("/bin/sh", "-c", `sleep 60 </dev/null >/dev/null 2>&1 & echo $! > "$1"; exit 0`, "fixture", file)
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		if err := waitPhysicalCommand(ctx, cmd, nil); err != nil {
 			t.Fatal(err)
@@ -215,7 +215,6 @@ func testLifecycleGaps(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer syscall.Kill(pid, syscall.SIGKILL)
 		state, err := readProcess(pid)
 		if err == nil && state.state != "Z" && state.state != "X" {
 			t.Fatal("cleanup acknowledged live descendant")
@@ -309,7 +308,7 @@ func testLifecycleGaps(t *testing.T) {
 				if !errors.Is(err, signalErr) || sweeps != 1 {
 					t.Fatal("unresolved signaling failure lost", err, sweeps)
 				}
-			} else if err != nil || sweeps != 4 || signals != 3 {
+			} else if err != nil || sweeps != 4 || signals != 1 {
 				t.Fatal("premature settlement", err, sweeps, signals)
 			}
 		}
@@ -319,6 +318,75 @@ func testLifecycleGaps(t *testing.T) {
 			if err := settleProcess(ctx, leader.ProcessProof, 0, func(ProcessProof) ([]processState, error) { return []processState{altered}, nil }, func(processState, unix.Signal) error { t.Fatal("ambiguous identity signaled"); return nil }); !errors.Is(err, ErrUnresolved) {
 				t.Fatal("ambiguous identity accepted", err)
 			}
+		}
+	})
+	t.Run("settlement_grace_and_forced_settlement_do_not_repeat_signals", func(t *testing.T) {
+		for _, grace := range []time.Duration{time.Hour, 0} {
+			leader := processState{ProcessProof: ProcessProof{PID: 100, Start: "10", PGID: 100, SID: 50, Group: true}, state: "S"}
+			cleanup := processState{ProcessProof: ProcessProof{PID: 101, Start: "11", PGID: 100, SID: 50}, state: "S"}
+			terms, kills, sweeps := map[int]int{}, map[int]int{}, 0
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			err := settleProcess(ctx, leader.ProcessProof, grace, func(ProcessProof) ([]processState, error) {
+				sweeps++
+				if sweeps == 1 {
+					return []processState{leader}, nil
+				}
+				if sweeps == 6 {
+					return nil, nil
+				}
+				return []processState{leader, cleanup}, nil
+			}, func(member processState, sig unix.Signal) error {
+				if sig == unix.SIGTERM {
+					terms[member.PID]++
+				} else if sig == unix.SIGKILL {
+					kills[member.PID]++
+				} else {
+					t.Fatal("unexpected signal", sig)
+				}
+				return nil
+			})
+			cancel()
+			if err != nil || sweeps != 6 || terms[101] != 0 {
+				t.Fatal("grace/complete settlement", err, sweeps, terms, kills)
+			}
+			if grace == 0 && (len(terms) != 0 || kills[100] != 1 || kills[101] != 1) || grace > 0 && (terms[100] != 1 || len(kills) != 0) {
+				t.Fatal("signal delivery repeated or cleanup grace interrupted", terms, kills)
+			}
+		}
+	})
+	t.Run("cooperative_drain_never_escalates_and_requires_complete_membership", func(t *testing.T) {
+		for _, interrupted := range []bool{false, true} {
+			leader := processState{ProcessProof: ProcessProof{PID: 100, Start: "10", PGID: 100, SID: 50, Group: true}, state: "S"}
+			child := processState{ProcessProof: ProcessProof{PID: 101, Start: "11", PGID: 100, SID: 50}, state: "S"}
+			ctx, cancel := context.WithCancel(context.Background())
+			terms, sweeps := map[int]int{}, 0
+			err := settleProcessMode(ctx, leader.ProcessProof, 0, false, func(ProcessProof) ([]processState, error) {
+				sweeps++
+				if sweeps == 1 {
+					return []processState{leader, child}, nil
+				}
+				if sweeps == 4 {
+					if !interrupted {
+						return nil, nil
+					}
+					cancel()
+				}
+				return []processState{child}, nil
+			}, func(member processState, signal unix.Signal) error {
+				if signal != unix.SIGTERM {
+					t.Fatal("graceful drain escalated", signal)
+				}
+				terms[member.PID]++
+				return nil
+			})
+			cancel()
+			if sweeps != 4 || terms[100] != 1 || terms[101] != 1 || len(terms) != 2 ||
+				interrupted && !errors.Is(err, context.Canceled) || !interrupted && err != nil {
+				t.Fatal("incomplete or repeated drain", err, sweeps, terms)
+			}
+		}
+		if err := drainProcess(context.Background(), ProcessProof{}); !errors.Is(err, ErrUnresolved) {
+			t.Fatal("unbounded drain accepted", err)
 		}
 	})
 	t.Run("unanchored_membership_requires_absence_within_existing_attempt", func(t *testing.T) {

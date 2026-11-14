@@ -11,9 +11,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
@@ -66,7 +68,7 @@ func TestModuleEvidenceProviderContributionClosure(t *testing.T) {
 	t.Run("recovery", func(t *testing.T) {
 		t.Parallel()
 		var typedNilDatabase *constructionDB
-		if _, err := NewRecoveryProvider(typedNilDatabase).ListAvailableRecoveryObjects(t.Context()); err == nil {
+		if _, err := NewRecoveryProvider(typedNilDatabase).ListRequiredRecoveryObjects(t.Context()); err == nil {
 			t.Fatal("Evidence recovery contribution accepted a typed-nil database")
 		}
 		contribution := RecoveryStateContribution()
@@ -153,6 +155,10 @@ func TestEvidenceServiceConstructionRejectsIncompleteDependencies(t *testing.T) 
 		{name: "incident state", mutate: func(dependencies *blobLifecycleDependencies) { dependencies.IncidentState = nil }},
 		{name: "record envelopes", mutate: func(dependencies *blobLifecycleDependencies) { dependencies.RecordEnvelopes = nil }},
 		{name: "idempotency", mutate: func(dependencies *blobLifecycleDependencies) { dependencies.Idempotency = nil }},
+		{name: "typed-nil postgres", mutate: func(d *blobLifecycleDependencies) { d.Postgres = (*constructionDB)(nil) }},
+		{name: "typed-nil projections", mutate: func(d *blobLifecycleDependencies) { d.Projections = (*constructionProjectionRows)(nil) }},
+		{name: "typed-nil support effects", mutate: func(d *blobLifecycleDependencies) { d.SupportEffects = (*constructionSupportEffects)(nil) }},
+		{name: "typed-nil collaboration", mutate: func(d *blobLifecycleDependencies) { d.Collaboration = (*coordinatorCollaboration)(nil) }},
 	}
 	for _, test := range tests {
 		t.Run("blob lifecycle requires "+test.name, func(t *testing.T) {
@@ -169,6 +175,15 @@ func TestEvidenceServiceConstructionRejectsIncompleteDependencies(t *testing.T) 
 	}
 	if _, err := newCleanupService(nil); err == nil {
 		t.Fatal("newCleanupService() accepted a missing Postgres dependency")
+	}
+	if value, err := newAccessHandleService((*constructionDB)(nil)); err == nil || value != nil {
+		t.Fatal("access handles accepted typed-nil Postgres")
+	}
+	if value, err := newCleanupService((*constructionDB)(nil)); err == nil || value != nil {
+		t.Fatal("cleanup accepted typed-nil Postgres")
+	}
+	if value, err := newCleanupService(constructionDB{}); err != nil || value == nil {
+		t.Fatal("cleanup rejected valid Postgres", err)
 	}
 	blobs, err := newBlobLifecycleService(valid)
 	if err != nil {
@@ -201,6 +216,34 @@ func TestEvidenceServiceConstructionRejectsIncompleteDependencies(t *testing.T) 
 	}
 	if _, err := newSourceMutationService(constructionDB{}, valid.Projections, appender, valid.Collaboration, constructionIncidentState{}, nil); err == nil {
 		t.Fatal("newSourceMutationService() accepted missing record envelopes")
+	}
+	for _, sourceDeps := range []blobLifecycleDependencies{
+		{Postgres: (*constructionDB)(nil), Projections: valid.Projections, Collaboration: valid.Collaboration},
+		{Postgres: valid.Postgres, Projections: (*constructionProjectionRows)(nil), Collaboration: valid.Collaboration},
+		{Postgres: valid.Postgres, Projections: valid.Projections, Collaboration: (*coordinatorCollaboration)(nil)},
+	} {
+		if value, err := newSourceMutationService(sourceDeps.Postgres, sourceDeps.Projections, appender, sourceDeps.Collaboration, constructionIncidentState{}, constructionRecordEnvelopes{}); err == nil || value != nil {
+			t.Fatal("source mutation accepted a typed-nil capability")
+		}
+	}
+	routes, err := newRouteOperations(blobs, access)
+	if err != nil {
+		t.Fatal(err)
+	}
+	validRoutes := routeDependencies{objectStore: constructionObjectStore{}, verification: &blobVerificationService{}, now: time.Now, operations: routes,
+		admission: routeAdmission{incidents: admission.NewChecker(constructionDB{}), auth: authn.NewStore(constructionDB{}), now: time.Now}}
+	for _, change := range []func(*routeDependencies){
+		func(d *routeDependencies) { d.objectStore = (*constructionObjectStore)(nil) },
+		func(d *routeDependencies) { d.operations = (*routeOperations)(nil) },
+	} {
+		d := validRoutes
+		change(&d)
+		if value, err := newService(nil, Settings{}, d); err == nil || value != nil {
+			t.Fatal("route service accepted a typed-nil capability")
+		}
+	}
+	if value, err := newService(nil, Settings{}, validRoutes); err != nil || value == nil {
+		t.Fatal("route service rejected valid capabilities", err)
 	}
 }
 
@@ -241,6 +284,10 @@ func TestEvidenceOwnerRuntimeRejectsIncompleteDependencies(t *testing.T) {
 		{name: "mutation dependencies", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Mutation = MutationDependencies{} }},
 		{name: "cleanup observer", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.CleanupObserver = nil }},
 		{name: "clock", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Now = nil }},
+		{name: "typed-nil postgres", mutate: func(d *OwnerRuntimeDependencies) { d.Postgres = (*constructionDB)(nil) }},
+		{name: "typed-nil collaboration", mutate: func(d *OwnerRuntimeDependencies) { d.Collaboration = (*coordinatorCollaboration)(nil) }},
+		{name: "typed-nil object store", mutate: func(d *OwnerRuntimeDependencies) { d.ObjectStore = (*constructionObjectStore)(nil) }},
+		{name: "typed-nil observer", mutate: func(d *OwnerRuntimeDependencies) { d.CleanupObserver = (*dispatcherTestObserver)(nil) }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

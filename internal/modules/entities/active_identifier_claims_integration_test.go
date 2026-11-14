@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode"
@@ -79,30 +80,25 @@ func TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration(t *testin
 
 	hostURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() +
 		"/views/" + viewtest.HostsViewSchemaID + "/rows"
-	start := make(chan struct{})
-	responses := make(chan *http.Response, 2)
-	for index, hostname := range []string{"\u2003Concurrent.Host\u2003", "concurrent.host"} {
-		go func(index int, hostname string) {
-			<-start
-			responses <- httptestx.DoJSON(t, http.DefaultClient,
-				http.MethodPost,
-				hostURL,
-				map[string]any{
-					"client_txn_id":     "txn-entities-concurrent-host-" + string(rune('a'+index)),
-					"host.display_name": "Concurrent host",
-					"host.hostname":     hostname,
-				},
-				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
-				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
-			)
-		}(index, hostname)
+	request := func(method, url string, payload map[string]any) *http.Request {
+		t.Helper()
+		req := httptestx.NewJSONRequest(t, method, url, payload)
+		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF)(req)
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value)(req)
+		return req
 	}
-	close(start)
+	createRequests := make([]*http.Request, 0, 2)
+	for index, hostname := range []string{"\u2003Concurrent.Host\u2003", "concurrent.host"} {
+		createRequests = append(createRequests, request(http.MethodPost, hostURL, map[string]any{
+			"client_txn_id":     "txn-entities-concurrent-host-" + string(rune('a'+index)),
+			"host.display_name": "Concurrent host", "host.hostname": hostname,
+		}))
+	}
+	responses := sendConcurrentEntityClaimRequests(t, createRequests)
 
 	statuses := make([]int, 0, 2)
 	recordIDs := make([]uuid.UUID, 0, 2)
-	for range 2 {
-		response := <-responses
+	for _, response := range responses {
 		if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusOK {
 			t.Fatalf("concurrent create status = %d, want 200 or 201", response.StatusCode)
 		}
@@ -137,8 +133,7 @@ SELECT count(*) FROM hosts WHERE incident_id = $1 AND lower(hostname) = 'concurr
 	}, http.StatusCreated)
 	leftID := appsupport.MustUUID(t, left["row"].(map[string]any)["record_id"].(string))
 	rightID := appsupport.MustUUID(t, right["row"].(map[string]any)["record_id"].(string))
-	patchStart := make(chan struct{})
-	patchResponses := make(chan *http.Response, 2)
+	patchRequests := make([]*http.Request, 0, 2)
 	for index, patch := range []struct {
 		recordID uuid.UUID
 		value    string
@@ -146,31 +141,13 @@ SELECT count(*) FROM hosts WHERE incident_id = $1 AND lower(hostname) = 'concurr
 		{recordID: leftID, value: "opposing-right.example"},
 		{recordID: rightID, value: "opposing-left.example"},
 	} {
-		go func(index int, patch struct {
-			recordID uuid.UUID
-			value    string
-		}) {
-			<-patchStart
-			patchResponses <- httptestx.DoJSON(t, http.DefaultClient,
-				http.MethodPatch,
-				harness.Server.HTTP.URL+"/api/v1/records/"+patch.recordID.String(),
-				map[string]any{
-					"view_schema_id":   viewtest.HostsViewSchemaID,
-					"base_row_version": 1,
-					"client_txn_id":    "txn-entities-claims-opposing-patch-" + string(rune('a'+index)),
-					"changes": []map[string]any{{
-						"field_key": "host.hostname",
-						"value":     patch.value,
-					}},
-				},
-				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
-				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
-			)
-		}(index, patch)
+		patchRequests = append(patchRequests, request(http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+patch.recordID.String(), map[string]any{
+			"view_schema_id": viewtest.HostsViewSchemaID, "base_row_version": 1,
+			"client_txn_id": "txn-entities-claims-opposing-patch-" + string(rune('a'+index)),
+			"changes":       []map[string]any{{"field_key": "host.hostname", "value": patch.value}},
+		}))
 	}
-	close(patchStart)
-	for range 2 {
-		response := <-patchResponses
+	for _, response := range sendConcurrentEntityClaimRequests(t, patchRequests) {
 		httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "entity_match_conflict")
 	}
 	requireEntityIdentifierClaim(t, harness.DB, incidentID, "host", "hostname", "opposing-left.example", leftID)
@@ -774,4 +751,45 @@ SELECT record_id
 	if plan := strings.Join(planLines, "\n"); !strings.Contains(plan, "entity_active_identifier_claims_pkey") {
 		t.Fatalf("entity claim lookup plan does not use the primary key:\n%s", plan)
 	}
+}
+
+// Only the parent goroutine owns test assertions. Every request settles before
+// a failure is reported; response cleanup also covers an early caller assertion.
+func sendConcurrentEntityClaimRequests(t *testing.T, requests []*http.Request) []*http.Response {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	t.Cleanup(cancel)
+	responses := make([]*http.Response, len(requests))
+	errors := make([]error, len(requests))
+	start := make(chan struct{})
+	var workers sync.WaitGroup
+	for index, request := range requests {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			<-start
+			responses[index], errors[index] = http.DefaultClient.Do(request.WithContext(ctx))
+			if errors[index] != nil {
+				cancel()
+			}
+		}()
+	}
+	close(start)
+	workers.Wait()
+	for _, response := range responses {
+		if response != nil {
+			t.Cleanup(func() { _ = response.Body.Close() })
+		}
+	}
+	failed := false
+	for index, err := range errors {
+		if err != nil {
+			t.Errorf("concurrent entity request %d: %v", index, err)
+			failed = true
+		}
+	}
+	if failed {
+		t.FailNow()
+	}
+	return responses
 }

@@ -86,23 +86,35 @@ type recordSnapshotCapture struct {
 	recordType       string
 	snapshotSchemaID string
 	source           deleterestorecontract.DeleteRestoreSource
+	validateSource   SnapshotSourceValidator
 }
 
+// SnapshotEnvelopeValidator is supplied by the Records owner at composition.
+type SnapshotEnvelopeValidator func(incidentID, recordID uuid.UUID, recordType string, value map[string]any) error
+
+// SnapshotSourceValidator is the pure validator supplied by the source owner
+// for its exact registered schema. The Records object has already been validated.
+type SnapshotSourceValidator func(record, source map[string]any) error
+
 type RecordSnapshotCaptureCatalog struct {
-	byRecordType map[string]recordSnapshotCapture
+	byRecordType     map[string]recordSnapshotCapture
+	validateEnvelope SnapshotEnvelopeValidator
 }
 
 // NewRecordSnapshotCaptureCatalog requires exact source-owner closure for all
 // admitted record families before any revision writer can be constructed.
-func NewRecordSnapshotCaptureCatalog(contributions []ProviderContribution) (*RecordSnapshotCaptureCatalog, error) {
+func NewRecordSnapshotCaptureCatalog(contributions []ProviderContribution, validateEnvelope SnapshotEnvelopeValidator) (*RecordSnapshotCaptureCatalog, error) {
 	requirements, err := currentSnapshotSchemaRequirements()
 	if err != nil {
 		return nil, err
 	}
-	return compileRecordSnapshotCaptureCatalog(contributions, requirements)
+	return compileRecordSnapshotCaptureCatalog(contributions, requirements, validateEnvelope)
 }
 
-func compileRecordSnapshotCaptureCatalog(contributions []ProviderContribution, requirements []snapshotSchemaRequirement) (*RecordSnapshotCaptureCatalog, error) {
+func compileRecordSnapshotCaptureCatalog(contributions []ProviderContribution, requirements []snapshotSchemaRequirement, validateEnvelope SnapshotEnvelopeValidator) (*RecordSnapshotCaptureCatalog, error) {
+	if validateEnvelope == nil {
+		return nil, fmt.Errorf("%w: Records envelope validator", ErrMissingSnapshotCapture)
+	}
 	required := make(map[string]snapshotSchemaRequirement, len(requirements))
 	for _, requirement := range requirements {
 		requirement.RecordType = strings.TrimSpace(requirement.RecordType)
@@ -116,13 +128,16 @@ func compileRecordSnapshotCaptureCatalog(contributions []ProviderContribution, r
 		}
 		required[requirement.RecordType] = requirement
 	}
-	catalog := &RecordSnapshotCaptureCatalog{byRecordType: map[string]recordSnapshotCapture{}}
+	catalog := &RecordSnapshotCaptureCatalog{byRecordType: map[string]recordSnapshotCapture{}, validateEnvelope: validateEnvelope}
 	for _, contribution := range contributions {
 		for _, record := range contribution.Records {
 			schemaID := strings.TrimSpace(record.SnapshotSchemaID)
 			requirement, admitted := required[record.RecordType]
 			if !admitted || schemaID == "" {
 				return nil, fmt.Errorf("%w: record type %q snapshot schema", ErrMissingSnapshotCapture, record.RecordType)
+			}
+			if record.ValidateSnapshotSource == nil {
+				return nil, fmt.Errorf("%w: record type %q source validator", ErrMissingSnapshotCapture, record.RecordType)
 			}
 			if record.SourceOwnerModule != contribution.SourceOwnerModule ||
 				record.SourceOwnerModule != requirement.SourceOwner ||
@@ -139,6 +154,7 @@ func compileRecordSnapshotCaptureCatalog(contributions []ProviderContribution, r
 				recordType:       record.RecordType,
 				snapshotSchemaID: schemaID,
 				source:           record.DeleteRestoreSource,
+				validateSource:   record.ValidateSnapshotSource,
 			}
 		}
 	}
@@ -172,6 +188,12 @@ func (catalog *RecordSnapshotCaptureCatalog) captureTx(
 	value, err := validateCanonicalSnapshotValue(capture.snapshotSchemaID, envelope, raw)
 	if err != nil {
 		return RecordSnapshot{}, err
+	}
+	if err := catalog.validateEnvelope(envelope.IncidentID, envelope.RecordID, envelope.RecordType, value["record"].(map[string]any)); err != nil {
+		return RecordSnapshot{}, fmt.Errorf("%w: Records envelope: %w", ErrInvalidRecordSnapshot, err)
+	}
+	if err := capture.validateSource(value["record"].(map[string]any), value["source"].(map[string]any)); err != nil {
+		return RecordSnapshot{}, fmt.Errorf("%w: source: %w", ErrInvalidRecordSnapshot, err)
 	}
 	return RecordSnapshot{
 		recordID:         envelope.RecordID,
@@ -253,7 +275,7 @@ func validatePersistedSnapshotValue(expectedSchemaID string, recordID uuid.UUID,
 	return nil
 }
 
-func (catalog *RecordSnapshotCaptureCatalog) validatePersisted(recordID uuid.UUID, recordType string, value map[string]any) error {
+func (catalog *RecordSnapshotCaptureCatalog) validatePersisted(incidentID, recordID uuid.UUID, recordType string, value map[string]any) error {
 	if catalog == nil {
 		return fmt.Errorf("%w: record type %q", ErrMissingSnapshotCapture, recordType)
 	}
@@ -261,7 +283,19 @@ func (catalog *RecordSnapshotCaptureCatalog) validatePersisted(recordID uuid.UUI
 	if !ok {
 		return fmt.Errorf("%w: record type %q", ErrMissingSnapshotCapture, recordType)
 	}
-	return validatePersistedSnapshotValue(capture.snapshotSchemaID, recordID, recordType, value)
+	if err := validatePersistedSnapshotValue(capture.snapshotSchemaID, recordID, recordType, value); err != nil {
+		return err
+	}
+	if value == nil {
+		return nil
+	}
+	if err := catalog.validateEnvelope(incidentID, recordID, recordType, value["record"].(map[string]any)); err != nil {
+		return fmt.Errorf("%w: Records envelope: %w", ErrInvalidRecordSnapshot, err)
+	}
+	if err := capture.validateSource(value["record"].(map[string]any), value["source"].(map[string]any)); err != nil {
+		return fmt.Errorf("%w: source: %w", ErrInvalidRecordSnapshot, err)
+	}
+	return nil
 }
 
 func cloneJSONMap(value map[string]any) (map[string]any, error) {
@@ -279,4 +313,23 @@ func cloneJSONMap(value map[string]any) (map[string]any, error) {
 		return nil, fmt.Errorf("%w: decode JSON value: %v", ErrInvalidRecordSnapshot, err)
 	}
 	return cloned, nil
+}
+
+func revisionSnapshotPairMatches(before, after map[string]any, version int64) bool {
+	if after == nil || (before == nil) != (version == 1) {
+		return false
+	}
+	return revisionSnapshotVersionMatches(before, version-1) && revisionSnapshotVersionMatches(after, version)
+}
+
+func revisionSnapshotVersionMatches(snapshot map[string]any, want int64) bool {
+	if snapshot == nil {
+		return true
+	}
+	record, ok := snapshot["record"].(map[string]any)
+	if !ok {
+		return false
+	}
+	version, valid := positiveRevisionsInt(record["row_version"])
+	return valid && version == want
 }

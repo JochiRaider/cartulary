@@ -13,10 +13,21 @@ export CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN='postgresql://cartulary_r
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 DEV_STACK_SCRIPT="$ROOT_DIR/tools/harness/readiness/dev-stack.sh"
+# shellcheck source=tools/harness/readiness/process-lifecycle.sh
+source "$ROOT_DIR/tools/harness/readiness/process-lifecycle.sh"
 cleanup_paths=()
+cleanup_groups=()
 
 cleanup() {
-  local path
+  local path group status=0 primary=$?
+  for group in "${cleanup_groups[@]}"; do
+    stop_owned_command "$group" || status=$?
+  done
+  if [[ "$status" -ne 0 ]]; then
+    echo "development lifecycle fixture cleanup failed" >&2
+    if [[ "$primary" -ne 0 ]]; then exit "$primary"; fi
+    exit "$status"
+  fi
   for path in "${cleanup_paths[@]}"; do
     rm -rf "$path"
   done
@@ -145,7 +156,6 @@ exit_status="${EXIT_STATUS:-0}"
 wait_path="${WAIT_PATH:-}"
 env_file="${ENV_FILE:-}"
 
-printf '%s\n' "$$" >"$pid_file"
 if [[ -n "$env_file" ]]; then
   env | sort >"$env_file"
 fi
@@ -157,6 +167,9 @@ record_term() {
 
 trap record_term TERM
 trap record_term INT
+# Readiness must follow handler installation: a published PID alone cannot
+# prove the signal-observation fixture is ready for the shutdown assertion.
+printf '%s\n' "$$" >"$pid_file"
 
 case "$mode" in
   loop)
@@ -207,28 +220,26 @@ term_dir="$tmp_dir/term"
 mkdir -p "$term_dir"
 backend_command="$(make_command "$signal_recorder" "$term_dir/backend.pid" "$term_dir/backend.term")"
 frontend_command="$(make_command "$signal_recorder" "$term_dir/frontend.pid" "$term_dir/frontend.term")"
-CARTULARY_DEV_STACK_BACKEND_COMMAND="$backend_command" \
-CARTULARY_DEV_STACK_FRONTEND_COMMAND="$frontend_command" \
-CARTULARY_DEV_STACK_ARTIFACT_DIR="$term_dir/runtime" \
-CARTULARY_DEV_STACK_SKIP_SERVICE_PREFLIGHT=1 \
-CARTULARY_DEV_STACK_SKIP_READINESS=1 \
-  "$DEV_STACK_SCRIPT" >"$term_dir/stdout" 2>"$term_dir/stderr" &
-term_stack_pid=$!
+term_stack_group=""
+start_owned_command term_stack_group "$term_dir/parent.log" env \
+  CARTULARY_DEV_STACK_BACKEND_COMMAND="$backend_command" \
+  CARTULARY_DEV_STACK_FRONTEND_COMMAND="$frontend_command" \
+  CARTULARY_DEV_STACK_ARTIFACT_DIR="$term_dir/runtime" \
+  CARTULARY_DEV_STACK_SKIP_SERVICE_PREFLIGHT=1 \
+  CARTULARY_DEV_STACK_SKIP_READINESS=1 \
+  "$DEV_STACK_SCRIPT"
+cleanup_groups+=("$term_stack_group")
 wait_for_path "$term_dir/backend.pid" "term backend pid"
 wait_for_path "$term_dir/frontend.pid" "term frontend pid"
-kill -TERM "$term_stack_pid"
-if wait "$term_stack_pid"; then
-  term_status=0
-else
-  term_status=$?
-fi
+stop_owned_command "$term_stack_group" || fail "term parent settlement"
+if owned_command_result "$term_stack_group"; then term_status=0; else term_status=$?; fi
 assert_equals "$term_status" "143" "term shutdown status"
 assert_equals "$(count_lines "$term_dir/backend.term")" "1" "term backend term count"
 assert_equals "$(count_lines "$term_dir/frontend.term")" "1" "term frontend term count"
 assert_process_stopped "$(tr -d '\n' <"$term_dir/backend.pid")" "term backend process"
 assert_process_stopped "$(tr -d '\n' <"$term_dir/frontend.pid")" "term frontend process"
-assert_contains "$(cat "$term_dir/stdout")" "backend log: $term_dir/runtime/server.log" "term backend log output"
-assert_contains "$(cat "$term_dir/stdout")" "frontend log: $term_dir/runtime/web.log" "term frontend log output"
+assert_contains "$(cat "$term_dir/parent.log")" "backend log: $term_dir/runtime/server.log" "term backend log output"
+assert_contains "$(cat "$term_dir/parent.log")" "frontend log: $term_dir/runtime/web.log" "term frontend log output"
 
 backend_exit_dir="$tmp_dir/backend-exits"
 mkdir -p "$backend_exit_dir"
@@ -354,3 +365,53 @@ assert_equals "$custom_env_status" "1" "custom env status"
 custom_backend_env="$(cat "$custom_env_dir/backend.env")"
 assert_contains "$custom_backend_env" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN=postgresql://cartulary_runtime_login@custom.example:15432/customdb?sslmode=verify-full&sslrootcert=%2Ffixture%2Fca.pem&sslcert=%2Ffixture%2Fclient.crt&sslkey=%2Ffixture%2Fclient.key" "custom env preserves managed postgres runtime dsn"
 assert_not_contains "$custom_backend_env" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN=postgresql://cartulary_runtime_login@localhost:5432/cartulary?sslmode=verify-full&sslrootcert=%2Ffixture%2Fca.pem&sslcert=%2Ffixture%2Fclient.crt&sslkey=%2Ffixture%2Fclient.key" "custom env does not force default runtime dsn"
+
+# Cleanup failure must be visible without replacing an earlier workload result.
+for primary in 0 17; do
+  cleanup_case="$tmp_dir/cleanup-$primary"
+  mkdir -p "$cleanup_case"
+  if bash -c '
+    source "$1"
+    stop_dev_command() { printf "%s\n" "$3" >>"$2"; return 12; }
+    FRONTEND_PORT="$3"; BACKEND_PORT="$3"
+    trap on_exit EXIT
+    exit "$4"
+  ' fixture "$DEV_STACK_SCRIPT" ignored "$cleanup_case/releases" "$primary" >"$cleanup_case/stdout" 2>"$cleanup_case/stderr"; then
+    cleanup_status=0
+  else
+    cleanup_status=$?
+  fi
+  expected="$primary"
+  if [[ "$primary" -eq 0 ]]; then expected=12; fi
+  assert_equals "$cleanup_status" "$expected" "cleanup primary precedence"
+  assert_equals "$(count_lines "$cleanup_case/releases")" 2 "independent cleanup attempts"
+  assert_contains "$(cat "$cleanup_case/stderr")" "dev stack cleanup failed" "cleanup failure diagnostic"
+done
+
+# A cancellation delivered after native readiness but before shell publication
+# must leave a registered handle for the exit trap, never an untracked child.
+if bash -s -- "$ROOT_DIR" <<'FIXTURE'
+set -euo pipefail
+source "$1/tools/harness/readiness/process-lifecycle.sh"
+fixture_parent=$BASHPID
+fixture_binary="${CARTULARY_HARNESS_RUNTIME_BIN:-$1/$CARTULARY_LAYOUT_TOOLBIN/cartulary-harness}"
+lifecycle_native() {
+  "$fixture_binary" owned-command "$@" || return $?
+  if [[ "$1" == ready ]]; then kill -TERM "$fixture_parent"; fi
+}
+fixture_group=""
+trap 'stop_owned_command "$fixture_group"' EXIT
+lifecycle_install_signal_traps
+status=0
+start_owned_command fixture_group "" sleep 60 || status=$?
+[[ "$status" -eq 143 && -n "$fixture_group" ]]
+lifecycle_shutdown_requested
+owned_command_running "$fixture_group"
+stop_owned_command "$fixture_group"
+trap - EXIT
+FIXTURE
+then
+  :
+else
+  fail "cancellation lost an in-flight native acquisition"
+fi

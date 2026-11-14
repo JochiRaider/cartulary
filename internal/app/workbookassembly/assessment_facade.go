@@ -22,35 +22,34 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
-type assessmentIdempotencyAdapter struct {
-	store *authn.Store
-}
+type assessmentIdempotencyAdapter struct{}
 
-func (a assessmentIdempotencyAdapter) LookupCreate(ctx context.Context, key assessments.CreateIdempotencyKey) (assessments.CreateIdempotencyRecord, bool, error) {
-	record, err := a.store.GetRouteIdempotency(ctx, authn.RouteIdempotencyKey{
+func (assessmentIdempotencyAdapter) AdmitCreateTx(ctx context.Context, tx pgx.Tx, key assessments.CreateIdempotencyKey) (assessments.CreateIdempotencyRecord, bool, error) {
+	routeKey := authn.RouteIdempotencyKey{
 		RouteKey:    key.RouteKey,
 		ActorUserID: key.ActorUserID,
 		ScopeKey:    key.ScopeKey,
 		ClientTxnID: key.ClientTxnID,
-	})
+	}
+	if err := authn.LockRouteIdempotencyTx(ctx, tx, routeKey); err != nil {
+		return assessments.CreateIdempotencyRecord{}, false, err
+	}
+	record, err := authn.GetRouteIdempotencyTx(ctx, tx, routeKey)
 	if errors.Is(err, authn.ErrNotFound) {
 		return assessments.CreateIdempotencyRecord{}, false, nil
 	}
 	if err != nil {
 		return assessments.CreateIdempotencyRecord{}, false, err
 	}
-	result, err := decodeAssessmentCreateResult(record.ResponseJSON, record.ScopeKey, record.StatusCode, record.RequestHash)
+	receipt, err := decodeAssessmentCreateResult(record.ResponseJSON, record.ScopeKey, record.StatusCode, record.RequestHash)
 	if err != nil {
 		return assessments.CreateIdempotencyRecord{}, false, err
 	}
-	return assessments.CreateIdempotencyRecord{
-		RequestHash: append([]byte(nil), record.RequestHash...),
-		Result:      result,
-	}, true, nil
+	return receipt, true, nil
 }
 
-func (assessmentIdempotencyAdapter) StoreCreateTx(ctx context.Context, tx pgx.Tx, key assessments.CreateIdempotencyKey, result assessments.CreateResult) error {
-	payload, err := encodeAssessmentCreateResult(key.ScopeKey, key.RequestHash, result)
+func (assessmentIdempotencyAdapter) StoreCreateTx(ctx context.Context, tx pgx.Tx, key assessments.CreateIdempotencyKey, receipt assessments.CreateIdempotencyRecord) error {
+	payload, err := encodeAssessmentCreateResult(key.ScopeKey, receipt)
 	if err != nil {
 		return err
 	}
@@ -59,7 +58,7 @@ func (assessmentIdempotencyAdapter) StoreCreateTx(ctx context.Context, tx pgx.Tx
 		ActorUserID: key.ActorUserID,
 		ScopeKey:    key.ScopeKey,
 		ClientTxnID: key.ClientTxnID,
-	}, nil, key.RequestHash, http.StatusCreated, payload)
+	}, nil, receipt.RequestHash, http.StatusCreated, payload)
 	if authn.IsUniqueViolation(err) {
 		return assessments.ErrClientTxnConflict
 	}
@@ -154,15 +153,11 @@ func NewAssessmentMutationContribution(
 	if isNilDependency(publications) {
 		return nil, errors.New("compose assessment facade: collaboration publication appender is required")
 	}
-	subjects, err := assessmentassembly.NewSubjectValidator(pool, entitySourceFacts)
+	references, err := assessmentassembly.NewReferenceAdmission(pool, entitySourceFacts)
 	if err != nil {
 		return nil, fmt.Errorf("compose assessment facade: %w", err)
 	}
 	assessors, err := assessmentassembly.NewAssessorValidator(pool)
-	if err != nil {
-		return nil, fmt.Errorf("compose assessment facade: %w", err)
-	}
-	supportTargets, err := assessmentassembly.NewSupportTargetValidator(pool)
 	if err != nil {
 		return nil, fmt.Errorf("compose assessment facade: %w", err)
 	}
@@ -178,16 +173,14 @@ func NewAssessmentMutationContribution(
 	if err != nil {
 		return nil, err
 	}
-	authStore := authn.NewStore(pool)
 	return assessments.NewFacade(pool, assessments.FacadeDependencies{
-		Idempotency:    assessmentIdempotencyAdapter{store: authStore},
-		Subjects:       subjects,
-		Assessors:      assessors,
-		SupportTargets: supportTargets,
-		Records:        recordEnvelopes,
-		SupportLinks:   supportLinks,
-		Revisions:      assessmentRevisionAdapter{appender: appender, publications: publications},
-		Projections:    projections,
+		Idempotency:  assessmentIdempotencyAdapter{},
+		References:   references,
+		Assessors:    assessors,
+		Records:      recordEnvelopes,
+		SupportLinks: supportLinks,
+		Revisions:    assessmentRevisionAdapter{appender: appender, publications: publications},
+		Projections:  projections,
 	})
 }
 

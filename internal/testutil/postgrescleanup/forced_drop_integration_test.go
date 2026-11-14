@@ -52,19 +52,17 @@ func TestConcurrentActiveDatabaseCleanupUsesTargetScopedForcedAdmission(t *testi
 		if err != nil {
 			t.Fatalf("open active database %s: %v", database.Name, err)
 		}
+		t.Cleanup(func() {
+			if err := handle.Close(); err != nil {
+				t.Error(err)
+			}
+		})
 		if err := handle.PingContext(context.Background()); err != nil {
-			_ = handle.Close()
 			t.Fatalf("establish active database %s: %v", database.Name, err)
 		}
 		databases = append(databases, database)
 		handles = append(handles, handle)
 	}
-	t.Cleanup(func() {
-		for _, handle := range handles {
-			_ = handle.Close()
-		}
-	})
-
 	start := make(chan struct{})
 	errorsByDatabase := make(chan error, databaseCount)
 	var wait sync.WaitGroup
@@ -135,36 +133,78 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 	}
 	firstEntered := make(chan struct{})
 	releaseFirst := make(chan struct{})
+	release := sync.OnceFunc(func() { close(releaseFirst) })
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	var workers sync.WaitGroup
+	ownedTargets := make(chan string, 2)
+	t.Cleanup(func() {
+		release()
+		cancel()
+		settled := make(chan struct{})
+		go func() {
+			workers.Wait()
+			close(settled)
+		}()
+		select {
+		case <-settled:
+		case <-time.After(5 * time.Second):
+			t.Error("catalog mutation workers did not settle; target cleanup remains unproved")
+			return
+		}
+		close(ownedTargets)
+		for name := range ownedTargets {
+			if err := postgrescleanup.DropOwnedDatabase(context.Background(), harness.AdminDSN(), name); err != nil {
+				t.Errorf("clean coordinated database: %v", err)
+			}
+		}
+	})
 	firstDone := make(chan error, 1)
+	workers.Add(1)
 	go func() {
+		defer workers.Done()
 		firstDone <- postgrescatalog.WithMutation(
-			context.Background(),
+			ctx,
 			harness.AdminDSN(),
 			databaseName,
 			5*time.Second,
 			func(*sql.Conn) error {
 				close(firstEntered)
-				<-releaseFirst
-				return nil
+				select {
+				case <-releaseFirst:
+					return nil
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			},
 		)
 	}()
-	<-firstEntered
+	select {
+	case <-firstEntered:
+	case err := <-firstDone:
+		t.Fatalf("first catalog mutation did not acquire admission: %v", err)
+	case <-ctx.Done():
+		t.Fatal("first catalog mutation did not enter before its deadline")
+	}
 
 	sameTargetEntered := make(chan struct{})
 	sameTargetDone := make(chan error, 1)
+	workers.Add(1)
 	go func() {
+		defer workers.Done()
 		sameTargetDone <- postgrescatalog.WithMutation(
-			context.Background(),
+			ctx,
 			harness.AdminDSN(),
 			databaseName,
 			5*time.Second,
 			func(admin *sql.Conn) error {
 				close(sameTargetEntered)
 				_, err := admin.ExecContext(
-					context.Background(),
+					ctx,
 					fmt.Sprintf(`CREATE DATABASE "%s"`, databaseName),
 				)
+				if err == nil {
+					ownedTargets <- databaseName
+				}
 				return err
 			},
 		)
@@ -177,18 +217,23 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 
 	differentTargetEntered := make(chan struct{})
 	differentTargetDone := make(chan error, 1)
+	workers.Add(1)
 	go func() {
+		defer workers.Done()
 		differentTargetDone <- postgrescatalog.WithMutation(
-			context.Background(),
+			ctx,
 			harness.AdminDSN(),
 			differentDatabaseName,
 			5*time.Second,
 			func(admin *sql.Conn) error {
 				close(differentTargetEntered)
 				_, err := admin.ExecContext(
-					context.Background(),
+					ctx,
 					fmt.Sprintf(`CREATE DATABASE "%s"`, differentDatabaseName),
 				)
+				if err == nil {
+					ownedTargets <- differentDatabaseName
+				}
 				return err
 			},
 		)
@@ -202,7 +247,7 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 		t.Fatalf("different-target database creation: %v", err)
 	}
 
-	close(releaseFirst)
+	release()
 	if err := <-firstDone; err != nil {
 		t.Fatalf("first catalog mutation: %v", err)
 	}
@@ -215,12 +260,6 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 		t.Fatal("same-target database creation never acquired catalog admission")
 	}
 
-	if err := postgrescleanup.DropOwnedDatabase(context.Background(), harness.AdminDSN(), databaseName); err != nil {
-		t.Fatalf("clean coordinated database: %v", err)
-	}
-	if err := postgrescleanup.DropOwnedDatabase(context.Background(), harness.AdminDSN(), differentDatabaseName); err != nil {
-		t.Fatalf("clean different-target database: %v", err)
-	}
 }
 
 func TestOwnedDelayedBarrierParticipantIsRedacted(t *testing.T) {

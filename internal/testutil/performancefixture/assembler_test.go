@@ -54,7 +54,11 @@ func TestAssemblerRejectsInvalidClosureBeforeMutation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			calls := 0
-			_, err := NewAssembler(testProfile(descriptors, map[string]int{"rows": 1}), testValidator{}, testContribution{calls: &calls})
+			contributions := make([]Contribution, len(descriptors))
+			for index, descriptor := range descriptors {
+				contributions[index] = testContribution{descriptor: descriptor, calls: &calls}
+			}
+			_, err := NewAssembler(testProfile(descriptors, map[string]int{"rows": 1}), testValidator{}, contributions...)
 			if err == nil {
 				t.Fatal("expected invalid closure to fail")
 			}
@@ -63,6 +67,33 @@ func TestAssemblerRejectsInvalidClosureBeforeMutation(t *testing.T) {
 			}
 		})
 	}
+	t.Run("valid_order", func(t *testing.T) {
+		t.Parallel()
+		descriptors := []Descriptor{testDescriptor("one.v1", nil), testDescriptor("two.v1", []string{"one.v1"})}
+		calls := 0
+		contributions := make([]Contribution, len(descriptors))
+		for index, descriptor := range descriptors {
+			contributions[index] = testContribution{
+				descriptor: descriptor,
+				calls:      &calls,
+				receipt: Receipt{
+					ContributionID: descriptor.ContributionID, Version: descriptor.Version,
+					OwnerID: descriptor.OwnerID, Counts: map[string]int{"rows": 1},
+				},
+			}
+		}
+		assembler, err := NewAssembler(testProfile(descriptors, map[string]int{"rows": 1}), testValidator{result: passingValidation(map[string]int{"rows": 1})}, contributions...)
+		if err != nil || calls != 0 {
+			t.Fatalf("valid closure admission: err=%v calls=%d", err, calls)
+		}
+		result, err := assembler.Assemble(context.Background(), testState())
+		if err != nil || calls != 2 || len(result.Receipts) != 2 {
+			t.Fatalf("valid closure execution: err=%v calls=%d receipts=%d", err, calls, len(result.Receipts))
+		}
+		if result.Receipts[0].ContributionID != "one.v1" || result.Receipts[1].ContributionID != "two.v1" {
+			t.Fatal("valid closure lost dependency order")
+		}
+	})
 }
 
 func TestAssemblerRejectsReceiptAndSemanticMutation(t *testing.T) {
@@ -156,16 +187,17 @@ func TestAssemblerPropagatesContributionFailure(t *testing.T) {
 	t.Parallel()
 	descriptor := testDescriptor("one.v1", nil)
 	calls := 0
+	injected := errors.New("injected mutation failure")
 	assembler, err := NewAssembler(
 		testProfile([]Descriptor{descriptor}, map[string]int{"rows": 1}),
 		testValidator{result: passingValidation(map[string]int{"rows": 1})},
-		testContribution{descriptor: descriptor, calls: &calls, err: errors.New("injected mutation failure")},
+		testContribution{descriptor: descriptor, calls: &calls, err: injected},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := assembler.Assemble(context.Background(), testState()); err == nil {
-		t.Fatal("expected injected mutation failure")
+	if _, err := assembler.Assemble(context.Background(), testState()); !errors.Is(err, injected) || calls != 1 {
+		t.Fatalf("injected mutation cause or call lost: err=%v calls=%d", err, calls)
 	} else if diagnostic, ok := FailureDiagnostics(err); !ok {
 		t.Fatal("expected bounded failure diagnostics")
 	} else if diagnostic.Stage != "contribution" || len(diagnostic.Contributions) != 1 ||

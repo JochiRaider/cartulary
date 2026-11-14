@@ -19,6 +19,28 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// startRuntimeProcessFixture owns cancellation and joining independently of whether
+// the caller consumes the result or fails during readiness assertions.
+func startRuntimeProcessFixture(t *testing.T, runner *processRunner, request executionRequest) (context.CancelFunc, <-chan unitResult) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	result := make(chan unitResult, 1)
+	settled := make(chan struct{})
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-settled:
+		case <-time.After(5 * time.Second):
+			t.Error("process fixture did not settle after cancellation")
+		}
+	})
+	go func() {
+		defer close(settled)
+		result <- runner.Execute(ctx, request)
+	}()
+	return cancel, result
+}
+
 func TestRuntimeProcessLifecycle(t *testing.T) {
 	if mode := os.Getenv("CARTULARY_NESTED_TEST_HELPER"); mode != "" {
 		ctx, finish, err := joinNested(context.Background(), os.Getenv(nestedContextKey))
@@ -59,10 +81,7 @@ func TestRuntimeProcessLifecycle(t *testing.T) {
 					u.TimeoutMS = 1000
 				}
 				u.Command = command{Executable: binary, Args: []string{"-test.run=^TestRuntimeProcessLifecycle$"}, Environment: map[string]string{}}
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-				result := make(chan unitResult, 1)
-				go func() { result <- p.Execute(ctx, executionRequest{Unit: u}) }()
+				cancel, result := startRuntimeProcessFixture(t, &p, executionRequest{Unit: u})
 				deadline := time.After(5 * time.Second)
 				for {
 					if _, err := os.Stat(filepath.Join(root, "ready")); err == nil {
@@ -106,7 +125,11 @@ func TestRuntimeProcessLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer s.close()
+		t.Cleanup(func() {
+			if err := s.close(); err != nil {
+				t.Errorf("close nested fixture scope: %v", err)
+			}
+		})
 		proof, err := harnesssession.CaptureProcess(os.Getpid())
 		if err != nil {
 			t.Fatal(err)
@@ -116,11 +139,12 @@ func TestRuntimeProcessLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		t.Cleanup(func() { finishFirst(false) })
 		second, finishSecond, err := joinNested(context.Background(), s.environment())
 		if err != nil {
-			finishFirst(true)
 			t.Fatal(err)
 		}
+		t.Cleanup(func() { finishSecond(false) })
 		drained := s.cancel()
 		for _, child := range []context.Context{first, second} {
 			select {
@@ -156,7 +180,11 @@ func TestRuntimeProcessLifecycle(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer s.close()
+				t.Cleanup(func() {
+					if err := s.close(); err != nil {
+						t.Errorf("close nested fixture scope: %v", err)
+					}
+				})
 				proof, _ := harnesssession.CaptureProcess(os.Getpid())
 				if mode == "foreign_launch" {
 					proof.Start = "0"
@@ -386,13 +414,29 @@ func TestRuntimeHostAdmission(t *testing.T) {
 	capacities := map[string]int64{"cpu": 1, "process": 2, "io": 1, "memory_mb": 100, "browser_stack": 1}
 	admit := nativeAdmission(capacities, nil, root, nil)
 	u := engineUnit("a", 1)
+	release := func(lease *hostLease) {
+		if lease == nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := lease.Release(ctx); err != nil {
+			t.Errorf("release fixture host lease: %v", err)
+		}
+	}
+	own := func(lease *hostLease) {
+		t.Cleanup(func() { release(lease) })
+	}
 	lease, err := admit(context.Background(), u)
+	own(lease)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 	defer cancel()
-	if _, err := admit(ctx, u); !errors.Is(err, context.DeadlineExceeded) {
+	unexpected, err := admit(ctx, u)
+	own(unexpected)
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal("host wait lost cancellation or overbooked", err)
 	}
 	short := u
@@ -403,23 +447,34 @@ func TestRuntimeHostAdmission(t *testing.T) {
 		lease *hostLease
 		err   error
 	}
-	result := make(chan outcome, 1)
+	var acquired outcome
+	settled := make(chan struct{})
+	t.Cleanup(func() {
+		done()
+		select {
+		case <-settled:
+			release(acquired.lease)
+		case <-time.After(5 * time.Second):
+			t.Error("queued fixture admission did not settle")
+		}
+	})
 	go func() {
-		lease, err := admit(queued, short)
-		result <- outcome{lease, err}
+		defer close(settled)
+		acquired.lease, acquired.err = admit(queued, short)
 	}()
 	select {
-	case outcome := <-result:
-		if outcome.lease != nil {
-			_ = outcome.lease.Release(context.Background())
-		}
-		t.Fatalf("capacity waiting consumed the execution watchdog: %v", outcome.err)
+	case <-settled:
+		t.Fatalf("capacity waiting consumed the execution watchdog: %v", acquired.err)
 	case <-time.After(3 * time.Duration(short.TimeoutMS) * time.Millisecond):
 	}
 	if err := lease.Release(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	acquired := <-result
+	select {
+	case <-settled:
+	case <-queued.Done():
+		t.Fatal("queued fixture admission did not complete", queued.Err())
+	}
 	if acquired.err != nil || acquired.lease == nil {
 		t.Fatal("healthy queued work did not acquire released capacity", acquired.err)
 	}
@@ -430,6 +485,7 @@ func TestRuntimeHostAdmission(t *testing.T) {
 		t.Fatal(err)
 	}
 	lease, err = admit(context.Background(), u)
+	own(lease)
 	if err != nil {
 		t.Fatal("cancelled request retained capacity", err)
 	}

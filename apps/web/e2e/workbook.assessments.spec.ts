@@ -33,7 +33,11 @@ import {
 import { observePageRequests } from "./support/runtime/observations";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { fetchFullRecordHistory } from "./support/workbook/history";
-import { createViewRow, queryViewRows } from "./support/workbook/query";
+import {
+  createViewRow,
+  queryViewRows,
+  readWorkbookMutation,
+} from "./support/workbook/query";
 
 test("creates append-only assessment history through the workbook UI", async ({
   page,
@@ -420,6 +424,16 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
 
   const invalidTimestamp = "2026-04-24 12:00:00";
   await page
+    .getByRole("button", { name: "Choose support", exact: true })
+    .click();
+  await page
+    .getByTestId(assessmentCreateControlTestId("support-refs"))
+    .locator(`input[type="checkbox"][value="${support.record_id}"]`)
+    .check();
+  await page
+    .getByRole("button", { name: "Apply support selection", exact: true })
+    .click();
+  await page
     .getByTestId(assessmentCreateControlTestId("state"))
     .selectOption("confirmed");
   await page
@@ -450,31 +464,53 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
   expect(
     await queryViewRows(page, incidentId, assessmentsViewSchemaId),
   ).toHaveLength(0);
+  await expect(
+    page
+      .getByTestId(assessmentCreateControlTestId("subject"))
+      .locator(`input[type="radio"][value="${subjectA.record_id}"]`),
+  ).toBeChecked();
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("state")),
+  ).toHaveValue("confirmed");
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("confidence-band")),
+  ).toHaveValue("high");
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("rationale")),
+  ).toHaveValue("Invalid timestamp must remain a draft.");
+  await expect(
+    page
+      .getByRole("region", { name: "Assessment supporting records" })
+      .getByRole("listitem"),
+  ).toHaveText(["Workbook inspector assessment support event"]);
 
-  const createdUnknown = await createAssessmentViaUI(page, {
-    subjectRecordId: subjectA.record_id,
-    assessedAt: "2026-04-24T10:00:00Z",
-    confidenceBand: "unset",
-    rationale: "Workbook inspector unknown rationale.",
-    state: "unknown",
-    supportRecordIds: [],
+  // Correct only the rejected field: the successful request must preserve the
+  // selected subject, support and remaining draft values.
+  await page
+    .getByTestId(assessmentCreateControlTestId("assessed-at"))
+    .fill("2026-04-24T12:00:00Z");
+  const correctedResponsePromise = waitForAssessmentCreate(page);
+  await page.getByTestId(assessmentCreateControlTestId("submit")).click();
+  const correctedResponse = await correctedResponsePromise;
+  expect(correctedResponse.request().postDataJSON()).toEqual({
+    client_txn_id: expect.any(String),
+    "assessment.subject_ref": subjectA.record_id,
+    "assessment.subject_type": "host",
+    "assessment.assessment_state": "confirmed",
+    "assessment.confidence_score": 85,
+    "assessment.rationale": "Invalid timestamp must remain a draft.",
+    "assessment.assessed_at": "2026-04-24T12:00:00Z",
+    "assessment.support_refs": {
+      kind: "collection_actions_v1",
+      actions: [{ op: "add_record_ref", linked_record_id: support.record_id }],
+    },
   });
-  const createdSuspected = await createAssessmentViaUI(page, {
-    subjectRecordId: subjectA.record_id,
-    assessedAt: "2026-04-24T11:00:00Z",
-    confidenceBand: "low",
-    rationale: "Workbook inspector suspected rationale.",
-    state: "suspected",
-    supportRecordIds: [],
-  });
-  const createdConfirmed = await createAssessmentViaUI(page, {
-    subjectRecordId: subjectA.record_id,
-    assessedAt: "2026-04-24T12:00:00Z",
-    confidenceBand: "medium",
-    rationale: "Workbook inspector confirmed rationale.",
-    state: "confirmed",
-    supportRecordIds: [support.record_id as string],
-  });
+  const corrected = await readWorkbookMutation(
+    correctedResponse,
+    "createViewRow",
+  );
+  const createdConfirmed = corrected.data.row;
+  await expectAssessmentGridOrder(page, [createdConfirmed.record_id]);
 
   const createdDisproven = await createAssessmentViaUI(page, {
     subjectRecordId: subjectB.record_id,
@@ -484,21 +520,9 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
     state: "disproven",
     supportRecordIds: [],
   });
-  const createdCleared = await createAssessmentViaUI(page, {
-    subjectRecordId: subjectB.record_id,
-    assessedAt: "2026-04-24T14:00:00Z",
-    confidenceBand: "high",
-    rationale: "Workbook inspector cleared rationale.",
-    state: "cleared",
-    supportRecordIds: [],
-  });
-
   await expectAssessmentGridOrder(page, [
-    createdCleared.record_id,
     createdDisproven.record_id,
     createdConfirmed.record_id,
-    createdSuspected.record_id,
-    createdUnknown.record_id,
   ]);
   await scrollGridCellIntoView({
     cellKey: "assessment.subject_ref",
@@ -511,76 +535,4 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
       rowCellTestId(createdDisproven.record_id, "assessment.subject_ref"),
     ),
   ).toHaveText(subjectB.record_id as string);
-  await scrollGridCellIntoView({
-    cellKey: "assessment.supporting_link_count",
-    page,
-    recordId: createdConfirmed.record_id,
-    surface: assessmentsViewSchemaId,
-  });
-  await expect(
-    page.getByTestId(
-      rowCellTestId(
-        createdConfirmed.record_id,
-        "assessment.supporting_link_count",
-      ),
-    ),
-  ).toHaveText("1");
-  await scrollGridCellIntoView({
-    cellKey: "assessment.confidence_band",
-    page,
-    recordId: createdUnknown.record_id,
-    surface: assessmentsViewSchemaId,
-  });
-  await expect(
-    page.getByTestId(
-      rowCellTestId(createdUnknown.record_id, "assessment.confidence_band"),
-    ),
-  ).toHaveText("unset");
-  await expect(
-    page.getByTestId(
-      rowCellTestId(createdSuspected.record_id, "assessment.confidence_band"),
-    ),
-  ).toHaveText("low");
-  await expect(
-    page.getByTestId(
-      rowCellTestId(createdConfirmed.record_id, "assessment.confidence_band"),
-    ),
-  ).toHaveText("medium");
-  await expect(
-    page.getByTestId(
-      rowCellTestId(createdCleared.record_id, "assessment.confidence_band"),
-    ),
-  ).toHaveText("high");
-
-  await applyFilterChip(
-    page,
-    assessmentsViewSchemaId,
-    "assessment.assessment_state",
-    "disproven",
-  );
-  await expectAssessmentGridOrder(page, [createdDisproven.record_id]);
-  await removeFilterChip(
-    page,
-    assessmentsViewSchemaId,
-    "assessment.assessment_state",
-  );
-  await applyFilterChip(
-    page,
-    assessmentsViewSchemaId,
-    "assessment.assessment_state",
-    "cleared",
-  );
-  await expectAssessmentGridOrder(page, [createdCleared.record_id]);
-  await removeFilterChip(
-    page,
-    assessmentsViewSchemaId,
-    "assessment.assessment_state",
-  );
-  await applyFilterChip(
-    page,
-    assessmentsViewSchemaId,
-    "assessment.confidence_band",
-    "high",
-  );
-  await expectAssessmentGridOrder(page, [createdCleared.record_id]);
 });

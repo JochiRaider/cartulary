@@ -47,7 +47,6 @@ import {
 import {
   createViewRow,
   patchRecord,
-  queryViewRows,
   readWorkbookMutation,
 } from "./support/workbook/query";
 import {

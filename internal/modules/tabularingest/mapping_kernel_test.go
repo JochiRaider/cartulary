@@ -2,6 +2,7 @@ package tabularingest_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"reflect"
@@ -104,6 +105,7 @@ func TestMappingKernelV1ClosedTransformRegistry(t *testing.T) {
 }
 
 func TestMappingKernelV1FailsClosed(t *testing.T) {
+	requireMappingKernelHeaderAdmission(t)
 	base := oneColumnKernelRequest(tabularingest.TransformTrimV1, map[string]any{}, " value ")
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -148,6 +150,73 @@ func TestMappingKernelV1FailsClosed(t *testing.T) {
 				t.Fatalf("failure returned partial plan: %#v", plan)
 			}
 		})
+	}
+}
+
+func requireMappingKernelHeaderAdmission(t *testing.T) {
+	t.Helper()
+	for _, mapped := range []bool{true, false} {
+		for _, tc := range []struct {
+			name   string
+			header any
+			valid  bool
+		}{
+			{"null", nil, true}, {"empty", "", true},
+			{"raw text", "  Cafe\u0301\r\n\t<>&\u2028\u200d  ", true},
+			{"boolean", true, false}, {"integer", 12, false},
+			{"number", json.Number("9007199254740993"), false},
+			{"array", []any{"header"}, false}, {"object", map[string]any{"header": "value"}, false},
+			{"invalid UTF8", string([]byte{0xff}), false},
+		} {
+			name := "unmapped/" + tc.name
+			if mapped {
+				name = "mapped/" + tc.name
+			}
+			t.Run(name, func(t *testing.T) {
+				request := oneColumnKernelRequest(tabularingest.TransformTrimV1, map[string]any{}, " value ")
+				request.SourceColumns[0].SourceHeaderText = tc.header
+				if !mapped {
+					request.SourceColumns[0].FieldKey = nil
+					request.SourceColumns[0].TransformID = nil
+				}
+				before, marshalErr := json.Marshal(request.SourceColumns[0].SourceHeaderText)
+				if marshalErr != nil {
+					t.Fatal(marshalErr)
+				}
+				plan, err := tabularingest.BuildMappingKernelPlanV1(t.Context(), request)
+				after, marshalErr := json.Marshal(request.SourceColumns[0].SourceHeaderText)
+				if marshalErr != nil || string(before) != string(after) {
+					t.Fatal("source header content changed")
+				}
+				if !reflect.DeepEqual(request.SourceColumns[0].SourceHeaderText, tc.header) {
+					t.Fatal("source header was mutated")
+				}
+				if !tc.valid {
+					if err == nil || err.Error() != "tabular mapping kernel source header 1 must be Unicode text or null" || !reflect.DeepEqual(plan, tabularingest.MappingKernelPlanV1{}) {
+						t.Fatalf("invalid header result: plan=%#v err=%v", plan, err)
+					}
+					return
+				}
+				if err != nil || len(plan.Rows) != 1 {
+					t.Fatalf("valid header result: plan=%#v err=%v", plan, err)
+				}
+				var actual any
+				if mapped {
+					if len(plan.Rows[0].Values) != 1 || len(plan.Rows[0].UnknownValues) != 0 {
+						t.Fatalf("mapped plan=%#v", plan)
+					}
+					actual = plan.Rows[0].Values[0].SourceHeaderText
+				} else {
+					if len(plan.Rows[0].UnknownValues) != 1 || len(plan.Rows[0].Values) != 0 {
+						t.Fatalf("unmapped plan=%#v", plan)
+					}
+					actual = plan.Rows[0].UnknownValues[0].SourceHeaderText
+				}
+				if !reflect.DeepEqual(actual, tc.header) {
+					t.Fatalf("header=%#v want=%#v", actual, tc.header)
+				}
+			})
+		}
 	}
 }
 

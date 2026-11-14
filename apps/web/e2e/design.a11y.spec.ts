@@ -27,8 +27,8 @@ import {
 } from "./support/accessibility/grid";
 import {
   blurActiveElement,
-  expectNoFocusTrap,
-  expectTabOrderIncludes,
+  expectInitialTabRoundTrip,
+  expectTabReachability,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
 import { openA11ySystemSurface } from "./support/accessibility/queryControls";
@@ -92,7 +92,7 @@ test("a11y.design-readiness.row-01 Verify global accessibility matrix for keyboa
     "timeline.activity_synopsis_text",
   );
 
-  await expectTabOrderIncludes(page, [
+  await expectTabReachability(page, [
     systemViewSwitcherTriggerTestId(),
     workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
     gridGroupingSelectTestId(timelineViewSchemaId),
@@ -199,7 +199,7 @@ test("a11y.design-readiness.row-01 Verify global accessibility matrix for keyboa
   await expect(trigger).toBeFocused();
 
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
   await expectAndRecordContrast(page, [
     systemViewSwitcherTriggerTestId(),
     savedViewSelectorTestId(taskRequestsViewSchemaId),

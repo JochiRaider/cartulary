@@ -1412,6 +1412,169 @@ describe("WorkbookCollaborationCoordinator", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(fixture.session.completeReset).toHaveBeenCalledWith(8);
     fixture.projection.dispose();
+
+    const timeline = "cartulary.view.timeline.v2";
+    const hosts = "cartulary.view.hosts.v1";
+    const surface = (
+      id: string,
+      refresh: () => Promise<void>,
+    ): WorkbookActiveSurfacePort => ({
+      identity: { sheetRef: { kind: "view_schema", id }, viewSchemaId: id },
+      applyRecordChanged: () => ({ kind: "applied" }),
+      invalidate: vi.fn(),
+      refresh,
+    });
+
+    // No renderer, or an obsolete sheet's renderer, cannot acknowledge a read.
+    for (const mismatched of [false, true]) {
+      const missing = projectionFixture();
+      const obsoleteRefresh = vi.fn(async () => undefined);
+      if (mismatched)
+        missing.projection.registerActiveSurface(
+          surface(hosts, obsoleteRefresh),
+        );
+      missing.emit({
+        generation: 9,
+        kind: "reset_required",
+        reason: "resume_reset",
+      });
+      await missing.timing.advanceBy(2_000);
+      expect(missing.session.completeReset).not.toHaveBeenCalled();
+      expect(obsoleteRefresh).not.toHaveBeenCalled();
+      expect(missing.timing.pendingTaskCount()).toBe(0);
+      const accepted = deferred<void>();
+      const currentRefresh = vi.fn(() => accepted.promise);
+      missing.projection.registerActiveSurface(
+        surface(timeline, currentRefresh),
+      );
+      expect(currentRefresh).toHaveBeenCalledExactlyOnceWith({
+        reason: "resume_reset",
+      });
+      expect(missing.session.completeReset).not.toHaveBeenCalled();
+      accepted.resolve();
+      await Promise.resolve();
+      expect(missing.session.completeReset).toHaveBeenCalledExactlyOnceWith(9);
+      missing.projection.dispose();
+    }
+
+    // Replacement and detach/reattach invalidate even a successful old read.
+    for (const detach of [false, true]) {
+      const replaced = projectionFixture();
+      const oldRead = deferred<void>();
+      const oldPort = surface(timeline, () => oldRead.promise);
+      const unregister = replaced.projection.registerActiveSurface(oldPort);
+      replaced.emit({
+        generation: 10,
+        kind: "reset_required",
+        reason: "sequence_gap",
+      });
+      if (detach) {
+        unregister();
+        oldRead.resolve();
+        await Promise.resolve();
+        expect(replaced.session.completeReset).not.toHaveBeenCalled();
+      }
+      const currentRead = deferred<void>();
+      const currentRefresh = vi.fn(() => currentRead.promise);
+      replaced.projection.registerActiveSurface(
+        surface(timeline, currentRefresh),
+      );
+      unregister(); // An obsolete disposer must not unregister the replacement.
+      oldRead.resolve();
+      await Promise.resolve();
+      expect(replaced.session.completeReset).not.toHaveBeenCalled();
+      expect(currentRefresh).toHaveBeenCalledExactlyOnceWith({
+        reason: "sequence_gap",
+      });
+      currentRead.resolve();
+      await Promise.resolve();
+      expect(replaced.session.completeReset).toHaveBeenCalledExactlyOnceWith(
+        10,
+      );
+      replaced.projection.dispose();
+    }
+
+    const switched = projectionFixture();
+    const timelineRead = deferred<void>();
+    switched.projection.registerActiveSurface(
+      surface(timeline, () => timelineRead.promise),
+    );
+    switched.emit({
+      generation: 11,
+      kind: "reset_required",
+      reason: "resume_reset",
+    });
+    switched.projection.setActiveSheet({ kind: "view_schema", id: hosts });
+    timelineRead.resolve();
+    await Promise.resolve();
+    expect(switched.session.completeReset).not.toHaveBeenCalled();
+    const hostsRead = deferred<void>();
+    const hostsRefresh = vi.fn(() => hostsRead.promise);
+    switched.projection.registerActiveSurface(surface(hosts, hostsRefresh));
+    expect(hostsRefresh).toHaveBeenCalledExactlyOnceWith({
+      reason: "resume_reset",
+    });
+    hostsRead.resolve();
+    await Promise.resolve();
+    expect(switched.session.completeReset).toHaveBeenCalledExactlyOnceWith(11);
+    // The prior sheet still owes its own refresh when revisited.
+    switched.projection.setActiveSheet({ kind: "view_schema", id: timeline });
+    const revisit = vi.fn(async () => undefined);
+    switched.projection.registerActiveSurface(surface(timeline, revisit));
+    await Promise.resolve();
+    expect(revisit).toHaveBeenCalledExactlyOnceWith({
+      reason: "inactive_surface_reconciliation",
+    });
+    switched.projection.dispose();
+
+    for (const stop of [
+      "new_reset",
+      "session",
+      "authorization",
+      "closed",
+      "dispose",
+    ] as const) {
+      const cancelled = projectionFixture();
+      const staleRead = deferred<void>();
+      const freshRead = deferred<void>();
+      const refresh = vi
+        .fn<() => Promise<void>>()
+        .mockReturnValueOnce(staleRead.promise)
+        .mockReturnValueOnce(freshRead.promise);
+      cancelled.projection.registerActiveSurface(surface(timeline, refresh));
+      cancelled.emit({
+        generation: 12,
+        kind: "reset_required",
+        reason: "sequence_gap",
+      });
+      if (stop === "new_reset")
+        cancelled.emit({
+          generation: 13,
+          kind: "reset_required",
+          reason: "resume_reset",
+        });
+      else if (stop === "session")
+        cancelled.projection.attachSession({
+          ...cancelled.session,
+          subscribe: () => () => undefined,
+        });
+      else if (stop === "authorization")
+        cancelled.emit({ kind: "authorization_lost" });
+      else if (stop === "closed") cancelled.emit({ kind: "incident_closed" });
+      else cancelled.projection.dispose();
+      staleRead.resolve();
+      await Promise.resolve();
+      expect(cancelled.session.completeReset).not.toHaveBeenCalled();
+      if (stop === "new_reset") {
+        freshRead.resolve();
+        await Promise.resolve();
+        expect(cancelled.session.completeReset).toHaveBeenCalledExactlyOnceWith(
+          13,
+        );
+      }
+      cancelled.projection.dispose();
+      expect(cancelled.timing.pendingTaskCount()).toBe(0);
+    }
   });
 
   it("cancels late authorization recovery when the incident closes", async () => {

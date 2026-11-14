@@ -1,4 +1,4 @@
-import { closeReviewBrowser } from "./ui-review-browser-fixture.mjs";
+import { closeReviewBrowser, closeReviewBrowserFixture } from "./ui-review-browser-fixture.mjs";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -43,7 +43,13 @@ test("exact RGBA math includes transparent RGB and rounds ties upward without to
 });
 test("crop, overlay and contact sheet preserve the declared coordinate and raster rules", async () => {
   const image = pixels(10, 10), before = Buffer.from(image.data);
-  assert.deepEqual(cropImage(image, { x: 2, y: 3, width: 4, height: 2 }).data, pixels(4, 2).data);
+  const cropSource = { width: 3, height: 3, data: Buffer.from(Array.from({ length: 36 }, (_, index) => index)) };
+  const cropBefore = Buffer.from(cropSource.data);
+  assert.deepEqual(cropImage(cropSource, { x: 1, y: 1, width: 2, height: 2 }), {
+    width: 2, height: 2,
+    data: Buffer.from([16, 17, 18, 19, 20, 21, 22, 23, 28, 29, 30, 31, 32, 33, 34, 35]),
+  });
+  assert.deepEqual(cropSource.data, cropBefore);
   for (const rect of [{ x: -1, y: 0, width: 1, height: 1 }, { x: 9, y: 0, width: 2, height: 1 }, { x: 0.5, y: 0, width: 1, height: 1 }]) assert.throws(() => cropImage(image, rect));
   const overlay = overlayImage(image, [{ x: 10.1, y: 20.1, width: 3.8, height: 3.8 }], { origin_x: 10, origin_y: 20, scale_x: 2, scale_y: 2 });
   const at = (data, x, y, width = 10) => [...data.subarray((y * width + x) * 4, (y * width + x + 1) * 4)];
@@ -112,49 +118,53 @@ test("analysis publishes immutable provenance and report cache rejects tampering
     const active = new AbortController(), pending = work(session, "ui-review-report", "bundle-4", 8, { signal: active.signal }); active.abort(new ReviewFailure("interrupted")); await assert.rejects(pending, /interrupted/u);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
-test("live axe excludes iframe contents; offline reports escape observed markup and perform no network requests", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-axe-report-")), session = sessionAt(root);
+test("live axe excludes iframe contents; offline reports escape observed markup and perform no network requests", async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-axe-report-"));
   const server = createServer((_request, response) => { response.setHeader("content-type", "text/html"); response.end('<html lang="en"><title>Observation</title><body><main><h1>Review</h1><img src="data:image/png;base64," width="2" height="2"><iframe title="Excluded" srcdoc="<button></button>"></iframe></main></body></html>'); });
   let admission, browser, viewer;
-  try {
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
-    browser = await new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev" }).start();
-    const axe = await observeAxe(browser.page); assert.equal(axe.unassessed_frames, 1); assert.ok(axe.violations.some((entry) => entry.rule_id === "image-alt")); assert.ok(!axe.violations.some((entry) => entry.rule_id === "button-name"));
-    const snapshot = await browser.observe([]); assert.equal(snapshot.axe.status, "disabled"); assert.equal(snapshot.axe.unassessed_frames, 1);
-    session.mode = "dev"; session.browser = browser; session.hostLease = admission;
-    await capture(session, { source: "page", expected_epoch: 0, binding: null, scope: { kind: "viewport" }, targets: [], include_axe: true }, 1);
-    const entry = await session.store.loadBundle("bundle-1"); assert.equal(JSON.parse(entry.files.get("observations.json")).axe.status, "completed");
-    const observed = JSON.parse(entry.files.get("observations.json")); observed.accessibility_snapshot = '</pre><script>globalThis.observedInjection=1</script><img src="https://private.invalid/secret">';
-    const bytes = Buffer.from(JSON.stringify(observed)); entry.files.set("observations.json", bytes);
-    const updated = structuredClone(entry.bundle); updated.bundle_id = "bundle-2"; updated.components.observations = artifact("observations.json", bytes, "application/json");
-    await session.store.publishBundle(updated, entry.files);
-    const result = await report(session, "bundle-2"), html = readFileSync(result.private_refs[0].absolute_path, "utf8");
-    assert.ok(html.includes("&lt;script&gt;")); assert.ok(!html.includes('<img src="https://private.invalid'));
-    await closeReviewBrowser(browser); browser = null;
-    viewer = await chromium.launch({ headless: true }); const page = await viewer.newPage(), network = [];
-    page.on("request", (request) => { if (/^https?:/u.test(request.url())) network.push(request.url()); });
-    await page.goto(pathToFileURL(result.private_refs[0].absolute_path).href);
-    assert.equal(await page.evaluate(() => globalThis.observedInjection), undefined);
-    assert.equal(await page.locator("img").first().evaluate((node) => node.naturalWidth), 1440);
-    const tabTo = async (control) => {
-      for (let step = 0; step < 32 && !await control.evaluate((node) => document.activeElement === node); step++) await page.keyboard.press("Tab");
-      assert.equal(await control.evaluate((node) => document.activeElement === node), true);
-    };
-    const zoom = page.getByRole("slider").first(); await tabTo(zoom); await zoom.press("Home"); await zoom.press("ArrowRight");
-    assert.equal(await page.locator("img").first().evaluate((node) => node.style.width), "720px");
-    await zoom.press("End"); assert.equal(await page.locator("img").first().evaluate((node) => node.style.width), "5760px");
-    assert.equal(await zoom.evaluate((node) => document.activeElement === node), true); assert.deepEqual(network, []);
-    await analyze(session, parsed({ bundle_id: "bundle-1", operations: ["exact_diff"], comparison: { kind: "reference", bundle_id: "bundle-2" } }), 3);
-    const comparison = await report(session, "bundle-3");
-    await page.goto(pathToFileURL(comparison.private_refs[0].absolute_path).href);
-    const reveal = page.getByRole("slider", { name: "Reveal right image" });
-    await tabTo(reveal); await reveal.press("Home"); assert.equal(await page.locator("#after").evaluate((node) => node.style.clipPath), "inset(0px 100% 0px 0px)");
-    await reveal.press("End"); assert.equal(await page.locator("#after").evaluate((node) => node.style.clipPath), "inset(0px 0% 0px 0px)");
-    assert.equal(await reveal.evaluate((node) => document.activeElement === node), true); assert.deepEqual(network, []);
-    const failedPage = { evaluate: async () => { throw new Error("engine failed"); } };
-    await assert.rejects(observeAxe(failedPage), /analysis_failed/u);
-    failedPage.evaluate = async () => { const error = new Error("expired"); error.name = "TimeoutError"; throw error; };
-    await assert.rejects(observeAxe(failedPage), /operation_expired/u);
-  } finally { await viewer?.close(); await closeReviewBrowser(browser); await admission?.release(); await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
+  t.after(async () => {
+    await closeReviewBrowserFixture({ browser, viewer, admission, server });
+    rmSync(root, { recursive: true, force: true });
+  });
+  const session = sessionAt(root);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
+  browser = new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev" });
+  await browser.start();
+  const axe = await observeAxe(browser.page); assert.equal(axe.unassessed_frames, 1); assert.ok(axe.violations.some((entry) => entry.rule_id === "image-alt")); assert.ok(!axe.violations.some((entry) => entry.rule_id === "button-name"));
+  const snapshot = await browser.observe([]); assert.equal(snapshot.axe.status, "disabled"); assert.equal(snapshot.axe.unassessed_frames, 1);
+  session.mode = "dev"; session.browser = browser; session.hostLease = admission;
+  await capture(session, { source: "page", expected_epoch: 0, binding: null, scope: { kind: "viewport" }, targets: [], include_axe: true }, 1);
+  const entry = await session.store.loadBundle("bundle-1"); assert.equal(JSON.parse(entry.files.get("observations.json")).axe.status, "completed");
+  const observed = JSON.parse(entry.files.get("observations.json")); observed.accessibility_snapshot = '</pre><script>globalThis.observedInjection=1</script><img src="https://private.invalid/secret">';
+  const bytes = Buffer.from(JSON.stringify(observed)); entry.files.set("observations.json", bytes);
+  const updated = structuredClone(entry.bundle); updated.bundle_id = "bundle-2"; updated.components.observations = artifact("observations.json", bytes, "application/json");
+  await session.store.publishBundle(updated, entry.files);
+  const result = await report(session, "bundle-2"), html = readFileSync(result.private_refs[0].absolute_path, "utf8");
+  assert.ok(html.includes("&lt;script&gt;")); assert.ok(!html.includes('<img src="https://private.invalid'));
+  await closeReviewBrowser(browser); browser = null;
+  viewer = await chromium.launch({ headless: true }); const page = await viewer.newPage(), network = [];
+  page.on("request", (request) => { if (/^https?:/u.test(request.url())) network.push(request.url()); });
+  await page.goto(pathToFileURL(result.private_refs[0].absolute_path).href);
+  assert.equal(await page.evaluate(() => globalThis.observedInjection), undefined);
+  assert.equal(await page.locator("img").first().evaluate((node) => node.naturalWidth), 1440);
+  const tabTo = async (control) => {
+    for (let step = 0; step < 32 && !await control.evaluate((node) => document.activeElement === node); step++) await page.keyboard.press("Tab");
+    assert.equal(await control.evaluate((node) => document.activeElement === node), true);
+  };
+  const zoom = page.getByRole("slider").first(); await tabTo(zoom); await zoom.press("Home"); await zoom.press("ArrowRight");
+  assert.equal(await page.locator("img").first().evaluate((node) => node.style.width), "720px");
+  await zoom.press("End"); assert.equal(await page.locator("img").first().evaluate((node) => node.style.width), "5760px");
+  assert.equal(await zoom.evaluate((node) => document.activeElement === node), true); assert.deepEqual(network, []);
+  await analyze(session, parsed({ bundle_id: "bundle-1", operations: ["exact_diff"], comparison: { kind: "reference", bundle_id: "bundle-2" } }), 3);
+  const comparison = await report(session, "bundle-3");
+  await page.goto(pathToFileURL(comparison.private_refs[0].absolute_path).href);
+  const reveal = page.getByRole("slider", { name: "Reveal right image" });
+  await tabTo(reveal); await reveal.press("Home"); assert.equal(await page.locator("#after").evaluate((node) => node.style.clipPath), "inset(0px 100% 0px 0px)");
+  await reveal.press("End"); assert.equal(await page.locator("#after").evaluate((node) => node.style.clipPath), "inset(0px 0% 0px 0px)");
+  assert.equal(await reveal.evaluate((node) => document.activeElement === node), true); assert.deepEqual(network, []);
+  const failedPage = { evaluate: async () => { throw new Error("engine failed"); } };
+  await assert.rejects(observeAxe(failedPage), /analysis_failed/u);
+  failedPage.evaluate = async () => { const error = new Error("expired"); error.name = "TimeoutError"; throw error; };
+  await assert.rejects(observeAxe(failedPage), /operation_expired/u);
 });

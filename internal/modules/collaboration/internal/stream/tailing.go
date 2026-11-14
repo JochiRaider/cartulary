@@ -47,13 +47,22 @@ func (s *PostgresStream) TailReplay(ctx context.Context, cursor map[uuid.UUID]in
 		return nil, fmt.Errorf("encode collaboration replay tail cursor: %w", err)
 	}
 	rows, err := s.db.Query(ctx, `
-SELECT event_id, incident_id, event_family, stream_seq, canonical_payload, emitted_at
+WITH pending AS (
+SELECT event_id, incident_id, event_family, stream_seq, canonical_payload, emitted_at,
+       max(emitted_at) OVER (
+           PARTITION BY incident_id
+           ORDER BY stream_seq
+           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+       ) AS ordered_at
   FROM collaboration_replay_events AS event
  WHERE event.stream_seq > COALESCE(
        (($1::jsonb ->> event.incident_id::text)::bigint),
        0
  )
- ORDER BY event.emitted_at, event.incident_id, event.stream_seq
+)
+SELECT event_id, incident_id, event_family, stream_seq, canonical_payload, emitted_at
+  FROM pending
+ ORDER BY ordered_at, incident_id, stream_seq
  LIMIT $2
 `, cursorJSON, tailBatchLimit)
 	if err != nil {

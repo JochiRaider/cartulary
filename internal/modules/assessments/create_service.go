@@ -11,7 +11,7 @@ import (
 
 type assessmentCreateService struct {
 	source      assessmentSourceRepository
-	subjects    SubjectValidator
+	references  ReferenceAdmission
 	assessors   AssessorValidator
 	records     RecordEnvelopeCreator
 	projections AssessmentProjectionPort
@@ -25,14 +25,14 @@ type assessmentCreateContext struct {
 }
 
 func newAssessmentCreateService(
-	subjects SubjectValidator,
+	references ReferenceAdmission,
 	assessors AssessorValidator,
 	records RecordEnvelopeCreator,
 	projections AssessmentProjectionPort,
 ) assessmentCreateService {
 	return assessmentCreateService{
 		source:      assessmentSourceRepository{},
-		subjects:    subjects,
+		references:  references,
 		assessors:   assessors,
 		records:     records,
 		projections: projections,
@@ -43,26 +43,24 @@ func (assessmentCreateService) validateInput(input CreateInput) error {
 	return validateCreateInputShape(input)
 }
 
-func (service assessmentCreateService) validateSubjectTx(
+func (service assessmentCreateService) admitReferencesTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	create assessmentCreateContext,
 ) error {
-	valid, err := service.subjects.ValidateAssessmentSubjectTx(
-		ctx,
-		tx,
-		create.IncidentID,
-		create.Input.SubjectType,
-		create.Input.SubjectRef,
-	)
+	result, err := service.references.AdmitAssessmentReferencesTx(ctx, tx, create.IncidentID, CreateReferences{
+		SubjectRef:  create.Input.SubjectRef,
+		SubjectType: create.Input.SubjectType,
+		SupportRefs: uniqueUUIDs(create.Input.SupportRefs),
+	})
 	if err != nil {
-		return fmt.Errorf("validate assessment subject: %w", err)
+		return fmt.Errorf("admit assessment references: %w", err)
 	}
-	if !valid {
-		return &CreateValidationError{
-			Field:      "assessment.subject_ref",
-			ReasonCode: "invalid_value",
-		}
+	if !result.SubjectValid {
+		return &CreateValidationError{Field: "assessment.subject_ref", ReasonCode: "invalid_value"}
+	}
+	if !result.SupportValid {
+		return &CreateValidationError{Field: "assessment.support_refs", ReasonCode: "invalid_value"}
 	}
 	return nil
 }

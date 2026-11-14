@@ -12,4 +12,6 @@ var cleanupDeadlinesMS = map[string]int{
 "managed_suite": 120000,
 "borrowed_suite": 30000,
 "resident_allocation": 5000,
+"package_resource": 30000,
+"package_deployment": 120000,
 }

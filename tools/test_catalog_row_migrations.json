@@ -373,10 +373,17 @@
     {
       "retired_row_id": "module.revisions.portability.allocator",
       "replacement_row_ids": [
-        "module.revisions.portability.managed_service_assertions_for_allocator_1e7086ab36",
-        "module.revisions.portability.service_free_contract_assertions_for_allocator_b4f5c965d4"
+        "module.incidentbundles.unit.sequence_repair_order",
+        "module.revisions.portability.managed_service_assertions_for_allocator_1e7086ab36"
       ],
-      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+      "reason": "Allocator state, rollback, exclusion and privilege assertions remain in the managed-service selection. Sequence ordering is owned by the Incident Bundles coordinator and executes its actual transaction stages and failure gates."
+    },
+    {
+      "retired_row_id": "module.revisions.portability.service_free_contract_assertions_for_allocator_b4f5c965d4",
+      "replacement_row_ids": [
+        "module.incidentbundles.unit.sequence_repair_order"
+      ],
+      "reason": "The Incident Bundles coordinator now executes under recording transaction and source-owner boundaries to verify repair ordering and failure stops. This replaces source-text occurrence searches; database allocator semantics remain with Revisions."
     },
     {
       "retired_row_id": "module.revisions.store.get_api_v1_records_record_id_history_returns_the_6962b381cc",

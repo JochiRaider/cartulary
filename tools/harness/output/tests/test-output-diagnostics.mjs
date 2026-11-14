@@ -260,6 +260,11 @@ test('canonical reader diagnostics use the shared fixture and reject unknown gen
     assert.match(summary, /units=1/);
     assert.match(summary, /\[TARGET\] sample status=fail failure_class=product units=1/);
     assert.doesNotMatch(summary, /undefined/);
+    fs.writeFileSync(path.join(c.root, 'run-summary.json'), '{}', { mode: 0o600 });
+    assert.equal(assertExit(c.explain(['--results-dir', c.root, '--run-id', 'run', '--target', 'sample'])), summary,
+        'explicit run selection must take precedence over artifacts in its parent');
+    assert.equal(assertExit(c.explain(['--run-id', 'run', '--target', 'sample'])), summary,
+        'an exact directory plus its run ID must remain the same selection');
     const accounting = assertExit(c.explain(['--target', 'sample', '--detail', 'accounting']));
     assert.match(accounting, /\[UNIT\] row:sample status=failed/);
     assert.match(accounting, /\[ACCOUNTING\] units=1/);

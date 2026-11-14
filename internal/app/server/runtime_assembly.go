@@ -810,6 +810,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (_ *Runtime, resultEr
 	}
 	collaborationOptions := settingsProjection.Collaboration(postgresHandle, socketTransport, now)
 	collaborationOptions.PublicationCatalog = collaborationPublicationCatalog
+	for _, workspace := range extensionPlan.Workspaces() {
+		collaborationOptions.ClaimedWorkspaces = append(collaborationOptions.ClaimedWorkspaces, collaboration.ClaimedWorkspace{
+			ExtensionProfileID: workspace.ProfileID, WorkspaceKey: workspace.WorkspaceKey,
+		})
+	}
 	collaborationOptions.OnUnexpectedDispatcherLoss = func() {
 		runtime.publication.componentLost("websocket")
 	}

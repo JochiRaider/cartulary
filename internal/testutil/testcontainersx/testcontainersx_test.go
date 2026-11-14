@@ -290,6 +290,7 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 
 	startCalls := 0
 	sleepCalls := 0
+	var blockedEvents []StartEvent
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
@@ -310,8 +311,8 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 			return ctx.Err()
 		},
 		Observer: func(event StartEvent) {
-			if event.Type == StartEventRetryBlocked && !event.RetryBlockedByContext {
-				t.Fatalf("retry-blocked event must mark context blocking: %#v", event)
+			if event.Type == StartEventRetryBlocked {
+				blockedEvents = append(blockedEvents, event)
 			}
 		},
 	}, func(context.Context) (int, error) {
@@ -320,6 +321,13 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 	})
 	if err == nil {
 		t.Fatal("expected retry-blocked failure")
+	}
+	if len(blockedEvents) != 1 {
+		t.Fatalf("expected exactly one retry-blocked event, got %d", len(blockedEvents))
+	}
+	blocked := blockedEvents[0]
+	if blocked.Attempt != 1 || blocked.MaxAttempts != DefaultMaxAttempts || blocked.Status != "fail" || !blocked.Retryable || !blocked.RetryBlockedByContext || !errors.Is(blocked.Err, context.DeadlineExceeded) {
+		t.Fatalf("unexpected retry-blocked event: %#v", blocked)
 	}
 	if startCalls != 1 {
 		t.Fatalf("expected one startup attempt before context expiry, got %d", startCalls)

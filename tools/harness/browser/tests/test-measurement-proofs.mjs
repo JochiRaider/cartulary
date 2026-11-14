@@ -438,6 +438,7 @@ test("view change proofs bind capabilities exact policy and sample counts", asyn
         for (const completion of ["first_useful_viewport", "stable_viewport"]) {
             const viewChange = { ...percentile, criterion_id: "AC-044", predicate_id: `perf.timeline_${operation}.${completion}.v1`, threshold_ms: completion === "stable_viewport" ? 1000 : 250 };
             validateProfileMeasurementObservation(root, fixtureProfile, viewChange);
+            syntheticProofObservations.push(viewChange);
             for (const mutate of [
                 value => { value.criterion_id = "AC-043"; },
                 value => { value.threshold_ms++; },
@@ -455,9 +456,11 @@ test("view change proofs bind capabilities exact policy and sample counts", asyn
     assertRetainedProofs({ persist, collectWrittenSummary }, syntheticProofObservations);
 });
 function assertRetainedProofs({ persist, collectWrittenSummary }, syntheticProofObservations) {
+    assert.notEqual(syntheticProofObservations.length, 0, "retained proof assertions require observations");
     for (const observation of syntheticProofObservations) {
         const profile = activePerformanceFixtureProfile(loadPerformanceFixtureSnapshotRegistry(root), observation.fixture_profile_id);
-        const context = { profile, ...(observation.predicate_evidence.kind === "reference_pack_progress" ? { rowID: `module.reference_data.measurement.${observation.predicate_evidence.job_purpose}_progress` } : {}), ...(observation.predicate_evidence.kind === "evidence_verification" ? { rowID: "module.evidence.measurement.verification_progress" } : {}), ...(observation.predicate_evidence.kind === "reporting_progress" ? { rowID: `module.reporting.measurement.${observation.predicate_evidence.job_purpose === "snapshot" ? "snapshot" : "render"}_progress` } : {}), ...(["import_discovery", "import_apply"].includes(observation.predicate_evidence.kind) ? { rowID: `module.imports.measurement.${observation.predicate_evidence.source_format}_${observation.predicate_evidence.kind === "import_apply" ? "apply" : "discovery"}` } : {}) };
+        const kind = observation.predicate_evidence?.kind;
+        const context = { profile, ...(kind === "reference_pack_progress" ? { rowID: `module.reference_data.measurement.${observation.predicate_evidence.job_purpose}_progress` } : {}), ...(kind === "evidence_verification" ? { rowID: "module.evidence.measurement.verification_progress" } : {}), ...(kind === "reporting_progress" ? { rowID: `module.reporting.measurement.${observation.predicate_evidence.job_purpose === "snapshot" ? "snapshot" : "render"}_progress` } : {}), ...(["import_discovery", "import_apply"].includes(kind) ? { rowID: `module.imports.measurement.${observation.predicate_evidence.source_format}_${kind === "import_apply" ? "apply" : "discovery"}` } : {}) };
         const validateObservation = value => validateProfileMeasurementObservation(root, profile, value);
         const retained = persist({ ...context, observationOverrides: observation });
         const [qualified] = collectWrittenSummary(retained, validateObservation);

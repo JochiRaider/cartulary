@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import "./test-package-smoke-cleanup.mjs";
 import "./test-selected-evidence.mjs";
 import "./test-package-operation.mjs";
 import "./test-package-release.mjs";
+import "./test-package-identity.mjs";
+import "./test-package-archive.mjs";
+import "./test-package-platform.mjs";
+import "./test-package-resources.mjs";
+import "./test-package-producer.mjs";
+import "./test-package-consumers.mjs";
+import "./test-package-deployment.mjs";
+import "./test-package-deployment-lifecycle.mjs";
+import "./test-package-qualification.mjs";
 import path from "node:path";
 
 import { WorkGraphCompiler } from "../../harness/scheduler/work-graph/index.mjs";
@@ -16,6 +24,22 @@ assert.ok(plan.projections["release-check"].length > 0);
 assert.ok(plan.projections["harness.release_readiness_evidence"].length > 0);
 assert.equal(plan.graph.units.filter((unit) => unit.unit_id === "operation:harness.release_readiness_evidence").length, 1);
 assert.equal(plan.graph.units.some((unit) => unit.command.args.includes("release-check")), false, "release evidence must not nest the release aggregate");
+
+// Both public assurance contexts select the same static contract assertions.
+const readinessRow = "harness.release.behavior.package_readiness_contract";
+const canonical = compiler.compileRows([readinessRow]).units.find(unit => unit.row_bindings.some(binding => binding.row_id === readinessRow));
+assert.deepEqual(compiler.catalog.rowByID.get(readinessRow).verification_ids, [
+  "harness.release.verification.current_owner_evidence_only",
+  "harness.release.verification.package_readiness_contract",
+]);
+const registrarOperations = Object.entries(compiler.owner.operations)
+  .filter(([, operation]) => operation.execution.command?.some(arg => arg.endsWith("/test-release-readiness-evidence.mjs")))
+  .map(([id]) => id);
+assert.deepEqual(registrarOperations, ["harness.assurance_release_readiness_evidence"], "one readiness registrar operation");
+for (const graph of [plan.graph, compiler.compileTarget("harness.contract_regression")]) {
+  const executions = graph.units.filter(unit => unit.row_bindings.some(binding => binding.row_id === readinessRow));
+  assert.deepEqual(executions, [canonical], "readiness assertions execute once through their canonical static row");
+}
 
 const units = new Map(plan.graph.units.map((unit) => [unit.unit_id, unit]));
 const readinessClosure = new Set();

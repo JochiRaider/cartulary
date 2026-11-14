@@ -41,9 +41,9 @@ require_command timeout
 docker info >/dev/null 2>&1 || fail "docker daemon is not available"
 docker compose version >/dev/null 2>&1 || fail "docker compose plugin is not available"
 
-work_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-standup-package-smoke.XXXXXX")"
-project="cartularymvpsmoke$(date +%s)$$"
-image=""
+work_dir="${CARTULARY_PACKAGE_WORK_DIR:?native package allocation required}"
+project="${CARTULARY_PACKAGE_SOURCE_PROJECT:?native package allocation required}"
+artifact_dir="${CARTULARY_PACKAGE_ARTIFACT_DIR:?native package allocation required}"
 port="$(pick_port)" || fail "no free loopback port found for package smoke"
 public_origin="https://127.0.0.1:${port}"
 compose_file="$work_dir/docker-compose.yml"
@@ -53,34 +53,14 @@ asset_body="$work_dir/asset.bin"
 ready_body="$work_dir/readyz.json"
 container_id=""
 legacy_postgres_volume="${project}_legacy-postgres-v16"
-postgres_image="docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2"
 
 compose_overlay=()
 compose() {
   docker compose --project-name "$project" --env-file "$work_dir/.env" -f "$compose_file" "${compose_overlay[@]}" "$@"
 }
 
-# shellcheck source=tools/release-evidence/package-smoke-cleanup.sh
-source "$ROOT_DIR/tools/release-evidence/package-smoke-cleanup.sh"
-qualification="${CARTULARY_PACKAGE_QUALIFICATION:-package}"
+qualification="${CARTULARY_PACKAGE_QUALIFICATION:?native package qualification required}"
 case "$qualification" in package|reference-pack|credential-capacity) ;; *) fail "unsupported package qualification" ;; esac
-artifact_dir="${CARTULARY_TEST_RESULTS_DIR:-${ROOT_DIR}/.cartulary/test-results}/${CARTULARY_TEST_RUN_ID:-standup-package-smoke-manual}/standup-${qualification}-smoke/artifacts"
-if [[ "$qualification" == credential-capacity ]]; then
-  artifact_dir="${CARTULARY_TEST_RESULTS_DIR:-${ROOT_DIR}/.cartulary/test-results}/${CARTULARY_TEST_RUN_ID:-credential-capacity-manual}/credential-capacity-assessment/artifacts"
-fi
-mkdir -p "$artifact_dir"
-cleanup() {
-  local status=$?
-  trap - EXIT INT TERM
-  set +e
-  if ! cleanup_package_workspace "$project" "$work_dir" "$postgres_image" "$artifact_dir/workspace-cleanup.json"; then status=1; fi
-  if ! cleanup_package_resources "${project}destination" "" "$artifact_dir/destination-cleanup.json"; then status=1; fi
-  if ! cleanup_package_resources "$project" "" "$artifact_dir/cleanup.json"; then status=1; fi
-  exit "$status"
-}
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
 
 # shellcheck source=tools/release-evidence/consume-package.sh
 source "$ROOT_DIR/tools/release-evidence/consume-package.sh"

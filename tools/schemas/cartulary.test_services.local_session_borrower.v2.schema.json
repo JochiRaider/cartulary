@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.local_session_borrower.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "session_id",
+    "borrower_id",
+    "owner_uid",
+    "run_id",
+    "pid",
+    "process_start_proof",
+    "created_at"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.test_services.local_session_borrower.v2"
+    },
+    "session_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{24}$"
+    },
+    "borrower_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "owner_uid": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+      "maxLength": 255
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "process_start_proof": {
+      "type": "string",
+      "pattern": "^linux-proc-start:[0-9]+$",
+      "maxLength": 64
+    },
+    "created_at": {
+      "$ref": "cartulary.harness.defs.v1#/$defs/timestamp"
+    }
+  }
+}

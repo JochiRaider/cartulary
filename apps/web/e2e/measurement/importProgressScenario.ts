@@ -143,6 +143,9 @@ export async function runImportProgress(
           exact: true,
         }),
       ).toBeDisabled();
+      if (format === "csv") {
+        await expect(unit.getByText(/^20000 rows × 2 columns;/)).toBeVisible();
+      }
     }
     await scrollGridCellIntoView({
       page,

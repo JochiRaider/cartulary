@@ -224,6 +224,17 @@ test("frontend policy: protocol-entrypoint", (t) => {
   const config = { ...owner, scan_roots: ["apps/web", "packages"] };
   const result = checkFrontendImportBoundaries({ root: fixture.root, config });
   assert.equal(result.errorCount, 0, JSON.stringify(result.diagnostics));
+
+  // Raw generated client validators need independent owner conformance evidence;
+  // this exact test is not a production entrypoint or a general test exemption.
+  fixture.write("packages/protocol-ts/src/index.node.test.ts", 'import { validateCartularyWsHelloV1 } from "./generated/collaboration-validators.js";\nvalidateCartularyWsHelloV1({});\n');
+  const conformance = checkFrontendImportBoundaries({ root: fixture.root, config });
+  assert.equal(conformance.errorCount, 0, JSON.stringify(conformance.diagnostics));
+  for (const file of ["packages/protocol-ts/src/another.node.test.ts", "packages/protocol-ts/src/runtime.ts", "apps/web/src/ProtocolLeak.test.ts"]) {
+    fixture.write(file, 'import { validateCartularyWsHelloV1 } from "@cartulary/protocol-ts/generated/collaboration-validators";\nvalidateCartularyWsHelloV1({});\n');
+  }
+  const leaks = checkFrontendImportBoundaries({ root: fixture.root, config }).diagnostics.filter((entry) => entry.ruleID === "frontend-generated-protocol-boundary");
+  assert.deepEqual(leaks.map((entry) => entry.file).sort(), ["apps/web/src/ProtocolLeak.test.ts", "packages/protocol-ts/src/another.node.test.ts", "packages/protocol-ts/src/runtime.ts"]);
 });
 
 test("frontend policy: protocol-root-bypass", (t) => {

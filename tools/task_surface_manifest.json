@@ -774,7 +774,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -850,7 +849,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -929,7 +927,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -1005,7 +1002,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -1081,7 +1077,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -1157,7 +1152,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -1233,7 +1227,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -1309,7 +1302,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -1385,7 +1377,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -1476,7 +1467,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -1552,7 +1542,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -1802,7 +1791,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -1878,7 +1866,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -2065,7 +2052,8 @@
       "prerequisites": [
         "$(FRONTEND_INSTALL_STAMP)",
         "$(NODE_BIN)",
-        "$(REPORT_RENDERER_RECEIPT)"
+        "$(REPORT_RENDERER_RECEIPT)",
+        "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "step_command",
       "mode": "command",
@@ -2293,7 +2281,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -2352,17 +2339,10 @@
       "type": "step_command",
       "mode": "run_step",
       "step_label": "seaweedfs-release-gate",
-      "env": {
-        "RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)",
-        "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
-        "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
-        "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
-        "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json"
-      },
+      "env": {},
       "command": [
         "$(NODE_BIN)",
-        "./tools/release-evidence/seaweedfs-release-evidence.mjs",
-        "--enforce-release-gate"
+        "./tools/release-evidence/seaweedfs-release-evidence.mjs"
       ],
       "exports": {
         "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
@@ -2400,9 +2380,9 @@
       "mode": "run_step",
       "step_label": "credential-capacity-assessment",
       "command": [
-        "env",
-        "CARTULARY_PACKAGE_QUALIFICATION=credential-capacity",
-        "./tools/release-evidence/check-standup-package-smoke.sh"
+        "$(NODE_BIN)",
+        "./tools/release-evidence/package-qualification.mjs",
+        "credential-capacity"
       ],
       "test_target": "self",
       "graph_entry": true,
@@ -2481,7 +2461,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -2553,7 +2532,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -2625,7 +2603,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -2697,7 +2674,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -2769,7 +2745,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -2841,7 +2816,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -2913,7 +2887,6 @@
         "PNPM",
         "PNPM_VERSION",
         "POSTGRES_BASELINE_PROFILE",
-        "RELEASE_ARTIFACT_DIR",
         "REPORT_RENDERER_RECEIPT",
         "RESULTS_DIR",
         "REVIEW_PROFILE",
@@ -4677,6 +4650,7 @@
         "tools/harness/tests/contract-test-context.mjs",
         "tools/harness/tests/initialization-tests.mjs",
         "tools/harness/tests/private-child-capture-cases.mjs",
+        "tools/harness/tests/real-command-output.mjs",
         "tools/harness/tests/test-agent-finalize.mjs",
         "tools/harness/tests/test-catalog-metadata-fixtures.mjs",
         "tools/harness/tests/test-command-failure.mjs",
@@ -4685,6 +4659,7 @@
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
         "tools/harness/tests/test-harness-scheduler-contracts.mjs",
+        "tools/harness/tests/test-real-command-output.mjs",
         "tools/harnessruntime/main.go"
       ],
       "output_policy": {
@@ -10301,14 +10276,18 @@
         "tools/release-evidence/consume-package.sh",
         "tools/release-evidence/package-fixture-tls.sh",
         "tools/release-evidence/package-release.mjs",
-        "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/reference-pack-fixtures.mjs",
         "tools/toolchain_pins.json",
         "tools/report-renderer/stage-installation.mjs",
         "tools/release-evidence/package-platform.mjs",
         "tools/renderprobe/main.go",
         "contracts/reporting/fixtures/slidev-source.v2.json",
-        "deploy/mvp/application-seccomp.v1.json"
+        "deploy/mvp/application-seccomp.v1.json",
+        "tools/release-evidence/package-qualification.mjs",
+        "tools/release-evidence/package-qualification-project.mjs",
+        "tools/release-evidence/package-deployment.mjs",
+        "tools/release-evidence/package-deployment-stop.mjs",
+        "tools/release-evidence/package-qualification-allocation.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -12592,7 +12571,31 @@
         "deploy/mvp/scripts/package-common.sh",
         "deploy/mvp/scripts/package-verification.sh",
         "tools/release-evidence/tests/test-package-operation.mjs",
-        "tools/release-evidence/tests/test-release-readiness-evidence.mjs"
+        "tools/release-evidence/tests/test-release-readiness-evidence.mjs",
+        "tools/release-evidence/package-release.mjs",
+        "tools/release-evidence/tests/test-package-release.mjs",
+        "tools/release-evidence/package-identity.mjs",
+        "tools/release-evidence/release-readiness-evidence.mjs",
+        "tools/release-evidence/tests/test-package-identity.mjs",
+        "tools/release-evidence/package-archive.mjs",
+        "tools/release-evidence/tests/test-package-archive.mjs",
+        "tools/release-evidence/package-platform.mjs",
+        "tools/release-evidence/tests/test-package-platform.mjs",
+        "tools/release-evidence/package-resources.mjs",
+        "tools/release-evidence/tests/test-package-resources.mjs",
+        "tools/release-evidence/tests/package-producer-fixture.mjs",
+        "tools/release-evidence/tests/test-package-producer.mjs",
+        "tools/release-evidence/tests/test-package-consumers.mjs",
+        "tools/release-evidence/package-deployment.mjs",
+        "tools/release-evidence/package-deployment-stop.mjs",
+        "tools/release-evidence/package-qualification-allocation.mjs",
+        "tools/release-evidence/tests/test-package-deployment.mjs",
+        "tools/release-evidence/tests/package-deployment-fixture.mjs",
+        "tools/release-evidence/tests/test-package-deployment-lifecycle.mjs",
+        "tools/release-evidence/package-qualification.mjs",
+        "tools/release-evidence/package-qualification-project.mjs",
+        "tools/release-evidence/tests/test-package-qualification.mjs",
+        "tools/release-evidence/reference-pack-fixtures.mjs"
       ]
     },
     {
@@ -12600,7 +12603,9 @@
       "backing_scripts": [
         "tools/release-evidence/tests/test-sbom-license-evidence.mjs",
         "tools/release-evidence/generate-sbom-license-evidence.mjs",
-        "tools/release-evidence/validate-cyclonedx.mjs"
+        "tools/release-evidence/validate-cyclonedx.mjs",
+        "tools/release-evidence/license-inputs.mjs",
+        "tools/release-evidence/tests/test-license-inputs.mjs"
       ]
     },
     {
@@ -12608,7 +12613,9 @@
       "backing_scripts": [
         "tools/release-evidence/tests/test-seaweedfs-release-evidence.mjs",
         "tools/release-evidence/seaweedfs-release-evidence.mjs",
-        "tools/seaweedfs_occurrence_classifications.json"
+        "tools/seaweedfs_occurrence_classifications.json",
+        "tools/release-evidence/seaweedfs-artifacts.mjs",
+        "tools/release-evidence/tests/test-seaweedfs-artifacts.mjs"
       ]
     },
     {

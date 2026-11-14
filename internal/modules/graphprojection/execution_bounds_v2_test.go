@@ -85,8 +85,10 @@ func checkArrayBudgetV2(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
+					aggregateCount := 0
 					for _, v := range r.Vertices {
 						if v.VertexFamily == "aggregated" {
+							aggregateCount++
 							m := v.Properties
 							if metadata {
 								m = v.Metadata.MappedMetadata
@@ -95,6 +97,9 @@ func checkArrayBudgetV2(t *testing.T) {
 								t.Fatal("incorrect cardinality")
 							}
 						}
+					}
+					if aggregateCount != 1 {
+						t.Fatalf("aggregate witnesses = %d, want 1", aggregateCount)
 					}
 					c, err := r.CompletedResult()
 					if err != nil || c.Validate(t.Context()) != nil {

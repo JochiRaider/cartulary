@@ -46,6 +46,7 @@ export {
   reloadSchemaValidators,
   resolveCommandInputs,
   resolveDeclaredTargetInputs,
+  resolveMachineStatePaths,
 } from "./harness-contract.mjs";
 export { findFilesNamed } from "./result-artifacts.mjs";
 export { relToRepo, resolveRepoPath } from "./repo-paths.mjs";

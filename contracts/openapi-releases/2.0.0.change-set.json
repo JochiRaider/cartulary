@@ -3896,6 +3896,48 @@
       "classification": "additive",
       "owner_id": "module.reference_data",
       "rationale": "Project Reference Pack family authorization, inactive-profile errors, declared-only methods, exact opaque versions and closed non-list queries. Retain existing successful operation envelopes and pack identities."
+    },
+    {
+      "fingerprint": "0a85d41043071acafe3fda1cb737b8186199a94e746351eeb0863142ad67f61c",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Publish the adopted HTTP 200 exact-replay safe-user response for deployment-user and enterprise-binding creation under Core 01 REQ-01-122 and REQ-01-538; first creation remains HTTP 201."
+    },
+    {
+      "fingerprint": "852e1cf6de01687b7247f051718f7c128717766d10b2cc6992387f34e8581377",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Publish the adopted HTTP 200 exact-replay safe-user response for deployment-user and enterprise-binding creation under Core 01 REQ-01-122 and REQ-01-538; first creation remains HTTP 201."
+    },
+    {
+      "fingerprint": "9016f136e59a43760b5cc662c17229c0f4332472523d829a2b3b3a23003538bd",
+      "classification": "breaking",
+      "owner_id": "platform.audit",
+      "rationale": "Require the existing common paging metadata on both administrative-audit collections under Core 01 REQ-01-603/242. Conforming wire responses are unchanged; incomplete response fixtures and consumers must adopt mandatory paging. No legacy missing-paging reader is retained."
+    },
+    {
+      "fingerprint": "5b834f6211dc905c28de8e828056f117127f1f06935c01dcf03987cb50016dfc",
+      "classification": "breaking",
+      "owner_id": "module.auth",
+      "rationale": "Require common paging metadata for the safe deployment-user collection under Core 01 REQ-01-117/242. Conforming wire responses are unchanged; generated consumers reject incomplete envelopes instead of treating them as complete lists."
+    },
+    {
+      "fingerprint": "8dcd567cebaf1b1d048be0c97a80eb84596d0844198566d021c4ccdb1968befb",
+      "classification": "additive",
+      "owner_id": "module.evidence",
+      "rationale": "Publish the optional nullable accountable Evidence owner assignment under Core 02 REQ-02-199 and Core 01 REQ-01-328; direct assignment requires an active incident member and does not independently satisfy minimum create signal."
+    },
+    {
+      "fingerprint": "664c03fdbd81aea9d0a1cc97b290eeeb3bf518d10de1e65c742c5174045c02a6",
+      "classification": "non_behavioral",
+      "owner_id": "module.incidents",
+      "rationale": "Describe the singleton incident response as unsupported pagination; Core 01 REQ-01-168/240/242 and the actual route reject pagination members."
+    },
+    {
+      "fingerprint": "37311ccaaf5686df4d2f844e29931fe0b2b6e401531c19179df8193e8ee92a99",
+      "classification": "breaking",
+      "owner_id": "module.incidents",
+      "rationale": "Correct the singleton incident error projection to invalid_pagination_request as required by Core 01 REQ-01-168/240/242 and already emitted by the public route; invalid_list_query was an erroneous projection."
     }
   ]
 }

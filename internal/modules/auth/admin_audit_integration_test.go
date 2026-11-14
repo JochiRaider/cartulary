@@ -186,6 +186,45 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 		t.Fatalf("redacted change leaked values: %#v", redactedChange)
 	}
 
+	// Expectations come from the fixed fixture instants and identities, including
+	// the two events exactly on the boundary, rather than from a prior response.
+	for _, boundary := range []struct {
+		name string
+		gte  time.Time
+		lt   time.Time
+		ids  []string
+	}{
+		{name: "inclusive lower boundary", gte: occurredAt, ids: []string{"20000000-0000-0000-0000-000000000812", "20000000-0000-0000-0000-000000000811"}},
+		{name: "lower boundary after tied events", gte: occurredAt.Add(time.Microsecond), ids: []string{}},
+		{name: "exclusive upper boundary", lt: occurredAt, ids: []string{"20000000-0000-0000-0000-000000000810"}},
+		{name: "upper boundary after tied events", lt: occurredAt.Add(time.Microsecond), ids: []string{"20000000-0000-0000-0000-000000000812", "20000000-0000-0000-0000-000000000811", "20000000-0000-0000-0000-000000000810"}},
+		{name: "bounded older interval", gte: occurredAt.Add(-time.Second), lt: occurredAt, ids: []string{"20000000-0000-0000-0000-000000000810"}},
+		{name: "bounded tied interval", gte: occurredAt, lt: occurredAt.Add(time.Microsecond), ids: []string{"20000000-0000-0000-0000-000000000812", "20000000-0000-0000-0000-000000000811"}},
+	} {
+		t.Run(boundary.name, func(t *testing.T) {
+			query := url.Values{"actor_user_id": {adminID}}
+			if !boundary.gte.IsZero() {
+				query.Set("occurred_at_gte", boundary.gte.Format(time.RFC3339Nano))
+			}
+			if !boundary.lt.IsZero() {
+				query.Set("occurred_at_lt", boundary.lt.Format(time.RFC3339Nano))
+			}
+			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet,
+				server.HTTP.URL+"/api/v1/administrative-audit-events?"+query.Encode(), nil,
+				httptestx.WithCookies(adminLogin.Session),
+			)
+			rows := requireAdministrativeAuditRows(t, httptestx.RequireSuccessEnvelope(t, response, http.StatusOK))
+			if len(rows) != len(boundary.ids) {
+				t.Fatalf("timestamp boundary returned %d events, want %v: %#v", len(rows), boundary.ids, rows)
+			}
+			for i, id := range boundary.ids {
+				if rows[i]["audit_event_id"] != id {
+					t.Fatalf("timestamp boundary event %d = %v, want %s", i, rows[i]["audit_event_id"], id)
+				}
+			}
+		})
+	}
+
 	firstPage := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodGet,
 		server.HTTP.URL+"/api/v1/administrative-audit-events?actor_user_id="+url.QueryEscape(adminID)+"&limit=1",
@@ -230,6 +269,16 @@ func TestDeploymentAdministrativeAuditRoute_Integration(t *testing.T) {
 	mismatchBody := httptestx.RequireErrorEnvelope(t, mismatched, http.StatusBadRequest, "invalid_pagination_request")
 	if got := mismatchBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "cursor_query_mismatch" {
 		t.Fatalf("unexpected cursor mismatch reason: %v", got)
+	}
+	changedLimit := httptestx.DoJSON(t, http.DefaultClient,
+		http.MethodGet,
+		server.HTTP.URL+"/api/v1/administrative-audit-events?actor_user_id="+url.QueryEscape(adminID)+"&limit=2&cursor_token="+url.QueryEscape(cursor),
+		nil,
+		httptestx.WithCookies(adminLogin.Session),
+	)
+	changedLimitBody := httptestx.RequireErrorEnvelope(t, changedLimit, http.StatusBadRequest, "invalid_pagination_request")
+	if got := changedLimitBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "cursor_query_mismatch" {
+		t.Fatalf("changed cursor limit must reject with cursor_query_mismatch, got %v", got)
 	}
 }
 

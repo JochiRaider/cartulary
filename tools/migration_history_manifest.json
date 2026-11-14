@@ -302,6 +302,54 @@
       "filename": "00050_reference_pack_generic_index_bound.sql",
       "sha256": "b67c835538f9b885407b46caa259b5a80ba41fd531dbbe880d4ce54e566e33ef",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 51,
+      "filename": "00051_incident_bundle_actor_hints.sql",
+      "sha256": "0efb586efd4d54a16742656becc7f26b15e2ed4f264c0de5517c1dcb435ff01b",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 52,
+      "filename": "00052_handoff_risk_canonical_identity.sql",
+      "sha256": "a8a002a01c020b5adac0079b7fdedefe37ff826e9bf7aef28df280f8c6380cdd",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 53,
+      "filename": "00053_evidence_accountable_owner.sql",
+      "sha256": "cd5fde7330dd838d9e0115213481abf990d643297801cfdd32e6f7847a8ba1bb",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 54,
+      "filename": "00054_evidence_owner_projection.sql",
+      "sha256": "375c8ec690f87d1f8720dfcff2c199ac30c4e3b438951ddae1e9e39af9e31de2",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 55,
+      "filename": "00055_indicator_optional_presentation.sql",
+      "sha256": "69879e6aafc568825f55f36e9617060227bf42a410bf772cd349ee7c68eb404d",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 56,
+      "filename": "00056_indicator_interval_optional_text.sql",
+      "sha256": "c9cd878eaf0989f280e9793ad2921adfcc56b161108413b221842ade929f19ef",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 57,
+      "filename": "00057_revision_actor_import_contexts.sql",
+      "sha256": "42412446bdc72f6dec0822701812fd0dda9b9ded902508fec170f5fde833242b",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 58,
+      "filename": "00058_revision_history_order.sql",
+      "sha256": "dc09cf9b29d707f25ca69d55a63fa0c7da896a15275040d8edb41e1b9f1d80d6",
+      "historical_phase_shaped": false
     }
   ]
 }

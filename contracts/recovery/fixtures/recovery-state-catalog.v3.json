@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.recovery_state_catalog.v3",
-  "catalog_digest_sha256": "23f3497b15a628a3b35cbf7c7b58d8ad28701ebad0c4b5964043e10f14a6a6a3",
+  "catalog_digest_sha256": "864bc59cbe10e7f3ee087301073c9434a091bab6c03403a2f9f53620aff7e028",
   "contribution_digests": [
     {
       "owner_id": "module.artifacts",
@@ -36,7 +36,7 @@
     },
     {
       "owner_id": "module.evidence",
-      "sha256": "f99408bac2d81370495a8ba1bcbf493336d2bdbf09001e747324955b24802117"
+      "sha256": "9a33dc53bdf822791ef99a6ffc216e7c5ff7a733682af54e9c3232a16865c3b1"
     },
     {
       "owner_id": "module.extensions",
@@ -104,7 +104,7 @@
     },
     {
       "owner_id": "module.revisions",
-      "sha256": "bdf2165f378eb1c9e2ae7b1284582ceb339a21228c41c8633e9e6fc3689321f5"
+      "sha256": "cddbef5f4e77a86304a36a8bdd7aabc13b78b00d3e91d7941a26c7b8889847ca"
     },
     {
       "owner_id": "module.savedviews",
@@ -1484,6 +1484,15 @@
       "algorithm_id": null
     },
     {
+      "owner_id": "module.revisions",
+      "table_name": "revision_history_orders",
+      "state_class": "authoritative",
+      "backup_inclusion": "authoritative_required",
+      "restore_action": "restore",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "algorithm_id": null
+    },
+    {
       "owner_id": "module.auth",
       "table_name": "route_idempotency",
       "state_class": "authoritative",
@@ -1599,7 +1608,7 @@
       "state_class": "authoritative",
       "backup_inclusion": "authoritative_required",
       "restore_action": "restore",
-      "inventory_algorithm_id": "evidence.snapshot_blob_inventory.v1",
+      "inventory_algorithm_id": "evidence.snapshot_blob_inventory.v2",
       "validation_algorithm_id": "evidence.validate_blob_inventory.v1",
       "restore_algorithm_id": "evidence.restore_blob_inventory.v1"
     },

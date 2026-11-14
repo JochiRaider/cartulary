@@ -4,16 +4,17 @@ package harnessruntime
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 func TestRuntimeCompilerProcessHelper(t *testing.T) {
@@ -43,7 +44,19 @@ func TestRuntimeCompilerProcessHelper(t *testing.T) {
 		if child.Start() != nil {
 			os.Exit(2)
 		}
-		if err := os.WriteFile(os.Getenv("CARTULARY_COMPILER_CHILD_PROOF"), []byte(strconv.Itoa(child.Process.Pid)), 0600); err != nil {
+		proof, err := harnesssession.CaptureProcess(child.Process.Pid)
+		if err != nil {
+			_ = child.Process.Kill()
+			_ = child.Wait()
+			os.Exit(2)
+		}
+		data, err := json.Marshal(proof)
+		if err == nil {
+			err = os.WriteFile(os.Getenv("CARTULARY_COMPILER_CHILD_PROOF"), data, 0600)
+		}
+		if err != nil {
+			_ = child.Process.Kill()
+			_ = child.Wait()
 			os.Exit(2)
 		}
 	}
@@ -86,6 +99,27 @@ func TestRuntimeCompilerLifetime(t *testing.T) {
 			defer cancel()
 			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestRuntimeCompilerProcessHelper$")
 			proofFile := filepath.Join(t.TempDir(), "child")
+			if mode == "descendant" {
+				t.Cleanup(func() {
+					data, err := os.ReadFile(proofFile)
+					if os.IsNotExist(err) {
+						return // Setup did not publish a descendant; receiveCompiler owns its root.
+					}
+					var proof harnesssession.ProcessProof
+					if err == nil {
+						err = json.Unmarshal(data, &proof)
+					}
+					if err != nil {
+						t.Errorf("read compiler descendant ownership: %v", err)
+						return
+					}
+					cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 2*time.Second)
+					defer cleanupCancel()
+					if err := harnesssession.StopProcess(cleanupCtx, proof, 0); err != nil {
+						t.Errorf("settle compiler descendant: %v", err)
+					}
+				})
+			}
 			cmd.Env = append(os.Environ(), "CARTULARY_RUNTIME_COMPILER_FIXTURE="+mode, "CARTULARY_COMPILER_CHILD_PROOF="+proofFile)
 			start := time.Now()
 			p, err := receiveCompiler(ctx, cmd)
@@ -101,12 +135,11 @@ func TestRuntimeCompilerLifetime(t *testing.T) {
 				if e != nil {
 					t.Fatal(e)
 				}
-				pid, e := strconv.Atoi(string(data))
-				if e != nil {
+				var proof harnesssession.ProcessProof
+				if e := json.Unmarshal(data, &proof); e != nil {
 					t.Fatal(e)
 				}
-				defer syscall.Kill(pid, syscall.SIGKILL)
-				state, e := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+				state, e := os.ReadFile(fmt.Sprintf("/proc/%d/stat", proof.PID))
 				if e == nil {
 					fields := strings.Fields(string(state)[strings.LastIndex(string(state), ") ")+2:])
 					if fields[0] != "Z" && fields[0] != "X" {

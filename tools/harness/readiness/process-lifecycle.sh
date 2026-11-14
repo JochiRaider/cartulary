@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 
+# shellcheck source=tools/workspace_layout.generated.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
+
 CARTULARY_LIFECYCLE_SHUTDOWN_REQUESTED=0
 CARTULARY_LIFECYCLE_SHUTDOWN_SIGNAL=""
-declare -Ag CARTULARY_LIFECYCLE_GROUP_MONITORS=()
+CARTULARY_LIFECYCLE_ACQUISITION_DEPTH=0
+declare -Ag CARTULARY_LIFECYCLE_PIDS=()
+declare -Ag CARTULARY_LIFECYCLE_RESULTS=()
 
 lifecycle_reset_shutdown_state() {
   CARTULARY_LIFECYCLE_SHUTDOWN_REQUESTED=0
@@ -23,6 +28,9 @@ lifecycle_exit_on_signal() {
   local exit_status=0
 
   lifecycle_request_shutdown "${signal_name}"
+  # Publish or settle an in-flight native acquisition before the exit trap can
+  # release dependencies. Parent-loss cleanup remains the native fallback.
+  if [[ "${CARTULARY_LIFECYCLE_ACQUISITION_DEPTH}" -gt 0 ]]; then return 0; fi
   exit_status="$(lifecycle_signal_exit_status)"
   exit "${exit_status}"
 }
@@ -54,154 +62,95 @@ lifecycle_signal_exit_status() {
   esac
 }
 
-# Detached services and their monitors must not retain a step capture pipe.
+# Detached native owners and workloads must not retain a step capture pipe.
 lifecycle_close_step_capture_descriptors() {
   if [[ -n "${STEP_CAPTURE_STDOUT_FD:-}" ]]; then exec {STEP_CAPTURE_STDOUT_FD}>&-; fi
   if [[ -n "${STEP_CAPTURE_STDERR_FD:-}" ]]; then exec {STEP_CAPTURE_STDERR_FD}>&-; fi
 }
 
-start_process_group() {
-  local outvar="$1"
-  local log_file="$2"
-  local parent_pid="$$"
-  local group_id=""
-  local monitor_pid=""
+lifecycle_native() {
+  local lifecycle_root
+  lifecycle_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)" || return $?
+  "${CARTULARY_HARNESS_RUNTIME_BIN:-${lifecycle_root}/${CARTULARY_LAYOUT_TOOLBIN}/cartulary-harness}" owned-command "$@"
+}
+
+start_owned_command() {
+  local lifecycle_status=0
+  CARTULARY_LIFECYCLE_ACQUISITION_DEPTH=$((CARTULARY_LIFECYCLE_ACQUISITION_DEPTH + 1))
+  lifecycle_acquire_owned_command "$@" || lifecycle_status=$?
+  CARTULARY_LIFECYCLE_ACQUISITION_DEPTH=$((CARTULARY_LIFECYCLE_ACQUISITION_DEPTH - 1))
+  if lifecycle_shutdown_requested; then return "$(lifecycle_signal_exit_status)"; fi
+  return "${lifecycle_status}"
+}
+
+lifecycle_acquire_owned_command() {
+  local outvar="$1" log_file="$2" acquired_handle observed_pid status=0 lifecycle_root
   shift 2
-
-  if [[ "$#" -eq 0 ]]; then
-    echo "start_process_group requires <outvar> <log_file> <command...>" >&2
-    return 2
-  fi
-
+  if [[ "$#" -eq 0 ]]; then return 2; fi
+  lifecycle_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)" || return $?
   if [[ -n "${log_file}" ]]; then
-    local lifecycle_root
-    lifecycle_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)" || return $?
     "${NODE_BIN:-node}" "${lifecycle_root}/tools/harness/contract/harness-contract-cli.mjs" secure-files "${log_file}" || return $?
-    ( lifecycle_close_step_capture_descriptors; exec setsid "$@" ) >"${log_file}" 2>&1 &
+  fi
+  acquired_handle="$(lifecycle_native allocate)" || return $?
+  # The native owner survives parent loss and observes its parent's exact kernel
+  # identity. It alone launches, settles and reaps the workload's process group.
+  if [[ -n "${log_file}" ]]; then
+    ( lifecycle_close_step_capture_descriptors
+      exec setsid "${CARTULARY_HARNESS_RUNTIME_BIN:-${lifecycle_root}/${CARTULARY_LAYOUT_TOOLBIN}/cartulary-harness}" owned-command serve "${acquired_handle}" "$@"
+    ) >"${log_file}" 2>&1 &
   else
-    ( lifecycle_close_step_capture_descriptors; exec setsid "$@" ) &
+    ( lifecycle_close_step_capture_descriptors
+      exec setsid "${CARTULARY_HARNESS_RUNTIME_BIN:-${lifecycle_root}/${CARTULARY_LAYOUT_TOOLBIN}/cartulary-harness}" owned-command serve "${acquired_handle}" "$@"
+    ) &
   fi
-
-  group_id="$!"
-  # The background child exists before setsid(1) has necessarily established
-  # its new process group. Do not publish the group ID until group-directed
-  # signals are valid; otherwise an immediate supervisor poll can mistake a
-  # healthy child for an exited group.
-  local group_ready=0
-  for _ in $(seq 1 100); do
-    if kill -0 -- "-${group_id}" >/dev/null 2>&1; then
-      group_ready=1
-      break
+  if observed_pid="$(lifecycle_native ready "${acquired_handle}")"; then
+    CARTULARY_LIFECYCLE_PIDS["${acquired_handle}"]="${observed_pid}"
+    printf -v "${outvar}" '%s' "${acquired_handle}"
+  else
+    status=$?
+    # Require the native receipt; EOF or a recycled numeric PID is no authority.
+    if lifecycle_native stop "${acquired_handle}"; then
+      lifecycle_native release "${acquired_handle}" || status=$?
     fi
-    if ! kill -0 "${group_id}" >/dev/null 2>&1; then
-      wait "${group_id}" >/dev/null 2>&1 || true
-      echo "process group ${group_id} exited before session setup" >&2
-      return 1
-    fi
-    sleep 0.01
-  done
-  if [[ "${group_ready}" -ne 1 ]]; then
-    kill -TERM "${group_id}" >/dev/null 2>&1 || true
-    wait "${group_id}" >/dev/null 2>&1 || true
-    echo "process group ${group_id} did not establish a session" >&2
-    return 1
+    echo "owned command acquisition failed" >&2
+    return "${status}"
   fi
-  # shellcheck disable=SC2016
-  ( lifecycle_close_step_capture_descriptors
-  exec setsid bash -c '
-    parent_pid="$1"
-    group_id="$2"
-
-    while kill -0 "$parent_pid" >/dev/null 2>&1 && kill -0 "$group_id" >/dev/null 2>&1; do
-      sleep 0.2
-    done
-
-    if kill -0 "$parent_pid" >/dev/null 2>&1 || ! kill -0 "$group_id" >/dev/null 2>&1; then
-      exit 0
-    fi
-
-    kill -TERM -- "-${group_id}" >/dev/null 2>&1 || true
-    for _ in $(seq 1 50); do
-      if ! kill -0 "$group_id" >/dev/null 2>&1; then
-        exit 0
-      fi
-      sleep 0.2
-    done
-
-    kill -KILL -- "-${group_id}" >/dev/null 2>&1 || true
-  ' bash "${parent_pid}" "${group_id}" ) >/dev/null 2>&1 &
-  monitor_pid="$!"
-  CARTULARY_LIFECYCLE_GROUP_MONITORS["${group_id}"]="${monitor_pid}"
-
-  printf -v "${outvar}" '%s' "${group_id}"
 }
 
-process_group_running() {
-  local group_id="${1:-}"
-
-  if [[ -z "${group_id}" ]] || ! kill -0 -- "-${group_id}" >/dev/null 2>&1; then
-    return 1
-  fi
-  if ! ps -eo pgid=,stat= | awk -v group_id="${group_id}" '
-    $1 == group_id && $2 !~ /^Z/ { live = 1 }
-    END { exit(live ? 0 : 1) }
-  '; then
-    wait "${group_id}" >/dev/null 2>&1 || true
-    return 1
-  fi
-  return 0
+# PID is a projection for port/artifact observations, never a control key.
+owned_command_pid() {
+  local command_handle="${1:-}"
+  [[ -n "${command_handle}" ]] || return 12
+  [[ -n "${CARTULARY_LIFECYCLE_PIDS[$command_handle]:-}" ]] || return 12
+  printf '%s\n' "${CARTULARY_LIFECYCLE_PIDS[$command_handle]}"
 }
 
-wait_for_process_group_exit() {
-  local group_id="${1:-}"
-  local attempts="${2:-50}"
-  local interval_seconds="${3:-0.2}"
-
-  if [[ -z "${group_id}" ]]; then
-    return 0
-  fi
-
-  for _ in $(seq 1 "${attempts}"); do
-    # A terminated group leader remains visible to kill(2) until its owning
-    # shell reaps it. Reap that child before treating the group as live; this
-    # avoids spending the complete grace window on a zombie for every lease.
-    if [[ "$(ps -o stat= -p "${group_id}" 2>/dev/null | tr -d '[:space:]')" == Z* ]]; then
-      wait "${group_id}" >/dev/null 2>&1 || true
-    fi
-    if ! process_group_running "${group_id}"; then
-      return 0
-    fi
-    sleep "${interval_seconds}"
-  done
-
-  return 1
+owned_command_running() {
+  local command_handle="${1:-}"
+  [[ -n "${command_handle}" ]] || return 1
+  if [[ -n "${CARTULARY_LIFECYCLE_RESULTS[$command_handle]+present}" ]]; then return 1; fi
+  [[ -n "${CARTULARY_LIFECYCLE_PIDS[$command_handle]:-}" ]] || return 12
+  lifecycle_native running "${command_handle}"
 }
 
-stop_process_group() {
-  local group_id="${1:-}"
-  local attempts="${2:-50}"
-  local interval_seconds="${3:-0.2}"
-  local monitor_pid=""
-
-  if [[ -z "${group_id}" ]]; then
-    return 0
+owned_command_result() {
+  local command_handle="${1:-}"
+  [[ -n "${command_handle}" ]] || return 12
+  if [[ -n "${CARTULARY_LIFECYCLE_RESULTS[$command_handle]+present}" ]]; then
+    return "${CARTULARY_LIFECYCLE_RESULTS[$command_handle]}"
   fi
+  [[ -n "${CARTULARY_LIFECYCLE_PIDS[$command_handle]:-}" ]] || return 12
+  lifecycle_native result "${command_handle}"
+}
 
-  monitor_pid="${CARTULARY_LIFECYCLE_GROUP_MONITORS[$group_id]:-}"
-
-  if [[ -n "${monitor_pid}" ]]; then
-    kill "${monitor_pid}" >/dev/null 2>&1 || true
-    wait "${monitor_pid}" >/dev/null 2>&1 || true
-    unset "CARTULARY_LIFECYCLE_GROUP_MONITORS[$group_id]"
-  fi
-
-  if process_group_running "${group_id}"; then
-    kill -TERM -- "-${group_id}" >/dev/null 2>&1 || true
-    if ! wait_for_process_group_exit "${group_id}" "${attempts}" "${interval_seconds}"; then
-      kill -KILL -- "-${group_id}" >/dev/null 2>&1 || true
-      wait_for_process_group_exit "${group_id}" "${attempts}" "${interval_seconds}" || true
-    fi
-  fi
-
-  wait "${group_id}" >/dev/null 2>&1 || true
+stop_owned_command() {
+  local command_handle="${1:-}" native_status=0
+  [[ -n "${command_handle}" ]] || return 0
+  if [[ -n "${CARTULARY_LIFECYCLE_RESULTS[$command_handle]+present}" ]]; then return 0; fi
+  [[ -n "${CARTULARY_LIFECYCLE_PIDS[$command_handle]:-}" ]] || return 12
+  lifecycle_native stop "${command_handle}" || return $?
+  lifecycle_native result "${command_handle}" || native_status=$?
+  lifecycle_native release "${command_handle}" || return $?
+  CARTULARY_LIFECYCLE_RESULTS["${command_handle}"]="${native_status}"
+  unset 'CARTULARY_LIFECYCLE_PIDS[$command_handle]'
 }

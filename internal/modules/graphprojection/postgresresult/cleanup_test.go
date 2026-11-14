@@ -44,6 +44,7 @@ func TestResultV2CleanupBoundIsolationLockingAndRollback_Integration(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer firstTx.Rollback(ctx)
 	firstCleaner, err := postgresresult.NewCleaner(firstTx)
 	if err != nil {
 		t.Fatal(err)
@@ -57,6 +58,7 @@ func TestResultV2CleanupBoundIsolationLockingAndRollback_Integration(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer secondTx.Rollback(ctx)
 	secondCleaner, err := postgresresult.NewCleaner(secondTx)
 	if err != nil {
 		t.Fatal(err)
@@ -86,6 +88,7 @@ func TestResultV2CleanupBoundIsolationLockingAndRollback_Integration(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer finalTx.Rollback(ctx)
 	finalCleaner, _ := postgresresult.NewCleaner(finalTx)
 	finalCandidate, err := finalCleaner.LockCleanupCandidate(ctx, "network_flow_activity", nil)
 	if err != nil || finalCandidate == nil || finalCandidate.ProjectionResultID != resultIDA {
@@ -103,6 +106,7 @@ func TestResultV2CleanupBoundIsolationLockingAndRollback_Integration(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer largeTx.Rollback(ctx)
 	largeCleaner, _ := postgresresult.NewCleaner(largeTx)
 	largeCandidate, err := largeCleaner.LockCleanupCandidate(ctx, "network_flow_activity", finalCandidate)
 	if err != nil || largeCandidate == nil || largeCandidate.ProjectionResultID != resultIDD {

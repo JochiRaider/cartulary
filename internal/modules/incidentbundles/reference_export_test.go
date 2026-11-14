@@ -3,9 +3,14 @@ package incidentbundles
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
+	"slices"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 type unreadableContainer struct{ read bool }
@@ -30,8 +35,18 @@ func testBoundedContainerExport(t *testing.T) {
 	if err := sink(context.Background(), "ext/reference_packs/exact", 6, bytes.NewReader([]byte("123456"))); err != nil {
 		t.Fatal("exact remaining budget rejected", err)
 	}
-	if len(files.members) != 2 {
-		t.Fatal("container omitted")
+	wantMembers := []incidentportability.Member{
+		{Path: "data/existing", ByteSize: 4, SHA256: fmt.Sprintf("%x", sha256.Sum256([]byte("1234")))},
+		{Path: "ext/reference_packs/exact", ByteSize: 6, SHA256: fmt.Sprintf("%x", sha256.Sum256([]byte("123456")))},
+	}
+	if got := files.Members(); !slices.Equal(got, wantMembers) {
+		t.Fatalf("members=%+v want=%+v", got, wantMembers)
+	}
+	for path, want := range map[string]string{"data/existing": "1234", "ext/reference_packs/exact": "123456"} {
+		got, err := incidentportability.ReadControl(t.Context(), files, path, 6)
+		if err != nil || string(got) != want {
+			t.Fatalf("member %s bytes=%q want=%q err=%v", path, got, want, err)
+		}
 	}
 	if err := sink(context.Background(), "ext/reference_packs/next", 1, denied); err == nil || denied.read {
 		t.Fatal("cumulative budget not enforced")

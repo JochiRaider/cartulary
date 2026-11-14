@@ -3,6 +3,116 @@
   "owner_id": "harness.command_surface",
   "rows": [
     {
+      "row_id": "harness.command_surface.behavior.bootstrap_node_runtime",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.bootstrap_node_runtime"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_bootstrap_node_runtime"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.bootstrap_shellcheck",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.bootstrap_shellcheck"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_bootstrap_shellcheck"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.dev_services_lifecycle",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.dev_services_lifecycle"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_dev_services_lifecycle"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.dev_stack_lifecycle",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.dev_stack_lifecycle"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_dev_stack_lifecycle"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.generate_drift",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.generate_drift"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_generate_drift"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.command_surface.behavior.go_scanner_wrappers",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.behavior",
@@ -13,6 +123,50 @@
       "runner": "shell",
       "selector": {
         "operation_id": "harness.assurance_go_scanner_wrappers"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.go_toolchain_readiness",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.go_toolchain_readiness"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_go_toolchain_readiness"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.json_shape_assertions",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.public_registry_parity"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_json_shapes"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -113,6 +267,94 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.command_surface.behavior.real_output_contract",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.public_registry_parity"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_output_contract"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.real_output_invalid_usage",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.public_registry_parity"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_output_invalid_usage"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.real_output_owner_json",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.public_registry_parity"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_output_owner_json"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.real_output_source_schema",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.public_registry_parity"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_output_source_schema"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.command_surface.behavior.reference_pack_module_archives",
       "owner_id": "harness.command_surface",
       "family_id": "harness.command_surface.behavior",
@@ -175,6 +417,50 @@
       "runner": "shell",
       "selector": {
         "operation_id": "harness.harness_scheduler_contract"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.task_surface_report",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.public_registry_parity"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_task_surface_report"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.command_surface.behavior.web_e2e_lifecycle",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.web_e2e_lifecycle"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_web_e2e_lifecycle"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",

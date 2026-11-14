@@ -39,11 +39,20 @@ func TestTargetSemanticsCatalogRejectsInvalidNonRowProviders(t *testing.T) {
 				SourceOwnerModule: SourceOwnerLinks,
 				TargetKind:        targetKind,
 				HistoryProjector:  catalogTestHistoryProjector,
+				HistoryReferences: catalogTestHistoryReferences,
 				HistoryFacet:      NewFieldAssociationHistoryFacet([]string{"record_id"}, HistorySingleEntry),
 				RollbackProvider:  stubNonRowProvider{},
 			})
 		}
 		return []ProviderContribution{{SourceOwnerModule: SourceOwnerLinks, NonRowTargets: targets}}
+	}
+	valid := contribution("record_link")
+	if _, err := compileTargetSemanticsCatalog([]targetSemanticsRequirement{requirement("record_link")}, valid); err != nil {
+		t.Fatalf("complete non-row contribution rejected: %v", err)
+	}
+	valid[0].NonRowTargets[0].HistoryReferences = nil
+	if _, err := compileTargetSemanticsCatalog([]targetSemanticsRequirement{requirement("record_link")}, valid); !errors.Is(err, ErrInvalidTargetSemantics) {
+		t.Fatalf("missing reference projector accepted: %v", err)
 	}
 
 	if _, err := compileTargetSemanticsCatalog(

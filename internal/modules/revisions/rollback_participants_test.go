@@ -98,6 +98,13 @@ func (rollbackNoImportedAttribution) ResolveImportedSourceActorsTx(context.Conte
 }
 
 func TestRollbackParticipantsAndHistoricalAppend_Integration(t *testing.T) {
+	t.Run("typed append requires complete after state", exerciseAppendAfterState)
+	t.Run("append target ownership", exerciseAppenderTargetBoundaries)
+	t.Run("revision versions match captured state", exerciseAppenderRevisionVersions)
+	t.Run("row currentness spans admitted target kinds", exerciseRowTargetCurrentness)
+	t.Run("task inverse validates current references", exerciseTaskInverseReferences)
+	t.Run("task inverse preserves decision association", exerciseTaskInverseAssociation)
+	t.Run("Decision inverse consumes owned Link facts", exerciseDecisionInverseFacts)
 	for _, stage := range []string{"success", "projection failure", "publication failure"} {
 		t.Run(stage, func(t *testing.T) {
 			ctx := context.Background()
@@ -242,4 +249,8 @@ func TestRollbackParticipantsAndHistoricalAppend_Integration(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (rollbackNoImportedAttribution) ResolveImportedHistoryActorsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, []string) (map[string]string, error) {
+	return nil, nil
 }

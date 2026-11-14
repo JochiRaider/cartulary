@@ -59,6 +59,18 @@ func TestCurrentCaptureRestoreUsesExactCatalogAndCodecs_Unit(t *testing.T) {
 	); !errors.Is(err, recovery.ErrVNextBackup) {
 		t.Fatalf("incomplete object inventory error = %v, want %v", err, recovery.ErrVNextBackup)
 	}
+	retired := append([]recovery.VNextObjectInventoryProvider(nil), providers...)
+	for index, provider := range retired {
+		if provider.ObjectFamilyID() == "evidence.blobs" {
+			retired[index] = recovery.NewVNextObjectInventoryProvider("module.evidence", "evidence.blobs", "evidence.snapshot_blob_inventory.v1", func(context.Context, recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
+				t.Fatal("retired Evidence inventory executed before catalog rejection")
+				return nil, nil
+			})
+		}
+	}
+	if _, err := recovery.NewVNextObjectInventoryCatalog(stateCatalog, retired...); !errors.Is(err, recovery.ErrVNextBackup) {
+		t.Fatalf("retired Evidence inventory admitted: %v", err)
+	}
 	inventories, err := recovery.NewVNextObjectInventoryCatalog(stateCatalog, providers...)
 	if err != nil {
 		t.Fatalf("build object inventories: %v", err)

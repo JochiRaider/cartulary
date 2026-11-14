@@ -29,7 +29,8 @@
     "record_id",
     "row_version",
     "evidence.collector_party_id",
-    "evidence.source_party_id"
+    "evidence.source_party_id",
+    "evidence.owner_user_id"
   ],
   "default_sort": [
     {
@@ -566,7 +567,7 @@
       "string_contract_id": "single_line_title_v1",
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
       "writable": true,
       "read_model": "title",
@@ -673,7 +674,7 @@
       "string_contract_id": "locator_text_v1",
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
       "writable": true,
       "read_model": "storage_ref",
@@ -867,6 +868,28 @@
       "enum_values": null,
       "writable": false,
       "read_model": "edited_at"
+    },
+    {
+      "field_key": "evidence.owner_user_id",
+      "label": "Owner",
+      "default_hidden": true,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "text",
+      "write_kind": "direct_value",
+      "grid_editable": true,
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": "incident_member_user_ref_v1",
+      "clearable": true,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "owner_user_id",
+      "write_target": "evidence_records.owner_user_id"
     }
   ]
 }

@@ -2,7 +2,9 @@ package evidence_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -66,6 +68,58 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-released-direct",
 		"changes":[{"field_key":"evidence.lifecycle_state","value":"released"}]
 	}`)
+
+	t.Run("bound text persists and clears canonically", func(t *testing.T) {
+		result := createEvidenceViaOwner(t, evidenceOwner, actor, incident.ID, `{
+   "client_txn_id":"evidence-normalized-text",
+   "evidence.title":" Cafe\u0301  Title\u200d ",
+   "evidence.storage_ref":" ticket://Cafe\u0301\u200d ",
+   "evidence.collector_party_text":" Cafe\u0301  Collector\u200d ",
+   "evidence.source_party_text":" Cafe\u0301  Source\u200d "
+  }`)
+		id := mustRowID(t, result.Row)
+		check := func(expected map[string]any, version int64) {
+			t.Helper()
+			var raw []byte
+			var gotVersion int64
+			if err := harness.DB.QueryRow(context.Background(), `SELECT jsonb_build_object('title',e.title,'storage_ref',e.storage_ref,'collector_party_text',e.collector_party_text,'source_party_text',e.source_party_text), r.row_version FROM evidence e JOIN records r USING(record_id) WHERE e.record_id=$1`, id).Scan(&raw, &gotVersion); err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]any
+			if err := json.Unmarshal(raw, &got); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, expected) || gotVersion != version {
+				t.Fatalf("stored text=%#v version=%d want=%#v/%d", got, gotVersion, expected, version)
+			}
+		}
+		check(map[string]any{"title": "Café  Title\u200d", "storage_ref": "ticket://Café\u200d", "collector_party_text": "Café  Collector\u200d", "source_party_text": "Café  Source\u200d"}, 1)
+		cleared := patchEvidenceViaOwner(t, evidenceOwner, actor, id, `{
+   "view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"evidence-clear-text",
+   "changes":[{"field_key":"evidence.title","value":" \u00a0 "},{"field_key":"evidence.storage_ref","value":""},{"field_key":"evidence.collector_party_text","value":"\u2003"},{"field_key":"evidence.source_party_text","value":null}]
+  }`)
+		expected := map[string]any{"title": nil, "storage_ref": nil, "collector_party_text": nil, "source_party_text": nil}
+		check(expected, 2)
+		replay := patchEvidenceViaOwner(t, evidenceOwner, actor, id, `{
+   "view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"evidence-clear-text",
+   "changes":[{"field_key":"evidence.title","value":null},{"field_key":"evidence.storage_ref","value":null},{"field_key":"evidence.collector_party_text","value":null},{"field_key":"evidence.source_party_text","value":null}]
+  }`)
+		if replay.Outcome != evidence.MutationOutcomeReplayed || cleared.ChangeSetID == nil || replay.ChangeSetID == nil || *cleared.ChangeSetID != *replay.ChangeSetID {
+			t.Fatalf("normalized clear replay identity/outcome changed: first=%v replay=%v outcome=%s", cleared.ChangeSetID, replay.ChangeSetID, replay.Outcome)
+		}
+		firstJSON, err := json.Marshal(cleared.Row)
+		if err != nil {
+			t.Fatal(err)
+		}
+		replayJSON, err := json.Marshal(replay.Row)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(firstJSON) != string(replayJSON) {
+			t.Fatalf("normalized clear replay row changed: first=%s replay=%s", firstJSON, replayJSON)
+		}
+		check(expected, 2)
+	})
 }
 
 func createEvidenceViaOwner(t testing.TB, owner evidence.MutationContribution, actor authn.UserRecord, incidentID uuid.UUID, body string) evidence.MutationResult {

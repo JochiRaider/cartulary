@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
+import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
+import { inspectGoImports } from "../../static-analysis/go-import-inspection.mjs";
+
+const requireFromWeb = createRequire(new URL("../../../../apps/web/package.json", import.meta.url));
 
 import { semanticJSONDigest } from "../../contract/index.mjs";
 import { loadTestCatalog } from "../../test-catalog/index.mjs";
@@ -107,6 +112,9 @@ function commonDependencyPaths(catalog, rows, entries) {
     if (entries.some((entry) => under(entry.path, contractRoot))) exact.add(contractRoot);
   }
   const prefixes = [
+    "internal/testutil/sourcecheck/",
+    "tools/harnessruntime/",
+    "tools/sourcecheck/",
     "configs/",
     "scripts/",
     "tools/harness",
@@ -137,16 +145,27 @@ function moduleIdentity(root, entryByPath) {
   return match[1];
 }
 
-function goImports(source) {
-  const imports = [];
-  const blocks = source.matchAll(/\bimport\s*(?:\(([^)]*)\)|"([^"]+)")/gu);
-  for (const match of blocks) {
-    if (match[2]) imports.push(match[2]);
-    if (match[1]) {
-      for (const value of match[1].matchAll(/"([^"]+)"/gu)) imports.push(value[1]);
+function goImportBatch(root, files, resolverCache) {
+  const imports = cached(resolverCache, "go-imports", () => new Map());
+  const missing = files.filter(file => !imports.has(file.path));
+  if (missing.length) {
+    const binary = process.env.CARTULARY_HARNESS_RUNTIME_BIN ||
+      path.resolve(import.meta.dirname, "../../../..", workspaceLayout.toolbin, "cartulary-harness");
+    let batch = [], bytes = 0;
+    const inspect = () => {
+      for (const [file, values] of inspectGoImports([batch], { binary, arguments: ["inspect-go"] })) imports.set(file, values);
+      batch = []; bytes = 0;
+    };
+    for (const file of missing) {
+      const source = checkedSourceText(root, file);
+      const size = Buffer.byteLength(source);
+      if (size > 4 * 1024 * 1024) throw new Error("Go dependency source exceeds parser batch bound");
+      if (bytes + size > 4 * 1024 * 1024) inspect();
+      batch.push({ relative: file.path, content: source }); bytes += size;
     }
+    if (batch.length) inspect();
   }
-  return [...new Set(imports)].sort(compareASCII);
+  return imports;
 }
 
 function goPackageClosure(root, entries, rows, catalog, resolverCache) {
@@ -183,8 +202,9 @@ function goPackageClosure(root, entries, rows, catalog, resolverCache) {
         }
         parsed.add(packageDirectory);
         selected.add(packageDirectory);
+        const imports = goImportBatch(root, goFiles, resolverCache);
         for (const file of goFiles) {
-          for (const imported of goImports(checkedSourceText(root, file))) {
+          for (const imported of imports.get(file.path)) {
             if (imported === modulePath) {
               throw new Error("repository module root cannot be resolved as a package");
             }
@@ -241,14 +261,29 @@ function declaredWorkspaceDependencies(workspace, byName) {
     .filter((name) => byName.has(name));
 }
 
-function typescriptSpecifiers(source) {
-  const values = [];
-  for (const match of source.matchAll(/\b(?:import|export)\s+(?:type\s+)?(?:[^"'()]*?\s+from\s+)?["']([^"']+)["']/gu)) {
-    values.push(match[1]);
-  }
-  for (const match of source.matchAll(/\b(?:import|require)\(\s*["']([^"']+)["']\s*\)/gu)) {
-    values.push(match[1]);
-  }
+function typescriptSpecifiers(file, source) {
+  const ts = requireFromWeb("typescript");
+  const kind = file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, kind);
+  if (parsed.parseDiagnostics.length || parsed.referencedFiles.length) throw new Error("incomplete TypeScript dependency syntax");
+  const values = parsed.typeReferenceDirectives.map(value => value.fileName);
+  const add = (node) => {
+    if (!node || !ts.isStringLiteralLike(node)) throw new Error("computed dependency cannot authorize narrow reuse");
+    values.push(node.text);
+  };
+  const visit = node => {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier) add(node.moduleSpecifier);
+    if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) add(node.moduleReference.expression);
+    if (ts.isImportTypeNode(node)) add(ts.isLiteralTypeNode(node.argument) ? node.argument.literal : null);
+    if (ts.isCallExpression(node)) {
+      const expression = node.expression;
+      if (expression.kind === ts.SyntaxKind.ImportKeyword || ts.isIdentifier(expression) && expression.text === "require" ||
+          ts.isPropertyAccessExpression(expression) && ts.isIdentifier(expression.expression) && expression.expression.text === "require" && expression.name.text === "resolve") add(node.arguments[0]);
+      if (ts.isPropertyAccessExpression(expression) && ts.isMetaProperty(expression.expression)) throw new Error("import meta dependency discovery requires broad closure");
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(parsed);
   return [...new Set(values)].sort(compareASCII);
 }
 
@@ -262,7 +297,7 @@ function referencedWorkspaceDependencies(root, workspace, workspaces, entries, b
   );
   for (const entry of sourceEntries) {
     const source = checkedSourceText(root, entry);
-    for (const specifier of typescriptSpecifiers(source)) {
+    for (const specifier of typescriptSpecifiers(entry.path, source)) {
       if (specifier.startsWith(".")) {
         const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(entry.path), specifier));
         if (resolved.startsWith("../")) {

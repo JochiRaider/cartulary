@@ -587,15 +587,6 @@ test("visual harness preferences remain local across density order and page clos
           current.getByTestId(workbookShellReadyTestId()),
         ).toHaveAttribute("data-cartulary-density", density);
       }
-      if (order[0] === "compact") {
-        await expect(
-          Promise.reject(new Error("injected assertion failure")),
-        ).rejects.toThrow("injected assertion failure");
-      } else {
-        await expect(
-          expect.poll(() => false, { timeout: 20 }).toBe(true),
-        ).rejects.toThrow();
-      }
       await current.close();
       current = await page.context().newPage();
     }

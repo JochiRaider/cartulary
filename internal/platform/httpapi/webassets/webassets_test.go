@@ -3,6 +3,7 @@ package webassets_test
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/testutil/browserbuild"
 	"io/fs"
@@ -93,7 +94,16 @@ func TestReadIndexHTMLUsesArchiveWhenPresent(t *testing.T) {
 	}
 }
 func TestStaticFSUsesArchiveWhenPresent(t *testing.T) {
-	b := browserbuild.New(t)
+	files := browserbuild.Files(t)
+	archiveBytes := files["assets/generated/web-assets.zip"].Data
+	archive, err := zip.NewReader(bytes.NewReader(archiveBytes), int64(len(archiveBytes)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := webassets.Load(files)
+	if err != nil {
+		t.Fatal(err)
+	}
 	body, err := fs.ReadFile(b.StaticFS(), "assets/app.js")
 	if err != nil || string(body) != "console.log('fixture');" {
 		t.Fatalf("static bytes: %q %v", body, err)
@@ -101,6 +111,20 @@ func TestStaticFSUsesArchiveWhenPresent(t *testing.T) {
 	for _, name := range []string{"index.html", "client-bootstrap-template.json", "client-extension-support-registry.json"} {
 		if _, err := fs.ReadFile(b.StaticFS(), name); err == nil {
 			t.Fatalf("private metadata served: %s", name)
+		}
+	}
+	for _, name := range []string{
+		"_contracts/client-asset-set-manifest.json",
+		"_contracts/client-extension-support-registry.json",
+		"_contracts/client-bootstrap-template.json",
+		"_contracts/extension-registry-integrity.json",
+		"_contracts/extension-registry-integrity.sha256",
+	} {
+		if body, err := fs.ReadFile(archive, name); err != nil || len(body) == 0 {
+			t.Fatalf("private contract fixture missing: %s: %v", name, err)
+		}
+		if _, err := fs.ReadFile(b.StaticFS(), name); !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("private contract accessible through static view: %s: %v", name, err)
 		}
 	}
 }

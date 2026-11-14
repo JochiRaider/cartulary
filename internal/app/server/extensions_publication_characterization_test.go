@@ -310,27 +310,91 @@ func TestRuntime_ExtensionPublication_WorkspaceAndWorkerClaimFiltering(t *testin
 }
 
 func TestRuntime_ExtensionPublication_NoIndependentRederivation(t *testing.T) {
-	controller, _, _ := preparedPublicationController(t)
-	if err := controller.commit(); err != nil {
-		t.Fatal(err)
-	}
-	acknowledgeAllPublicationComponents(t, controller)
-	if err := controller.serve(); err != nil {
-		t.Fatal(err)
-	}
+	for _, tc := range []struct {
+		name   string
+		claims []string
+	}{
+		{name: "all claimed", claims: []string{"enterprise_authentication", "import", "incident_portability", "network_flow_activity", "reference_pack", "snapshot_reporting"}},
+		{name: "mixed claims", claims: []string{"import", "network_flow_activity"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			coordinator, err := extensions.NewGeneratedCoordinator()
+			if err != nil {
+				t.Fatal(err)
+			}
+			resolution, err := coordinator.ResolveClaims(tc.claims)
+			if err != nil {
+				t.Fatal(err)
+			}
+			plan, err := coordinator.BuildPublicationPlan(resolution)
+			if err != nil {
+				t.Fatal(err)
+			}
+			orchestrator, err := preparePublicationOrchestrator(processlifecycle.New(), plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			controller := orchestrator.controller
+			if err := controller.commit(); err != nil {
+				t.Fatal(err)
+			}
+			acknowledgeAllPublicationComponents(t, controller)
+			if err := controller.serve(); err != nil {
+				t.Fatal(err)
+			}
 
-	provider := publicationHTTPProjections{publication: controller}
-	if got, want := len(provider.ExtensionDiscoveryProfiles()), len(controller.discovery()); got != want {
-		t.Fatalf("discovery projection count got %d want %d", got, want)
+			// The admitted plan is this adapter's input contract. The independent
+			// registry and claim-policy tests own required profile membership.
+			provider := publicationHTTPProjections{publication: controller}
+			profiles, discovery := provider.ExtensionDiscoveryProfiles(), plan.Discovery()
+			if len(profiles) != len(discovery) {
+				t.Fatalf("discovery count: got %d want %d", len(profiles), len(discovery))
+			}
+			for i, got := range profiles {
+				want := discovery[i]
+				if got.ProfileID != want.ProfileID || got.Claimable != want.Claimable || got.Claimed != want.Claimed ||
+					!reflect.DeepEqual(got.ContractMajor, want.ContractMajor) || !reflect.DeepEqual(got.RouteFamilies, want.RouteFamilies) ||
+					!reflect.DeepEqual(got.WorkspaceKeys, want.WorkspaceKeys) || !reflect.DeepEqual(got.Capabilities, want.Capabilities) || len(got.Workspaces) != len(want.Workspaces) {
+					t.Fatalf("discovery[%d]: got %#v want %#v", i, got, want)
+				}
+				for j, workspace := range got.Workspaces {
+					if workspace.WorkspaceKey != want.Workspaces[j].WorkspaceKey || workspace.MinimumRole != want.Workspaces[j].MinimumRole {
+						t.Fatalf("discovery[%d].workspace[%d]: got %#v want %#v", i, j, workspace, want.Workspaces[j])
+					}
+				}
+			}
+			claims, expectedClaims := provider.ExtensionClaims(), plan.Claims()
+			if len(claims) != len(expectedClaims) {
+				t.Fatalf("claim count: got %d want %d", len(claims), len(expectedClaims))
+			}
+			for i, got := range claims {
+				if want := expectedClaims[i]; got.ProfileID != want.ProfileID || got.Claimed != want.Claimed {
+					t.Fatalf("claim[%d]: got %#v want %#v", i, got, want)
+				}
+			}
+			routes, expectedRoutes := provider.ExtensionRoutes(), plan.Routes()
+			if len(routes) != len(expectedRoutes) {
+				t.Fatalf("route count: got %d want %d", len(routes), len(expectedRoutes))
+			}
+			for i, got := range routes {
+				if want := expectedRoutes[i]; got.ProfileID != want.ProfileID || got.RouteFamily != want.RouteFamily || got.Claimed != (want.DispatchState == "claimed") {
+					t.Fatalf("route[%d]: got %#v want %#v", i, got, want)
+				}
+			}
+			workspaces, expectedWorkspaces := provider.ExtensionWorkspaces(), plan.Workspaces()
+			if len(workspaces) != len(expectedWorkspaces) {
+				t.Fatalf("workspace count: got %d want %d", len(workspaces), len(expectedWorkspaces))
+			}
+			for i, got := range workspaces {
+				if want := expectedWorkspaces[i]; got.ProfileID != want.ProfileID || got.WorkspaceKey != want.WorkspaceKey || got.MinimumRole != "viewer" {
+					t.Fatalf("workspace[%d]: got %#v want %#v with viewer role", i, got, want)
+				}
+			}
+		})
 	}
-	if got, want := len(provider.ExtensionClaims()), len(controller.claims()); got != want {
-		t.Fatalf("claim projection count got %d want %d", got, want)
-	}
-	if got, want := len(provider.ExtensionRoutes()), len(controller.routes()); got != want {
-		t.Fatalf("route projection count got %d want %d", got, want)
-	}
-	if got, want := len(provider.ExtensionWorkspaces()), len(controller.workspaces()); got != want {
-		t.Fatalf("workspace projection count got %d want %d", got, want)
+	provider := publicationHTTPProjections{}
+	if len(provider.ExtensionDiscoveryProfiles()) != 0 || len(provider.ExtensionClaims()) != 0 || len(provider.ExtensionRoutes()) != 0 || len(provider.ExtensionWorkspaces()) != 0 {
+		t.Fatal("absent publication exposed an HTTP projection")
 	}
 }
 

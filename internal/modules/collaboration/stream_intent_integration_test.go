@@ -34,9 +34,13 @@ func runIntentWriterScenarios(
 ) {
 	t.Run("intent and source state commit or roll back together", func(t *testing.T) {
 		t.Cleanup(func() {
-			_, _ = pool.Exec(context.Background(), `
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if _, err := pool.Exec(cleanupCtx, `
 DELETE FROM collaboration_event_intents WHERE incident_id = $1
-`, atomicIncidentUUID)
+`, atomicIncidentUUID); err != nil {
+				t.Errorf("retire atomic incident intents: %v", err)
+			}
 		})
 		var originalTitle string
 		if err := pool.QueryRow(ctx, `SELECT title FROM incidents WHERE id = $1`, atomicIncidentUUID).Scan(&originalTitle); err != nil {
@@ -47,6 +51,7 @@ DELETE FROM collaboration_event_intents WHERE incident_id = $1
 		if err != nil {
 			t.Fatalf("begin failing source transaction: %v", err)
 		}
+		defer rollbackStreamTestTransaction(t, tx)
 		if _, err := tx.Exec(ctx, `UPDATE incidents SET title = $2 WHERE id = $1`, atomicIncidentUUID, originalTitle+" changed"); err != nil {
 			t.Fatalf("update source state: %v", err)
 		}
@@ -126,9 +131,9 @@ SELECT count(*)
 		if err != nil {
 			t.Fatalf("begin divergent intent transaction: %v", err)
 		}
+		defer rollbackStreamTestTransaction(t, tx)
 		err = intents.AppendTx(ctx, tx, divergent)
 		if err == nil || !strings.Contains(err.Error(), "collaboration intent key collision") {
-			_ = tx.Rollback(ctx)
 			t.Fatalf("divergent intent error = %v want private collision diagnostic", err)
 		}
 		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {

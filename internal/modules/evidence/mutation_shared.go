@@ -48,11 +48,33 @@ func (f *mutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, recordID u
 }
 
 func validateEvidenceReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, values map[string]FieldValue) error {
+	ids := make([]uuid.UUID, 0, 2)
+	for _, field := range []string{"evidence.collector_party_id", "evidence.source_party_id"} {
+		if id := values[field].UUID; id != nil {
+			ids = append(ids, *id)
+		}
+	}
+	if len(ids) > 0 {
+		rows, err := tx.Query(ctx, `SELECT record_id FROM records WHERE incident_id=$1 AND record_type='party' AND record_id=ANY($2::uuid[]) ORDER BY record_id FOR SHARE`, incidentID, ids)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+	}
 	for fieldKey, value := range values {
 		if value.UUID == nil {
 			continue
 		}
 		switch fieldKey {
+		case "evidence.owner_user_id":
+			if err := validateEvidenceOwnerTx(ctx, tx, incidentID, *value.UUID); err != nil {
+				return err
+			}
 		case "evidence.collector_party_id", "evidence.source_party_id":
 			if err := validateEvidenceTargetRecordTx(ctx, tx, incidentID, *value.UUID, "party", fieldKey); err != nil {
 				return err
@@ -68,6 +90,10 @@ func validateEvidencePatchReferencesTx(ctx context.Context, tx pgx.Tx, incidentI
 			continue
 		}
 		switch change.FieldKey {
+		case "evidence.owner_user_id":
+			if err := validateEvidenceOwnerTx(ctx, tx, incidentID, *change.Value.UUID); err != nil {
+				return err
+			}
 		case "evidence.collector_party_id", "evidence.source_party_id":
 			if err := validateEvidenceTargetRecordTx(ctx, tx, incidentID, *change.Value.UUID, "party", change.FieldKey); err != nil {
 				return err
@@ -77,16 +103,31 @@ func validateEvidencePatchReferencesTx(ctx context.Context, tx pgx.Tx, incidentI
 	return nil
 }
 
+func validateEvidenceOwnerTx(ctx context.Context, tx pgx.Tx, incidentID, ownerID uuid.UUID) error {
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (
+ SELECT 1 FROM users u JOIN incident_memberships m ON m.user_id=u.id
+ WHERE u.id=$1 AND u.is_active=true AND m.incident_id=$2
+)`, ownerID, incidentID).Scan(&exists); err != nil {
+		return fmt.Errorf("validate Evidence owner: %w", err)
+	}
+	if !exists {
+		return &ValidationError{Field: "evidence.owner_user_id", ReasonCode: "invalid_value"}
+	}
+	return nil
+}
+
 func validateEvidenceTargetRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, expectedType string, field string) error {
 	var exists bool
 	if err := tx.QueryRow(ctx, `
 SELECT EXISTS (
     SELECT 1
-      FROM records
-     WHERE incident_id = $1
-       AND record_id = $2
-       AND record_type = $3
-       AND deleted_at IS NULL
+      FROM records r
+      JOIN parties p ON p.record_id=r.record_id AND p.incident_id=r.incident_id
+     WHERE r.incident_id = $1
+       AND r.record_id = $2
+       AND r.record_type = $3
+       AND r.deleted_at IS NULL
 )
 `, incidentID, recordID, expectedType).Scan(&exists); err != nil {
 		return fmt.Errorf("validate evidence reference target: %w", err)
@@ -115,6 +156,36 @@ func (f *mutationFacade) loadEvidenceRecordMetaForUpdateTx(ctx context.Context, 
 		return evidenceRecordMeta{}, revisions.ErrRecordDeletedUseRestore
 	}
 	return evidenceRecordMeta{IncidentID: envelope.IncidentID, RecordType: envelope.RecordType, RowVersion: envelope.RowVersion}, nil
+}
+
+func (f *mutationFacade) lockPatchReferenceScopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, request patchRequest) error {
+	ids := []uuid.UUID{recordID}
+	for _, change := range request.Changes {
+		if (change.FieldKey == "evidence.collector_party_id" || change.FieldKey == "evidence.source_party_id") && change.Value != nil && change.Value.UUID != nil {
+			ids = append(ids, *change.Value.UUID)
+		}
+	}
+	if len(ids) == 1 {
+		return nil
+	}
+	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, recordID, false)
+	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		return pgx.ErrNoRows
+	}
+	if err != nil {
+		return err
+	}
+	if envelope.RecordType != "evidence" {
+		return pgx.ErrNoRows
+	}
+	rows, err := tx.Query(ctx, `SELECT record_id FROM records WHERE incident_id=$1 AND record_id=ANY($2::uuid[]) AND (record_id=$3 OR record_type='party') ORDER BY record_id FOR UPDATE`, envelope.IncidentID, ids, recordID)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+	}
+	rows.Close()
+	return rows.Err()
 }
 
 func changedFieldKeys(before map[string]any, after map[string]any) []string {

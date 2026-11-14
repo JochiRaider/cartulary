@@ -1,30 +1,17 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import type { FullConfig } from "@playwright/test";
+import { withBrowserSetupLock } from "../../../tools/harness/browser/private-state.mjs";
 import { prepareWorkerAdminSuite } from "./support/auth/sessions";
-import {
-  clearSuiteAdminTotpSecret,
-  prepareSuiteAdminState,
-} from "./support/auth/suiteAdmin";
-import { clearWorkerAdminSuiteState } from "./support/auth/workerAdmin";
-import {
-  isExternalServerHarnessMode,
-  resolvePlaywrightStateDirectory,
-  usesSharedPlaywrightState,
-} from "./support/runtime/harnessState";
+import { prepareSuiteAdminState } from "./support/auth/suiteAdmin";
 import { verifyOwnedHarnessRuntime } from "./support/runtime/readiness";
 
 export default async function globalSetup(config: FullConfig) {
-  if (!isExternalServerHarnessMode()) {
-    clearWorkerAdminSuiteState();
-    clearSuiteAdminTotpSecret();
-  }
   const configuredWorkerCount = positiveIntegerEnv(
     "CARTULARY_PLAYWRIGHT_WORKER_COUNT",
   );
   if (config.workers !== 1 || configuredWorkerCount !== 1)
     throw new Error("browser groups require exactly one worker account");
   const workerCount = 1;
-  await withSharedGlobalSetupLock(async () => {
+  await withBrowserSetupLock(async () => {
     await verifyOwnedHarnessRuntime();
     await prepareSuiteAdminState();
     await prepareWorkerAdminSuite(workerCount);
@@ -41,38 +28,4 @@ function positiveIntegerEnv(name: string) {
     throw new Error(`${name} must be a positive integer`);
   }
   return parsed;
-}
-
-async function withSharedGlobalSetupLock<T>(callback: () => Promise<T>) {
-  if (!usesSharedPlaywrightState()) {
-    return callback();
-  }
-
-  const lockDirectory = resolvePlaywrightStateDirectory(
-    "cartulary-playwright-global-setup.lock",
-  );
-  const deadline = Date.now() + 120_000;
-  while (true) {
-    try {
-      mkdirSync(lockDirectory);
-      writeFileSync(`${lockDirectory}/owner`, `${process.pid}\n`, "utf8");
-      break;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-        throw error;
-      }
-      if (Date.now() >= deadline) {
-        throw new Error(
-          `timed out waiting for Playwright global setup lock at ${lockDirectory}`,
-        );
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  }
-
-  try {
-    return await callback();
-  } finally {
-    rmSync(lockDirectory, { force: true, recursive: true });
-  }
 }

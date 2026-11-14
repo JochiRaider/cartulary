@@ -3,7 +3,6 @@ package hostidentity
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	"github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -55,7 +55,21 @@ func (e *RowVersionConflictError) Error() string {
 	return "entities: row version conflict"
 }
 
+var errEntityPreparationChanged = errors.New("entity identifier preparation changed")
+
 func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time, routeKey string) (PatchMutationResult, error) {
+	for {
+		result, err := s.patchEntityRowAttempt(ctx, actor, recordID, request, requestHash, requestID, now, routeKey)
+		if !errors.Is(err, errEntityPreparationChanged) {
+			return result, err
+		}
+		if err := ctx.Err(); err != nil {
+			return PatchMutationResult{}, err
+		}
+	}
+}
+
+func (s *Store) patchEntityRowAttempt(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time, routeKey string) (PatchMutationResult, error) {
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    routeKey,
 		ActorUserID: actor.ID,
@@ -90,7 +104,7 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 		_ = tx.Rollback(ctx)
 	}()
 
-	meta, err := loadEntityRecordMetaTx(ctx, tx, recordID, false)
+	meta, err := s.loadEntityRecordMetaTx(ctx, tx, recordID, false)
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
@@ -100,7 +114,7 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 	if err := s.incidentAccess.RequireOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return PatchMutationResult{}, err
 	}
-	if meta.RowVersion != request.BaseRowVersion {
+	if meta.RowVersion < request.BaseRowVersion {
 		return PatchMutationResult{}, &RowVersionConflictError{
 			RecordID:          recordID,
 			BaseRowVersion:    request.BaseRowVersion,
@@ -117,24 +131,33 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 	case entitycontract.IdentitiesViewSchemaID:
 		identifierTuples = mergeNormalizedIdentifierTuples(identifierTuples, identityPatchIdentifierTuples(request.Changes))
 	}
-	if err := prepareIdentifierMutationTx(ctx, tx, meta.IncidentID, meta.RecordType, recordID, identifierTuples); err != nil {
+	if err := lockIdentifierTuplesTx(ctx, tx, meta.IncidentID, meta.RecordType, identifierTuples); err != nil {
 		return PatchMutationResult{}, err
 	}
-	lockedMeta, err := loadEntityRecordMetaTx(ctx, tx, recordID, true)
+	lockedMeta, err := s.loadEntityRecordMetaTx(ctx, tx, recordID, true)
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
 	if lockedMeta.IncidentID != meta.IncidentID || lockedMeta.RecordType != meta.RecordType {
 		return PatchMutationResult{}, pgx.ErrNoRows
 	}
-	if lockedMeta.RowVersion != request.BaseRowVersion {
-		return PatchMutationResult{}, &RowVersionConflictError{
-			RecordID:          recordID,
-			BaseRowVersion:    request.BaseRowVersion,
-			CurrentRowVersion: lockedMeta.RowVersion,
-		}
+	// Identifier locks were selected before the envelope. A competing commit
+	// requires a fresh attempt, with no envelope held while discovering new keys.
+	if lockedMeta.RowVersion != meta.RowVersion {
+		return PatchMutationResult{}, errEntityPreparationChanged
 	}
 	meta = lockedMeta
+	if meta.RowVersion > request.BaseRowVersion {
+		if err := s.admitPatchRebaseTx(ctx, tx, recordID, meta, request, requestHash); err != nil {
+			return PatchMutationResult{}, err
+		}
+	}
+	if err := prepareIdentifierMutationTx(ctx, tx, meta.IncidentID, meta.RecordType, recordID, identifierTuples); err != nil {
+		return PatchMutationResult{}, err
+	}
+	// The receipt keeps the original hash; retained before-version selectors must
+	// describe the protected version actually mutated after a successful rebase.
+	request.BaseRowVersion = meta.RowVersion
 
 	switch request.ViewSchemaID {
 	case entitycontract.HostsViewSchemaID:
@@ -330,25 +353,18 @@ type entityRecordMeta struct {
 	RowVersion int64
 }
 
-func loadEntityRecordMetaTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (entityRecordMeta, error) {
-	var meta entityRecordMeta
-	var deletedAt sql.NullTime
-	query := `
-SELECT incident_id, record_type, row_version, deleted_at
-  FROM records
- WHERE record_id = $1
-`
-	if lock {
-		query += " FOR UPDATE"
+func (s *Store) loadEntityRecordMetaTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (entityRecordMeta, error) {
+	envelope, err := s.ports.records.LoadEnvelopeTx(ctx, tx, recordID, lock)
+	if errors.Is(err, enveloperead.ErrEnvelopeNotFound) {
+		return entityRecordMeta{}, pgx.ErrNoRows
 	}
-	err := tx.QueryRow(ctx, query, recordID).Scan(&meta.IncidentID, &meta.RecordType, &meta.RowVersion, &deletedAt)
 	if err != nil {
 		return entityRecordMeta{}, err
 	}
-	if deletedAt.Valid {
+	if envelope.DeletedAt != nil {
 		return entityRecordMeta{}, revisions.ErrRecordDeletedUseRestore
 	}
-	return meta, nil
+	return entityRecordMeta{IncidentID: envelope.IncidentID, RecordType: envelope.RecordType, RowVersion: envelope.RowVersion}, nil
 }
 
 func entityRecordTypeMatchesView(recordType string, viewSchemaID string) bool {

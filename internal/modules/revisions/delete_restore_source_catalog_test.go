@@ -56,3 +56,7 @@ func TestDeleteRestoreSourceCatalogFailsClosed(t *testing.T) {
 		t.Fatalf("typed nil source error = %v", err)
 	}
 }
+
+func (testDeleteRestoreSource) ValidateStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
+}

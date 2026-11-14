@@ -22,14 +22,11 @@ func admitSAMLXML(raw []byte) error {
 	stack := []frame{}
 	roots, assertions := 0, 0
 	for tokens := 0; ; tokens++ {
-		if tokens >= 50000 {
-			return errProviderPolicy
-		}
 		token, err := decoder.Token()
 		if err == io.EOF {
 			break
 		}
-		if err != nil {
+		if err != nil || tokens >= 50000 {
 			return errProviderPolicy
 		}
 		switch value := token.(type) {

@@ -83,6 +83,9 @@ func checkInputDepthAndPathsV2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(first.Vertices) != 2 {
+		t.Fatalf("literal-field witnesses = %d vertices, want 2", len(first.Vertices))
+	}
 	for _, v := range first.Vertices {
 		if v.Properties["out.dot"] != "property" || v.Metadata.MappedMetadata["out.dot"] != "literal" || v.Properties["kind"] != "qualified" {
 			t.Fatalf("incorrect key selection: %#v", v.Properties)
@@ -151,6 +154,9 @@ func checkObservedScopeDefaultsV2(t *testing.T) {
 	r, _, err := projectAggregationInputV2(t, input)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(r.Vertices) != 4 || len(r.Edges) != 2 {
+		t.Fatalf("scope-default witnesses = %d vertices/%d edges, want 4/2", len(r.Vertices), len(r.Edges))
 	}
 	requireReboundAdmissionV2(t, r, true)
 	for i := range r.Vertices {

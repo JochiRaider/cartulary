@@ -9,14 +9,17 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 )
 
-type DecisionProvider struct{}
+type DecisionProvider struct{ facts linkfacts.Capability }
 
 var _ rollbackcontract.RowSourceProvider = DecisionProvider{}
 
-func NewDecisionProvider() DecisionProvider { return DecisionProvider{} }
+func NewDecisionProvider(facts linkfacts.Capability) DecisionProvider {
+	return DecisionProvider{facts: facts}
+}
 
 func (DecisionProvider) ValidateRollbackValue(value map[string]any) error {
 	source, ok := decisionSourceForRollbackValue(value)
@@ -35,23 +38,39 @@ type decisionMachine struct {
 	outgoingSupersedes int
 }
 
-func (DecisionProvider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
+func (p DecisionProvider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
 	source, ok := decisionSourceForRollbackValue(request.RetainedValue)
 	if !ok || !validDecisionSource(source) {
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	var machine decisionMachine
 	if err := tx.QueryRow(ctx, `
-SELECT d.incident_id, d.status, d.owner_user_id, d.decided_at,
-       (SELECT COUNT(*) FROM active_record_links_v1 rl WHERE rl.incident_id = d.incident_id AND rl.dst_record_id = d.record_id AND rl.link_type = 'supersedes'),
-       (SELECT COUNT(*) FROM active_record_links_v1 rl WHERE rl.incident_id = d.incident_id AND rl.src_record_id = d.record_id AND rl.link_type = 'supersedes')
+SELECT d.incident_id, d.status, d.owner_user_id, d.decided_at
   FROM decisions d
  WHERE d.record_id = $1
-`, request.RecordID).Scan(&machine.incidentID, &machine.status, &machine.ownerUserID, &machine.decidedAt, &machine.incomingSupersedes, &machine.outgoingSupersedes); err != nil {
+`, request.RecordID).Scan(&machine.incidentID, &machine.status, &machine.ownerUserID, &machine.decidedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return rollbackcontract.ErrTargetNotFound
 		}
 		return err
+	}
+	if p.facts == nil {
+		return errors.New("tasks/decisions: Links facts are required")
+	}
+	facts, err := p.facts.LoadRecordLinkFactsTx(ctx, tx, machine.incidentID, request.RecordID)
+	if err != nil {
+		return err
+	}
+	for _, fact := range facts {
+		if fact.LinkType != "supersedes" {
+			continue
+		}
+		if fact.DestinationRecordID == request.RecordID {
+			machine.incomingSupersedes++
+		}
+		if fact.SourceRecordID == request.RecordID {
+			machine.outgoingSupersedes++
+		}
 	}
 	if raw, present := source["status"]; present {
 		machine.status = raw.(string)

@@ -2,8 +2,10 @@ package performancefixture
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
@@ -89,6 +91,48 @@ func TestRuntimeBundleRejectsInsecureAndUnknownContent(t *testing.T) {
 	}
 	if _, err := ReadRuntimeBundle(profile, path); err == nil {
 		t.Fatal("expected insecure runtime bundle mode to fail closed")
+	}
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid := string(raw)
+	privateMarker := bundle.CredentialSets[0].Credentials[0].Secret
+	for name, document := range map[string]string{
+		"unknown_private_field":   strings.Replace(valid, `"schema_id":`, `"`+privateMarker+`":null,"schema_id":`, 1),
+		"nested_unknown_field":    strings.Replace(valid, `"principal":`, `"`+privateMarker+`":null,"principal":`, 1),
+		"duplicate_member":        strings.Replace(valid, `"schema_id":`, `"schema_id":"ignored","schema_id":`, 1),
+		"nested_duplicate_member": strings.Replace(valid, `"principal":`, `"principal":"ignored","principal":`, 1),
+		"wrong_field_case":        strings.Replace(valid, `"schema_id":`, `"SCHEMA_ID":`, 1),
+		"nested_wrong_field_case": strings.Replace(valid, `"secret":`, `"SECRET":`, 1),
+		"missing_required_member": strings.Replace(valid, `"schema_id":"cartulary.performance_fixture_runtime.v2",`, "", 1),
+		"null_required_member":    strings.Replace(valid, `"schema_id":"cartulary.performance_fixture_runtime.v2"`, `"schema_id":null`, 1),
+		"wrong_schema":            strings.Replace(valid, "cartulary.performance_fixture_runtime.v2", "cartulary.performance_fixture_runtime.v1", 1),
+		"wrong_profile":           strings.Replace(valid, "synthetic_profile_v1", "another_profile_v1", 1),
+		"wrong_type":              strings.Replace(valid, `"secret":"`+privateMarker+`"`, `"secret":1`, 1),
+		"second_document":         valid + `{}`,
+		"trailing_garbage":        valid + "private-trailing-content",
+		"null_document":           "null",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := os.WriteFile(path, []byte(document), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ReadRuntimeBundle(profile, path); err == nil {
+				t.Fatal("invalid runtime document was admitted")
+			} else if strings.Contains(err.Error(), privateMarker) || strings.Contains(err.Error(), bundle.CredentialSets[0].Credentials[0].Principal) {
+				t.Fatal("runtime admission diagnostic disclosed private content")
+			}
+		})
+	}
+	if err := os.WriteFile(path, []byte(" \n"+valid+"\n\t"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if admitted, err := ReadRuntimeBundle(profile, path); err != nil || admitted.CredentialSets[0].Credentials[0] != bundle.CredentialSets[0].Credentials[0] {
+		t.Fatal("valid runtime document with whitespace was not preserved")
 	}
 }
 

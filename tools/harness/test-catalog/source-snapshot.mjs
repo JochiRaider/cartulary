@@ -4,7 +4,7 @@ import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, readlin
 import path from "node:path";
 
 import { canonicalJSONString } from "../contract/index.mjs";
-import { executableInputPathspec, inspectExecutableRepositoryPath, restrictedExecutableInputRoots } from "./restricted-input-boundary.mjs";
+import { executableInputPathspec, inspectExecutableRepositoryPath, isDocumentationOnlyPath, restrictedExecutableInputRoots } from "./restricted-input-boundary.mjs";
 
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -53,20 +53,6 @@ function validateRepositoryPath(relativePath) {
     throw new Error(`source snapshot path is not normalized: ${relativePath}`);
   }
   return relativePath;
-}
-
-function isDocumentationOnlyPath(relativePath, restrictedRoots) {
-  const extension = path.posix.extname(relativePath).toLowerCase();
-  return (
-    restrictedRoots.some(
-      (restrictedRoot) =>
-        relativePath === restrictedRoot ||
-        relativePath.startsWith(`${restrictedRoot}/`),
-    ) ||
-    extension === ".md" ||
-    extension === ".markdown" ||
-    /^readme(?:\.|$)/iu.test(path.posix.basename(relativePath))
-  );
 }
 
 function repositoryPaths(root, restrictedRoots) {

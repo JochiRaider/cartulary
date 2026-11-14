@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -206,10 +206,20 @@ function rewriteDescriptor(fixture, mutate) {
   privateJSON(fixture.sessionFile, value);
 }
 
-test("local lifecycle holds its lock and publishes no service until queued admission succeeds", async () => {
+test("local lifecycle holds its lock and publishes no service until queued admission succeeds", async (t) => {
   const fixture = sessionFixture();
   const acquire = fixture.dependencies.acquireAdmission;
   const gate = Promise.withResolvers();
+  const stopping = Promise.withResolvers();
+  const pending = [];
+  t.after(async () => {
+    gate.resolve();
+    stopping.resolve();
+    const settled = await Promise.allSettled(pending);
+    fixture.cleanup();
+    const failures = settled.filter(result => result.status === "rejected").map(result => result.reason);
+    if (failures.length) throw new AggregateError(failures, "local session fixture settlement failed");
+  });
   fixture.dependencies.acquireAdmission = async (options) => {
     assert.equal(options.timeoutMs, lifecyclePolicy.limits.preparation);
     assert.equal(options.residents[0].parent, null);
@@ -217,13 +227,13 @@ test("local lifecycle holds its lock and publishes no service until queued admis
     return acquire(options);
   };
   const creating = createFixtureSession(fixture);
-  try {
+  pending.push(creating);
+  {
     assert.equal(fixture.containers.size, 0);
     assert.equal(existsSync(fixture.sessionFile), false);
     await assert.rejects(createFixtureSession(fixture), /lifecycle is already active/u);
     gate.resolve();
     assert.equal((await creating).state, "active");
-    const stopping = Promise.withResolvers();
     fixture.dependencies.acquireAdmission = async (options) => {
       assert.equal(options.mode, "drain");
       assert.equal(options.timeoutMs, lifecyclePolicy.limits.drain);
@@ -231,12 +241,13 @@ test("local lifecycle holds its lock and publishes no service until queued admis
       return acquire(options);
     };
     const closed = stopLocalSession({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies });
+    pending.push(closed);
     assert.equal(fixture.terminateCount(), 0);
     assert.equal(existsSync(fixture.sessionFile), true);
     stopping.resolve();
     assert.equal((await closed).state, "absent");
     assert.equal(fixture.terminateCount(), 1);
-  } finally { gate.resolve(); await creating.catch(() => {}); fixture.cleanup(); }
+  }
 });
 
 test("nested persistent startup shares its ancestor envelope and retains residency after the ancestor exits", async () => {
@@ -278,9 +289,14 @@ test("nested persistent startup shares its ancestor envelope and retains residen
     assert.equal(transaction({ operation: "admit", token: contenderToken, owner: processIdentity(), mode: "shared", parent: null,
       claims: hostClaims({ memory_mb: 600, process: 20 }), capacities }), true);
   } finally {
-    for (const token of [pendingToken, contenderToken]) transaction({ operation: "release", token });
-    if (resident) transaction({ operation: "release_resident", token: resident.token, reference: resident.reference });
-    for (const lease of leases.reverse()) await lease.release();
+    const releases = [
+      ...[pendingToken, contenderToken].map(token => async () => transaction({ operation: "release", token })),
+      ...(resident ? [async () => transaction({ operation: "release_resident", token: resident.token, reference: resident.reference })] : []),
+      ...leases.reverse().map(lease => async () => lease.release()),
+    ];
+    const settled = await Promise.allSettled(releases.map(release => release()));
+    const failures = settled.filter(result => result.status === "rejected").map(result => result.reason);
+    if (failures.length) throw new AggregateError(failures, "nested local session fixture release failed");
     fixture.cleanup();
   }
 });
@@ -290,12 +306,24 @@ test("queued physical admission withdraws on cancellation and retains residents 
   const capacities = hostClaims({ cpu: 2, io: 1, memory_mb: 1024, process: 20, object_store: 1, postgres: 1, port_lane: 2 });
   const resident = { token: "f".repeat(32), reference: path.join(root, "resident.json"), claims: hostClaims({ memory_mb: 512, process: 10, object_store: 1, postgres: 1, port_lane: 2 }), capacities, parent: null };
   const leases = [];
+  const pending = [];
+  const cleanup = new AbortController();
+  const acquire = (options) => {
+    const signal = options.signal ? AbortSignal.any([options.signal, cleanup.signal]) : cleanup.signal;
+    const operation = acquireHostAdmission({ root, capacities, ...options, signal }).then(lease => {
+      leases.push(lease);
+      return lease;
+    });
+    pending.push(operation);
+    return operation;
+  };
   const state = () => JSON.parse(readFileSync(path.join(root, "state.json")));
   try {
-    const holder = await acquireHostAdmission({ root, capacities, claims: { cpu: 2 } }); leases.push(holder);
+    const holder = await acquire({ claims: { cpu: 2 } });
     const controller = new AbortController();
-    const waiting = acquireHostAdmission({ root, capacities, claims: { cpu: 1 }, residents: [resident], signal: controller.signal });
+    const waiting = acquire({ claims: { cpu: 1 }, residents: [resident], signal: controller.signal });
     const rejected = assert.rejects(waiting, /cancel queued session/u);
+    pending.push(rejected);
     // Observe registration, not a guessed scheduler delay.
     const deadline = performance.now() + 5000;
     while (state().leases.length < 2) {
@@ -306,17 +334,27 @@ test("queued physical admission withdraws on cancellation and retains residents 
     controller.abort(new Error("cancel queued session"));
     await rejected;
     assert.equal(state().leases.length, 1);
-    const acquiring = acquireHostAdmission({ root, capacities, claims: { cpu: 1 }, residents: [resident] });
+    const acquiring = acquire({ claims: { cpu: 1 }, residents: [resident] });
     await holder.release();
-    const active = await acquiring; leases.push(active);
+    const active = await acquiring;
     await active.release();
     assert.equal(state().residents.length, 1);
-    const drain = await acquireHostAdmission({ root, capacities, claims: { cpu: 1 }, mode: "drain", residents: [resident] }); leases.push(drain);
+    const drain = await acquire({ claims: { cpu: 1 }, mode: "drain", residents: [resident] });
     assert.equal(state().residents.length, 1);
     transactAdmission({ root, operation: "release_resident", token: resident.token, reference: resident.reference });
     await drain.release();
     assert.equal(state().residents.length, 0);
-  } finally { for (const lease of leases) await lease.release(); rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    cleanup.abort(new Error("local admission fixture cleanup"));
+    await Promise.allSettled(pending);
+    const released = await Promise.allSettled([
+      ...leases.map(async lease => lease.release()),
+      (async () => transactAdmission({ root, operation: "release_resident", token: resident.token, reference: resident.reference }))(),
+    ]);
+    const failures = released.filter(result => result.status === "rejected").map(result => result.reason);
+    if (failures.length) throw new AggregateError(failures, "local admission fixture release failed");
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("session mode is explicit, closed, and limited to approved leaf targets", () => {
@@ -432,7 +470,7 @@ test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", 
       target: "test-slice", selection: { SCOPE: "services" },
       runID: "borrower-one",
       suiteRuntime: runtime("1"),
-      dependencies: { ...fixture.dependencies, borrowerID: () => "borrower-one" },
+      dependencies: { ...fixture.dependencies, borrowerID: () => "1".repeat(32) },
     });
     const second = attachLocalSession({
       root: repositoryRoot,
@@ -441,9 +479,11 @@ test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", 
       target: "browser-e2e", selection: { SUITE: "stateful" },
       runID: "borrower-two",
       suiteRuntime: runtime("2"),
-      dependencies: { ...fixture.dependencies, borrowerID: () => "borrower-two" },
+      dependencies: { ...fixture.dependencies, borrowerID: () => "2".repeat(32) },
     });
     assert.notEqual(first.environment.CARTULARY_TEST_SUITE_ID, second.environment.CARTULARY_TEST_SUITE_ID);
+    assert.equal(first.borrower_proof.owner_uid, process.getuid());
+    assert.equal(first.borrower_proof.schema_id, "cartulary.test_services.local_session_borrower.v2");
     const status = localSessionStatus({
       root: repositoryRoot,
       binary: fixture.binary,
@@ -451,6 +491,14 @@ test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", 
       dependencies: fixture.dependencies,
     });
     assert.equal(status.borrower_count, 2);
+    const borrowerBytes = readFileSync(first.borrower_file, "utf8");
+    const borrowerAlias = `${first.borrower_file}.alias`;
+    linkSync(first.borrower_file, borrowerAlias);
+    assert.equal(localSessionStatus({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies }).state, "invalid");
+    rmSync(borrowerAlias);
+    writeFileSync(first.borrower_file, `{"schema_id":${JSON.stringify(first.borrower_proof.schema_id)},${borrowerBytes.slice(borrowerBytes.indexOf("{") + 1)}`);
+    assert.equal(localSessionStatus({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies }).state, "invalid");
+    writeFileSync(first.borrower_file, borrowerBytes);
     const parent=processIdentity(process.ppid);
     const nativeOptions={root:repositoryRoot,binary:fixture.binary,sessionFile:fixture.sessionFile,target:"test-slice",selection:{SCOPE:"services"},runID:"borrower-native",suiteRuntime:runtime("3"),borrowerOwner:parent,dependencies:{...fixture.dependencies,borrowerID:()=>"f".repeat(32)}};
     assert.throws(()=>attachLocalSession({...nativeOptions,borrowerOwner:{...parent,start:"0"}}),/invalid native borrower/u);
@@ -490,7 +538,7 @@ test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", 
   }
 });
 
-test("status rejects malformed, permissive, wrong-owner, and symlink descriptors", () => {
+test("status rejects malformed, permissive, wrong-owner, and symlink descriptors", async () => {
   const fixture = sessionFixture();
   const directory = path.dirname(fixture.sessionFile);
   try {
@@ -498,6 +546,18 @@ test("status rejects malformed, permissive, wrong-owner, and symlink descriptors
       localSessionStatus({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile }).state,
       "absent",
     );
+    await createFixtureSession(fixture);
+    const bytes = readFileSync(fixture.sessionFile, "utf8");
+    const alias = path.join(fixture.temporary, "descriptor-alias.json");
+    linkSync(fixture.sessionFile, alias);
+    assert.throws(() => readLocalSessionDescriptor(fixture.sessionFile), /unsafe local file/u);
+    rmSync(alias);
+    writeFileSync(fixture.sessionFile, `{"schema_id":"cartulary.test_services.local_session.v3",${bytes.slice(bytes.indexOf("{") + 1)}`);
+    assert.throws(() => readLocalSessionDescriptor(fixture.sessionFile), /duplicate/u);
+    privateJSON(fixture.sessionFile, { ...JSON.parse(bytes), schema_id: "cartulary.test_services.local_session.v2" });
+    assert.throws(() => readLocalSessionDescriptor(fixture.sessionFile), /schema|validation/u);
+    writeFileSync(fixture.sessionFile, bytes);
+    assert.equal(readLocalSessionDescriptor(fixture.sessionFile).schema_id, "cartulary.test_services.local_session.v3");
     privateDirectory(directory);
     writeFileSync(fixture.sessionFile, "{not-json\n", { mode: 0o600 });
     assert.equal(localSessionStatus({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile }).state, "invalid");
@@ -561,4 +621,75 @@ test("status detects owner, digest, expiry, and container invalidation", async (
   } finally {
     containerFixture.cleanup();
   }
+});
+
+
+test("session startup rejects ambiguous and aliased private staging before descriptor publication", async () => {
+  for (const flag of ["--env-file", "--lease-file", "--result-file"]) {
+    for (const mutation of ["duplicate", "hardlink"]) {
+      const fixture = sessionFixture();
+      const run = fixture.dependencies.runTestservices;
+      fixture.dependencies.runTestservices = (args, options) => {
+        run(args, options);
+        if (args[0] !== "start-suite") return;
+        const file = args[args.indexOf(flag) + 1];
+        if (mutation === "hardlink") linkSync(file, `${file}.alias`);
+        else {
+          const bytes = readFileSync(file, "utf8");
+          const [key, value] = Object.entries(JSON.parse(bytes))[0];
+          writeFileSync(file, `{${JSON.stringify(key)}:${JSON.stringify(value)},${bytes.slice(bytes.indexOf("{") + 1)}`);
+        }
+      };
+      try {
+        await assert.rejects(createFixtureSession(fixture), /duplicate|unsafe local file/u, `${flag}/${mutation}`);
+        assert.equal(existsSync(fixture.sessionFile), false);
+        assert.equal(fixture.terminateCount(), 1);
+      } finally { fixture.cleanup(); }
+    }
+  }
+});
+
+
+test("borrower publication and detachment preserve exact retryable authority", async () => {
+  const fixture = sessionFixture();
+  const lock = `${fixture.sessionFile}.lock`;
+  try {
+    await createFixtureSession(fixture);
+    const registrationError = new Error("fixture environment registration failed");
+    const options = {
+      root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile,
+      target: "test-slice", selection: { SCOPE: "services" }, runID: "borrower-atomic",
+      suiteRuntime: { root: path.join(fixture.temporary, "borrower-runtime"), leaseID: "00000000-0000-4000-8000-000000000001", registerEnvironment() {} },
+      dependencies: { ...fixture.dependencies, borrowerID: () => "9".repeat(32) },
+    };
+    const status = () => localSessionStatus({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies });
+    assert.throws(() => attachLocalSession({ ...options, suiteRuntime: { ...options.suiteRuntime, registerEnvironment() { throw registrationError; } } }), error => error === registrationError);
+    assert.equal(status().borrower_count, 0, "failed registration must roll back its borrower");
+    const borrower = attachLocalSession(options);
+    const original = readFileSync(borrower.borrower_file);
+    assert.throws(() => attachLocalSession(options), /EEXIST/u);
+    assert.deepEqual(readFileSync(borrower.borrower_file), original, "an existing borrower cannot be overwritten");
+    for (const mutate of [value => { delete value.owner_uid; }, value => { value.owner_uid += 1; }, value => { value.schema_id = "cartulary.test_services.local_session_borrower.v1"; }]) {
+      const changed = JSON.parse(original);
+      mutate(changed);
+      privateJSON(borrower.borrower_file, changed);
+      assert.equal(status().state, "invalid");
+      assert.throws(() => borrower.close());
+      assert.equal(existsSync(borrower.borrower_file), true);
+    }
+    writeFileSync(borrower.borrower_file, original);
+    mkdirSync(lock, { mode: 0o700 });
+    assert.throws(() => borrower.close(), /lifecycle is already active/u);
+    rmSync(lock, { recursive: true });
+    assert.equal(status().borrower_count, 1);
+    privateJSON(borrower.borrower_file, { ...borrower.borrower_proof, run_id: "replaced-run" });
+    assert.throws(() => borrower.close(), /replaced/u);
+    assert.equal(existsSync(borrower.borrower_file), true);
+    writeFileSync(borrower.borrower_file, original);
+    borrower.close();
+    borrower.close();
+    assert.equal(status().borrower_count, 0);
+    assert.equal(fixture.terminateCount(), 0);
+    assert.equal((await stopLocalSession({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies })).state, "absent");
+  } finally { rmSync(lock, { force: true, recursive: true }); fixture.cleanup(); }
 });

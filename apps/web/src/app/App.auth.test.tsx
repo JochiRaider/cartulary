@@ -329,9 +329,6 @@ describe("ordinary app shell", () => {
         "Sign-in request could not be completed.",
       );
     });
-    expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
-      "Sign-in request could not be completed.",
-    );
     expect(
       screen
         .getByTestId(authTestId("feedback"))
@@ -486,11 +483,6 @@ describe("ordinary app shell", () => {
     expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
       "Authenticator code required.",
     );
-    expect(
-      screen
-        .getByTestId(authTestId("shell"))
-        .getAttribute("data-bootstrap-state"),
-    ).toBe("mfa_required");
     expect(document.body.textContent ?? "").not.toContain(
       "mfa-required-token-must-not-render",
     );
@@ -510,11 +502,6 @@ describe("ordinary app shell", () => {
           .getAttribute("data-bootstrap-state"),
       ).toBe("mfa_setup_required");
     });
-    expect(
-      screen
-        .getByTestId(authTestId("shell"))
-        .getAttribute("data-bootstrap-state"),
-    ).toBe("mfa_setup_required");
     expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
       "Authenticator setup is required before sign-in.",
     );

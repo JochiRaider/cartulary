@@ -12,6 +12,7 @@ import {
   validateSchemaSync,
   reloadSchemaValidators,
   redactString,
+  publicExitCodeForFailure,
 } from "../contract/index.mjs";
 import {
   collectChildArtifacts,
@@ -440,7 +441,7 @@ async function runOperationSubstep(definition, substep) {
     status: substep.exit_code,
     stderr: result.stderr || result.stdout || "",
     failure: result.failure,
-    cleanupFailure: result.cleanupFailure,
+    failures: result.failures,
   };
 }
 
@@ -606,9 +607,17 @@ async function main() {
           validationContext = createValidatedContext(repoRoot);
         }
         if (result.status !== 0) {
-          failures.push(failureFromChild(action, substep, result.status, result.stderr, result.failure));
-          if (result.cleanupFailure && result.failure?.failure_reason !== "cleanup_error") {
-            failures.push(failureFromChild(action, substep, 12, "private substep resource cleanup failed", result.cleanupFailure));
+          const primaryPhase = result.failures?.find(observed => observed.failure_class === result.failure?.failure_class && observed.failure_reason === result.failure?.failure_reason)?.phase;
+          failures.push(failureFromChild(action, substep, result.status, primaryPhase ? `${primaryPhase}: ${result.stderr}` : result.stderr, result.failure));
+          // The primary above drives this substep's outcome. Keep every
+          // additional phase observation, including independent releases.
+          let primaryRecorded = false;
+          for (const observed of result.failures ?? []) {
+            if (!primaryRecorded && observed.failure_class === result.failure?.failure_class && observed.failure_reason === result.failure?.failure_reason) {
+              primaryRecorded = true;
+              continue;
+            }
+            failures.push(failureFromChild(action, substep, publicExitCodeForFailure(observed), `private substep ${observed.phase} failed`, observed));
           }
           failed = true;
         }
@@ -677,7 +686,11 @@ async function main() {
     process.stderr.write(
       `agent-finalize: failed at ${failure?.target ?? failure?.substep_id ?? failure?.action_id ?? "unknown"}\n`,
     );
-    process.exitCode = publishFinalizationFailure(repoRoot, summary.failures);
+    // Finalization is serial and stops at the first failed substep. Keep its
+    // normalized interruption status through primary-failure publication;
+    // the taxonomy still controls precedence over any cleanup failure.
+    const failedSubstep = summary.actions.flatMap(action => action.substeps).find(substep => substep.status === "fail");
+    process.exitCode = publishFinalizationFailure(repoRoot, summary.failures, undefined, { status: failedSubstep?.exit_code });
   }
 }
 

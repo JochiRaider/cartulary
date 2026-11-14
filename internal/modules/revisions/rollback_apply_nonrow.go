@@ -36,6 +36,11 @@ func (a rollbackTransactionalApplier) executeNonRowInverseTx(ctx context.Context
 		return rollbackcontract.ApplyInverseResult{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
 	contractTarget := nonRowContractTarget(incidentID, target)
+	values, err := a.runtimeHistoryValuesTx(ctx, tx, incidentID, target.ChangeSetID, target.BeforeValue, target.AfterValue)
+	if err != nil {
+		return rollbackcontract.ApplyInverseResult{}, err
+	}
+	contractTarget.BeforeValue, contractTarget.AfterValue = values[0], values[1]
 	descriptor, err := provider.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{Target: contractTarget})
 	if err != nil {
 		return rollbackcontract.ApplyInverseResult{}, adaptRowRollbackProviderError(err)

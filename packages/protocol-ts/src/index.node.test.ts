@@ -57,6 +57,12 @@ import {
   listViewSchemaRegistryEntries,
   viewSchemaRegistry,
 } from "./entrypoints/view-schemas.js";
+import {
+  validateCartularyWsHelloV1,
+  validateCartularyWsPongV1,
+  validateCartularyWsPresenceUpdateV1,
+  validateCartularyWsResumeV1,
+} from "./generated/collaboration-validators.js";
 
 type ObjectBlobUploadTarget =
   CreateObjectBlobSlotResponse["data"]["upload_target"];
@@ -114,34 +120,44 @@ describe("@cartulary/protocol-ts family conformance", () => {
     );
   });
 
-  it("requires complete incident paging and consistent continuation metadata", () => {
-    const validate = (paging: unknown) =>
-      validateHTTPOperationResponse("listVisibleIncidents", {
-        data: { incidents: [] },
-        meta: {
-          request_id: "request-test",
-          ...(paging === undefined ? {} : { paging }),
-        },
-      });
-    for (const paging of [
-      { limit: 100, has_more: false, next_cursor: null },
-      { limit: 1, has_more: true, next_cursor: "opaque next +/%" },
-      { limit: 500, has_more: false, next_cursor: null },
-    ])
-      expect(validate(paging).ok).toBe(true);
-    for (const paging of [
-      undefined,
-      null,
-      {},
-      { limit: 100, has_more: false },
-      { limit: 0, has_more: false, next_cursor: null },
-      { limit: 501, has_more: false, next_cursor: null },
-      { limit: 1.5, has_more: false, next_cursor: null },
-      { limit: 100, has_more: true, next_cursor: null },
-      { limit: 100, has_more: true, next_cursor: "" },
-      { limit: 100, has_more: false, next_cursor: "unexpected" },
-    ])
-      expect(validate(paging).ok, JSON.stringify(paging)).toBe(false);
+  it("requires complete collection paging and consistent continuation metadata", () => {
+    for (const [operation, data] of [
+      ["listVisibleIncidents", { incidents: [] }],
+      ["listDeploymentUsers", { users: [] }],
+      ["listAdministrativeAuditEvents", { audit_events: [] }],
+      ["listIncidentMembershipAuditEvents", { audit_events: [] }],
+    ] as const) {
+      const validate = (paging: unknown) =>
+        validateHTTPOperationResponse(operation, {
+          data,
+          meta: {
+            request_id: "request-test",
+            ...(paging === undefined ? {} : { paging }),
+          },
+        });
+      for (const paging of [
+        { limit: 100, has_more: false, next_cursor: null },
+        { limit: 1, has_more: true, next_cursor: "opaque next +/%" },
+        { limit: 500, has_more: false, next_cursor: null },
+      ])
+        expect(validate(paging).ok, operation).toBe(true);
+      for (const paging of [
+        undefined,
+        null,
+        {},
+        { limit: 100, has_more: false },
+        { limit: 0, has_more: false, next_cursor: null },
+        { limit: 501, has_more: false, next_cursor: null },
+        { limit: 1.5, has_more: false, next_cursor: null },
+        { limit: 100, has_more: true, next_cursor: null },
+        { limit: 100, has_more: true, next_cursor: "" },
+        { limit: 100, has_more: false, next_cursor: "unexpected" },
+      ])
+        expect(
+          validate(paging).ok,
+          `${operation}: ${JSON.stringify(paging)}`,
+        ).toBe(false);
+    }
   });
 
   it("exposes deterministic generated HTTP operation bindings without payload leakage", () => {
@@ -238,6 +254,33 @@ describe("@cartulary/protocol-ts family conformance", () => {
       );
       expect(validateHTTPOperationResponse(operation, inline).ok).toBe(true);
       expect(validateHTTPOperationResponse(operation, accepted).ok).toBe(true);
+      for (const updated_at of [
+        "2024-02-29T23:59:59.123456Z",
+        "2000-02-29T00:00:00Z",
+      ]) {
+        expect(
+          validateHTTPOperationResponse(
+            operation,
+            { ...accepted, data: { ...job, updated_at } },
+            202,
+          ).ok,
+        ).toBe(true);
+      }
+      for (const updated_at of [
+        "must-not-leak-date",
+        "1900-02-29T00:00:00Z",
+        "2026-02-29T00:00:00Z",
+        "2026-01-01T24:00:00Z",
+        "2026-01-01T00:00:00",
+      ]) {
+        const invalid = validateHTTPOperationResponse(
+          operation,
+          { ...accepted, data: { ...job, updated_at } },
+          202,
+        );
+        expect(invalid.ok).toBe(false);
+        expect(JSON.stringify(invalid)).not.toContain("must-not-leak-date");
+      }
       expect(validateHTTPOperationResponse(operation, inline, 202).ok).toBe(
         false,
       );
@@ -682,7 +725,10 @@ describe("@cartulary/protocol-ts family conformance", () => {
             },
           ],
         },
-        meta: { request_id: "request-test" },
+        meta: {
+          request_id: "request-test",
+          paging: { limit: 100, has_more: false, next_cursor: null },
+        },
       },
     );
     expect(invalid).toEqual(
@@ -719,7 +765,10 @@ describe("@cartulary/protocol-ts family conformance", () => {
           },
         ],
       },
-      meta: { request_id: "request-future-audit" },
+      meta: {
+        request_id: "request-future-audit",
+        paging: { limit: 100, has_more: false, next_cursor: null },
+      },
     };
     for (const operationID of [
       "listAdministrativeAuditEvents",
@@ -969,7 +1018,194 @@ describe("@cartulary/protocol-ts family conformance", () => {
     expect(JSON.stringify(invalid)).not.toContain("must-not-leak");
   });
 
-  it("decodes every server WebSocket family with its complete envelope", () => {
+  it("validates every WebSocket family with its directional envelope", () => {
+    const validTimestamps = [
+      "2000-02-29T23:59:59Z",
+      "2024-02-29T00:00:00.123456789+00:00",
+      "2026-12-31T23:59:59Z",
+    ];
+    const invalidTimestamps = [
+      "must-not-leak-invalid-timestamp",
+      "1900-02-29T00:00:00Z",
+      "2026-02-29T00:00:00Z",
+      "2026-04-31T00:00:00Z",
+      "2026-13-01T00:00:00Z",
+      "2026-01-00T00:00:00Z",
+      "2026-01-01T24:00:00Z",
+      "2026-01-01T00:60:00Z",
+      "2026-01-01T00:00:61Z",
+      "2026-01-01T00:00:00",
+      "2026-01-01T00:00:00+01:00",
+      "2026-01-01 00:00:00Z",
+      "2026-01-01T00:00:00,123Z",
+      "",
+    ];
+    const presence = {
+      sheet_ref: { kind: "view_schema", id: "timeline" },
+      mode: "viewing",
+    };
+    for (const [type, validate, payload] of [
+      [
+        "hello",
+        validateCartularyWsHelloV1,
+        { client_instance_id: "client-1", presence },
+      ],
+      [
+        "resume",
+        validateCartularyWsResumeV1,
+        {
+          client_instance_id: "client-1",
+          presence,
+          resume_token: "resume-1",
+          last_seen_stream_seq: 0,
+        },
+      ],
+      ["presence_update", validateCartularyWsPresenceUpdateV1, { presence }],
+      ["pong", validateCartularyWsPongV1, {}],
+    ] as const) {
+      const client = {
+        type,
+        incident_id: "incident-1",
+        emitted_at: "2026-08-03T23:00:00Z",
+        payload,
+      };
+      expect(validate(client), type).toBe(true);
+      for (const emitted_at of validTimestamps) {
+        expect(
+          validate({ ...client, emitted_at }),
+          `${type}/${emitted_at}`,
+        ).toBe(true);
+      }
+      for (const emitted_at of invalidTimestamps) {
+        expect(
+          validate({ ...client, emitted_at }),
+          `${type}/${emitted_at}`,
+        ).toBe(false);
+      }
+      expect(validate({ ...client, future: true }), type).toBe(true);
+      expect(
+        validate({
+          ...client,
+          payload: { ...payload, future: { nested: [1, null] } },
+        }),
+        `${type}/additive payload`,
+      ).toBe(true);
+      if (type !== "pong") {
+        for (const sheet_ref of [
+          { kind: "view_schema", id: "timeline" },
+          { kind: "saved_view", id: "saved-1" },
+          {
+            kind: "extension_workspace",
+            extension_profile_id: "network_flow_activity",
+            workspace_key: "network_analysis",
+          },
+        ]) {
+          expect(
+            validate({
+              ...client,
+              payload: {
+                ...payload,
+                presence: {
+                  mode: "viewing",
+                  future: [false],
+                  MODE: false,
+                  sheet_ref: {
+                    ...sheet_ref,
+                    future: { nested: [1, null] },
+                    KIND: false,
+                  },
+                },
+              },
+            }),
+            `${type}/additive presence`,
+          ).toBe(true);
+        }
+        expect(
+          validate({
+            ...client,
+            payload: {
+              ...payload,
+              presence: {
+                ...presence,
+                mode: "editing",
+                record_id: "row-1",
+                field_key: "title",
+              },
+            },
+          }),
+          `${type}/anchored editing`,
+        ).toBe(true);
+        for (const presence of [
+          {
+            mode: "editing",
+            sheet_ref: { kind: "view_schema", id: "timeline" },
+            field_key: "title",
+          },
+          {
+            mode: "editing",
+            sheet_ref: { kind: "saved_view", id: "saved-1" },
+            record_id: "",
+            field_key: "title",
+          },
+          null,
+          {
+            mode: "viewing",
+            sheet_ref: { kind: "view_schema", id: "timeline" },
+            record_id: null,
+          },
+          {
+            mode: "viewing",
+            sheet_ref: { kind: "view_schema", id: "timeline" },
+            field_key: "title",
+          },
+          {
+            mode: "viewing",
+            sheet_ref: {
+              kind: "extension_workspace",
+              extension_profile_id: "network_flow_activity",
+              workspace_key: "network_analysis",
+              id: null,
+            },
+          },
+          {
+            mode: "viewing",
+            sheet_ref: {
+              kind: "extension_workspace",
+              extension_profile_id: "network_flow_activity",
+              workspace_key: "network_analysis",
+            },
+            record_id: "row",
+          },
+        ]) {
+          expect(
+            validate({ ...client, payload: { ...payload, presence } }),
+            `${type}/invalid presence`,
+          ).toBe(false);
+        }
+      }
+      if (type === "resume") {
+        for (const sequence of [undefined, null, -1, 1.5, "0", false]) {
+          const changed: Record<string, unknown> = {
+            ...payload,
+            last_seen_stream_seq: sequence,
+          };
+          if (sequence === undefined) delete changed.last_seen_stream_seq;
+          expect(
+            validate({ ...client, payload: changed }),
+            "resume/sequence",
+          ).toBe(false);
+        }
+      }
+      for (const field of ["incident_id", "emitted_at", "payload", "type"]) {
+        const missing: Record<string, unknown> = { ...client };
+        delete missing[field];
+        expect(validate(missing), `${type}/${field}`).toBe(false);
+      }
+      for (const stream_seq of [null, 0, 1]) {
+        expect(validate({ ...client, stream_seq }), type).toBe(false);
+      }
+      expect(validate({ ...client, incident_id: "" }), type).toBe(false);
+    }
     const envelope = {
       emitted_at: "2026-08-03T23:00:00Z",
       event_id: "event-1",
@@ -1084,6 +1320,131 @@ describe("@cartulary/protocol-ts family conformance", () => {
       if (result.ok) {
         expect(result.value).not.toBe(message);
         expect(result.value.payload).not.toBe(message.payload);
+      }
+      for (const emitted_at of validTimestamps) {
+        expect(
+          incidentStreamMessageDecoder.decode({ ...message, emitted_at }),
+        ).toEqual({ ok: true, value: { ...message, emitted_at } });
+      }
+      for (const emitted_at of invalidTimestamps) {
+        const invalid = incidentStreamMessageDecoder.decode({
+          ...message,
+          emitted_at,
+        });
+        expect(invalid.ok, `${message.type}/${emitted_at}`).toBe(false);
+        expect(JSON.stringify(invalid)).not.toContain(
+          "must-not-leak-invalid-timestamp",
+        );
+      }
+    }
+    const presenceRecord = {
+      connection_id: "connection-1",
+      user_id: "user-1",
+      display_name: "Analyst",
+      sheet_ref: { kind: "view_schema", id: "cartulary.view.timeline.v2" },
+      mode: "viewing",
+      observed_at: envelope.emitted_at,
+      expires_at: envelope.emitted_at,
+    };
+    for (const sheet_ref of [
+      presenceRecord.sheet_ref,
+      { kind: "saved_view", id: "saved-1" },
+    ]) {
+      for (const [anchors, valid] of [
+        [{ mode: "viewing" }, true],
+        [{ mode: "editing", record_id: "row-1" }, true],
+        [{ mode: "editing", record_id: "row-1", field_key: "title" }, true],
+        [{ mode: "editing", field_key: "title" }, false],
+        [{ mode: "editing", record_id: "", field_key: "title" }, false],
+        [{ mode: "viewing", record_id: "row-1", field_key: "title" }, false],
+      ] as const) {
+        const presence = { ...presenceRecord, sheet_ref, ...anchors };
+        for (const message of [
+          { type: "presence_snapshot", payload: { presences: [presence] } },
+          {
+            type: "presence_delta",
+            payload: { delta_kind: "upsert", presence },
+          },
+          {
+            type: "presence_delta",
+            payload: { delta_kind: "remove", presence },
+          },
+        ]) {
+          expect(
+            incidentStreamMessageDecoder.decode({ ...envelope, ...message }).ok,
+            `${message.type}/${sheet_ref.kind}/${JSON.stringify(anchors)}`,
+          ).toBe(valid);
+        }
+      }
+    }
+    for (const presence of [
+      { connection_id: "connection-1" },
+      {
+        ...presenceRecord,
+        sheet_ref: {
+          kind: "extension_workspace",
+          extension_profile_id: "network_flow_activity",
+          workspace_key: "network_analysis",
+        },
+      },
+    ]) {
+      expect(
+        incidentStreamMessageDecoder.decode({
+          ...envelope,
+          type: "presence_delta",
+          payload: { delta_kind: "remove", presence },
+        }).ok,
+      ).toBe(true);
+    }
+    for (const presence of [
+      { connection_id: "connection-1", field_key: "title", record_id: "row-1" },
+      {
+        ...presenceRecord,
+        sheet_ref: {
+          kind: "extension_workspace",
+          extension_profile_id: "network_flow_activity",
+          workspace_key: "network_analysis",
+        },
+        record_id: "row-1",
+      },
+    ]) {
+      expect(
+        incidentStreamMessageDecoder.decode({
+          ...envelope,
+          type: "presence_delta",
+          payload: { delta_kind: "remove", presence },
+        }).ok,
+      ).toBe(false);
+    }
+    for (const timestamp of [...validTimestamps, ...invalidTimestamps]) {
+      const valid = validTimestamps.includes(timestamp);
+      for (const field of ["observed_at", "expires_at"]) {
+        expect(
+          incidentStreamMessageDecoder.decode({
+            ...envelope,
+            type: "presence_snapshot",
+            payload: { presences: [{ ...presenceRecord, [field]: timestamp }] },
+          }).ok,
+          `presence/${field}/${timestamp}`,
+        ).toBe(valid);
+      }
+      const helloAck = messages[0];
+      expect(
+        incidentStreamMessageDecoder.decode({
+          ...helloAck,
+          payload: { ...helloAck.payload, server_time: timestamp },
+        }).ok,
+        `hello_ack/${timestamp}`,
+      ).toBe(valid);
+      const job = messages[6];
+      for (const field of ["updated_at", "retained_until"]) {
+        expect(
+          incidentStreamMessageDecoder.decode({
+            ...job,
+            payload: { ...job.payload, [field]: timestamp },
+          }).ok,
+          `job_progress/${field}/${timestamp}`,
+        ).toBe(valid);
       }
     }
     for (const reason of [

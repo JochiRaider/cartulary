@@ -174,7 +174,12 @@ describe("Workbook collaboration transition models", () => {
   it("settles only the current reset subject", () => {
     const started = beginWorkbookCollaborationReset(
       initialWorkbookCollaborationResetMachine(),
-      { eventGeneration: 3, sessionGeneration: 2, sheetKey: "view:timeline" },
+      {
+        eventGeneration: 3,
+        reason: "resume_reset",
+        sessionGeneration: 2,
+        sheetKey: "view:timeline",
+      },
     );
     expect(
       workbookCollaborationResetIsCurrent(started.machine, started.admission, {

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -41,7 +42,11 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if user.MFARequired {
 		hasActiveTOTP := user.TOTPEnrolledAt != nil && len(user.TOTPSecretEnvelope) > 0
 		if !hasActiveTOTP {
-			bootstrapToken, bootstrapExpiresAt, err := s.issueBootstrapToken(r.Context(), user.ID)
+			bootstrapToken, bootstrapExpiresAt, err := s.issueBootstrapToken(r.Context(), user)
+			if errors.Is(err, authn.ErrLoginAuthorityChanged) || errors.Is(err, authn.ErrNotFound) {
+				writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Details: map[string]any{}})
+				return
+			}
 			if err != nil {
 				writeAPIError(w, r, internalAPIError(err))
 				return
@@ -81,6 +86,12 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	memberships, err := s.sessionMembershipReader.ListIncidentMembershipSummaries(r.Context(), user.ID)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+
 	sessionToken, err := authn.GenerateOpaqueToken()
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -94,6 +105,10 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 		authn.NewSessionTiming(s.now()),
 		httpapi.RequestIDFromContext(r.Context()),
 	)
+	if errors.Is(err, authn.ErrLoginAuthorityChanged) || errors.Is(err, authn.ErrNotFound) {
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Details: map[string]any{}})
+		return
+	}
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -103,11 +118,7 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.setAuthCookies(w, sessionToken)
-	resource, err := s.buildSessionResource(r.Context(), user, session)
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
+	resource := assembleSessionResource(user, session, memberships)
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 

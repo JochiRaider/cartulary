@@ -81,6 +81,51 @@ func TestTwoClientsPresenceReplay_Integration(t *testing.T) {
 
 func TestIncidentSocketRevocationSources(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
+	for _, family := range []string{"hello", "resume"} {
+		for _, loss := range []string{"logout", "membership", "expiry"} {
+			t.Run("authority lost before "+family+"/"+loss, func(t *testing.T) {
+				harness, admin, incidentID := setupSocketIncident(t, runtime, "collaboration-delayed-"+family+"-"+loss)
+				member := flowtest.SeedLocalUserRecord(t, harness.DB, "delayed-socket@example.test", "Delayed Socket", "DelayedSocketPass1!", false, false, true)
+				incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, member.ID.String(), member.Email, "editor")
+				login := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, member.Email, "DelayedSocketPass1!", nil)
+				conn, _, err := incidentwstest.TryConnect(harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{SessionToken: login.Session.Value})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer conn.CloseNow()
+				wantReason := "session_revoked"
+				switch loss {
+				case "logout":
+					response := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/logout", map[string]any{}, httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
+					httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
+				case "membership":
+					incidentscenariotest.DeleteMembershipVersion(t, harness.Server, admin, incidentID, member.ID.String(), queryMembershipVersion(t, harness, incidentID, member.ID.String()))
+					wantReason = "incident_access_revoked"
+				case "expiry":
+					harness.Server.Clock.Advance(24 * time.Hour)
+					wantReason = "session_expired"
+				}
+				payload := map[string]any{"client_instance_id": "delayed-client", "presence": timelinePresence()}
+				if family == "resume" {
+					payload["resume_token"], payload["last_seen_stream_seq"] = "unknown-token", 0
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := conn.WriteJSON(ctx, platformws.Message{Type: family, IncidentID: incidentID, EmittedAt: harness.Server.Clock.Now().UTC().Format(time.RFC3339Nano), Payload: collabtestprotocol.RawPayload(t, payload)}); err != nil {
+					t.Fatal(err)
+				}
+				message := readRawCollaborationMessage(t, ctx, conn)
+				var revoked struct {
+					Reason string `json:"reason_code"`
+				}
+				if err := json.Unmarshal(message.Payload, &revoked); err != nil || message.Type != "session_revoked" || revoked.Reason != wantReason {
+					t.Fatalf("first response exposed state or lost authority reason: %#v / %v", message, err)
+				}
+				_, _, err = conn.Read(ctx)
+				wstest.RequireClose(t, err, wstest.StatusPolicyViolation, "session_revoked")
+			})
+		}
+	}
 	harness, admin, _, incidentID := setupSocketIncidentWithAdminID(t, runtime, "collaboration-support-socket-revocations")
 
 	logoutUser := flowtest.SeedLocalUserRecord(t, harness.DB, "collaboration-support-socket-logout@example.test", "Collaboration Logout", "CollaborationLogoutPass1!", false, false, true)
@@ -277,7 +322,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := conn.WriteJSON(ctx, platformws.Message{
-			Type: "hello",
+			Type: "hello", IncidentID: incidentID, EmittedAt: time.Now().UTC().Format(time.RFC3339Nano),
 			Payload: collabtestprotocol.RawPayload(t, map[string]any{
 				"client_instance_id": "collaboration-support-closed-socket-hello",
 				"presence":           timelinePresence(),
@@ -300,7 +345,7 @@ func TestClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := conn.WriteJSON(ctx, platformws.Message{
-			Type: "resume",
+			Type: "resume", IncidentID: incidentID, EmittedAt: time.Now().UTC().Format(time.RFC3339Nano),
 			Payload: collabtestprotocol.RawPayload(t, map[string]any{
 				"client_instance_id":   "collaboration-support-closed-socket-source",
 				"resume_token":         resumeToken,

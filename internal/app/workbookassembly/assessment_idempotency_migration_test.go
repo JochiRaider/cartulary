@@ -3,10 +3,12 @@ package workbookassembly
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -24,17 +26,33 @@ func TestAssessmentCreateIdempotencyBaseline_Integration(t *testing.T) {
 	db := pgtest.Start(t).MigrationDatabaseT(t).SQL()
 	ctx := t.Context()
 	seedAssessmentMigrationActor(t, ctx, db)
+	sum := sha256.Sum256([]byte("canonical-request"))
+	requestHash := sum[:]
 	payload := assessmentCanonicalMigrationPayload(assessmentMigrationRecordID, assessmentMigrationIncidentID, 7)
-	insertAssessmentMigrationRow(t, ctx, db, "assessments.rows.create", "canonical", []byte("hash"), 201, payload)
+	insertAssessmentMigrationRow(t, ctx, db, "assessments.rows.create", "canonical", requestHash, 201, payload)
 	stored := assessmentMigrationResponse(t, ctx, db, "canonical")
 	assertJSONSemanticEqual(t, stored, payload)
-	replayed, err := decodeAssessmentCreateResult(stored, assessmentMigrationIncidentID+":"+assessments.AssessmentsViewSchemaID, 201, []byte("hash"))
+	replayed, err := decodeAssessmentCreateResult(stored, assessmentMigrationIncidentID+":"+assessments.AssessmentsViewSchemaID, 201, requestHash)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if replayed.RecordID.String() != assessmentMigrationRecordID || replayed.ChangeSetID.String() != assessmentMigrationChangeSetID || replayed.RowVersion != 7 {
+	if replayed.Result.RecordID.String() != assessmentMigrationRecordID || replayed.Result.ChangeSetID.String() != assessmentMigrationChangeSetID || replayed.Result.RowVersion != 7 || replayed.DefaultAssessedAt != nil {
 		t.Fatalf("replay identity/version=%#v", replayed)
 	}
+	defaultTime := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	replayed.DefaultAssessedAt = &defaultTime
+	encoded, err := encodeAssessmentCreateResult(assessmentMigrationIncidentID+":"+assessments.AssessmentsViewSchemaID, replayed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	insertAssessmentMigrationRow(t, ctx, db, "assessments.rows.create", "normalized", requestHash, 201, string(encoded))
+	normalized := assessmentMigrationResponse(t, ctx, db, "normalized")
+	assertJSONSemanticEqual(t, normalized, string(encoded))
+	decoded, err := decodeAssessmentCreateResult(normalized, assessmentMigrationIncidentID+":"+assessments.AssessmentsViewSchemaID, 201, requestHash)
+	if err != nil || decoded.DefaultAssessedAt == nil || !decoded.DefaultAssessedAt.Equal(defaultTime) || decoded.Result.RecordID != replayed.Result.RecordID {
+		t.Fatalf("normalized receipt round trip: %#v, %v", decoded, err)
+	}
+	assertJSONSemanticEqual(t, assessmentMigrationResponse(t, ctx, db, "canonical"), payload)
 
 }
 

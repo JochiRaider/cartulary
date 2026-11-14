@@ -235,10 +235,6 @@ func (a *Application) UpdateIncident(
 	if !request.admitted {
 		return IncidentRecord{}, false, errInvalidMutationAdmission
 	}
-	mutationTime, err := a.recordedMutationTime()
-	if err != nil {
-		return IncidentRecord{}, false, err
-	}
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return IncidentRecord{}, false, fmt.Errorf("begin incident patch transaction: %w", err)
@@ -264,6 +260,10 @@ func (a *Application) UpdateIncident(
 			BaseIncidentVersion:    request.baseIncidentVersion,
 			CurrentIncidentVersion: current.IncidentVersion,
 		}
+	}
+	mutationTime, err := a.recordedMutationTime()
+	if err != nil {
+		return IncidentRecord{}, false, err
 	}
 	next, changed := applyIncidentPatch(current, request, actor.ID, mutationTime)
 	if !changed {

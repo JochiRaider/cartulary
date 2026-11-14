@@ -4,7 +4,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -13,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 )
@@ -122,7 +122,7 @@ func validateResolvedClaimIdentity(identity ResolvedClaimIdentity) error {
 			return fail("resolved claim identity profile identifiers must be unique and canonically ordered")
 		}
 	}
-	canonicalBytes, err := json.Marshal(struct {
+	canonicalBytes, err := canonicaljson.MarshalExtension(struct {
 		ProfileIDs []string `json:"profile_ids"`
 	}{ProfileIDs: append([]string{}, identity.ProfileIDs...)})
 	if err != nil {

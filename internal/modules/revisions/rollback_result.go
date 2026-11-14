@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"sort"
 
 	"github.com/google/uuid"
@@ -60,15 +61,26 @@ func decodeRollbackValue(data []byte) (map[string]any, error) {
 		return nil, nil
 	}
 	var value map[string]any
-	if err := json.Unmarshal(data, &value); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return nil, fmt.Errorf("decode rollback value: %w", err)
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		if err == nil {
+			return nil, fmt.Errorf("decode rollback value: multiple JSON values")
+		}
 		return nil, fmt.Errorf("decode rollback value: %w", err)
 	}
 	return value, nil
 }
 
 func decodeStoredRollbackPayload(data []byte) (map[string]any, error) {
-	var payload map[string]any
-	if err := json.Unmarshal(data, &payload); err != nil {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("decode rollback idempotency payload: empty document")
+	}
+	payload, err := decodeRollbackValue(data)
+	if err != nil {
 		return nil, fmt.Errorf("decode rollback idempotency payload: %w", err)
 	}
 	return payload, nil
@@ -86,11 +98,8 @@ func rollbackResultFromPayload(payload map[string]any, clientTxnID string) Rollb
 			changeSetID, _ = uuid.Parse(changeSetRaw)
 		}
 		var rowVersion int64
-		switch value := payload["row_version"].(type) {
-		case float64:
-			rowVersion = int64(value)
-		case int64:
-			rowVersion = value
+		if value, ok := payload["row_version"].(json.Number); ok {
+			rowVersion, _ = value.Int64()
 		}
 		result.Changes = []RollbackRecordChange{{RecordID: recordID, RowVersion: rowVersion, ChangeSetID: changeSetID}}
 	}

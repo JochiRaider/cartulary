@@ -3,9 +3,12 @@ import { act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../../testing/workbookQueryTestSupport";
+import type { RecordChangedPayload } from "../../collaboration/workbookCollaborationMessages";
 import { emptyWorkbookPresence } from "../../collaboration/workbookPresencePresentation";
 import type { WorkbookActiveSurfacePort } from "../../collaboration/workbookSurfacePort";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookReadScope } from "../../query/WorkbookQueryRow";
+import { workbookRowIsAdmissible } from "../../query/workbookRowObservation";
 import {
   createDraftRow,
   normalizeTimelineFullRow,
@@ -18,6 +21,12 @@ import {
 } from "./useTimelineCollaborationBindings";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
+const acceptedScope: WorkbookReadScope = {
+  actorId: "actor-1",
+  sessionIdentity: "session-1",
+  incidentId: "incident-1",
+  epoch: 1,
+};
 
 function committedRow(
   recordId: string,
@@ -26,9 +35,12 @@ function committedRow(
 ): WorkbookRow {
   return rowFromApi(
     normalizeTimelineFullRow(
-      fullWorkbookViewRow(timelineContract, recordId, rowVersion, {
-        "timeline.activity_synopsis_text": synopsis,
-      }),
+      {
+        ...fullWorkbookViewRow(timelineContract, recordId, rowVersion, {
+          "timeline.activity_synopsis_text": synopsis,
+        }),
+        observation: { recordId, rowVersion, scope: acceptedScope },
+      },
       "timeline collaboration fixture",
     ),
   );
@@ -89,6 +101,7 @@ describe("useTimelineCollaborationBindings", () => {
     const replaceRows = vi.fn();
     const beginRowsLoad = vi.fn();
     const refreshRows = vi.fn(async () => undefined);
+    let currentScope: WorkbookReadScope | null = acceptedScope;
     let knownVersion = 1;
     const acceptRecordVersion = vi.fn(
       (_recordId: string, rowVersion: number) => {
@@ -110,6 +123,7 @@ describe("useTimelineCollaborationBindings", () => {
           },
           beginRowsLoad,
           collaborationProjection: fixture.projection,
+          readScope: () => currentScope,
           refreshRows,
           resolveClientTxn,
           rowsRef,
@@ -127,33 +141,79 @@ describe("useTimelineCollaborationBindings", () => {
     });
     expect(fixture.clientTxnResolver()?.("local-1")).toBe(true);
 
-    act(() => {
-      expect(
-        fixture.activeSurface()?.applyRecordChanged({
-          record_id: "record-1",
-          row_version: 2,
-          change_set_id: "change-1",
-          client_txn_id: "remote-1",
-          actor_user_id: "user-2",
-          changed_field_keys: ["timeline.activity_synopsis_text"],
-          affected_views: [
-            {
-              view_schema_id: timelineViewSchemaId,
-              change_kind: "patch",
-              patch_cells: {
-                record_id: "record-1",
-                row_version: 2,
-                cells: {
-                  "timeline.activity_synopsis_text": { value: "After" },
-                },
-              },
+    const change: RecordChangedPayload = {
+      record_id: "record-1",
+      row_version: 2,
+      change_set_id: "change-1",
+      client_txn_id: "remote-1",
+      actor_user_id: "user-2",
+      changed_field_keys: ["timeline.activity_synopsis_text"],
+      affected_views: [
+        {
+          view_schema_id: timelineViewSchemaId,
+          change_kind: "patch",
+          patch_cells: {
+            record_id: "record-1",
+            row_version: 2,
+            cells: {
+              "timeline.activity_synopsis_text": { value: "After" },
             },
-          ],
-        }),
-      ).toEqual({ kind: "applied" });
+          },
+        },
+      ],
+    };
+    act(() => {
+      expect(fixture.activeSurface()?.applyRecordChanged(change)).toEqual({
+        kind: "applied",
+      });
     });
     expect(rowsRef.current[0]?.values.activitySynopsisText).toBe("After");
     expect(rowsRef.current[1]).toBe(draft);
+    expect(rowsRef.current[0]?.rawRow?.observation).toEqual({
+      recordId: "record-1",
+      rowVersion: 2,
+      scope: acceptedScope,
+    });
+    expect(
+      workbookRowIsAdmissible(
+        rowsRef.current[0]!.rawRow!,
+        "record-1",
+        acceptedScope,
+      ),
+    ).toBe(true);
+    for (const scope of [
+      null,
+      { ...acceptedScope, epoch: 2 },
+      { ...acceptedScope, actorId: "actor-2" },
+      { ...acceptedScope, sessionIdentity: "session-2" },
+      { ...acceptedScope, incidentId: "incident-2" },
+    ]) {
+      currentScope = scope;
+      rowsRef.current = [committedRow("record-1", 1, "Before"), draft];
+      act(() => {
+        fixture.activeSurface()?.applyRecordChanged(change);
+      });
+      expect(rowsRef.current[0]?.rawRow?.observation).toEqual({
+        recordId: "record-1",
+        rowVersion: 1,
+        scope: acceptedScope,
+      });
+      expect(
+        workbookRowIsAdmissible(
+          rowsRef.current[0]!.rawRow!,
+          "record-1",
+          currentScope,
+        ),
+      ).toBe(false);
+    }
+    currentScope = acceptedScope;
+    const unobserved = committedRow("record-1", 1, "Before");
+    const { observation: _observation, ...raw } = unobserved.rawRow!;
+    rowsRef.current = [{ ...unobserved, rawRow: raw }, draft];
+    act(() => {
+      fixture.activeSurface()?.applyRecordChanged(change);
+    });
+    expect(rowsRef.current[0]?.rawRow?.observation).toBeUndefined();
 
     expect(
       fixture.activeSurface()?.applyRecordChanged({
@@ -223,6 +283,7 @@ describe("useTimelineCollaborationBindings", () => {
         },
         beginRowsLoad: () => undefined,
         collaborationProjection: fixture.projection,
+        readScope: () => acceptedScope,
         refreshRows: async () => undefined,
         resolveClientTxn: () => false,
         rowsRef,

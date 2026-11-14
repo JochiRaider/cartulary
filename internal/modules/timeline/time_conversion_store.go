@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
+
+var ErrProfileVersionExhausted = errors.New("timeline: profile version exhausted")
 
 func (s *store) GetTimeConversionProfile(ctx context.Context, incidentID uuid.UUID, now time.Time) (TimeConversionProfile, error) {
 	var (
@@ -68,6 +71,9 @@ func (s *store) PutTimeConversionProfile(ctx context.Context, actor authn.UserRe
 			CurrentRowVersion: current.ProfileVersion,
 		}
 	}
+	if current.ProfileVersion == math.MaxInt64 {
+		return TimeConversionProfile{}, ErrProfileVersionExhausted
+	}
 	nextVersion := current.ProfileVersion + 1
 	var (
 		profile   TimeConversionProfile
@@ -93,8 +99,19 @@ SET enabled = EXCLUDED.enabled,
     profile_version = EXCLUDED.profile_version,
     updated_at = EXCLUDED.updated_at,
     updated_by_user_id = EXCLUDED.updated_by_user_id
+WHERE timeline_time_conversion_profiles.profile_version = $8
 RETURNING incident_id, enabled, local_offset_minutes, local_label, profile_version, updated_at, updated_by_user_id
-`, incidentID, request.Enabled, request.LocalOffsetMinutes, request.LocalLabel, nextVersion, now.UTC(), actor.ID).Scan(&profile.IncidentID, &profile.Enabled, &offset, &label, &profile.ProfileVersion, &profile.UpdatedAt, &updatedBy)
+`, incidentID, request.Enabled, request.LocalOffsetMinutes, request.LocalLabel, nextVersion, now.UTC(), actor.ID, request.BaseProfileVersion).Scan(&profile.IncidentID, &profile.Enabled, &offset, &label, &profile.ProfileVersion, &profile.UpdatedAt, &updatedBy)
+	if errors.Is(err, pgx.ErrNoRows) {
+		current, err := getTimeConversionProfileTx(ctx, tx, incidentID, now)
+		if err != nil {
+			return TimeConversionProfile{}, err
+		}
+		return TimeConversionProfile{}, &RowVersionConflictError{
+			BaseRowVersion:    request.BaseProfileVersion,
+			CurrentRowVersion: current.ProfileVersion,
+		}
+	}
 	if err != nil {
 		return TimeConversionProfile{}, fmt.Errorf("put timeline time conversion profile: %w", err)
 	}

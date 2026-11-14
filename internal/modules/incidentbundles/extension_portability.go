@@ -58,10 +58,24 @@ type ExtensionPolicy struct {
 	ParticipantID          string
 	ParticipantSHA256      string
 	ParticipantSchemaID    string
-	MaximumInputBytes      int64
-	MaximumOutputBytes     int64
+	Export                 PortabilityOperationPolicy
+	Import                 PortabilityOperationPolicy
 	AuthoritativeFamilyIDs []string
 	BlockingFamilyIDs      []string
+}
+
+type PortabilityOperationPolicy struct {
+	OutputSchemaID     string
+	StateFamilyIDs     []string
+	MaximumInputBytes  int64
+	MaximumOutputBytes int64
+	MaximumItems       int
+}
+
+func validPortabilityOperation(policy PortabilityOperationPolicy) bool {
+	return policy.OutputSchemaID != "" && policy.MaximumInputBytes > 0 &&
+		policy.MaximumInputBytes <= PortabilityParticipantByteLimit && policy.MaximumOutputBytes >= 0 &&
+		policy.MaximumOutputBytes <= PortabilityParticipantByteLimit && policy.MaximumItems >= 0 && policy.MaximumItems <= 1048576
 }
 
 // StatePresence is the declarative storage-binding port. Implementations count
@@ -91,7 +105,7 @@ type ExportReadCapability interface {
 }
 
 type ExportReadFactory interface {
-	ForSnapshot(ExportSnapshotQuery, uuid.UUID, string) (ExportReadCapability, error)
+	ForSnapshot(ExportSnapshotQuery, uuid.UUID, string, []string) (ExportReadCapability, error)
 }
 
 type ExportInvocation struct {
@@ -173,15 +187,19 @@ type ExtensionParticipant interface {
 // to participant code. The underlying staging identity remains private to the
 // shared staged-object owner and is retained solely for abandon/transfer.
 type PortabilityStagedOutputScope struct {
-	scope        *stagedobjects.Scope
-	references   []stagedobjects.Reference
-	budget       *memberBudget
-	publications []stagedobjects.Publication
+	scope          *stagedobjects.Scope
+	references     []stagedobjects.Reference
+	budget         *memberBudget
+	remainingItems *int
+	publications   []stagedobjects.Publication
 }
 
 func (s *PortabilityStagedOutputScope) Allocate(ctx context.Context, operationID string, resource stagedobjects.ResourceBinding, payload []byte) (string, error) {
 	if s == nil || s.scope == nil || s.budget == nil || !resource.Valid() {
 		return "", stagedobjects.ErrScopeDenied
+	}
+	if s.remainingItems != nil && *s.remainingItems <= 0 {
+		return "", ErrPortabilityLimit
 	}
 	if s.budget.members <= 0 || int64(len(payload)) > s.budget.bytes || len(payload) > PortabilityParticipantByteLimit {
 		return "", ErrPortabilityLimit
@@ -192,6 +210,9 @@ func (s *PortabilityStagedOutputScope) Allocate(ctx context.Context, operationID
 	}
 	s.budget.bytes -= int64(len(payload))
 	s.budget.members--
+	if s.remainingItems != nil {
+		(*s.remainingItems)--
+	}
 	s.references = append(s.references, stagedobjects.Reference{StagingID: stagingID})
 	s.publications = append(s.publications, stagedobjects.Publication{StagingID: stagingID, ResourceKind: resource.Kind, ResourceID: resource.ID, ByteSize: int64(len(payload)), SHA256: digestBytes(payload)})
 	return stagedOutputLogicalRef(stagingID), nil
@@ -203,6 +224,9 @@ func (s *PortabilityStagedOutputScope) AllocateStream(ctx context.Context, opera
 	if s == nil || s.scope == nil || s.budget == nil || !resource.Valid() {
 		return "", stagedobjects.ContentBinding{}, stagedobjects.ErrScopeDenied
 	}
+	if s.remainingItems != nil && *s.remainingItems <= 0 {
+		return "", stagedobjects.ContentBinding{}, ErrPortabilityLimit
+	}
 	if s.budget.members <= 0 || maximumBytes < 0 || maximumBytes > s.budget.bytes {
 		return "", stagedobjects.ContentBinding{}, ErrPortabilityLimit
 	}
@@ -212,6 +236,9 @@ func (s *PortabilityStagedOutputScope) AllocateStream(ctx context.Context, opera
 	}
 	s.budget.bytes -= sealed.ByteSize
 	s.budget.members--
+	if s.remainingItems != nil {
+		(*s.remainingItems)--
+	}
 	s.references = append(s.references, sealed.Reference)
 	s.publications = append(s.publications, stagedobjects.Publication{StagingID: sealed.StagingID, ResourceKind: resource.Kind, ResourceID: resource.ID, ByteSize: sealed.ByteSize, SHA256: sealed.SHA256})
 	return stagedOutputLogicalRef(sealed.StagingID), sealed.ContentBinding, nil
@@ -321,6 +348,8 @@ func NewPortabilityOrchestrator(options PortabilityOptions) (*PortabilityOrchest
 		policy := &resolved[index]
 		policy.AuthoritativeFamilyIDs = canonicalStrings(policy.AuthoritativeFamilyIDs)
 		policy.BlockingFamilyIDs = canonicalStrings(policy.BlockingFamilyIDs)
+		policy.Export.StateFamilyIDs = append([]string(nil), policy.Export.StateFamilyIDs...)
+		policy.Import.StateFamilyIDs = append([]string(nil), policy.Import.StateFamilyIDs...)
 		validMajor := policy.ClaimState == ClaimStateRecognizedUnclaimable && policy.ContractMajor == 0 ||
 			policy.ClaimState != ClaimStateRecognizedUnclaimable && policy.ContractMajor >= 1 && policy.ContractMajor <= 2147483647
 		if policy.ProfileID == "" || policy.ProfileID == previous || !validMajor ||
@@ -337,9 +366,7 @@ func NewPortabilityOrchestrator(options PortabilityOptions) (*PortabilityOrchest
 				return nil, ErrPortabilityResult
 			}
 		case PortabilityModeParticipant:
-			if policy.ParticipantID == "" || policy.MaximumInputBytes < 1 ||
-				policy.MaximumInputBytes > PortabilityParticipantByteLimit ||
-				policy.MaximumOutputBytes < 0 || policy.MaximumOutputBytes > PortabilityParticipantByteLimit {
+			if policy.ParticipantID == "" || !validPortabilityOperation(policy.Export) || !validPortabilityOperation(policy.Import) {
 				return nil, ErrPortabilityResult
 			}
 			if policy.ClaimState == ClaimStateClaimed {
@@ -373,7 +400,7 @@ func (o *PortabilityOrchestrator) Export(ctx context.Context, query ExportSnapsh
 	if o == nil || query == nil || incidentID == uuid.Nil || members == nil || actors == nil {
 		return ErrPortabilityUnavailable
 	}
-	var metadataBytes int64
+	var inputBytes, metadataBytes int64
 	for _, policy := range o.policies {
 		if err := contextError(ctx); err != nil {
 			return err
@@ -406,21 +433,33 @@ func (o *PortabilityOrchestrator) Export(ctx context.Context, query ExportSnapsh
 			if policy.ClaimState != ClaimStateClaimed {
 				return newPortabilityFailure(ErrPortabilityUnavailable, policy.ProfileID)
 			}
-			access, err := o.reads.ForSnapshot(snapshotReadOnly{query}, incidentID, policy.ProfileID)
+			contextBytes, err := canonicaljson.MarshalExtension(portabilityContextMetadata(policy, incidentID, "export"))
+			if err != nil {
+				return ErrPortabilityResult
+			}
+			contextSize := int64(len(contextBytes))
+			if len(policy.Export.StateFamilyIDs) > policy.Export.MaximumItems || contextSize > policy.Export.MaximumInputBytes || contextSize > PortabilityParticipantByteLimit-inputBytes {
+				return ErrPortabilityLimit
+			}
+			inputBytes += contextSize
+			access, err := o.reads.ForSnapshot(snapshotReadOnly{query}, incidentID, policy.ProfileID, append([]string(nil), policy.Export.StateFamilyIDs...))
 			if err != nil || access == nil || access.ProfileScope() != policy.ProfileID || access.IncidentScope() != incidentID {
 				return newPortabilityFailure(ErrPortabilityUnavailable, policy.ProfileID)
 			}
-			emitter := &extensionMemberWriter{destination: members, profileID: policy.ProfileID, paths: map[string]incidentportability.Member{}}
+			emitter := &extensionMemberWriter{destination: members, profileID: policy.ProfileID, paths: map[string]incidentportability.Member{}, maximumItems: policy.Export.MaximumItems}
 			result, err := o.participants[policy.ParticipantID].Export(ctx, ExportInvocation{
 				ProfileID: policy.ProfileID, ContractMajor: policy.ContractMajor, ClaimState: policy.ClaimState,
 				IncidentID: incidentID, ReadAccess: access, Members: emitter, Actors: actors,
 			})
 			emitter.closed = true
+			if errors.Is(err, ErrPortabilityLimit) {
+				return ErrPortabilityLimit
+			}
 			if err != nil {
 				return newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
 			}
 			if result.SchemaID != ExtensionExportResultSchema || result.Kind != "members" ||
-				result.ContentSchemaID == "" || result.ContractMajor != policy.ContractMajor || result.StateVersion < 1 || len(emitter.paths) == 0 {
+				result.ContentSchemaID != policy.Export.OutputSchemaID || result.ContractMajor != policy.ContractMajor || result.StateVersion < 1 || len(emitter.paths) == 0 {
 				return newPortabilityFailure(ErrPortabilityResult, policy.ProfileID)
 			}
 			catalog := extensionMemberCatalog{SchemaID: ExtensionMemberCatalogSchema, ProfileID: policy.ProfileID,
@@ -429,16 +468,32 @@ func (o *PortabilityOrchestrator) Export(ctx context.Context, query ExportSnapsh
 			if err != nil {
 				return err
 			}
-			if int64(len(encoded)) > policy.MaximumOutputBytes || int64(len(encoded)) > PortabilityParticipantByteLimit-metadataBytes {
+			resultBytes, err := canonicaljson.MarshalExtension(map[string]any{
+				"schema_id": result.SchemaID, "kind": result.Kind, "content_schema_id": result.ContentSchemaID,
+				"contract_major": result.ContractMajor, "state_version": result.StateVersion,
+			})
+			if err != nil {
+				return ErrPortabilityResult
+			}
+			outputSize := int64(len(encoded)) + int64(len(resultBytes))
+			if outputSize > policy.Export.MaximumOutputBytes || outputSize > PortabilityParticipantByteLimit-metadataBytes {
 				return ErrPortabilityLimit
 			}
-			metadataBytes += int64(len(encoded))
+			metadataBytes += outputSize
 			if _, err := members.WriteMember(ctx, extensionCatalogPath(policy.ProfileID), bytes.NewReader(encoded)); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+func portabilityContextMetadata(policy ExtensionPolicy, incidentID uuid.UUID, operation string) map[string]any {
+	return map[string]any{
+		"schema_id": "cartulary.extension_portability_participant_context.v2", "operation_kind": operation,
+		"profile_id": policy.ProfileID, "contract_major": policy.ContractMajor, "claim_state": policy.ClaimState,
+		"incident_id": incidentID.String(), "content_schema_id": policy.Export.OutputSchemaID,
+	}
 }
 
 // This wrapper deliberately hides any Exec, Commit or Rollback methods on the
@@ -500,15 +555,28 @@ func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, input Porta
 			return PreparedPortability{}, err
 		}
 		policy, recognized := policies[payload.ProfileID]
-		if !recognized || policy.Mode != PortabilityModeParticipant ||
-			policy.ClaimState != ClaimStateClaimed ||
-			payload.ContractMajor != policy.ContractMajor ||
-			payload.StateVersion < 1 {
+		if !recognized || policy.Mode != PortabilityModeParticipant || policy.ClaimState != ClaimStateClaimed {
+			_ = prepared.Abandon(ctx)
+			return PreparedPortability{}, newPortabilityFailure(ErrPortabilityUnavailable, payload.ProfileID)
+		}
+		if payload.ContractMajor != policy.ContractMajor {
+			_ = prepared.Abandon(ctx)
+			return PreparedPortability{}, newPortabilityFailure(ErrPortabilityResult, payload.ProfileID)
+		}
+		if payload.ContentSchemaID != policy.Export.OutputSchemaID || payload.StateVersion < 1 {
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, newPortabilityFailure(ErrPortabilityPayload, payload.ProfileID)
 		}
-		size := payload.byteSize
-		if size > policy.MaximumInputBytes || aggregate > PortabilityParticipantByteLimit-size {
+		metadata := portabilityContextMetadata(policy, incidentID, "import")
+		metadata["operation_id"], metadata["actor_user_id"] = input.OperationID, input.ActorUserID.String()
+		metadata["state_version"], metadata["catalog_sha256"] = payload.StateVersion, payload.sha256
+		contextBytes, err := canonicaljson.MarshalExtension(metadata)
+		if err != nil {
+			_ = prepared.Abandon(ctx)
+			return PreparedPortability{}, ErrPortabilityResult
+		}
+		size := payload.byteSize + int64(len(contextBytes))
+		if len(payload.Members) > policy.Import.MaximumItems || size > policy.Import.MaximumInputBytes || aggregate > PortabilityParticipantByteLimit-size {
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, ErrPortabilityLimit
 		}
@@ -524,7 +592,8 @@ func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, input Porta
 			return PreparedPortability{}, err
 		}
 		prepared.scopes = append(prepared.scopes, scope)
-		participantScope := &PortabilityStagedOutputScope{scope: scope, budget: &budget}
+		remainingItems := policy.Import.MaximumItems
+		participantScope := &PortabilityStagedOutputScope{scope: scope, budget: &budget, remainingItems: &remainingItems}
 		var preparation *memberStore
 		var preparationMembers PreparationMembers
 		if _, ok := o.allocator.(stagedobjects.StreamAllocator); ok {
@@ -541,6 +610,7 @@ func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, input Porta
 			}
 			preparation.pathPrefix = "prepared/" + payload.ProfileID + "/"
 			preparation.sharedBudget = &budget
+			preparation.remainingItems = &remainingItems
 			preparationMembers = preparation
 		}
 		var dependencies ImportDependencyAccess
@@ -559,23 +629,31 @@ func (o *PortabilityOrchestrator) PrepareImport(ctx context.Context, input Porta
 		if preparation != nil {
 			preparation.Seal()
 		}
+		if errors.Is(err, ErrPortabilityLimit) {
+			_ = prepared.Abandon(ctx)
+			return PreparedPortability{}, ErrPortabilityLimit
+		}
 		if err != nil || validateImportPreparation(result, participantScope) != nil {
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, newPortabilityFailure(ErrPortabilityResult, payload.ProfileID)
 		}
-		metadata, err := canonicaljson.MarshalExtension(map[string]any{
+		resultMetadata, err := canonicaljson.MarshalExtension(map[string]any{
 			"schema_id": result.SchemaID, "status": result.Status,
 			"participant_input":        json.RawMessage(result.ParticipantInput),
 			"participant_input_sha256": result.ParticipantInputSHA256,
 			"staged_output_refs":       result.StagedOutputRefs,
-			"staged_publications":      participantScope.publications,
 		})
 		if err != nil {
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, ErrPortabilityResult
 		}
-		resultSize := int64(len(metadata))
-		if resultSize > policy.MaximumOutputBytes || resultSize > PortabilityParticipantByteLimit-preparedBytes {
+		publicationMetadata, err := canonicaljson.MarshalExtension(append([]stagedobjects.Publication{}, participantScope.publications...))
+		if err != nil {
+			_ = prepared.Abandon(ctx)
+			return PreparedPortability{}, ErrPortabilityResult
+		}
+		resultSize := int64(len(resultMetadata)) + int64(len(publicationMetadata))
+		if resultSize > policy.Import.MaximumOutputBytes || resultSize > PortabilityParticipantByteLimit-preparedBytes {
 			_ = prepared.Abandon(ctx)
 			return PreparedPortability{}, ErrPortabilityLimit
 		}

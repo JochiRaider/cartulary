@@ -88,36 +88,22 @@ func TestIndicatorPortablePrepareInvariantPartition(t *testing.T) {
 func TestIndicatorPortableMultiDefectSelectionIsDeterministic(t *testing.T) {
 	t.Parallel()
 	port := mustIndicatorSourcePort(t)
-	for permutation := 0; permutation < 3; permutation++ {
-		bundle := portableIdentityBundle(t, portableCanonicalIndicatorRow(t))
-		indicatorRow := portableCanonicalIndicatorRow(t)
-		indicatorRow["display_value"] = "EXAMPLE.TEST"
-		observationRow := portableObservationRow()
-		observationRow["origin_kind"] = "auto_extract"
-		intervalRow := portableIntervalRow()
-		intervalRow["confidence"] = 101
-		bundle["data/indicators.ndjson"] = marshalNDJSONRows(t, []map[string]any{indicatorRow})
-		bundle["data/indicator_observations.ndjson"] = marshalNDJSONRows(t, []map[string]any{observationRow})
-		bundle["data/indicator_state_intervals.ndjson"] = marshalNDJSONRows(t, []map[string]any{intervalRow})
-		if permutation == 1 {
-			bundle = indicatorTestBundle{
-				"data/indicator_state_intervals.ndjson": bundle["data/indicator_state_intervals.ndjson"],
-				"data/indicators.ndjson":                bundle["data/indicators.ndjson"],
-				"data/indicator_observations.ndjson":    bundle["data/indicator_observations.ndjson"],
-			}
-		} else if permutation == 2 {
-			bundle = indicatorTestBundle{
-				"data/indicator_observations.ndjson":    bundle["data/indicator_observations.ndjson"],
-				"data/indicator_state_intervals.ndjson": bundle["data/indicator_state_intervals.ndjson"],
-				"data/indicators.ndjson":                bundle["data/indicators.ndjson"],
-			}
-		}
-		_, err := port.PrepareImport(
-			context.Background(), bundle,
-			portableImportContext(t, "indicator-multi-defect-"+string(rune('0'+permutation))),
-		)
-		assertIndicatorInvariantFailure(t, err, "indicators.normalization_exact")
-	}
+	// MapBundle sorts member paths, so map insertion order supplies no distinct case.
+	bundle := portableIdentityBundle(t, portableCanonicalIndicatorRow(t))
+	indicatorRow := portableCanonicalIndicatorRow(t)
+	indicatorRow["display_value"] = "EXAMPLE.TEST"
+	observationRow := portableObservationRow()
+	observationRow["origin_kind"] = "auto_extract"
+	intervalRow := portableIntervalRow()
+	intervalRow["confidence"] = 101
+	bundle["data/indicators.ndjson"] = marshalNDJSONRows(t, []map[string]any{indicatorRow})
+	bundle["data/indicator_observations.ndjson"] = marshalNDJSONRows(t, []map[string]any{observationRow})
+	bundle["data/indicator_state_intervals.ndjson"] = marshalNDJSONRows(t, []map[string]any{intervalRow})
+	_, err := port.PrepareImport(
+		context.Background(), bundle,
+		portableImportContext(t, "indicator-multi-defect-0"),
+	)
+	assertIndicatorInvariantFailure(t, err, "indicators.normalization_exact")
 }
 
 func TestIndicatorPortableStrictDecodingAndSafeFailure(t *testing.T) {

@@ -96,6 +96,10 @@ func (commandServiceTestEnvelopes) LockDestructiveRecordsNowaitTx(context.Contex
 
 type incidentBundleEnvelopeReaderStub struct{}
 
+func (incidentBundleEnvelopeReaderStub) VisitIncidentRecordIDsTx(context.Context, pgx.Tx, uuid.UUID, func(uuid.UUID) error) error {
+	return nil
+}
+
 type commandServiceTestAttributionResolver struct{}
 
 func (commandServiceTestAttributionResolver) ResolveImportedSourceActorsTx(
@@ -190,14 +194,21 @@ func validProviderContributions() []ProviderContribution {
 		if recordType == "party" {
 			schemaID = "cartulary.revisions.snapshot.party.v2"
 		}
+		if recordType == "artifact" {
+			schemaID = "cartulary.revisions.snapshot.artifact.v2"
+		}
+		if recordType == "evidence" {
+			schemaID = "cartulary.revisions.snapshot.evidence.v2"
+		}
 		return RecordProviderContribution{
-			SourceOwnerModule:   owner,
-			RecordType:          recordType,
-			SnapshotSchemaID:    schemaID,
-			HistoryProjector:    catalogTestHistoryProjector,
-			HistoryTargetKinds:  append([]string(nil), historyTargetKinds...),
-			DeleteRestoreSource: testDeleteRestoreSource{},
-			RowRollbackProvider: catalogRowProvider{},
+			SourceOwnerModule:      owner,
+			RecordType:             recordType,
+			SnapshotSchemaID:       schemaID,
+			ValidateSnapshotSource: catalogAdmissionSourceValidator,
+			HistoryProjector:       catalogTestHistoryProjector,
+			HistoryTargetKinds:     append([]string(nil), historyTargetKinds...),
+			DeleteRestoreSource:    testDeleteRestoreSource{},
+			RowRollbackProvider:    catalogRowProvider{},
 		}
 	}
 	nonRow := func(owner SourceOwnerModule, targetKind string) NonRowProviderContribution {
@@ -217,8 +228,10 @@ func validProviderContributions() []ProviderContribution {
 		return NonRowProviderContribution{
 			SourceOwnerModule: owner,
 			TargetKind:        targetKind,
+			HistoryReferences: catalogTestHistoryReferences,
 			HistoryFacet:      NewFieldAssociationHistoryFacet(fields[targetKind], addressability),
 			HistoryProjector:  catalogTestHistoryProjector,
+			HistoryValidator:  catalogTestHistoryValidator{},
 			RollbackProvider:  stubNonRowProvider{},
 		}
 	}
@@ -322,6 +335,32 @@ func TestCommandServiceRejectsInvalidProviderContributionSets(t *testing.T) {
 
 func TestIncidentBundleSourcePortFailsClosed(t *testing.T) {
 	t.Parallel()
+	t.Run("retired owner-less Evidence schema", func(t *testing.T) {
+		retired := validProviderContributions()
+		for i := range retired {
+			for j := range retired[i].Records {
+				if retired[i].Records[j].RecordType == "evidence" {
+					retired[i].Records[j].SnapshotSchemaID = "cartulary.revisions.snapshot.evidence.v1"
+				}
+			}
+		}
+		if _, err := NewRecordSnapshotCaptureCatalog(retired, catalogAdmissionEnvelopeValidator); !errors.Is(err, ErrInvalidRecordSnapshot) {
+			t.Fatal("retired owner-less Evidence schema admitted", err)
+		}
+	})
+	t.Run("retired flattened Artifact schema", func(t *testing.T) {
+		retired := validProviderContributions()
+		for i := range retired {
+			for j := range retired[i].Records {
+				if retired[i].Records[j].RecordType == "artifact" {
+					retired[i].Records[j].SnapshotSchemaID = "cartulary.revisions.snapshot.artifact.v1"
+				}
+			}
+		}
+		if _, err := NewRecordSnapshotCaptureCatalog(retired, catalogAdmissionEnvelopeValidator); !errors.Is(err, ErrInvalidRecordSnapshot) {
+			t.Fatal("retired flattened Artifact schema admitted", err)
+		}
+	})
 	t.Run("retired Party source clock schema", func(t *testing.T) {
 		retired := validProviderContributions()
 		for i := range retired {
@@ -331,12 +370,12 @@ func TestIncidentBundleSourcePortFailsClosed(t *testing.T) {
 				}
 			}
 		}
-		if _, err := NewRecordSnapshotCaptureCatalog(retired); !errors.Is(err, ErrInvalidRecordSnapshot) {
+		if _, err := NewRecordSnapshotCaptureCatalog(retired, catalogAdmissionEnvelopeValidator); !errors.Is(err, ErrInvalidRecordSnapshot) {
 			t.Fatal("retired Party clock schema admitted", err)
 		}
 	})
 	contributions := validProviderContributions()
-	snapshots, err := NewRecordSnapshotCaptureCatalog(contributions)
+	snapshots, err := NewRecordSnapshotCaptureCatalog(contributions, catalogAdmissionEnvelopeValidator)
 	if err != nil {
 		t.Fatalf("build valid snapshot catalog: %v", err)
 	}
@@ -381,4 +420,8 @@ func TestIncidentBundleSourcePortFailsClosed(t *testing.T) {
 
 func catalogTestHistoryProjector(facts historycontract.Facts) ([]historycontract.Unit, error) {
 	return historycontract.Row(facts, historycontract.Fields("host", "text", "name"))
+}
+
+func (commandServiceTestAttributionResolver) ResolveImportedHistoryActorsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, []string) (map[string]string, error) {
+	return nil, nil
 }

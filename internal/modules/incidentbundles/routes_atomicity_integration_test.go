@@ -1,10 +1,12 @@
 package incidentbundles_test
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
@@ -31,27 +33,11 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 	bundleBytes := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-finalize-fixture")
 
 	cases := []struct {
-		name   string
-		mutate func(testing.TB, *sql.DB, string)
+		name     string
+		mutation string
 	}{
-		{
-			name: "submitter demoted",
-			mutate: func(t testing.TB, db *sql.DB, userID string) {
-				t.Helper()
-				if _, err := db.Exec(`UPDATE users SET is_deployment_admin = false WHERE id = $1`, userID); err != nil {
-					t.Fatalf("demote import submitter: %v", err)
-				}
-			},
-		},
-		{
-			name: "submitter inactive",
-			mutate: func(t testing.TB, db *sql.DB, userID string) {
-				t.Helper()
-				if _, err := db.Exec(`UPDATE users SET is_active = false WHERE id = $1`, userID); err != nil {
-					t.Fatalf("deactivate import submitter: %v", err)
-				}
-			},
-		},
+		{name: "submitter demoted", mutation: `UPDATE users SET is_deployment_admin = false WHERE id = $1`},
+		{name: "submitter inactive", mutation: `UPDATE users SET is_active = false WHERE id = $1`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -62,10 +48,63 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 			observerUser := flowtest.SeedLocalUserRecord(t, targetHarness.DB, "extension_profile-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Enterprise integration Import Observer", observerPassword, false, true, true)
 			observerLogin := flowtest.LoginLocalUser(t, http.DefaultClient, targetHarness.Server.HTTP.URL, observerUser.Email, observerPassword, nil)
 
-			resp := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-finalize-`+strings.ReplaceAll(tc.name, " ", "-")+`"}`, bundleBytes, "bundle.zip")
+			barrierCtx, stopBarrier := context.WithTimeout(t.Context(), 20*time.Second)
+			defer stopBarrier()
+			gate, err := targetHarness.DB.BeginTx(barrierCtx, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer gate.Rollback()
+			// Key-share reads used by admission remain available. Only the final
+			// owner's eligibility FOR UPDATE must wait for this held user row.
+			var lockedUser string
+			var blockerPID int
+			if err := gate.QueryRowContext(barrierCtx, `SELECT id::text, pg_backend_pid() FROM users WHERE id=$1 FOR NO KEY UPDATE`, targetAdminID).Scan(&lockedUser, &blockerPID); err != nil || lockedUser != targetAdminID.String() {
+				t.Fatalf("hold submitter=%q: %v", lockedUser, err)
+			}
+			request := newImportEnvelopeRequest(t, targetHarness.Server, targetAdmin, []uploadPart{
+				jsonUploadPart("metadata", "", `{"client_txn_id":"txn-import-finalize-`+strings.ReplaceAll(tc.name, " ", "-")+`"}`),
+				fileUploadPart("file", "bundle.zip", incidentBundleZIPMediaType, bundleBytes),
+			})
+			resp, err := http.DefaultClient.Do(request.WithContext(barrierCtx))
+			if err != nil {
+				t.Fatalf("admit import while submitter row is held: %v", err)
+			}
 			job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
-
-			tc.mutate(t, targetHarness.DB, targetAdminID.String())
+			tick := time.NewTicker(10 * time.Millisecond)
+			defer tick.Stop()
+			for {
+				var waiting int
+				if err := targetHarness.DB.QueryRowContext(barrierCtx, `
+SELECT count(*) FROM pg_stat_activity
+WHERE datname=current_database() AND wait_event_type='Lock'
+  AND query LIKE '-- name: GetIncidentBundleInitialAdminForUpdate%'
+  AND $1=ANY(pg_blocking_pids(pid))`, blockerPID).Scan(&waiting); err != nil {
+					t.Fatal(err)
+				}
+				if waiting == 1 {
+					break
+				}
+				if waiting > 1 {
+					t.Fatalf("multiple finalizers waited on one import: %d", waiting)
+				}
+				select {
+				case <-barrierCtx.Done():
+					t.Fatal("import did not reach the final submitter recheck", barrierCtx.Err())
+				case <-tick.C:
+				}
+			}
+			changed, err := gate.ExecContext(barrierCtx, tc.mutation, targetAdminID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if count, err := changed.RowsAffected(); err != nil || count != 1 {
+				t.Fatalf("submitter mutation changed %d rows: %v", count, err)
+			}
+			if err := gate.Commit(); err != nil {
+				t.Fatal(err)
+			}
+			stopBarrier()
 			terminal := waitFailedJob(t, targetHarness.Server, observerLogin, job["job_id"].(string))
 			requireFailedJobReason(t, terminal, "incident_bundle_import_rejected", "initial_admin_unavailable")
 			if countRows(t, targetHarness.DB, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID) != 0 {

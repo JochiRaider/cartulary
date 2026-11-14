@@ -24,6 +24,49 @@ var (
 )
 
 func TestPrepareImportEnforcesStrictNDJSONAndExactMembers(t *testing.T) {
+	t.Run("tag format characters and exact normalization", func(t *testing.T) {
+		stateManifest, err := loadManifest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, tc := range []struct {
+			name, label, folded string
+			valid               bool
+		}{
+			{"canonical format character", "Café\u200d  TAG", "café\u200d  tag", true},
+			{"wrong normalized form", "Café\u200d  TAG", "café  tag", false},
+			{"boundary control", "Tag\u0085", "tag", false},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				files := validDecodedFiles()
+				for _, rows := range [][]map[string]any{files.tagCatalog, files.recordTags} {
+					rows[0]["tag_name"], rows[0]["normalized_tag_name"] = tc.label, tc.folded
+				}
+				prepared, err := prepareImport(t.Context(), stateManifest.descriptor(), stateManifest, bundleFromDecoded(t, files), testImportContext(tc.name))
+				if !tc.valid {
+					if failureInvariant(err) != "links_tags.tag_normalized" {
+						t.Fatalf("tag rejection=%v; want tag_normalized", err)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, kind := range []pathKind{pathTagCatalog, pathRecordTags} {
+					count := 0
+					if err := prepared.walk(t.Context(), kind, func(row map[string]any) error {
+						count++
+						if row["tag_name"] != "Café\u200d  TAG" || row["normalized_tag_name"] != "café\u200d  tag" {
+							t.Errorf("prepared tag changed: %#v", row)
+						}
+						return nil
+					}); err != nil || count != 1 {
+						t.Fatalf("prepared tag rows=%d error=%v", count, err)
+					}
+				}
+			})
+		}
+	})
 	port, err := NewSourcePort()
 	if err != nil {
 		t.Fatalf("construct source port: %v", err)

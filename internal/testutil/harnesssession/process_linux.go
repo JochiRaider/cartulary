@@ -147,8 +147,29 @@ func processMembers(p ProcessProof) ([]processState, error) {
 // PID. An unreaped leader or an already observed surviving member anchors each
 // subsequent discovery sweep. Unanchored groups are never signaled; a bounded
 // attempt may observe their disappearance, otherwise settlement fails closed.
+func validProcessProof(p ProcessProof) bool {
+	return p.PID >= 2 && p.PGID >= 1 && p.SID >= 1 && regexpDigits.MatchString(p.Start) && p.Group == (p.PGID == p.PID)
+}
+
 func StopProcess(ctx context.Context, p ProcessProof, grace time.Duration) error {
-	if p.PID < 2 || p.PGID < 1 || p.SID < 1 || !regexpDigits.MatchString(p.Start) || p.Group != (p.PGID == p.PID) {
+	if err := checkProcessProof(p); err != nil {
+		return err
+	}
+	return settleProcess(ctx, p, grace, processMembers, signalProcess)
+}
+
+func drainProcess(ctx context.Context, p ProcessProof) error {
+	if _, bounded := ctx.Deadline(); !bounded {
+		return ErrUnresolved
+	}
+	if err := checkProcessProof(p); err != nil {
+		return err
+	}
+	return settleProcessMode(ctx, p, 0, false, processMembers, signalProcess)
+}
+
+func checkProcessProof(p ProcessProof) error {
+	if !validProcessProof(p) {
 		return harnesslocal.ErrUnsafe
 	}
 	boot, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
@@ -158,7 +179,7 @@ func StopProcess(ctx context.Context, p ProcessProof, grace time.Duration) error
 	if strings.TrimSpace(string(boot)) != p.Boot {
 		return AtCleanupStage("process_identity", atIdentityBoundary("boot_identity", ErrUnresolved))
 	}
-	return settleProcess(ctx, p, grace, processMembers, signalProcess)
+	return nil
 }
 
 func signalProcess(m processState, sig unix.Signal) error {
@@ -187,7 +208,13 @@ func signalProcess(m processState, sig unix.Signal) error {
 }
 
 func settleProcess(ctx context.Context, p ProcessProof, grace time.Duration, inspect func(ProcessProof) ([]processState, error), signal func(processState, unix.Signal) error) error {
+	return settleProcessMode(ctx, p, grace, true, inspect, signal)
+}
+
+func settleProcessMode(ctx context.Context, p ProcessProof, grace time.Duration, force bool, inspect func(ProcessProof) ([]processState, error), signal func(processState, unix.Signal) error) error {
 	known := map[int]ProcessProof{p.PID: p}
+	killed := map[int]ProcessProof{}
+	terminationRequested := false
 	escalate := time.Now().Add(grace)
 	for {
 		members, err := inspect(p)
@@ -217,7 +244,7 @@ func settleProcess(ctx context.Context, p ProcessProof, grace time.Duration, ins
 		}
 		if anchored {
 			sig := unix.SIGTERM
-			if !time.Now().Before(escalate) {
+			if force && !time.Now().Before(escalate) {
 				sig = unix.SIGKILL
 			}
 			for _, m := range members {
@@ -225,11 +252,25 @@ func settleProcess(ctx context.Context, p ProcessProof, grace time.Duration, ins
 				if m.state == "Z" || m.state == "X" {
 					continue
 				}
+				// The grace interval permits cooperative cleanup, including newly
+				// launched cleanup clients. Repeated TERM delivery can interrupt
+				// exit traps; it does not add settlement evidence. At escalation,
+				// signal each proven identity once and keep observing all members.
+				if sig == unix.SIGTERM && terminationRequested {
+					continue
+				}
+				if old, ok := killed[m.PID]; sig == unix.SIGKILL && ok && sameProcess(old, m.ProcessProof) {
+					continue
+				}
 				e := signal(m, sig)
 				if e != nil && !processGone(e) {
 					return AtCleanupStage("process_signal", e)
 				}
+				if sig == unix.SIGKILL {
+					killed[m.PID] = m.ProcessProof
+				}
 			}
+			terminationRequested = true
 		}
 		// Unanchored observations neither signal nor enter the known set.
 		// Reobserve in this attempt; keep its original deadline and grace clock.
@@ -253,7 +294,9 @@ func ProcessMain(args []string, input io.Reader, diagnostic io.Writer) int {
 			_ = json.NewEncoder(diagnostic).Encode(DescribeCleanupFailure(failure))
 		}
 	}()
-	if len(args) != 0 {
+	inspect := len(args) == 1 && args[0] == "inspect"
+	drain := len(args) == 1 && args[0] == "drain"
+	if len(args) != 0 && !inspect && !drain {
 		return 2
 	}
 	data, err := io.ReadAll(io.LimitReader(input, 4097))
@@ -262,22 +305,35 @@ func ProcessMain(args []string, input io.Reader, diagnostic io.Writer) int {
 	}
 	v, err := harnessschema.Decode(data)
 	m, ok := v.(map[string]any)
-	if err != nil || !ok || len(m) != 3 {
+	if err != nil || !ok {
+		return 11
+	}
+	if drain && (len(m) != 2 || m["timeout_ms"] == nil) || !drain && (len(m) != 3 || m["grace_ms"] == nil || m["kill_ms"] == nil) {
 		return 11
 	}
 	var q struct {
-		Proof ProcessProof `json:"proof"`
-		Grace int          `json:"grace_ms"`
-		Kill  int          `json:"kill_ms"`
+		Proof   ProcessProof `json:"proof"`
+		Grace   int          `json:"grace_ms"`
+		Kill    int          `json:"kill_ms"`
+		Timeout int          `json:"timeout_ms"`
 	}
 	decoder := json.NewDecoder(strings.NewReader(string(data)))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&q) != nil || q.Grace < 0 || q.Grace > 2000 || q.Kill < 1 || q.Kill > 5000 {
+	if decoder.Decode(&q) != nil || !validProcessProof(q.Proof) ||
+		drain && (q.Timeout < 1 || q.Timeout > 86400000) ||
+		!drain && (q.Grace < 0 || q.Grace > 2000 || q.Kill < 1 || q.Kill > 5000) {
 		return 11
 	}
 	// Reuse the generated process-proof projection at the physical boundary.
 	if harnessschema.Validate("cartulary.harness_runtime_resource.v2", map[string]any{"kind": "helper_process", "target": m["proof"], "state": "acquired", "run_id": "physical-process", "lease_id": "00000000-0000-0000-0000-000000000000"}) != nil {
 		return 11
+	}
+	if inspect {
+		boot, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
+		if err != nil || strings.TrimSpace(string(boot)) != q.Proof.Boot {
+			failure = AtCleanupStage("process_identity", ErrUnresolved)
+			return 12
+		}
 	}
 	members, err := processMembers(q.Proof)
 	if err != nil {
@@ -285,6 +341,18 @@ func ProcessMain(args []string, input io.Reader, diagnostic io.Writer) int {
 		return 12
 	}
 	if len(members) == 0 {
+		if inspect {
+			return 1
+		}
+		if drain {
+			// Complete discovery already proved absence. A graceful operation
+			// cannot enter the forced-settlement path, including on reobservation.
+			if err := checkProcessProof(q.Proof); err != nil {
+				failure = AtCleanupStage("process_identity", err)
+				return 12
+			}
+			return 0
+		}
 		if err := StopProcess(context.Background(), q.Proof, 0); err != nil {
 			failure = AtCleanupStage("process_settlement", err)
 			return 12
@@ -312,6 +380,33 @@ func ProcessMain(args []string, input io.Reader, diagnostic io.Writer) int {
 	if !authorized {
 		failure = AtCleanupStage("process_authority", ErrUnresolved)
 		return 12
+	}
+	if inspect {
+		anchored, live := false, false
+		for _, member := range members {
+			anchored = anchored || sameProcess(member.ProcessProof, q.Proof)
+			live = live || member.state != "Z" && member.state != "X"
+		}
+		if !anchored {
+			failure = AtCleanupStage("process_group_anchor", ErrUnresolved)
+			return 12
+		}
+		if live {
+			return 0
+		}
+		return 1
+	}
+	if drain {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(q.Timeout)*time.Millisecond)
+		defer cancel()
+		if err := drainProcess(ctx, q.Proof); err != nil {
+			failure = AtCleanupStage("process_settlement", err)
+			if errors.Is(err, context.DeadlineExceeded) {
+				return 13
+			}
+			return 12
+		}
+		return 0
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(q.Grace+q.Kill)*time.Millisecond)
 	defer cancel()

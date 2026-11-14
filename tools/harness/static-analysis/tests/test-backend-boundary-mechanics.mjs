@@ -4,6 +4,36 @@ import { prepareBoundaryPolicy } from "../backend-module-boundary-check.mjs";
 import { emptyPolicy, inspect, repositoryPolicy, evaluateBoundaryPolicy } from "./backend-boundary-fixtures.mjs";
 
 export function registerBoundariesTests() {
+  test("backend mechanics: exact import capabilities separate package and test authority", () => {
+    const capability = { import: "example/owner/port", production_packages: ["internal/producer", "internal/both"], test_packages: ["internal/observer", "internal/both"] };
+    for (const kind of ["owner", "forbidden"]) {
+      const prepare = (entries) => prepareBoundaryPolicy(emptyPolicy(kind === "owner"
+        ? { owner_port_only_imports: [{ id: "owner", import: "example/owner", allowed_importers: [], import_capabilities: entries }] }
+        : { forbidden_go_imports: [{ id: "owner", imports: ["example/owner"], match_kind: "subtree", scan_paths: ["internal/**"], allowed_paths: [], production_only: false, import_capabilities: entries }] }));
+      const policy = prepare([capability]);
+      for (const [receiver, prod, testAllowed] of [["producer", true, false], ["observer", false, true], ["both", true, true], ["peer", false, false], ["producer/child", false, false]]) {
+        for (const name of ["renamed", "split"]) for (const isTest of [false, true]) {
+          const relative = `internal/${receiver}/${name}${isTest ? "_test" : ""}.go`;
+          for (const imported of ["example/owner/port", "example/owner", "example/owner/port/private", "example/owner/peer"]) {
+            const allowed = imported === "example/owner/port" && (isTest ? testAllowed : prod);
+            const result = evaluateBoundaryPolicy(policy, { files: [{ relative, content: `package fixture\nimport "${imported}"` }] });
+            assert.equal(result.violations.length === 0, allowed, `${kind}: ${relative}: ${imported}`);
+          }
+        }
+      }
+      for (const entries of [
+        [capability, capability], [{ ...capability, import: "example/ownerpeer/port" }],
+        [{ ...capability, import: "example/owner/*" }], [{ ...capability, production_packages: ["internal/producer/**"] }],
+        [{ ...capability, test_packages: ["internal/observer/../producer"] }],
+        [{ ...capability, production_packages: ["internal/producer", "internal/producer"] }],
+      ]) assert.throws(() => prepare(entries));
+    }
+    assert.throws(() => prepareBoundaryPolicy(emptyPolicy({ forbidden_go_imports: [{
+      id: "exact", imports: ["example/owner"], match_kind: "exact", scan_paths: ["internal/**"],
+      allowed_paths: [], production_only: false, import_capabilities: [capability],
+    }] })));
+  });
+
   test("backend mechanics: import matching is explicit and segment bounded", () => {
     for (const match_kind of ["exact", "subtree"]) {
       const policy = prepareBoundaryPolicy(emptyPolicy({ forbidden_go_imports: [{

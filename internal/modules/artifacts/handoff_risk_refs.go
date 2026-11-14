@@ -20,17 +20,16 @@ type riskRefActionPayload struct {
 }
 
 type riskRefAction struct {
-	Op             string
-	ItemRef        string
-	RiskRefText    string
-	NormalizedText string
+	Op          string
+	ItemRef     string
+	RiskRefText string
 }
 
 func validateHandoffRiskRefPayload(payload riskRefActionPayload) error {
 	for _, action := range payload.Actions {
 		switch action.Op {
 		case "add_risk_ref":
-			if strings.TrimSpace(action.RiskRefText) == "" || strings.TrimSpace(action.NormalizedText) == "" {
+			if strings.TrimSpace(action.RiskRefText) == "" {
 				return riskRefValidationError()
 			}
 		case "remove_risk_ref":
@@ -55,7 +54,7 @@ func (s *sourceStore) applyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.T
 	for _, action := range payload.Actions {
 		switch action.Op {
 		case "add_risk_ref":
-			applied, err := s.upsertHandoffRiskRefTx(ctx, tx, incidentID, handoffRecordID, action.RiskRefText, action.NormalizedText, actorID, now)
+			applied, err := s.upsertHandoffRiskRefTx(ctx, tx, incidentID, handoffRecordID, action.RiskRefText, actorID, now)
 			if err != nil {
 				return false, err
 			}
@@ -75,16 +74,16 @@ func (s *sourceStore) applyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.T
 	return changed, nil
 }
 
-func (s *sourceStore) upsertHandoffRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, text string, normalized string, actorID uuid.UUID, now time.Time) (bool, error) {
+func (s *sourceStore) upsertHandoffRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, text string, actorID uuid.UUID, now time.Time) (bool, error) {
 	tag, err := tx.Exec(ctx, `
 INSERT INTO handoff_risk_refs (
-    incident_id, handoff_record_id, risk_ref_text, normalized_risk_ref_text,
+    incident_id, handoff_record_id, risk_ref_text,
     created_by_user_id, created_at
-) VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (handoff_record_id, normalized_risk_ref_text)
+) VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (handoff_record_id, risk_ref_text)
 WHERE deleted_at IS NULL
 DO NOTHING
-`, incidentID, handoffRecordID, text, normalized, actorID, now.UTC())
+`, incidentID, handoffRecordID, text, actorID, now.UTC())
 	if err != nil {
 		return false, fmt.Errorf("upsert handoff risk ref: %w", err)
 	}

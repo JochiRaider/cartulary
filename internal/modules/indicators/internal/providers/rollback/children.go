@@ -2,17 +2,16 @@ package rollback
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"reflect"
 	"sort"
-	"strings"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/intervalhistory"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/observationhistory"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -56,11 +55,7 @@ func (p ChildProvider) DescribeTx(ctx context.Context, tx pgx.Tx, request rollba
 	if err != nil {
 		return descriptor, err
 	}
-	currentIdentity, err := parseChildValue(identity.targetKind, current)
-	if err != nil {
-		return descriptor, err
-	}
-	if currentIdentity.deletedAt != nil || !sameCurrentChildState(currentIdentity, after) {
+	if !sameCompleteChildState(identity.targetKind, current, request.Target.AfterValue) {
 		return descriptor, rollbackcontract.ErrStaleTarget
 	}
 	return descriptor, nil
@@ -102,6 +97,13 @@ func (p ChildProvider) ApplyInverseTx(ctx context.Context, tx pgx.Tx, request ro
 }
 
 func parseChildTarget(target rollbackcontract.NonRowTarget) (childIdentity, childIdentity, childIdentity, error) {
+	if target.TargetKind == "indicator_observation" && ((target.OperationKind != "create" && target.OperationKind != "resolve") || observationhistory.ValidateMutation(target.TargetID, target.OperationKind, target.BeforeValue, target.AfterValue) != nil) {
+		return childIdentity{}, childIdentity{}, childIdentity{}, rollbackcontract.ErrTargetNotReversible
+	}
+	if target.TargetKind == "indicator_state_interval" && (target.OperationKind != "create" || intervalhistory.ValidateMutation(target.TargetID, target.OperationKind, target.BeforeValue, target.AfterValue) != nil) {
+		return childIdentity{}, childIdentity{}, childIdentity{}, rollbackcontract.ErrTargetNotReversible
+	}
+
 	if target.TargetKind != "indicator_observation" && target.TargetKind != "indicator_state_interval" {
 		return childIdentity{}, childIdentity{}, childIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
@@ -138,99 +140,26 @@ func parseChildTarget(target rollbackcontract.NonRowTarget) (childIdentity, chil
 }
 
 func parseChildValue(targetKind string, value map[string]any) (childIdentity, error) {
-	identity := childIdentity{targetKind: targetKind}
-	var err error
-	if identity.incidentID, err = requiredChildUUID(value, "incident_id"); err != nil {
+	if targetKind == "indicator_state_interval" {
+		v, err := intervalhistory.Decode(value)
+		if err != nil {
+			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
+		}
+		return childIdentity{targetKind: targetKind, targetID: v.IntervalID, incidentID: v.IncidentID, indicatorID: v.IndicatorRecordID,
+			expectedVersion: v.RowVersion, deletedAt: v.DeletedAt, deletedBy: v.DeletedByUserID, resolvedIDs: []uuid.UUID{v.IndicatorRecordID}}, nil
+	}
+
+	if targetKind != "indicator_observation" {
 		return childIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
-	if identity.expectedVersion, err = requiredChildInt64(value, "row_version"); err != nil || identity.expectedVersion < 1 {
-		return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	identity.deletedAt, _, err = optionalChildTime(value, "deleted_at")
+	v, err := observationhistory.Decode(value)
 	if err != nil {
 		return childIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
-	identity.deletedBy, _, err = optionalChildUUID(value, "deleted_by_user_id")
-	if err != nil || (identity.deletedAt == nil) != (identity.deletedBy == nil) {
-		return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	switch targetKind {
-	case "indicator_observation":
-		if identity.targetID, err = requiredChildUUID(value, "indicator_observation_id"); err != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		if identity.sourceRecordID, err = requiredChildUUID(value, "source_record_id"); err != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		identity.sourceFieldKey = requiredChildText(value, "source_field_key")
-		identity.resolutionStatus, _ = value["resolution_status"].(string)
-		if identity.sourceFieldKey == "" || !vocabulary.IsObservationStatus(identity.resolutionStatus) {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		for _, key := range []string{"origin_kind", "origin_locator", "observed_text", "created_by_user_id", "created_at"} {
-			if requiredChildText(value, key) == "" {
-				return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-			}
-		}
-		if _, err := indicatororigin.Parse(requiredChildText(value, "origin_kind")); err != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		identity.resolvedID, _, err = optionalChildUUID(value, "resolved_indicator_record_id")
-		if err != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		identity.resolvedBy, _, err = optionalChildUUID(value, "resolved_by_user_id")
-		if err != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		identity.resolvedAt, _, err = optionalChildTime(value, "resolved_at")
-		if err != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		identity.resolutionMethod, _, err = optionalChildText(value, "resolution_method")
-		if err != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		if identity.resolutionStatus == "resolved" {
-			if identity.resolvedID == nil || identity.resolvedBy == nil || identity.resolvedAt == nil {
-				return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-			}
-		} else if identity.resolvedID != nil || identity.resolvedBy != nil || identity.resolvedAt != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		if identity.resolvedID != nil {
-			identity.resolvedIDs = []uuid.UUID{*identity.resolvedID}
-		}
-	case "indicator_state_interval":
-		if identity.targetID, err = requiredChildUUID(value, "indicator_state_interval_id"); err != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		if identity.indicatorID, err = requiredChildUUID(value, "indicator_record_id"); err != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		lifecycleState, _ := value["lifecycle_state"].(string)
-		if !vocabulary.IsLifecycleState(lifecycleState) || requiredChildText(value, "valid_from") == "" || requiredChildText(value, "created_by_user_id") == "" || requiredChildText(value, "created_at") == "" {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		validFrom, err := time.Parse(time.RFC3339Nano, requiredChildText(value, "valid_from"))
-		if err != nil {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		validTo, _, err := optionalChildTime(value, "valid_to")
-		if err != nil || (validTo != nil && validTo.Before(validFrom)) {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		if confidence, present, valid := optionalChildInt64(value, "confidence"); !valid || (present && (confidence < 0 || confidence > 100)) {
-			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		if raw, present := value["support_refs"]; present && raw != nil {
-			if !validChildSupportRefs(raw) {
-				return childIdentity{}, rollbackcontract.ErrTargetNotReversible
-			}
-		}
-		identity.resolvedIDs = []uuid.UUID{identity.indicatorID}
-	default:
-		return childIdentity{}, rollbackcontract.ErrTargetNotReversible
+	identity := childIdentity{targetKind: targetKind, targetID: v.ObservationID, incidentID: v.IncidentID, sourceRecordID: v.SourceRecordID, sourceFieldKey: v.SourceFieldKey,
+		expectedVersion: v.RowVersion, resolutionStatus: v.ResolutionStatus, resolvedID: v.ResolvedIndicatorRecordID, resolvedBy: v.ResolvedByUserID, resolvedAt: v.ResolvedAt, resolutionMethod: v.ResolutionMethod, deletedAt: v.DeletedAt, deletedBy: v.DeletedByUserID}
+	if v.ResolvedIndicatorRecordID != nil {
+		identity.resolvedIDs = []uuid.UUID{*v.ResolvedIndicatorRecordID}
 	}
 	return identity, nil
 }
@@ -289,72 +218,34 @@ func validateAffectedRecordsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 }
 
 func loadChildValueTx(ctx context.Context, tx pgx.Tx, targetKind string, targetID uuid.UUID) (map[string]any, error) {
-	var raw []byte
+	var value map[string]any
 	var err error
 	switch targetKind {
 	case "indicator_observation":
-		err = tx.QueryRow(ctx, `
-SELECT jsonb_build_object(
-    'indicator_observation_id', indicator_observation_id::text,
-    'incident_id', incident_id::text,
-    'source_record_id', source_record_id::text,
-    'source_field_key', source_field_key,
-    'origin_kind', origin_kind,
-    'origin_locator', origin_locator,
-    'observed_text', observed_text,
-    'parsed_indicator_type', parsed_indicator_type,
-    'normalized_candidate', normalized_candidate,
-    'resolution_status', resolution_status,
-    'resolved_indicator_record_id', resolved_indicator_record_id::text,
-    'row_version', row_version,
-    'created_by_user_id', created_by_user_id::text,
-    'created_at', created_at,
-    'resolved_by_user_id', resolved_by_user_id::text,
-    'resolved_at', resolved_at,
-    'resolution_method', resolution_method,
-    'deleted_at', deleted_at,
-    'deleted_by_user_id', deleted_by_user_id::text
-)
-  FROM indicator_observations
- WHERE indicator_observation_id = $1
-`, targetID).Scan(&raw)
+		var v observationhistory.Value
+		v, err = observationhistory.Scan(tx.QueryRow(ctx, `SELECT indicator_observation_id, incident_id, source_record_id, source_field_key, origin_kind, origin_locator, observed_text, parsed_indicator_type, normalized_candidate, resolution_status, resolved_indicator_record_id, row_version, created_by_user_id, created_at, resolved_by_user_id, resolved_at, resolution_method, deleted_at, deleted_by_user_id FROM indicator_observations WHERE indicator_observation_id=$1`, targetID))
+		if err == nil {
+			value = v.Map()
+		}
 	case "indicator_state_interval":
-		err = tx.QueryRow(ctx, `
-SELECT jsonb_build_object(
-    'indicator_state_interval_id', indicator_state_interval_id::text,
-    'incident_id', incident_id::text,
-    'indicator_record_id', indicator_record_id::text,
-    'lifecycle_state', lifecycle_state,
-    'valid_from', valid_from,
-    'valid_to', valid_to,
-    'confidence', confidence,
-    'rationale', rationale,
-    'support_refs', support_refs,
-    'assessor', assessor,
-    'assessed_at', assessed_at,
-    'row_version', row_version,
-    'created_by_user_id', created_by_user_id::text,
-    'created_at', created_at,
-    'deleted_at', deleted_at,
-    'deleted_by_user_id', deleted_by_user_id::text
-)
-  FROM indicator_state_intervals
- WHERE indicator_state_interval_id = $1
-`, targetID).Scan(&raw)
+		var v intervalhistory.Value
+		v, err = intervalhistory.Scan(tx.QueryRow(ctx, `SELECT indicator_state_interval_id,incident_id,indicator_record_id,lifecycle_state,
+valid_from,valid_to,confidence,rationale,support_refs,assessor,assessed_at,row_version,
+created_by_user_id,created_at,deleted_at,deleted_by_user_id
+FROM indicator_state_intervals WHERE indicator_state_interval_id=$1`, targetID))
+		if err == nil {
+			value = v.Map()
+		}
 	default:
 		return nil, rollbackcontract.ErrTargetNotReversible
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, rollbackcontract.ErrTargetNotFound
 	}
-	if err != nil {
-		return nil, err
+	if errors.Is(err, intervalhistory.ErrInvalidValue) || errors.Is(err, observationhistory.ErrInvalidValue) {
+		return nil, rollbackcontract.ErrTargetNotReversible
 	}
-	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, err
-	}
-	return value, nil
+	return value, err
 }
 
 func tombstoneChildTx(ctx context.Context, tx pgx.Tx, identity childIdentity, actorUserID uuid.UUID, now time.Time) error {
@@ -425,136 +316,19 @@ func sameChildIdentity(left childIdentity, right childIdentity) bool {
 	return left.targetKind == right.targetKind && left.targetID == right.targetID && left.incidentID == right.incidentID && left.sourceRecordID == right.sourceRecordID && left.sourceFieldKey == right.sourceFieldKey && left.indicatorID == right.indicatorID
 }
 
-func sameCurrentChildState(current childIdentity, expected childIdentity) bool {
-	if !sameChildIdentity(current, expected) || current.expectedVersion != expected.expectedVersion || current.resolutionStatus != expected.resolutionStatus {
-		return false
-	}
-	return equalUUIDPointers(current.resolvedID, expected.resolvedID) && equalUUIDPointers(current.resolvedBy, expected.resolvedBy) && equalTimePointers(current.resolvedAt, expected.resolvedAt) && equalStringPointers(current.resolutionMethod, expected.resolutionMethod)
-}
-
-func validChildSupportRefs(raw any) bool {
-	var values []string
-	switch typed := raw.(type) {
-	case []any:
-		values = make([]string, 0, len(typed))
-		for _, value := range typed {
-			text, valid := value.(string)
-			if !valid {
-				return false
-			}
-			values = append(values, text)
-		}
-	case []string:
-		values = typed
+func sameCompleteChildState(kind string, current, expected map[string]any) bool {
+	switch kind {
+	case "indicator_observation":
+		left, leftErr := observationhistory.Decode(current)
+		right, rightErr := observationhistory.Decode(expected)
+		return leftErr == nil && rightErr == nil && reflect.DeepEqual(left, right)
+	case "indicator_state_interval":
+		left, leftErr := intervalhistory.Decode(current)
+		right, rightErr := intervalhistory.Decode(expected)
+		return leftErr == nil && rightErr == nil && reflect.DeepEqual(left, right)
 	default:
 		return false
 	}
-	seen := make(map[uuid.UUID]struct{}, len(values))
-	for _, value := range values {
-		parsed, err := uuid.Parse(value)
-		if err != nil || parsed == uuid.Nil || parsed.String() != value {
-			return false
-		}
-		if _, duplicate := seen[parsed]; duplicate {
-			return false
-		}
-		seen[parsed] = struct{}{}
-	}
-	return true
-}
-
-func requiredChildUUID(value map[string]any, key string) (uuid.UUID, error) {
-	raw, valid := value[key].(string)
-	if !valid || strings.TrimSpace(raw) == "" {
-		return uuid.Nil, errors.New("missing uuid")
-	}
-	return uuid.Parse(raw)
-}
-
-func optionalChildUUID(value map[string]any, key string) (*uuid.UUID, bool, error) {
-	raw, present := value[key]
-	if !present || raw == nil || raw == "" {
-		return nil, present, nil
-	}
-	text, valid := raw.(string)
-	if !valid {
-		return nil, true, errors.New("invalid uuid")
-	}
-	parsed, err := uuid.Parse(text)
-	if err != nil {
-		return nil, true, err
-	}
-	return &parsed, true, nil
-}
-
-func requiredChildInt64(value map[string]any, key string) (int64, error) {
-	parsed, present, valid := optionalChildInt64(value, key)
-	if !present || !valid {
-		return 0, errors.New("invalid integer")
-	}
-	return parsed, nil
-}
-
-func optionalChildInt64(value map[string]any, key string) (int64, bool, bool) {
-	raw, present := value[key]
-	if !present || raw == nil {
-		return 0, present, true
-	}
-	switch typed := raw.(type) {
-	case int:
-		return int64(typed), true, true
-	case int64:
-		return typed, true, true
-	case float64:
-		return int64(typed), true, typed == float64(int64(typed))
-	case json.Number:
-		parsed, err := typed.Int64()
-		return parsed, true, err == nil
-	default:
-		return 0, true, false
-	}
-}
-
-func optionalChildTime(value map[string]any, key string) (*time.Time, bool, error) {
-	raw, present := value[key]
-	if !present || raw == nil || raw == "" {
-		return nil, present, nil
-	}
-	text, valid := raw.(string)
-	if !valid {
-		return nil, true, errors.New("invalid time")
-	}
-	parsed, err := time.Parse(time.RFC3339Nano, text)
-	if err != nil {
-		return nil, true, err
-	}
-	utc := parsed.UTC()
-	return &utc, true, nil
-}
-
-func optionalChildText(value map[string]any, key string) (*string, bool, error) {
-	raw, present := value[key]
-	if !present || raw == nil || raw == "" {
-		return nil, present, nil
-	}
-	text, valid := raw.(string)
-	if !valid {
-		return nil, true, errors.New("invalid text")
-	}
-	return &text, true, nil
-}
-
-func requiredChildText(value map[string]any, key string) string {
-	text, _ := value[key].(string)
-	return strings.TrimSpace(text)
-}
-
-func equalUUIDPointers(left *uuid.UUID, right *uuid.UUID) bool {
-	return (left == nil && right == nil) || (left != nil && right != nil && *left == *right)
-}
-
-func equalTimePointers(left *time.Time, right *time.Time) bool {
-	return (left == nil && right == nil) || (left != nil && right != nil && left.Equal(*right))
 }
 
 func equalStringPointers(left *string, right *string) bool {

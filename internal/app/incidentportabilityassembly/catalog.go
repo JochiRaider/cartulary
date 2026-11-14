@@ -51,7 +51,7 @@ func NewCatalog(revisionsPort sourceport.Port, consumer reference_data.Consumer,
 	if err != nil {
 		return nil, fmt.Errorf("incident portability assembly: Artifacts source port: %w", err)
 	}
-	tasksDecisionsSourcePort, err := tasksdecisions.NewIncidentBundleSourcePort(tasksdecisionassembly.NewLinkFactsCapability())
+	tasksDecisionsSourcePort, err := tasksdecisions.NewIncidentBundleSourcePort(tasksdecisionassembly.NewLinkFactsCapability(), tasksdecisionassembly.NewFieldReferenceReader(), tasksdecisionassembly.NewEnvelopeFactReader())
 	if err != nil {
 		return nil, fmt.Errorf("incident portability assembly: Tasks/Decisions source port: %w", err)
 	}

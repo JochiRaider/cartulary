@@ -144,44 +144,55 @@ func (o *NoteAssociations) List(ctx context.Context, request NoteAssociationRead
 	if err != nil {
 		return NoteAssociationPage{}, err
 	}
-	facts, err := o.links.ListAssociationsTx(ctx, tx, links.AssociationLookup{IncidentID: request.IncidentID, RecordID: request.NoteID, LinkType: linkType, Incoming: request.Kind != NoteAssociationEvidence, Outgoing: request.Kind != NoteAssociationSource, Limit: request.Limit + 1, BeforeTime: request.BeforeTime, BeforeID: request.BeforeID})
-	if err != nil {
-		return NoteAssociationPage{}, err
-	}
-	page := NoteAssociationPage{NoteID: note.RecordID, RowVersion: note.RowVersion, Items: []NoteAssociationItem{}, HasMore: len(facts) > request.Limit}
-	if page.HasMore {
-		facts = facts[:request.Limit]
-	}
-	for _, fact := range facts {
-		page.LastTime, page.LastID = fact.CreatedAt, fact.ID
-		counterpart, err := o.mutations.recordEnvelopes.LoadEnvelopeTx(ctx, tx, fact.CounterpartID, false)
-		if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
-			continue
-		}
+	lookup := links.AssociationLookup{IncidentID: request.IncidentID, RecordID: request.NoteID, LinkType: linkType, Incoming: request.Kind != NoteAssociationEvidence, Outgoing: request.Kind != NoteAssociationSource, Limit: request.Limit + 1, BeforeTime: request.BeforeTime, BeforeID: request.BeforeID}
+	page := NoteAssociationPage{NoteID: note.RecordID, RowVersion: note.RowVersion, Items: []NoteAssociationItem{}}
+	// Links supplies bounded canonical windows; this owner decides eligibility.
+	// Only an eligible lookahead establishes another page. Scan position and the
+	// public continuation position differ when excluded counterparts intervene.
+	for {
+		facts, err := o.links.ListAssociationsTx(ctx, tx, lookup)
 		if err != nil {
 			return NoteAssociationPage{}, err
 		}
-		if counterpart.DeletedAt != nil || counterpart.IncidentID != note.IncidentID || !slices.Contains(types, counterpart.RecordType) {
-			continue
-		}
-		if request.Kind == NoteAssociationRelatedNote {
-			if err := validateArtifactViewRecordTx(ctx, tx, counterpart.RecordID, NotesViewSchemaID); errors.Is(err, pgx.ErrNoRows) {
+		for _, fact := range facts {
+			counterpart, err := o.mutations.recordEnvelopes.LoadEnvelopeTx(ctx, tx, fact.CounterpartID, false)
+			if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 				continue
-			} else if err != nil {
+			}
+			if err != nil {
 				return NoteAssociationPage{}, err
 			}
+			if counterpart.DeletedAt != nil || counterpart.IncidentID != note.IncidentID || !slices.Contains(types, counterpart.RecordType) {
+				continue
+			}
+			if request.Kind == NoteAssociationRelatedNote {
+				if err := validateArtifactViewRecordTx(ctx, tx, counterpart.RecordID, NotesViewSchemaID); errors.Is(err, pgx.ErrNoRows) {
+					continue
+				} else if err != nil {
+					return NoteAssociationPage{}, err
+				}
+			}
+			if len(page.Items) == request.Limit {
+				page.HasMore = true
+				return page, tx.Commit(ctx)
+			}
+			label, err := o.rows.LabelTx(ctx, tx, counterpart)
+			if err != nil {
+				return NoteAssociationPage{}, err
+			}
+			direction := "outgoing"
+			if fact.TargetID == note.RecordID {
+				direction = "incoming"
+			}
+			page.Items = append(page.Items, NoteAssociationItem{ItemRef: associationItemRef(fact.ID), CounterpartID: counterpart.RecordID, ViewSchemaID: associationView(counterpart.RecordType), DisplayLabel: label, Direction: direction})
+			page.LastTime, page.LastID = fact.CreatedAt, fact.ID
 		}
-		label, err := o.rows.LabelTx(ctx, tx, counterpart)
-		if err != nil {
-			return NoteAssociationPage{}, err
+		if len(facts) < lookup.Limit {
+			return page, tx.Commit(ctx)
 		}
-		direction := "outgoing"
-		if fact.TargetID == note.RecordID {
-			direction = "incoming"
-		}
-		page.Items = append(page.Items, NoteAssociationItem{ItemRef: associationItemRef(fact.ID), CounterpartID: counterpart.RecordID, ViewSchemaID: associationView(counterpart.RecordType), DisplayLabel: label, Direction: direction})
+		last := facts[len(facts)-1]
+		lookup.BeforeTime, lookup.BeforeID = &last.CreatedAt, last.ID
 	}
-	return page, tx.Commit(ctx)
 }
 
 func (o *NoteAssociations) validateCounterpartTx(ctx context.Context, tx pgx.Tx, note recordenvelope.Envelope, kind NoteAssociationKind, id uuid.UUID) (recordenvelope.Envelope, error) {

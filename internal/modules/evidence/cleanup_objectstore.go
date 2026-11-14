@@ -12,7 +12,7 @@ type cleanupObjectStoreDeleter struct {
 }
 
 func newCleanupObjectDeleter(store objectstore.TypedStore) (cleanupObjectDeleter, error) {
-	if store == nil {
+	if isNilCapability(store) {
 		return nil, errors.New("compose Evidence cleanup object deleter: object store is required")
 	}
 	return cleanupObjectStoreDeleter{store: store}, nil

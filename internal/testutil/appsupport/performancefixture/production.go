@@ -110,7 +110,7 @@ func (v *productionSemanticValidator) ValidateFixtureSemantics(ctx context.Conte
 		counts[query.key] = count
 	}
 	var defaultViewCount int
-	if err := v.pool.QueryRow(ctx, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id = $1`, incidentUUID).Scan(&defaultViewCount); err != nil {
+	if err := v.pool.QueryRow(ctx, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id = $1 AND default_sheet_ref IS NULL`, incidentUUID).Scan(&defaultViewCount); err != nil {
 		return fixture.SemanticValidation{}, fmt.Errorf("query performance fixture default view: %w", err)
 	}
 	var distributedRows int

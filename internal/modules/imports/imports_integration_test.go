@@ -4,7 +4,9 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -481,69 +483,41 @@ UPDATE import_units
 		t.Fatalf("make selection rectangles overlap: %v", err)
 	}
 
-	type concurrentSelectResult struct {
-		unitID string
-		status int
-		body   []byte
-		err    error
-	}
 	start := make(chan struct{})
-	results := make(chan concurrentSelectResult, 2)
+	pending := make([]struct {
+		unitID   string
+		response func() *http.Response
+	}, 0, 2)
 	for index, unitID := range []string{firstUnitID, secondUnitID} {
-		requestBody, err := json.Marshal(map[string]any{
-			"client_txn_id": "txn-imports-selection-concurrent-" + strconv.Itoa(index+1),
-		})
-		if err != nil {
-			t.Fatalf("marshal concurrent select request: %v", err)
-		}
-		request, err := http.NewRequest(
-			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
-			bytes.NewReader(requestBody),
-		)
-		if err != nil {
-			t.Fatalf("create concurrent select request: %v", err)
-		}
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRF.Value)
-		request.AddCookie(adminLogin.Session)
-		request.AddCookie(adminLogin.CSRF)
-		go func(selectedUnitID string, selectRequest *http.Request) {
-			<-start
-			response, requestErr := http.DefaultClient.Do(selectRequest)
-			if requestErr != nil {
-				results <- concurrentSelectResult{unitID: selectedUnitID, err: requestErr}
-				return
-			}
-			defer response.Body.Close()
-			responseBody, readErr := io.ReadAll(response.Body)
-			results <- concurrentSelectResult{
-				unitID: selectedUnitID,
-				status: response.StatusCode,
-				body:   responseBody,
-				err:    readErr,
-			}
-		}(unitID, request)
+		response := startImportJSON(t, harness.Server.HTTP.URL, adminLogin,
+			"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select",
+			map[string]any{"client_txn_id": "txn-imports-selection-concurrent-" + strconv.Itoa(index+1)}, start)
+		pending = append(pending, struct {
+			unitID   string
+			response func() *http.Response
+		}{unitID, response})
 	}
 	close(start)
 
 	var selectedUnitID string
 	successCount := 0
 	conflictCount := 0
-	for range 2 {
-		result := <-results
-		if result.err != nil {
-			t.Fatalf("concurrent select %s failed: %v", result.unitID, result.err)
+	for _, result := range pending {
+		response := result.response()
+		body, err := io.ReadAll(response.Body)
+		_ = response.Body.Close()
+		if err != nil {
+			t.Fatalf("read concurrent select %s: %v", result.unitID, err)
 		}
-		switch result.status {
+		switch response.StatusCode {
 		case http.StatusOK:
 			successCount++
 			selectedUnitID = result.unitID
 		case http.StatusConflict:
 			conflictCount++
 			var envelope map[string]any
-			if err := json.Unmarshal(result.body, &envelope); err != nil {
-				t.Fatalf("decode overlap conflict: %v body=%s", err, string(result.body))
+			if err := json.Unmarshal(body, &envelope); err != nil {
+				t.Fatalf("decode overlap conflict: %v body=%s", err, string(body))
 			}
 			apiError := envelope["error"].(map[string]any)
 			if apiError["code"] != "import_apply_blocked" ||
@@ -551,7 +525,7 @@ UPDATE import_units
 				t.Fatalf("unexpected overlap conflict: %#v", envelope)
 			}
 		default:
-			t.Fatalf("concurrent select %s status=%d body=%s", result.unitID, result.status, string(result.body))
+			t.Fatalf("concurrent select %s status=%d body=%s", result.unitID, response.StatusCode, string(body))
 		}
 	}
 	if successCount != 1 || conflictCount != 1 {
@@ -813,6 +787,17 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	if mappedUnit["unit_status"] != "mapped" || mappedUnit["mapping_fingerprint"] == nil || mappedUnit["approved_mapping"] == nil {
 		t.Fatalf("unexpected mapped unit: %#v", mappedUnit)
 	}
+	mappingFingerprint, ok := mappedUnit["mapping_fingerprint"].(string)
+	decodedFingerprint, err := hex.DecodeString(mappingFingerprint)
+	if !ok || err != nil || len(decodedFingerprint) != sha256.Size || hex.EncodeToString(decodedFingerprint) != mappingFingerprint {
+		t.Fatalf("mapping receipt must contain a canonical SHA-256 fingerprint: %#v", mappedUnit)
+	}
+	provenanceIdentity := importProvenanceIdentity{
+		sessionID:          sessionID,
+		unitID:             unitID,
+		mappingFingerprint: mappingFingerprint,
+		sourceSHA256:       fmt.Sprintf("%x", sha256.Sum256([]byte(csv))),
+	}
 
 	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-extension_profile-import-apply-select"})
 	selected := httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)["data"].(map[string]any)
@@ -853,8 +838,8 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 	requireTimelineMentionUnresolved(t, rowsBySummary["Beta summary"], "timeline.identity_refs", "identity-2")
 	requireImportedMentionNotAutoResolved(t, harness.DB, incidentID, recordIDsBySummary["Alpha summary"], hostRecordID, "timeline.host_refs", "observed_on_host", "host-1")
 	requireImportedMentionNotAutoResolved(t, harness.DB, incidentID, recordIDsBySummary["Alpha summary"], identityRecordID, "timeline.identity_refs", "observed_as_identity", "identity-1")
-	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "source_note", "raw-a", 2, 4, "A1:E3")
-	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "source_note", "raw-b", 3, 4, "A1:E3")
+	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Alpha summary"], provenanceIdentity, "source_note", "raw-a", 2, 4, "A1:E3")
+	requireTimelineImportProvenance(t, harness.DB, recordIDsBySummary["Beta summary"], provenanceIdentity, "source_note", "raw-b", 3, 4, "A1:E3")
 
 	unitClientTxnID := "import:" + sessionID + ":" + unitID + ":txn-extension_profile-import-apply-apply"
 	var changeSetID string
@@ -883,7 +868,7 @@ SELECT COUNT(*)
    AND o.target_view_schema_id = 'cartulary.view.timeline.v2'
    AND o.owner_binding_id = 'timeline.import_create'
    AND o.change_set_id::text = $4
-   AND jsonb_typeof(o.owner_result_json) = 'object' AND (o.owner_result_json->>'row_count')::integer > 0
+   AND o.owner_result_json = '{"row_count":2}'::jsonb
 `, sessionID, unitID, applyJob["job_id"].(string), changeSetID); got != 1 {
 		t.Fatalf("expected one immutable Timeline apply plan/outcome pair, got %d", got)
 	}
@@ -1311,7 +1296,7 @@ UPDATE import_units
 			if err != nil {
 				t.Fatalf("acquire apply-start blocker connection: %v", err)
 			}
-			defer blocker.Close()
+			defer closeImportAdvisoryGate(t, blocker)
 			if _, err := blocker.ExecContext(
 				context.Background(),
 				"SELECT pg_advisory_lock($1)",
@@ -1319,13 +1304,6 @@ UPDATE import_units
 			); err != nil {
 				t.Fatalf("acquire apply-start advisory lock: %v", err)
 			}
-			defer func() {
-				_, _ = blocker.ExecContext(
-					context.Background(),
-					"SELECT pg_advisory_unlock($1)",
-					advisoryKey,
-				)
-			}()
 			if _, err := harness.DB.ExecContext(context.Background(), `
 CREATE FUNCTION public.block_import_apply_start_rs06()
 RETURNS trigger
@@ -1346,29 +1324,9 @@ EXECUTE FUNCTION public.block_import_apply_start_rs06()
 				t.Fatalf("install apply-start serialization fixture: %v", err)
 			}
 
-			type applyResponse struct {
-				response *http.Response
-				err      error
-			}
-			responseChannel := make(chan applyResponse, 1)
-			go func() {
-				request, err := http.NewRequest(
-					http.MethodPost,
-					harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/apply",
-					bytes.NewBufferString(`{"client_txn_id":"txn-imports-current-apply-`+
-						strings.ReplaceAll(testCase.name, " ", "-")+`"}`),
-				)
-				if err != nil {
-					responseChannel <- applyResponse{err: err}
-					return
-				}
-				request.Header.Set("Content-Type", "application/json")
-				request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRF.Value)
-				request.AddCookie(adminLogin.Session)
-				request.AddCookie(adminLogin.CSRF)
-				response, err := http.DefaultClient.Do(request)
-				responseChannel <- applyResponse{response: response, err: err}
-			}()
+			applyResponse := startImportJSON(t, harness.Server.HTTP.URL, adminLogin,
+				"/api/v1/import-sessions/"+sessionID+"/apply",
+				map[string]any{"client_txn_id": "txn-imports-current-apply-" + strings.ReplaceAll(testCase.name, " ", "-")}, nil)
 
 			var applyJobID string
 			deadline := time.Now().Add(5 * time.Second)
@@ -1419,15 +1377,8 @@ SELECT apply_job_id::text
 				t.Fatalf("release apply-start advisory lock: %v", err)
 			}
 
-			select {
-			case result := <-responseChannel:
-				if result.err != nil {
-					t.Fatalf("submit serialized apply: %v", result.err)
-				}
-				httptestx.RequireSuccessEnvelope(t, result.response, http.StatusAccepted)
-			case <-time.After(10 * time.Second):
-				t.Fatal("timed out waiting for serialized apply")
-			}
+			httptestx.RequireSuccessEnvelope(t, applyResponse(), http.StatusAccepted)
+
 			var jobStatus string
 			terminalDeadline := time.Now().Add(5 * time.Second)
 			for {
@@ -2317,7 +2268,7 @@ SELECT hashtext(current_database()), hashtext($1)
 	if err != nil {
 		t.Fatalf("acquire partial-cancellation blocker connection: %v", err)
 	}
-	defer blocker.Close()
+	defer closeImportAdvisoryGate(t, blocker)
 	var blockerPID int32
 	if err := blocker.QueryRowContext(context.Background(), `SELECT pg_backend_pid()`).Scan(&blockerPID); err != nil {
 		t.Fatalf("load partial-cancellation blocker pid: %v", err)
@@ -2325,12 +2276,6 @@ SELECT hashtext(current_database()), hashtext($1)
 	if _, err := blocker.ExecContext(context.Background(), "SELECT pg_advisory_lock($1, $2)", advisoryNamespace, advisoryKey); err != nil {
 		t.Fatalf("acquire partial-cancellation advisory lock: %v", err)
 	}
-	blockerLocked := true
-	defer func() {
-		if blockerLocked {
-			_, _ = blocker.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1, $2)", advisoryNamespace, advisoryKey)
-		}
-	}()
 	fixtureSQL := fmt.Sprintf(`
 CREATE FUNCTION public.block_first_import_outcome_rs06()
 RETURNS trigger
@@ -2352,28 +2297,9 @@ EXECUTE FUNCTION public.block_first_import_outcome_rs06()
 		t.Fatalf("install partial-cancellation serialization fixture: %v", err)
 	}
 
-	type asyncResponse struct {
-		response *http.Response
-		err      error
-	}
-	applyResponse := make(chan asyncResponse, 1)
-	go func() {
-		request, requestErr := http.NewRequest(
-			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/apply",
-			bytes.NewBufferString(`{"client_txn_id":"txn-imports-partial-cancel-apply"}`),
-		)
-		if requestErr != nil {
-			applyResponse <- asyncResponse{err: requestErr}
-			return
-		}
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRF.Value)
-		request.AddCookie(adminLogin.Session)
-		request.AddCookie(adminLogin.CSRF)
-		response, requestErr := http.DefaultClient.Do(request)
-		applyResponse <- asyncResponse{response: response, err: requestErr}
-	}()
+	applyResponse := startImportJSON(t, harness.Server.HTTP.URL, adminLogin,
+		"/api/v1/import-sessions/"+sessionID+"/apply",
+		map[string]any{"client_txn_id": "txn-imports-partial-cancel-apply"}, nil)
 
 	var applyJobID string
 	var applyBackendPID int32
@@ -2417,24 +2343,9 @@ SELECT
 		t.Fatalf("apply did not reach the first unit commit boundary; locks=%s", databaseLockGraph(harness.DB))
 	}
 
-	cancelResponse := make(chan asyncResponse, 1)
-	go func() {
-		request, requestErr := http.NewRequest(
-			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJobID+"/cancel",
-			bytes.NewBufferString(`{"client_txn_id":"txn-imports-partial-cancel-request"}`),
-		)
-		if requestErr != nil {
-			cancelResponse <- asyncResponse{err: requestErr}
-			return
-		}
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRF.Value)
-		request.AddCookie(adminLogin.Session)
-		request.AddCookie(adminLogin.CSRF)
-		response, requestErr := http.DefaultClient.Do(request)
-		cancelResponse <- asyncResponse{response: response, err: requestErr}
-	}()
+	cancelResponse := startImportJSON(t, harness.Server.HTTP.URL, adminLogin,
+		"/api/v1/jobs/"+applyJobID+"/cancel",
+		map[string]any{"client_txn_id": "txn-imports-partial-cancel-request"}, nil)
 
 	deadline = time.Now().Add(5 * time.Second)
 	cancelWaiting := false
@@ -2475,26 +2386,9 @@ SELECT COALESCE((
 	if _, err := blocker.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1, $2)", advisoryNamespace, advisoryKey); err != nil {
 		t.Fatalf("release partial-cancellation unit commit: %v", err)
 	}
-	blockerLocked = false
 
-	select {
-	case result := <-cancelResponse:
-		if result.err != nil {
-			t.Fatalf("cancel partially applied import: %v", result.err)
-		}
-		httptestx.RequireSuccessEnvelope(t, result.response, http.StatusOK)
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out waiting for partial-cancellation request")
-	}
-	select {
-	case result := <-applyResponse:
-		if result.err != nil {
-			t.Fatalf("complete partially canceled apply: %v", result.err)
-		}
-		httptestx.RequireSuccessEnvelope(t, result.response, http.StatusAccepted)
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out waiting for partially canceled apply")
-	}
+	httptestx.RequireSuccessEnvelope(t, cancelResponse(), http.StatusOK)
+	httptestx.RequireSuccessEnvelope(t, applyResponse(), http.StatusAccepted)
 
 	if got := waitForSQLCount(t, harness.DB, 60*time.Second, 1, `
 SELECT COUNT(*)
@@ -3027,7 +2921,11 @@ SELECT COUNT(*)
 	}
 }
 
-func requireTimelineImportProvenance(t testing.TB, db *sql.DB, recordID string, sessionID string, unitID string, header string, rawValue string, rowOrdinal int, columnOrdinal int, sourceRect string) {
+type importProvenanceIdentity struct {
+	sessionID, unitID, mappingFingerprint, sourceSHA256 string
+}
+
+func requireTimelineImportProvenance(t testing.TB, db *sql.DB, recordID string, identity importProvenanceIdentity, header string, rawValue string, rowOrdinal int, columnOrdinal int, sourceRect string) {
 	t.Helper()
 
 	var (
@@ -3063,8 +2961,10 @@ SELECT source_metadata, source_header_json, raw_value, cell_kind,
 	}
 	want := map[string]any{
 		"source_kind":           "file_import",
-		"import_session_id":     sessionID,
-		"import_unit_id":        unitID,
+		"import_session_id":     identity.sessionID,
+		"import_unit_id":        identity.unitID,
+		"mapping_fingerprint":   identity.mappingFingerprint,
+		"source_content_sha256": identity.sourceSHA256,
 		"source_file_kind":      "csv",
 		"parser_profile_id":     "cartulary.import.workbook.v2",
 		"parser_version":        "workbook_import_adapter_v2",
@@ -3081,9 +2981,6 @@ SELECT source_metadata, source_header_json, raw_value, cell_kind,
 		if column[key] != wantValue {
 			t.Fatalf("unexpected source provenance %s: got %#v want %#v column=%#v", key, column[key], wantValue, column)
 		}
-	}
-	if column["mapping_fingerprint"] == "" || column["source_content_sha256"] == "" {
-		t.Fatalf("expected mapping fingerprint and source content hash in source provenance, got %#v", column)
 	}
 }
 

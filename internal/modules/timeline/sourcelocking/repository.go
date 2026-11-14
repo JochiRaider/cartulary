@@ -11,7 +11,7 @@ import (
 )
 
 type EnvelopeReader interface {
-	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (sourcerepository.Envelope, error)
+	LoadEnvelopesForNoKeyUpdateTx(context.Context, pgx.Tx, []uuid.UUID) (map[uuid.UUID]sourcerepository.Envelope, error)
 }
 type Repository struct{ envelopes EnvelopeReader }
 
@@ -25,6 +25,16 @@ func (r *Repository) LoadForIncidentTx(ctx context.Context, tx pgx.Tx, incidentI
 }
 
 func (r *Repository) loadTx(ctx context.Context, tx pgx.Tx, incidentID *uuid.UUID, recordID uuid.UUID) (sourcerepository.Snapshot, error) {
+	// Retain non-key protection when a coordinator already owns the complete
+	// reference set; an envelope lock upgrade would conflict with foreign keys.
+	envelopes, err := r.envelopes.LoadEnvelopesForNoKeyUpdateTx(ctx, tx, []uuid.UUID{recordID})
+	if err != nil {
+		return sourcerepository.Snapshot{}, err
+	}
+	envelope, ok := envelopes[recordID]
+	if !ok {
+		return sourcerepository.Snapshot{}, sourcerepository.ErrNotFound
+	}
 	query := sourcerepository.SelectSQL + "\n WHERE record_id = $1"
 	args := []any{recordID}
 	if incidentID != nil {
@@ -35,13 +45,6 @@ func (r *Repository) loadTx(ctx context.Context, tx pgx.Tx, incidentID *uuid.UUI
 	snapshot, err := sourcerepository.ScanSource(tx.QueryRow(ctx, query, args...))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return sourcerepository.Snapshot{}, sourcerepository.ErrNotFound
-		}
-		return sourcerepository.Snapshot{}, err
-	}
-	envelope, err := r.envelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
-	if err != nil {
-		if errors.Is(err, sourcerepository.ErrEnvelopeNotFound) {
 			return sourcerepository.Snapshot{}, sourcerepository.ErrNotFound
 		}
 		return sourcerepository.Snapshot{}, err

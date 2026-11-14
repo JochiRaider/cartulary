@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {packageSourceProjectPattern} from "./package-qualification-project.mjs";
 import {createHash} from "node:crypto";
 import {chmodSync, copyFileSync, mkdirSync, readFileSync, renameSync, writeFileSync} from "node:fs";
 import path from "node:path";
@@ -8,6 +9,8 @@ import {setTimeout as delay} from "node:timers/promises";
 import {buildReceipt, goOutput, pins, verifyArchive} from "../harness/readiness/cryptographic-module.mjs";
 import {referencePlatform} from "../harness/readiness/reference-platform.mjs";
 import {assertPackagedRendererLayout} from "../report-renderer/stage-installation.mjs";
+import {publicExitCodeForFailure} from "../harness/contract/index.mjs";
+import {CommandFailure, reportCommandFailure} from "../harness/runtime/command-failure.mjs";
 
 function command(binary,args,options={}) {
   const r=spawnSync(binary,args,{encoding:"utf8",timeout:180000,maxBuffer:16*1024*1024,...options});
@@ -15,13 +18,14 @@ function command(binary,args,options={}) {
     const diagnostic = /^Windows boundary probe failed: [a-zA-Z0-9 :_-]+$/.test(r.stderr?.trim() || "") ? `: ${r.stderr.trim()}` : "";
     const reasons = [...`${r.stdout || ""}\n${r.stderr || ""}`.matchAll(/(?:"reason_code"\s*:\s*"|reason_code=)([a-z0-9_]+)/g)].map(match => match[1]);
     const gate=[...`${r.stderr || ""}`.matchAll(/"gate":"([a-z_]+)"/g)].at(-1)?.[1] || "unspecified";
-    throw new Error(`package platform command failed: ${path.basename(binary)} ${args[0] || ""} (status ${r.status}; gate ${gate}; reasons ${[...new Set(reasons)].join(",")})${diagnostic}`);
+    throw new CommandFailure(`package platform command failed: ${path.basename(binary)} ${args[0] || ""} (status ${r.status}; gate ${gate}; reasons ${[...new Set(reasons)].join(",")})${diagnostic}`,
+      {failure_class:"harness",failure_reason:"child_target_failure"},{cause:r.error});
   }
   return r.stdout.trim();
 }
 const save=(artifacts,name,value)=>writeFileSync(path.join(artifacts,name),JSON.stringify(value,null,2)+"\n",{mode:0o600});
 
-function rendererProbe(work, artifacts, project, image, host, lsm) {
+export function rendererProbe(work, artifacts, project, image, host, lsm) {
   assert.equal(host.Privileged,false,"renderer qualification forbids privileged containers");
   assert.ok(!host.CapAdd?.length,"renderer qualification forbids added host capabilities");
   assert.ok(!host.SecurityOpt?.some(option=>/unconfined/.test(option)),"renderer qualification forbids unconfined policies");
@@ -39,6 +43,7 @@ function rendererProbe(work, artifacts, project, image, host, lsm) {
   for(const capability of host.CapDrop || []) args.push("--cap-drop",capability);
   for(const option of host.SecurityOpt || []) args.push("--security-opt",option.startsWith("seccomp=") ? `seccomp=${profileFile}` : option);
   const id=command("docker",[...args,image]);assert.match(id,/^[a-f0-9]{64}$/);
+  let primary;
   try {
     const actualLSM=JSON.parse(command("docker",["inspect","--format",'{"apparmor":{{json .AppArmorProfile}},"process_label":{{json .ProcessLabel}}}',id]));
     assert.equal(actualLSM.apparmor,lsm.apparmor,"probe must use the deployed AppArmor policy");
@@ -55,7 +60,15 @@ function rendererProbe(work, artifacts, project, image, host, lsm) {
     assert.equal(result.outer_policy_verified,true);
     assert.deepEqual(result.operations.map(item=>item.operation),["mermaid_svg","slidev_pdf"]);
     for(const item of result.operations) {assert.equal(item.fresh_attempts,2);assert.equal(item.native_loopback_observed,true);assert.equal(item.cleanup_verified,true);}
-  } finally { command("docker",["rm","--force",id]); }
+  } catch(error) {primary=error;throw error;}
+  finally {
+    try {command("docker",["rm","--force",id]);}
+    catch(cause) {
+      const failure=new CommandFailure("package platform container cleanup failed",{failure_class:"harness",failure_reason:"cleanup_error"},{cause});
+      if(primary) (primary.cleanupFailures??=[]).push(failure);
+      else throw failure;
+    }
+  }
 }
 
 export function windowsProbe(work,origin,credentials={}) {
@@ -70,8 +83,12 @@ export function windowsProbe(work,origin,credentials={}) {
 
 async function main() {
  const [operation,work,artifacts,project,origin]=process.argv.slice(2);
- assert.ok(path.isAbsolute(work || "") && path.isAbsolute(artifacts || ""));
- assert.match(project,/^cartulary(?:mvpsmoke|mvprecoverysmk)[0-9]+$/);
+ if(!["layout","prepare","observe","replace"].includes(operation) ||
+    !path.isAbsolute(work || "") || !path.isAbsolute(artifacts || "") ||
+    !packageSourceProjectPattern.test(project || "") ||
+    (operation==="layout" && !/^[a-f0-9]{64}$/.test(origin || ""))) {
+   throw new CommandFailure("invalid package platform inputs",{failure_class:"config",failure_reason:"usage_error"});
+ }
  const go=process.env.GO || "go", policy=pins();
  const env={...process.env,GOTOOLCHAIN:policy.go_toolchain,GOFIPS140:policy.cryptographic_module.selector,CGO_ENABLED:"0",GOCACHE:process.env.GO_CACHE_DIR,GOMODCACHE:process.env.GO_MOD_CACHE_DIR,GOTMPDIR:process.env.GO_TMP_DIR};
  const compose=(...args)=>command("docker",["compose","--project-name",project,"--env-file",path.join(work,".env"),"-f",path.join(work,"release/assets/docker-compose.yml"),...args]);
@@ -186,5 +203,11 @@ async function main() {
  save(artifacts,"certificate-replacement.json",{before,after,restarted,all_purpose_leaves_replaced:true,wrong_database_certificate_purpose_rejected:true,owned_services_recreated:true,owned_app_interruption_recovered:true,format_identity_preserved:true});
 }
 if (process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
- try {await main();} catch(error) {process.stderr.write(`${error.message}\n`);process.exitCode=1;}
+ try {await main();} catch(error) {
+   const failure=reportCommandFailure(path.resolve(import.meta.dirname,"../.."),error,
+     error instanceof assert.AssertionError ? {failure_class:"product",failure_reason:"test_assertion_failure"} : {failure_class:"artifact",failure_reason:"artifact_error"});
+   process.stderr.write(`Package platform failed: ${failure.failure_class}/${failure.failure_reason}\n`);
+   if(error.cleanupFailures?.length) process.stderr.write(`Package platform cleanup failed: ${error.cleanupFailures.length} steps\n`);
+   process.exitCode=publicExitCodeForFailure(failure);
+ }
 }

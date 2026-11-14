@@ -201,7 +201,7 @@ func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integrati
 	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "incident_membership-i-2-02", TestRouteMode: httptestx.TestRouteModeDisabled})
 	normalizedIncidentKey := "IR-\u00C9-202"
 
-	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	create := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodPost,
@@ -219,12 +219,7 @@ func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integrati
 		t.Fatalf("expected normalized incident key in create response, got %#v", first)
 	}
 	incidentID := first["incident_id"].(string)
-	replaySelector := storetest.IncidentCreateReplaySelector{
-		ActorUserID: uuid.MustParse(first["created_by_user_id"].(string)),
-		ClientTxnID: "txn-i-2-02-create",
-		IncidentID:  uuid.MustParse(incidentID),
-	}
-	stableBefore := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.SQLReplayDatabase(harness.DB), replaySelector)
+	contentBefore := storetest.SnapshotIncidentCreateContent(t, storetest.SQLReplayDatabase(harness.DB))
 
 	replay := httptestx.DoJSON(
 		t, http.DefaultClient,
@@ -245,8 +240,8 @@ func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integrati
 	if replayBody["incident_key"] != normalizedIncidentKey {
 		t.Fatalf("expected replay to keep the normalized incident key, got %#v", replayBody)
 	}
-	if stableAfterReplay := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.SQLReplayDatabase(harness.DB), replaySelector); stableAfterReplay != stableBefore {
-		t.Fatalf("incident create replay must keep durable side effects stable: before=%+v after=%+v", stableBefore, stableAfterReplay)
+	if contentAfter := storetest.SnapshotIncidentCreateContent(t, storetest.SQLReplayDatabase(harness.DB)); contentAfter != contentBefore {
+		t.Fatal("incident-create replay or conflict changed bootstrap content")
 	}
 
 	divergent := httptestx.DoJSON(
@@ -262,55 +257,12 @@ func TestIncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState_Integrati
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
-	if stableAfterConflict := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.SQLReplayDatabase(harness.DB), replaySelector); stableAfterConflict != stableBefore {
-		t.Fatalf("divergent create replay must not change durable side effects: before=%+v after=%+v", stableBefore, stableAfterConflict)
+	if contentAfter := storetest.SnapshotIncidentCreateContent(t, storetest.SQLReplayDatabase(harness.DB)); contentAfter != contentBefore {
+		t.Fatal("incident-create replay or conflict changed bootstrap content")
 	}
 
 	duplicateClientTxnID := "txn-i-2-02-duplicate"
-	type duplicateConflictSideEffects struct {
-		BootstrapMembershipRows        int
-		IncidentRows                   int
-		IncidentWorkbookPreferenceRows int
-		OwnerMutationRows              int
-		RouteIdempotencyRows           int
-		UserWorkbookPreferenceRows     int
-	}
-	snapshotDuplicateConflictSideEffects := func() duplicateConflictSideEffects {
-		return duplicateConflictSideEffects{
-			BootstrapMembershipRows: dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships`),
-			IncidentRows:            dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incidents`),
-			IncidentWorkbookPreferenceRows: dbassert.CountSQL(
-				t,
-				harness.DB,
-				`SELECT COUNT(*) FROM incident_workbook_preferences`,
-			),
-			OwnerMutationRows: mutationtest.CountMutationArtifacts(
-				t, mutationtest.SQLDatabase(
-
-					harness.DB),
-
-				mutationtest.MutationSelector{ClientTxnID: duplicateClientTxnID},
-				mutationtest.MutationOwnerIncidentResource,
-				mutationtest.MutationOwnerIncidentMembership),
-
-			RouteIdempotencyRows: dbassert.CountSQL(
-				t,
-				harness.DB,
-				`
-SELECT COUNT(*)
-  FROM route_idempotency
- WHERE route_key = 'incidents.create'
-   AND actor_user_id::text = $1
-   AND scope_key = 'actor'
-   AND client_txn_id = $2
-`,
-				replaySelector.ActorUserID.String(),
-				duplicateClientTxnID,
-			),
-			UserWorkbookPreferenceRows: dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences`),
-		}
-	}
-	duplicateBefore := snapshotDuplicateConflictSideEffects()
+	duplicateContentBefore := storetest.SnapshotIncidentCreateContent(t, storetest.SQLReplayDatabase(harness.DB))
 	duplicateKey := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodPost,
@@ -331,15 +283,12 @@ SELECT COUNT(*)
 	if duplicateDetails["incident_key_canonical"] != normalizedIncidentKey {
 		t.Fatalf("expected duplicate conflict canonical key %q, got %#v", normalizedIncidentKey, duplicateDetails)
 	}
-	duplicateAfter := snapshotDuplicateConflictSideEffects()
-	if duplicateAfter != duplicateBefore {
-		t.Fatalf("duplicate incident key conflict must not change durable side effects: before=%+v after=%+v", duplicateBefore, duplicateAfter)
+	if after := storetest.SnapshotIncidentCreateContent(t, storetest.SQLReplayDatabase(harness.DB)); after != duplicateContentBefore {
+		t.Fatal("duplicate incident key conflict changed bootstrap content")
 	}
-	if duplicateAfter.OwnerMutationRows != 0 {
-		t.Fatalf("duplicate incident key conflict must not leave mutation artifacts for %s, got %d", duplicateClientTxnID, duplicateAfter.OwnerMutationRows)
-	}
-	if duplicateAfter.RouteIdempotencyRows != 0 {
-		t.Fatalf("duplicate incident key conflict must not leave create idempotency rows for %s, got %d", duplicateClientTxnID, duplicateAfter.RouteIdempotencyRows)
+	mutationtest.RequireNoMutationArtifacts(t, mutationtest.SQLDatabase(harness.DB), mutationtest.MutationSelector{ClientTxnID: duplicateClientTxnID}, mutationtest.MutationOwnerIncidentResource, mutationtest.MutationOwnerIncidentMembership)
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key='incidents.create' AND actor_user_id::text=$1 AND scope_key='actor' AND client_txn_id=$2`, adminID.String(), duplicateClientTxnID); got != 0 {
+		t.Fatalf("duplicate incident key conflict left %d create receipts", got)
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, normalizedIncidentKey); got != 1 {
 		t.Fatalf("expected one canonical incident row after composed-vs-decomposed duplicate conflict, got %d", got)
@@ -359,7 +308,13 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 		"severity":      "high",
 	})
 	incidentID := incident["incident_id"].(string)
-	initialUpdatedAt := incident["updated_at"]
+	initialUpdatedAt := incident["updated_at"].(string)
+	initialTime, err := time.Parse(time.RFC3339Nano, initialUpdatedAt)
+	if err != nil {
+		t.Fatalf("parse initial updated_at: %v", err)
+	}
+	patchTime := initialTime.Add(time.Second)
+	httptestx.SetClockFixed(t, harness.Server, patchTime)
 
 	noOpPatch := httptestx.DoJSON(
 		t, http.DefaultClient,
@@ -376,7 +331,6 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 		t.Fatalf("unexpected no-op patch payload: %#v", noOpBody)
 	}
 
-	time.Sleep(20 * time.Millisecond)
 	patch := httptestx.DoJSON(
 		t, http.DefaultClient,
 		http.MethodPatch,
@@ -394,8 +348,8 @@ func TestIncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange_Inte
 	if patchBody["incident_version"] != float64(2) || patchBody["tlp"] != "TLP:AMBER" || patchBody["current_phase"] != "containment" {
 		t.Fatalf("unexpected incident patch payload: %#v", patchBody)
 	}
-	if patchBody["updated_at"] == initialUpdatedAt {
-		t.Fatalf("expected material patch to advance updated_at: before=%v after=%v", initialUpdatedAt, patchBody["updated_at"])
+	if want := patchTime.UTC().Truncate(time.Microsecond).Format(time.RFC3339Nano); patchBody["updated_at"] != want {
+		t.Fatalf("material patch updated_at = %v, want command clock %s", patchBody["updated_at"], want)
 	}
 
 	stale := httptestx.DoJSON(

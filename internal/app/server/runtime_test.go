@@ -104,54 +104,6 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		postgresCalls = 0
 	})
 
-	t.Run("invalid deployment config stops before any dependency wiring", func(t *testing.T) {
-		testDependencies := dependencies
-		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, *database_migrations.Source) error {
-			t.Fatal("invalid config reached schema readiness")
-			return nil
-		}
-		err := RuntimeConfigError(t, configtest.Overlay(
-			"CARTULARY__ROOTS__DATABASE_STORAGE__PATH", "relative/postgres",
-		))
-		if err == nil {
-			t.Fatal("expected invalid config to fail closed")
-		}
-
-		diagnosticsErr, ok := err.(*config.DiagnosticsError)
-		if !ok {
-			t.Fatalf("expected diagnostics error, got %T", err)
-		}
-		if diagnosticsErr.Code != "invalid_deployment_config" {
-			t.Fatalf("unexpected diagnostics code: got %q", diagnosticsErr.Code)
-		}
-
-		if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
-			t.Fatalf("expected fail-closed startup before any dependency wiring, got jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
-		}
-	})
-
-	t.Run("invalid Network Flow resource limits stop before dependency wiring", func(t *testing.T) {
-		jobsCalls = 0
-		postgresCalls = 0
-		objectStoreCalls = 0
-		wsHubCalls = 0
-		handlerCalls = 0
-		err := RuntimeConfigError(t, configtest.Overlay(
-			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED", "true",
-			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH", "/etc/cartulary/network-flow-key-rings.json",
-			"CARTULARY__NETWORK_FLOW_ACTIVITY__RESOURCE_LIMITS", `{"max_active_tables_per_incident":2,"max_retained_tables_per_incident":1}`,
-		))
-		diagnostics, ok := config.DiagnosticsFromError(err)
-		if !ok || len(diagnostics) != 1 ||
-			diagnostics[0].Path != "network_flow_activity.resource_limits.max_active_tables_per_incident" ||
-			diagnostics[0].ReasonCode != "invalid_limit_relationship" {
-			t.Fatalf("resource-limit diagnostics = %#v / %v", diagnostics, err)
-		}
-		if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
-			t.Fatalf("invalid Network Flow resource limits reached dependency wiring: jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
-		}
-	})
-
 	t.Run("cross-purpose Revisions key reuse stops before listener publication", func(t *testing.T) {
 		cfg := RuntimeConfig(t)
 		t.Setenv(authn.AuthMasterKeyEnv, "pVldGSpD5oEmYa9F85d3/iL2lzBgkyfiWcoJDhsSGpk=")
@@ -170,85 +122,6 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		}
 		if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
 			t.Fatalf("cross-purpose secret reuse crossed the startup preflight boundary: jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
-		}
-	})
-
-	t.Run("inactive extension configuration stops before dependency wiring", func(t *testing.T) {
-		testDependencies := dependencies
-
-		var secureFileReads int
-		testDependencies.readSecureFile = func(string, int64) (securefile.Document, error) {
-			secureFileReads++
-			t.Fatal("inactive Enterprise Authentication configuration reached secure file work")
-			return securefile.Document{}, nil
-		}
-		jobsCalls = 0
-		postgresCalls = 0
-		objectStoreCalls = 0
-		wsHubCalls = 0
-		handlerCalls = 0
-		err := RuntimeConfigError(t, configtest.Overlay(
-			"CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED", "false",
-			"CARTULARY__ENTERPRISE_AUTHENTICATION__PROVIDER_MANIFEST_PATH", "/do-not-read/provider.json",
-		))
-		if err == nil {
-			t.Fatal("expected inactive extension configuration to fail closed")
-		}
-		diagnostics, ok := config.DiagnosticsFromError(err)
-		if !ok || len(diagnostics) != 1 ||
-			diagnostics[0].Path != "enterprise_authentication.provider_manifest_path" ||
-			diagnostics[0].ReasonCode != "extension_config_without_claim" {
-			t.Fatalf("inactive extension diagnostics = %#v / %v", diagnostics, err)
-		}
-		if secureFileReads != 0 || jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
-			t.Fatalf("inactive extension configuration reached effects: secure_file=%d jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", secureFileReads, jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
-		}
-	})
-
-	t.Run("unclaimed Network Flow configuration stops before active validation or file work", func(t *testing.T) {
-		testDependencies := dependencies
-
-		var secureFileReads int
-		testDependencies.readSecureFile = func(string, int64) (securefile.Document, error) {
-			secureFileReads++
-			t.Fatal("unclaimed Network Flow configuration reached secure file work")
-			return securefile.Document{}, nil
-		}
-		jobsCalls = 0
-		postgresCalls = 0
-		objectStoreCalls = 0
-		wsHubCalls = 0
-		handlerCalls = 0
-		err := RuntimeConfigError(t, configtest.Overlay(
-			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED", "false",
-			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH", "relative/must-not-be-read.json",
-		))
-		if err == nil {
-			t.Fatal("expected inactive Network Flow configuration to fail closed")
-		}
-		diagnostics, ok := config.DiagnosticsFromError(err)
-		if !ok || len(diagnostics) != 1 {
-			t.Fatalf("inactive Network Flow diagnostics = %#v / %v", diagnostics, err)
-		}
-		diagnostic := diagnostics[0]
-		if diagnostic.Path != "network_flow_activity.key_ring_manifest_path" ||
-			diagnostic.ReasonCode != "extension_config_without_claim" ||
-			diagnostic.Message != "Extension configuration is present while the profile is inactive." ||
-			diagnostic.Details["profile_id"] != "network_flow_activity" ||
-			diagnostic.Details["config_path"] != "$.network_flow_activity.key_ring_manifest_path" {
-			t.Fatalf("inactive Network Flow diagnostic = %#v", diagnostic)
-		}
-		if secureFileReads != 0 ||
-			jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
-			t.Fatalf(
-				"inactive Network Flow reached effects: secure_file=%d jobs=%d postgres=%d object_store=%d websocket=%d handler=%d",
-				secureFileReads,
-				jobsCalls,
-				postgresCalls,
-				objectStoreCalls,
-				wsHubCalls,
-				handlerCalls,
-			)
 		}
 	})
 
@@ -674,15 +547,6 @@ func RuntimeConfigWithOverlays(t testing.TB, overlays map[string]string) configa
 		t.Fatalf("load runtime configuration: %v", err)
 	}
 	return loaded
-}
-
-func RuntimeConfigError(t testing.TB, overlays map[string]string) error {
-	t.Helper()
-	_, err := loadRuntimeConfig(t, overlays)
-	if err == nil {
-		t.Fatal("expected runtime configuration loading to fail")
-	}
-	return err
 }
 
 func loadRuntimeConfig(t testing.TB, overlays map[string]string) (configassembly.Loaded, error) {

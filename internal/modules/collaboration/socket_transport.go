@@ -2,9 +2,7 @@ package collaboration
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,15 +32,15 @@ func (s *routeService) writeTerminalIncidentError(ctx context.Context, conn prot
 	}, s.now()), 1008, incidentClosedReason) == nil
 }
 
-func (s *routeService) readFirstMessage(ctx context.Context, conn protocol.Socket) (protocol.Message, error) {
+func (s *routeService) readFirstMessage(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID) (protocol.Message, error) {
 	readCtx, cancel := context.WithTimeout(ctx, firstMessageTimeout)
 	defer cancel()
-	return s.readMessage(readCtx, conn)
+	return s.readMessage(readCtx, conn, incidentID)
 }
 
-func (s *routeService) readLoop(ctx context.Context, conn protocol.Socket, incoming chan<- protocol.Message, errors chan<- error) {
+func (s *routeService) readLoop(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, incoming chan<- protocol.Message, errors chan<- error) {
 	for {
-		message, err := s.readMessage(ctx, conn)
+		message, err := s.readMessage(ctx, conn, incidentID)
 		if err != nil {
 			select {
 			case errors <- err:
@@ -58,12 +56,12 @@ func (s *routeService) readLoop(ctx context.Context, conn protocol.Socket, incom
 	}
 }
 
-func (s *routeService) readMessage(ctx context.Context, conn protocol.Socket) (protocol.Message, error) {
+func (s *routeService) readMessage(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID) (protocol.Message, error) {
 	kind, payload, err := conn.Read(ctx)
 	if err != nil {
 		return protocol.Message{}, err
 	}
-	return protocol.DecodeMessage(kind, payload)
+	return protocol.DecodeClientMessage(kind, payload, incidentID.String())
 }
 
 func (s *routeService) writeMessage(ctx context.Context, conn protocol.Socket, message protocol.Message) error {
@@ -109,7 +107,7 @@ func (s *routeService) closeForDecodeFailure(
 			_ = conn.Close(1003, "binary_message_unsupported")
 		case protocol.DecodeFailureInvalidJSON:
 			_ = conn.Close(1007, "invalid_json")
-		case protocol.DecodeFailureDuplicateMember:
+		case protocol.DecodeFailureDuplicateMember, protocol.DecodeFailureInvalidEnvelope:
 			if first {
 				_ = s.writeThenClose(ctx, conn, protocol.EphemeralMessage(incidentID, "error", map[string]any{
 					"code":      "invalid_websocket_handshake",
@@ -123,15 +121,4 @@ func (s *routeService) closeForDecodeFailure(
 		return
 	}
 	_ = conn.Close(1001, "")
-}
-
-func decodePayloadObject(payload json.RawMessage, target any) error {
-	trimmed := strings.TrimSpace(string(payload))
-	if len(trimmed) < 2 || trimmed[0] != '{' {
-		return errors.New("websocket payload must be an object")
-	}
-	if err := json.Unmarshal(payload, target); err != nil {
-		return err
-	}
-	return nil
 }

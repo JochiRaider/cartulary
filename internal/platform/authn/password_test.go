@@ -60,8 +60,8 @@ func TestPasswordWorkflowCapacityCancellationAndLifetime(t *testing.T) {
 	defer second.Close()
 	waitCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	results := make(chan error, PasswordPendingWorkflows)
-	for range PasswordPendingWorkflows {
+	results := make(chan error, 8)
+	for range 8 {
 		go func() {
 			workflow, err := budget.begin(waitCtx)
 			if workflow != nil {
@@ -70,8 +70,22 @@ func TestPasswordWorkflowCapacityCancellationAndLifetime(t *testing.T) {
 			results <- err
 		}()
 	}
+	received := 0
+	defer func() {
+		cancel()
+		deadline := time.After(5 * time.Second)
+		for received < 8 {
+			select {
+			case <-results:
+				received++
+			case <-deadline:
+				t.Error("capacity waiters did not settle after cancellation")
+				return
+			}
+		}
+	}()
 	deadline := time.After(time.Second)
-	for len(budget.total) != PasswordActiveWorkflows+PasswordPendingWorkflows {
+	for len(budget.total) != 2+8 {
 		select {
 		case <-deadline:
 			t.Fatal("waiters did not fill bounded queue")
@@ -87,12 +101,14 @@ func TestPasswordWorkflowCapacityCancellationAndLifetime(t *testing.T) {
 		t.Fatal("excess work was queued")
 	}
 	cancel()
-	for range PasswordPendingWorkflows {
-		if err := <-results; !errors.Is(err, context.Canceled) {
+	for range 8 {
+		err := <-results
+		received++
+		if !errors.Is(err, context.Canceled) {
 			t.Fatalf("cancellation %v", err)
 		}
 	}
-	if len(budget.total) != PasswordActiveWorkflows {
+	if len(budget.total) != 2 {
 		t.Fatal("canceled waiters leaked capacity")
 	}
 	// Sequential verify + replace must work while the other slot remains held.
@@ -115,21 +131,32 @@ func TestPasswordWorkflowCapacityCancellationAndLifetime(t *testing.T) {
 	// Closing an in-flight capability cannot free its slot until its critical
 	// section ends, including when request cancellation races with cleanup.
 	third.mu.Lock()
+	locked := true
 	closed := make(chan struct{})
 	go func() { third.Close(); close(closed) }()
+	defer func() {
+		if locked {
+			third.mu.Unlock()
+		}
+		<-closed
+	}()
 	select {
 	case <-closed:
 		t.Fatal("closed active derivation")
 	case <-time.After(10 * time.Millisecond):
 	}
-	if len(budget.total) != PasswordActiveWorkflows {
+	if len(budget.total) != 2 {
 		t.Fatal("released active capacity early")
 	}
 	third.mu.Unlock()
+	locked = false
 	<-closed
 }
 
 func TestPasswordWorkflowQueueDeadline(t *testing.T) {
+	if PasswordQueueLimit <= 0 || PasswordQueueLimit > 2*time.Second {
+		t.Fatalf("queue wait exceeds independently owned bound: %s", PasswordQueueLimit)
+	}
 	budget := newPasswordBudget()
 	first, err := budget.begin(context.Background())
 	if err != nil {
@@ -145,10 +172,10 @@ func TestPasswordWorkflowQueueDeadline(t *testing.T) {
 	if _, err := budget.begin(context.Background()); !errors.Is(err, ErrAuthenticationCapacity) {
 		t.Fatalf("queue deadline %v", err)
 	}
-	if elapsed := time.Since(start); elapsed < PasswordQueueLimit || elapsed > PasswordQueueLimit+time.Second {
+	if elapsed := time.Since(start); elapsed < PasswordQueueLimit || elapsed > 3*time.Second {
 		t.Fatalf("queue lifetime %s", elapsed)
 	}
-	if len(budget.total) != PasswordActiveWorkflows {
+	if len(budget.total) != 2 {
 		t.Fatal("timed-out waiter leaked capacity")
 	}
 }

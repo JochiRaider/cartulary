@@ -24,10 +24,24 @@ function roots(values) {
   return values.map((value) => validateRepositoryRelativePath(value));
 }
 
+function prepareImportCapabilities(entries, protectedImports, matchKind) {
+  const seen = new Set();
+  return (entries ?? []).map((entry) => {
+    const imported = validateRepositoryRelativePath(entry.import, "import capability");
+    if (!protectedImports.some((prefix) => imported === prefix || (matchKind === "subtree" && imported.startsWith(`${prefix}/`)))) {
+      throw new Error("import capability must belong to the protected import scope");
+    }
+    if (seen.has(imported)) throw new Error("duplicate exact import capability");
+    seen.add(imported);
+    return { import: imported, productionPackages: roots(entry.production_packages), testPackages: roots(entry.test_packages) };
+  });
+}
+
 function prepareImportRule(rule) {
   return {
     id: rule.id.trim(), matchKind: rule.match_kind, imports: strings(rule.imports),
     scanPaths: paths(rule.scan_paths), allowedPaths: paths(rule.allowed_paths), productionOnly: rule.production_only,
+    importCapabilities: prepareImportCapabilities(rule.import_capabilities, strings(rule.imports), rule.match_kind),
   };
 }
 
@@ -66,6 +80,7 @@ export function prepareBoundaryPolicy(raw) {
     },
     ownerPortOnlyImports: raw.owner_port_only_imports.map((rule) => ({
       id: rule.id.trim(), import: rule.import.trim(), allowedImporters: paths(rule.allowed_importers),
+      importCapabilities: prepareImportCapabilities(rule.import_capabilities, [rule.import.trim()], "subtree"),
     })),
     rawNDJSONTargets: raw.raw_ndjson_targets.map((rule) => ({
       id: rule.id.trim(), functionName: rule.function.trim(), allowedPaths: paths(rule.allowed_paths),
@@ -236,6 +251,12 @@ function violation(code, file, symbolOrImport, details = {}) {
   };
 }
 
+function hasImportCapability(file, imported, rule) {
+  const receiver = path.posix.dirname(file.relative);
+  return (rule.importCapabilities ?? []).some((entry) => entry.import === imported &&
+    (file.relative.endsWith("_test.go") ? entry.testPackages : entry.productionPackages).includes(receiver));
+}
+
 function checkOwnerPortOnlyImports(files, rules, importsByPath) {
   if (rules.length === 0) return [];
   const violations = [];
@@ -245,7 +266,7 @@ function checkOwnerPortOnlyImports(files, rules, importsByPath) {
         if (imported !== rule.import && !imported.startsWith(`${rule.import}/`)) {
           continue;
         }
-        if (!rule.allowedImporters.some((pattern) => matchesPattern(file.relative, pattern))) {
+        if (!hasImportCapability(file, imported, rule) && !rule.allowedImporters.some((pattern) => matchesPattern(file.relative, pattern))) {
           violations.push(violation("owner_port_only_import", file, imported));
         }
       }
@@ -287,6 +308,7 @@ function checkForbiddenGoImports(files, rules, importsByPath) {
         continue;
       }
       for (const imported of fileImports(file, importsByPath)) {
+        if (hasImportCapability(file, imported, rule)) continue;
         for (const forbiddenImport of rule.imports) {
           const matches = rule.matchKind === "exact"
             ? imported === forbiddenImport

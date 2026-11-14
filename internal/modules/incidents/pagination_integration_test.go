@@ -319,10 +319,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 
 	// Removing a row preceding the cursor must not skip the next live row.
 	removed := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+memberOneID, map[string]any{"base_membership_version": 1}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
-	if removed.StatusCode != 204 {
-		t.Fatalf("delete prior row: %d", removed.StatusCode)
-	}
-	_ = removed.Body.Close()
+	httptestx.RequireNoContent(t, removed)
 	beforeID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "before-cursor@example.test", DisplayName: "Before cursor"}).ID.String()
 	afterID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "after-cursor@example.test", DisplayName: "After cursor"}).ID.String()
 	createMembership(t, harness, adminLogin, incidentID, "before-cursor", beforeID, "viewer")
@@ -371,10 +368,7 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	}
 	for _, query := range []string{"limit=1&limit=2", "%xx=x", "%ff=value", "search=no", "offset=1", "limit="} {
 		response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships?"+query, nil, httptestx.WithCookies(adminLogin.Session))
-		if response.StatusCode != 400 {
-			t.Fatalf("query %q status=%d", query, response.StatusCode)
-		}
-		_ = response.Body.Close()
+		httptestx.ReadResponseBody(t, response, http.StatusBadRequest)
 	}
 	if _, err := harness.DB.ExecContext(t.Context(), `DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, adminID); err != nil {
 		t.Fatal(err)

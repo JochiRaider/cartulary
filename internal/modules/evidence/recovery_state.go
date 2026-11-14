@@ -32,7 +32,7 @@ func RecoveryStateContribution() recoverystate.Contribution {
 		tables,
 		recoverystate.AuthoritativeObjectFamily(
 			"evidence.blobs",
-			"evidence.snapshot_blob_inventory.v1",
+			"evidence.snapshot_blob_inventory.v2",
 			"evidence.validate_blob_inventory.v1",
 			"evidence.restore_blob_inventory.v1",
 		),

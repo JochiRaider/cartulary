@@ -498,8 +498,13 @@ func CompleteInitialEnrollment(t testing.TB, client *http.Client, baseURL string
 
 func GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 	t.Helper()
+	return GenerateTOTPCodeAt(t, secretBase32, time.Now().UTC())
+}
 
-	code, err := totp.GenerateCodeCustom(secretBase32, time.Now().UTC(), totp.ValidateOpts{
+func GenerateTOTPCodeAt(t testing.TB, secretBase32 string, at time.Time) string {
+	t.Helper()
+
+	code, err := totp.GenerateCodeCustom(secretBase32, at, totp.ValidateOpts{
 		Period:    30,
 		Skew:      1,
 		Digits:    otp.DigitsSix,

@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 
 import Ajv from "ajv";
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDir, "../..");
+const require = createRequire(import.meta.url);
+// The pinned package's CommonJS entry is adjacent to its schema data. Resolve
+// the actual dependency without executing an unrelated scanner CLI.
+const dataDir = path.join(path.dirname(require.resolve("@cyclonedx/cdxgen")), "data");
 
 function usage() {
   throw new Error("usage: validate-cyclonedx.mjs <bom-json> [<bom-json>...]");
@@ -16,27 +19,15 @@ function loadJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function schemaPath(specVersion) {
-  return path.join(
-    repoRoot,
-    "node_modules",
-    "@cyclonedx",
-    "cdxgen",
-    "data",
-    `bom-${specVersion}.schema.json`,
-  );
-}
-
-function loadSchema(specVersion) {
-  const file = schemaPath(specVersion);
+function loadSchema() {
+  const file = path.join(dataDir, "bom-1.7.schema.json");
   if (!existsSync(file)) {
-    throw new Error(`CycloneDX ${specVersion} schema missing at ${file}`);
+    throw new Error("CycloneDX 1.7 schema missing from the pinned package");
   }
   return loadJSON(file);
 }
 
 function loadSupportSchemas(ajv) {
-  const dataDir = path.join(repoRoot, "node_modules", "@cyclonedx", "cdxgen", "data");
   for (const name of ["spdx.schema.json", "jsf-0.82.schema.json", "cryptography-defs.schema.json"]) {
     const file = path.join(dataDir, name);
     if (existsSync(file)) {
@@ -45,27 +36,32 @@ function loadSupportSchemas(ajv) {
   }
 }
 
-function validateFile(file) {
-  const absolute = path.resolve(file);
-  const bom = loadJSON(absolute);
-  const specVersion = String(bom.specVersion ?? "");
-  if (!specVersion) {
-    throw new Error(`${file}: missing specVersion`);
+export function validateBom(bom, label = "SBOM") {
+  const specVersion = bom?.specVersion;
+  if (specVersion === undefined || specVersion === null || specVersion === "") {
+    throw new Error(`${label}: missing specVersion`);
   }
+  if (specVersion !== "1.7") throw new Error(`${label}: unsupported CycloneDX specVersion (expected 1.7)`);
 
   const ajv = new Ajv({
-    allErrors: true,
+    allErrors: false,
     strict: false,
     validateFormats: false,
     validateSchema: false,
   });
   loadSupportSchemas(ajv);
-  const schema = loadSchema(specVersion);
+  const schema = loadSchema();
   const validate = ajv.compile(schema);
   if (!validate(bom)) {
-    const details = ajv.errorsText(validate.errors, { separator: "\n  " });
-    throw new Error(`${file}: CycloneDX ${specVersion} validation failed:\n  ${details}`);
+    const details = ajv.errorsText(validate.errors, { separator: "\n  " }).slice(0, 4096);
+    throw new Error(`${label}: CycloneDX ${specVersion} validation failed:\n  ${details}`);
   }
+}
+
+function validateFile(file) {
+  const bom = loadJSON(path.resolve(file));
+  validateBom(bom, file);
+  const specVersion = bom.specVersion;
   console.log(`${file}: valid CycloneDX ${specVersion} JSON`);
 }
 

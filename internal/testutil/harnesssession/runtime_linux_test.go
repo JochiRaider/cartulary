@@ -34,6 +34,7 @@ func runtimeFixture(t *testing.T) (*Runtime, string, string) {
 	return runtime, root, run
 }
 func TestSessionRuntimeProof(t *testing.T) {
+	commandControlFixtureMode()
 	diagnosticOrphanFixture()
 	if detailProcessFixture() {
 		return
@@ -73,10 +74,14 @@ func TestSessionRuntimeProof(t *testing.T) {
 	testDetailLifecycle(t)
 	testDetailAdversaries(t)
 	testLifecycleGaps(t)
+	testOwnedCommand(t)
+	testCommandControl(t)
+	testCommandPipe(t)
 	testCorruptJournalDetail(t)
 	testCleanupAttempts(t)
 	testRuntimeBindings(t)
 	testRecoveryLocators(t)
+	testActiveResourceAdmission(t)
 	t.Run("dependency_authority_is_explicit_immutable_and_runtime_bound", func(t *testing.T) {
 		r, _, _ := runtimeFixture(t)
 		suite, _ := r.RecoveryPath("suite.json")
@@ -268,6 +273,7 @@ func TestSessionRuntimeProof(t *testing.T) {
 			"diagnostic_scope": map[string]any{"boot": "boot", "start": "1", "token": strings.Repeat("a", 64), "uid": os.Getuid()},
 			"browser_renderer": map[string]any{"daemon_id": "engine", "image_id": "sha256:" + strings.Repeat("b", 64), "name": "cartulary-visual-12-aaaaaaaaaaaa", "token": strings.Repeat("a", 32)},
 			"browser_process":  map[string]any{"boot": "boot", "start": "1", "pid": 12, "group": true, "pgid": 12, "sid": 12},
+			"package_resource": map[string]any{"daemon_id": "engine", "token": "11111111-2222-4333-8444-555555555555", "role": "application"},
 		} {
 			proof := target.(map[string]any)
 			if err := r.RecordDependentResource(kind, proof, "pending", []string{}); err != nil {
@@ -285,6 +291,8 @@ func TestSessionRuntimeProof(t *testing.T) {
 				proof["uid"] = os.Getuid() + 1
 			} else if kind == "browser_renderer" {
 				proof["token"] = strings.Repeat("c", 32)
+			} else if kind == "package_resource" {
+				proof["role"] = "foreign"
 			} else {
 				proof["pid"] = 1
 			}

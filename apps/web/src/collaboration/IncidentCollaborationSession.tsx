@@ -151,20 +151,39 @@ export function IncidentCollaborationSession({
     };
   }, []);
 
-  const publishPresence = useCallback((presence: CollaborationPresence) => {
-    presenceRef.current = presence;
-    const socket = socketRef.current;
-    if (
-      statusRef.current !== "connected" ||
-      socket === null ||
-      socket.readyState !== WebSocket.OPEN
-    ) {
-      return;
-    }
-    socket.send(
-      JSON.stringify({ type: "presence_update", payload: { presence } }),
-    );
-  }, []);
+  const sendClientMessage = useCallback(
+    (
+      socket: WebSocket,
+      type: "hello" | "resume" | "presence_update" | "pong",
+      payload: object,
+    ) => {
+      socket.send(
+        JSON.stringify({
+          type,
+          incident_id: incidentId,
+          emitted_at: new Date().toISOString(),
+          payload,
+        }),
+      );
+    },
+    [incidentId],
+  );
+
+  const publishPresence = useCallback(
+    (presence: CollaborationPresence) => {
+      presenceRef.current = presence;
+      const socket = socketRef.current;
+      if (
+        statusRef.current !== "connected" ||
+        socket === null ||
+        socket.readyState !== WebSocket.OPEN
+      ) {
+        return;
+      }
+      sendClientMessage(socket, "presence_update", { presence });
+    },
+    [sendClientMessage],
+  );
 
   const completeReset = useCallback(
     (generation: number) => {
@@ -308,7 +327,7 @@ export function IncidentCollaborationSession({
       lastSeenStreamSeqRef.current = plan.nextStreamSeq;
       if (plan.kind === "ignore") return;
       if (plan.kind === "pong") {
-        socket.send(JSON.stringify({ type: "pong", payload: {} }));
+        sendClientMessage(socket, "pong", {});
         return;
       }
       if (plan.kind === "established") {
@@ -376,21 +395,16 @@ export function IncidentCollaborationSession({
           return;
         }
         const resumeToken = resumeTokenRef.current;
-        socket.send(
-          JSON.stringify({
-            type: resumeToken ? "resume" : "hello",
-            payload: {
-              client_instance_id: clientInstanceId,
-              presence: presenceRef.current,
-              ...(resumeToken
-                ? {
-                    resume_token: resumeToken,
-                    last_seen_stream_seq: lastSeenStreamSeqRef.current,
-                  }
-                : null),
-            },
-          }),
-        );
+        sendClientMessage(socket, resumeToken ? "resume" : "hello", {
+          client_instance_id: clientInstanceId,
+          presence: presenceRef.current,
+          ...(resumeToken
+            ? {
+                resume_token: resumeToken,
+                last_seen_stream_seq: lastSeenStreamSeqRef.current,
+              }
+            : null),
+        });
       };
       socket.onmessage = (event) => {
         if (
@@ -444,7 +458,14 @@ export function IncidentCollaborationSession({
       setConnectionId(null);
       connectRef.current = () => undefined;
     };
-  }, [apiBase, clientInstanceId, emit, incidentId, updateStatus]);
+  }, [
+    apiBase,
+    clientInstanceId,
+    emit,
+    incidentId,
+    sendClientMessage,
+    updateStatus,
+  ]);
 
   const value = useMemo<IncidentCollaborationSessionValue>(
     () => ({

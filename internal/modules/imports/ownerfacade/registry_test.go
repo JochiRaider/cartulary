@@ -2,6 +2,7 @@ package ownerfacade
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -29,9 +30,7 @@ func TestImportOwnerCreateRegistryRequiresExactBindings(t *testing.T) {
 		t.Fatalf("construct exact registry: %v", err)
 	}
 	bindings := registry.Bindings()
-	if len(bindings) != 2 ||
-		bindings[0].TargetViewSchemaID != "cartulary.view.hosts.v1" ||
-		bindings[1].TargetViewSchemaID != "cartulary.view.identities.v1" {
+	if !reflect.DeepEqual(bindings, expected) {
 		t.Fatalf("registry bindings are not stable: %#v", bindings)
 	}
 	if resolved, ok := registry.Resolve(

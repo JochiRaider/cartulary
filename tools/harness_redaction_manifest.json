@@ -42,19 +42,14 @@
       "replacement": "[REDACTED:token]"
     },
     {
-      "name": "postgres_password",
-      "pattern": "(?i)postgres(?:ql)?://([^:\\s/@]+):([^@\\s]+)@",
-      "replacement": "postgres://$1:[REDACTED:dsn]@"
-    },
-    {
       "name": "postgres_password_assignment",
       "pattern": "(?i)\\b(password\\s*=\\s*)([^\\s&;]+)",
       "replacement": "$1[REDACTED:dsn]"
     },
     {
       "name": "generic_url_userinfo",
-      "pattern": "(?i)\\b([a-z][a-z0-9+.-]*://)([^:/\\s@]+):([^@\\s]+)@",
-      "replacement": "$1$2:[REDACTED:dsn]@"
+      "pattern": "(?i)\\b([a-z][a-z0-9+.-]*://)([^/?#\\s@]+)@",
+      "replacement": "$1[REDACTED:dsn]@"
     },
     {
       "name": "cli_secret_argument_equals",

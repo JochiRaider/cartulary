@@ -7,6 +7,7 @@ import (
 )
 
 func TestCrossOwnerDescriptorsUsesCurrentMachineContract(t *testing.T) {
+	t.Run("portability operation policies", checkIncidentPortabilityPolicies)
 	current := extensions.ParticipantContract{
 		ParticipantID:         "current.participant",
 		OwnerProfileID:        "current",

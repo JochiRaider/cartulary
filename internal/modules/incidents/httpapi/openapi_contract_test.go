@@ -73,7 +73,7 @@ func TestIncidentOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		"getIncident": {
 			statuses: map[string][]string{
 				"200": nil,
-				"400": {"invalid_list_query"},
+				"400": {"invalid_pagination_request"},
 				"401": {"session_required"},
 				"404": {"incident_not_found"},
 				"409": {"credential_bootstrap_rejected"},

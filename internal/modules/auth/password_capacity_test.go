@@ -36,6 +36,23 @@ func TestLoginCapacityAdmissionDoesNotDiscloseAccountExistence_Unit(t *testing.T
 	}
 	results := make(chan result, 64)
 	start := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	received := 0
+	defer func() {
+		cancel()
+		first.Close()
+		second.Close()
+		deadline := time.After(5 * time.Second)
+		for received < 64 {
+			select {
+			case <-results:
+				received++
+			case <-deadline:
+				t.Error("capacity request workers did not settle after cancellation")
+				return
+			}
+		}
+	}()
 	for i := range 64 {
 		go func() {
 			<-start
@@ -44,6 +61,7 @@ func TestLoginCapacityAdmissionDoesNotDiscloseAccountExistence_Unit(t *testing.T
 				username = "unknown@example.test"
 			}
 			request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{"username":"`+username+`","password":"Incorrect password 1!"}`))
+			request = request.WithContext(ctx)
 			response := httptest.NewRecorder()
 			at := time.Now()
 			service.handleLogin(response, request)
@@ -51,9 +69,10 @@ func TestLoginCapacityAdmissionDoesNotDiscloseAccountExistence_Unit(t *testing.T
 		}()
 	}
 	close(start)
-	for range 64 - authn.PasswordPendingWorkflows {
+	for range 64 - 8 {
 		select {
 		case outcome := <-results:
+			received++
 			if outcome.response.Code != http.StatusServiceUnavailable || outcome.response.Header().Get("Retry-After") != "1" {
 				t.Fatalf("overload response %d %s", outcome.response.Code, outcome.response.Body.String())
 			}
@@ -80,9 +99,10 @@ func TestLoginCapacityAdmissionDoesNotDiscloseAccountExistence_Unit(t *testing.T
 	}
 	first.Close()
 	second.Close()
-	for range authn.PasswordPendingWorkflows {
+	for range 8 {
 		select {
 		case outcome := <-results:
+			received++
 			if outcome.response.Code != http.StatusUnauthorized {
 				t.Fatalf("admitted request %d", outcome.response.Code)
 			}
@@ -90,7 +110,7 @@ func TestLoginCapacityAdmissionDoesNotDiscloseAccountExistence_Unit(t *testing.T
 			t.Fatal("admitted request did not recover")
 		}
 	}
-	if lookups.Load() != authn.PasswordPendingWorkflows {
+	if lookups.Load() != 8 {
 		t.Fatal("unexpected admitted lookup count")
 	}
 }

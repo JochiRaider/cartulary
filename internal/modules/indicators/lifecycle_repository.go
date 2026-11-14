@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/intervalhistory"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -37,7 +38,7 @@ func insertIndicatorLifecycleIntervalTx(ctx context.Context, tx pgx.Tx, actorUse
 	if err != nil {
 		return IndicatorLifecycleIntervalRecord{}, fmt.Errorf("encode indicator lifecycle support refs: %w", err)
 	}
-	if err := tx.QueryRow(ctx, `
+	stored, err := intervalhistory.Scan(tx.QueryRow(ctx, `
 INSERT INTO indicator_state_intervals (
     incident_id,
     indicator_record_id,
@@ -54,11 +55,14 @@ INSERT INTO indicator_state_intervals (
     created_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, 1, $11, $12)
-RETURNING indicator_state_interval_id
-`, record.IncidentID, record.IndicatorRecordID, record.LifecycleState, record.ValidFrom.UTC(), record.ValidTo, record.Confidence, record.Rationale, supportRefsJSON, record.Assessor, record.AssessedAt.UTC(), record.CreatedByUserID, record.CreatedAt.UTC()).Scan(&record.IntervalID); err != nil {
+RETURNING indicator_state_interval_id,incident_id,indicator_record_id,lifecycle_state,
+valid_from,valid_to,confidence,rationale,support_refs,assessor,assessed_at,row_version,
+created_by_user_id,created_at,deleted_at,deleted_by_user_id
+`, record.IncidentID, record.IndicatorRecordID, record.LifecycleState, record.ValidFrom.UTC(), record.ValidTo, record.Confidence, record.Rationale, supportRefsJSON, record.Assessor, record.AssessedAt.UTC(), record.CreatedByUserID, record.CreatedAt.UTC()))
+	if err != nil {
 		return IndicatorLifecycleIntervalRecord{}, fmt.Errorf("insert indicator lifecycle interval: %w", err)
 	}
-	return record, nil
+	return IndicatorLifecycleIntervalRecord(stored), nil
 }
 
 func listIndicatorLifecycleIntervals(ctx context.Context, db interface {

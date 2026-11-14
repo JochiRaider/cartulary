@@ -105,6 +105,7 @@
         "apps",
         "cmd",
         "contracts",
+        "db",
         "docker-compose.dev.yml",
         "go.mod",
         "go.sum",
@@ -114,17 +115,7 @@
         "pnpm-lock.yaml",
         "pnpm-workspace.yaml",
         "referencepacks",
-        "tools/harness_cache_registry.json",
-        "tools/harness_work_graph_owner.json",
-        "tools/release-evidence/check-release-artifact.sh",
-        "tools/release-evidence/generate-sbom-license-evidence.mjs",
-        "tools/release-evidence/validate-cyclonedx.mjs",
-        "tools/release-evidence/validate-license-report.mjs",
-        "tools/release-evidence/validate-release-sbom.mjs",
-        "tools/schemas/cartulary.harness_cache_record.v2.schema.json",
-        "tools/schemas/cartulary.harness_work_graph.v8.schema.json",
-        "tools/schemas/cartulary.license_report.v2.schema.json",
-        "tools/toolchain_pins.json"
+        "tools"
       ],
       "requires_vulnerability_database_revision": false,
       "operation_ids": [

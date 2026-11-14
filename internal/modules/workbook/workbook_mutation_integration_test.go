@@ -1074,9 +1074,9 @@ func seedDecisionRecord(t testing.TB, harness *appsupport.ServerHarness, inciden
 	recordID := uuid.New()
 	seedRecordEnvelope(t, harness, incidentID, actorID, recordID, "decision")
 	execSeed(t, harness, `
-INSERT INTO decisions (record_id, incident_id, summary, status, decision_type, decided_at)
-VALUES ($1, $2, $3, 'approved', 'containment', '2026-04-24T12:00:00Z')
-`, recordID, incidentID, summary)
+INSERT INTO decisions (record_id, incident_id, summary, status, decision_type, decided_at, owner_user_id, rationale)
+VALUES ($1, $2, $3, 'approved', 'containment', '2026-04-24T12:00:00Z', $4, 'Contain the incident while preserving evidence')
+`, recordID, incidentID, summary, actorID)
 	seedDecisionProjection(t, harness, recordID)
 	return recordID
 }
@@ -1086,9 +1086,9 @@ func seedTaskRecord(t testing.TB, harness *appsupport.ServerHarness, incidentID 
 	recordID := uuid.New()
 	seedRecordEnvelope(t, harness, incidentID, actorID, recordID, "task_request")
 	execSeed(t, harness, `
-INSERT INTO task_requests (record_id, incident_id, title, status, priority, updated_at)
-VALUES ($1, $2, $3, 'open', 'high', '2026-04-24T11:00:00Z')
-`, recordID, incidentID, title)
+INSERT INTO task_requests (record_id, incident_id, title, status, priority, task_kind, owner_user_id, updated_at)
+VALUES ($1, $2, $3, 'open', 'high', 'collection', $4, '2026-04-24T11:00:00Z')
+`, recordID, incidentID, title, actorID)
 	seedTaskRequestProjection(t, harness, recordID)
 	return recordID
 }
@@ -1099,7 +1099,7 @@ func seedEvidenceRecord(t testing.TB, harness *appsupport.ServerHarness, inciden
 	seedRecordEnvelope(t, harness, incidentID, actorID, recordID, "evidence")
 	execSeed(t, harness, `
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, requested_at)
-VALUES ($1, $2, $3, 'received', 'complete', '2026-04-24T10:00:00Z')
+VALUES ($1, $2, $3, 'received', 'pending', '2026-04-24T10:00:00Z')
 `, recordID, incidentID, title)
 	return recordID
 }

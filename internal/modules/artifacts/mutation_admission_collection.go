@@ -5,15 +5,13 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"golang.org/x/text/cases"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/textpolicy"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
 
-var riskReferenceCaseFolder = cases.Fold()
-
-func decodeArtifactCollectionActionPayload(fieldKey string, raw json.RawMessage, noteCreate bool) (collectionActionPayload, *AdmissionError) {
+func decodeArtifactCollectionActionPayload(fieldKey string, raw json.RawMessage) (collectionActionPayload, *AdmissionError) {
 	var object map[string]json.RawMessage
 	if json.Unmarshal(raw, &object) != nil || !artifactObjectHasOnlyFields(object, "kind", "actions") {
 		return collectionActionPayload{}, newAdmissionError(fieldKey, admissionInvalidValue)
@@ -39,7 +37,7 @@ func decodeArtifactCollectionActionPayload(fieldKey string, raw json.RawMessage,
 	}
 	payload := collectionActionPayload{Actions: make([]collectionAction, 0, len(rawActions))}
 	for _, rawAction := range rawActions {
-		action, admissionErr := decodeArtifactCollectionAction(fieldKey, rawAction, noteCreate)
+		action, admissionErr := decodeArtifactCollectionAction(fieldKey, rawAction)
 		if admissionErr != nil {
 			return collectionActionPayload{}, admissionErr
 		}
@@ -48,7 +46,7 @@ func decodeArtifactCollectionActionPayload(fieldKey string, raw json.RawMessage,
 	return payload, nil
 }
 
-func decodeArtifactCollectionAction(fieldKey string, raw json.RawMessage, noteCreate bool) (collectionAction, *AdmissionError) {
+func decodeArtifactCollectionAction(fieldKey string, raw json.RawMessage) (collectionAction, *AdmissionError) {
 	var object map[string]json.RawMessage
 	if json.Unmarshal(raw, &object) != nil {
 		return collectionAction{}, newAdmissionError(fieldKey, admissionInvalidValue)
@@ -75,11 +73,6 @@ func decodeArtifactCollectionAction(fieldKey string, raw json.RawMessage, noteCr
 		}
 		text, ok := artifactStringActionField(object, "tag_name")
 		label, normalized, valid := fieldnorm.NormalizeTagLabel(text)
-		if noteCreate && fieldKey == "note.tags" {
-			label, valid = normalizeCreatedNoteText(text, false, 64)
-			valid = valid && label != ""
-			normalized = riskReferenceCaseFolder.String(label)
-		}
 		if !ok || !valid {
 			return collectionAction{}, newAdmissionError(fieldKey, admissionInvalidValue)
 		}
@@ -143,12 +136,11 @@ func decodeArtifactCollectionAction(fieldKey string, raw json.RawMessage, noteCr
 			return collectionAction{}, newAdmissionError(fieldKey, admissionInvalidValue)
 		}
 		text, ok := artifactStringActionField(object, "risk_ref_text")
-		normalized, valid := fieldnorm.NormalizeLine(text)
-		if !ok || !valid {
+		normalized, valid := textpolicy.Normalize(text, "single_line_title_v1")
+		if !ok || !valid || normalized == "" {
 			return collectionAction{}, newAdmissionError(fieldKey, admissionInvalidValue)
 		}
 		action.RiskRefText = normalized
-		action.NormalizedText = riskReferenceCaseFolder.String(normalized)
 	case "remove_risk_ref":
 		if !artifactObjectHasOnlyFields(object, "op", "item_ref") {
 			return collectionAction{}, newAdmissionError(fieldKey, admissionInvalidValue)

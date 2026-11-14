@@ -82,14 +82,21 @@ func validMemberSHA(value string) bool {
 // The shared owner owns the manifest and records what the participant actually
 // emitted. A participant cannot overwrite Core data or another profile's files.
 type extensionMemberWriter struct {
-	destination incidentportability.MemberWriter
-	profileID   string
-	paths       map[string]incidentportability.Member
-	closed      bool
+	destination  incidentportability.MemberWriter
+	profileID    string
+	paths        map[string]incidentportability.Member
+	closed       bool
+	maximumItems int
 }
 
 func (w *extensionMemberWriter) WriteMember(ctx context.Context, path string, source io.Reader) (incidentportability.Member, error) {
-	if w.closed || !safeBundlePath(path) || !strings.HasPrefix(path, extensionMemberPrefix(w.profileID)) || len(w.paths) >= int(defaultArchiveMaxMembers) {
+	if w.closed || !safeBundlePath(path) || !strings.HasPrefix(path, extensionMemberPrefix(w.profileID)) {
+		return incidentportability.Member{}, ErrPortabilityPayload
+	}
+	if len(w.paths) >= w.maximumItems {
+		return incidentportability.Member{}, ErrPortabilityLimit
+	}
+	if len(w.paths) >= int(defaultArchiveMaxMembers) {
 		return incidentportability.Member{}, ErrPortabilityPayload
 	}
 	if _, duplicate := w.paths[path]; duplicate {
@@ -153,7 +160,14 @@ func decodeExtensionCatalogs(ctx context.Context, source incidentportability.Mem
 		var catalog extensionMemberCatalog
 		decoder := json.NewDecoder(bytes.NewReader(raw))
 		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&catalog); err != nil || !validExtensionCatalog(catalog) || path != extensionCatalogPath(catalog.ProfileID) {
+		if err := decoder.Decode(&catalog); err != nil || path != extensionCatalogPath(catalog.ProfileID) {
+			return nil, ErrPortabilityPayload
+		}
+		// Struct decoding accepts case aliases and turns missing/null scalar
+		// members into zero values. Bind the complete admitted schema back to
+		// the original canonical bytes before any participant sees the catalog.
+		encoded, err := encodeExtensionCatalog(catalog)
+		if err != nil || !bytes.Equal(raw, encoded) {
 			return nil, ErrPortabilityPayload
 		}
 		claimed[path] = true

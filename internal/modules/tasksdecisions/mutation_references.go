@@ -10,12 +10,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
 )
 
-func validateDirectReferenceTx(ctx context.Context, tx pgx.Tx, catalog *sourcecatalog.Catalog, incidentID uuid.UUID, fieldKey string, recordID uuid.UUID) error {
+func validateDirectReferenceTx(ctx context.Context, tx pgx.Tx, targets ReferenceTargetCapability, catalog *sourcecatalog.Catalog, incidentID uuid.UUID, fieldKey string, recordID uuid.UUID) error {
 	field, ok := catalog.Field(fieldKey)
 	if !ok || field.Reference.Role != "same_incident_record" {
 		return nil
 	}
-	return validateTargetRecordTx(ctx, tx, incidentID, recordID, field.Reference.ExpectedTargetRecordType, fieldKey)
+	return validateTargetRecordTx(ctx, tx, targets, incidentID, recordID, field.Reference.ExpectedTargetRecordType, fieldKey)
 }
 
 func isMemberUserReferenceField(catalog *sourcecatalog.Catalog, fieldKey string) bool {
@@ -27,6 +27,6 @@ func validateIncidentMemberUserTx(ctx context.Context, tx pgx.Tx, incidentID, us
 	return tasksource.ValidateMemberUserTx(ctx, tx, incidentID, userID, field)
 }
 
-func validateTargetRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, expectedType string, field string) error {
-	return tasksource.ValidateTargetRecordTx(ctx, tx, incidentID, recordID, expectedType, field)
+func validateTargetRecordTx(ctx context.Context, tx pgx.Tx, targets ReferenceTargetCapability, incidentID uuid.UUID, recordID uuid.UUID, expectedType string, field string) error {
+	return tasksource.ValidateTargetRecordTx(ctx, tx, targets, incidentID, recordID, expectedType, field)
 }

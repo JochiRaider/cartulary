@@ -1,6 +1,7 @@
 package hostidentity
 
 import (
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
@@ -10,6 +11,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
+
+type storeConflictFieldsStub struct{ conflicts.FieldResolver }
 
 type storePostgresStub struct{ dbport.DB }
 type storeProjectionMutationRowsStub struct{ projectionports.MutationRows }
@@ -22,6 +25,7 @@ type storePublicationStub struct {
 func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testing.T) {
 	valid := func() StoreDependencies {
 		return StoreDependencies{
+			ConflictTokens: conflicttest.NewCodec("hostidentity-store"), ConflictFields: storeConflictFieldsStub{},
 			Postgres:               storePostgresStub{},
 			Revisions:              &revisions.Appender{},
 			ProjectionMutationRows: storeProjectionMutationRowsStub{},
@@ -35,6 +39,9 @@ func TestHostIdentityStoreCompositionRequiresCompleteDependencies_Unit(t *testin
 		dependency string
 		mutate     func(*StoreDependencies)
 	}{
+		{name: "missing ConflictTokens", dependency: "ConflictTokens", mutate: func(d *StoreDependencies) { d.ConflictTokens = conflicts.ConflictTokenCodec{} }},
+		{name: "missing ConflictFields", dependency: "ConflictFields", mutate: func(d *StoreDependencies) { d.ConflictFields = nil }},
+		{name: "typed-nil ConflictFields", dependency: "ConflictFields", mutate: func(d *StoreDependencies) { d.ConflictFields = (*storeConflictFieldsStub)(nil) }},
 		{name: "missing Postgres", dependency: "Postgres", mutate: func(dependencies *StoreDependencies) { dependencies.Postgres = nil }},
 		{name: "typed-nil Postgres", dependency: "Postgres", mutate: func(dependencies *StoreDependencies) { dependencies.Postgres = (*storePostgresStub)(nil) }},
 		{name: "missing Revisions", dependency: "Revisions", mutate: func(dependencies *StoreDependencies) { dependencies.Revisions = nil }},

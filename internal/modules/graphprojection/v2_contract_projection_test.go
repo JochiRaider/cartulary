@@ -294,10 +294,41 @@ func checkProvenanceSchemaV2(t *testing.T, schema map[string]any) {
 	if err := json.Unmarshal(resultVectorsV2, &vectors); err != nil {
 		t.Fatal(err)
 	}
-	for name, vector := range vectors {
+	wantShapes := map[string][2]int{
+		"empty": {0, 0}, "direct": {2, 1}, "reverse": {2, 2},
+		"aggregate": {4, 2}, "null-entity": {2, 1}, "null-relationship": {2, 1},
+	}
+	if len(vectors) != len(wantShapes) {
+		t.Fatalf("schema vectors = %d, want %d", len(vectors), len(wantShapes))
+	}
+	for name, shape := range wantShapes {
+		vector, present := vectors[name]
+		if !present {
+			t.Fatalf("missing schema vector %s", name)
+		}
 		var result map[string]any
 		if err := json.Unmarshal(vector.ResultJSON, &result); err != nil {
 			t.Fatal(err)
+		}
+		vertices, edges := result["vertices"].([]any), result["edges"].([]any)
+		if len(vertices) != shape[0] || len(edges) != shape[1] {
+			t.Fatalf("%s schema witnesses = %d/%d, want %v", name, len(vertices), len(edges), shape)
+		}
+		if name == "aggregate" || name == "reverse" {
+			families := map[string]int{}
+			for _, raw := range vertices {
+				families["vertex/"+raw.(map[string]any)["vertex_family"].(string)]++
+			}
+			for _, raw := range edges {
+				families["edge/"+raw.(map[string]any)["edge_family"].(string)]++
+			}
+			want := map[string]int{"vertex/direct": 2, "edge/direct": 1, "edge/reverse": 1}
+			if name == "aggregate" {
+				want = map[string]int{"vertex/direct": 2, "vertex/aggregated": 2, "edge/aggregated": 2}
+			}
+			if !reflect.DeepEqual(families, want) {
+				t.Fatalf("%s schema families = %v, want %v", name, families, want)
+			}
 		}
 		wantValid := name != "null-entity" && name != "null-relationship"
 		if err := resultSchema.Validate(result); (err == nil) != wantValid {

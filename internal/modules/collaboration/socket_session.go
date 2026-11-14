@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -76,7 +75,7 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 	connectionID := uuid.New()
 	messages, unsubscribe := s.hub.SubscribeIncident(incidentID, defaultSocketBuffer)
 	defer unsubscribe()
-	first, err := s.readFirstMessage(ctx, conn)
+	first, err := s.readFirstMessage(ctx, conn, incidentID)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			lifecycleResult = "timeout"
@@ -89,19 +88,44 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	handshake, err := s.establishSession(ctx, conn, incidentID, principal, connectionID, messages, first)
+	// Cover failed acknowledgement/replay writes as well as the live loop.
+	defer s.removePresence(incidentID, connectionID)
+	authority := &socketAuthority{
+		sessionRevocations: sessionRevocations, incidentRevocations: incidentRevocations,
+		incidentTerminals: incidentTerminals, sessionExpiresAt: principal.Session.SessionExpiresAt, now: s.now,
+	}
+	var handshake establishedSession
+	// The upgrade may precede the first application frame by seconds. Resolve
+	// current session state again without sliding its idle expiry.
+	fresh, authenticationError := httpauth.AuthenticateRequest(r.WithContext(ctx), httpauth.Options{Store: s.authStore, Keys: s.keys, Hub: s.hub, Now: s.now})
+	if authenticationError != nil {
+		err = authority.check()
+		if err == nil {
+			err = &socketTermination{reasonCode: "session_revoked"}
+		}
+	} else {
+		principal = fresh
+		authority.sessionExpiresAt = fresh.Session.SessionExpiresAt
+		if err = authority.check(); err == nil {
+			handshake, err = s.establishSession(ctx, establishmentSocket{Socket: conn, authority: authority}, incidentID, principal, connectionID, messages, first)
+		}
+	}
 	if err != nil {
-		var terminalIncident terminalIncidentError
-		if errors.As(err, &terminalIncident) {
+		var terminal *socketTermination
+		if errors.As(err, &terminal) {
 			lifecycleResult = "canceled"
-			closed = true
+			if terminal.incidentClosed {
+				closed = s.writeTerminalIncidentError(ctx, conn, incidentID, terminal.reasonCode)
+			} else {
+				closed = s.writeSessionRevoked(ctx, conn, incidentID, terminal.reasonCode)
+			}
 			return
 		}
 		lifecycleResult = "rejected"
 		lifecycleErrorCode = "invalid_websocket_handshake"
 		_ = s.writeThenClose(ctx, conn, protocol.EphemeralMessage(incidentID, "error", map[string]any{
 			"code":      "invalid_websocket_handshake",
-			"message":   err.Error(),
+			"message":   "unable to establish collaboration session",
 			"retryable": false,
 		}, s.now()), 1008, invalidFirstMessage)
 		closed = true
@@ -111,11 +135,9 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 	untrackConnection := s.hub.TrackActiveConnection()
 	defer untrackConnection()
 
-	defer s.removePresence(incidentID, connectionID)
-
 	incoming := make(chan protocol.Message, defaultSocketBuffer)
 	readErrors := make(chan error, 1)
-	go s.readLoop(ctx, conn, incoming, readErrors)
+	go s.readLoop(ctx, conn, incidentID, incoming, readErrors)
 
 	lastInbound := s.now()
 	lastPing := s.now()
@@ -253,27 +275,23 @@ func heartbeatPingDue(now, lastInbound, lastPing time.Time) bool {
 }
 
 func (s *routeService) establishSession(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, principal httpauth.Principal, connectionID uuid.UUID, ownMessages <-chan protocol.Message, message protocol.Message) (establishedSession, error) {
+	payload, err := protocol.DecodeClientPayload(message)
+	if err != nil {
+		return establishedSession{}, err
+	}
+	if err := s.workspaces.validate(payload.Presence); err != nil {
+		return establishedSession{}, err
+	}
+	if _, apiErr := s.requireIncidentMembership(ctx, incidentID, principal.User.ID); apiErr != nil {
+		return establishedSession{}, &socketTermination{reasonCode: "incident_access_revoked"}
+	}
+	if closed, err := s.incidentClosed(ctx, incidentID, principal.User.ID); err != nil {
+		return establishedSession{}, err
+	} else if closed {
+		return establishedSession{}, &socketTermination{reasonCode: protocol.IncidentTerminalClosed, incidentClosed: true}
+	}
 	switch message.Type {
 	case "hello":
-		var payload struct {
-			ClientInstanceID string                 `json:"client_instance_id"`
-			Presence         protocol.PresenceInput `json:"presence"`
-		}
-		if err := decodePayloadObject(message.Payload, &payload); err != nil {
-			return establishedSession{}, err
-		}
-		if strings.TrimSpace(payload.ClientInstanceID) == "" {
-			return establishedSession{}, errors.New("client_instance_id is required")
-		}
-		if err := protocol.ValidatePresenceInput(payload.Presence); err != nil {
-			return establishedSession{}, err
-		}
-		if closed, err := s.incidentClosed(ctx, incidentID, principal.User.ID); err != nil {
-			return establishedSession{}, err
-		} else if closed {
-			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, protocol.IncidentTerminalClosed)
-			return establishedSession{}, terminalIncidentError{}
-		}
 		now := s.now()
 		resumeToken, _, err := s.replay.IssueResumeToken(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
 		if err != nil {
@@ -283,111 +301,92 @@ func (s *routeService) establishSession(ctx context.Context, conn protocol.Socke
 		if err != nil {
 			return establishedSession{}, err
 		}
-		presence := s.hub.UpsertPresence(incidentID, connectionID, principal.User.ID, principal.User.DisplayName, payload.Presence, now)
-		if err := s.writeMessage(ctx, conn, protocol.EphemeralMessage(incidentID, "hello_ack", map[string]any{
+		ack := protocol.EphemeralMessage(incidentID, "hello_ack", map[string]any{
 			"connection_id":         connectionID.String(),
 			"resume_token":          resumeToken,
 			"server_time":           now.UTC().Format(time.RFC3339Nano),
 			"heartbeat_interval_ms": int(protocol.HeartbeatInterval / time.Millisecond),
 			"presence_ttl_ms":       int(protocol.PresenceTTL / time.Millisecond),
 			"resume_window_ms":      int(protocol.ResumeWindow / time.Millisecond),
-		}, now)); err != nil {
+		}, now)
+		if err := s.publishSessionPresence(ctx, conn, incidentID, connectionID, ownMessages, principal, payload.Presence, ack, nil); err != nil {
 			return establishedSession{}, err
 		}
-		if err := s.writeMessage(ctx, conn, protocol.PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
-			return establishedSession{}, err
-		}
-		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
 		return establishedSession{ClientInstanceID: payload.ClientInstanceID, LiveAfterStreamSeq: highWater}, nil
 
 	case "resume":
-		var payload struct {
-			ClientInstanceID  string                 `json:"client_instance_id"`
-			ResumeToken       string                 `json:"resume_token"`
-			LastSeenStreamSeq int64                  `json:"last_seen_stream_seq"`
-			Presence          protocol.PresenceInput `json:"presence"`
-		}
-		if err := decodePayloadObject(message.Payload, &payload); err != nil {
-			return establishedSession{}, err
-		}
-		if strings.TrimSpace(payload.ClientInstanceID) == "" || strings.TrimSpace(payload.ResumeToken) == "" {
-			return establishedSession{}, errors.New("client_instance_id and resume_token are required")
-		}
-		if err := protocol.ValidatePresenceInput(payload.Presence); err != nil {
-			return establishedSession{}, err
-		}
-		if _, apiErr := s.requireIncidentMembership(ctx, incidentID, principal.User.ID); apiErr != nil {
-			return establishedSession{}, errors.New("incident authorization no longer valid")
-		}
-		if closed, err := s.incidentClosed(ctx, incidentID, principal.User.ID); err != nil {
-			return establishedSession{}, err
-		} else if closed {
-			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, protocol.IncidentTerminalClosed)
-			return establishedSession{}, terminalIncidentError{}
-		}
 		now := s.now()
-		replay, err := s.replay.ReplayMessages(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, payload.ResumeToken, payload.LastSeenStreamSeq, now)
-		if err != nil {
-			return establishedSession{}, err
-		}
+		// Issue the replacement before retaining a snapshot connection. This does
+		// not require the pool to provide a second connection during preparation.
 		resumeToken, _, err := s.replay.IssueResumeToken(ctx, principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
 		if err != nil {
 			return establishedSession{}, err
 		}
-		presence := s.hub.UpsertPresence(incidentID, connectionID, principal.User.ID, principal.User.DisplayName, payload.Presence, now)
-		if err := s.writeMessage(ctx, conn, protocol.EphemeralMessage(incidentID, "resume_ack", map[string]any{
+		replayCtx, cancelReplay := context.WithTimeout(ctx, protocol.HeartbeatTimeout)
+		defer cancelReplay()
+		replay, err := s.replay.PrepareReplay(replayCtx, principal.Session.ID, incidentID, payload.ClientInstanceID, payload.ResumeToken, payload.LastSeenStreamSeq, now)
+		if err != nil {
+			return establishedSession{}, err
+		}
+		defer replay.Close()
+		ack := protocol.EphemeralMessage(incidentID, "resume_ack", map[string]any{
 			"connection_id":                connectionID.String(),
-			"status":                       replay.Status,
+			"status":                       replay.Status(),
 			"resume_token":                 resumeToken,
-			"server_high_water_stream_seq": replay.HighWater,
-		}, now)); err != nil {
+			"server_high_water_stream_seq": replay.HighWater(),
+		}, now)
+		if err := s.publishSessionPresence(replayCtx, conn, incidentID, connectionID, ownMessages, principal, payload.Presence, ack, func() error {
+			return replay.Visit(replayCtx, func(replayed protocol.Message) error { return s.writeMessage(replayCtx, conn, replayed) })
+		}); err != nil {
 			return establishedSession{}, err
 		}
-		if replay.Status == protocol.ResumeStatusReplayed {
-			for _, replayed := range replay.Messages {
-				if err := s.writeMessage(ctx, conn, replayed); err != nil {
-					return establishedSession{}, err
-				}
-			}
-		}
-		if err := s.writeMessage(ctx, conn, protocol.PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
-			return establishedSession{}, err
-		}
-		s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
-		return establishedSession{ClientInstanceID: payload.ClientInstanceID, LiveAfterStreamSeq: replay.HighWater}, nil
+		return establishedSession{ClientInstanceID: payload.ClientInstanceID, LiveAfterStreamSeq: replay.HighWater()}, nil
 	default:
 		return establishedSession{}, errors.New("first message must be hello or resume")
 	}
 }
 
-type terminalIncidentError struct{}
-
-func (terminalIncidentError) Error() string {
-	return "terminal incident websocket"
+// Presence belongs to the entire establishment attempt. Failed acknowledgement,
+// replay or snapshot writes must not leave a presence awaiting TTL expiry.
+func (s *routeService) publishSessionPresence(ctx context.Context, conn protocol.Socket, incidentID, connectionID uuid.UUID, ownMessages <-chan protocol.Message, principal httpauth.Principal, input protocol.PresenceInput, ack protocol.Message, replay func() error) (err error) {
+	now := s.now()
+	presence := s.hub.UpsertPresence(incidentID, connectionID, principal.User.ID, principal.User.DisplayName, input, now)
+	defer func() {
+		if err != nil {
+			s.removePresence(incidentID, connectionID)
+		}
+	}()
+	if err = s.writeMessage(ctx, conn, ack); err != nil {
+		return err
+	}
+	if replay != nil {
+		if err = replay(); err != nil {
+			return err
+		}
+	}
+	now = s.now()
+	if err = s.writeMessage(ctx, conn, protocol.PresenceSnapshotMessage(incidentID, s.hub.PresenceSnapshot(incidentID, now), now)); err != nil {
+		return err
+	}
+	s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
+	return nil
 }
 
 func (s *routeService) handleClientMessage(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, connectionID uuid.UUID, ownMessages <-chan protocol.Message, principal httpauth.Principal, message protocol.Message) bool {
+	payload, err := protocol.DecodeClientPayload(message)
+	if err != nil {
+		s.writeInvalidLaterMessage(ctx, conn, incidentID, err.Error())
+		return false
+	}
 	switch message.Type {
 	case "pong":
-		var payload map[string]any
-		if err := decodePayloadObject(message.Payload, &payload); err != nil {
-			s.writeInvalidLaterMessage(ctx, conn, incidentID, err.Error())
-			return false
-		}
 		now := s.now()
 		if presence, renewed := s.hub.RenewPresence(incidentID, connectionID, now); renewed {
 			s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
 		}
 		return true
 	case "presence_update":
-		var payload struct {
-			Presence protocol.PresenceInput `json:"presence"`
-		}
-		if err := decodePayloadObject(message.Payload, &payload); err != nil {
-			s.writeInvalidLaterMessage(ctx, conn, incidentID, err.Error())
-			return false
-		}
-		if err := protocol.ValidatePresenceInput(payload.Presence); err != nil {
+		if err := s.workspaces.validate(payload.Presence); err != nil {
 			s.writeInvalidLaterMessage(ctx, conn, incidentID, err.Error())
 			return false
 		}

@@ -3,7 +3,6 @@ package extensions
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -35,9 +34,9 @@ func NewResolvedClaimSet(profileIDs []string) (ResolvedClaimSet, error) {
 		canonicalIDs = append(canonicalIDs, profileID)
 	}
 	sort.Strings(canonicalIDs)
-	canonicalBytes, err := json.Marshal(struct {
+	canonicalBytes, err := canonicalJSON(struct {
 		ProfileIDs []string `json:"profile_ids"`
-	}{ProfileIDs: canonicalIDs})
+	}{ProfileIDs: canonicalIDs}, true)
 	if err != nil {
 		return ResolvedClaimSet{}, fmt.Errorf("encode resolved extension claim set: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,6 +35,8 @@ func recordBrowserRecoveryFixture(t *testing.T, runtime *harnesssession.Runtime,
 	return runtime.RecordDependentResource("browser_stack", browser, "pending", []string{fixtureReference(t, runtime, kind, dependency)}, binding, environmentFile)
 }
 func TestFixtureRecovery(t *testing.T) {
+	testPackageResourcePhysicalRecovery(t)
+	testRecoveryEnvironment(t)
 	testOwnedLeaseWithoutStartupEnvironment(t)
 	testPendingStartupRecovery(t)
 	testRecoveryCommand(t)
@@ -292,8 +295,129 @@ func TestFixtureRecovery(t *testing.T) {
 	}
 }
 
+func testPackageResourcePhysicalRecovery(t *testing.T) {
+	for _, mode := range []string{"ordinary", "recovery"} {
+		t.Run("package_resources_independent_physical_cleanup_"+mode, func(t *testing.T) {
+			runtime, root, run := runtimeFixture(t)
+			log, worker := filepath.Join(t.TempDir(), "calls"), filepath.Join(t.TempDir(), "physical-worker")
+			script := "#!/bin/sh\ninput=$(/bin/cat)\nprintf '%s\\n' \"$input\" >> \"$PACKAGE_FIXTURE_LOG\"\ncase \"$input\" in *'\"role\":\"application\"'*) exit 12;; esac\n"
+			if err := os.WriteFile(worker, []byte(script), 0700); err != nil {
+				t.Fatal(err)
+			}
+			for _, role := range []string{"application", "postgres", "seaweedfs", "build_tag"} {
+				proof := map[string]any{"daemon_id": "fixture-engine", "token": "11111111-2222-4333-8444-555555555555", "role": role}
+				if err := runtime.RecordDependentResource("package_resource", proof, "pending", []string{}); err != nil {
+					t.Fatal(err)
+				}
+				defer runtime.RecordResource("package_resource", proof, "released")
+			}
+			p := ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: map[string]string{"NODE_BIN": worker, "PACKAGE_FIXTURE_LOG": log}}
+			var err error
+			if mode == "recovery" {
+				err = p.Recover(context.Background())
+			} else {
+				err = p.closeResources(context.Background(), "", nil)
+			}
+			if err == nil {
+				t.Fatal("failed package resource was accepted")
+			}
+			data, readErr := os.ReadFile(log)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			roles := map[string]bool{}
+			for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+				var resource harnesssession.Resource
+				if err := json.Unmarshal([]byte(line), &resource); err != nil {
+					t.Fatal(err)
+				}
+				var proof struct {
+					Role string `json:"role"`
+				}
+				if err := json.Unmarshal(resource.Target, &proof); err != nil {
+					t.Fatal(err)
+				}
+				if roles[proof.Role] || resource.Kind != "package_resource" || resource.RunID != runtime.RunID || resource.LeaseID != runtime.LeaseID {
+					t.Fatal("incorrect physical ownership", resource)
+				}
+				roles[proof.Role] = true
+			}
+			if len(roles) != 4 {
+				t.Fatal("independent package cleanup skipped", roles)
+			}
+			remaining, err := runtime.Resources(4096)
+			if err != nil || len(remaining) != 1 || !strings.Contains(string(remaining[0].Target), `"role":"application"`) {
+				t.Fatal("failed proof lost or successful proof retained", remaining, err)
+			}
+		})
+	}
+}
+
+func testRecoveryEnvironment(t *testing.T) {
+	t.Run("recovery_environment_round_trip", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Chmod(root, 0700); err != nil {
+			t.Fatal(err)
+		}
+		file := filepath.Join(root, "environment.json")
+		input := map[string]string{
+			"SSL_CERT_FILE": "root.pem", "CARTULARY_TEST_SUITE_ID": "suite",
+			"CARTULARY_PGTEST_ADMIN_DSN":              "private-database-binding",
+			"CARTULARY_S3TEST_ENDPOINT":               "private-object-binding",
+			"CARTULARY_S3TEST_PROXY_CERTIFICATE_PATH": "excluded.pem",
+			"CARTULARY_S3TEST_PROXY_PRIVATE_KEY_PATH": "excluded.key",
+			"UNRELATED_SECRET":                        "excluded-secret",
+		}
+		if err := saveRecoveryEnvironment(file, input); err != nil {
+			t.Fatal(err)
+		}
+		got, err := readRecoveryEnvironment(file)
+		want := map[string]string{
+			"SSL_CERT_FILE": "root.pem", "CARTULARY_TEST_SUITE_ID": "suite",
+			"CARTULARY_PGTEST_ADMIN_DSN": "private-database-binding",
+			"CARTULARY_S3TEST_ENDPOINT":  "private-object-binding",
+		}
+		if err != nil || !maps.Equal(got, want) {
+			t.Fatal("recovery environment lost its exact allowlisted bindings", err)
+		}
+		if err := saveRecoveryEnvironment(file, map[string]string{}); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := readRecoveryEnvironment(file); err != nil || got == nil || len(got) != 0 {
+			t.Fatal("empty prelaunch environment rejected", err)
+		}
+	})
+	for name, data := range map[string]string{
+		"duplicate":        `{"CARTULARY_TEST_SUITE_ID":"foreign","CARTULARY_TEST_SUITE_ID":"suite"}`,
+		"null_document":    `null`,
+		"null_binding":     `{"SSL_CERT_FILE":null}`,
+		"numeric_binding":  `{"SSL_CERT_FILE":12}`,
+		"boolean_binding":  `{"SSL_CERT_FILE":false}`,
+		"object_binding":   `{"SSL_CERT_FILE":{}}`,
+		"array":            `[]`,
+		"string":           `"private-input"`,
+		"unknown_binding":  `{"UNRELATED_SECRET":"private-input"}`,
+		"trailing_value":   `{} {}`,
+		"trailing_garbage": `{} private-input`,
+		"incomplete":       `{"SSL_CERT_FILE":`,
+	} {
+		t.Run("recovery_environment_rejects_"+name, func(t *testing.T) {
+			file := filepath.Join(t.TempDir(), "environment.json")
+			if err := os.WriteFile(file, []byte(data), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := readRecoveryEnvironment(file); err == nil {
+				t.Fatal("ambiguous or malformed recovery environment accepted")
+			}
+			if retained, err := os.ReadFile(file); err != nil || string(retained) != data {
+				t.Fatal("rejected authority was changed", err)
+			}
+		})
+	}
+}
+
 func testOwnedLeaseWithoutStartupEnvironment(t *testing.T) {
-	for _, variant := range []string{"owned", "failed_cleanup", "foreign_run", "foreign_root", "borrowed", "foreign_label", "short_identity", "pending", "missing_lease", "malformed_environment", "unsafe_environment"} {
+	for _, variant := range []string{"owned", "failed_cleanup", "foreign_run", "foreign_root", "borrowed", "foreign_label", "short_identity", "pending", "missing_lease", "malformed_environment", "duplicate_environment", "unsafe_environment"} {
 		t.Run("lease_without_startup_environment_"+variant, func(t *testing.T) {
 			runtime, root, run := runtimeFixture(t)
 			file := filepath.Join(runtime.Root, "suite", "suite-lease.json")
@@ -328,6 +452,10 @@ func testOwnedLeaseWithoutStartupEnvironment(t *testing.T) {
 			envFile := filepath.Join(filepath.Dir(file), "suite-environment.json")
 			if variant == "malformed_environment" {
 				writeFixtureJSON(t, envFile, []string{"invalid"})
+			} else if variant == "duplicate_environment" {
+				if err := os.WriteFile(envFile, []byte(`{"CARTULARY_TEST_SUITE_ID":"foreign","CARTULARY_TEST_SUITE_ID":"original-suite"}`), 0600); err != nil {
+					t.Fatal(err)
+				}
 			} else if variant == "unsafe_environment" {
 				if err := os.Symlink(file, envFile); err != nil {
 					t.Fatal(err)

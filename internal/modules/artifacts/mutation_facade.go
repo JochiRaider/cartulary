@@ -161,9 +161,9 @@ func NewMutationContribution(
 	if err != nil {
 		return nil, fmt.Errorf("compose Artifacts source catalog: %w", err)
 	}
-	conflictSnapshots, err := conflicttokens.NewRevisionSnapshotProjector(
-		"cartulary.revisions.snapshot.artifact.v1",
-		catalog.ConflictFieldSourceKeys(),
+	conflictSnapshots, err := conflicttokens.NewRevisionSnapshotPathProjector(
+		"cartulary.revisions.snapshot.artifact.v2",
+		catalog.ConflictFieldSourcePaths(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compose Artifacts conflict snapshot projector: %w", err)

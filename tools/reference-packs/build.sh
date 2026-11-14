@@ -4,7 +4,7 @@ set -euo pipefail
 bash ./tools/harness/readiness/go-toolchain-readiness.sh ensure
 qualified_go="$(bash ./tools/harness/readiness/go-toolchain-readiness.sh resolve)"
 "${NODE_BIN:?}" tools/harness/readiness/cryptographic-build-cli.mjs verify
-module_info="$("$NODE_BIN" --input-type=module -e 'import { independentGoModules, validateIndependentGoModule } from "./tools/harness/test-catalog/go-modules.mjs"; const selected = independentGoModules(process.cwd()).find(entry => entry.root === `referencepacks/${process.env.PRODUCER}`); if (!selected) throw new Error("unregistered module"); validateIndependentGoModule(process.cwd(), selected.root); process.stdout.write([selected.root, selected.module_path, selected.version].join("\t"));')"
+module_info="$("$NODE_BIN" --input-type=module -e 'import { independentGoModules, validateIndependentGoModule } from "./tools/harness/test-catalog/go-modules.mjs"; const selected = independentGoModules(process.cwd()).find(entry => entry.root === "referencepacks/" + process.env.PRODUCER); if (!selected) throw new Error("unregistered module"); validateIndependentGoModule(process.cwd(), selected.root); process.stdout.write([selected.root, selected.module_path, selected.version].join("\t"));')"
 IFS=$'\t' read -r module_root module_path module_version <<< "$module_info"
 mkdir -p "${GO_TMP_DIR:?}" "${GO_CACHE_DIR:?}" "${GO_MOD_CACHE_DIR:?}" .cartulary/reference-packs/modules
 module_work="$(mktemp -d "$GO_TMP_DIR/reference-pack-builder.XXXXXXXX")"
@@ -15,7 +15,7 @@ env CGO_ENABLED=0 GOWORK=off GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_D
 module_store="$(pwd)/.cartulary/reference-packs/modules"
 "$module_work/archive" -root "$module_root" -module "$module_path" -version "$module_version" -out "$module_store" > "$module_work/descriptor.json"
 archive_info="$("$NODE_BIN" --input-type=module -e 'import { readFileSync } from "node:fs"; const d = JSON.parse(readFileSync(process.argv[1], "utf8")); process.stdout.write([d.archive_path, d.version, d.source_sha256].join("\t"));' "$module_work/descriptor.json")"
-IFS=$'\t' read -r archive_path archive_version source_sha <<< "$archive_info"
+IFS=$'\t' read -r archive_path archive_version _ <<< "$archive_info"
 mkdir "$module_work/source"
 "$module_work/archive" -action extract -archive "$archive_path" -module "$module_path" -version "$archive_version" -out "$module_work/source"
 mkdir -p build/bin
@@ -42,5 +42,5 @@ if [[ -e "$producer_store/reproducibility.json" ]]; then
 else
   ln -- "$module_work/reproducibility.json" "$producer_store/reproducibility.json"
 fi
-install -m 0755 "$module_work/binaries/first" build/bin/reference-pack-${PRODUCER}
+install -m 0755 "$module_work/binaries/first" "build/bin/reference-pack-${PRODUCER}"
 printf 'Independent reference pack producer reproduced: %s; evidence=%s\n' "$producer_sha" "$producer_store"

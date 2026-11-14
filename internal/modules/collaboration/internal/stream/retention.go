@@ -8,47 +8,35 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
-const (
-	maxRetainedEvents = 100_000
-	maxRetainedBytes  = 256 * 1024 * 1024
-	maxRetentionAge   = 24 * time.Hour
-)
+const minRetainedEvents = 10_000
 
 func (s *PostgresStream) PruneReplay(ctx context.Context, now time.Time) error {
+	// Retain one contiguous suffix covering both the count and time guarantees.
+	// Sequence order is authoritative even when publisher clocks move backwards.
 	_, err := s.db.Exec(ctx, `
-DELETE FROM collaboration_replay_events
- WHERE emitted_at < $1
-`, now.Add(-maxRetentionAge))
-	if err != nil {
-		return fmt.Errorf("prune collaboration replay maximum age: %w", err)
-	}
-	_, err = s.db.Exec(ctx, `
 WITH ranked AS (
     SELECT
-        event_id,
+        incident_id,
+        stream_seq,
         emitted_at,
         row_number() OVER (
             PARTITION BY incident_id
             ORDER BY stream_seq DESC
-        ) AS recency_rank,
-        sum(octet_length(canonical_payload::text)) OVER (
-            PARTITION BY incident_id
-            ORDER BY stream_seq DESC
-            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS retained_bytes
+        ) AS recency_rank
       FROM collaboration_replay_events
+), retained AS (
+    SELECT incident_id, min(stream_seq) AS first_sequence
+      FROM ranked
+     WHERE recency_rank <= $2 OR emitted_at >= $1
+     GROUP BY incident_id
 )
 DELETE FROM collaboration_replay_events AS event
- USING ranked
- WHERE event.event_id = ranked.event_id
-   AND ranked.emitted_at < $1
-   AND (
-       ranked.recency_rank > $2
-       OR ranked.retained_bytes > $3
-   )
-`, now.Add(-protocol.ResumeWindow), maxRetainedEvents, maxRetainedBytes)
+ USING retained
+ WHERE event.incident_id = retained.incident_id
+   AND event.stream_seq < retained.first_sequence
+`, now.Add(-protocol.ResumeWindow), minRetainedEvents)
 	if err != nil {
-		return fmt.Errorf("prune collaboration replay capacity: %w", err)
+		return fmt.Errorf("prune collaboration replay window: %w", err)
 	}
 	_, err = s.db.Exec(ctx, `
 WITH expired AS (

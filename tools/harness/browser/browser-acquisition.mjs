@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createSecureWriteStream, parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { CommandFailure, publishCommandFailure, readCommandFailure } from "../runtime/command-failure.mjs";
-import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
+import { drainOwnedProcess, inspectOwnedProcess, ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { parseCleanupDiagnostic, withCleanupDiagnostic } from "../runtime/cleanup-diagnostic.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
 import { borrowRuntime } from "../runtime/session-client.mjs";
@@ -244,6 +244,24 @@ export async function settleAcquisitionService(file, pid, { stop = stopOwnedProc
   if (matches.length !== 1) throw invalid();
   await stop(matches[0].proof, { environment });
   closeAcquisitionLaunch(file, matches[0].launch_id, environment);
+}
+
+export async function drainAcquisitionService(file, pid, { timeoutMS, drain = drainOwnedProcess, environment = process.env } = {}) {
+  if (!Number.isSafeInteger(pid) || pid < 2 || !Number.isSafeInteger(timeoutMS) || timeoutMS < 1 || timeoutMS > 86_400_000) throw invalid();
+  const records = resources(file);
+  const matches = records.processes.filter(entry => entry.proof.pid === pid && !records.closed.has(entry.launch_id));
+  if (matches.length !== 1 || matches[0].role !== "backend") throw invalid();
+  await drain(matches[0].proof, { timeoutMS, environment });
+  closeAcquisitionLaunch(file, matches[0].launch_id, environment);
+}
+
+export async function acquisitionServiceRunning(file, pid, { inspect = inspectOwnedProcess, environment = process.env } = {}) {
+  if (!Number.isSafeInteger(pid) || pid < 2) throw invalid();
+  const records = resources(file);
+  const matches = records.processes.filter(entry => entry.role !== "producer" && entry.proof.pid === pid);
+  if (matches.length !== 1) throw invalid();
+  if (records.closed.has(matches[0].launch_id)) return false;
+  return inspect(matches[0].proof, { environment });
 }
 
 export function releaseAcquisitionPorts(file, environment = process.env) {
@@ -484,11 +502,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     else if (operation === "reserve-port") process.exitCode = reserveAcquisitionPort(file, args[0], Number(args[1])) ? 0 : 1;
     else if (operation === "spawn") await spawnService(file, args[0], args[1], args[2], args.slice(3));
     else if (operation === "settle-service" && args.length === 1) await settleAcquisitionService(file, Number(args[0]));
+    else if (operation === "drain-service" && args.length === 2) await drainAcquisitionService(file, Number(args[0]), { timeoutMS: Number(args[1]) });
+    else if (operation === "running-service" && args.length === 1) process.exitCode = await acquisitionServiceRunning(file, Number(args[0])) ? 0 : 1;
     else if (operation === "settle") await settleBrowserAcquisition({ file, root, environment: process.env, producerActive: args[0] === "producer-active" });
     else throw invalid();
   } catch (error) {
     process.stderr.write(`browser acquisition ${operation} failed\n`);
-    process.exitCode = error.failure_reason === "artifact_error" ? 11 : 12;
+    process.exitCode = error.failure_reason === "artifact_error" ? 11 : error.failure_reason === "timeout_failure" ? 13 : 12;
     // Startup owners publish their known cause through the existing private
     // channel. An exit-trap settlement is secondary to the producer's outcome.
     if (operation !== "settle" && error instanceof CommandFailure) {

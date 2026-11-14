@@ -57,9 +57,9 @@ func TestCookieMutationCSRF_Unit(t *testing.T) {
 							t.Fatal("CSRF rejection must not change a password")
 							return authn.PasswordChangeResult{}, nil
 						},
-						beginTOTPEnrollmentFunc: func(context.Context, uuid.UUID, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error) {
+						beginTOTPEnrollmentFunc: func(context.Context, authn.TOTPBeginInput, time.Time) (authn.PendingTOTPEnrollmentRecord, error) {
 							t.Fatal("CSRF rejection must not create an enrollment")
-							return authn.PendingTOTPEnrollmentRecord{}, false, nil
+							return authn.PendingTOTPEnrollmentRecord{}, nil
 						},
 						activateTOTPEnrollmentFunc: func(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, []byte, []byte, time.Time) (authn.TOTPCompleteResult, error) {
 							t.Fatal("CSRF rejection must not activate a factor")

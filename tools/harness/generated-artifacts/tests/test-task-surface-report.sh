@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
 NODE_BIN="${NODE_BIN:-node}"
 REPORTER="$ROOT_DIR/tools/harness/generated-artifacts/task-surface-report-cli.mjs"
 cleanup_paths=()
@@ -73,7 +75,9 @@ assert_contains "$valid_output" "Cartulary task-surface report" "current report 
 assert_contains "$valid_output" "target_class counts:" "current report target_class summary"
 assert_contains "$valid_output" "compact help count:" "current report compact help summary"
 assert_contains "$valid_output" "scheduler growth:" "current report scheduler growth summary"
-assert_contains "$valid_output" "scratch_generations_byte_identical: true" "scheduler generation determinism gate"
+assert_contains "$valid_output" "scratch_compiles_byte_identical: true" "scheduler generation determinism gate"
+[[ "$valid_output" =~ work_unit_count:\ [1-9][0-9]* ]] || fail "scheduler growth must measure actual nonempty compiled work"
+assert_contains "$valid_output" '"target":"release-check"' "scheduler growth names its planning selection"
 assert_contains "$valid_output" "help tier counts:" "current report help tier summary"
 mapfile -t expected_count_lines < <("$NODE_BIN" - "$ROOT_DIR/tools/task_surface_manifest.json" <<'EOF'
 const { readFileSync } = require("node:fs");
@@ -110,6 +114,65 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const [root] = process.argv.slice(2);
+const { measureSchedulerGrowth, schedulerGrowthPolicy } = await import(
+  pathToFileURL(path.join(root, "tools/harness/generated-artifacts/scheduler-growth.mjs")),
+);
+const specimen = (id, kind, payload) => ({ unit_id: id, kind, needs: [], row_bindings: [], payload });
+const runnerBase = Buffer.byteLength('{"unit_id":"aa","kind":"runner","needs":[],"row_bindings":[],"payload":""}');
+const policyBase = Buffer.byteLength('{"unit_id":"zz","kind":"policy","needs":[],"row_bindings":[],"payload":""}');
+const units = Array.from({ length: 20 }, (_, index) => specimen(String(index).padStart(2, "0"), "runner", "a".repeat(index + 1)));
+units.push(specimen("zz", "policy", "é"));
+const graph = { units };
+const measured = measureSchedulerGrowth(graph, structuredClone(graph));
+assert.deepEqual(measured.errors, []);
+assert.equal(measured.work_unit_count, 21);
+assert.equal(measured.max_serialized_work_unit_bytes, runnerBase + 20);
+assert.deepEqual(measured.per_kind.runner, {
+  work_unit_count: 20,
+  serialized_unit_bytes: 20 * runnerBase + 210,
+  bytes_per_unit: runnerBase + 11,
+  p95_serialized_unit_bytes: runnerBase + 19,
+  max_serialized_unit_bytes: runnerBase + 20,
+});
+assert.deepEqual(measured.per_kind.policy, {
+  work_unit_count: 1,
+  serialized_unit_bytes: policyBase + 2,
+  bytes_per_unit: policyBase + 2,
+  p95_serialized_unit_bytes: policyBase + 2,
+  max_serialized_unit_bytes: policyBase + 2,
+});
+const expectedGraphBytes = Buffer.byteLength('{"units":[]}\n') + 20 * runnerBase + 210 + policyBase + 2 + 20;
+assert.equal(measured.graph_bytes, expectedGraphBytes);
+assert.equal(measured.graph_bytes_per_work_unit, Math.ceil(expectedGraphBytes / 21));
+assert.equal(measured.scratch_compiles_byte_identical, true);
+const changed = structuredClone(graph);
+changed.units[0].payload = "different";
+assert.deepEqual(measureSchedulerGrowth(graph, changed).errors, ["two fresh scheduler graph compiles are not byte-identical"]);
+assert.equal(measureSchedulerGrowth(graph, changed).scratch_compiles_byte_identical, false);
+const atLimit = { units: [specimen("aa", "runner", "")] };
+const boundaryPolicy = { unit_budget_by_kind: { runner: { base_bytes: runnerBase, bytes_per_dependency: 0 } }, bytes_per_row_binding: 0 };
+assert.deepEqual(measureSchedulerGrowth(atLimit, atLimit, boundaryPolicy).errors, []);
+const overLimit = { units: [specimen("aa", "runner", "a")] };
+assert.deepEqual(measureSchedulerGrowth(overLimit, overLimit, boundaryPolicy).errors, [
+  `scheduler runner unit aa uses ${runnerBase + 1} bytes; structural budget is ${runnerBase}`,
+]);
+const wide = { units: [specimen("wide", "runner", "a".repeat(5000)), ...units] };
+assert.equal(measureSchedulerGrowth(wide, wide).errors.length, 1, "many small units cannot hide one wide unit");
+const packed = { units: [{ ...atLimit.units[0], row_bindings: [{ row_id: "row.a", runner: "go" }], needs: ["dep"] }] };
+const allowance = { bytes_per_row_binding: 32, unit_budget_by_kind: { runner: { base_bytes: runnerBase, bytes_per_dependency: 5 } } };
+assert.deepEqual(measureSchedulerGrowth(packed, packed, allowance).errors, [], "row/evidence and dependency allowances are explicit");
+assert.equal(measureSchedulerGrowth(packed, packed, { ...allowance, unit_budget_by_kind: { runner: { base_bytes: runnerBase, bytes_per_dependency: 4 } } }).errors.length, 1);
+for (const invalid of [{ units: [] }, { units: [specimen("aa", "new_kind", "")] }, { units: [atLimit.units[0], atLimit.units[0]] }]) {
+  assert.throws(() => measureSchedulerGrowth(invalid, graph));
+  assert.throws(() => measureSchedulerGrowth(graph, invalid));
+}
+for (const invalidPolicy of [
+  { ...boundaryPolicy, bytes_per_row_binding: NaN },
+  { ...boundaryPolicy, unit_budget_by_kind: { runner: { base_bytes: runnerBase } } },
+  { ...boundaryPolicy, unit_budget_by_kind: { runner: { base_bytes: 0, bytes_per_dependency: 0 } } },
+]) assert.throws(() => measureSchedulerGrowth(atLimit, atLimit, invalidPolicy), /invalid scheduler growth/);
+assert.deepEqual(Object.keys(schedulerGrowthPolicy.unit_budget_by_kind).sort(),
+  ["artifact", "finalizer", "fixture_builder", "lifecycle", "policy", "readiness", "runner"]);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
 const {
   collectTaskSurfaceManifestErrors,
@@ -287,7 +350,7 @@ assert.ok(
 );
 EOF
 
-tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/task-surface-report.XXXXXX")"
+tmp_dir="$(cartulary_harness_mktemp_dir task-surface-report.XXXXXX)"
 cleanup_paths+=("$tmp_dir")
 makefile_copy="$tmp_dir/Makefile"
 manifest_copy="$tmp_dir/task_surface_manifest.json"
@@ -306,6 +369,9 @@ run_report_copy() {
 printf '\n.PHONY: unclassified-target\nunclassified-target:\n\t@true\n' >>"$makefile_copy"
 unclassified_output="$(assert_fails "unclassified target drift" run_report_copy)"
 assert_contains "$unclassified_output" "unclassified-target is missing task-surface target_class" "unclassified target output"
+assert_contains "$unclassified_output" "status: not_measured" "invalid surface has no graph measurement claim"
+assert_contains "$unclassified_output" "reason: invalid_task_surface" "invalid surface explains omitted measurement"
+assert_not_contains "$unclassified_output" "scratch_compiles_byte_identical" "invalid surface has no fabricated determinism result"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"

@@ -97,6 +97,11 @@ func (s *store) applyAction(
 		_ = tx.Rollback(ctx)
 	}()
 
+	if routeKey == supersedeRouteKey && replacementRecordID != nil {
+		if _, err := s.recordStore.LoadEnvelopesForNoKeyUpdateTx(ctx, tx, []uuid.UUID{recordID, *replacementRecordID}); err != nil {
+			return MutationResult{}, fmt.Errorf("protect timeline supersession endpoints: %w", err)
+		}
+	}
 	current, err := s.loadSourceRecordTx(ctx, tx, recordID)
 	if err != nil {
 		return MutationResult{}, err

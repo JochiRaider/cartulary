@@ -22,22 +22,22 @@ func newSourceMutationService(
 	incidentState evidenceIncidentAdmissionPort,
 	recordEnvelopes evidenceRecordEnvelopePort,
 ) (*sourceMutationService, error) {
-	if pool == nil {
+	if isNilCapability(pool) {
 		return nil, errors.New("compose Evidence source mutations: Postgres is required")
 	}
-	if projectionRows == nil {
+	if isNilCapability(projectionRows) {
 		return nil, errors.New("compose Evidence source mutations: Projections is required")
 	}
 	if appender == nil {
 		return nil, errors.New("compose Evidence source mutations: Revisions is required")
 	}
-	if intents == nil {
+	if isNilCapability(intents) {
 		return nil, errors.New("compose Evidence source mutations: Collaboration is required")
 	}
-	if isNilMutationCapability(incidentState) {
+	if isNilCapability(incidentState) {
 		return nil, errors.New("compose Evidence source mutations: incident state is required")
 	}
-	if isNilMutationCapability(recordEnvelopes) {
+	if isNilCapability(recordEnvelopes) {
 		return nil, errors.New("compose Evidence source mutations: record envelopes are required")
 	}
 	service := &sourceMutationService{}

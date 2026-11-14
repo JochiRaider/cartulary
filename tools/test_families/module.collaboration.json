@@ -470,7 +470,7 @@
           "scenario_cd147372eead"
         ],
         "titles": [
-          "Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/."
+          "Verify multi-client live updates, presence anchoring, delete/restore invalidation, and stale conflict-token recovery through /ws/v1/ and /api/v1/."
         ]
       },
       "evidence_class": "browser",

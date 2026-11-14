@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.seaweedfs_s3_compatibility_report.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "probe_id",
+    "object_store_backend",
+    "started_at",
+    "completed_at",
+    "result",
+    "cases",
+    "forbidden_skip_rows"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.seaweedfs_s3_compatibility_report.v1"
+    },
+    "probe_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "object_store_backend": {
+      "const": "seaweedfs_s3"
+    },
+    "started_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"
+    },
+    "completed_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"
+    },
+    "result": {
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "cases": {
+      "type": "array",
+      "maxItems": 14,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "capability",
+          "status",
+          "reason_code",
+          "evidence"
+        ],
+        "properties": {
+          "case_id": {
+            "enum": [
+              "SWFS-COMP-001",
+              "SWFS-COMP-002",
+              "SWFS-COMP-003",
+              "SWFS-COMP-004",
+              "SWFS-COMP-005",
+              "SWFS-COMP-006",
+              "SWFS-COMP-007",
+              "SWFS-COMP-008",
+              "SWFS-COMP-009",
+              "SWFS-COMP-010",
+              "SWFS-COMP-011",
+              "SWFS-COMP-012",
+              "SWFS-COMP-013",
+              "SWFS-COMP-014"
+            ]
+          },
+          "capability": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_run"
+            ]
+          },
+          "reason_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "payload_profiles": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "range": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "production_expiry": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "after_expiry_checked": {
+                "type": "boolean"
+              },
+              "fixtures": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            }
+          }
+        }
+      },
+      "minItems": 14
+    },
+    "forbidden_skip_rows": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "uniqueItems": true
+    }
+  }
+}

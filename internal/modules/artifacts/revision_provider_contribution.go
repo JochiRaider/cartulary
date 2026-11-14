@@ -19,13 +19,14 @@ func NewRevisionContribution() (revisions.ProviderContribution, error) {
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerArtifacts,
 		Records: []revisions.RecordProviderContribution{{
-			SourceOwnerModule:   revisions.SourceOwnerArtifacts,
-			RecordType:          "artifact",
-			SnapshotSchemaID:    "cartulary.revisions.snapshot.artifact.v1",
-			HistoryProjector:    artifactHistoryProjector(catalog),
-			DeleteRestoreSource: deleterestore.NewSource(catalog),
-			RowRollbackProvider: rollback.NewProvider(),
-			RecordViewRoutes:    routes,
+			SourceOwnerModule:      revisions.SourceOwnerArtifacts,
+			RecordType:             "artifact",
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.artifact.v2",
+			ValidateSnapshotSource: deleterestore.ValidateSnapshotSource,
+			HistoryProjector:       artifactHistoryProjector(catalog),
+			DeleteRestoreSource:    deleterestore.NewSource(catalog),
+			RowRollbackProvider:    rollback.NewProvider(),
+			RecordViewRoutes:       routes,
 		}},
 	}, nil
 }

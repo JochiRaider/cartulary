@@ -212,7 +212,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	if !deleting {
 		transitionKind = deleterestorecontract.StateTransitionRestore
 	}
-	if err := prepareStateTransitionTx(ctx, tx, sourceAdapter, record, transitionKind); err != nil {
+	if err := runStateTransitionPhaseTx(ctx, tx, sourceAdapter.PrepareStateTransitionTx, record, transitionKind); err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	if deleting {
@@ -240,6 +240,9 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 			return DeleteRestoreResult{}, ErrRecordAlreadyDeleted
 		}
 		record = protected
+	}
+	if err := runStateTransitionPhaseTx(ctx, tx, sourceAdapter.ValidateStateTransitionTx, record, transitionKind); err != nil {
+		return DeleteRestoreResult{}, err
 	}
 
 	currentProjectionRecords, err := s.projectionScopeTx(ctx, tx, record.IncidentID, []uuid.UUID{recordID})
@@ -366,8 +369,8 @@ func (s *commandStore) loadDeleteRestoreRecordTx(ctx context.Context, tx pgx.Tx,
 	return record, nil
 }
 
-func prepareStateTransitionTx(ctx context.Context, tx pgx.Tx, source deleterestorecontract.DeleteRestoreSource, record deleteRestoreRecord, kind deleterestorecontract.StateTransitionKind) error {
-	preparation, err := source.PrepareStateTransitionTx(ctx, tx, deleterestorecontract.StateTransitionRequest{
+func runStateTransitionPhaseTx(ctx context.Context, tx pgx.Tx, phase func(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error), record deleteRestoreRecord, kind deleterestorecontract.StateTransitionKind) error {
+	preparation, err := phase(ctx, tx, deleterestorecontract.StateTransitionRequest{
 		Kind:       kind,
 		IncidentID: record.IncidentID,
 		RecordID:   record.RecordID,

@@ -3,6 +3,7 @@ package imports_test
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -270,8 +271,17 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 	loginDisabled, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, unsupported.Server.HTTP.URL)
 	denied := uploadPublicSourceBundle(t, unsupported.Server.HTTP.URL, loginDisabled, bundle, "reject-unavailable-profile")
 	failed := waitIRApply(t, unsupported.Server.HTTP.URL, loginDisabled, denied["job_id"].(string))
-	if failed["status"] != "failed" || !strings.Contains(fmt.Sprint(failed["error_summary"]), "extension") {
+	if failed["status"] != "failed" {
 		t.Fatalf("unavailable profile did not reject: %#v", failed)
+	}
+	errorSummary := failed["error_summary"].(map[string]any)
+	if errorSummary["code"] != "incident_bundle_import_rejected" || errorSummary["retryable"] != false ||
+		!reflect.DeepEqual(errorSummary["details"], map[string]any{
+			"reason_code":      "source_family_invalid",
+			"source_family_id": "extension_payload",
+			"invariant_id":     "extension_payload.participant_admitted",
+		}) {
+		t.Fatalf("unavailable profile failure differs: %#v", errorSummary)
 	}
 	response := doImportJSON(t, unsupported.Server.HTTP.URL, loginDisabled, http.MethodGet, "/api/v1/incidents/"+id, nil)
 	defer response.Body.Close()
@@ -290,8 +300,14 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 	// Recovery admits the deployment first; the claimed Graph owner then
 	// reconstructs derived results behind its separate readiness gate. Observe
 	// only that documented pending response, without refreshing the declaration.
+	deadline, ok := t.Deadline()
+	if !ok {
+		t.Fatal("restored Graph readiness requires a harness deadline")
+	}
+	graphContext, cancelGraphWait := context.WithDeadline(t.Context(), deadline)
+	defer cancelGraphWait()
 	for {
-		response := doImportJSON(t, c.Server.HTTP.URL, loginC, http.MethodGet, graphPath+"/result", nil)
+		response := pollImportJSON(t, graphContext, c.Server.HTTP.URL, loginC, graphPath+"/result")
 		if response.StatusCode == http.StatusOK {
 			response.Body.Close()
 			break
@@ -310,8 +326,8 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 			t.Fatalf("restored graph readiness: status=%d code=%s reason=%s decode=%v", response.StatusCode, failure.Error.Code, failure.Error.Details.Reason, err)
 		}
 		select {
-		case <-t.Context().Done():
-			t.Fatal("restored Graph never became available")
+		case <-graphContext.Done():
+			t.Fatalf("restored Graph never became available: %v", graphContext.Err())
 		case <-time.After(100 * time.Millisecond):
 		}
 	}

@@ -261,14 +261,16 @@ type BootstrapToken struct {
 }
 
 type ChangeSet struct {
-	ChangeSetID pgtype.UUID        `json:"change_set_id"`
-	IncidentID  pgtype.UUID        `json:"incident_id"`
-	ActorUserID pgtype.UUID        `json:"actor_user_id"`
-	Source      string             `json:"source"`
-	Reason      pgtype.Text        `json:"reason"`
-	ClientTxnID pgtype.Text        `json:"client_txn_id"`
-	RequestID   pgtype.Text        `json:"request_id"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ChangeSetID         pgtype.UUID        `json:"change_set_id"`
+	IncidentID          pgtype.UUID        `json:"incident_id"`
+	ActorUserID         pgtype.UUID        `json:"actor_user_id"`
+	Source              string             `json:"source"`
+	Reason              pgtype.Text        `json:"reason"`
+	ClientTxnID         pgtype.Text        `json:"client_txn_id"`
+	RequestID           pgtype.Text        `json:"request_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	ActorImportContexts []byte             `json:"actor_import_contexts"`
+	HistoryOrder        int64              `json:"history_order"`
 }
 
 type ChangeSetMutation struct {
@@ -560,6 +562,7 @@ type Evidence struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	ObjectBlobID       pgtype.UUID        `json:"object_blob_id"`
+	OwnerUserID        pgtype.UUID        `json:"owner_user_id"`
 }
 
 type EvidenceAccessHandle struct {
@@ -639,6 +642,7 @@ type EvidenceGridProjection struct {
 	UploadState        string             `json:"upload_state"`
 	LinkedRecordCount  int32              `json:"linked_record_count"`
 	EditedAt           pgtype.Timestamptz `json:"edited_at"`
+	OwnerUserID        pgtype.UUID        `json:"owner_user_id"`
 }
 
 type EvidenceObjectUploadLease struct {
@@ -770,15 +774,14 @@ type GraphProjectionResultVertex struct {
 }
 
 type HandoffRiskRef struct {
-	RiskRefID             pgtype.UUID        `json:"risk_ref_id"`
-	IncidentID            pgtype.UUID        `json:"incident_id"`
-	HandoffRecordID       pgtype.UUID        `json:"handoff_record_id"`
-	RiskRefText           string             `json:"risk_ref_text"`
-	NormalizedRiskRefText string             `json:"normalized_risk_ref_text"`
-	CreatedByUserID       pgtype.UUID        `json:"created_by_user_id"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
-	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
-	DeletedByUserID       pgtype.UUID        `json:"deleted_by_user_id"`
+	RiskRefID       pgtype.UUID        `json:"risk_ref_id"`
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	HandoffRecordID pgtype.UUID        `json:"handoff_record_id"`
+	RiskRefText     string             `json:"risk_ref_text"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
 type Host struct {
@@ -1090,6 +1093,7 @@ type IncidentBundleImportedActor struct {
 	EmailHint                 pgtype.Text        `json:"email_hint"`
 	LocalUserID               pgtype.UUID        `json:"local_user_id"`
 	ImportedAt                pgtype.Timestamptz `json:"imported_at"`
+	ProviderSubjectHint       pgtype.Text        `json:"provider_subject_hint"`
 }
 
 type IncidentBundleImportedAttribution struct {
@@ -2145,6 +2149,11 @@ type RestoreVerificationRun struct {
 	ChangeSetRowCount        pgtype.Int4        `json:"change_set_row_count"`
 	BlobHashesSha256         pgtype.Text        `json:"blob_hashes_sha256"`
 	BlobCount                pgtype.Int4        `json:"blob_count"`
+}
+
+type RevisionHistoryOrder struct {
+	IncidentID pgtype.UUID `json:"incident_id"`
+	LastOrder  int64       `json:"last_order"`
 }
 
 type RouteIdempotency struct {

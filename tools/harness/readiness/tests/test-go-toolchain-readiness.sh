@@ -329,8 +329,12 @@ run_concurrent_bootstrap "$concurrent_dir/toolbin/fake-tool-a-v1" "tool-a" &
 concurrent_a_pid=$!
 run_concurrent_bootstrap "$concurrent_dir/toolbin/fake-tool-b-v1" "tool-b" &
 concurrent_b_pid=$!
-wait "$concurrent_a_pid"
-wait "$concurrent_b_pid"
+concurrent_a_status=0
+concurrent_b_status=0
+wait "$concurrent_a_pid" || concurrent_a_status=$?
+wait "$concurrent_b_pid" || concurrent_b_status=$?
+assert_equals "$concurrent_a_status" "0" "concurrent bootstrap exit A"
+assert_equals "$concurrent_b_status" "0" "concurrent bootstrap exit B"
 assert_file_contents "$concurrent_dir/toolbin/fake-tool-a-v1" "tool-a" "concurrent bootstrap output A"
 assert_file_contents "$concurrent_dir/toolbin/fake-tool-b-v1" "tool-b" "concurrent bootstrap output B"
 if find "$concurrent_dir/toolbin" -mindepth 1 -maxdepth 1 -type d -name '.fake-tool.install.*' | grep -q .; then

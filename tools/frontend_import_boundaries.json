@@ -142,7 +142,7 @@
     {
       "id": "frontend-generated-protocol-boundary",
       "level": "error",
-      "message": "Import generated protocol artifacts only through owner-declared Protocol-TS entrypoints.",
+      "message": "Import generated protocol artifacts through owner-declared Protocol-TS entrypoints; the package conformance test may qualify generated wire validators directly.",
       "applies_to": {
         "include": [
           "**"
@@ -159,7 +159,8 @@
         "packages/protocol-ts/src/entrypoints/http.ts",
         "packages/protocol-ts/src/entrypoints/import-targets.ts",
         "packages/protocol-ts/src/entrypoints/network-flow.ts",
-        "packages/protocol-ts/src/entrypoints/view-schemas.ts"
+        "packages/protocol-ts/src/entrypoints/view-schemas.ts",
+        "packages/protocol-ts/src/index.node.test.ts"
       ],
       "restricted_imports": [
         {

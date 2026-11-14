@@ -18,8 +18,12 @@ export function emptyPolicy(overrides = {}) {
   };
 }
 
+export function repositoryPolicyInput() {
+  return JSON.parse(readFileSync(path.join(repository, "tools/backend_module_boundaries.json"), "utf8"));
+}
+
 export function repositoryPolicy() {
-  return prepareBoundaryPolicy(JSON.parse(readFileSync(path.join(repository, "tools/backend_module_boundaries.json"), "utf8")));
+  return prepareBoundaryPolicy(repositoryPolicyInput());
 }
 
 export function inspect(files, overrides, inputs = {}) {

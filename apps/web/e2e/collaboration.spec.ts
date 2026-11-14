@@ -344,7 +344,7 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
   }
 });
 
-test("Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/.", async ({
+test("Verify multi-client live updates, presence anchoring, delete/restore invalidation, and stale conflict-token recovery through /ws/v1/ and /api/v1/.", async ({
   browserScope,
   page,
   sessionTracker,

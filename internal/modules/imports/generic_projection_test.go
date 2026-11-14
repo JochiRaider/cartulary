@@ -16,6 +16,9 @@ func TestGenericCSVRowsAreSparse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(projection.SourceRows) != 2 {
+		t.Fatalf("source has %d rows, want 2", len(projection.SourceRows))
+	}
 	for i, want := range []int{1, 2} {
 		if got := len(projection.SourceRows[i]["cells"].([]map[string]any)); got != want {
 			t.Fatalf("row %d has %d cells, want %d actual source fields", i, got, want)

@@ -92,7 +92,23 @@ func TestWorkbookCSVInterpretationVectors(t *testing.T) {
 	if err := json.Unmarshal(raw, &manifest); err != nil {
 		t.Fatal(err)
 	}
+	wantCases := map[string]bool{
+		"utf8-bom": true, "embedded-bom": true, "multiline-unicode": true,
+		"duplicate-headers": true, "sparse-empty": true, "reordered-unmapped": true,
+		"invalid-utf8": false, "truncated-utf8": false, "overlong-utf8": false,
+		"surrogate-utf8": false, "late-invalid-utf8": false,
+		"late-broken-quote": false, "quote-trailer": false,
+	}
+	if len(manifest.Cases) != len(wantCases) {
+		t.Fatalf("interpretation vector count = %d, want %d", len(manifest.Cases), len(wantCases))
+	}
+	seen := make(map[string]bool, len(wantCases))
 	for _, vector := range manifest.Cases {
+		accepted, ok := wantCases[vector.ID]
+		if !ok || seen[vector.ID] || vector.Accepted != accepted || vector.Stage != "generic_interpretation" {
+			t.Fatalf("unexpected or duplicate interpretation vector: %#v", vector)
+		}
+		seen[vector.ID] = true
 		t.Run(vector.ID, func(t *testing.T) {
 			raw, err := os.ReadFile(filepath.Join(root, vector.File))
 			if err != nil {

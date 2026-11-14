@@ -4,16 +4,30 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 	"github.com/jackc/pgx/v5"
 )
 
 func (a *Appender) AppendNonRowMutationTx(ctx context.Context, tx pgx.Tx, params AppendNonRowMutationParams) error {
+	dispatch, err := a.targetSemantics.dispatchClass(params.TargetKind)
+	if err != nil {
+		return err
+	}
+	if dispatch != rollbackcontract.DispatchNonRow {
+		return fmt.Errorf("%w: non-row append target kind %q", ErrInvalidTargetSemantics, params.TargetKind)
+	}
 	return a.appendMutationValuesTx(ctx, tx, params)
 }
 
 func (a *Appender) AppendRecordMutationTx(ctx context.Context, tx pgx.Tx, params AppendRecordMutationParams) error {
 	beforeValue, afterValue, err := recordSnapshotPair(params.RecordID, params.BeforeSnapshot, params.AfterSnapshot)
 	if err != nil {
+		return err
+	}
+	if _, err := a.targetSemantics.dispatchClass(params.TargetKind); err != nil {
+		return err
+	}
+	if _, err := a.targetSemantics.rowProvider(params.TargetKind, params.AfterSnapshot.recordType); err != nil {
 		return err
 	}
 	return a.appendMutationValuesTx(ctx, tx, AppendNonRowMutationParams{

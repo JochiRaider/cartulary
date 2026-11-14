@@ -77,7 +77,6 @@ export function webE2EBaseConfig(
     testDir: "./e2e",
     fullyParallel: false,
     globalSetup: path.resolve(currentDirectory, "e2e", "global-setup.ts"),
-    globalTeardown: path.resolve(currentDirectory, "e2e", "global-teardown.ts"),
     retries: 0,
     workers: configuredWorkers,
     timeout: 60_000,

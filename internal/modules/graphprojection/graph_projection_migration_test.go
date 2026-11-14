@@ -3,6 +3,7 @@ package graphprojection_test
 import (
 	"context"
 	"database/sql"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,8 +16,7 @@ func TestGraphProjectionV2HeadSchemaContract_Integration(t *testing.T) {
 	db := harness.OpenIsolatedDatabaseT(t, "graph-projection-v2-head-contract", postgres.PurposeRuntime)
 	ctx := context.Background()
 
-	assertGraphProjectionV2TableCount(t, ctx, db, 4)
-	assertLegacyGraphProjectionTableCount(t, ctx, db, 0)
+	assertCurrentGraphProjectionTables(t, ctx, db)
 	assertCleanupCandidateIndex(t, ctx, db, true)
 
 	var declarationResultForeignKeys int
@@ -33,50 +33,6 @@ SELECT count(*)
 	}
 	if declarationResultForeignKeys != 0 {
 		t.Fatalf("authoritative declaration has %d forbidden derived-result foreign keys", declarationResultForeignKeys)
-	}
-}
-
-func assertGraphProjectionV2TableCount(t *testing.T, ctx context.Context, db *sql.DB, want int) {
-	t.Helper()
-	var got int
-	if err := db.QueryRowContext(ctx, `
-SELECT count(*)
-  FROM information_schema.tables
- WHERE table_schema = 'public'
-   AND table_name IN (
-       'network_flow_graph_views',
-       'graph_projection_results',
-       'graph_projection_result_vertices',
-       'graph_projection_result_edges',
-       'graph_projection_result_leases'
-   )
-`).Scan(&got); err != nil {
-		t.Fatalf("count Graph Projection v2 tables: %v", err)
-	}
-	if got != want {
-		t.Fatalf("Graph Projection v2 table count = %d; want %d", got, want)
-	}
-}
-
-func assertLegacyGraphProjectionTableCount(t *testing.T, ctx context.Context, db *sql.DB, want int) {
-	t.Helper()
-	var got int
-	if err := db.QueryRowContext(ctx, `
-SELECT count(*)
-  FROM information_schema.tables
- WHERE table_schema = 'public'
-   AND table_name IN (
-       'graph_projection_edges',
-       'graph_projection_idempotency',
-       'graph_projection_runs',
-       'graph_projection_vertices',
-       'graph_projection_views'
-   )
-`).Scan(&got); err != nil {
-		t.Fatalf("count legacy Graph Projection tables: %v", err)
-	}
-	if got != want {
-		t.Fatalf("legacy Graph Projection table count = %d; want %d", got, want)
 	}
 }
 
@@ -98,5 +54,35 @@ SELECT indexdef
 		!strings.Contains(definition.String, "published_at") ||
 		!strings.Contains(definition.String, "projection_result_id")) {
 		t.Fatalf("cleanup candidate index definition drifted: %q", definition.String)
+	}
+}
+
+func assertCurrentGraphProjectionTables(t testing.TB, ctx context.Context, db *sql.DB) {
+	t.Helper()
+	rows, err := db.QueryContext(ctx, `
+SELECT table_name
+  FROM information_schema.tables
+ WHERE table_schema = 'public'
+   AND (starts_with(table_name, 'graph_projection_') OR table_name = 'network_flow_graph_views')
+ ORDER BY table_name
+`)
+	if err != nil {
+		t.Fatalf("inspect current Graph tables: %v", err)
+	}
+	defer rows.Close()
+	var got []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, name)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"graph_projection_result_edges", "graph_projection_result_vertices", "graph_projection_results", "network_flow_graph_views"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("current Graph tables = %v, want %v", got, want)
 	}
 }

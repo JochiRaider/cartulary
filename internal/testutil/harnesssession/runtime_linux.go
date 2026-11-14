@@ -416,6 +416,20 @@ func (r *Runtime) checkResource(v Resource) error {
 		}
 	case "browser_process", "helper_process":
 		// The projected schema validates exact process proof fields.
+	case "package_resource":
+		// Package-owned names derive from the closed daemon/token/role proof.
+	case "package_deployment":
+		var proof struct {
+			Family    string `json:"family"`
+			Token     string `json:"token"`
+			Workspace string `json:"workspace"`
+		}
+		if json.Unmarshal(v.Target, &proof) != nil {
+			return harnesslocal.ErrUnsafe
+		}
+		if proof.Family == "workspace" && proof.Workspace != filepath.Join(r.detailRoot("ordinary"), "package-qualification", proof.Token) {
+			return harnesslocal.ErrUnsafe
+		}
 	case "diagnostic_scope":
 		var proof struct {
 			UID int `json:"uid"`
@@ -532,6 +546,44 @@ func (r *Runtime) RecordDependentResource(kind string, target any, state string,
 	}
 	return harnesslocal.ReplaceFileAt(directory, name, append(data, '\n'))
 }
+
+// InspectResource admits exactly one active journal identity without changing
+// its state or creating a missing recovery directory. A bound envelope alone
+// cannot authorize a private physical adapter.
+func (r *Runtime) InspectResource(selected Resource) (Resource, error) {
+	unlock, err := r.lock()
+	if err != nil {
+		return Resource{}, err
+	}
+	defer unlock()
+	if r.checkResource(selected) != nil || selected.State == "released" {
+		return Resource{}, harnesslocal.ErrUnsafe
+	}
+	name, err := resourceName(selected.Kind, selected.Target)
+	if err != nil {
+		return Resource{}, err
+	}
+	directory, err := harnesslocal.OpenDirectory(filepath.Join(r.Root, "recovery"), true)
+	if err != nil {
+		return Resource{}, err
+	}
+	defer directory.Close()
+	data, err := harnesslocal.ReadFileAt(directory, name, MaximumFrame, false)
+	if err != nil {
+		return Resource{}, err
+	}
+	value, err := harnessschema.Decode(data)
+	if err != nil || harnessschema.Validate("cartulary.harness_runtime_resource.v2", value) != nil {
+		return Resource{}, harnesslocal.ErrUnsafe
+	}
+	var admitted Resource
+	if json.Unmarshal(data, &admitted) != nil || r.checkResource(admitted) != nil ||
+		admitted.State == "released" || admitted.Reference() != selected.Reference() {
+		return Resource{}, harnesslocal.ErrUnsafe
+	}
+	return admitted, nil
+}
+
 func (r *Runtime) Resources(maximum int) ([]Resource, error) {
 	unlock, err := r.lock()
 	if err != nil {

@@ -39,16 +39,20 @@ type ImportRevisionCapability interface {
 }
 
 type ImportDependencies struct {
-	RecordEnvelopes ImportRecordEnvelopeCapability
-	Links           ImportLinkCapability
-	Projections     taskdecisionprojection.MutationRows
-	Revisions       ImportRevisionCapability
-	Collaboration   collaboration.RecordChangedAppender
+	RecordEnvelopes  ImportRecordEnvelopeCapability
+	ReferenceTargets ReferenceTargetCapability
+	Links            ImportLinkCapability
+	Projections      taskdecisionprojection.MutationRows
+	Revisions        ImportRevisionCapability
+	Collaboration    collaboration.RecordChangedAppender
 }
 
 func (d ImportDependencies) validate() error {
 	if d.RecordEnvelopes == nil {
 		return fmt.Errorf("tasks/decisions import dependencies: Records insert is required")
+	}
+	if d.ReferenceTargets == nil {
+		return fmt.Errorf("tasks/decisions import dependencies: Reference targets are required")
 	}
 	if d.Links == nil {
 		return fmt.Errorf("tasks/decisions import dependencies: Links synchronization is required")
@@ -116,7 +120,7 @@ func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		if err := policy.ValidateTaskCreateParams(params); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if err := validateImportCreateReferencesTx(ctx, tx, o.catalog, request.IncidentID, request.ActorUserID, taskOwnerUserFieldKey, values); err != nil {
+		if err := validateImportCreateReferencesTx(ctx, tx, o.dependencies.ReferenceTargets, o.catalog, request.IncidentID, request.ActorUserID, taskOwnerUserFieldKey, values); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID, err := o.dependencies.RecordEnvelopes.InsertTx(ctx, tx, records.InsertParams{
@@ -147,7 +151,7 @@ func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		if err := policy.ValidateDecisionCreateParams(params); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if err := validateImportCreateReferencesTx(ctx, tx, o.catalog, request.IncidentID, request.ActorUserID, decisionOwnerUserFieldKey, values); err != nil {
+		if err := validateImportCreateReferencesTx(ctx, tx, o.dependencies.ReferenceTargets, o.catalog, request.IncidentID, request.ActorUserID, decisionOwnerUserFieldKey, values); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID, err := o.dependencies.RecordEnvelopes.InsertTx(ctx, tx, records.InsertParams{
@@ -292,6 +296,7 @@ func taskDecisionValuesFromImport(values map[string]ownerfacade.ImportScalarValu
 func validateImportCreateReferencesTx(
 	ctx context.Context,
 	tx pgx.Tx,
+	targets ReferenceTargetCapability,
 	catalog *sourcecatalog.Catalog,
 	incidentID uuid.UUID,
 	actorUserID uuid.UUID,
@@ -315,6 +320,7 @@ func validateImportCreateReferencesTx(
 		if err := validateDirectReferenceTx(
 			ctx,
 			tx,
+			targets,
 			catalog,
 			incidentID,
 			fieldKey,

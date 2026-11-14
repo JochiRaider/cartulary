@@ -20,14 +20,14 @@ INSERT INTO evidence_grid_projection (
     record_id, incident_id, row_version, title, lifecycle_state,
     requested_at, received_at, storage_ref, blob_hash,
     collector_party_text, collector_party_id, source_party_text,
-    source_party_id, upload_state, linked_record_count, edited_at
+    source_party_id, upload_state, linked_record_count, edited_at, owner_user_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 `, input.RecordID, input.IncidentID, input.RowVersion, input.Title,
 		input.LifecycleState, input.RequestedAt, input.ReceivedAt,
 		input.StorageRef, input.BlobHash, input.CollectorPartyText,
 		input.CollectorPartyID, input.SourcePartyText, input.SourcePartyID,
-		input.UploadState, input.LinkedRecordCount, input.EditedAt.UTC()); err != nil {
+		input.UploadState, input.LinkedRecordCount, input.EditedAt.UTC(), input.OwnerUserID); err != nil {
 		return fmt.Errorf("insert Evidence projection row: %w", err)
 	}
 	return nil

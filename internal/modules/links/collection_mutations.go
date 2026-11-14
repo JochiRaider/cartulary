@@ -150,7 +150,7 @@ func (s *Store) applyReferenceCollectionWithMutationValuesTx(ctx context.Context
 		if command.linkType != LinkTypeReferencesRecord || command.expectedTargetType != "party" {
 			return CollectionMutationResult{}, collectionValidationError(command.fieldKey)
 		}
-		if err := validateCollectionTargetRecordTx(ctx, tx, command.incidentID, command.sourceRecordID, family, command.fieldKey); err != nil {
+		if err := validateCollectionTargetRecordsTx(ctx, tx, command.incidentID, []uuid.UUID{command.sourceRecordID}, family, command.fieldKey); err != nil {
 			return CollectionMutationResult{}, err
 		}
 	}

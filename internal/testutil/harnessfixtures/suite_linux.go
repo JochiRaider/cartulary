@@ -494,14 +494,24 @@ func readRecoveryEnvironment(file string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	values := map[string]string{}
-	if err := json.Unmarshal(data, &values); err != nil {
-		return nil, err
+	decoded, err := harnessschema.Decode(data)
+	if err != nil {
+		return nil, harnesslocal.ErrUnsafe
 	}
-	for name := range values {
+	object, ok := decoded.(map[string]any)
+	if !ok {
+		return nil, harnesslocal.ErrUnsafe
+	}
+	values := make(map[string]string, len(object))
+	for name, raw := range object {
+		value, ok := raw.(string)
+		if !ok {
+			return nil, harnesslocal.ErrUnsafe
+		}
 		if name != "SSL_CERT_FILE" && name != "CARTULARY_TEST_SUITE_ID" && !strings.HasPrefix(name, "CARTULARY_PGTEST_") && !strings.HasPrefix(name, "CARTULARY_S3TEST_") {
 			return nil, harnesslocal.ErrUnsafe
 		}
+		values[name] = value
 	}
 	return values, nil
 }

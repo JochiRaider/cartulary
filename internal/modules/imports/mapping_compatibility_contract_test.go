@@ -116,9 +116,12 @@ func assertCrossPathMappingKernelCompatibility(t testing.TB) {
 	if err != nil {
 		t.Fatalf("build clipboard plan: %v", err)
 	}
+	if len(filePlan.Rows) != 1 || len(clipboardPlan.Rows) != 1 {
+		t.Fatalf("cross-path plans must each contain one row: file=%#v clipboard=%#v", filePlan, clipboardPlan)
+	}
 	fileRow := filePlan.Rows[0]
 	clipboardRow := clipboardPlan.Rows[0]
-	if len(fileRow.Values) != len(clipboardRow.Cells) || len(fileRow.UnknownValues) != len(clipboardRow.Unmapped) {
+	if len(fileRow.Values) != 2 || len(clipboardRow.Cells) != 2 || len(fileRow.UnknownValues) != 1 || len(clipboardRow.Unmapped) != 1 {
 		t.Fatalf("cross-path plan widths differ: file=%#v clipboard=%#v", fileRow, clipboardRow)
 	}
 	for index, value := range fileRow.Values {

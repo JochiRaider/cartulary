@@ -150,6 +150,13 @@
     },
     {
       "view_schema_id": "cartulary.view.evidence.v1",
+      "field_key": "evidence.owner_user_id",
+      "kind": "direct",
+      "target_domain": "incident_member",
+      "exclude_source": false
+    },
+    {
+      "view_schema_id": "cartulary.view.evidence.v1",
       "field_key": "evidence.source_party_id",
       "kind": "direct",
       "target_domain": "party",

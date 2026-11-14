@@ -30,13 +30,13 @@ func TestAssessmentFacadeConstructionRejectsNilAndTypedNilDependencies(t *testin
 			},
 		},
 		{
-			name: "subjects", wantError: "construct assessment facade: subject validator is required",
+			name: "references", wantError: "construct assessment facade: reference admission is required",
 			clear: func(dependencies *assessments.FacadeDependencies, typed bool) {
 				if typed {
-					var value *typedNilSubjectValidator
-					dependencies.Subjects = value
+					var value *typedNilReferenceAdmission
+					dependencies.References = value
 				} else {
-					dependencies.Subjects = nil
+					dependencies.References = nil
 				}
 			},
 		},
@@ -48,17 +48,6 @@ func TestAssessmentFacadeConstructionRejectsNilAndTypedNilDependencies(t *testin
 					dependencies.Assessors = value
 				} else {
 					dependencies.Assessors = nil
-				}
-			},
-		},
-		{
-			name: "support targets", wantError: "construct assessment facade: support-target validator is required",
-			clear: func(dependencies *assessments.FacadeDependencies, typed bool) {
-				if typed {
-					var value *typedNilSupportTargetValidator
-					dependencies.SupportTargets = value
-				} else {
-					dependencies.SupportTargets = nil
 				}
 			},
 		},
@@ -146,13 +135,13 @@ func TestAssessmentImportFacadeConstructionRejectsNilAndTypedNilDependencies(t *
 		clear     func(*assessments.ImportCreateDependencies, bool)
 	}{
 		{
-			name: "subjects", wantError: "construct assessment import facade: subject validator is required",
+			name: "references", wantError: "construct assessment import facade: reference admission is required",
 			clear: func(dependencies *assessments.ImportCreateDependencies, typed bool) {
 				if typed {
-					var value *typedNilSubjectValidator
-					dependencies.Subjects = value
+					var value *typedNilReferenceAdmission
+					dependencies.References = value
 				} else {
-					dependencies.Subjects = nil
+					dependencies.References = nil
 				}
 			},
 		},
@@ -289,21 +278,20 @@ func TestAssessmentProjectionConstructionRejectsNilAndTypedNilDependencies(t *te
 func validAssessmentFacadeDependencies() assessments.FacadeDependencies {
 	ports := &assessmentFacadePorts{}
 	return assessments.FacadeDependencies{
-		Idempotency:    ports,
-		Subjects:       ports,
-		Assessors:      ports,
-		SupportTargets: ports,
-		Records:        ports,
-		SupportLinks:   ports,
-		Revisions:      ports,
-		Projections:    ports,
+		Idempotency:  ports,
+		References:   ports,
+		Assessors:    ports,
+		Records:      ports,
+		SupportLinks: ports,
+		Revisions:    ports,
+		Projections:  ports,
 	}
 }
 
 func validAssessmentImportDependencies() assessments.ImportCreateDependencies {
 	ports := &assessmentFacadePorts{}
 	return assessments.ImportCreateDependencies{
-		Subjects:      ports,
+		References:    ports,
 		Assessors:     ports,
 		Records:       ports,
 		Revisions:     assessmentConstructorLiveRevisions{},
@@ -324,11 +312,8 @@ type typedNilDatabase struct{ dbport.DB }
 type typedNilCreateIdempotency struct {
 	assessments.CreateIdempotencyPort
 }
-type typedNilSubjectValidator struct{ assessments.SubjectValidator }
+type typedNilReferenceAdmission struct{ assessments.ReferenceAdmission }
 type typedNilAssessorValidator struct{ assessments.AssessorValidator }
-type typedNilSupportTargetValidator struct {
-	assessments.SupportTargetValidator
-}
 type typedNilRecordEnvelopeCreator struct {
 	assessments.RecordEnvelopeCreator
 }

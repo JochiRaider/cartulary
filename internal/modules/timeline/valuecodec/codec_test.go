@@ -3,6 +3,7 @@ package valuecodec
 import (
 	"encoding/hex"
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 )
 
 func TestCanonicalScalarAndCollectionValues(t *testing.T) {
+	t.Run("canonical collection order", exerciseCanonicalCollectionOrder)
 	text := "value"
 	id := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 	instant := time.Date(2026, 4, 10, 15, 4, 5, 123456789, time.FixedZone("offset", -5*60*60))
@@ -52,5 +54,47 @@ func TestCanonicalJSONSHA256(t *testing.T) {
 	const want = "e547f31a0554351ae8cb2d6693a075cf93307bdae6fe32468bc9aa518fe93bc9"
 	if got != want {
 		t.Fatalf("canonical hash = %s, want %s", got, want)
+	}
+}
+
+func exerciseCanonicalCollectionOrder(t *testing.T) {
+	for _, kind := range []string{"record_ref", "tag"} {
+		t.Run(kind, func(t *testing.T) {
+			prefix := "record_ref:"
+			if kind == "tag" {
+				prefix = "record_tag:11111111-1111-4111-8111-111111111111:"
+			}
+			ids := []string{"99999999-9999-4999-8999-999999999999", "11111111-1111-4111-8111-111111111111", "55555555-5555-4555-8555-555555555555"}
+			labels := []string{"Alpha", "Zulu", "Middle"}
+			items := make([]map[string]any, 3)
+			for i := range items {
+				items[i] = map[string]any{"item_ref": prefix + ids[i], "item_kind": kind, "display_text": labels[i]}
+				if kind == "tag" {
+					items[i]["tag_id"] = ids[i]
+				} else {
+					items[i]["linked_record_id"] = ids[i]
+				}
+			}
+			original, err := json.Marshal(items)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected := []map[string]any{items[1], items[2], items[0]}
+			unordered := Collection(false, items)
+			if unordered["kind"] != "collection_value_v1" || unordered["ordered"] != false || !reflect.DeepEqual(unordered["items"], expected) {
+				t.Fatalf("unordered identities/member values = %#v", unordered)
+			}
+			ordered := Collection(true, items)
+			if ordered["ordered"] != true || !reflect.DeepEqual(ordered["items"], items) {
+				t.Fatal("ordered collection lost authoritative order")
+			}
+			after, err := json.Marshal(items)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(original) != string(after) {
+				t.Fatal("serialization reordered or changed caller items")
+			}
+		})
 	}
 }

@@ -41,6 +41,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
 )
 
 const (
@@ -106,7 +107,7 @@ func TestMVPObjectStoreInitOperatorTransport(t *testing.T) {
 	bucket := fmt.Sprintf("mvp-object-store-init-transport-%d", time.Now().UnixNano())
 	t.Cleanup(func() {
 		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Logf("cleanup bucket: %v", err)
+			testfailure.CleanupFailure(t, "s3test", "object_store", "delete", err)
 		}
 	})
 

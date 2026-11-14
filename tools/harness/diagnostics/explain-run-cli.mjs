@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
   failureHeadlineForSummary,
+  parseStrictJSON,
+  readRetainedArtifactBytes,
   validateSchemaSync,
 } from "../contract/index.mjs";
 import { readCanonicalUnitEvents } from "../evidence-accounting/index.mjs";
@@ -148,6 +150,12 @@ function defaultToolTarget(runDir) {
 
 function resolveRunContext(options) {
   const resultsDir = resolvePath(options.resultsDir);
+  if (options.runId) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/u.test(options.runId)) {
+      throw Object.assign(new Error("invalid RUN_ID"), { exit_code: 2 });
+    }
+    return { runDir: path.basename(resultsDir) === options.runId ? resultsDir : path.join(resultsDir, options.runId), targetFromPath: "" };
+  }
   if (existsSync(path.join(resultsDir, "run-summary.json")) || existsSync(path.join(resultsDir, "cleanup-results.json"))) {
     return { runDir: resultsDir, targetFromPath: "" };
   }
@@ -163,9 +171,6 @@ function resolveRunContext(options) {
   }
   if (toolSummaryTargets(resultsDir).length > 0) {
     return { runDir: resultsDir, targetFromPath: "" };
-  }
-  if (options.runId) {
-    return { runDir: path.join(resultsDir, options.runId), targetFromPath: "" };
   }
   const newest = newestRunDir(resultsDir);
   if (newest) {
@@ -806,16 +811,22 @@ function writeAccountingDetail(runSummary, targetSummary) {
 }
 
 function measurementAggregate(runDir) {
+  try {
+    return readMeasurementAggregate(runDir);
+  } catch (error) {
+    if (error.exit_code === 11) throw error;
+    throw Object.assign(new Error("invalid measurement artifact"), { exit_code: 11 });
+  }
+}
+
+function readMeasurementAggregate(runDir) {
   const file = path.join(
     runDir,
     "browser-e2e-measurement/frontend-measurement-aggregate.json",
   );
   if (!existsSync(file)) return null;
-  const info = lstatSync(file);
-  if (!info.isFile() || info.isSymbolicLink() || info.size > 32 * 1024 * 1024) {
-    throw new Error(`measurement aggregate is not a bounded regular file: ${file}`);
-  }
-  const value = readJSON(file);
+  const bytes = readRetainedArtifactBytes(runDir, "browser-e2e-measurement/frontend-measurement-aggregate.json", 32 * 1024 * 1024);
+  const value = parseStrictJSON(bytes.toString("utf8"), "measurement aggregate");
   if (value.schema_id === "cartulary.frontend_measurement_aggregate.v5") {
     validateSchemaSync(value.schema_id, value);
     const measurements = value.profile_groups.flatMap((group) =>
@@ -857,49 +868,18 @@ function readMeasurementReference(runDir, reference) {
   ) {
     throw new Error("measurement reference is not a JSON file artifact");
   }
-  const file = path.resolve(runDir, reference.path);
-  const relative = path.relative(runDir, file);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`measurement reference escapes its run root: ${reference.path}`);
-  }
-  const info = lstatSync(file);
-  if (!info.isFile() || info.isSymbolicLink() || info.size > 8 * 1024 * 1024) {
-    throw new Error(`measurement reference is not a bounded regular file: ${reference.path}`);
-  }
-  const bytes = readFileSync(file);
+  const bytes = readRetainedArtifactBytes(runDir, reference.path, 8 * 1024 * 1024);
   const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
   if (digest !== reference.sha256) {
     throw new Error(`measurement reference digest mismatch: ${reference.path}`);
   }
-  return { bytes, file, value: JSON.parse(bytes.toString("utf8")) };
+  return { bytes, file: path.join(runDir, reference.path), value: parseStrictJSON(bytes.toString("utf8"), "measurement reference") };
 }
 
 function nearestRank(samples, percentile) {
   if (samples.length === 0) return null;
   const sorted = [...samples].sort((left, right) => left - right);
   return sorted[Math.ceil((percentile / 100) * sorted.length) - 1];
-}
-
-function measurementFact(observation, collection, factID) {
-  return observation.traffic[collection].find((fact) => fact.fact_id === factID)?.value ?? null;
-}
-
-function measurementCompatibilityKey(observation) {
-  return JSON.stringify({
-    analyst_sessions: measurementFact(observation, "counts", "analyst_sessions"),
-    background_updates_per_second:
-      measurementFact(observation, "rates", "background_updates_per_second"),
-    criterion_id: observation.criterion_id,
-    fixture_digest: observation.fixture_digest,
-    fixture_id: observation.fixture_id,
-    measured_samples: observation.measured_samples,
-    measurement_policy_id: observation.measurement_policy_id,
-    statistics_kind: observation.statistics.kind,
-    percentile: observation.statistics.kind === "percentile" ? observation.statistics.percentile : null,
-    predicate_id: observation.predicate_id,
-    threshold_ms: observation.threshold_ms,
-    warmup_samples: observation.warmup_samples,
-  });
 }
 
 function stageValue(sample, stage) {
@@ -924,33 +904,6 @@ function measurementStages(observation) {
   });
 }
 
-function compatibleMeasurementRuns(runDir, currentObservation) {
-  const resultsRoot = path.dirname(runDir);
-  if (!existsSync(resultsRoot)) return [];
-  const compatibilityKey = measurementCompatibilityKey(currentObservation);
-  return readdirSync(resultsRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name !== path.basename(runDir))
-    .map((entry) => {
-      const candidateDir = path.join(resultsRoot, entry.name);
-      let aggregate;
-      try {
-        aggregate = measurementAggregate(candidateDir);
-      } catch {
-        return null;
-      }
-      if (!aggregate) return null;
-      const measurement = aggregate.measurements.find(
-        (entry) =>
-          measurementCompatibilityKey(entry.observation) === compatibilityKey,
-      );
-      if (!measurement) return null;
-      return { measurement, runID: entry.name };
-    })
-    .filter(Boolean)
-    .sort((left, right) => right.runID.localeCompare(left.runID))
-    .slice(0, 5);
-}
-
 function writeMeasurementDetail(runDir) {
   const aggregate = measurementAggregate(runDir);
   if (!aggregate) {
@@ -970,14 +923,7 @@ function writeMeasurementDetail(runDir) {
         `[MEASUREMENT-STAGE] run_id=${runID} predicate_id=${summary.predicate_id} stage=${stage.name} samples=${stage.samples} statistics=${JSON.stringify(summary.statistics.kind === "single" ? { kind: "single", elapsed_ms: stage.p50 } : { kind: "percentile", p50_ms: stage.p50, p95_ms: stage.p95 })}\n`,
       );
     }
-    for (const compatible of compatibleMeasurementRuns(runDir, summary)) {
-      const value = (observation) => observation.statistics.kind === "seeded_trace" ? null : observation.statistics.kind === "single" ? observation.statistics.elapsed_ms : observation.statistics.p95_ms;
-      const current = value(summary), previous = value(compatible.measurement.observation);
-      const delta = current === null || previous === null ? "none" : current - previous;
-      process.stdout.write(
-        `[MEASUREMENT-COMPARE] predicate_id=${summary.predicate_id} current_run=${runID} compatible_run=${compatible.runID} current_outcome=${summary.outcome} compatible_outcome=${compatible.measurement.observation.outcome} statistic=${summary.statistics.kind === "seeded_trace" ? "trace" : summary.statistics.kind === "single" ? "elapsed" : "p95"} current_ms=${current ?? "none"} compatible_ms=${previous ?? "none"} delta_ms=${delta}\n`,
-      );
-    }
+
   }
 }
 

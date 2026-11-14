@@ -38,41 +38,47 @@ export function playwrightTestList(selection) {
   }).join("\n") + "\n";
 }
 
-function resultStatus(test) {
-  const results = Array.isArray(test?.results) ? test.results : [];
-  const terminal = results.at(-1)?.status;
-  if (terminal) return terminal;
-  if (test?.status === "expected") return "passed";
-  if (test?.status === "unexpected") return "failed";
-  return test?.status ?? "missing";
-}
-
-function selectorObservation(spec) {
-  const tests = Array.isArray(spec?.tests) ? spec.tests : [];
-  if (tests.length !== 1) return { status: "ambiguous", durationMs: 0 };
-  const test = tests[0];
-  const statuses = (test.results ?? []).map((result) => result.status);
-  const durationMs = (test.results ?? []).reduce(
-    (total, result) => total + (Number.isFinite(result.duration) ? result.duration : 0),
-    0,
-  );
-  const status = resultStatus(test);
-  const fixture = browserFixtureDiagnostic(test.results?.at(-1));
+function nativeResultObservation(result) {
+  const durationMs = Number.isFinite(result?.duration) ? result.duration : 0;
+  const status = result?.status;
+  const fixture = browserFixtureDiagnostic(result);
   if (fixture?.failures.length) return { status: "fixture_failed", durationMs, ...fixture };
-  const firstError = test.results?.at(-1)?.errors?.[0];
+  const firstError = result?.errors?.[0];
   if (status === "failed" && /^Cartulary(?:FrontendArtifact|VisualCapture)Error:/u.test(firstError?.message ?? "")) {
     return { status: "artifact_failed", durationMs };
   }
   if (status === "passed") return { status, durationMs };
   if (status === "failed") return { status, durationMs };
-  if (status === "timedOut" || statuses.includes("timedOut")) {
+  if (status === "timedOut") {
     return { status: "timed_out", durationMs };
   }
-  if (status === "interrupted" || statuses.includes("interrupted")) {
+  if (status === "interrupted") {
     return { status: "interrupted", durationMs };
   }
   if (status === "skipped") return { status, durationMs };
   return { status: "missing", durationMs };
+}
+
+function ambiguousObservations(observations) {
+  const failures = observations.flatMap((entry) => entry.failures ?? [observationFailure(entry)]).filter(Boolean);
+  failures.push(observationFailure({ status: "ambiguous" }));
+  const primary = primaryPublicFailure(failures);
+  return {
+    status: "ambiguous",
+    durationMs: observations.reduce((total, entry) => total + entry.durationMs, 0),
+    failures,
+    diagnostic: observations.find((entry) => entry.diagnostic && entry.failures.some((failure) =>
+      failure.failure_class === primary.failure_class && failure.failure_reason === primary.failure_reason))?.diagnostic,
+  };
+}
+
+function selectorObservation(spec) {
+  const tests = Array.isArray(spec?.tests) ? spec.tests : [];
+  if (tests.length !== 1) return ambiguousObservations([]);
+  const results = Array.isArray(tests[0].results) ? tests[0].results : [];
+  const observations = results.map(nativeResultObservation);
+  return results.length === 1 && (results[0]?.retry === undefined || results[0].retry === 0)
+    ? observations[0] : ambiguousObservations(observations);
 }
 
 function observationFailure(observation) {
@@ -155,7 +161,8 @@ export function adaptPlaywrightReport(
         );
         return matches.length === 1
           ? selectorObservation(matches[0])
-          : { status: matches.length === 0 ? "missing" : "ambiguous", durationMs: 0 };
+          : matches.length === 0 ? { status: "missing", durationMs: 0 }
+            : ambiguousObservations(matches.map(selectorObservation));
       });
       return { observations, row };
     });

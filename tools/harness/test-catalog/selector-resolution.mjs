@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 import { goRunnerBuildContext } from "./go-build-context.mjs";
 import { discoverRunnerSources, excludedSourcePath, frontendSourceProject, sourceExclusionPolicy } from "./source-discovery.mjs";
 
@@ -788,7 +789,7 @@ export function assertSortedUnique(values, label) {
 // Resolve catalog selectors once per invocation to full names, using the same
 // source facts as catalog overlap validation. No suffix-based runtime selection.
 export function resolveVitestTitles(root, rows) {
-  const runner = JSON.parse(readFileSync(path.join(root, "tools/test_runner_registry.json"), "utf8")).runners.find((entry) => entry.runner === "vitest");
+  const runner = readExecutableRepositoryJSON(root, "tools/test_runner_registry.json").runners.find((entry) => entry.runner === "vitest");
   const scope = { sources: new Map(), titles: new Map() };
   return new Map(rows.map((row) => {
     const { source } = containedFile(root, row.selector.file, runner.approved_roots, row.row_id, scope);
@@ -819,7 +820,7 @@ function playwrightTitlePath(facts, title, label) {
 // Ephemeral runner selection derived from the existing catalog, never another
 // execution inventory. Preserve suite components for Playwright's test-list API.
 export function resolvePlaywrightSelection(root, rows) {
-  const runner = JSON.parse(readFileSync(path.join(root, "tools/test_runner_registry.json"), "utf8")).runners.find(entry => entry.runner === "playwright");
+  const runner = readExecutableRepositoryJSON(root, "tools/test_runner_registry.json").runners.find(entry => entry.runner === "playwright");
   const scope = { sources: new Map(), titles: new Map() };
   return rows.flatMap(row => {
     if (row.runner !== "playwright") throw new Error("browser selection requires Playwright rows");

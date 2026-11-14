@@ -73,6 +73,7 @@ type RecordPort interface {
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
 	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (sourcerepository.Envelope, error)
 	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]sourcerepository.Envelope, error)
+	LoadEnvelopesForNoKeyUpdateTx(context.Context, pgx.Tx, []uuid.UUID) (map[uuid.UUID]sourcerepository.Envelope, error)
 	ResolveIncident(context.Context, uuid.UUID) (uuid.UUID, error)
 }
 
@@ -114,6 +115,7 @@ type EntityProjectionPort interface {
 }
 
 type LinkPort interface {
+	ValidateRecordRefCollectionTx(context.Context, pgx.Tx, RecordRefCollectionValidation) error
 	InsertSupersedesCommandTx(context.Context, pgx.Tx, InsertSupersedesCommand) (RecordLinkCommandResult, error)
 	UpsertLinkCommandTx(context.Context, pgx.Tx, UpsertLinkCommand) (RecordLinkCommandResult, error)
 	HasActiveIncomingSupersedesLinkForUpdateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
@@ -146,6 +148,14 @@ type RecordLinkCommandResult struct {
 	DstRecordID  uuid.UUID
 	LinkType     string
 	Mutation     *RecordLinkMutation
+}
+
+type RecordRefCollectionValidation struct {
+	IncidentID         uuid.UUID
+	FieldKey           string
+	LinkType           string
+	ExpectedTargetType string
+	AddRecordIDs       []uuid.UUID
 }
 
 type RecordRefCollectionCommand struct {
@@ -201,10 +211,22 @@ type RecordTagMutation struct {
 }
 
 type MentionPort interface {
+	TransitionStatus(field, from, action string) (string, error)
+	LoadCollectionSourceFactsTx(context.Context, pgx.Tx, uuid.UUID, string) ([]MentionSourceFact, error)
 	ResolveExistingFromMentionTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, *uuid.UUID, time.Time) ([]RecordLinkMutation, error)
 	ApplyMentionLifecycleTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, string, *uuid.UUID, time.Time) ([]RecordLinkMutation, error)
 	NextOrdinalTx(context.Context, pgx.Tx, uuid.UUID, string) (int, error)
 	InsertTx(context.Context, pgx.Tx, MentionCreateParams) error
+}
+
+type MentionSourceFact struct {
+	MentionID        uuid.UUID
+	EntityType       string
+	RawText          string
+	ResolutionStatus string
+	RowVersion       int64
+	Ordinal          int32
+	ResolvedRecordID *uuid.UUID
 }
 
 type MentionCreateParams struct {
@@ -231,8 +253,9 @@ type EntityAlias struct {
 }
 
 type EntityPort interface {
+	InspectResolvedTargetTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID) error
 	ListEligibleAliasesTx(context.Context, pgx.Tx, uuid.UUID, string) ([]EntityAlias, error)
-	ValidateResolvedTargetTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID) error
+	AdmitResolvedTargetTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID) error
 }
 
 type EvidencePort interface {

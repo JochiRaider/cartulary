@@ -23,15 +23,21 @@ func TestIncidentBundleRootStorageStreamsBoundedArchives_Unit(t *testing.T) {
 	}
 	defer storage.Close()
 	const size = int64(65 << 20)
+	// Independent SHA-256 of exactly 65 MiB of zero bytes.
+	wantContent := incidentbundles.ArchiveContent{ByteSize: size, SHA256: "25631f11bd18756ec0029380ec886af0c8824dc6b2706bbdb1d9451c7cf45f42"}
 	source := &boundedZeroSource{remaining: size}
 	staged, err := storage.Stage(context.Background(), source, size)
 	if err != nil || staged.ByteSize != size || source.maximumRead > 32<<10 {
 		t.Fatalf("streamed upload: size=%d max read=%d error=%v", staged.ByteSize, source.maximumRead, err)
 	}
+	if staged.ArchiveContent != wantContent {
+		t.Fatalf("staged content=%+v want=%+v", staged.ArchiveContent, wantContent)
+	}
 	reader, actual, err := storage.OpenStaged(staged.BundleStagingRef, size)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer reader.Close()
 	digest := sha256.New()
 	if n, err := io.CopyBuffer(digest, io.NewSectionReader(reader, 0, actual), make([]byte, 32<<10)); err != nil || n != size {
 		t.Fatal(n, err)
@@ -44,15 +50,20 @@ func TestIncidentBundleRootStorageStreamsBoundedArchives_Unit(t *testing.T) {
 		return err
 	})
 	_ = reader.Close()
-	if err != nil || published.ArchiveContent != staged.ArchiveContent {
-		t.Fatal("publication changed sealed content", published, err)
+	if err != nil {
+		t.Fatal("publication failed", err)
+	}
+	if published.ArchiveContent != wantContent {
+		t.Fatalf("published content=%+v want=%+v", published.ArchiveContent, wantContent)
 	}
 	public, err := storage.OpenPublished(context.Background(), published.BundleStorageRef, published.ArchiveContent)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n, err := io.CopyBuffer(io.Discard, public, make([]byte, 32<<10)); err != nil || n != size {
-		t.Fatal("verified publication read", n, err)
+	defer public.Close()
+	publishedDigest := sha256.New()
+	if n, err := io.CopyBuffer(publishedDigest, public, make([]byte, 32<<10)); err != nil || n != size || hex.EncodeToString(publishedDigest.Sum(nil)) != wantContent.SHA256 {
+		t.Fatalf("published bytes=%d digest=%x error=%v", n, publishedDigest.Sum(nil), err)
 	}
 	_ = public.Close()
 	wrong := published.ArchiveContent
@@ -75,8 +86,12 @@ func TestIncidentBundleRootStorageStreamsBoundedArchives_Unit(t *testing.T) {
 		}
 		t.Fatal("canceled public read", err)
 	}
-	if _, _, err := storage.OpenStaged(staged.BundleStagingRef, size-1); !errors.Is(err, incidentbundles.ErrArchiveBytesExceeded) {
-		t.Fatal("oversize open admitted", err)
+	oversized, _, oversizeErr := storage.OpenStaged(staged.BundleStagingRef, size-1)
+	if oversized != nil {
+		_ = oversized.Close()
+	}
+	if !errors.Is(oversizeErr, incidentbundles.ErrArchiveBytesExceeded) {
+		t.Fatal("oversize open admitted", oversizeErr)
 	}
 	if err := storage.RemoveStaged(staged.BundleStagingRef); err != nil {
 		t.Fatal(err)

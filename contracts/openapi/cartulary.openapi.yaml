@@ -9252,6 +9252,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
           "201": {
             "$ref": "#/components/responses/AuthSafeUserCreatedResponse"
           },
@@ -9404,6 +9407,9 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
           "201": {
             "$ref": "#/components/responses/AuthSafeUserCreatedResponse"
           },
@@ -10812,9 +10818,9 @@
             }
           }
         },
-        "description": "Incident singleton query contains unsupported list or pagination members",
+        "description": "Incident singleton query contains unsupported pagination members",
         "x-cartulary-error-codes": [
-          "invalid_list_query"
+          "invalid_pagination_request"
         ]
       },
       "IncidentSuccessResponse": {
@@ -11119,7 +11125,7 @@
             "$ref": "#/components/schemas/AdministrativeAuditData"
           },
           "meta": {
-            "$ref": "#/components/schemas/EnvelopeMeta"
+            "$ref": "#/components/schemas/PagedEnvelopeMeta"
           }
         },
         "required": [
@@ -13581,6 +13587,13 @@
               "released"
             ],
             "type": "string"
+          },
+          "evidence.owner_user_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "evidence.received_at": {
             "format": "date-time",
@@ -20644,7 +20657,7 @@
             "$ref": "#/components/schemas/SafeUserListData"
           },
           "meta": {
-            "$ref": "#/components/schemas/EnvelopeMeta"
+            "$ref": "#/components/schemas/PagedEnvelopeMeta"
           }
         },
         "required": [

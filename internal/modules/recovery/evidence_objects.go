@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// EvidenceObjectState is the Recovery-owned projection of one available
+// EvidenceObjectState is the Recovery-owned projection of one finalized durable
 // Evidence blob. Evidence remains responsible for realizing this projection
 // from its private persistence model.
 type EvidenceObjectState struct {
@@ -22,19 +22,19 @@ type EvidenceObjectState struct {
 }
 
 type EvidenceRecoveryProvider interface {
-	ListAvailableRecoveryObjects(context.Context) ([]EvidenceObjectState, error)
+	ListRequiredRecoveryObjects(context.Context) ([]EvidenceObjectState, error)
 }
 
-func AvailableBlobObjectIDsByStorageRef(
+func RequiredBlobObjectIDsByStorageRef(
 	ctx context.Context,
 	provider EvidenceRecoveryProvider,
 ) (map[string]uuid.UUID, error) {
 	if provider == nil {
 		return nil, fmt.Errorf("%w: Evidence recovery provider is required for object-store backup manifest blob index", ErrInvalidBackupArtifact)
 	}
-	objects, err := provider.ListAvailableRecoveryObjects(ctx)
+	objects, err := provider.ListRequiredRecoveryObjects(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("list available Evidence recovery objects: %w", err)
+		return nil, fmt.Errorf("list required Evidence recovery objects: %w", err)
 	}
 	ids := make(map[string]uuid.UUID, len(objects))
 	for _, object := range objects {

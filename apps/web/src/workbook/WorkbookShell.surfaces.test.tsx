@@ -908,14 +908,16 @@ describe("WorkbookShell surface selection", () => {
           currentScenario.handleHrefByRecordID[recordId]?.[kind] ??
           `/api/v1/evidence-handles/${kind}-token`;
         return successEnvelope({
-          incident_id: "00000000-0000-4000-8000-000000001001",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           record_id: recordId,
           object_blob_id: "00000000-0000-4000-8000-000000003001",
           handle_kind: kind,
           href,
           method: "GET",
-          expires_at: "2026-07-26T12:05:00Z",
-          single_use: true,
+          expires_at: new Date(
+            Date.now() + (kind === "preview" ? 300_000 : 120_000),
+          ).toISOString(),
+          single_use: kind === "download",
           media_class: "text",
           filename: "evidence.txt",
           ...(kind === "preview" ? { preview_kind: "text_inline" } : {}),
@@ -2023,6 +2025,9 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("opens incident controls from a menu into a bounded drawer without mounting all controls from the trigger", async () => {
+    const controls = {
+      current: null as WorkbookIncidentControlsRendererProps | null,
+    };
     scenario.workbookDefaultSheetRef = {
       kind: "view_schema",
       id: timelineViewSchemaId,
@@ -2038,7 +2043,10 @@ describe("WorkbookShell surface selection", () => {
           <TestAccountApplicationMenu {...props} />
         )}
         incidentId="10000000-0000-4000-8000-000000000001"
-        renderIncidentControls={(props) => <TestIncidentControls {...props} />}
+        renderIncidentControls={(props) => {
+          controls.current = props;
+          return <TestIncidentControls {...props} />;
+        }}
       />,
     );
 
@@ -2111,9 +2119,22 @@ describe("WorkbookShell surface selection", () => {
         incidentControlsMenuItemTestId("incident-fields"),
       ),
     );
-    expect(
-      await screen.findByTestId(incidentAdministrationTestId("patch-button")),
-    ).toBeTruthy();
+    const patchButton = await screen.findByTestId(
+      incidentAdministrationTestId("patch-button"),
+    );
+    patchButton.focus();
+    // Admission and role refresh must update the attached presentation without
+    // detaching it and restarting the feature's own authority/read lifecycle.
+    for (const role of ["viewer", "editor"] as const) {
+      const recover = controls.current?.onAuthorizationRecovered;
+      if (!recover) throw new Error("Missing controls authorization callback");
+      act(() => recover({ userId: testUserId, role }));
+      expect(controls.current?.currentIncidentRole).toBe(role);
+      expect(
+        screen.getByTestId(incidentAdministrationTestId("patch-button")),
+      ).toBe(patchButton);
+      expect(document.activeElement).toBe(patchButton);
+    }
     expect(
       screen.queryByTestId(incidentAdministrationTestId("summary-key")),
     ).toBeNull();
@@ -4685,9 +4706,15 @@ describe("WorkbookShell surface selection", () => {
         { lifecycleState: "available", uploadState: "available" },
       ),
     ];
+    const activatedDownloads: { href: string | null; filename: string }[] = [];
     const anchorClick = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => undefined);
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        activatedDownloads.push({
+          href: this.getAttribute("href"),
+          filename: this.download,
+        });
+      });
 
     render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
@@ -4720,8 +4747,14 @@ describe("WorkbookShell surface selection", () => {
     );
 
     await waitFor(() => {
-      expect(anchorClick).toHaveBeenCalled();
+      expect(anchorClick).toHaveBeenCalledTimes(1);
     });
+    expect(activatedDownloads).toEqual([
+      {
+        href: "/api/v1/evidence-handles/download-token",
+        filename: "evidence.txt",
+      },
+    ]);
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(
         "/api/v1/evidence-records/00000000-0000-4000-8000-000000004002/download-handle",

@@ -1,5 +1,6 @@
-import { lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { lstatSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 
 // Discovery is source inspection, never runner execution. Prune by lexical
 // identity before stat/read so excluded trees are not executable inputs.
@@ -14,7 +15,7 @@ export function excludedSourcePath(relative) {
 }
 
 export function sourceExclusionPolicy(root) {
-  const policy = JSON.parse(readFileSync(path.join(root, "tools/generated_artifact_policy.json"), "utf8"));
+  const policy = readExecutableRepositoryJSON(root, "tools/generated_artifact_policy.json");
   const generatedRoots = policy.generated_roots.map((entry) => entry.path);
   const generatedFiles = new Set(policy.generated_files.map((entry) => entry.path));
   return (relative) => excludedSourcePath(relative) ||

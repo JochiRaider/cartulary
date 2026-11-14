@@ -37,44 +37,45 @@ func TestIncidentBundleRetiredVersionIsRejectedWithoutEffects_Integration(t *tes
 	})
 
 	bundle := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-retired-version")
-	for _, version := range []int{1, 2, 3, 4, 5, 6} {
-		txnID := fmt.Sprintf("txn-import-retired-version-%d", version)
-		retiredBundle := replaceZipMember(t, bundle, "manifest.json", func(original []byte) []byte {
-			var manifest map[string]any
-			if err := json.Unmarshal(original, &manifest); err != nil {
-				t.Fatalf("decode current manifest: %v", err)
-			}
-			manifest["bundle_version"] = float64(version)
-			payload, err := json.Marshal(manifest)
-			if err != nil {
-				t.Fatalf("encode retired-version manifest: %v", err)
-			}
-			return append(payload, '\n')
-		})
-		beforeDurability := snapshotEnvelopeDurability(t, targetHarness.DB)
-		terminal := assertImportFailureLeavesState(
-			t, targetHarness, targetAdmin, incidentID,
-			txnID, retiredBundle, "unsupported_bundle_version",
-		)
-		errorSummary := terminal["error_summary"].(map[string]any)
-		if errorSummary["retryable"] != false {
-			t.Fatalf("retired version failure must be non-retryable: %#v", errorSummary)
+	// The service-free verifier covers all retired versions; keep the nearest
+	// retired version here for public admission, completion and exact replay.
+	const version = 7
+	txnID := fmt.Sprintf("txn-import-retired-version-%d", version)
+	retiredBundle := replaceZipMember(t, bundle, "manifest.json", func(original []byte) []byte {
+		var manifest map[string]any
+		if err := json.Unmarshal(original, &manifest); err != nil {
+			t.Fatalf("decode current manifest: %v", err)
 		}
-		replay := postImport(
-			t, targetHarness.Server, targetAdmin,
-			fmt.Sprintf(`{"client_txn_id":%q}`, txnID),
-			retiredBundle, "retired-version-replay.zip",
-		)
-		replayedJob := httptestx.RequireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)
-		if replayedJob["job_id"] != terminal["job_id"] {
-			t.Fatalf("retired version replay returned a different job: first=%v replay=%v", terminal["job_id"], replayedJob["job_id"])
+		manifest["bundle_version"] = float64(version)
+		payload, err := json.Marshal(manifest)
+		if err != nil {
+			t.Fatalf("encode retired-version manifest: %v", err)
 		}
-		afterDurability := snapshotEnvelopeDurability(t, targetHarness.DB)
-		if afterDurability.Jobs != beforeDurability.Jobs+1 ||
-			afterDurability.Payloads != beforeDurability.Payloads+1 ||
-			afterDurability.Idempotency != beforeDurability.Idempotency+1 {
-			t.Fatalf("retired version durable admission mismatch: before=%#v after=%#v", beforeDurability, afterDurability)
-		}
+		return append(payload, '\n')
+	})
+	beforeDurability := snapshotEnvelopeDurability(t, targetHarness.DB)
+	terminal := assertImportFailureLeavesState(
+		t, targetHarness, targetAdmin, incidentID,
+		txnID, retiredBundle, "unsupported_bundle_version",
+	)
+	errorSummary := terminal["error_summary"].(map[string]any)
+	if errorSummary["retryable"] != false {
+		t.Fatalf("retired version failure must be non-retryable: %#v", errorSummary)
+	}
+	replay := postImport(
+		t, targetHarness.Server, targetAdmin,
+		fmt.Sprintf(`{"client_txn_id":%q}`, txnID),
+		retiredBundle, "retired-version-replay.zip",
+	)
+	replayedJob := httptestx.RequireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)
+	if replayedJob["job_id"] != terminal["job_id"] {
+		t.Fatalf("retired version replay returned a different job: first=%v replay=%v", terminal["job_id"], replayedJob["job_id"])
+	}
+	afterDurability := snapshotEnvelopeDurability(t, targetHarness.DB)
+	if afterDurability.Jobs != beforeDurability.Jobs+1 ||
+		afterDurability.Payloads != beforeDurability.Payloads+1 ||
+		afterDurability.Idempotency != beforeDurability.Idempotency+1 {
+		t.Fatalf("retired version durable admission mismatch: before=%#v after=%#v", beforeDurability, afterDurability)
 	}
 }
 

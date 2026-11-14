@@ -9,7 +9,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
 
 type entityStorePorts struct {
@@ -19,12 +21,14 @@ type entityStorePorts struct {
 }
 
 type entityRecordPort interface {
+	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (enveloperead.Envelope, error)
 	InsertTx(context.Context, pgx.Tx, entityRecordInsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
 }
 
 type entityRevisionPort interface {
+	LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]conflicts.RevisionWindowRow, error)
 	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
 	AppendChangeSetTx(context.Context, pgx.Tx, entityChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, entityMutationParams) error
@@ -93,6 +97,10 @@ func (a entityRecordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, re
 	return a.store.LoadRowVersionTx(ctx, tx, recordID)
 }
 
+func (a entityRecordAdapter) LoadEnvelopeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, lock bool) (enveloperead.Envelope, error) {
+	return a.store.LoadEnvelopeTx(ctx, tx, recordID, lock)
+}
+
 type entityRevisionAdapter struct {
 	appender *revisions.Appender
 }
@@ -115,4 +123,8 @@ func (a entityRevisionAdapter) AppendRecordMutationTx(ctx context.Context, tx pg
 
 func (a entityRevisionAdapter) AppendLiveRevisionTx(ctx context.Context, tx pgx.Tx, input revisions.LiveRevisionInput) error {
 	return a.appender.AppendLiveRevisionTx(ctx, tx, input)
+}
+
+func (a entityRevisionAdapter) LoadRevisionWindowTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, base, current int64) ([]conflicts.RevisionWindowRow, error) {
+	return conflicts.NewRevisionWindowReader().LoadRevisionWindowTx(ctx, tx, id, base, current)
 }

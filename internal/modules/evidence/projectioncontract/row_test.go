@@ -8,6 +8,7 @@ import (
 )
 
 func TestViewRowMapsRichProjectionInput(t *testing.T) {
+	ownerID := uuid.MustParse("c30c4bca-f557-453d-aec7-b5414e356b1c")
 	recordID := uuid.New()
 	collectorPartyID := uuid.New()
 	sourcePartyID := uuid.New()
@@ -31,6 +32,7 @@ func TestViewRowMapsRichProjectionInput(t *testing.T) {
 		BlobHash:           &blobHash,
 		CollectorPartyText: &collectorPartyText,
 		CollectorPartyID:   &collectorPartyID,
+		OwnerUserID:        &ownerID,
 		SourcePartyText:    &sourcePartyText,
 		SourcePartyID:      &sourcePartyID,
 		UploadState:        "available",
@@ -45,8 +47,8 @@ func TestViewRowMapsRichProjectionInput(t *testing.T) {
 		t.Fatalf("row_version got %#v want 7", row["row_version"])
 	}
 	cells := requireCells(t, row)
-	if len(cells) != 13 {
-		t.Fatalf("cells length got %d want 13: %#v", len(cells), cells)
+	if len(cells) != 14 {
+		t.Fatalf("cells length got %d want 14: %#v", len(cells), cells)
 	}
 	assertCellValue(t, cells, "evidence.title", title)
 	assertCellValue(t, cells, "evidence.lifecycle_state", "available")
@@ -58,6 +60,7 @@ func TestViewRowMapsRichProjectionInput(t *testing.T) {
 	assertCellValue(t, cells, "evidence.collector_party_id", collectorPartyID.String())
 	assertCellValue(t, cells, "evidence.source_party_text", sourcePartyText)
 	assertCellValue(t, cells, "evidence.source_party_id", sourcePartyID.String())
+	assertCellValue(t, cells, "evidence.owner_user_id", ownerID.String())
 	assertCellValue(t, cells, "evidence.upload_state", "available")
 	assertCellValue(t, cells, "evidence.linked_record_count", int32(3))
 	assertCellValue(t, cells, "evidence.edited_at", editedAt.UTC().Format(time.RFC3339Nano))
@@ -82,6 +85,7 @@ func TestViewRowPreservesNullProjectionCells(t *testing.T) {
 		"evidence.collector_party_id",
 		"evidence.source_party_text",
 		"evidence.source_party_id",
+		"evidence.owner_user_id",
 	} {
 		assertCellValue(t, cells, key, nil)
 	}
@@ -130,7 +134,7 @@ func assertCellValue(t testing.TB, cells map[string]any, key string, want any) {
 	if !ok {
 		t.Fatalf("%s cell got %T", key, cells[key])
 	}
-	if got := cell["value"]; got != want {
+	if got, present := cell["value"]; !present || len(cell) != 1 || got != want {
 		t.Fatalf("%s value got %#v want %#v", key, got, want)
 	}
 }

@@ -239,7 +239,8 @@ func (s *Application) transitionIndicatorObservation(ctx context.Context, actorU
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := updateIndicatorObservationTransitionTx(ctx, tx, next, current.RowVersion); err != nil {
+	next, err = updateIndicatorObservationTransitionTx(ctx, tx, next, current.RowVersion)
+	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 	changeSetID, err := s.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{

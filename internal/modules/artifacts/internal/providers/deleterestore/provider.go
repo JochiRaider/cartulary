@@ -27,10 +27,11 @@ func (Source) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (ma
 	return deleterestorecontract.ScanSnapshot(tx.QueryRow(ctx, `
 SELECT jsonb_build_object(
            'record', to_jsonb(r),
-           'source', to_jsonb(a)
-             || COALESCE(to_jsonb(f) - ARRAY['record_id', 'incident_id', 'updated_at']::text[], '{}'::jsonb)
-             || COALESCE(to_jsonb(iq) - ARRAY['record_id', 'incident_id', 'created_at', 'created_by_user_id']::text[], '{}'::jsonb)
-             || COALESCE(to_jsonb(fk) - ARRAY['record_id', 'incident_id', 'created_at']::text[], '{}'::jsonb)
+           'source', to_jsonb(a) || jsonb_build_object(
+               'finding', to_jsonb(f),
+               'investigative_query', to_jsonb(iq),
+               'forensic_keyword', to_jsonb(fk)
+           )
        )
   FROM records r
   JOIN artifacts a
@@ -65,5 +66,9 @@ func (s Source) ViewSchemaID(ctx context.Context, tx pgx.Tx, recordID uuid.UUID)
 }
 
 func (Source) PrepareStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
+}
+
+func (Source) ValidateStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
 	return deleterestorecontract.StateTransitionPreparation{}, nil
 }

@@ -558,10 +558,7 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 		map[string]any{"base_membership_version": patchedMembership["membership_version"]},
 		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
-	if removed.StatusCode != http.StatusNoContent {
-		t.Fatalf("delete status = %d, want 204", removed.StatusCode)
-	}
-	_ = removed.Body.Close()
+	httptestx.RequireNoContent(t, removed)
 	missing := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetUserID,
 		map[string]any{"base_membership_version": patchedMembership["membership_version"]},
 		httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),

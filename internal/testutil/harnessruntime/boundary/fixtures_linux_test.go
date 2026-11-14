@@ -225,7 +225,7 @@ process.stdout.write(JSON.stringify(environment));
 			}
 			lease, err := owner.Broker.Acquire(ctx, harnessfixtures.Request{PostgresIsolation: isolation, Services: []string{"object_store", "postgres"}, Capability: capability, UnitID: "boundary", Affinity: "native-physical", BrowserStage: "webserver-backed", RuntimeProfile: "default"})
 			if err != nil {
-				t.Fatal("acquire", err)
+				t.Fatal("acquire", err, harnesssession.DescribeCleanupFailure(err))
 			}
 			if variant == "borrowed" {
 				if lease.Record().Ownership != "borrowed" {

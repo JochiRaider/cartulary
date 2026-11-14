@@ -2,6 +2,7 @@ package revisions
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -13,6 +14,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
+
+// Synthetic record families exercise catalog mechanics, not Records semantics.
+func catalogAdmissionEnvelopeValidator(uuid.UUID, uuid.UUID, string, map[string]any) error {
+	return nil
+}
+
+func catalogAdmissionSourceValidator(map[string]any, map[string]any) error { return nil }
 
 type catalogAdmissionSnapshotSource struct {
 	value map[string]any
@@ -56,6 +64,18 @@ type catalogAdmissionHistoryValidator struct {
 	err      error
 }
 
+type catalogTestHistoryValidator struct{}
+
+func (catalogTestHistoryValidator) ValidateHistoryMutation(StoredMutation) error { return nil }
+
+func catalogTestHistoryReferences(StoredMutation, uuid.UUID) ([]HistoryRecordReference, error) {
+	return nil, nil
+}
+
+type catalogTestHistoryValidatorFunc func(StoredMutation) error
+
+func (f catalogTestHistoryValidatorFunc) ValidateHistoryMutation(m StoredMutation) error { return f(m) }
+
 func (validator *catalogAdmissionHistoryValidator) ValidateHistoryMutation(mutation StoredMutation) error {
 	validator.mutation = mutation
 	return validator.err
@@ -63,6 +83,25 @@ func (validator *catalogAdmissionHistoryValidator) ValidateHistoryMutation(mutat
 
 func TestCatalogAdmissionSnapshotCaptureBuildsCanonicalOpaqueEnvelope(t *testing.T) {
 	recordID := uuid.New()
+	incidentID := uuid.New()
+	validationCalls := 0
+	sourceCalls := 0
+	var sourceError error
+	validateSource := func(record, source map[string]any) error {
+		sourceCalls++
+		if record["record_id"] != recordID.String() || source["title"] != "source truth" {
+			t.Fatalf("source validator context = %#v / %#v", record, source)
+		}
+		return sourceError
+	}
+	var validationError error
+	validateEnvelope := func(gotIncident, gotRecord uuid.UUID, gotType string, value map[string]any) error {
+		validationCalls++
+		if gotIncident != incidentID || gotRecord != recordID || gotType != "catalog_admission" || value["record_id"] != recordID.String() {
+			t.Fatalf("envelope validator context = %s/%s/%q/%#v", gotIncident, gotRecord, gotType, value)
+		}
+		return validationError
+	}
 	sourceValue := map[string]any{
 		"record": map[string]any{
 			"record_id":   recordID.String(),
@@ -74,10 +113,11 @@ func TestCatalogAdmissionSnapshotCaptureBuildsCanonicalOpaqueEnvelope(t *testing
 	catalog, err := compileRecordSnapshotCaptureCatalog([]ProviderContribution{{
 		SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 		Records: []RecordProviderContribution{{
-			HistoryProjector:  catalogTestHistoryProjector,
-			SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
-			RecordType:        "catalog_admission",
-			SnapshotSchemaID:  "cartulary.revisions.snapshot.catalog_admission.v1",
+			HistoryProjector:       catalogTestHistoryProjector,
+			SourceOwnerModule:      SourceOwnerModule("catalog_admission_owner"),
+			RecordType:             "catalog_admission",
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.catalog_admission.v1",
+			ValidateSnapshotSource: validateSource,
 			DeleteRestoreSource: catalogAdmissionSnapshotSource{
 				value: sourceValue,
 			},
@@ -86,11 +126,11 @@ func TestCatalogAdmissionSnapshotCaptureBuildsCanonicalOpaqueEnvelope(t *testing
 		RecordType:       "catalog_admission",
 		SourceOwner:      SourceOwnerModule("catalog_admission_owner"),
 		SnapshotSchemaID: "cartulary.revisions.snapshot.catalog_admission.v1",
-	}})
+	}}, validateEnvelope)
 	if err != nil {
 		t.Fatalf("build catalog-admission snapshot catalog: %v", err)
 	}
-	snapshot, err := catalog.captureTx(context.Background(), nil, RecordEnvelope{RecordID: recordID, RecordType: "catalog_admission"})
+	snapshot, err := catalog.captureTx(context.Background(), nil, RecordEnvelope{IncidentID: incidentID, RecordID: recordID, RecordType: "catalog_admission"})
 	if err != nil {
 		t.Fatalf("capture canonical snapshot: %v", err)
 	}
@@ -103,6 +143,33 @@ func TestCatalogAdmissionSnapshotCaptureBuildsCanonicalOpaqueEnvelope(t *testing
 	}
 	if got := value["snapshot_schema_id"]; got != "cartulary.revisions.snapshot.catalog_admission.v1" {
 		t.Fatalf("snapshot schema id = %#v", got)
+	}
+	if err := catalog.validatePersisted(incidentID, recordID, "catalog_admission", value); err != nil || validationCalls != 2 {
+		t.Fatalf("capture and persisted validation: calls %d, err %v", validationCalls, err)
+	}
+	validationError = errors.New("owner rejects envelope")
+	if _, err := catalog.captureTx(t.Context(), nil, RecordEnvelope{IncidentID: incidentID, RecordID: recordID, RecordType: "catalog_admission"}); !errors.Is(err, validationError) || !errors.Is(err, ErrInvalidRecordSnapshot) {
+		t.Fatalf("capture lost owner rejection: %v", err)
+	}
+	if err := catalog.validatePersisted(incidentID, recordID, "catalog_admission", value); !errors.Is(err, validationError) || !errors.Is(err, ErrInvalidRecordSnapshot) {
+		t.Fatalf("persisted value lost owner rejection: %v", err)
+	}
+	if validationCalls != 4 {
+		t.Fatalf("owner validation calls = %d", validationCalls)
+	}
+	if sourceCalls != 2 {
+		t.Fatalf("source validator calls after Records rejection = %d, want 2", sourceCalls)
+	}
+	validationError = nil
+	sourceError = errors.New("owner rejects source")
+	if _, err := catalog.captureTx(t.Context(), nil, RecordEnvelope{IncidentID: incidentID, RecordID: recordID, RecordType: "catalog_admission"}); !errors.Is(err, sourceError) || !errors.Is(err, ErrInvalidRecordSnapshot) {
+		t.Fatalf("capture lost source rejection: %v", err)
+	}
+	if err := catalog.validatePersisted(incidentID, recordID, "catalog_admission", value); !errors.Is(err, sourceError) || !errors.Is(err, ErrInvalidRecordSnapshot) {
+		t.Fatalf("persisted value lost source rejection: %v", err)
+	}
+	if sourceCalls != 4 {
+		t.Fatalf("source validator calls = %d, want 4", sourceCalls)
 	}
 	sourceValue["source"].(map[string]any)["title"] = "mutated"
 	if got := value["source"].(map[string]any)["title"]; got != "source truth" {
@@ -137,7 +204,15 @@ func TestCatalogAdmissionSnapshotCaptureBuildsCanonicalOpaqueEnvelope(t *testing
 
 func TestCatalogAdmissionSnapshotCaptureRejectsInvalidShapeAndMissingRegistration(t *testing.T) {
 	recordID := uuid.New()
-	if _, err := NewRecordSnapshotCaptureCatalog(nil); !errors.Is(err, ErrMissingSnapshotCapture) {
+	missingValidator := validProviderContributions()
+	missingValidator[0].Records[0].ValidateSnapshotSource = nil
+	if _, err := NewRecordSnapshotCaptureCatalog(missingValidator, catalogAdmissionEnvelopeValidator); !errors.Is(err, ErrMissingSnapshotCapture) {
+		t.Fatalf("missing source validator admitted: %v", err)
+	}
+	if _, err := NewRecordSnapshotCaptureCatalog(validProviderContributions(), nil); !errors.Is(err, ErrMissingSnapshotCapture) {
+		t.Fatalf("missing Records validator admitted: %v", err)
+	}
+	if _, err := NewRecordSnapshotCaptureCatalog(nil, catalogAdmissionEnvelopeValidator); !errors.Is(err, ErrMissingSnapshotCapture) {
 		t.Fatalf("incomplete catalog error = %v", err)
 	}
 	if _, err := parseSnapshotSchemaRequirements([]byte(`{"schema_id":"wrong","registry_version":1,"schemas":[{}]}`)); !errors.Is(err, ErrInvalidRecordSnapshot) {
@@ -147,17 +222,18 @@ func TestCatalogAdmissionSnapshotCaptureRejectsInvalidShapeAndMissingRegistratio
 	invalid, err := compileRecordSnapshotCaptureCatalog([]ProviderContribution{{
 		SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 		Records: []RecordProviderContribution{{
-			HistoryProjector:    catalogTestHistoryProjector,
-			SourceOwnerModule:   SourceOwnerModule("catalog_admission_owner"),
-			RecordType:          "catalog_admission",
-			SnapshotSchemaID:    "cartulary.revisions.snapshot.catalog_admission.v1",
-			DeleteRestoreSource: catalogAdmissionSnapshotSource{value: map[string]any{"record": map[string]any{}, "source": map[string]any{}, "projection": map[string]any{}}},
+			HistoryProjector:       catalogTestHistoryProjector,
+			SourceOwnerModule:      SourceOwnerModule("catalog_admission_owner"),
+			RecordType:             "catalog_admission",
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.catalog_admission.v1",
+			ValidateSnapshotSource: catalogAdmissionSourceValidator,
+			DeleteRestoreSource:    catalogAdmissionSnapshotSource{value: map[string]any{"record": map[string]any{}, "source": map[string]any{}, "projection": map[string]any{}}},
 		}},
 	}}, []snapshotSchemaRequirement{{
 		RecordType:       "catalog_admission",
 		SourceOwner:      SourceOwnerModule("catalog_admission_owner"),
 		SnapshotSchemaID: "cartulary.revisions.snapshot.catalog_admission.v1",
-	}})
+	}}, catalogAdmissionEnvelopeValidator)
 	if err != nil {
 		t.Fatalf("build invalid-shape source catalog: %v", err)
 	}
@@ -176,6 +252,7 @@ func TestCatalogAdmissionSnapshotCaptureRejectsInvalidShapeAndMissingRegistratio
 			SourceOwner:      SourceOwnerModule("catalog_admission_owner"),
 			SnapshotSchemaID: "cartulary.revisions.snapshot.catalog_admission.v1",
 		}},
+		catalogAdmissionEnvelopeValidator,
 	); !errors.Is(err, ErrDuplicateSnapshotCapture) {
 		t.Fatalf("duplicate snapshot provider error = %v", err)
 	}
@@ -249,6 +326,7 @@ func TestTargetSemanticsCatalogCompilesGenericRowAndOwnerNonRowEntries(t *testin
 }
 
 func TestTargetSemanticsCatalogFailsClosed(t *testing.T) {
+	exerciseRequiredHistoryValidatorAdmission(t)
 	provider := &catalogAdmissionNonRowProvider{}
 	if _, err := parseTargetSemanticsRequirements([]byte(`{"schema_id":"wrong","registry_version":1,"targets":[{}]}`)); !errors.Is(err, ErrInvalidTargetSemantics) {
 		t.Fatalf("invalid target registry identity error = %v", err)
@@ -276,14 +354,104 @@ func TestTargetSemanticsCatalogFailsClosed(t *testing.T) {
 	}
 }
 
+func exerciseRequiredHistoryValidatorAdmission(t *testing.T) {
+	t.Helper()
+	for _, required := range []bool{false, true} {
+		for _, test := range []struct {
+			name      string
+			validator HistoryValidator
+			present   bool
+		}{
+			{"absent", nil, false},
+			{"typed_nil_pointer", (*catalogAdmissionHistoryValidator)(nil), false},
+			{"typed_nil_function", catalogTestHistoryValidatorFunc(nil), false},
+			{"value", catalogTestHistoryValidator{}, true},
+			{"pointer", &catalogAdmissionHistoryValidator{}, true},
+			{"function", catalogTestHistoryValidatorFunc(func(StoredMutation) error { return nil }), true},
+		} {
+			name := "optional/"
+			if required {
+				name = "required/"
+			}
+			t.Run(name+test.name, func(t *testing.T) {
+				requirements := catalogAdmissionTargetRequirements()
+				requirements[0].HistoryValidatorRequired = required
+				contributions := catalogAdmissionTargetContributions(&catalogAdmissionNonRowProvider{})
+				contributions[0].NonRowTargets[0].HistoryValidator = test.validator
+				_, err := compileTargetSemanticsCatalog(requirements, contributions)
+				admitted := test.present || (!required && test.validator == nil)
+				if admitted {
+					if err != nil {
+						t.Fatalf("admitted validator rejected: %v", err)
+					}
+				} else if !errors.Is(err, ErrInvalidTargetSemantics) {
+					t.Fatalf("absent/nil validator admitted: %v", err)
+				}
+			})
+		}
+	}
+	t.Run("required_policy_cannot_bind_row_dispatch", func(t *testing.T) {
+		requirements := catalogAdmissionTargetRequirements()
+		requirements[1].HistoryValidatorRequired = true
+		if _, err := compileTargetSemanticsCatalog(requirements, catalogAdmissionTargetContributions(&catalogAdmissionNonRowProvider{})); !errors.Is(err, ErrInvalidTargetSemantics) {
+			t.Fatalf("non-row validator policy admitted on row dispatch: %v", err)
+		}
+	})
+	for _, test := range []struct {
+		name     string
+		value    any
+		present  bool
+		admitted bool
+	}{
+		{"required", true, true, true}, {"optional", false, true, true},
+		{"missing", nil, false, false}, {"null", nil, true, false},
+		{"string", "true", true, false}, {"number", 1, true, false},
+	} {
+		t.Run("registry_policy/"+test.name, func(t *testing.T) {
+			entry := map[string]any{"target_kind": "child", "source_owner": "catalog_admission_owner", "dispatch_class": "non_row", "admitted_record_types": []string{}, "history_record_id_fields": []string{"record_id"}, "addressability": "single_history_entry"}
+			if test.present {
+				entry["history_validator_required"] = test.value
+			}
+			payload, err := json.Marshal(map[string]any{"schema_id": "cartulary.revisions_target_semantics_registry.v1", "registry_version": 1, "targets": []any{entry}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := parseTargetSemanticsRequirements(payload)
+			if !test.admitted {
+				if !errors.Is(err, ErrInvalidTargetSemantics) {
+					t.Fatalf("missing or mistyped policy admitted: %v", err)
+				}
+			} else if err != nil || len(got) != 1 || got[0].HistoryValidatorRequired != test.value.(bool) {
+				t.Fatalf("registry policy lost: %#v, %v", got, err)
+			}
+		})
+	}
+	t.Run("current_required_targets", func(t *testing.T) {
+		requirements, err := currentTargetSemanticsRequirements()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, requirement := range requirements {
+			if requirement.HistoryValidatorRequired {
+				got = append(got, requirement.TargetKind)
+			}
+		}
+		if !reflect.DeepEqual(got, []string{"entity_alias", "entity_mention", "entity_preserved_identifier", "indicator_observation", "indicator_state_interval", "record_link", "record_tag"}) {
+			t.Fatalf("required validators=%v", got)
+		}
+	})
+}
+
 func catalogAdmissionSnapshotContribution(value map[string]any) ProviderContribution {
 	return ProviderContribution{
 		SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 		Records: []RecordProviderContribution{{
-			HistoryProjector:  catalogTestHistoryProjector,
-			SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
-			RecordType:        "catalog_admission",
-			SnapshotSchemaID:  "cartulary.revisions.snapshot.catalog_admission.v1",
+			HistoryProjector:       catalogTestHistoryProjector,
+			SourceOwnerModule:      SourceOwnerModule("catalog_admission_owner"),
+			RecordType:             "catalog_admission",
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.catalog_admission.v1",
+			ValidateSnapshotSource: catalogAdmissionSourceValidator,
 			DeleteRestoreSource: catalogAdmissionSnapshotSource{
 				value: value,
 			},
@@ -308,16 +476,18 @@ func catalogAdmissionTargetContributions(provider rollbackcontract.NonRowTargetP
 	return []ProviderContribution{{
 		SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 		Records: []RecordProviderContribution{{
-			HistoryProjector:    catalogTestHistoryProjector,
-			SourceOwnerModule:   SourceOwnerModule("catalog_admission_owner"),
-			RecordType:          "catalog_admission",
-			SnapshotSchemaID:    "cartulary.revisions.snapshot.catalog_admission.v1",
-			RowRollbackProvider: catalogAdmissionRowProvider{},
+			HistoryProjector:       catalogTestHistoryProjector,
+			SourceOwnerModule:      SourceOwnerModule("catalog_admission_owner"),
+			RecordType:             "catalog_admission",
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.catalog_admission.v1",
+			ValidateSnapshotSource: catalogAdmissionSourceValidator,
+			RowRollbackProvider:    catalogAdmissionRowProvider{},
 		}},
 		NonRowTargets: []NonRowProviderContribution{{
 			HistoryProjector:  catalogTestHistoryProjector,
 			SourceOwnerModule: SourceOwnerModule("catalog_admission_owner"),
 			TargetKind:        "child",
+			HistoryReferences: catalogTestHistoryReferences,
 			HistoryFacet:      NewFieldAssociationHistoryFacet([]string{"record_id"}, HistorySingleEntry),
 			RollbackProvider:  provider,
 		}},
@@ -328,4 +498,8 @@ func catalogAdmissionTargetContributionsWithoutHistory(provider rollbackcontract
 	values := catalogAdmissionTargetContributions(provider)
 	values[0].NonRowTargets[0].HistoryFacet = HistoryFacet{}
 	return values
+}
+
+func (catalogAdmissionSnapshotSource) ValidateStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
 }

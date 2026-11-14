@@ -212,8 +212,28 @@ test("requires MFA on the ordinary login surface, rejects wrong codes, and accep
     path: "/api/v1/auth/login",
     status: 401,
   });
-  await new AuthGateway(page).login(email, password, "000000");
+  // Exclude the entire submission window plus both accepted adjacent steps.
+  // This uses the ordinary shared clock; it never changes the runtime profile.
+  const wrongCodeStart = Date.now();
+  const wrongCodeEnd = wrongCodeStart + 60_000;
+  const acceptedCodes = new Set<string>();
+  for (
+    let step = Math.floor(wrongCodeStart / 30_000) - 1;
+    step <= Math.floor(wrongCodeEnd / 30_000) + 1;
+    step += 1
+  ) {
+    acceptedCodes.add(generateTotpCode(secretBase32, step * 30_000));
+  }
+  let wrongCode = 0;
+  while (acceptedCodes.has(String(wrongCode).padStart(6, "0"))) wrongCode += 1;
+  await new AuthGateway(page).login(
+    email,
+    password,
+    String(wrongCode).padStart(6, "0"),
+  );
   await wrongTotpResponse;
+  expect(Date.now()).toBeGreaterThanOrEqual(wrongCodeStart);
+  expect(Date.now()).toBeLessThanOrEqual(wrongCodeEnd);
   await expect(page.getByTestId(authTestId("login-totp-code"))).toHaveValue("");
   await expect(page.getByTestId(authTestId("login-password"))).toHaveValue(
     password,

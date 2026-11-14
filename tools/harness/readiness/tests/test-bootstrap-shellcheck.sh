@@ -135,3 +135,52 @@ CARTULARY_SHELLCHECK_ARCHIVE_DIR="$reuse_dir/archives" \
 CARTULARY_BOOTSTRAP_SHELLCHECK_PLATFORM="linux-x64" \
   "$SCRIPT"
 assert_file_absent "$reuse_dir/curl.log" "existing shellcheck reuse curl guard"
+
+install_dir="$(mktemp -d "$ROOT_DIR/tmp/bootstrap-shellcheck-install.XXXXXX")"
+cleanup_paths+=("$install_dir")
+mkdir -p "$install_dir/archive-source/shellcheck-v0.11.0" "$install_dir/archives" "$install_dir/toolbin"
+cp "$reuse_dir/toolbin/shellcheck-v0.11.0" "$install_dir/archive-source/shellcheck-v0.11.0/shellcheck"
+tar -cJf "$install_dir/archives/shellcheck-v0.11.0.linux.x86_64.tar.xz" -C "$install_dir/archive-source" shellcheck-v0.11.0
+cat >"$install_dir/sha256sum" <<'EOF'
+#!/usr/bin/env bash
+printf '8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  %s\n' "$1"
+EOF
+chmod +x "$install_dir/sha256sum"
+make_fake_curl "$install_dir" fail
+run_install() {
+  PATH="$install_dir:$PATH" \
+  TOOLBIN_DIR="$install_dir/toolbin" \
+  SHELLCHECK_BIN="$install_dir/toolbin/shellcheck-v0.11.0" \
+  CARTULARY_SHELLCHECK_ARCHIVE_DIR="$install_dir/archives" \
+  CARTULARY_BOOTSTRAP_SHELLCHECK_PLATFORM="linux-x64" \
+  CARTULARY_FORCE_REINSTALL=1 \
+    "$SCRIPT"
+}
+run_install
+cmp "$reuse_dir/toolbin/shellcheck-v0.11.0" "$install_dir/toolbin/shellcheck-v0.11.0"
+[[ -x "$install_dir/toolbin/shellcheck-v0.11.0" ]] || fail "installed tool must be executable"
+for candidate in "$install_dir"/toolbin/shellcheck-install.*; do
+  assert_file_absent "$candidate" "successful extraction staging cleanup"
+done
+
+cat >"$install_dir/tar" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+while [[ "$#" -gt 0 ]]; do
+  if [[ "$1" == "-C" ]]; then
+    printf 'partial extraction' >"$2/partial"
+    exit 42
+  fi
+  shift
+done
+exit 99
+EOF
+chmod +x "$install_dir/tar"
+extraction_status=0
+run_install || extraction_status=$?
+[[ "$extraction_status" == 42 ]] || fail "failed extraction: expected exit 42, got $extraction_status"
+cmp "$reuse_dir/toolbin/shellcheck-v0.11.0" "$install_dir/toolbin/shellcheck-v0.11.0"
+assert_file_absent "$install_dir/curl.log" "verified archive reuse"
+for candidate in "$install_dir"/toolbin/shellcheck-install.*; do
+  assert_file_absent "$candidate" "failed extraction staging cleanup"
+done

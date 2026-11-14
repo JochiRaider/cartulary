@@ -1,7 +1,6 @@
 package performancefixturelifecycle
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,8 +13,8 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
@@ -292,7 +291,7 @@ func writeLeaseArtifact(env map[string]string, profile performancefixtureprofile
 		return err
 	}
 	var retained leaseArtifact
-	if err := json.Unmarshal(raw, &retained); err != nil {
+	if err := decodeFixtureArtifact(raw, profile.ArtifactPolicy.LeaseSchemaID, &retained); err != nil {
 		return err
 	}
 	if err := validateLeaseArtifact(profile, retained); err != nil {
@@ -416,19 +415,25 @@ func readBuildArtifact(env map[string]string, profile performancefixtureprofile.
 	if err != nil {
 		return BuildArtifact{}, err
 	}
-	if _, err := canonicaljson.DecodeStrict(raw); err != nil {
-		return BuildArtifact{}, errors.New("invalid fixture snapshot build JSON")
-	}
 	var build BuildArtifact
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&build); err != nil {
+	if err := decodeFixtureArtifact(raw, profile.ArtifactPolicy.BuildSchemaID, &build); err != nil {
 		return BuildArtifact{}, err
 	}
 	if err := validatePreparedBuild(env, profile, build); err != nil {
 		return BuildArtifact{}, err
 	}
 	return build, nil
+}
+
+func decodeFixtureArtifact(raw []byte, schemaID string, target any) error {
+	value, err := harnessschema.Decode(raw)
+	if err != nil || harnessschema.Validate(schemaID, value) != nil {
+		return errors.New("performance fixture artifact document is invalid")
+	}
+	if err := json.Unmarshal(raw, target); err != nil {
+		return errors.New("performance fixture artifact document is invalid")
+	}
+	return nil
 }
 
 func validatePreparedBuild(env map[string]string, profile performancefixtureprofile.Profile, build BuildArtifact) error {

@@ -10,11 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/leaseproof"
 
 	dockercontainer "github.com/moby/moby/api/types/container"
@@ -123,17 +125,17 @@ func validateContainerObservationProof(proof containerObservationProof, runID st
 			return errors.New("foreign owned lease")
 		}
 	case "borrowed":
-		var borrower struct {
-			SchemaID   string `json:"schema_id"`
-			SessionID  string `json:"session_id"`
-			BorrowerID string `json:"borrower_id"`
-			RunID      string `json:"run_id"`
-			PID        int    `json:"pid"`
-			Start      string `json:"process_start_proof"`
-			CreatedAt  string `json:"created_at"`
-		}
-		if proof.BorrowerFile == "" || privateObservationJSON(proof.BorrowerFile, &borrower) != nil || borrower.SchemaID != "cartulary.test_services.local_session_borrower.v1" || borrower.RunID != runID || borrower.SessionID != lease.SuiteID || borrower.BorrowerID != proof.BorrowerID || borrower.BorrowerID == "" {
+		var borrower map[string]any
+		if proof.BorrowerFile == "" || privateObservationJSON(proof.BorrowerFile, &borrower) != nil || harnessschema.Validate("cartulary.test_services.local_session_borrower.v2", borrower) != nil || borrower["owner_uid"] != float64(os.Getuid()) || borrower["run_id"] != runID || borrower["session_id"] != lease.SuiteID || borrower["borrower_id"] != proof.BorrowerID {
 			return errors.New("unproved borrower")
+		}
+		owner, err := ProcessIdentity(int(borrower["pid"].(float64)))
+		if err != nil || borrower["process_start_proof"] != "linux-proc-start:"+owner["start"].(string) {
+			return errors.New("inactive or replaced borrower")
+		}
+		state := owner["stat"].(object)["state"]
+		if state == "Z" || state == "X" {
+			return errors.New("inactive borrower")
 		}
 	default:
 		return errors.New("unknown observation ownership")
@@ -238,14 +240,22 @@ func observeContainer(ctx context.Context, client containerObservationClient, pr
 	var read, written uint64
 	readSeen, writeSeen := false, false
 	for _, entry := range stats.BlkioStats.IoServiceBytesRecursive {
+		var total *uint64
 		switch entry.Op {
 		case "Read", "read":
-			read += entry.Value
+			total = &read
 			readSeen = true
 		case "Write", "write":
-			written += entry.Value
+			total = &written
 			writeSeen = true
+		default:
+			continue
 		}
+		const maximum = uint64(1<<53 - 1)
+		if entry.Value > maximum || *total > maximum-entry.Value {
+			return result, errors.New("container block counter exceeds exact integer range")
+		}
+		*total += entry.Value
 	}
 	add("container_block_read_bytes", read, readSeen, 1)
 	add("container_block_write_bytes", written, writeSeen, 1)

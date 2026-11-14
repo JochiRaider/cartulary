@@ -38,7 +38,7 @@ if [[ "${1:-}" == "env" ]]; then
   exit 0
 fi
 if [[ "${1:-}" == "version" ]]; then
-  printf '{"GoVersion":"%s","Settings":[{"Key":"GOFIPS140","Value":"%s"}]}\n' "$FAKE_GO_TOOLCHAIN" "$FAKE_GO_MODULE_SELECTOR"
+  printf '{"GoVersion":"%s","Path":"github.com/JochiRaider/cartulary/cmd/server","Main":{"Path":"github.com/JochiRaider/cartulary","Version":"(devel)"},"Settings":[{"Key":"GOFIPS140","Value":"%s"}]}\n' "$FAKE_GO_TOOLCHAIN" "$FAKE_GO_MODULE_SELECTOR"
   exit 0
 fi
 printf '%s\n' "$@" >"${FAKE_GO_ARGS_LOG:?}"

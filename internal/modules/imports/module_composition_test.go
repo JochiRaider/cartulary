@@ -23,47 +23,49 @@ import (
 type moduleTestDB struct{}
 
 func (*moduleTestDB) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
-	return pgconn.CommandTag{}, nil
+	panic("Imports composition must not invoke database operations")
 }
 
 func (*moduleTestDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
-	return nil, errors.New("unexpected query")
+	panic("Imports composition must not invoke database operations")
 }
 
-func (*moduleTestDB) QueryRow(context.Context, string, ...any) pgx.Row { return nil }
+func (*moduleTestDB) QueryRow(context.Context, string, ...any) pgx.Row {
+	panic("Imports composition must not invoke database operations")
+}
 
 func (*moduleTestDB) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
-	return nil, errors.New("unexpected transaction")
+	panic("Imports composition must not invoke database operations")
 }
 
 type moduleTestJobs struct{}
 
 func (*moduleTestJobs) CreateQueuedTx(context.Context, pgx.Tx, jobs.EnqueueParams, time.Time) (jobs.Resource, error) {
-	return jobs.Resource{}, nil
+	panic("Imports composition must not invoke job service operations")
 }
 
 func (*moduleTestJobs) ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execution) error {
-	return nil
+	panic("Imports composition must not invoke job service operations")
 }
 
 func (*moduleTestJobs) ValidateCancellationExecutionTx(context.Context, pgx.Tx, jobs.Execution) error {
-	return nil
+	panic("Imports composition must not invoke job service operations")
 }
 
 func (*moduleTestJobs) HandlerPayload(context.Context, jobs.Execution) (json.RawMessage, error) {
-	return nil, nil
+	panic("Imports composition must not invoke job service operations")
 }
 
 func (*moduleTestJobs) ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error) {
-	return jobs.Resource{}, nil
+	panic("Imports composition must not invoke job service operations")
 }
 
 func (*moduleTestJobs) UpdateProgress(context.Context, jobs.Execution, jobs.Progress, *string) (jobs.Resource, error) {
-	return jobs.Resource{}, nil
+	panic("Imports composition must not invoke job service operations")
 }
 
 func (*moduleTestJobs) CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error) {
-	return jobs.Resource{}, nil
+	panic("Imports composition must not invoke job service operations")
 }
 
 type moduleTestRunner struct {
@@ -79,20 +81,20 @@ func (r *moduleTestRunner) RegisterHandler(kind string, _ jobs.HandlerFunc) erro
 	return nil
 }
 
-func (*moduleTestRunner) Notify(uuid.UUID) {}
+func (*moduleTestRunner) Notify(uuid.UUID) { panic("Imports composition must not notify workers") }
 
 type moduleTestFinalizer struct{}
 
 func (*moduleTestFinalizer) FinalizeImportJobSuccess(context.Context, JobSuccessFinalization) (jobs.Resource, error) {
-	return jobs.Resource{}, nil
+	panic("Imports composition must not invoke job finalizer operations")
 }
 
 func (*moduleTestFinalizer) FinalizeImportJobFailure(context.Context, JobFailureFinalization) (jobs.Resource, error) {
-	return jobs.Resource{}, nil
+	panic("Imports composition must not invoke job finalizer operations")
 }
 
 func (*moduleTestFinalizer) FinalizeImportJobCancellation(context.Context, JobCancellationFinalization) (jobs.Resource, error) {
-	return jobs.Resource{}, nil
+	panic("Imports composition must not invoke job finalizer operations")
 }
 
 type moduleTestFacade struct {
@@ -392,5 +394,9 @@ func (*moduleTestFacade) ValidateImportUnitSourceResult(ExtensionImportSourceRes
 type moduleTestAttributions struct{}
 
 func (moduleTestAttributions) ResolveImportedSourceActorsTx(context.Context, pgx.Tx, uuid.UUID, string, string, []string) (map[string]string, error) {
-	return map[string]string{}, nil
+	panic("Imports composition must not invoke source attribution operations")
+}
+
+func (moduleTestAttributions) ResolveImportedHistoryActorsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, []string) (map[string]string, error) {
+	panic("Imports composition must not invoke history actor resolution")
 }

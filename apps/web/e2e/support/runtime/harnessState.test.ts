@@ -1,69 +1,208 @@
 // @vitest-environment node
 
-import { mkdtempSync, rmSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+const admission = vi.hoisted(() => ({ borrow: vi.fn(), acquisition: vi.fn() }));
+vi.mock("../../../../../tools/harness/runtime/session-client.mjs", () => ({
+  borrowRuntime: admission.borrow,
+}));
+vi.mock("../../../../../tools/harness/browser/browser-acquisition.mjs", () => ({
+  readBrowserAcquisition: admission.acquisition,
+}));
 
-const originalExternalServer = process.env.CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER;
-const originalStateDir = process.env.CARTULARY_PLAYWRIGHT_STATE_DIR;
-const cleanupPaths: string[] = [];
+import {
+  readBrowserState,
+  withBrowserSetupLock,
+  writeBrowserState,
+} from "../../../../../tools/harness/browser/private-state.mjs";
+
+let root: string;
+let session: string;
+let state: string;
+let runtime: { root: string; close: ReturnType<typeof vi.fn> };
+
+beforeEach(() => {
+  root = mkdtempSync(join(tmpdir(), "cartulary-browser-state-"));
+  session = join(root, "session");
+  state = join(session, "runtime-root", "playwright-state");
+  mkdirSync(state, { recursive: true, mode: 0o700 });
+  runtime = { root, close: vi.fn() };
+  admission.borrow.mockReset().mockReturnValue(runtime);
+  admission.acquisition
+    .mockReset()
+    .mockReturnValue({ session_root: session, suite_id: "suite" });
+  for (const [name, value] of Object.entries({
+    CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED: "1",
+    CARTULARY_TEST_RESULTS_DIR: join(root, "results"),
+    CARTULARY_TEST_RUN_ID: "state-unit",
+    CARTULARY_BROWSER_ACQUISITION_FILE: join(
+      session,
+      "acquisition",
+      "owner.json",
+    ),
+    CARTULARY_WEB_E2E_RUNTIME_ROOT: join(session, "runtime-root"),
+    CARTULARY_PLAYWRIGHT_STATE_DIR: state,
+    CARTULARY_TEST_SUITE_ID: "suite",
+  }))
+    vi.stubEnv(name, value);
+});
 
 afterEach(() => {
-  vi.resetModules();
-  if (originalExternalServer === undefined) {
-    delete process.env.CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER;
-  } else {
-    process.env.CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER = originalExternalServer;
-  }
-  if (originalStateDir === undefined) {
-    delete process.env.CARTULARY_PLAYWRIGHT_STATE_DIR;
-  } else {
-    process.env.CARTULARY_PLAYWRIGHT_STATE_DIR = originalStateDir;
-  }
-  for (const cleanupPath of cleanupPaths.splice(0)) {
-    rmSync(cleanupPath, { force: true, recursive: true });
-  }
+  vi.unstubAllEnvs();
+  rmSync(root, { recursive: true, force: true });
 });
 
 describe("harnessState", () => {
-  it("falls back to tmpdir paths when shared state is not configured", async () => {
-    delete process.env.CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER;
-    delete process.env.CARTULARY_PLAYWRIGHT_STATE_DIR;
+  it("rejects missing or unsafe owned-state bindings without creating or repairing paths", async () => {
+    // Importing pure parsers/authentication helpers must not acquire state.
+    await import("../auth/workerAdmin");
+    await import("../auth/suiteAdmin");
+    expect(admission.borrow).not.toHaveBeenCalled();
 
-    const module = await import("./harnessState");
+    for (const variable of [
+      "CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED",
+      "CARTULARY_TEST_RESULTS_DIR",
+      "CARTULARY_TEST_RUN_ID",
+      "CARTULARY_BROWSER_ACQUISITION_FILE",
+    ]) {
+      const value = process.env[variable];
+      vi.stubEnv(variable, "");
+      expect(() => writeBrowserState("secret", "PrivateValue!")).toThrow(
+        "owned runtime binding",
+      );
+      expect(existsSync(join(state, "secret"))).toBe(false);
+      vi.stubEnv(variable, value);
+    }
+    for (const name of ["../escape", "/absolute", ".", "..", "nested/file"]) {
+      expect(() => readBrowserState(name)).toThrow("owned runtime binding");
+    }
+    admission.borrow.mockImplementationOnce(() => {
+      throw new Error("private owner marker mismatch: secret-value");
+    });
+    expect(() => readBrowserState("secret")).toThrow(
+      /^browser private state requires its owned runtime binding \(runtime\)$/,
+    );
+    admission.acquisition.mockImplementationOnce(() => {
+      throw new Error("foreign acquisition: secret-value");
+    });
+    expect(() => readBrowserState("secret")).toThrow(
+      /^browser private state requires its owned runtime binding \(acquisition\)$/,
+    );
 
-    expect(module.isExternalServerHarnessMode()).toBeFalsy();
-    expect(module.sharedPlaywrightStateDir()).toBeNull();
-    expect(module.usesSharedPlaywrightState()).toBeFalsy();
-    expect(module.resolvePlaywrightStateFile("state.txt")).toBe(
-      join(tmpdir(), "state.txt"),
+    for (const variable of [
+      "CARTULARY_PLAYWRIGHT_STATE_DIR",
+      "CARTULARY_WEB_E2E_RUNTIME_ROOT",
+      "CARTULARY_TEST_SUITE_ID",
+    ]) {
+      const value = process.env[variable];
+      vi.stubEnv(variable, join(root, "foreign"));
+      expect(() => readBrowserState("secret")).toThrow("owned runtime binding");
+      expect(existsSync(join(root, "foreign"))).toBe(false);
+      vi.stubEnv(variable, value);
+    }
+    for (const directory of [
+      root,
+      session,
+      join(session, "runtime-root"),
+      state,
+    ]) {
+      chmodSync(directory, 0o755);
+      expect(() => readBrowserState("secret")).toThrow("owned runtime binding");
+      expect(statSync(directory).mode & 0o777).toBe(0o755);
+      chmodSync(directory, 0o700);
+    }
+    rmSync(state, { recursive: true });
+    const foreign = join(root, "foreign");
+    mkdirSync(foreign, { mode: 0o700 });
+    symlinkSync(foreign, state);
+    expect(() => writeBrowserState("secret", "PrivateValue!")).toThrow(
+      "owned runtime binding",
     );
-    expect(module.resolvePlaywrightStateDirectory("workers")).toBe(
-      join(tmpdir(), "workers"),
-    );
+    expect(existsSync(join(foreign, "secret"))).toBe(false);
+    rmSync(state);
+    expect(() => readBrowserState("secret")).toThrow("owned runtime binding");
+    expect(existsSync(state)).toBe(false);
   });
 
-  it("uses the configured shared-state directory in external-server mode", async () => {
-    process.env.CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER = "1";
-    process.env.CARTULARY_PLAYWRIGHT_STATE_DIR = mkdtempSync(
-      join(tmpdir(), "cartulary-playwright-state-test-"),
+  it("preserves private publication isolation and borrowed runtime lifetime", async () => {
+    expect(readBrowserState("secret")).toBeNull();
+    writeBrowserState("secret", "old-private-value");
+    expect(readBrowserState("secret")).toBe("old-private-value");
+    writeBrowserState("secret", "new-private-value");
+    expect(readBrowserState("secret")).toBe("new-private-value");
+    expect(statSync(join(state, "secret")).mode & 0o777).toBe(0o600);
+    expect(admission.acquisition).toHaveBeenCalledWith(
+      join(session, "acquisition", "owner.json"),
+      runtime,
     );
-    cleanupPaths.push(process.env.CARTULARY_PLAYWRIGHT_STATE_DIR);
+    expect(runtime.close).toHaveBeenCalledTimes(
+      admission.borrow.mock.calls.length,
+    );
 
-    const module = await import("./harnessState");
+    const unsafe = join(state, "unsafe");
+    writeFileSync(unsafe, "PrivateValue!", { mode: 0o644 });
+    expect(() => readBrowserState("unsafe")).toThrow(
+      /^browser private state is unreadable$/,
+    );
+    expect(() => writeBrowserState("unsafe", "replacement")).toThrow(
+      /^browser private state publication failed$/,
+    );
+    expect(readFileSync(unsafe, "utf8")).toBe("PrivateValue!");
+    symlinkSync(join(state, "secret"), join(state, "alias"));
+    expect(() => readBrowserState("alias")).toThrow("unreadable");
+    expect(() => writeBrowserState("alias", "overwrite")).toThrow(
+      "publication failed",
+    );
+    expect(readBrowserState("secret")).toBe("new-private-value");
 
-    expect(module.isExternalServerHarnessMode()).toBeTruthy();
-    expect(module.sharedPlaywrightStateDir()).toBe(
-      process.env.CARTULARY_PLAYWRIGHT_STATE_DIR,
-    );
-    expect(module.usesSharedPlaywrightState()).toBeTruthy();
-    expect(module.resolvePlaywrightStateFile("state.txt")).toBe(
-      join(process.env.CARTULARY_PLAYWRIGHT_STATE_DIR, "state.txt"),
-    );
-    expect(module.resolvePlaywrightStateDirectory("workers")).toBe(
-      join(process.env.CARTULARY_PLAYWRIGHT_STATE_DIR, "workers"),
-    );
+    const lock = join(state, "global-setup.lock");
+    const primary = new Error("setup failed");
+    await expect(
+      withBrowserSetupLock(async () => {
+        expect(statSync(lock).mode & 0o777).toBe(0o700);
+        throw primary;
+      }),
+    ).rejects.toBe(primary);
+    expect(existsSync(lock)).toBe(false);
+    expect(await withBrowserSetupLock(async () => "complete")).toBe("complete");
+    expect(existsSync(lock)).toBe(false);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const first = withBrowserSetupLock(async () => {
+      await held;
+    });
+    let entered = false;
+    const second = withBrowserSetupLock(async () => {
+      entered = true;
+    });
+    expect(entered).toBe(false);
+    release();
+    await Promise.all([first, second]);
+    expect(entered).toBe(true);
+    expect(existsSync(lock)).toBe(false);
+    expect(readBrowserState("secret")).toBe("new-private-value");
+    expect(existsSync(session)).toBe(true);
+    symlinkSync(session, lock);
+    await expect(
+      withBrowserSetupLock(async () => {
+        throw new Error("must not enter");
+      }),
+    ).rejects.toThrow("lock is unsafe");
+    expect(existsSync(session)).toBe(true);
   });
 });

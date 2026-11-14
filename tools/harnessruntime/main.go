@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessreview"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/sourcecheck"
 )
 
 func main() { os.Exit(run()) }
@@ -26,6 +27,15 @@ func run() int {
 		return 2
 	}
 	switch os.Args[1] {
+	case "inspect-go":
+		if len(os.Args) != 2 {
+			return 2
+		}
+		if err := sourcecheck.InspectBatch(os.Stdin, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, "Go source inspection failed")
+			return 1
+		}
+		return 0
 	case "account":
 		return harnessaccount.Main(os.Args[2:], os.Stdout, os.Stderr)
 	case "recover", "recover-status":
@@ -91,6 +101,8 @@ func run() int {
 		return harnesssession.Main(os.Args[2:], os.Stdin, os.Stdout)
 	case "process":
 		return harnesssession.ProcessMain(os.Args[2:], os.Stdin, os.Stderr)
+	case "owned-command":
+		return harnesssession.OwnedCommandMain(os.Args[2:], os.Stdout, os.Stderr)
 	case "admission":
 		return harnessadmission.Main(os.Args[2:], os.Stdout)
 	case "collect":

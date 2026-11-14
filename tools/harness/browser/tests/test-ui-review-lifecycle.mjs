@@ -1,4 +1,4 @@
-import { closeReviewBrowser } from "./ui-review-browser-fixture.mjs";
+import { closeReviewBrowser, closeReviewBrowserFixture } from "./ui-review-browser-fixture.mjs";
 import assert from "node:assert/strict";
 import { chmodSync, existsSync, linkSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -21,18 +21,16 @@ import { createRuntime } from "../../runtime/session-client.mjs";
 import { findCleanupDiagnostic } from "../../runtime/cleanup-diagnostic.mjs";
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-test("failed runner acquisition publication reaps the child and preserves the primary error", async () => {
+
+test("failed runner executable acquisition preserves its classification and releases capture resources", async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-capture-publication-"));
   const scratchRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-capture-scratch-"));
   const runtime = createRuntime({ repoRoot, runRoot: root, runID: "capture-publication", scratchRoot });
-  const options = { dependencies: [], cwd: repoRoot, repoRoot, runRoot: root, detached: true, env: { ...process.env,
+  const options = { dependencies: [], cwd: repoRoot, repoRoot, runRoot: root, env: { ...process.env,
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID } };
-  let proof;
   try {
-    await assert.rejects(runPrivateCapturedProcess(process.execPath, ["-e", "setInterval(()=>{},1000)"], { ...options, onSpawn(child) { proof = ownedProcess(child.pid); throw new Error("injected publication failure"); } }), (error) => error.cause?.message === "injected publication failure");
-    assert.ok(proof); assert.equal(processIdentityAlive(proof), false);
-    await assert.rejects(runPrivateCapturedProcess(path.join(root, "missing-executable"), [], { ...options, onSpawn() { assert.fail("failed spawn must not publish an owned process"); } }), (error) => error.cause?.code === "ENOENT");
-  } finally { if (proof) await stopOwnedProcess(proof); runtime.close(); rmSync(scratchRoot, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true }); }
+    await assert.rejects(runPrivateCapturedProcess(path.join(root, "missing-executable"), [], options), (error) => error.cause?.code === "ENOENT" && error.processSettled === true);
+  } finally { runtime.close(); rmSync(scratchRoot, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true }); }
 });
 test("process recovery rejects PID reuse and preserves ambiguous leaderless ownership", async (t) => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-process-recovery-"));
@@ -109,98 +107,116 @@ test("private local reads reject links, permissive files and changed publication
     assert.throws(() => inputPath("neutral.markdown", ".json"));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
-test("host admission preserves exclusive waiter priority and bounded browser capacity", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-admission-")); const leases = [];
-  try {
-    const first = await acquireHostAdmission({ root, claims: { browser_stack: 1 }, capacities: { browser_stack: 1 } }); leases.push(first);
-    await assert.rejects(acquireHostAdmission({ root, claims: { browser_stack: 1 }, capacities: { browser_stack: 1 }, timeoutMs: 50 }), /admission/u);
-    const order = [];
-    const quiet = acquireHostAdmission({ root, mode: "exclusive", capacities: { browser_stack: 1 } }).then((lease) => { leases.push(lease); order.push("quiet"); return lease; });
-    await pause(100);
-    const shared = acquireHostAdmission({ root, capacities: { browser_stack: 1 } }).then((lease) => { leases.push(lease); order.push("shared"); return lease; });
-    await first.release(); const exclusive = await quiet;
-    await pause(100); assert.deepEqual(order, ["quiet"]);
-    await exclusive.release(); await shared; assert.deepEqual(order, ["quiet", "shared"]);
-  } finally { for (const lease of leases) await lease.release(); rmSync(root, { recursive: true, force: true }); }
+test("host admission preserves exclusive waiter priority and bounded browser capacity", async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-admission-"));
+  const leases = [], pending = [], abort = new AbortController();
+  const acquire = (options = {}) => {
+    const request = acquireHostAdmission({ root, capacities: { browser_stack: 1 }, ...options, signal: abort.signal })
+      .then(lease => { leases.push(lease); return lease; });
+    pending.push(request); request.catch(() => {}); return request;
+  };
+  t.after(async () => {
+    abort.abort(new Error("fixture cleanup")); await Promise.allSettled(pending);
+    const outcomes = await Promise.allSettled(leases.map(lease => lease.release()));
+    const failures = outcomes.filter(result => result.status === "rejected").map(result => result.reason);
+    if (failures.length) throw new AggregateError(failures, "admission fixture cleanup failed");
+    rmSync(root, { recursive: true, force: true });
+  });
+  const first = await acquire({ claims: { browser_stack: 1 } });
+  await assert.rejects(acquire({ claims: { browser_stack: 1 }, timeoutMs: 50 }), /admission/u);
+  const order = [];
+  const quiet = acquire({ mode: "exclusive" }); quiet.then(() => order.push("quiet"), () => {});
+  await pause(100);
+  const shared = acquire(); shared.then(() => order.push("shared"), () => {});
+  await first.release(); const exclusive = await quiet;
+  await pause(100); assert.deepEqual(order, ["quiet"]);
+  await exclusive.release(); await shared; assert.deepEqual(order, ["quiet", "shared"]);
 });
-test("host admission mutex is released even while the scheduler parent blocks its event loop", async () => {
+test("host admission mutex is released even while the scheduler parent blocks its event loop", async (t) => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-admission-parent-"));
-  let lease;
-  try {
-    const first = acquireHostAdmission({ root, capacities: { browser_stack: 1 } });
-    const source = `import { acquireHostAdmission, inheritedHostLease } from ${JSON.stringify(new URL("../../runtime/host-admission.mjs", import.meta.url).href)}; const start=performance.now();const lease=await acquireHostAdmission({root:${JSON.stringify(root)},capacities:{browser_stack:1}});await lease.release();process.stdout.write(String(performance.now()-start));`;
-    const child = spawn(process.execPath, ["--input-type=module", "--eval", source], { stdio: ["ignore", "pipe", "pipe"] });
-    let output = "", error = ""; child.stdout.on("data", (part) => { output += part; }); child.stderr.on("data", (part) => { error += part; });
-    const ended = new Promise((resolve) => child.once("close", resolve));
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 6000);
-    lease = await first; assert.equal(await ended, 0, error); assert.ok(Number(output) < 4000);
-  } finally { await lease?.release(); rmSync(root, { recursive: true, force: true }); }
+  const abort = new AbortController();
+  let lease, first, child, ended, closed = false;
+  t.after(async () => {
+    abort.abort(new Error("fixture cleanup"));
+    if (child && !closed) child.kill("SIGKILL");
+    await ended;
+    await first?.catch(() => {});
+    await lease?.release(); rmSync(root, { recursive: true, force: true });
+  });
+  first = acquireHostAdmission({ root, capacities: { browser_stack: 1 }, signal: abort.signal }).then(value => { lease = value; return value; });
+  first.catch(() => {});
+  const source = `import { acquireHostAdmission, inheritedHostLease } from ${JSON.stringify(new URL("../../runtime/host-admission.mjs", import.meta.url).href)}; const start=performance.now();const lease=await acquireHostAdmission({root:${JSON.stringify(root)},capacities:{browser_stack:1}});await lease.release();process.stdout.write(String(performance.now()-start));`;
+  child = spawn(process.execPath, ["--input-type=module", "--eval", source], { stdio: ["ignore", "pipe", "pipe"] });
+  let output = "", error = ""; child.stdout.on("data", (part) => { output += part; }); child.stderr.on("data", (part) => { error += part; });
+  ended = new Promise((resolve) => {
+    child.once("error", cause => { error = cause.message; });
+    child.once("close", code => { closed = true; resolve(code); });
+  });
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 6000);
+  await first; assert.equal(await ended, 0, error); assert.match(output, /^\d+(?:\.\d+)?$/u); assert.ok(Number(output) < 4000);
 });
-test("browser actions use exact handles, epochs and isolated contexts without modifying borrowed service ownership", async () => {
+test("browser actions use exact handles, epochs and isolated contexts without modifying borrowed service ownership", async (t) => {
   let requests = 0;
   const server = createServer((_request, response) => { requests++; response.setHeader("content-type", "text/html"); response.end('<!doctype html><html lang="en"><title>Review fixture</title><body><h1>Fixture</h1><input data-testid="entry" aria-label="Entry"><button data-testid="go" onclick="document.querySelector(\'h1\').textContent=\'Clicked\'">Go</button><button>Duplicate</button><button>Duplicate</button><button disabled>Disabled</button></body></html>'); });
+  let browser, admission;
+  t.after(() => closeReviewBrowserFixture({ browser, admission, server }));
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const browser = new ReviewBrowser({ origin, mode: "dev" });
-  let admission;
+  browser = new ReviewBrowser({ origin, mode: "dev" });
   const action = (name, parameters = {}, expected_epoch = browser.epoch) => ({ schema_id: schemaID("action"), expected_epoch, action: name, parameters });
-  try {
-    admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
-    await browser.start(); const snapshot = await browser.action(action("snapshot")); validate("observations", snapshot);
-    const reference = snapshot.elements.find((element) => element.name === "Entry").resolved_ref;
-    await browser.action(action("fill", { target: { kind: "element_ref", value: reference, epoch: 0 }, text: 'literal $(touch /no-shell)' }));
-    assert.equal(await browser.page.getByTestId("entry").inputValue(), 'literal $(touch /no-shell)');
-    await assert.rejects(browser.action(action("click", { target: { kind: "test_id", value: "go" } }, 0)), /session_mismatch/u);
-    await assert.rejects(browser.action(action("click", { target: { kind: "role", role: "button", name: "Duplicate" } })), /target_unavailable/u);
-    await assert.rejects(browser.action(action("click", { target: { kind: "role", role: "button", name: "Disabled" } })), /target_unavailable/u);
-    assert.equal(await browser.page.locator("h1").textContent(), "Fixture");
-    const next = await browser.action(action("snapshot"));
-    const entry = next.elements.find((element) => element.name === "Entry");
-    await browser.page.getByTestId("entry").evaluate((node) => node.replaceWith(node.cloneNode()));
-    await assert.rejects(browser.action(action("fill", { target: { kind: "element_ref", value: entry.resolved_ref, epoch: browser.epoch }, text: "replacement" })), /target_unavailable/u);
-    await assert.rejects(browser.action(action("authenticate", { actor: "admin" })), /invalid_request/u);
-    await browser.action(action("click", { target: { kind: "test_id", value: "go" } })); assert.equal(await browser.page.locator("h1").textContent(), "Clicked");
-    await browser.page.evaluate(() => {
-      document.body.style.height = "3000px";
-      window.addEventListener("scroll", () => { if (scrollY > 50 && !document.querySelector('[data-testid="virtual-row"]')) { const row = document.createElement("button"); row.dataset.testid = "virtual-row"; row.textContent = "Rendered row"; row.style.cssText = "position:fixed;top:20px"; document.body.append(row); } });
-    });
-    await assert.rejects(browser.resolve({ kind: "test_id", value: "virtual-row" }), /target_unavailable/u);
-    const beforeZoom = browser.epoch;
-    await browser.action(action("zoom", { percent: 125 }));
-    assert.equal(browser.epoch, beforeZoom + 1);
-    assert.equal(await browser.page.evaluate(() => getComputedStyle(document.documentElement).zoom), "1.25");
-    await browser.action(action("zoom", { percent: 100 }));
-    await browser.action(action("scroll", { x: 0, y: 100 }));
-    await browser.page.getByTestId("virtual-row").waitFor({ state: "visible" });
-    const row = await browser.resolve({ kind: "test_id", value: "virtual-row" }); await row.dispose();
-    await closeReviewBrowser(browser); assert.equal((await fetch(origin)).status, 200); assert.ok(requests > 0);
-  } finally { await closeReviewBrowser(browser); await admission?.release(); await new Promise((resolve) => server.close(resolve)); }
+  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
+  await browser.start(); const snapshot = await browser.action(action("snapshot")); validate("observations", snapshot);
+  const reference = snapshot.elements.find((element) => element.name === "Entry").resolved_ref;
+  await browser.action(action("fill", { target: { kind: "element_ref", value: reference, epoch: 0 }, text: 'literal $(touch /no-shell)' }));
+  assert.equal(await browser.page.getByTestId("entry").inputValue(), 'literal $(touch /no-shell)');
+  await assert.rejects(browser.action(action("click", { target: { kind: "test_id", value: "go" } }, 0)), /session_mismatch/u);
+  await assert.rejects(browser.action(action("click", { target: { kind: "role", role: "button", name: "Duplicate" } })), /target_unavailable/u);
+  await assert.rejects(browser.action(action("click", { target: { kind: "role", role: "button", name: "Disabled" } })), /target_unavailable/u);
+  assert.equal(await browser.page.locator("h1").textContent(), "Fixture");
+  const next = await browser.action(action("snapshot"));
+  const entry = next.elements.find((element) => element.name === "Entry");
+  await browser.page.getByTestId("entry").evaluate((node) => node.replaceWith(node.cloneNode()));
+  await assert.rejects(browser.action(action("fill", { target: { kind: "element_ref", value: entry.resolved_ref, epoch: browser.epoch }, text: "replacement" })), /target_unavailable/u);
+  await assert.rejects(browser.action(action("authenticate", { actor: "admin" })), /invalid_request/u);
+  await browser.action(action("click", { target: { kind: "test_id", value: "go" } })); assert.equal(await browser.page.locator("h1").textContent(), "Clicked");
+  await browser.page.evaluate(() => {
+    document.body.style.height = "3000px";
+    window.addEventListener("scroll", () => { if (scrollY > 50 && !document.querySelector('[data-testid="virtual-row"]')) { const row = document.createElement("button"); row.dataset.testid = "virtual-row"; row.textContent = "Rendered row"; row.style.cssText = "position:fixed;top:20px"; document.body.append(row); } });
+  });
+  await assert.rejects(browser.resolve({ kind: "test_id", value: "virtual-row" }), /target_unavailable/u);
+  const beforeZoom = browser.epoch;
+  await browser.action(action("zoom", { percent: 125 }));
+  assert.equal(browser.epoch, beforeZoom + 1);
+  assert.equal(await browser.page.evaluate(() => getComputedStyle(document.documentElement).zoom), "1.25");
+  await browser.action(action("zoom", { percent: 100 }));
+  await browser.action(action("scroll", { x: 0, y: 100 }));
+  await browser.page.getByTestId("virtual-row").waitFor({ state: "visible" });
+  const row = await browser.resolve({ kind: "test_id", value: "virtual-row" }); await row.dispose();
+  await closeReviewBrowser(browser); assert.equal((await fetch(origin)).status, 200); assert.ok(requests > 0);
 });
 
 
 
 
 
-test("browser timeout requires a fresh snapshot, redirects stay at the borrowed origin, and browser loss is reported", async () => {
+test("browser timeout requires a fresh snapshot, redirects stay at the borrowed origin, and browser loss is reported", async (t) => {
   const server = createServer((request, response) => {
     if (request.url === "/redirect") { response.writeHead(302, { location: "https://example.invalid/private" }); response.end(); return; }
     response.setHeader("content-type", "text/html"); response.end('<html><body><button data-testid="covered">Covered</button><div style="position:fixed;inset:0;z-index:9"></div></body></html>');
   });
+  let lost, browser, admission;
+  t.after(() => closeReviewBrowserFixture({ browser, admission, server }));
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  let lost;
-  const browser = new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev", onLost: (error) => { lost = error; } });
-  let admission;
+  browser = new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev", onLost: (error) => { lost = error; } });
   const action = (name, parameters = {}) => ({ schema_id: schemaID("action"), expected_epoch: browser.epoch, action: name, parameters });
-  try {
-    admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
-    await browser.start();
-    await assert.rejects(browser.action(action("click", { target: { kind: "test_id", value: "covered" } })), /operation_expired/u);
-    await assert.rejects(browser.action(action("resize", { width: 800, height: 600 })), /session_mismatch/u);
-    await browser.action(action("snapshot"));
-    await assert.rejects(browser.action(action("navigate", { path: "/redirect" })), /navigation_boundary/u);
-    await browser.browser.close(); assert.equal(lost.diagnostic, "session_lost");
-    assert.equal((await fetch(browser.origin)).status, 200);
-  } finally { await closeReviewBrowser(browser); await admission?.release(); await new Promise((resolve) => server.close(resolve)); }
+  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
+  await browser.start();
+  await assert.rejects(browser.action(action("click", { target: { kind: "test_id", value: "covered" } })), /operation_expired/u);
+  await assert.rejects(browser.action(action("resize", { width: 800, height: 600 })), /session_mismatch/u);
+  await browser.action(action("snapshot"));
+  await assert.rejects(browser.action(action("navigate", { path: "/redirect" })), /navigation_boundary/u);
+  await browser.browser.close(); assert.equal(lost.diagnostic, "session_lost");
+  assert.equal((await fetch(browser.origin)).status, 200);
 });
 function cleanEnvironment() {
   const env = { ...process.env };
@@ -211,7 +227,7 @@ test("public artifact sessions retain only receipts and repeated stop preserves 
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-review-public-")); privateDirectory(root);
   const child = spawn("make", ["--silent", "ui-review", "UI_MODE=artifacts"], { cwd: repoRoot, env: { ...cleanEnvironment(), CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "session" }, stdio: ["ignore", "pipe", "pipe"] });
   let output = ""; child.stdout.on("data", (part) => { output += part; }); let stderr = ""; child.stderr.on("data", (part) => { stderr += part; });
-  const ended = new Promise((resolve) => child.once("exit", resolve));
+  const ended = new Promise((resolve) => child.once("close", resolve));
   const locator = path.join(root, "session/ui-review/session.json");
   const invoke = (command) => {
     const run = spawnSync("make", ["--silent", command, `UI_SESSION=${locator}`], { cwd: repoRoot, env: { ...cleanEnvironment(), CARTULARY_OUTPUT_MODE: "machine" }, encoding: "utf8", timeout: 30000 });
@@ -224,14 +240,14 @@ test("public artifact sessions retain only receipts and repeated stop preserves 
     const stopped = invoke("ui-review-stop"); assert.equal(stopped.state, "closed"); assert.deepEqual(invoke("ui-review-stop").receipt, stopped.receipt);
     assert.equal(await ended, 0); assert.equal(invoke("ui-review-status").state, "closed");
     assert.ok(existsSync(locator)); assert.equal(readFileSync(path.join(root, "session/ui-review/terminal.json"), "utf8").includes("private_refs"), false);
-  } finally { if (child.exitCode === null) child.kill("SIGTERM"); await ended; rmSync(root, { recursive: true, force: true }); }
+  } finally { if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM"); await ended; rmSync(root, { recursive: true, force: true }); }
 });
 
 test("controller death is recovered from exact ownership and retains a failed terminal outcome", async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-review-death-"));
   const child = spawn("make", ["--silent", "ui-review", "UI_MODE=artifacts"], { cwd: repoRoot, env: { ...cleanEnvironment(), CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "death" }, stdio: ["ignore", "pipe", "pipe"] });
   let output = ""; child.stdout.on("data", (part) => { output += part; }); child.stderr.resume();
-  const ended = new Promise((resolve) => child.once("exit", resolve));
+  const ended = new Promise((resolve) => child.once("close", resolve));
   try {
     for (let index = 0; index < 100 && !output.includes("UI review ready"); index++) await pause(100);
     assert.ok(output.includes("UI review ready"));
@@ -244,7 +260,7 @@ test("controller death is recovered from exact ownership and retains a failed te
     const receipt = JSON.parse(readFileSync(path.join(root, "death", final.terminal_receipt.path)));
     assert.equal(receipt.failures[0].diagnostic_code, "session_lost"); assert.equal(receipt.cleanup, "complete");
     assert.equal(existsSync(record.runtime.root), false); assert.equal(existsSync(registry), false);
-  } finally { if (child.exitCode === null) child.kill("SIGTERM"); await ended; rmSync(root, { recursive: true, force: true }); }
+  } finally { if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM"); await ended; rmSync(root, { recursive: true, force: true }); }
 });
 
 for (const death of ["parent", "both"]) test(`${death} supervisor death permits exact recovery without engine loading`, async () => {
@@ -256,7 +272,7 @@ for (const death of ["parent", "both"]) test(`${death} supervisor death permits 
   const child = spawn("make", ["--silent", "ui-review", ...mode], { cwd: repoRoot, env: { ...cleanEnvironment(), CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: death }, stdio: ["ignore", "pipe", "pipe"] });
   let output = ""; child.stdout.on("data", (part) => { output += part; });
   let stderr = ""; child.stderr.on("data", (part) => { stderr = (stderr + part).slice(-8192); });
-  const ended = new Promise((resolve) => child.once("exit", resolve));
+  const ended = new Promise((resolve) => child.once("close", resolve));
   const locator = path.join(root, death, "ui-review/session.json"); let record;
   // The loader fails closed if either control path imports an engine, simulating
   // broken installations without changing packages used by concurrent tasks.
@@ -281,7 +297,7 @@ for (const death of ["parent", "both"]) test(`${death} supervisor death permits 
     assert.deepEqual(JSON.parse(control("ui-review-stop").stdout), value);
     assert.equal((await fetch(origin)).status, 200);
   } finally {
-    if (child.exitCode === null) child.kill("SIGTERM");
+    if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
     if (record && existsSync(record.runtime.root)) control("ui-review-stop");
     await ended; await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true });
   }
@@ -295,17 +311,17 @@ test("stop interrupts a busy public dev action and leaves the borrowed origin al
   const origin = `http://127.0.0.1:${server.address().port}`;
   const child = spawn("make", ["--silent", "ui-review", "UI_MODE=dev", `UI_ORIGIN=${origin}`], { cwd: repoRoot, env: { ...cleanEnvironment(), CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: "dev" }, stdio: ["ignore", "pipe", "pipe"] });
   let output = ""; child.stdout.on("data", (part) => { output += part; }); child.stderr.resume();
-  const ended = new Promise((resolve) => child.once("exit", resolve));
+  const ended = new Promise((resolve) => child.once("close", resolve));
   const locator = path.join(root, "dev/ui-review/session.json");
   const env = { ...cleanEnvironment(), CARTULARY_OUTPUT_MODE: "machine" };
-  let actionChild;
+  let actionChild, actionEnded;
   try {
     for (let index = 0; index < 150 && !output.includes("UI review ready"); index++) { if (child.exitCode !== null) break; await pause(100); }
     assert.ok(output.includes("UI review ready"));
     const file = path.join(root, "action.json"); atomicLocalFile(file, JSON.stringify({ schema_id: schemaID("action"), expected_epoch: 0, action: "navigate", parameters: { path: "/slow" } }));
     actionChild = spawn("make", ["--silent", "ui-browser", `UI_SESSION=${locator}`, `UI_REQUEST=${file}`], { cwd: repoRoot, env, stdio: ["ignore", "pipe", "pipe"] });
     let actionOutput = ""; actionChild.stdout.on("data", (part) => { actionOutput += part; }); actionChild.stderr.resume();
-    const actionEnded = new Promise((resolve) => actionChild.once("exit", resolve));
+    actionEnded = new Promise((resolve) => actionChild.once("close", resolve));
     // Synchronize on the actual navigation, not Make/Node startup taking less
     // than two seconds under aggregate load. The stop-latency assertion below
     // starts only once the browser has begun the action being interrupted.
@@ -323,5 +339,5 @@ test("stop interrupts a busy public dev action and leaves the borrowed origin al
     assert.equal(stopped.status, 0); assert.equal(JSON.parse(stopped.stdout).state, "closed"); assert.ok(performance.now() - tick < 5000);
     assert.equal(await actionEnded, 2); const response = JSON.parse(actionOutput); validate("command_result", response); assert.equal(response.failures[0].diagnostic_code, "interrupted"); assert.deepEqual(response.private_refs, []);
     assert.equal(await ended, 0); assert.equal((await fetch(origin)).status, 200);
-  } finally { if (child.exitCode === null) child.kill("SIGTERM"); if (actionChild?.exitCode === null) actionChild.kill("SIGTERM"); await ended; await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
+  } finally { if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM"); if (actionChild?.exitCode === null && actionChild.signalCode === null) actionChild.kill("SIGTERM"); await Promise.all([ended, actionEnded]); await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
 });

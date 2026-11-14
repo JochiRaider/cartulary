@@ -166,7 +166,11 @@ test("blocking Fallow configuration validation stays read-only and rejects missi
     if (!invalid || String(file) !== `${root}tools/fallow/reachability_owner.json`)
       return result;
     const owner = JSON.parse(String(result));
-    owner.executable_tooling_dependencies[0].owner_script = "tools/absent-owner-script.mjs";
+    owner.executable_tooling_dependencies = [{
+      package_name: "typescript",
+      owner_script: "tools/absent-owner-script.mjs",
+      command: ["pnpm", "exec", "tsc"],
+    }];
     return JSON.stringify(owner);
   };
   syncBuiltinESMExports();

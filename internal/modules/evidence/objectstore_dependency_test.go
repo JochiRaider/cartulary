@@ -231,7 +231,7 @@ func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
 		"txn-evidence-redaction-attach",
 	)
 	objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
-	storageKey := "incidents/" + incidentID.String() + "/object-blobs/" + objectBlobID.String() + "/objects/" + uuid.NewString()
+	storageKey := blobStorageKey(t, harness, objectBlobID)
 	forbidden := []string{
 		storageKey,
 		"evidence.storage_ref",
@@ -255,6 +255,8 @@ func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
 		"content_type_hint": "text/plain",
 	}, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	extraBlobID := appsupport.MustUUID(t, createData["object_blob_id"].(string))
+	forbidden = append(forbidden, blobStorageKey(t, harness, extraBlobID))
 	requireNoPublicEvidenceLeak(t, "blob create response", createData, forbidden)
 
 	for _, endpoint := range []string{"preview-handle", "download-handle"} {

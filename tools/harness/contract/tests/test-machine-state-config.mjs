@@ -14,7 +14,6 @@ import {
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), "cartulary-machine-state-"));
 const repo = path.join(scratch, "repo");
-mkdirSync(repo);
 
 function values(resolved) {
   return Object.fromEntries(
@@ -31,6 +30,7 @@ function assertConfigError(fn, pattern) {
 }
 
 try {
+  mkdirSync(repo);
   const xdg = path.join(scratch, "xdg");
   const home = path.join(scratch, "home");
   assert.deepEqual(

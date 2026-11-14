@@ -18,6 +18,31 @@ describe("WorkbookSurfaceRegistration", () => {
         (entry) => entry.viewSchemaId === "network_flow_activity",
       ),
     ).toBe(false);
+    // Independent expectations qualify representative browser coverage of each
+    // renderer. Registry-derived expectations would conceal a wrong assignment.
+    expect(
+      Object.fromEntries(
+        registrations.map((entry) => [entry.viewSchemaId, entry.renderer]),
+      ),
+    ).toEqual({
+      "cartulary.view.assessments.v1": "assessment",
+      "cartulary.view.comm_log.v1": "contract",
+      "cartulary.view.decisions.v1": "contract",
+      "cartulary.view.evidence.v1": "contract",
+      "cartulary.view.findings.v1": "contract",
+      "cartulary.view.forensic_keywords.v1": "contract",
+      "cartulary.view.handoff.v1": "contract",
+      "cartulary.view.hosts.v1": "entity_hosts",
+      "cartulary.view.identities.v1": "entity_identities",
+      "cartulary.view.indicators.v1": "contract",
+      "cartulary.view.investigative_queries.v1": "contract",
+      "cartulary.view.lesson.v1": "contract",
+      "cartulary.view.notes.v1": "contract",
+      "cartulary.view.parties.v1": "contract",
+      "cartulary.view.status_review.v1": "contract",
+      "cartulary.view.task_requests.v1": "contract",
+      "cartulary.view.timeline.v2": "timeline",
+    });
   });
 
   it("fails registry construction for duplicate and missing owners", () => {

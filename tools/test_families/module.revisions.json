@@ -972,6 +972,34 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.revisions.integration.complete_interval_history",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestCompleteIndicatorIntervalHistory_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.revisions.integration.covers_delete_restore_single_entry_rollback_dire_b348439e6d",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.integration",
@@ -1282,6 +1310,40 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.revisions.integration.source_owner_transition_validation",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [
+        "module.entities",
+        "module.evidence",
+        "module.parties",
+        "module.records",
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestSourceOwnerTransitionValidation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.revisions.measurement.change_set",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.measurement",
@@ -1486,6 +1548,66 @@
       "postgres_isolation": "shared"
     },
     {
+      "row_id": "module.revisions.portability.exact_attribution",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.portability_contract_and_attribution"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsIncidentBundleExactAttribution"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.revisions.portability.exact_source_state",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.portability_contract_and_attribution"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsIncidentBundleExactSourceState"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
       "row_id": "module.revisions.portability.managed_service_assertions_for_allocator_1e7086ab36",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.portability",
@@ -1519,30 +1641,58 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.revisions.portability.service_free_contract_assertions_for_allocator_b4f5c965d4",
+      "row_id": "module.revisions.portability.preparation_precedence",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.portability",
       "collaborator_ids": [
         "module.incidentbundles",
-        "platform.postgres"
+        "module.records"
       ],
       "verification_ids": [
-        "module.revisions.verification.portability_allocator"
+        "module.revisions.verification.portability_contract_and_attribution"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/revisions",
         "tests": [
-          "TestRevisionsIncidentBundleSequenceRepairRunsAfterValidation"
+          "TestRevisionsIncidentBundlePreparationPrecedence_Unit"
         ]
       },
       "evidence_class": "unit",
-      "runtime_profile_id": "none",
+      "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "aggregate_placement": "standard",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.revisions.portability.uuid_admission",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.portability_contract_and_attribution"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsIncidentBundleUUIDAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
@@ -1617,7 +1767,8 @@
         "package": "./internal/modules/revisions",
         "tests": [
           "TestRollbackPlannerBuildsExplicitDeterministicPlan_Unit",
-          "TestRollbackRecordLockerCanonicalizesOrder_Unit"
+          "TestRollbackRecordLockerCanonicalizesOrder_Unit",
+          "TestRollbackStoredValuesPreserveJSONNumbers_Unit"
         ]
       },
       "evidence_class": "unit",

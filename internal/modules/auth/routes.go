@@ -85,10 +85,9 @@ type localLoginStore interface {
 type sessionStore interface {
 	GetSessionByFingerprint(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error)
 	CreateSessionWithConcurrency(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string) (authn.SessionRecord, *authn.SessionRecord, error)
-	CreateSessionWithProviderConcurrency(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string, string, *uuid.UUID) (authn.SessionRecord, *authn.SessionRecord, error)
 	SlideSession(context.Context, uuid.UUID, authn.SessionTiming) (authn.SessionTiming, error)
 	RevokeSession(context.Context, uuid.UUID, string, time.Time) error
-	IssueBootstrapToken(context.Context, uuid.UUID, []byte, time.Time) (authn.BootstrapTokenRecord, error)
+	IssueBootstrapToken(context.Context, authn.UserRecord, []byte, time.Time) (authn.BootstrapTokenRecord, error)
 	GetBootstrapTokenByFingerprint(context.Context, []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error)
 }
 
@@ -101,7 +100,7 @@ type sessionMembershipSummaryReader interface {
 type credentialLifecycleStore interface {
 	GetPendingTOTPEnrollmentForUser(context.Context, uuid.UUID, time.Time) (*authn.PendingTOTPEnrollmentRecord, error)
 	GetPendingTOTPEnrollmentByID(context.Context, uuid.UUID) (*authn.PendingTOTPEnrollmentRecord, error)
-	BeginTOTPEnrollment(context.Context, uuid.UUID, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error)
+	BeginTOTPEnrollment(context.Context, authn.TOTPBeginInput, time.Time) (authn.PendingTOTPEnrollmentRecord, error)
 	ActivateTOTPEnrollment(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, []byte, []byte, time.Time) (authn.TOTPCompleteResult, error)
 	GetRouteIdempotency(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
 	ChangePassword(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error)
@@ -134,9 +133,9 @@ type enterpriseAuthStore interface {
 	CreateEnterpriseAuthTransaction(context.Context, uuid.UUID, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, []byte, *string, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	GetOIDCEnterpriseAuthTransactionForCallback(context.Context, string, string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	GetSAMLEnterpriseAuthTransactionForACS(context.Context, string, string, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
-	CompleteOIDCEnterpriseAuthTransaction(context.Context, string, string, []byte, *string, string, time.Time) (authn.EnterpriseAuthCompletionResult, error)
+	CompleteOIDCEnterpriseAuthTransaction(context.Context, string, string, []byte, *string, string, authn.EnterpriseAuthSessionInput, time.Time) (authn.EnterpriseAuthCompletionResult, error)
 	StageSAMLEnterpriseAuthTransaction(context.Context, string, string, string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
-	CompleteSAMLEnterpriseAuthTransaction(context.Context, string, []byte, []byte, time.Time) (authn.EnterpriseAuthCompletionResult, error)
+	CompleteSAMLEnterpriseAuthTransaction(context.Context, string, []byte, []byte, authn.EnterpriseAuthSessionInput, time.Time) (authn.EnterpriseAuthCompletionResult, error)
 	CreateEnterpriseAuthBinding(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)
 	RotateEnterpriseAuthBinding(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, int64, string, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)
 	RetireEnterpriseAuthBinding(context.Context, authn.UserRecord, uuid.UUID, uuid.UUID, int64, string, *string, []byte, string, time.Time) (authn.EnterpriseAuthBindingResult, error)

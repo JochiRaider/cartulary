@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -146,9 +145,25 @@ func TestRuntimeObservations(t *testing.T) {
 		if len(read()["services"].([]any)) != 2 {
 			t.Fatal("proof overwritten")
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		observed := make(chan map[string]any, 1)
+		settled := make(chan struct{})
+		t.Cleanup(func() {
+			cancel()
+			select {
+			case <-settled:
+			case <-time.After(time.Second):
+				t.Error("collector roster fixture worker did not settle")
+			}
+		})
 		go func() {
-			b := <-c.queue
+			defer close(settled)
+			var b []byte
+			select {
+			case b = <-c.queue:
+			case <-ctx.Done():
+				return
+			}
 			var request map[string]any
 			_ = json.Unmarshal(b, &request)
 			raw, _ := os.ReadFile(c.proofPath)
@@ -156,12 +171,21 @@ func TestRuntimeObservations(t *testing.T) {
 			_ = json.Unmarshal(raw, &roster)
 			observed <- roster
 			c.mu.Lock()
-			close(c.acks[controlID(request["request"])])
-			delete(c.acks, controlID(request["request"]))
+			if ack := c.acks[controlID(request["request"])]; ack != nil {
+				close(ack)
+				delete(c.acks, controlID(request["request"]))
+			} else {
+				t.Error("collector roster fixture lost acknowledgement")
+			}
 			c.mu.Unlock()
 		}()
-		c.containers(context.Background(), proof("one"), true)
-		before := <-observed
+		c.containers(ctx, proof("one"), true)
+		var before map[string]any
+		select {
+		case before = <-observed:
+		case <-ctx.Done():
+			t.Fatal("collector roster fixture did not receive retirement", ctx.Err())
+		}
 		if before["retiring_service"] != "one" || len(before["services"].([]any)) != 2 {
 			t.Fatal("retirement lacks exact live proof")
 		}
@@ -274,48 +298,94 @@ func TestRuntimeObservations(t *testing.T) {
 			t.Fatal(live.publicationErr)
 		}
 	})
-	t.Run("collector_leader_exit_and_closed_pipes_leave_no_live_descendant", func(t *testing.T) {
-		p, r, run, policy := observationFixture(t)
-		directory := t.TempDir()
-		binary, pidFile := filepath.Join(directory, "collector"), filepath.Join(directory, "child")
-		// Read the initial frame so the real client has completed launch. The
-		// descendant closes every inherited pipe and survives its leader.
-		script := "#!/bin/sh\nread -r frame\nsleep 60 </dev/null >/dev/null 2>&1 &\necho $! > " + strconv.Quote(pidFile) + "\nexit 0\n"
-		if err := os.WriteFile(binary, []byte(script), 0700); err != nil {
-			t.Fatal(err)
-		}
-		c := newCollector(binary, run, filepath.Join(directory, "admission"), r, p, policy, monotonicNS(), nil)
-		select {
-		case <-c.done:
-		case <-time.After(5 * time.Second):
-			_ = c.stop()
-			t.Fatal("collector failed to settle")
-		}
-		data, err := os.ReadFile(pidFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer syscall.Kill(pid, syscall.SIGKILL)
-		if err := c.stop(); err != nil {
-			t.Fatal(err)
-		}
-		stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
-		if err == nil {
-			state := strings.Fields(string(stat)[strings.LastIndex(string(stat), ") ")+2:])[0]
-			if state != "Z" && state != "X" {
-				t.Fatal("collector reported cleanup while descendant was live")
-			}
-		} else if !os.IsNotExist(err) {
-			t.Fatal(err)
+	t.Run("collector_closed_pipes_leave_no_live_descendant", func(t *testing.T) {
+		for _, mode := range []string{"leader_exits", "stop_live_leader"} {
+			t.Run(mode, func(t *testing.T) {
+				p, r, run, policy := observationFixture(t)
+				directory := t.TempDir()
+				binary, pidFile := filepath.Join(directory, "collector"), filepath.Join(directory, "child")
+				// Read the initial frame so the real client has completed launch.
+				// The descendant closes inherited pipes; the live leader ignores
+				// protocol requests and can only be stopped by its process owner.
+				ending := "exit 0"
+				if mode == "stop_live_leader" {
+					ending = "wait"
+				}
+				script := "#!/bin/sh\nread -r frame\nsleep 60 </dev/null >/dev/null 2>&1 &\necho $! > " + strconv.Quote(pidFile) + "\n" + ending + "\n"
+				if err := os.WriteFile(binary, []byte(script), 0700); err != nil {
+					t.Fatal(err)
+				}
+				c := newCollector(binary, run, filepath.Join(directory, "admission"), r, p, policy, monotonicNS(), nil)
+				t.Cleanup(func() {
+					if err := c.stop(); err != nil {
+						t.Errorf("settle collector fixture: %v", err)
+					}
+				})
+				deadline := time.NewTimer(5 * time.Second)
+				defer deadline.Stop()
+				tick := time.NewTicker(10 * time.Millisecond)
+				defer tick.Stop()
+				var data []byte
+				for {
+					var err error
+					data, err = os.ReadFile(pidFile)
+					if err == nil && len(strings.TrimSpace(string(data))) > 0 {
+						break
+					}
+					if err != nil && !os.IsNotExist(err) {
+						t.Fatal(err)
+					}
+					select {
+					case <-deadline.C:
+						t.Fatal("collector descendant did not start")
+					case <-tick.C:
+					}
+				}
+				pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+				if err != nil || pid < 2 {
+					t.Fatal("invalid collector descendant", err)
+				}
+				if mode == "leader_exits" {
+					select {
+					case <-c.done:
+					case <-deadline.C:
+						t.Fatal("collector failed to settle")
+					}
+				} else {
+					select {
+					case <-c.done:
+						t.Fatal("live collector exited before stop")
+					default:
+					}
+				}
+				if err := c.stop(); err != nil {
+					t.Fatal(err)
+				}
+				select {
+				case <-c.done:
+				default:
+					t.Fatal("collector stop returned before settlement")
+				}
+				stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+				if err == nil {
+					state := strings.Fields(string(stat)[strings.LastIndex(string(stat), ") ")+2:])[0]
+					if state != "Z" && state != "X" {
+						t.Fatal("collector reported cleanup while descendant was live")
+					}
+				} else if !os.IsNotExist(err) {
+					t.Fatal(err)
+				}
+			})
 		}
 	})
 	t.Run("collector_forced_death_drains", func(t *testing.T) {
 		p, r, run, policy := observationFixture(t)
 		c := newCollector(filepath.Join(observationRoot(), ".cache/cartulary/toolbin/cartulary-harness"), run, filepath.Join(t.TempDir(), "admission"), r, p, policy, monotonicNS(), nil)
+		t.Cleanup(func() {
+			if err := c.stop(); err != nil {
+				t.Errorf("settle collector fixture: %v", err)
+			}
+		})
 		if c.cmd == nil {
 			t.Fatal("collector not started")
 		}

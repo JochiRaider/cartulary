@@ -21,6 +21,7 @@ func EvidencePlans() []Surface {
 			{Key: "evidence.collector_party_id", Expr: sqlshape.Literal("p.collector_party_id"), Kind: FieldKindText},
 			{Key: "evidence.source_party_text", Expr: sqlshape.Literal("p.source_party_text"), Kind: FieldKindText},
 			{Key: "evidence.source_party_id", Expr: sqlshape.Literal("p.source_party_id"), Kind: FieldKindText},
+			{Key: "evidence.owner_user_id", Expr: sqlshape.Literal("p.owner_user_id"), Kind: FieldKindText},
 			{Key: "evidence.upload_state", Expr: sqlshape.Literal("p.upload_state"), Kind: FieldKindText},
 			{Key: "evidence.linked_record_count", Expr: sqlshape.Literal("p.linked_record_count"), Kind: FieldKindNumber},
 			{Key: "evidence.edited_at", Expr: sqlshape.Literal("p.edited_at"), Kind: FieldKindTimestamp},

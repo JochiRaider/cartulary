@@ -128,6 +128,7 @@ INSERT INTO record_links (
 	if err != nil {
 		t.Fatalf("begin support projection rollback proof: %v", err)
 	}
+	defer tx.Rollback(context.Background())
 	effectsResult, err := harness.Projections.EvidenceAssociationEffects().RefreshEvidenceAssociationEffects(
 		context.Background(),
 		tx,

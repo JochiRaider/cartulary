@@ -157,31 +157,6 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "app.server.integration.config_failures_on_real_postgres_and_object_stor_c832f91897",
-      "owner_id": "app.server",
-      "family_id": "app.server.integration",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "app.server.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/app/server",
-        "tests": [
-          "TestInvalidConfigNeverReachesReady_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "standard",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "app.server.integration.existing_active_admins_skip_stale_or_invalid_man_c8b4b869ec",
       "owner_id": "app.server",
       "family_id": "app.server.integration",
@@ -1151,6 +1126,7 @@
           "TestServerRunnerLogsPublicContractAdmissionWithoutRequestData",
           "TestServerRunnerMapsRuntimeSetupFailure",
           "TestServerRunnerRejectsHarnessEnvironmentBeforeConfigLoad",
+          "TestServerRunnerRejectsInvalidConfigurationBeforeRuntime",
           "TestServerRunnerRejectsTLSBeforeRuntime",
           "TestServerRunnerWritesDiagnosticsAndReturnsFailure",
           "TestServerRunnerWritesMigrationFailureDiagnostic",

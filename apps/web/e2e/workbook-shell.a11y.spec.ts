@@ -30,7 +30,7 @@ import { expect, test } from "./fixtures";
 import { expectAllInteractiveControlsNamed } from "./support/accessibility/assertions";
 import { expectVisibleSemanticGridCellFocus } from "./support/accessibility/grid";
 import {
-  expectNoFocusTrap,
+  expectInitialTabRoundTrip,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
 import { withPresentation } from "./support/accessibility/presentation";
@@ -301,7 +301,7 @@ test("a11y.workbook-shell.row-01 Verify incident heading, content-backed headers
   await expect(saveState).toHaveText("Saved");
 
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
   await expectAndRecordContrast(page, [
     workbookShellSlotTestId("top-bar"),
     workbookShellSlotTestId("status-strip"),

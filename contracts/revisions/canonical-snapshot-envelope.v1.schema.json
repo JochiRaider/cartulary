@@ -8,10 +8,10 @@
     "snapshot_schema_id": {
       "type": "string",
       "enum": [
-        "cartulary.revisions.snapshot.artifact.v1",
+        "cartulary.revisions.snapshot.artifact.v2",
         "cartulary.revisions.snapshot.assessment.v1",
         "cartulary.revisions.snapshot.decision.v1",
-        "cartulary.revisions.snapshot.evidence.v1",
+        "cartulary.revisions.snapshot.evidence.v2",
         "cartulary.revisions.snapshot.host.v1",
         "cartulary.revisions.snapshot.identity.v1",
         "cartulary.revisions.snapshot.indicator.v1",

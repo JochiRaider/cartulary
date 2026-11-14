@@ -1,13 +1,14 @@
 // Interrupt only the disposable package's database while the actual backup
 // process is reading application state. No application fault injection exists.
 import assert from "node:assert/strict";
+import {assertPackageQualificationSource} from "./package-qualification-project.mjs";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
 const [work, project, artifacts] = process.argv.slice(2);
-assert.match(project, /^cartularymvprecoverysmk[0-9]+$/);
+assertPackageQualificationSource(work, project);
 assert.ok(path.isAbsolute(work) && path.isAbsolute(artifacts));
 const args = ["compose", "--project-name", project, "--env-file", path.join(work, ".env"), "-f", path.join(work, "release/assets/docker-compose.yml")];
 function docker(...arguments_) {

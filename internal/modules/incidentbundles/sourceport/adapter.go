@@ -29,24 +29,28 @@ type AdapterOptions struct {
 }
 
 type Adapter struct {
+	instance         *adapterInstance
 	descriptor       Descriptor
 	export           ExportFunc
 	prepare          PrepareFunc
 	apply            ApplyFunc
 	validate         ValidateFunc
 	validateContract ContractValidateFunc
-	portKey          string
 }
+
+// A non-zero-sized private token distinguishes constructions even when a caller
+// overwrites an Adapter value at an existing address.
+type adapterInstance struct{ marker byte }
 
 func NewAdapter(options AdapterOptions) *Adapter {
 	return &Adapter{
+		instance:         &adapterInstance{},
 		descriptor:       cloneDescriptor(options.Descriptor),
 		export:           options.Export,
 		prepare:          options.Prepare,
 		apply:            options.Apply,
 		validate:         options.Validate,
 		validateContract: options.ValidateContract,
-		portKey:          options.Descriptor.OwnerID + ":" + options.Descriptor.FamilyID,
 	}
 }
 
@@ -83,7 +87,8 @@ func QueryExport(export func(context.Context, incidentportability.Queryer, uuid.
 }
 
 func (a *Adapter) PrepareImport(ctx context.Context, bundle Bundle, importContext ImportContext) (Prepared, error) {
-	if a == nil || a.prepare == nil || importContext.OperationID == "" {
+	if a == nil || a.prepare == nil || importContext.OperationID == "" ||
+		importContext.IncidentID == uuid.Nil || importContext.ActorUserID == uuid.Nil || a.descriptor.ContractMajor != ContractMajor {
 		return Prepared{}, fmt.Errorf("%w: missing preparation", ErrInvalidCatalog)
 	}
 	admitted := false
@@ -97,14 +102,14 @@ func (a *Adapter) PrepareImport(ctx context.Context, bundle Bundle, importContex
 	if err != nil {
 		return Prepared{}, err
 	}
-	return NewPrepared(a.portKey, importContext.OperationID, value), nil
+	return newPrepared(a, importContext, value), nil
 }
 
 func (a *Adapter) ApplyImportTx(ctx context.Context, tx pgx.Tx, prepared Prepared, importContext ImportContext) error {
 	if a == nil || a.apply == nil {
 		return fmt.Errorf("%w: missing apply", ErrInvalidCatalog)
 	}
-	value, err := prepared.ValueFor(a.portKey, importContext.OperationID)
+	value, err := prepared.valueFor(a, importContext)
 	if err != nil {
 		return err
 	}
@@ -134,7 +139,7 @@ func (a *Adapter) ValidateImportTx(ctx context.Context, tx pgx.Tx, prepared Prep
 	if a == nil || a.validate == nil {
 		return fmt.Errorf("%w: missing validation", ErrInvalidCatalog)
 	}
-	value, err := prepared.ValueFor(a.portKey, importContext.OperationID)
+	value, err := prepared.valueFor(a, importContext)
 	if err != nil {
 		return err
 	}

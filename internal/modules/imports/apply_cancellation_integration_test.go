@@ -32,7 +32,7 @@ func TestCancellationInterruptsUncommittedImportUnit_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer blocker.Close()
+	defer closeImportAdvisoryGate(t, blocker)
 	var pid, namespace, key int32
 	if err := blocker.QueryRowContext(ctx, "SELECT pg_backend_pid(), hashtext($1), hashtext($2)", "imports-cancel-test", t.Name()).Scan(&pid, &namespace, &key); err != nil {
 		t.Fatal(err)
@@ -40,9 +40,6 @@ func TestCancellationInterruptsUncommittedImportUnit_Integration(t *testing.T) {
 	if _, err := blocker.ExecContext(ctx, "SELECT pg_advisory_lock($1, $2)", namespace, key); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		_, _ = blocker.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1, $2)", namespace, key)
-	}()
 	// Stop actual owner SQL before its first effect. Cancellation must complete
 	// and interrupt this query without the test releasing the blocker.
 	fixtureSQL := fmt.Sprintf(`

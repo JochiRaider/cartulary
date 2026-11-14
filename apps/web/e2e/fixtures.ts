@@ -20,10 +20,7 @@ import {
 } from "./support/auth/sessions";
 import type { StorageState } from "./support/auth/storageState";
 import { authHeadersForStorageState } from "./support/auth/storageState";
-import {
-  loadWorkerAdminManifest,
-  markWorkerAdminCleaned,
-} from "./support/auth/workerAdmin";
+import { loadWorkerAdminManifest } from "./support/auth/workerAdmin";
 import { installOwnedJobs } from "./support/jobs/ownership";
 import { OwnedBrowserScope } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
@@ -145,7 +142,7 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
         });
         if (controlPlane) {
           const control = controlPlane;
-          const revoked = await attempt("worker.revoke", () =>
+          await attempt("worker.revoke", () =>
             revokeAllSessions(
               control.request,
               entry.user_id,
@@ -153,16 +150,15 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
             ),
           );
           const acquiredActor = actor;
-          const verified =
-            acquiredActor === undefined ||
-            (await attempt("worker.verify", () =>
+          if (acquiredActor) {
+            await attempt("worker.verify", () =>
               verifySessionUnauthorized(
                 acquiredActor.storageState,
                 "worker session",
                 control.request,
               ),
-            ));
-          if (revoked && verified) markWorkerAdminCleaned(workerAdminIndex);
+            );
+          }
           await attempt("control_plane.logout", () =>
             logoutAndVerify(
               control.request,

@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/intervalhistory"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/observationhistory"
 	"github.com/google/uuid"
 )
 
@@ -31,56 +33,11 @@ func normalizeTimePointer(value *time.Time) *time.Time {
 }
 
 func buildIndicatorObservationValue(record IndicatorObservationRecord) map[string]any {
-	return map[string]any{
-		"indicator_observation_id":     record.ObservationID.String(),
-		"incident_id":                  record.IncidentID.String(),
-		"source_record_id":             record.SourceRecordID.String(),
-		"source_field_key":             record.SourceFieldKey,
-		"origin_kind":                  record.OriginKind,
-		"origin_locator":               record.OriginLocator,
-		"observed_text":                record.ObservedText,
-		"parsed_indicator_type":        derefString(record.ParsedIndicatorType),
-		"normalized_candidate":         derefString(record.NormalizedCandidate),
-		"resolution_status":            record.ResolutionStatus,
-		"resolved_indicator_record_id": formatUUIDPointer(record.ResolvedIndicatorRecordID),
-		"row_version":                  record.RowVersion,
-		"created_by_user_id":           record.CreatedByUserID.String(),
-		"created_at":                   formatTimestamp(record.CreatedAt),
-		"resolved_by_user_id":          formatUUIDPointer(record.ResolvedByUserID),
-		"resolved_at":                  formatTimestampPointer(record.ResolvedAt),
-		"resolution_method":            derefString(record.ResolutionMethod),
-		"deleted_at":                   formatTimestampPointer(record.DeletedAt),
-		"deleted_by_user_id":           formatUUIDPointer(record.DeletedByUserID),
-	}
+	return observationhistory.Value(record).Map()
 }
 
 func buildIndicatorLifecycleValue(record IndicatorLifecycleIntervalRecord) map[string]any {
-	return map[string]any{
-		"indicator_state_interval_id": record.IntervalID.String(),
-		"incident_id":                 record.IncidentID.String(),
-		"indicator_record_id":         record.IndicatorRecordID.String(),
-		"lifecycle_state":             record.LifecycleState,
-		"valid_from":                  formatTimestamp(record.ValidFrom),
-		"valid_to":                    formatTimestampPointer(record.ValidTo),
-		"confidence":                  derefInt(record.Confidence),
-		"rationale":                   derefString(record.Rationale),
-		"support_refs":                indicatorUUIDStrings(record.SupportRefs),
-		"assessor":                    derefString(record.Assessor),
-		"assessed_at":                 formatTimestamp(record.AssessedAt),
-		"row_version":                 record.RowVersion,
-		"created_by_user_id":          record.CreatedByUserID.String(),
-		"created_at":                  formatTimestamp(record.CreatedAt),
-		"deleted_at":                  formatTimestampPointer(record.DeletedAt),
-		"deleted_by_user_id":          formatUUIDPointer(record.DeletedByUserID),
-	}
-}
-
-func indicatorUUIDStrings(values []uuid.UUID) []string {
-	result := make([]string, len(values))
-	for index, value := range values {
-		result[index] = value.String()
-	}
-	return result
+	return intervalhistory.Value(record).Map()
 }
 
 func formatTimestamp(value time.Time) string {

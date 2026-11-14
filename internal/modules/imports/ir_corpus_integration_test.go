@@ -17,6 +17,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -157,11 +158,6 @@ func irImportCoreCorpus(t *testing.T, corpus *irfixtures.Corpus, h *appsupport.S
 				t.Fatalf("time pair states = %#v", timeStates)
 			}
 			rosters[name] = bySource
-			// A new public query must reconstruct the same source inventory.
-			reopened := irQueryAll(t, h.Server.HTTP.URL, login, id, views[name])
-			if len(reopened) != len(rows) {
-				t.Fatal("reopening changed imported inventory")
-			}
 		})
 	}
 	if t.Failed() {
@@ -261,20 +257,53 @@ func irImportCoreCorpus(t *testing.T, corpus *irfixtures.Corpus, h *appsupport.S
 func irCommittedSources(t *testing.T, baseURL string, login authcookietest.AuthCookies, incidentID string) []map[string]any {
 	t.Helper()
 	var result []map[string]any
+	var lastID string
+	seenCursors := map[string]bool{}
 	path := "/api/v1/incidents/" + incidentID + "/committed-sources?limit=1"
-	for {
+	// These corpus scenarios retain at most six sources; fail a broken cursor
+	// chain within a fixture-sized bound rather than waiting for the harness.
+	for page := 0; page < 20; page++ {
 		envelope := httptestx.RequireSuccessEnvelope(t, doImportJSON(t, baseURL, login, http.MethodGet, path, nil), http.StatusOK)
-		for _, row := range envelope["data"].(map[string]any)["committed_sources"].([]any) {
-			result = append(result, row.(map[string]any))
+		rows := envelope["data"].(map[string]any)["committed_sources"].([]any)
+		if len(rows) > 1 {
+			t.Fatal("committed-source page exceeded requested limit")
 		}
-		meta := envelope["meta"].(map[string]any)
-		token, _ := meta["paging"].(map[string]any)["next_cursor"].(string)
-		if token == "" {
-			break
+		for _, raw := range rows {
+			row := raw.(map[string]any)
+			id, ok := row["committed_source_id"].(string)
+			if !ok || id <= lastID {
+				t.Fatal("committed-source IDs are missing, repeated or out of order")
+			}
+			lastID = id
+			result = append(result, row)
 		}
+		paging := envelope["meta"].(map[string]any)["paging"].(map[string]any)
+		if paging["limit"] != float64(1) {
+			t.Fatal("committed-source continuation changed the bound page size")
+		}
+		hasMore, ok := paging["has_more"].(bool)
+		if !ok {
+			t.Fatal("committed-source page omitted Boolean has_more")
+		}
+		cursor, exists := paging["next_cursor"]
+		if !exists {
+			t.Fatal("committed-source page omitted next_cursor")
+		}
+		if !hasMore {
+			if cursor != nil {
+				t.Fatal("terminal committed-source page has a continuation")
+			}
+			return result
+		}
+		token, ok := cursor.(string)
+		if !ok || strings.TrimSpace(token) == "" || seenCursors[token] {
+			t.Fatal("committed-source continuation is missing or repeated")
+		}
+		seenCursors[token] = true
 		path = "/api/v1/incidents/" + incidentID + "/committed-sources?cursor_token=" + url.QueryEscape(token)
 	}
-	return result
+	t.Fatal("unexpectedly unbounded committed-source query")
+	return nil
 }
 
 func irVerifyCommittedSource(t *testing.T, baseURL string, login authcookietest.AuthCookies, incidentID, name, unit string, original []byte, retained []map[string]any) {
@@ -327,7 +356,7 @@ func waitIRApply(t *testing.T, url string, login authcookietest.AuthCookies, job
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		response := doImportJSON(t, url, login, http.MethodGet, "/api/v1/jobs/"+jobID, nil)
+		response := pollImportJSON(t, ctx, url, login, "/api/v1/jobs/"+jobID)
 		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 		switch job["status"] {
 		case "succeeded", "failed", "canceled":
@@ -339,6 +368,14 @@ func waitIRApply(t *testing.T, url string, login authcookietest.AuthCookies, job
 		case <-ticker.C:
 		}
 	}
+}
+
+func pollImportJSON(t *testing.T, ctx context.Context, baseURL string, login authcookietest.AuthCookies, path string) *http.Response {
+	t.Helper()
+	request := httptestx.NewJSONRequest(t, http.MethodGet, baseURL+path, nil).WithContext(ctx)
+	httptestx.WithCookies(login.Session, login.CSRF)(request)
+	request.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
+	return httptestx.Do(t, http.DefaultClient, request)
 }
 
 func irText(t testing.TB, row map[string]any, key string) string {

@@ -2,50 +2,40 @@ package rollback
 
 import (
 	"errors"
-	"testing"
-
-	"github.com/google/uuid"
-
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
+	"github.com/google/uuid"
+	"maps"
+	"testing"
 )
 
-func TestParseObservationTargetTreatsMissingTombstonesAsActive(t *testing.T) {
+func TestParseObservationTargetRequiresCompleteTombstones(t *testing.T) {
 	t.Parallel()
-	observationID, incidentID, sourceID := uuid.New(), uuid.New(), uuid.New()
-	value := map[string]any{
-		"indicator_observation_id": observationID.String(), "incident_id": incidentID.String(),
-		"source_record_id": sourceID.String(), "source_field_key": "timeline.raw_activity_text",
-		"origin_kind": "manual_entry", "origin_locator": "cell", "observed_text": "192.0.2.10",
-		"resolution_status": "unresolved", "row_version": float64(1),
-		"created_by_user_id": uuid.New().String(), "created_at": "2026-07-09T12:00:00Z",
-	}
-	identity, _, _, err := parseChildTarget(rollbackcontract.NonRowTarget{
-		TargetKind: "indicator_observation", TargetID: observationID.String(), OperationKind: "create", AfterValue: value,
-	})
+	value := validRollbackObservationValue()
+	target := rollbackcontract.NonRowTarget{TargetKind: "indicator_observation", TargetID: value["indicator_observation_id"].(string), OperationKind: "create", AfterValue: value}
+	identity, _, _, err := parseChildTarget(target)
 	if err != nil || identity.deletedAt != nil || identity.deletedBy != nil {
-		t.Fatalf("parse old observation value = %#v, %v", identity, err)
+		t.Fatalf("complete active observation=%#v error=%v", identity, err)
+	}
+	for _, field := range []string{"deleted_at", "deleted_by_user_id"} {
+		partial := maps.Clone(value)
+		delete(partial, field)
+		target.AfterValue = partial
+		if _, _, _, err := parseChildTarget(target); !errors.Is(err, rollbackcontract.ErrTargetNotReversible) {
+			t.Fatalf("missing %s admitted: %v", field, err)
+		}
 	}
 }
-
 func TestParseObservationResolveRejectsIdentityDrift(t *testing.T) {
 	t.Parallel()
-	observationID, incidentID, sourceID := uuid.New(), uuid.New(), uuid.New()
-	before := map[string]any{
-		"indicator_observation_id": observationID.String(), "incident_id": incidentID.String(),
-		"source_record_id": sourceID.String(), "source_field_key": "timeline.raw_activity_text",
-		"origin_kind": "manual_entry", "origin_locator": "cell", "observed_text": "192.0.2.10",
-		"resolution_status": "unresolved", "row_version": float64(1),
-		"created_by_user_id": uuid.New().String(), "created_at": "2026-07-09T12:00:00Z",
+	before := validRollbackObservationValue()
+	after := maps.Clone(before)
+	after["resolution_status"], after["resolved_indicator_record_id"], after["resolved_by_user_id"], after["resolved_at"], after["resolution_method"], after["row_version"] = "resolved", uuid.NewString(), before["created_by_user_id"], before["created_at"], "indicators.observations.resolve", int64(2)
+	target := rollbackcontract.NonRowTarget{TargetKind: "indicator_observation", TargetID: before["indicator_observation_id"].(string), OperationKind: "resolve", BeforeValue: before, AfterValue: after}
+	if _, _, _, err := parseChildTarget(target); err != nil {
+		t.Fatalf("valid resolve control: %v", err)
 	}
-	after := make(map[string]any, len(before))
-	for key, value := range before {
-		after[key] = value
-	}
-	after["source_record_id"] = uuid.New().String()
-	after["row_version"] = float64(2)
-	if _, _, _, err := parseChildTarget(rollbackcontract.NonRowTarget{
-		TargetKind: "indicator_observation", TargetID: observationID.String(), OperationKind: "resolve", BeforeValue: before, AfterValue: after,
-	}); !errors.Is(err, rollbackcontract.ErrTargetNotReversible) {
-		t.Fatalf("identity drift error = %v", err)
+	after["source_record_id"] = uuid.NewString()
+	if _, _, _, err := parseChildTarget(target); !errors.Is(err, rollbackcontract.ErrTargetNotReversible) {
+		t.Fatalf("identity drift error=%v", err)
 	}
 }

@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+import test from "node:test";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
@@ -6,6 +9,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { assertPackagedRendererLayout, stageRendererInstallation } from "../../report-renderer/stage-installation.mjs";
 import { restrictedExecutableInputRoots } from "../../harness/test-catalog/restricted-input-boundary.mjs";
+import { createScratch } from "../../harness/test-support/scratch.mjs";
+import { createRuntime } from "../../harness/runtime/session-client.mjs";
+import { finalizePackageResources, inspect } from "../package-release.mjs";
+import { buildReaderEvidence, writeEvidenceFile } from "../../harness/observability/tests/retained-fixture.mjs";
 const root=path.resolve(import.meta.dirname,"../../..");
 const work=mkdtempSync(path.join(tmpdir(),"cartulary-release-contract-"));
 const release=path.join(work,"release"), bin=path.join(work,"bin");
@@ -70,7 +77,12 @@ try {
  write("assets/.env.example","SETTING=literal\n"); write("assets/config.toml.example","# supplied installation state\n");
  const images=["application","postgres","seaweedfs"].map((role,i)=>({role,config_sha256:String(i+1).repeat(64),id:`sha256:${String(i+1).repeat(64)}`,reference:`cartulary/${role}:immutable`,archive:`images/${role}.tar`,inventory:`inventories/${role}.syft.json`}));
  const binaries={};
- for(const name of ["migrate","operator","server"]) { binaries[name]={sha256:"a".repeat(64),receipt:`receipts/${name}.crypto.json`};write(binaries[name].receipt,{schema_id:"cartulary.cryptographic_build_receipt.v1",binary_sha256:binaries[name].sha256,selector:"current"}); }
+ for(const name of ["migrate","operator","server"]) {
+  binaries[name]={sha256:"a".repeat(64),receipt:`receipts/${name}.crypto.json`};
+  write(binaries[name].receipt,{schema_id:"cartulary.cryptographic_build_receipt.v1",binary_sha256:binaries[name].sha256,
+   toolchain:"go1.27.3",selector:"v1.0.0-c2097c7c",service_version:"v1.0.0",archive_sha256:"b".repeat(64),
+   build_info:{GoVersion:"go1.27.3",Path:`example.test/${name}`,Main:{Path:"example.test/module",Version:"(devel)"},Settings:[{Key:"GOFIPS140",Value:"v1.0.0-c2097c7c"}]}});
+ }
  for(const image of images) { write(image.archive,"fixture image");write(image.inventory,{descriptor:{name:"syft",version:"1.44.0"},source:{type:"image",metadata:{imageID:image.id}},artifacts:[{name:"component",licenses:[]}]}); }
  write("inventories/scanner.json",{schema_id:"cartulary.image_inventory_tool.v1",module:"github.com/anchore/syft",version:"v1.44.0",binary_sha256:"e".repeat(64)});
  write("inventories/notices.json",{schema_id:"cartulary.distribution_notices.v1",review_disposition:"unestablished",images:images.map(image=>({image_id:image.id}))});
@@ -94,6 +106,13 @@ exit 1
  assert.notEqual(verify({FIXTURE_PLATFORM:"linux/arm64"}).status,0);
  assert.notEqual(verify({CONTAMINATED:"1"}).status,0);
  for(const member of ["assets/config.toml.example",images[0].inventory,images[0].archive,binaries.operator.receipt]) {const file=path.join(release,member),before=readFileSync(file);writeFileSync(file,"altered");assert.notEqual(verify().status,0,member);writeFileSync(file,before);}
+ for(const name of ["migrate","operator","server"]) {
+  const member=binaries[name].receipt,file=path.join(release,member),before=readFileSync(file);
+  rmSync(file); assert.notEqual(verify().status,0,"a declared receipt cannot be absent");
+  write("release-manifest.json",{...manifest,assets:manifest.assets.filter(asset=>asset.path!==member)});
+  assert.notEqual(verify().status,0,"omitting both asset and file cannot erase a declared receipt");
+  writeFileSync(file,before);writeFileSync(path.join(release,"release-manifest.json"),original);
+ }
  write("unexpected","unbound");assert.notEqual(verify().status,0);rmSync(path.join(release,"unexpected"));
  symlinkSync("config.toml.example",path.join(release,"assets/link"));assert.notEqual(verify().status,0);rmSync(path.join(release,"assets/link"));
  linkSync(path.join(release,"assets/config.toml.example"),path.join(work,"linked"));assert.notEqual(verify().status,0);rmSync(path.join(work,"linked"));
@@ -104,3 +123,95 @@ exit 1
  assert.equal(existsSync(path.join(installed,"runtime")),true);
  assert.notEqual(install().status,0,"occupied destination cannot be replaced");
 } finally {rmSync(work,{recursive:true,force:true});}
+
+test("package finalization preserves primary failure and independently cleans staging and its borrowed handle", t => {
+ const scratch = createScratch(t, "cartulary-package-finalizer-");
+ const original = fs.rmSync;
+ try {
+  for (const scenario of ["success", "stage", "runtime", "all", "primary"]) {
+   const stage = path.join(scratch, scenario); fs.mkdirSync(stage); fs.writeFileSync(path.join(stage, "owned"), "fixture");
+   const calls = [], failed = ["all", "primary"].includes(scenario);
+   fs.rmSync = (file, options) => {
+    assert.equal(file, stage); calls.push("stage");
+    if (failed || scenario === "stage") throw new Error("private stage diagnostic");
+    return original(file, options);
+   };
+   syncBuiltinESMExports();
+   const primary = scenario === "primary" ? new Error("original production failure") : undefined;
+   const allocation = { releaseAll: () => {
+    calls.push("resources");
+    return failed ? ["application", "build_tag"].map(cleanup_step => Object.assign(new Error("package resource cleanup failed"), { failure_class: "harness", failure_reason: "cleanup_error", cleanup_step })) : [];
+   } };
+   const runtime = { close: () => { calls.push("runtime"); if (failed || scenario === "runtime") throw new Error("private runtime diagnostic"); } };
+   let error;
+   try { finalizePackageResources({ allocation, stage, runtime }, primary); } catch (caught) { error = caught; }
+   assert.deepEqual(calls, ["resources", "stage", "runtime"]);
+   assert.equal(fs.existsSync(stage), failed || scenario === "stage");
+   if (["success", "primary"].includes(scenario)) assert.equal(error, undefined);
+   else { assert.equal(error.failure_class, "harness"); assert.equal(error.failure_reason, "cleanup_error"); assert.doesNotMatch(error.message, /private/u); }
+   if (failed) {
+    const failure = primary ?? error;
+    assert.deepEqual(failure.cleanupFailures.map(value => value.cleanup_step), ["application", "build_tag", "stage", "runtime_handle"]);
+    assert.ok(failure.cleanupFailures.every(value => value.failure_reason === "cleanup_error"));
+    if (primary) assert.equal(primary.message, "original production failure");
+   }
+   fs.rmSync = original; syncBuiltinESMExports(); original(stage, { recursive: true, force: true });
+  }
+  finalizePackageResources({});
+  const partial = path.join(scratch, "partial-stage"); fs.mkdirSync(partial);
+  finalizePackageResources({ stage: partial }); assert.equal(fs.existsSync(partial), false);
+ } finally { fs.rmSync = original; syncBuiltinESMExports(); }
+});
+
+test("package CLI reports normalized failures without private filesystem diagnostics", t => {
+ const scratch = createScratch(t, "cartulary-private-package-cli-");
+ const env = { ...process.env, CARTULARY_TEST_RESULTS_DIR: scratch, CARTULARY_TEST_RUN_ID: "fixture-package-cli" };
+ delete env.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+ for (const [args, status, diagnostic] of [
+  [["unpack", path.join(scratch, "destination")], 11, "artifact/artifact_error"],
+  [["unknown-operation"], 2, "config/usage_error"],
+ ]) {
+  const result = spawnSync(process.execPath, [path.resolve(import.meta.dirname, "../package-release.mjs"), ...args], { env, encoding: "utf8", timeout: 10000 });
+  assert.ifError(result.error); assert.equal(result.status, status);
+  assert.equal(result.stdout, ""); assert.equal(result.stderr, `Package release failed: ${diagnostic}\n`);
+  assert.equal(fs.existsSync(path.join(scratch, "fixture-package-cli")), false, "failed read must not invent artifacts");
+ }
+});
+
+test("package inspection preserves its read failure and reports its independent cleanup failure", t => {
+ const scratch = createScratch(t, "cartulary-package-inspection-");
+ const original = { mkdtempSync: fs.mkdtempSync, rmSync: fs.rmSync };
+ const before = { ...process.env }; let runtime;
+ try {
+  process.env.CARTULARY_TEST_RESULTS_DIR = scratch; process.env.CARTULARY_TEST_RUN_ID = "fixture-inspection";
+  writeEvidenceFile(path.join(scratch, "fixture-inspection"), "run-manifest.json", buildReaderEvidence({
+   runID: "fixture-inspection", target: "package-inspect", commandID: "cartulary.harness.command.package_inspect.v1",
+  }).manifest);
+  runtime = createRuntime({ repoRoot: root, runRoot: path.join(scratch, "fixture-inspection"), runID: "fixture-inspection", scratchRoot: path.join(scratch, "private") });
+  Object.assign(process.env, runtime.producerEnvironment());
+  for (const cleanupFails of [false, true]) {
+   const owned = runtime.producerPath(cleanupFails ? "failed" : "cleaned"); fs.mkdirSync(owned);
+   let acquired = 0, finalized = 0;
+   fs.mkdtempSync = prefix => { assert.equal(prefix, path.join(runtime.producerPath("package-inspection"), "inspect-")); acquired++; return owned; };
+   fs.rmSync = (file, options) => {
+    assert.equal(file, owned); finalized++;
+    if (cleanupFails) throw new Error("private cleanup detail");
+    return original.rmSync(file, options);
+   };
+   syncBuiltinESMExports();
+   let error; try { inspect(); } catch (caught) { error = caught; }
+   assert.equal(error.message, "package evidence admission failed");
+   assert.equal(error.cause.code, "ENOENT", "original missing-receipt error remains primary");
+   assert.equal(acquired, 1); assert.equal(finalized, 1);
+   assert.equal(error.cleanupFailures?.length ?? 0, cleanupFails ? 1 : 0);
+   if (cleanupFails) assert.equal(error.cleanupFailures[0].failure_reason, "cleanup_error");
+   assert.equal(fs.existsSync(owned), cleanupFails);
+  }
+ } finally {
+  fs.mkdtempSync = original.mkdtempSync; fs.rmSync = original.rmSync; syncBuiltinESMExports();
+  try { runtime?.close(); } finally {
+   for (const key of Object.keys(process.env)) if (!(key in before)) delete process.env[key];
+   Object.assign(process.env, before);
+  }
+ }
+});

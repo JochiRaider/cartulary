@@ -2,14 +2,15 @@ package rollbackprovider
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions/historyvalue"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -54,6 +55,18 @@ SELECT em.source_record_id, r.incident_id
 	}
 	if incidentID != request.Target.IncidentID || currentSourceID != identity.sourceRecordID {
 		return descriptor, rollbackcontract.ErrTargetNotFound
+	}
+	current, err := loadMentionValueTx(ctx, tx, identity.mentionID)
+	if err != nil {
+		return descriptor, err
+	}
+	currentValue, currentErr := historyvalue.Decode(current)
+	expectedValue, expectedErr := historyvalue.Decode(request.Target.AfterValue)
+	if currentErr != nil || expectedErr != nil {
+		return descriptor, rollbackcontract.ErrTargetNotReversible
+	}
+	if !reflect.DeepEqual(currentValue, expectedValue) {
+		return descriptor, rollbackcontract.ErrStaleTarget
 	}
 	return descriptor, nil
 }
@@ -126,40 +139,17 @@ UPDATE entity_mentions
 }
 
 func parseMentionTarget(target rollbackcontract.NonRowTarget) (mentionIdentity, error) {
-	if target.TargetKind != "entity_mention" || target.OperationKind != "patch" || target.BeforeValue == nil {
+	if target.TargetKind != "entity_mention" || target.OperationKind != "patch" ||
+		historyvalue.ValidateMutation(target.TargetID, target.OperationKind, target.BeforeValue, target.AfterValue) != nil {
 		return mentionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
-	mentionID, err := uuid.Parse(target.TargetID)
-	if err != nil {
-		return mentionIdentity{}, rollbackcontract.ErrTargetNotFound
-	}
-	retainedMentionID, err := requiredMentionUUID(target.BeforeValue, "entity_mention_id")
-	if err != nil || retainedMentionID != mentionID {
-		return mentionIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	sourceID, err := requiredMentionUUID(target.BeforeValue, "source_record_id")
+	before, err := historyvalue.Decode(target.BeforeValue)
 	if err != nil {
 		return mentionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
-	entityType := requiredMentionText(target.BeforeValue, "entity_type")
-	if entityType != "host" && entityType != "identity" {
-		return mentionIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	status := requiredMentionText(target.BeforeValue, "resolution_status")
-	if status != "unresolved" && status != "resolved" && status != "dismissed" {
-		return mentionIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	fieldKey := requiredMentionText(target.BeforeValue, "source_field_key")
-	rowVersion, valid := mentionInt64(target.BeforeValue["row_version"])
-	if fieldKey == "" || !valid || rowVersion <= 0 {
-		return mentionIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	for _, key := range []string{"origin_kind", "origin_locator", "raw_text", "normalized_text"} {
-		if _, valid := target.BeforeValue[key].(string); !valid {
-			return mentionIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-	}
-	return mentionIdentity{mentionID: mentionID, sourceRecordID: sourceID, sourceFieldKey: fieldKey, entityType: entityType, status: status, rowVersion: rowVersion}, nil
+	return mentionIdentity{mentionID: before.MentionID, sourceRecordID: before.SourceRecordID,
+		sourceFieldKey: before.SourceFieldKey, entityType: before.EntityType,
+		status: before.ResolutionStatus, rowVersion: before.RowVersion}, nil
 }
 
 func validateResolvedTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, identity mentionIdentity, value map[string]any) error {
@@ -176,7 +166,7 @@ func validateResolvedTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UU
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	if identity.status == "resolved" {
-		if resolvedID == nil || resolvedBy == nil || resolvedAt == nil {
+		if resolvedID == nil || resolvedBy == nil || resolvedAt == nil || nullableMentionText(value, "resolution_method") == nil {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 		var exists bool
@@ -193,48 +183,27 @@ func validateResolvedTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UU
 }
 
 func loadMentionValueTx(ctx context.Context, tx pgx.Tx, mentionID uuid.UUID) (map[string]any, error) {
-	var raw []byte
+	var value historyvalue.Value
 	if err := tx.QueryRow(ctx, `
-SELECT jsonb_build_object(
-    'entity_mention_id', entity_mention_id::text,
-    'source_record_id', source_record_id::text,
-    'entity_type', entity_type,
-    'source_field_key', source_field_key,
-    'origin_kind', origin_kind,
-    'origin_locator', origin_locator,
-    'raw_text', raw_text,
-    'normalized_text', normalized_text,
-    'resolution_status', resolution_status,
-    'row_version', row_version,
-    'ordinal', ordinal,
-    'created_by_user_id', created_by_user_id::text,
-    'created_at', created_at,
-    'resolved_record_id', resolved_record_id::text,
-    'resolved_by_user_id', resolved_by_user_id::text,
-    'resolved_at', resolved_at,
-    'resolution_method', resolution_method
-)
-  FROM entity_mentions
- WHERE entity_mention_id = $1
-`, mentionID).Scan(&raw); err != nil {
+SELECT entity_mention_id, source_record_id, entity_type, source_field_key,
+       origin_kind, origin_locator, raw_text, normalized_text, resolution_status,
+       row_version, ordinal, created_by_user_id, created_at,
+       resolved_record_id, resolved_by_user_id, resolved_at, resolution_method
+FROM entity_mentions WHERE entity_mention_id=$1
+`, mentionID).Scan(&value.MentionID, &value.SourceRecordID, &value.EntityType, &value.SourceFieldKey,
+		&value.OriginKind, &value.OriginLocator, &value.RawText, &value.NormalizedText, &value.ResolutionStatus,
+		&value.RowVersion, &value.Ordinal, &value.CreatedByUserID, &value.CreatedAt,
+		&value.ResolvedRecordID, &value.ResolvedByUserID, &value.ResolvedAt, &value.ResolutionMethod); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, rollbackcontract.ErrTargetNotFound
 		}
 		return nil, err
 	}
-	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, err
+	encoded := value.Map()
+	if _, err := historyvalue.Decode(encoded); err != nil {
+		return nil, rollbackcontract.ErrTargetNotReversible
 	}
-	return value, nil
-}
-
-func requiredMentionUUID(value map[string]any, key string) (uuid.UUID, error) {
-	raw, valid := value[key].(string)
-	if !valid || strings.TrimSpace(raw) == "" {
-		return uuid.Nil, errors.New("missing uuid")
-	}
-	return uuid.Parse(raw)
+	return encoded, nil
 }
 
 func mentionNullableUUID(value map[string]any, key string) (*uuid.UUID, bool, error) {
@@ -278,18 +247,4 @@ func nullableMentionText(value map[string]any, key string) *string {
 		return nil
 	}
 	return &text
-}
-
-func mentionInt64(value any) (int64, bool) {
-	switch typed := value.(type) {
-	case int64:
-		return typed, true
-	case float64:
-		return int64(typed), typed == float64(int64(typed))
-	case json.Number:
-		parsed, err := typed.Int64()
-		return parsed, err == nil
-	default:
-		return 0, false
-	}
 }

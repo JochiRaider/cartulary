@@ -133,6 +133,7 @@ describe("fetchJSON", () => {
 
     await fetchJSON("/api/v1/auth/session");
 
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(requestAt(fetchMock, 0).credentials).toBe("include");
     expect(requestAt(fetchMock, 0).headers.get("Content-Type")).toBe(
       "application/json",

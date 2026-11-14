@@ -330,11 +330,19 @@
     {
       "id": "incident-bundle-import-finalizer-port-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport",
-      "allowed_importers": [
-        "internal/modules/incidentbundles/**",
-        "internal/modules/incidents/import_finalization.go",
-        "internal/modules/incidents/repository.go",
-        "internal/modules/incidents/store_test.go"
+      "allowed_importers": [],
+      "import_capabilities": [
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport",
+          "production_packages": [
+            "internal/modules/incidentbundles",
+            "internal/modules/incidents"
+          ],
+          "test_packages": [
+            "internal/modules/incidentbundles",
+            "internal/modules/incidents"
+          ]
+        }
       ]
     },
     {
@@ -366,200 +374,205 @@
     {
       "id": "incidentbundles-facade-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
-      "allowed_importers": [
-        "internal/app/extensionassembly/**",
-        "internal/app/incidentportabilityassembly/**",
-        "internal/app/projectionassembly/**",
-        "internal/app/recoveryassembly/state_catalog.go",
-        "internal/app/revisionassembly/revisions.go",
-        "internal/app/server/extensions_publication_characterization_test.go",
-        "internal/app/server/module_settings.go",
-        "internal/app/server/module_settings_test.go",
-        "internal/app/server/runtime_assembly.go",
-        "internal/modules/artifacts/incident_bundle_portability.go",
-        "internal/modules/artifacts/incident_bundle_source_port.go",
-        "internal/modules/artifacts/source_state_manifest.go",
-        "internal/modules/assessments/incident_bundle_source_port.go",
-        "internal/modules/assessments/internal/providers/incidentbundle/**",
-        "internal/modules/entities/incident_bundle_invariant_closure_integration_test.go",
-        "internal/modules/entities/incident_bundle_portability.go",
-        "internal/modules/entities/incident_bundle_portable_apply.go",
-        "internal/modules/entities/incident_bundle_portable_encode.go",
-        "internal/modules/entities/incident_bundle_portable_model.go",
-        "internal/modules/entities/incident_bundle_portable_prepare.go",
-        "internal/modules/entities/incident_bundle_portable_staging.go",
-        "internal/modules/entities/incident_bundle_portable_validate.go",
-        "internal/modules/entities/incident_bundle_source_port.go",
-        "internal/modules/evidence/incident_bundle_portability.go",
-        "internal/modules/evidence/incident_bundle_source_port.go",
-        "internal/modules/imports/committed_source_portability_test.go",
-        "internal/modules/imports/incident_bundle_source_port.go",
-        "internal/modules/incidentbundles/**",
-        "internal/modules/incidents/import_finalization.go",
-        "internal/modules/incidents/incident_bundle_source_port.go",
-        "internal/modules/incidents/repository.go",
-        "internal/modules/incidents/store_test.go",
-        "internal/modules/indicators/identity_portability_test.go",
-        "internal/modules/indicators/incident_bundle_contribution.go",
-        "internal/modules/indicators/internal/providers/incidentbundle/**",
-        "internal/modules/indicators/portability_characterization_test.go",
-        "internal/modules/indicators/portability_final_state_test.go",
-        "internal/modules/indicators/portability_invariants_test.go",
-        "internal/modules/links/incident_bundle_source_port.go",
-        "internal/modules/links/internal/sourcestate/**",
-        "internal/modules/links/merge_test.go",
-        "internal/modules/links/portability_test.go",
-        "internal/modules/links/source_state_portability_integration_test.go",
-        "internal/modules/networkflow/application_composition_test.go",
-        "internal/modules/networkflow/module.go",
-        "internal/modules/networkflow/portability_dependencies.go",
-        "internal/modules/networkflow/portability_export.go",
-        "internal/modules/networkflow/portability_graphs.go",
-        "internal/modules/networkflow/portability_participant.go",
-        "internal/modules/networkflow/portability_prepare.go",
-        "internal/modules/networkflow/portability_prepare_test.go",
-        "internal/modules/networkflow/portability_write.go",
-        "internal/modules/networkflow/store.go",
-        "internal/modules/parties/internal/providers/incidentbundle/**",
-        "internal/modules/parties/provider_contributions.go",
-        "internal/modules/projections/adapters/adapters.go",
-        "internal/modules/records/incident_bundle_source_port.go",
-        "internal/modules/records/incident_bundle_source_port_test.go",
-        "internal/modules/reporting/portable_artifacts.go",
-        "internal/modules/reporting/portable_export.go",
-        "internal/modules/reporting/portable_members.go",
-        "internal/modules/reporting/portable_recovery.go",
-        "internal/modules/reporting/portable_storage.go",
-        "internal/modules/reporting/portable_storage_integration_test.go",
-        "internal/modules/revisions/incident_bundle_apply.go",
-        "internal/modules/revisions/incident_bundle_export.go",
-        "internal/modules/revisions/incident_bundle_models.go",
-        "internal/modules/revisions/incident_bundle_parse_prepare.go",
-        "internal/modules/revisions/incident_bundle_portability_test.go",
-        "internal/modules/revisions/incident_bundle_source_port.go",
-        "internal/modules/revisions/incident_bundle_validation.go",
-        "internal/modules/savedviews/incident_bundle_portability_test.go",
-        "internal/modules/savedviews/incident_bundle_source_port.go",
-        "internal/modules/tasksdecisions/incident_bundle_contribution.go",
-        "internal/modules/tasksdecisions/incident_bundle_source_port_test.go",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/export.go",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/import_apply.go",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/import_prepare.go",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/portable_values.go",
-        "internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go",
-        "internal/modules/timeline/incident_bundle_portability.go",
-        "internal/modules/timeline/incident_bundle_source_port.go"
+      "allowed_importers": [],
+      "import_capabilities": [
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
+          "production_packages": [
+            "internal/app/extensionassembly",
+            "internal/app/incidentportabilityassembly",
+            "internal/app/projectionassembly",
+            "internal/app/recoveryassembly",
+            "internal/app/server",
+            "internal/modules/networkflow",
+            "internal/modules/projections/adapters"
+          ],
+          "test_packages": [
+            "internal/app/extensionassembly",
+            "internal/app/incidentportabilityassembly",
+            "internal/app/server",
+            "internal/modules/incidentbundles",
+            "internal/modules/links",
+            "internal/modules/networkflow",
+            "internal/modules/tasksdecisions"
+          ]
+        },
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/artifactport",
+          "production_packages": [
+            "internal/modules/incidentbundles",
+            "internal/modules/reporting"
+          ],
+          "test_packages": [
+            "internal/modules/incidentbundles",
+            "internal/modules/reporting"
+          ]
+        },
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/importfinalizerport",
+          "production_packages": [
+            "internal/modules/incidentbundles",
+            "internal/modules/incidents"
+          ],
+          "test_packages": [
+            "internal/modules/incidentbundles",
+            "internal/modules/incidents"
+          ]
+        },
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport",
+          "production_packages": [
+            "internal/app/extensionassembly",
+            "internal/app/incidentportabilityassembly",
+            "internal/app/revisionassembly",
+            "internal/modules/artifacts",
+            "internal/modules/assessments",
+            "internal/modules/assessments/internal/providers/incidentbundle",
+            "internal/modules/entities",
+            "internal/modules/evidence",
+            "internal/modules/imports",
+            "internal/modules/incidentbundles",
+            "internal/modules/incidents",
+            "internal/modules/indicators",
+            "internal/modules/indicators/internal/providers/incidentbundle",
+            "internal/modules/links",
+            "internal/modules/links/internal/sourcestate",
+            "internal/modules/networkflow",
+            "internal/modules/parties",
+            "internal/modules/parties/internal/providers/incidentbundle",
+            "internal/modules/records",
+            "internal/modules/revisions",
+            "internal/modules/savedviews",
+            "internal/modules/tasksdecisions",
+            "internal/modules/tasksdecisions/internal/providers/incidentbundle",
+            "internal/modules/timeline"
+          ],
+          "test_packages": [
+            "internal/app/incidentportabilityassembly",
+            "internal/modules/artifacts",
+            "internal/modules/assessments",
+            "internal/modules/entities",
+            "internal/modules/evidence",
+            "internal/modules/imports",
+            "internal/modules/incidentbundles",
+            "internal/modules/indicators",
+            "internal/modules/links",
+            "internal/modules/links/internal/sourcestate",
+            "internal/modules/networkflow",
+            "internal/modules/parties/internal/providers/incidentbundle",
+            "internal/modules/records",
+            "internal/modules/revisions",
+            "internal/modules/savedviews",
+            "internal/modules/tasksdecisions",
+            "internal/modules/timeline"
+          ]
+        }
       ]
     },
     {
       "id": "reference-data-facade-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data",
-      "allowed_importers": [
-        "internal/app/configassembly/deployment.go",
-        "internal/app/configassembly/reference_pack.go",
-        "internal/app/extensionassembly/reference_pack_jobs.go",
-        "internal/app/importassembly/owner_registry_test.go",
-        "internal/app/importassembly/tasksdecisions_integration_test.go",
-        "internal/app/incidentportabilityassembly/catalog.go",
-        "internal/app/incidentportabilityassembly/catalog_test.go",
-        "internal/app/migrate/migrate.go",
-        "internal/app/migrate/reference_admission_integration_test.go",
-        "internal/app/operator/operator_recovery.go",
-        "internal/app/operator/operator_reference_admission_integration_test.go",
-        "internal/app/operator/operator_reference_pack.go",
-        "internal/app/operator/operator_reference_pack_test.go",
-        "internal/app/operator/reference_lifetime.go",
-        "internal/app/recoveryassembly/state_catalog.go",
-        "internal/app/recoveryassembly/vnext.go",
-        "internal/app/referenceassembly/**",
-        "internal/app/revisionassembly/history_projection_test.go",
-        "internal/app/revisionassembly/revisions.go",
-        "internal/app/revisionassembly/revisions_test.go",
-        "internal/app/server/cancellation_grace_process_test.go",
-        "internal/app/server/module_settings.go",
-        "internal/app/server/module_settings_test.go",
-        "internal/app/server/reference_admission_integration_test.go",
-        "internal/app/server/runtime_assembly.go",
-        "internal/app/serverprocess/recovery_sentinel_test.go",
-        "internal/modules/incidentbundles/api_test.go",
-        "internal/modules/incidentbundles/bundle.go",
-        "internal/modules/incidentbundles/import_execution_failure.go",
-        "internal/modules/incidentbundles/import_fatal_completion_test.go",
-        "internal/modules/incidentbundles/module.go",
-        "internal/modules/incidentbundles/portable_fatal_integration_test.go",
-        "internal/modules/incidentbundles/reference_attack_round_trip_integration_test.go",
-        "internal/modules/incidentbundles/reference_entra_round_trip_integration_test.go",
-        "internal/modules/incidentbundles/reference_veris_round_trip_integration_test.go",
-        "internal/modules/incidentbundles/reference_windows_round_trip_integration_test.go",
-        "internal/modules/incidentbundles/routes_reference_verification_integration_test.go",
-        "internal/modules/incidentbundles/routes_reporting_artifacts_integration_test.go",
-        "internal/modules/incidentbundles/routes_round_trip_integration_test.go",
-        "internal/modules/incidentbundles/source.go",
-        "internal/modules/incidentbundles/source_catalog_test.go",
-        "internal/modules/incidentbundles/worker_service.go",
-        "internal/modules/indicators/application.go",
-        "internal/modules/indicators/application_test.go",
-        "internal/modules/indicators/application_test_helpers_test.go",
-        "internal/modules/indicators/idempotency_hash_test.go",
-        "internal/modules/indicators/identity_portability_test.go",
-        "internal/modules/indicators/incident_bundle_contribution.go",
-        "internal/modules/indicators/internal/identity/identity.go",
-        "internal/modules/indicators/internal/identity/identity_test.go",
-        "internal/modules/indicators/internal/providers/incidentbundle/source_port.go",
-        "internal/modules/indicators/internal/providers/rollback/provider.go",
-        "internal/modules/indicators/portability_characterization_test.go",
-        "internal/modules/indicators/portability_final_state_test.go",
-        "internal/modules/indicators/portability_invariants_test.go",
-        "internal/modules/indicators/production_contract_test.go",
-        "internal/modules/indicators/provider_encapsulation_test.go",
-        "internal/modules/indicators/revision_provider_contribution.go",
-        "internal/modules/indicators/revision_provider_contribution_test.go",
-        "internal/modules/indicators/source_state_contract_test.go",
-        "internal/modules/indicators/testsupport/fixtures.go",
-        "internal/modules/indicators/transaction_atomicity_test.go",
-        "internal/modules/indicators/vocabulary_contract_test.go",
-        "internal/modules/networkflow/store_test.go",
-        "internal/modules/recovery/backup_capture_fixture_test.go",
-        "internal/modules/recovery/backup_metadata_integration_test.go",
-        "internal/modules/recovery/operatortest/operator_process_test.go",
-        "internal/modules/recovery/operatortest/portable_restore_process_test.go",
-        "internal/modules/recovery/reference_attack_integration_test.go",
-        "internal/modules/recovery/reference_entra_integration_test.go",
-        "internal/modules/recovery/reference_veris_integration_test.go",
-        "internal/modules/recovery/reference_windows_integration_test.go",
-        "internal/modules/recovery/restore_projection_contract_test.go",
-        "internal/modules/reference_data/**",
-        "internal/modules/reporting/backup_recovery_integration_test.go",
-        "internal/modules/reporting/composition_preview_integration_test.go",
-        "internal/modules/reporting/composition_preview_port.go",
-        "internal/modules/reporting/model_isolation_test.go",
-        "internal/modules/reporting/portable_artifacts.go",
-        "internal/modules/reporting/portable_export.go",
-        "internal/modules/reporting/portable_recovery.go",
-        "internal/modules/reporting/portable_references.go",
-        "internal/modules/reporting/preview_recovery.go",
-        "internal/modules/reporting/redaction.go",
-        "internal/modules/reporting/reference_binding_attack_integration_test.go",
-        "internal/modules/reporting/reference_binding_entra_integration_test.go",
-        "internal/modules/reporting/reference_binding_integration_test.go",
-        "internal/modules/reporting/reference_binding_veris_integration_test.go",
-        "internal/modules/reporting/reference_binding_windows_integration_test.go",
-        "internal/modules/reporting/release_payload_test.go",
-        "internal/modules/reporting/release_recovery.go",
-        "internal/modules/reporting/render_admission.go",
-        "internal/modules/reporting/render_bundle.go",
-        "internal/modules/reporting/render_preparation_store.go",
-        "internal/modules/reporting/render_request_admission.go",
-        "internal/modules/reporting/routes.go",
-        "internal/modules/reporting/snapshot_admission.go",
-        "internal/modules/reporting/snapshot_capture.go",
-        "internal/modules/reporting/snapshot_capture_test.go",
-        "internal/modules/reporting/snapshot_payload_test.go",
-        "internal/modules/reporting/store.go",
-        "internal/modules/revisions/delete_restore_test.go",
-        "internal/modules/revisions/history_source_paging_test.go",
-        "internal/modules/revisions/indicator_children_test.go",
-        "internal/modules/workbook/notes_indicators_test.go"
+      "allowed_importers": [],
+      "import_capabilities": [
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data",
+          "production_packages": [
+            "internal/app/configassembly",
+            "internal/app/extensionassembly",
+            "internal/app/incidentportabilityassembly",
+            "internal/app/operator",
+            "internal/app/recoveryassembly",
+            "internal/app/referenceassembly",
+            "internal/app/revisionassembly",
+            "internal/app/server",
+            "internal/modules/incidentbundles",
+            "internal/modules/indicators",
+            "internal/modules/indicators/internal/identity",
+            "internal/modules/indicators/internal/providers/incidentbundle",
+            "internal/modules/indicators/internal/providers/rollback",
+            "internal/modules/reporting"
+          ],
+          "test_packages": [
+            "internal/app/operator",
+            "internal/app/referenceassembly",
+            "internal/app/server",
+            "internal/app/serverprocess",
+            "internal/modules/incidentbundles",
+            "internal/modules/indicators",
+            "internal/modules/recovery",
+            "internal/modules/recovery/operatortest",
+            "internal/modules/reference_data",
+            "internal/modules/reporting"
+          ]
+        },
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data/contractadmission",
+          "production_packages": [
+            "internal/app/operator",
+            "internal/app/referenceassembly",
+            "internal/modules/reference_data"
+          ],
+          "test_packages": [
+            "internal/app/operator",
+            "internal/app/server",
+            "internal/modules/recovery",
+            "internal/modules/reference_data"
+          ]
+        },
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat",
+          "production_packages": [
+            "internal/modules/reference_data",
+            "internal/modules/reference_data/contractadmission",
+            "internal/modules/reference_data/internal/packstate"
+          ],
+          "test_packages": [
+            "internal/modules/reference_data",
+            "internal/modules/reference_data/contractadmission",
+            "internal/modules/reference_data/internal/packstate"
+          ]
+        },
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packstate",
+          "production_packages": [
+            "internal/modules/reference_data"
+          ],
+          "test_packages": []
+        },
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data/recoverycontribution",
+          "production_packages": [
+            "internal/app/recoveryassembly"
+          ],
+          "test_packages": []
+        },
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport",
+          "production_packages": [],
+          "test_packages": [
+            "internal/app/importassembly",
+            "internal/app/incidentportabilityassembly",
+            "internal/app/revisionassembly",
+            "internal/modules/incidentbundles",
+            "internal/modules/indicators",
+            "internal/modules/indicators/internal/identity",
+            "internal/modules/networkflow",
+            "internal/modules/recovery",
+            "internal/modules/reference_data",
+            "internal/modules/reporting",
+            "internal/modules/revisions",
+            "internal/modules/workbook"
+          ]
+        },
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport/fixturehttp",
+          "production_packages": [],
+          "test_packages": [
+            "internal/modules/incidentbundles",
+            "internal/modules/recovery",
+            "internal/modules/reporting"
+          ]
+        }
       ]
     },
     {
@@ -821,16 +834,28 @@
     {
       "id": "revisions-delete-restore-source-contract-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract",
-      "allowed_importers": [
-        "internal/modules/artifacts/internal/providers/deleterestore/provider.go",
-        "internal/modules/assessments/internal/providers/deleterestore/provider.go",
-        "internal/modules/entities/hostidentity/deleterestore/provider.go",
-        "internal/modules/evidence/internal/providers/deleterestore/provider.go",
-        "internal/modules/indicators/internal/providers/deleterestore/provider.go",
-        "internal/modules/parties/internal/providers/deleterestore/provider.go",
-        "internal/modules/revisions/**",
-        "internal/modules/tasksdecisions/internal/providers/deleterestore/provider.go",
-        "internal/modules/timeline/deleterestore/provider.go"
+      "allowed_importers": [],
+      "import_capabilities": [
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract",
+          "production_packages": [
+            "internal/modules/artifacts/internal/providers/deleterestore",
+            "internal/modules/assessments/internal/providers/deleterestore",
+            "internal/modules/entities/hostidentity/deleterestore",
+            "internal/modules/evidence/internal/providers/deleterestore",
+            "internal/modules/evidence/internal/sourcevalue",
+            "internal/modules/indicators/internal/providers/deleterestore",
+            "internal/modules/indicators/internal/sourcevalue",
+            "internal/modules/parties/internal/providers/deleterestore",
+            "internal/modules/revisions",
+            "internal/modules/tasksdecisions/internal/providers/deleterestore",
+            "internal/modules/timeline/deleterestore",
+            "internal/modules/timeline/internal/sourcevalue"
+          ],
+          "test_packages": [
+            "internal/modules/revisions"
+          ]
+        }
       ]
     }
   ],
@@ -879,6 +904,7 @@
       ],
       "allowed_paths": [
         "internal/app/incidentportabilityassembly/catalog.go",
+        "internal/app/entitymergeassembly/*.go",
         "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/revisionassembly/revisions.go",
         "internal/app/server/runtime_assembly.go",
@@ -1099,6 +1125,7 @@
         "internal/modules/entities/hostidentity/import_create.go",
         "internal/modules/entities/hostidentity/patch_api.go",
         "internal/modules/entities/hostidentity/patch_store.go",
+        "internal/modules/entities/hostidentity/scalar_conflict.go",
         "internal/modules/entities/mentions/mention_lifecycle.go",
         "internal/modules/entities/merge/collaboration_intents.go",
         "internal/modules/entities/testsupport/performancefixture/production.go"
@@ -1243,17 +1270,23 @@
       ],
       "allowed_paths": [
         "internal/modules/artifacts/import_create.go",
-        "internal/modules/artifacts/incident_bundle_portability.go",
-        "internal/modules/artifacts/incident_bundle_source_port.go",
         "internal/modules/artifacts/internal/providers/reporting/provider.go",
         "internal/modules/artifacts/mutation_facade.go",
         "internal/modules/artifacts/mutation_shared.go",
         "internal/modules/artifacts/provider_contributions.go",
         "internal/modules/artifacts/publication.go",
-        "internal/modules/artifacts/source_state_manifest.go",
         "internal/modules/artifacts/workbookprojection/contribution.go"
       ],
-      "production_only": true
+      "production_only": true,
+      "import_capabilities": [
+        {
+          "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport",
+          "production_packages": [
+            "internal/modules/artifacts"
+          ],
+          "test_packages": []
+        }
+      ]
     },
     {
       "id": "artifact-private-provider-implementations",
@@ -1678,9 +1711,7 @@
         "cmd/**",
         "internal/**"
       ],
-      "allowed_paths": [
-        "internal/modules/indicators/testsupport/**"
-      ],
+      "allowed_paths": [],
       "production_only": true
     },
     {
@@ -1789,7 +1820,13 @@
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
+        "github.com/JochiRaider/cartulary/internal/modules/revisions",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/referencefacts",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/textpolicy"
       ]
     },
     {
@@ -1804,9 +1841,11 @@
         "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport",
         "github.com/JochiRaider/cartulary/internal/modules/incidentportability",
         "github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/envelopefacts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/textpolicy",
         "github.com/JochiRaider/cartulary/internal/platform/sqlshape"
       ]
     },
@@ -1819,8 +1858,10 @@
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/envelopefacts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/referencefacts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog",
         "github.com/JochiRaider/cartulary/internal/platform/sqlshape"
       ]
@@ -1835,7 +1876,10 @@
       "allowed_prefixes": [],
       "allowed_imports": [
         "github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract",
-        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/referencefacts",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
       ]
     },
     {
@@ -1908,6 +1952,7 @@
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/app/tasksdecisionassembly",
         "github.com/JochiRaider/cartulary/internal/modules/artifacts",
         "github.com/JochiRaider/cartulary/internal/modules/assessments",
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
@@ -1920,6 +1965,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/links",
         "github.com/JochiRaider/cartulary/internal/modules/parties",
         "github.com/JochiRaider/cartulary/internal/modules/records",
+        "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead",
         "github.com/JochiRaider/cartulary/internal/modules/reference_data",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
@@ -1927,8 +1973,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
         "github.com/JochiRaider/cartulary/internal/platform/authn",
         "github.com/JochiRaider/cartulary/internal/platform/postgres/dbport",
-        "github.com/JochiRaider/cartulary/internal/platform/viewschema",
-        "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
+        "github.com/JochiRaider/cartulary/internal/platform/viewschema"
       ]
     },
     {
@@ -1940,7 +1985,8 @@
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline/internal/sourcevalue"
       ]
     },
     {
@@ -2116,6 +2162,7 @@
       ],
       "allowed_paths": [
         "internal/modules/links/*.go",
+        "internal/modules/links/facts/*.go",
         "internal/modules/links/internal/sourcestate/*.go",
         "internal/modules/links/internal/mergeeffects/*.go",
         "internal/modules/links/internal/revisionprovider/*.go",
@@ -2233,8 +2280,7 @@
       "allowed_tables": [
         "entity_active_identifier_claims",
         "entity_aliases",
-        "entity_preserved_identifiers",
-        "records"
+        "entity_preserved_identifiers"
       ],
       "scan_paths": [
         "internal/modules/entities/merge/*.go"
@@ -2679,16 +2725,10 @@
         "internal/modules/assessments/internal/providers/incidentbundle/*.go",
         "internal/modules/assessments/internal/providers/projection/*.go",
         "internal/modules/assessments/internal/providers/rollback/*.go",
-        "internal/modules/entities/*.go",
         "internal/modules/entities/candidates/*.go",
-        "internal/modules/entities/hostidentity/*.go",
-        "internal/modules/entities/hostidentity/deleterestore/*.go",
-        "internal/modules/entities/hostidentity/projectionprovider/*.go",
-        "internal/modules/entities/hostidentity/rollbackprovider/*.go",
         "internal/modules/entities/mentions/*.go",
         "internal/modules/entities/mentions/reportingprovider/*.go",
         "internal/modules/entities/mentions/rollbackprovider/*.go",
-        "internal/modules/entities/merge/*.go",
         "internal/modules/evidence/*.go",
         "internal/modules/evidence/internal/providers/deleterestore/*.go",
         "internal/modules/evidence/internal/providers/projection/*.go",
@@ -2713,7 +2753,6 @@
         "internal/modules/tasksdecisions/internal/providers/incidentbundle/*.go",
         "internal/modules/tasksdecisions/internal/providers/projection/*.go",
         "internal/modules/tasksdecisions/internal/providers/rollback/*.go",
-        "internal/modules/tasksdecisions/internal/source/*.go",
         "internal/modules/timeline/*.go",
         "internal/modules/timeline/deleterestore/*.go",
         "internal/modules/timeline/reportingprovider/*.go",
@@ -2726,6 +2765,56 @@
         "internal/platform/maintenancequery/*.go"
       ],
       "read_allowed_statements": [
+        {
+          "package": "internal/modules/entities",
+          "declaration": "loadPortableEntityMentionsPage",
+          "sql": "\nSELECT mention.entity_mention_id, mention.source_record_id, mention.entity_type,\n       mention.source_field_key, mention.origin_kind, mention.origin_locator,\n       mention.raw_text, mention.normalized_text, mention.resolution_status,\n       mention.row_version, mention.ordinal, mention.created_by_user_id,\n       mention.created_at, mention.resolved_record_id, mention.resolved_by_user_id,\n       mention.resolved_at, mention.resolution_method\n  FROM entity_mentions AS mention\n  JOIN records AS source_record\n    ON source_record.record_id = mention.source_record_id\n WHERE source_record.incident_id = $1\n AND ($2::uuid IS NULL OR mention.entity_mention_id > $2)\n ORDER BY mention.entity_mention_id\n LIMIT 128\n"
+        },
+        {
+          "package": "internal/modules/entities",
+          "declaration": "validateEntityCrossRowsBeforeApply",
+          "sql": "SELECT EXISTS (SELECT 1 FROM public.entities_bundle_validation_nodes WHERE kind=$1 AND id=$2), EXISTS (SELECT 1 FROM public.entities_bundle_validation_nodes n JOIN records r ON r.record_id=n.id WHERE n.kind=$1 AND n.id=$2 AND n.state IN ('stub','canonical') AND r.deleted_at IS NULL AND r.incident_id=$3)"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity/deleterestore",
+          "declaration": "HostSource.SnapshotTx",
+          "sql": "\nSELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(h))\n  FROM records r\n  JOIN hosts h\n    ON h.record_id = r.record_id\n WHERE r.record_id = $1\n"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity/deleterestore",
+          "declaration": "IdentitySource.SnapshotTx",
+          "sql": "\nSELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(i))\n  FROM records r\n  JOIN identities i\n    ON i.record_id = r.record_id\n WHERE r.record_id = $1\n"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity/projectionprovider",
+          "declaration": "hostProjectionSourceSQL",
+          "sql": "\nSELECT\n    h.record_id,\n    h.incident_id,\n    r.row_version,\n    h.display_name,\n    h.hostname,\n    h.host_state,\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN records source_record\n            ON source_record.record_id = l.src_record_id\n           AND source_record.record_type = 'timeline_event'\n           AND source_record.deleted_at IS NULL\n         WHERE l.incident_id = h.incident_id\n           AND l.dst_record_id = h.record_id\n           AND l.link_type = 'observed_on_host'\n    ),\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN evidence ev\n            ON ev.incident_id = l.incident_id\n           AND ev.record_id = l.dst_record_id\n          JOIN object_blobs b\n            ON b.object_blob_id = ev.object_blob_id\n         WHERE l.incident_id = h.incident_id\n           AND l.src_record_id = h.record_id\n           AND l.link_type = 'attached_evidence'\n           AND ev.lifecycle_state IN ('available', 'released')\n           AND b.upload_state = 'available'\n    ),\n    h.location,\n    h.os_platform,\n    h.business_owner,\n    h.criticality,\n    h.containment_status,\n    r.updated_at\n  FROM hosts h\n  JOIN records r\n    ON r.record_id = h.record_id"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity/projectionprovider",
+          "declaration": "identityProjectionSourceSQL",
+          "sql": "\nSELECT\n    i.record_id,\n    i.incident_id,\n    r.row_version,\n    i.display_name,\n    i.upn,\n    i.email::text,\n    i.sam_account_name,\n    i.identity_state,\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN records source_record\n            ON source_record.record_id = l.src_record_id\n           AND source_record.record_type = 'timeline_event'\n           AND source_record.deleted_at IS NULL\n         WHERE l.incident_id = i.incident_id\n           AND l.dst_record_id = i.record_id\n           AND l.link_type = 'observed_as_identity'\n    ),\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN evidence ev\n            ON ev.incident_id = l.incident_id\n           AND ev.record_id = l.dst_record_id\n          JOIN object_blobs b\n            ON b.object_blob_id = ev.object_blob_id\n         WHERE l.incident_id = i.incident_id\n           AND l.src_record_id = i.record_id\n           AND l.link_type = 'attached_evidence'\n           AND ev.lifecycle_state IN ('available', 'released')\n           AND b.upload_state = 'available'\n    ),\n    i.privilege_level,\n    i.mfa_state,\n    i.reset_status,\n    r.updated_at\n  FROM identities i\n  JOIN records r\n    ON r.record_id = i.record_id"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity/projectionprovider",
+          "declaration": "source.LoadHostProjectionInputTx",
+          "sql": "\nSELECT\n    h.record_id,\n    h.incident_id,\n    r.row_version,\n    h.display_name,\n    h.hostname,\n    h.host_state,\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN records source_record\n            ON source_record.record_id = l.src_record_id\n           AND source_record.record_type = 'timeline_event'\n           AND source_record.deleted_at IS NULL\n         WHERE l.incident_id = h.incident_id\n           AND l.dst_record_id = h.record_id\n           AND l.link_type = 'observed_on_host'\n    ),\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN evidence ev\n            ON ev.incident_id = l.incident_id\n           AND ev.record_id = l.dst_record_id\n          JOIN object_blobs b\n            ON b.object_blob_id = ev.object_blob_id\n         WHERE l.incident_id = h.incident_id\n           AND l.src_record_id = h.record_id\n           AND l.link_type = 'attached_evidence'\n           AND ev.lifecycle_state IN ('available', 'released')\n           AND b.upload_state = 'available'\n    ),\n    h.location,\n    h.os_platform,\n    h.business_owner,\n    h.criticality,\n    h.containment_status,\n    r.updated_at\n  FROM hosts h\n  JOIN records r\n    ON r.record_id = h.record_id\n WHERE h.record_id = $1\n   AND r.deleted_at IS NULL\n   AND h.host_state IN ('stub', 'canonical')\n"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity/projectionprovider",
+          "declaration": "source.ListHostProjectionInputsTx",
+          "sql": "\nSELECT\n    h.record_id,\n    h.incident_id,\n    r.row_version,\n    h.display_name,\n    h.hostname,\n    h.host_state,\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN records source_record\n            ON source_record.record_id = l.src_record_id\n           AND source_record.record_type = 'timeline_event'\n           AND source_record.deleted_at IS NULL\n         WHERE l.incident_id = h.incident_id\n           AND l.dst_record_id = h.record_id\n           AND l.link_type = 'observed_on_host'\n    ),\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN evidence ev\n            ON ev.incident_id = l.incident_id\n           AND ev.record_id = l.dst_record_id\n          JOIN object_blobs b\n            ON b.object_blob_id = ev.object_blob_id\n         WHERE l.incident_id = h.incident_id\n           AND l.src_record_id = h.record_id\n           AND l.link_type = 'attached_evidence'\n           AND ev.lifecycle_state IN ('available', 'released')\n           AND b.upload_state = 'available'\n    ),\n    h.location,\n    h.os_platform,\n    h.business_owner,\n    h.criticality,\n    h.containment_status,\n    r.updated_at\n  FROM hosts h\n  JOIN records r\n    ON r.record_id = h.record_id\n WHERE h.incident_id = $1\n   AND ($2::uuid IS NULL OR h.record_id > $2)\n   AND r.deleted_at IS NULL\n   AND h.host_state IN ('stub', 'canonical')\n ORDER BY h.record_id\n LIMIT $3\n"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity/projectionprovider",
+          "declaration": "source.LoadIdentityProjectionInputTx",
+          "sql": "\nSELECT\n    i.record_id,\n    i.incident_id,\n    r.row_version,\n    i.display_name,\n    i.upn,\n    i.email::text,\n    i.sam_account_name,\n    i.identity_state,\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN records source_record\n            ON source_record.record_id = l.src_record_id\n           AND source_record.record_type = 'timeline_event'\n           AND source_record.deleted_at IS NULL\n         WHERE l.incident_id = i.incident_id\n           AND l.dst_record_id = i.record_id\n           AND l.link_type = 'observed_as_identity'\n    ),\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN evidence ev\n            ON ev.incident_id = l.incident_id\n           AND ev.record_id = l.dst_record_id\n          JOIN object_blobs b\n            ON b.object_blob_id = ev.object_blob_id\n         WHERE l.incident_id = i.incident_id\n           AND l.src_record_id = i.record_id\n           AND l.link_type = 'attached_evidence'\n           AND ev.lifecycle_state IN ('available', 'released')\n           AND b.upload_state = 'available'\n    ),\n    i.privilege_level,\n    i.mfa_state,\n    i.reset_status,\n    r.updated_at\n  FROM identities i\n  JOIN records r\n    ON r.record_id = i.record_id\n WHERE i.record_id = $1\n   AND r.deleted_at IS NULL\n   AND i.identity_state IN ('stub', 'canonical')\n"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity/projectionprovider",
+          "declaration": "source.ListIdentityProjectionInputsTx",
+          "sql": "\nSELECT\n    i.record_id,\n    i.incident_id,\n    r.row_version,\n    i.display_name,\n    i.upn,\n    i.email::text,\n    i.sam_account_name,\n    i.identity_state,\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN records source_record\n            ON source_record.record_id = l.src_record_id\n           AND source_record.record_type = 'timeline_event'\n           AND source_record.deleted_at IS NULL\n         WHERE l.incident_id = i.incident_id\n           AND l.dst_record_id = i.record_id\n           AND l.link_type = 'observed_as_identity'\n    ),\n    (\n        SELECT COUNT(*)::integer\n          FROM active_record_links_v1 l\n          JOIN evidence ev\n            ON ev.incident_id = l.incident_id\n           AND ev.record_id = l.dst_record_id\n          JOIN object_blobs b\n            ON b.object_blob_id = ev.object_blob_id\n         WHERE l.incident_id = i.incident_id\n           AND l.src_record_id = i.record_id\n           AND l.link_type = 'attached_evidence'\n           AND ev.lifecycle_state IN ('available', 'released')\n           AND b.upload_state = 'available'\n    ),\n    i.privilege_level,\n    i.mfa_state,\n    i.reset_status,\n    r.updated_at\n  FROM identities i\n  JOIN records r\n    ON r.record_id = i.record_id\n WHERE i.incident_id = $1\n   AND ($2::uuid IS NULL OR i.record_id > $2)\n   AND r.deleted_at IS NULL\n   AND i.identity_state IN ('stub', 'canonical')\n ORDER BY i.record_id\n LIMIT $3\n"
+        },
         {
           "sql": "UPDATE record_links\n   SET deleted_at = $3,\n       deleted_by_user_id = $2\n WHERE record_link_id = $1\n   AND deleted_at IS NULL\n   AND field_key IS NOT NULL\n   AND EXISTS (\n       SELECT 1\n         FROM records dst\n        WHERE dst.incident_id = record_links.incident_id\n          AND dst.record_id = record_links.dst_record_id\n          AND dst.deleted_at IS NULL\n          AND ($4::text = '' OR dst.record_type = $4)\n   )\nRETURNING\n    record_link_id, incident_id, src_record_id, dst_record_id, link_type,\n    field_key, provenance, confidence, owner_user_id, created_by_user_id,\n    decided_at, created_at, deleted_at, deleted_by_user_id",
           "package": "internal/modules/links",
@@ -2740,6 +2829,71 @@
           "sql": "SELECT\n    EXISTS (\n        SELECT 1 FROM record_links link\n        LEFT JOIN records source\n          ON source.incident_id = link.incident_id AND source.record_id = link.src_record_id\n        LEFT JOIN records target\n          ON target.incident_id = link.incident_id AND target.record_id = link.dst_record_id\n        WHERE link.incident_id = $1\n          AND (source.record_id IS NULL OR target.record_id IS NULL)\n    )\n    OR EXISTS (\n        SELECT 1 FROM record_tags tag\n        LEFT JOIN records record\n          ON record.incident_id = tag.incident_id AND record.record_id = tag.record_id\n        WHERE tag.incident_id = $1\n          AND record.record_id IS NULL\n    )",
           "package": "internal/modules/links/internal/sourcestate",
           "declaration": "validateDatabaseScope"
+        },
+        {
+          "package": "internal/modules/tasksdecisions/internal/source",
+          "declaration": "LoadDecisionRestoreStateTx",
+          "sql": "SELECT d.record_id,d.incident_id,d.status,d.owner_user_id::text,d.decided_at,r.deleted_at IS NOT NULL\nFROM decisions d JOIN records r ON r.record_id=d.record_id AND r.incident_id=d.incident_id\nWHERE d.record_id=$1 AND d.incident_id=$2 AND r.record_type='decision'\nFOR UPDATE OF d NOWAIT"
+        },
+        {
+          "package": "internal/modules/tasksdecisions/internal/source",
+          "declaration": "PortableDecisionDeletedTx",
+          "sql": "SELECT r.deleted_at IS NOT NULL\nFROM decisions d JOIN records r ON r.record_id=d.record_id AND r.incident_id=d.incident_id\nWHERE d.record_id=$1 AND d.incident_id=$2 AND r.record_type='decision'"
+        },
+        {
+          "package": "internal/modules/tasksdecisions/internal/source",
+          "declaration": "PortableTaskReferenceTargetValidTx",
+          "sql": "SELECT EXISTS (\n            SELECT 1 FROM task_requests t\n            JOIN records task_record ON task_record.record_id=t.record_id AND task_record.incident_id=t.incident_id\n            JOIN records target ON target.record_id=$1 AND target.incident_id=t.incident_id\n            JOIN parties p ON p.record_id=target.record_id AND p.incident_id=target.incident_id\n            WHERE t.record_id=$3 AND t.incident_id=$2 AND task_record.record_type='task_request'\n              AND target.record_type='party' AND (task_record.deleted_at IS NOT NULL OR target.deleted_at IS NULL)\n        )"
+        },
+        {
+          "package": "internal/modules/tasksdecisions/internal/source",
+          "declaration": "PortableTaskReferenceTargetValidTx",
+          "sql": "SELECT EXISTS (\n            SELECT 1 FROM task_requests t\n            JOIN records task_record ON task_record.record_id=t.record_id AND task_record.incident_id=t.incident_id\n            JOIN records target ON target.record_id=$1 AND target.incident_id=t.incident_id\n            JOIN decisions d ON d.record_id=target.record_id AND d.incident_id=target.incident_id\n            WHERE t.record_id=$3 AND t.incident_id=$2 AND task_record.record_type='task_request'\n              AND target.record_type='decision' AND (task_record.deleted_at IS NOT NULL OR target.deleted_at IS NULL)\n        )"
+        },
+        {
+          "package": "internal/modules/tasksdecisions/internal/source",
+          "declaration": "decisionSupersessionEndpointsValidTx",
+          "sql": "\nSELECT source_record.incident_id, source_record.record_type, source_record.deleted_at IS NULL,\n       target_record.incident_id, target_record.record_type, target_record.deleted_at IS NULL,\n       source_decision.status, target_decision.status\n  FROM records source_record\n  JOIN records target_record ON target_record.record_id = $2\n  JOIN decisions source_decision ON source_decision.record_id = source_record.record_id\n  JOIN decisions target_decision ON target_decision.record_id = target_record.record_id\n WHERE source_record.record_id = $1\n"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity",
+          "declaration": "loadHostSourceRecordsByID",
+          "sql": "SELECT\n    h.record_id,\n    h.incident_id,\n    h.display_name,\n    h.aad_device_id,\n    h.fqdn,\n    h.hostname,\n    h.merged_into_record_id,\n    h.entity_origin,\n    h.seed_entity_mention_id,\n    r.row_version,\n    r.created_at,\n    r.updated_at,\n    r.created_by_user_id,\n    r.updated_by_user_id\n  FROM hosts h\n  JOIN records r ON r.record_id = h.record_id\n WHERE h.incident_id = $1\n   AND h.record_id = ANY($2::uuid[])\n   AND r.deleted_at IS NULL"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity",
+          "declaration": "loadIdentitySourceRecordsByID",
+          "sql": "SELECT\n    i.record_id,\n    i.incident_id,\n    i.display_name,\n    i.aad_object_id,\n    i.sid,\n    i.upn,\n    i.email::text,\n    i.sam_account_name,\n    i.merged_into_record_id,\n    i.entity_origin,\n    i.seed_entity_mention_id,\n    r.row_version,\n    r.created_at,\n    r.updated_at,\n    r.created_by_user_id,\n    r.updated_by_user_id\n  FROM identities i\n  JOIN records r ON r.record_id = i.record_id\n WHERE i.incident_id = $1\n   AND i.record_id = ANY($2::uuid[])\n   AND r.deleted_at IS NULL"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity",
+          "declaration": "loadHostByRecordIDTx",
+          "sql": "SELECT\n    h.record_id,\n    h.incident_id,\n    h.display_name,\n    h.aad_device_id,\n    h.fqdn,\n    h.hostname,\n    h.location,\n    h.os_platform,\n    h.business_owner,\n    h.criticality,\n    h.containment_status,\n    h.host_state,\n    h.merged_into_record_id,\n    h.entity_origin,\n    h.seed_entity_mention_id,\n    r.row_version,\n    r.created_at,\n    r.updated_at,\n    r.created_by_user_id,\n    r.updated_by_user_id\n  FROM hosts h\n JOIN records r\n    ON r.record_id = h.record_id\n WHERE h.record_id = $1\n FOR UPDATE OF h"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity",
+          "declaration": "loadIdentityByRecordIDTx",
+          "sql": "SELECT\n    i.record_id,\n    i.incident_id,\n    i.display_name,\n    i.aad_object_id,\n    i.sid,\n    i.upn,\n    i.email::text,\n    i.sam_account_name,\n    i.privilege_level,\n    i.mfa_state,\n    i.reset_status,\n    i.identity_state,\n    i.merged_into_record_id,\n    i.entity_origin,\n    i.seed_entity_mention_id,\n    r.row_version,\n    r.created_at,\n    r.updated_at,\n    r.created_by_user_id,\n    r.updated_by_user_id\n  FROM identities i\n JOIN records r\n    ON r.record_id = i.record_id\n WHERE i.record_id = $1\n FOR UPDATE OF i"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity",
+          "declaration": "SourceFacts.ListEligibleAliasesTx",
+          "sql": "SELECT ea.record_id, ea.raw_text FROM entity_aliases ea JOIN hosts h ON h.record_id = ea.record_id AND h.incident_id = ea.incident_id JOIN records r ON r.record_id = h.record_id AND r.deleted_at IS NULL WHERE ea.incident_id = $1 AND ea.entity_type = $2 AND ea.deleted_at IS NULL AND h.host_state IN ('stub', 'canonical') ORDER BY ea.record_id, ea.created_at, ea.entity_alias_id"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity",
+          "declaration": "SourceFacts.ListEligibleAliasesTx",
+          "sql": "SELECT ea.record_id, ea.raw_text FROM entity_aliases ea JOIN identities i ON i.record_id = ea.record_id AND i.incident_id = ea.incident_id JOIN records r ON r.record_id = i.record_id AND r.deleted_at IS NULL WHERE ea.incident_id = $1 AND ea.entity_type = $2 AND ea.deleted_at IS NULL AND i.identity_state IN ('stub', 'canonical') ORDER BY ea.record_id, ea.created_at, ea.entity_alias_id"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity",
+          "declaration": "SourceFacts.ValidateResolvedTargetTx",
+          "sql": "SELECT EXISTS (SELECT 1 FROM hosts h JOIN records r ON r.record_id = h.record_id AND r.deleted_at IS NULL WHERE h.record_id = $1 AND h.incident_id = $2 AND h.host_state IN ('stub', 'canonical'))"
+        },
+        {
+          "package": "internal/modules/entities/hostidentity",
+          "declaration": "SourceFacts.ValidateResolvedTargetTx",
+          "sql": "SELECT EXISTS (SELECT 1 FROM identities i JOIN records r ON r.record_id = i.record_id AND r.deleted_at IS NULL WHERE i.record_id = $1 AND i.incident_id = $2 AND i.identity_state IN ('stub', 'canonical'))"
         }
       ]
     },
@@ -2844,6 +2998,28 @@
         "internal/modules/timeline/sourcelocking/*.go",
         "internal/platform/maintenancequery/*.go"
       ]
+    },
+    {
+      "id": "links-retained-field-facts-read-only",
+      "table": "record_links",
+      "scan_paths": [
+        "internal/modules/links/facts/**"
+      ],
+      "read_allowed_paths": [
+        "internal/modules/links/facts/*.go"
+      ],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "tasksdecisions-inverse-link-facts-port",
+      "table": "active_record_links_v1",
+      "scan_paths": [
+        "internal/modules/tasksdecisions/internal/providers/rollback/**"
+      ],
+      "read_allowed_paths": [],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
     }
   ],
   "forbidden_go_calls": [

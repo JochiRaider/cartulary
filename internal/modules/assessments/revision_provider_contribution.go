@@ -10,13 +10,14 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerAssessments,
 		Records: []revisions.RecordProviderContribution{{
-			SourceOwnerModule:   revisions.SourceOwnerAssessments,
-			RecordType:          "assessment",
-			HistoryProjector:    projectRecordHistory,
-			SnapshotSchemaID:    "cartulary.revisions.snapshot.assessment.v1",
-			HistoryTargetKinds:  []string{"assessment"},
-			DeleteRestoreSource: deleterestore.NewSource(),
-			RowRollbackProvider: rollback.NewProvider(),
+			SourceOwnerModule:      revisions.SourceOwnerAssessments,
+			RecordType:             "assessment",
+			HistoryProjector:       projectRecordHistory,
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.assessment.v1",
+			ValidateSnapshotSource: deleterestore.ValidateSnapshotSource,
+			HistoryTargetKinds:     []string{"assessment"},
+			DeleteRestoreSource:    deleterestore.NewSource(),
+			RowRollbackProvider:    rollback.NewProvider(),
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 				ContributionID: "assessments.assessments",
 				ViewSchemaIDs:  []string{AssessmentsViewSchemaID},

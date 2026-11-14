@@ -207,9 +207,7 @@ func newProjectionInput(envelope ProjectionEnvelope, variant ProjectionVariant) 
 func validateProjectionVariant(envelope ProjectionEnvelope, variant ProjectionVariant) error {
 	switch value := variant.(type) {
 	case NoteVariant:
-		if blank(envelope.title) && blank(envelope.body) {
-			return fmt.Errorf("artifact note projection requires title or body")
-		}
+		// Title and body may both be null after edits; minimum signal belongs to creation.
 	case CommunicationLogVariant:
 		if envelope.timestampUTC == nil || value.CommID == "" || value.CommType == "" ||
 			value.Audience == "" || value.ChannelOrMeeting == "" || value.Summary == "" ||
@@ -356,8 +354,6 @@ func cloneProjectionVariant(variant ProjectionVariant) ProjectionVariant {
 		return nil
 	}
 }
-
-func blank(value *string) bool { return value == nil || *value == "" }
 
 func optionalPair(timestamp *time.Time, day *string) bool {
 	return timestamp == nil && day == nil || timestamp != nil && day != nil && *day != ""

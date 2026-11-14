@@ -49,14 +49,14 @@ func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 		t.Fatalf("compose owner-create registry: %v", err)
 	}
 	bindings := registry.Bindings()
-	if len(bindings) != 14 {
-		t.Fatalf("owner-create bindings = %d, want 14", len(bindings))
-	}
 	byTarget := make(map[string]string, len(bindings))
 	for _, binding := range bindings {
+		if _, duplicate := byTarget[binding.TargetViewSchemaID]; duplicate {
+			t.Fatalf("duplicate owner-create target %s", binding.TargetViewSchemaID)
+		}
 		byTarget[binding.TargetViewSchemaID] = binding.FacadeID
 	}
-	for target, facade := range map[string]string{
+	want := map[string]string{
 		"cartulary.view.hosts.v1":         "entities.host.import_create",
 		"cartulary.view.identities.v1":    "entities.identity.import_create",
 		"cartulary.view.evidence.v1":      "evidence.import_create",
@@ -67,10 +67,13 @@ func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 		"cartulary.view.notes.v1":         "artifacts.note.import_create",
 		"cartulary.view.timeline.v2":      "timeline.import_create",
 		"cartulary.view.assessments.v1":   "assessments.import_create",
-	} {
-		if byTarget[target] != facade {
-			t.Fatalf("binding for %s = %q, want %q", target, byTarget[target], facade)
-		}
+		"cartulary.view.comm_log.v1":      "artifacts.import_create",
+		"cartulary.view.handoff.v1":       "artifacts.import_create",
+		"cartulary.view.status_review.v1": "artifacts.import_create",
+		"cartulary.view.lesson.v1":        "artifacts.import_create",
+	}
+	if !reflect.DeepEqual(byTarget, want) {
+		t.Fatalf("owner-create bindings = %#v, want %#v", byTarget, want)
 	}
 }
 

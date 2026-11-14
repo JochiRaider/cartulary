@@ -21,14 +21,15 @@ type memberStaging interface {
 type memberBudget struct{ bytes, members int64 }
 
 type memberStore struct {
-	operationID  string
-	staging      memberStaging
-	limits       Limits
-	members      map[string]stagedobjects.SealedReference
-	total        int64
-	sealed       bool
-	pathPrefix   string
-	sharedBudget *memberBudget
+	operationID    string
+	staging        memberStaging
+	limits         Limits
+	members        map[string]stagedobjects.SealedReference
+	total          int64
+	sealed         bool
+	pathPrefix     string
+	sharedBudget   *memberBudget
+	remainingItems *int
 }
 
 func newMemberStore(operationID string, staging memberStaging, limits Limits) (*memberStore, error) {
@@ -59,6 +60,9 @@ func (s *memberStore) WriteMember(ctx context.Context, path string, source io.Re
 	if err := checkMemberCount(len(s.members)+1, s.limits); err != nil {
 		return incidentportability.Member{}, err
 	}
+	if s.remainingItems != nil && *s.remainingItems <= 0 {
+		return incidentportability.Member{}, ErrPortabilityLimit
+	}
 	remaining := s.maximumBytes() - s.total
 	if s.sharedBudget != nil {
 		if s.sharedBudget.members <= 0 {
@@ -84,6 +88,9 @@ func (s *memberStore) WriteMember(ctx context.Context, path string, source io.Re
 	}
 	s.members[path] = ref
 	s.total += ref.ByteSize
+	if s.remainingItems != nil {
+		(*s.remainingItems)--
+	}
 	if s.sharedBudget != nil {
 		s.sharedBudget.bytes -= ref.ByteSize
 		s.sharedBudget.members--

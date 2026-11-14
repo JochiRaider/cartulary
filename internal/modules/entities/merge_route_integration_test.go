@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -28,6 +29,8 @@ import (
 )
 
 func TestExplicitMergeRoute_Integration(t *testing.T) {
+	t.Run("claim preparation drift", exerciseMergeClaimPreparationDrift)
+	t.Run("reference dependency protection", exerciseMergeReferenceScope)
 	t.Run("entity route failures enforce authentication csrf visibility role and body precedence", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-entity-route-failure-precedence", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
@@ -147,6 +150,9 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		seedEntityAlias(t, harness.DB, incidentID, adminUserID, entitytest.DuplicateHostRecordID, "host", "Workstation 23")
 		seedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
 		seedResolvedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, entitytest.DuplicateHostRecordID, timelinetest.FieldHostRefs, "WS-023")
+		setMentionHistoryCreationFixture(t, harness.DB, entitytest.HostMentionID)
+		resolvedAt := mentionHistoryResolutionClock(t, harness.DB, entitytest.HostMentionID)
+
 		seedRecordLink(t, harness.DB, incidentID, adminUserID, linktest.DuplicateLinkID, timelinetest.RecordID, entitytest.DuplicateHostRecordID, "observed_on_host", "import", nil)
 		seedRecordTag(t, harness.DB, incidentID, adminUserID, linktest.TagIDSurvivor, entitytest.CanonicalHostRecordID, "critical-host")
 		seedRecordTag(t, harness.DB, incidentID, adminUserID, linktest.TagIDLoser, entitytest.DuplicateHostRecordID, "critical-host")
@@ -205,6 +211,13 @@ CREATE TRIGGER fail_merge_link_recreation BEFORE INSERT ON record_links FOR EACH
 			t.Fatalf("unexpected status: got %d want %d body=%#v", mergeResp.StatusCode, http.StatusOK, httptestx.ReadJSONBody(t, mergeResp))
 		}
 		mergeData := httptestx.RequireSuccessEnvelope(t, mergeResp, http.StatusOK)["data"].(map[string]any)
+		requireRetainedMentionPair(t, harness.DB, mergeData["change_set_id"].(string), entitytest.HostMentionID,
+			expectedMentionHistory(entitytest.HostMentionID, timelinetest.RecordID, adminUserID, "merge-test", "WS-023", "resolved", 1, &entitytest.DuplicateHostRecordID, &resolvedAt),
+			expectedMentionHistory(entitytest.HostMentionID, timelinetest.RecordID, adminUserID, "merge-test", "WS-023", "resolved", 2, &entitytest.CanonicalHostRecordID, &resolvedAt))
+
+		if mergeData["incident_id"] != incidentID.String() {
+			t.Fatalf("unexpected merge incident: %#v", mergeData)
+		}
 		if mergeData["survivor_record_id"] != entitytest.CanonicalHostRecordID.String() {
 			t.Fatalf("unexpected survivor_record_id: %#v", mergeData)
 		}
@@ -224,41 +237,20 @@ CREATE TRIGGER fail_merge_link_recreation BEFORE INSERT ON record_links FOR EACH
 			t.Fatalf("expected merged_into_record_id to echo survivor, got %#v", mergeData)
 		}
 
-		summary := mergeData["merge_summary"].(map[string]any)
-		if summary["record_type"] != "host" {
-			t.Fatalf("unexpected merge summary record_type: %#v", summary)
-		}
-		if got := int(summary["repointed_mention_resolution_count"].(float64)); got != 1 {
-			t.Fatalf("expected one repointed mention resolution, got %d", got)
-		}
-		if got := int(summary["repointed_link_count"].(float64)); got != 1 {
-			t.Fatalf("expected one repointed link, got %d", got)
-		}
-		if got := int(summary["deduped_tag_count"].(float64)); got != 1 {
-			t.Fatalf("expected one deduped tag, got %d", got)
-		}
-		if got := int(summary["suggestion_aliases_copied_count"].(float64)); got != 1 {
-			t.Fatalf("expected one copied suggestion alias, got %#v", summary)
-		}
-		if got := int(summary["suggestion_alias_duplicate_noop_count"].(float64)); got != 0 {
-			t.Fatalf("expected zero duplicate alias no-ops, got %#v", summary)
-		}
-		if got := int(summary["provenance_only_retained_count"].(float64)); got != 0 {
-			t.Fatalf("expected zero provenance-only retained identifiers, got %#v", summary)
-		}
-		exactMatchClasses := summary["exact_match_classes"].([]any)
-		if len(exactMatchClasses) != 3 {
-			t.Fatalf("expected three host exact-match classes, got %#v", exactMatchClasses)
-		}
-		if exactMatchClasses[0].(map[string]any)["identifier_class"] != "aad_device_id" {
-			t.Fatalf("unexpected host exact-match precedence: %#v", exactMatchClasses)
-		}
-		if exactMatchClasses[1].(map[string]any)["identifier_class"] != "fqdn" {
-			t.Fatalf("unexpected host exact-match precedence: %#v", exactMatchClasses)
-		}
-		if got := int(exactMatchClasses[1].(map[string]any)["promoted_count"].(float64)); got != 1 {
-			t.Fatalf("expected fqdn promoted_count=1, got %#v", exactMatchClasses[1])
-		}
+		// Counts follow the fixture: one mention/link/assessment, one duplicate
+		// tag and one distinct suggestion alias. The loser FQDN fills an empty
+		// canonical field; its distinct hostname remains an active secondary.
+		requireMergeSummary(t, mergeData["merge_summary"].(map[string]any), "host", map[string]int{
+			"repointed_mention_resolution_count":    1,
+			"repointed_link_count":                  1,
+			"deduped_link_count":                    0,
+			"repointed_tag_count":                   0,
+			"deduped_tag_count":                     1,
+			"repointed_assessment_count":            1,
+			"suggestion_aliases_copied_count":       1,
+			"suggestion_alias_duplicate_noop_count": 0,
+			"provenance_only_retained_count":        0,
+		}, []mergeClassExpectation{{"aad_device_id", 0, 0}, {"fqdn", 1, 0}, {"hostname", 0, 1}})
 
 		survivorState, survivorMergedInto, survivorRowVersion, survivorFQDN := lookupHostState(t, harness.DB, entitytest.CanonicalHostRecordID)
 		if survivorState != "canonical" || survivorMergedInto != nil || survivorRowVersion != 2 || survivorFQDN != "ws-023.corp.example.test" {
@@ -326,9 +318,19 @@ SELECT COUNT(*)
 			t.Fatalf("expected explicit loser removal, got %#v", loserChange)
 		}
 		viewLogin := adminLogin
-		survivorRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin), entitytest.CanonicalHostRecordID.String())
+		hostRows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin)
+		if len(hostRows) != 1 || hostRows[0]["record_id"] != entitytest.CanonicalHostRecordID.String() {
+			t.Fatalf("public Hosts query must contain exactly the survivor and no merged loser: %#v", hostRows)
+		}
+		survivorRow := workbookscenariotest.FindRow(t, hostRows, entitytest.CanonicalHostRecordID.String())
 		if got := survivorRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
 			t.Fatalf("expected merge to project the repointed linked event on the survivor, got %#v row=%#v", got, survivorRow)
+		}
+
+		timelineRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.TimelineViewSchemaID, viewLogin), timelinetest.RecordID.String())
+		hostItem := workbookscenariotest.RequireSingleCollectionItem(t, timelineRow, timelinetest.FieldHostRefs)
+		if hostItem["item_kind"] != "resolved_ref" || hostItem["raw_text"] != "WS-023" || hostItem["resolved_record_id"] != entitytest.CanonicalHostRecordID.String() {
+			t.Fatalf("public Timeline Host reference must preserve raw text and resolve to the survivor: %#v", hostItem)
 		}
 
 		replayResp := httptestx.DoJSON(t, http.DefaultClient,
@@ -468,7 +470,8 @@ VALUES ($1, 'host', 'fqdn', 'blocked-host.corp.example.test', $2)
 			t.Fatalf("seed authoritative-claim collision: %v", err)
 		}
 
-		unchanged := func() map[string]string {
+		unchanged := func(t testing.TB) map[string]string {
+			t.Helper()
 			state := map[string]string{}
 			for _, table := range []string{"records", "hosts", "entity_mentions", "entity_aliases", "entity_active_identifier_claims", "entity_preserved_identifiers", "host_grid_projection", "change_sets", "change_set_mutations", "record_revisions", "route_idempotency"} {
 				var value string
@@ -481,7 +484,53 @@ VALUES ($1, 'host', 'fqdn', 'blocked-host.corp.example.test', $2)
 			state["intents"] = fmt.Sprint(count)
 			return state
 		}
-		before := unchanged()
+		before := unchanged(t)
+		gateClient := *http.DefaultClient
+		gateClient.Timeout = 5 * time.Second
+		gateSend := func(t *testing.T, survivorBase, loserBase int64) *http.Response {
+			return httptestx.DoJSON(t, &gateClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge", map[string]any{
+				"loser_record_id": entitytest.DuplicateHostRecordID.String(), "survivor_base_row_version": survivorBase, "loser_base_row_version": loserBase, "client_txn_id": "merge-collision-gates",
+			}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+		}
+		for _, lockedID := range []uuid.UUID{entitytest.CanonicalHostRecordID, entitytest.DuplicateHostRecordID} {
+			t.Run("held envelope "+lockedID.String(), func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+				defer cancel()
+				holder, err := harness.Pool.Begin(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer holder.Rollback(context.Background())
+				if _, err := holder.Exec(ctx, `SELECT record_id FROM records WHERE record_id=$1 FOR UPDATE`, lockedID); err != nil {
+					t.Fatal(err)
+				}
+				for attempt := 0; attempt < 2; attempt++ {
+					// The holder remains active until the response arrives. Versions also
+					// conflict: destructive lock admission must precede both defects.
+					result := httptestx.RequireErrorEnvelope(t, gateSend(t, 2, 2), http.StatusConflict, "record_locked")["error"].(map[string]any)
+					if result["retryable"] != true || !reflect.DeepEqual(result["details"], map[string]any{"record_id": lockedID.String()}) {
+						t.Fatalf("unsafe lock response: %#v", result)
+					}
+					if after := unchanged(t); !reflect.DeepEqual(before, after) {
+						t.Fatal("held-envelope rejection changed durable state")
+					}
+				}
+			})
+		}
+		for _, base := range [][2]int64{{2, 1}, {1, 2}} {
+			t.Run(fmt.Sprintf("stale versions %d %d", base[0], base[1]), func(t *testing.T) {
+				for attempt := 0; attempt < 2; attempt++ {
+					result := httptestx.RequireErrorEnvelope(t, gateSend(t, base[0], base[1]), http.StatusConflict, "row_version_conflict")["error"].(map[string]any)
+					want := map[string]any{"survivor_record_id": entitytest.CanonicalHostRecordID.String(), "loser_record_id": entitytest.DuplicateHostRecordID.String(), "survivor_base_row_version": float64(base[0]), "loser_base_row_version": float64(base[1]), "survivor_current_row_version": float64(1), "loser_current_row_version": float64(1)}
+					if !reflect.DeepEqual(result["details"], want) {
+						t.Fatalf("version admission details=%#v want=%#v", result["details"], want)
+					}
+					if after := unchanged(t); !reflect.DeepEqual(before, after) {
+						t.Fatal("stale-version rejection changed durable state")
+					}
+				}
+			})
+		}
 		mergeResp := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/records/"+entitytest.CanonicalHostRecordID.String()+"/merge",
@@ -508,7 +557,7 @@ VALUES ($1, 'host', 'fqdn', 'blocked-host.corp.example.test', $2)
 		if _, exists := details["conflicting_record_id"]; exists {
 			t.Fatalf("merge collision details must not expose non-owner conflicting_record_id: %#v", details)
 		}
-		if after := unchanged(); !reflect.DeepEqual(before, after) {
+		if after := unchanged(t); !reflect.DeepEqual(before, after) {
 			t.Fatalf("rejected merge changed durable state: before=%v after=%v", before, after)
 		}
 	})
@@ -588,9 +637,23 @@ UPDATE incident_memberships
 		if mergeData["survivor_record_id"] != entitytest.CanonicalIdentityRecordID.String() || mergeData["loser_record_id"] != entitytest.DuplicateIdentityRecordID.String() {
 			t.Fatalf("unexpected identity merge payload: %#v", mergeData)
 		}
-		if mergeData["merge_summary"].(map[string]any)["record_type"] != "identity" {
-			t.Fatalf("expected identity merge summary, got %#v", mergeData)
+		if mergeData["incident_id"] != incidentID.String() || mergeData["record_type"] != "identity" || mergeData["merged_into_record_id"] != entitytest.CanonicalIdentityRecordID.String() || mergeData["survivor_row_version"] != float64(2) || mergeData["loser_row_version"] != float64(2) {
+			t.Fatalf("unexpected identity merge response identity or versions: %#v", mergeData)
 		}
+		// Both records have distinct UPN/email/SAM values, so all three loser
+		// values are carried. No tags, duplicate links or provenance-only values
+		// were seeded; the one mention/link/assessment and alias are transferred.
+		requireMergeSummary(t, mergeData["merge_summary"].(map[string]any), "identity", map[string]int{
+			"repointed_mention_resolution_count":    1,
+			"repointed_link_count":                  1,
+			"deduped_link_count":                    0,
+			"repointed_tag_count":                   0,
+			"deduped_tag_count":                     0,
+			"repointed_assessment_count":            1,
+			"suggestion_aliases_copied_count":       1,
+			"suggestion_alias_duplicate_noop_count": 0,
+			"provenance_only_retained_count":        0,
+		}, []mergeClassExpectation{{"aad_object_id", 0, 0}, {"sid", 0, 0}, {"upn", 0, 1}, {"email", 0, 1}, {"sam_account_name", 0, 1}})
 
 		changeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), mergeData["change_set_id"].(string))
 		auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
@@ -629,6 +692,9 @@ UPDATE incident_memberships
 		identityEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IdentitiesViewSchemaID, viewLogin)
 		contractassert.RequireDefaultQueryMeta(t, identityEnvelope, viewtest.IdentitiesViewSchemaID)
 		identityRows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IdentitiesViewSchemaID, viewLogin)
+		if len(identityRows) != 1 {
+			t.Fatalf("public Identities query must contain exactly the survivor: %#v", identityRows)
+		}
 		identitySurvivorRow := workbookscenariotest.FindRow(t, identityRows, entitytest.CanonicalIdentityRecordID.String())
 		if got := identitySurvivorRow["cells"].(map[string]any)["identity.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
 			t.Fatalf("expected identity merge to project the repointed linked event on the survivor, got %#v row=%#v", got, identitySurvivorRow)
@@ -637,6 +703,12 @@ UPDATE incident_memberships
 			if row["record_id"] == entitytest.DuplicateIdentityRecordID.String() {
 				t.Fatalf("expected merged loser to disappear from current-state identity rows, got %#v", identityRows)
 			}
+		}
+
+		timelineRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.TimelineViewSchemaID, viewLogin), timelinetest.RecordID.String())
+		identityItem := workbookscenariotest.RequireSingleCollectionItem(t, timelineRow, timelinetest.FieldIdentityRefs)
+		if identityItem["item_kind"] != "resolved_ref" || identityItem["raw_text"] != "Case Owner" || identityItem["resolved_record_id"] != entitytest.CanonicalIdentityRecordID.String() {
+			t.Fatalf("public Timeline Identity reference must preserve raw text and resolve to the survivor: %#v", identityItem)
 		}
 
 		createAfterMerge := httptestx.DoJSON(t, http.DefaultClient,
@@ -655,4 +727,46 @@ UPDATE incident_memberships
 			t.Fatalf("expected carried-forward identity exact match to reuse survivor, got %#v", createAfterMergeData)
 		}
 	})
+}
+
+// Keep fixture expectations independent of the merge implementation and response.
+// Additional public fields need not break these semantic observations.
+type mergeClassExpectation struct {
+	identifierClass string
+	promoted        int
+	carried         int
+}
+
+func requireMergeSummary(t testing.TB, summary map[string]any, recordType string, counts map[string]int, classes []mergeClassExpectation) {
+	t.Helper()
+	if summary["record_type"] != recordType {
+		t.Fatalf("unexpected merge summary type: %#v", summary)
+	}
+	for field, want := range counts {
+		if got := summary[field]; got != float64(want) {
+			t.Fatalf("%s merge summary %s: got %#v want %d", recordType, field, got, want)
+		}
+	}
+	gotClasses := summary["exact_match_classes"].([]any)
+	if len(gotClasses) != len(classes) {
+		t.Fatalf("%s merge class count: got %#v want %d", recordType, gotClasses, len(classes))
+	}
+	for index, want := range classes {
+		got := gotClasses[index].(map[string]any)
+		if got["identifier_class"] != want.identifierClass {
+			t.Fatalf("unexpected merge class order at %d: %#v", index, gotClasses)
+		}
+		for field, count := range map[string]int{
+			"promoted_count":         want.promoted,
+			"carried_count":          want.carried,
+			"duplicate_noop_count":   0,
+			"blocked_conflict_count": 0,
+			"provenance_only_count":  0,
+			"suggestion_only_count":  0,
+		} {
+			if got[field] != float64(count) {
+				t.Fatalf("%s class %s %s: got %#v want %d", recordType, want.identifierClass, field, got[field], count)
+			}
+		}
+	}
 }

@@ -3,7 +3,9 @@ package timeline_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"strings"
 	"testing"
@@ -34,6 +36,18 @@ import (
 )
 
 func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
+	t.Run("envelope before source lock", exerciseTimelineEnvelopeSourceOrder)
+	t.Run("create reference ordering", exerciseTimelineCreateReferenceOrder)
+	t.Run("existing reference ordering", exerciseTimelineExistingReferenceOrder)
+	t.Run("supersede reference ordering", exerciseTimelineSupersedeReferenceOrder)
+	t.Run("collection validation transport", exerciseTimelineCollectionValidationTransport)
+	t.Run("ordered tag actions", exerciseTimelineTagActionOrder)
+	t.Run("ordered attachment actions", exerciseTimelineAttachmentActionOrder)
+	t.Run("attachment no effect", exerciseTimelineAttachmentNoEffect)
+	t.Run("collection previews", exerciseTimelineCollectionPreviews)
+	t.Run("Mention dismiss restore preview", exerciseTimelineMentionRestorePreview)
+	t.Run("hidden Mention preview", exerciseTimelineHiddenMentionPreview)
+	t.Run("Mention preview targets", exerciseTimelineMentionPreviewTargets)
 	runtime := appsupport.StartRuntime(t)
 
 	t.Run("create patch review and supersede replays stay single-write and preserve substrate", func(t *testing.T) {
@@ -1737,6 +1751,66 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("profile version exhaustion preserves exact state", func(t *testing.T) {
+		if _, err := db.ExecContext(context.Background(), `UPDATE timeline_time_conversion_profiles SET profile_version=$2 WHERE incident_id=$1`, incidentID, int64(math.MaxInt64-1)); err != nil {
+			t.Fatal(err)
+		}
+		put := func(base int64, label string) *http.Response {
+			return httptestx.DoJSON(t, http.DefaultClient, http.MethodPut, profileURL, map[string]any{
+				"base_profile_version": base, "enabled": true,
+				"local_offset_minutes": 60, "local_label": label,
+			}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+		}
+		response := put(math.MaxInt64-1, "Final profile")
+		requestID := httptestx.RequireRequestID(t, response)
+		var envelope struct {
+			Data struct {
+				ProfileVersion int64 `json:"profile_version"`
+			} `json:"data"`
+			Meta struct {
+				RequestID string `json:"request_id"`
+			} `json:"meta"`
+		}
+		if err := json.Unmarshal(httptestx.ReadResponseBody(t, response, http.StatusOK), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		if envelope.Data.ProfileVersion != math.MaxInt64 || envelope.Meta.RequestID != requestID {
+			t.Fatalf("maximum profile version was not returned exactly: %#v", envelope)
+		}
+		var version int64
+		var enabled bool
+		var offset int
+		var label, updater string
+		var updatedAt time.Time
+		if err := db.QueryRowContext(context.Background(), `SELECT profile_version, enabled, local_offset_minutes, local_label, updated_at, updated_by_user_id FROM timeline_time_conversion_profiles WHERE incident_id=$1`, incidentID).Scan(&version, &enabled, &offset, &label, &updatedAt, &updater); err != nil {
+			t.Fatal(err)
+		}
+		if version != math.MaxInt64 || !enabled || offset != 60 || label != "Final profile" || updater != adminID.String() || updatedAt.IsZero() {
+			t.Fatalf("final durable profile differs: version=%d enabled=%t offset=%d label=%q updater=%q updated_at=%s", version, enabled, offset, label, updater, updatedAt)
+		}
+		snapshot := func() string {
+			var row string
+			if err := db.QueryRowContext(context.Background(), `SELECT to_jsonb(p)::text FROM timeline_time_conversion_profiles p WHERE incident_id=$1`, incidentID).Scan(&row); err != nil {
+				t.Fatal(err)
+			}
+			return row
+		}
+		before := snapshot()
+		body := httptestx.RequireErrorEnvelope(t, put(math.MaxInt64, "Must not persist"), http.StatusBadRequest, "invalid_mutation_payload")
+		httptestx.RequireErrorDetail(t, body, "field", "base_profile_version")
+		httptestx.RequireErrorDetail(t, body, "reason_code", "invalid_value")
+		if details := body["error"].(map[string]any)["details"].(map[string]any); len(details) != 2 {
+			t.Fatalf("unexpected exhaustion details: %#v", details)
+		}
+		if snapshot() != before {
+			t.Fatal("exhausted PUT changed durable profile")
+		}
+		httptestx.RequireErrorEnvelope(t, put(math.MaxInt64-1, "Stale must not persist"), http.StatusConflict, "row_version_conflict")
+		if snapshot() != before {
+			t.Fatal("stale PUT changed exhausted durable profile")
+		}
+	})
 }
 
 func startServer(t testing.TB, runtime *appsupport.Runtime, prefix string) (*httptestx.Server, *sql.DB, *appsupport.ServerHarness) {

@@ -3,6 +3,7 @@ package incidentbundles
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -34,9 +35,14 @@ func testImportInputRetention(t *testing.T) {
 			worker := &incidentBundleWorker{storage: storage, jobManager: manager}
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
-			worker.removeTerminalImportInput(ctx, uuid.New(), reference)
-			if (storage.stagedRemovals == 1) != tc.remove {
-				t.Fatalf("removals=%d, want removal=%v", storage.stagedRemovals, tc.remove)
+			jobID := uuid.New()
+			worker.removeTerminalImportInput(ctx, jobID, reference)
+			var wantRemovals []BundleStagingRef
+			if tc.remove {
+				wantRemovals = []BundleStagingRef{reference}
+			}
+			if !slices.Equal(manager.getJobIDs, []uuid.UUID{jobID}) || !slices.Equal(storage.stagedRemovals, wantRemovals) {
+				t.Fatalf("observed Jobs=%v, removed inputs=%v; want Job=%v, inputs=%v", manager.getJobIDs, storage.stagedRemovals, jobID, wantRemovals)
 			}
 		})
 	}

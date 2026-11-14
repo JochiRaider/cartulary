@@ -789,7 +789,7 @@
         "tests": [
           "TestIncidentBundleImportDescriptorIsClosed_Unit",
           "TestIncidentsSourcePortCurrentFormatCharacterization_Unit",
-          "TestIncidentsSourcePortRejectsWrongPreparedTypeWithoutPanic_Unit",
+          "TestIncidentsSourcePortRejectsUnboundPreparedWithoutPanic_Unit",
           "TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit",
           "TestSourcePortCatalogRejectsInvalidDescriptors_Unit",
           "TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Unit",
@@ -1145,6 +1145,58 @@
         "package": "./internal/modules/incidentbundles",
         "tests": [
           "TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.incidentbundles.unit.prepared_source_binding",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidentbundles.verification.source_catalog"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestSourcePortPreparedBinding_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.incidentbundles.unit.sequence_repair_order",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.unit",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.incidentbundles.verification.atomic_coordination"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestImportSequenceRepairFollowsAllOwnerValidation_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -15,16 +15,17 @@ export function buildReaderEvidence({ runID, target = "test-slice", commandID,
   const selected = units[0];
   const unitID = selected.unit_id;
   const outcome = outcomes[unitID] ?? "passed";
+  const terminalEvent = outcome === "passed" ? "completed" : outcome;
   const projectionInputs = structuredClone(projections ?? { [target]: { command_id: commandID, unit_ids: [unitID] } });
   const wait = { wait_reason: "rank", blocking_resources: [], blocking_unit_ids: [] };
   const events = [
     ["run_started", 0], ["queued", 0, { unit_kind: selected.kind, row_ids: selected.row_bindings.map((row) => row.row_id) }],
     ["eligible", 0], ["wait_started", 0, wait], ["wait_ended", 2, wait],
-    ["admitted", 2], ["started", 2], ["completed", 9],
+    ["admitted", 2], ["started", 2], [terminalEvent, 9],
     ["cleanup_started", 9], ["cleanup_completed", 10], ["run_completed", 10],
   ].map(([event, monotonic_ms, extra = {}], index) => ({ schema_id: "cartulary.harness_unit_event.v4",
     seq: index + 1, monotonic_ms, event, unit_id: /^(run_|cleanup_)/u.test(event) ? "harness:run" : unitID,
-    status: event === "cleanup_completed" ? "passed" : ["completed", "run_completed"].includes(event) ? outcome : "running",
+    status: event === "cleanup_completed" ? "passed" : [terminalEvent, "run_completed"].includes(event) ? outcome : "running",
     needs: [], resource_claims: /^(run_|cleanup_)/u.test(event) ? {} : { cpu: 1, process: 1 }, service_dependencies: [], ...extra }));
   const capability = { schema_id: "cartulary.harness_capability_snapshot.v1", cpu_tokens: 2, memory_bytes: 1024,
     process_slots: 2, io_tokens: 1, postgres_lanes: 1, object_store_lanes: 1,

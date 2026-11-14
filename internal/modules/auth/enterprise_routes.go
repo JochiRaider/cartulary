@@ -238,12 +238,17 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.enterpriseStore.CompleteOIDCEnterpriseAuthTransaction(r.Context(), providerKey, verified.State, browserHash, &verified.Nonce, verified.ProviderSubject, s.now())
+	sessionToken, err := authn.GenerateOpaqueToken()
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	result, err := s.enterpriseStore.CompleteOIDCEnterpriseAuthTransaction(r.Context(), providerKey, verified.State, browserHash, &verified.Nonce, verified.ProviderSubject, authn.EnterpriseAuthSessionInput{TokenFingerprint: authn.FingerprintToken(s.keys, sessionToken), RequestID: httpapi.RequestIDFromContext(r.Context())}, s.now())
 	if err != nil {
 		writeAPIError(w, r, s.enterpriseCompletionError(err))
 		return
 	}
-	s.finishEnterpriseLogin(w, r, result)
+	s.finishEnterpriseLogin(w, r, result, sessionToken)
 }
 
 func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
@@ -338,12 +343,17 @@ func (s *Service) handleEnterpriseSAMLComplete(w http.ResponseWriter, r *http.Re
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.enterpriseStore.CompleteSAMLEnterpriseAuthTransaction(r.Context(), providerKey, authn.FingerprintToken(s.keys, completionToken), browserHash, s.now())
+	sessionToken, err := authn.GenerateOpaqueToken()
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	result, err := s.enterpriseStore.CompleteSAMLEnterpriseAuthTransaction(r.Context(), providerKey, authn.FingerprintToken(s.keys, completionToken), browserHash, authn.EnterpriseAuthSessionInput{TokenFingerprint: authn.FingerprintToken(s.keys, sessionToken), RequestID: httpapi.RequestIDFromContext(r.Context())}, s.now())
 	if err != nil {
 		writeAPIError(w, r, s.enterpriseCompletionError(err))
 		return
 	}
-	s.finishEnterpriseLogin(w, r, result)
+	s.finishEnterpriseLogin(w, r, result, sessionToken)
 }
 
 func (s *Service) handleEnterpriseAuthBindings(w http.ResponseWriter, r *http.Request, userID uuid.UUID, segments []string) bool {
@@ -473,30 +483,10 @@ func (s *Service) writeEnterpriseBindingResult(w http.ResponseWriter, r *http.Re
 	_ = httpapi.WriteSuccess(w, r, statusCode, payload)
 }
 
-func (s *Service) finishEnterpriseLogin(w http.ResponseWriter, r *http.Request, result authn.EnterpriseAuthCompletionResult) {
-	sessionToken, err := authn.GenerateOpaqueToken()
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
+func (s *Service) finishEnterpriseLogin(w http.ResponseWriter, r *http.Request, result authn.EnterpriseAuthCompletionResult, sessionToken string) {
+	if result.RevokedSession != nil {
+		s.publishSessionRevocation(result.RevokedSession.ID, authn.ConcurrencyLimitReasonCode)
 	}
-	bindingID := result.Binding.ID
-	session, revoked, err := s.sessionStore.CreateSessionWithProviderConcurrency(
-		r.Context(),
-		result.User,
-		authn.FingerprintToken(s.keys, sessionToken),
-		authn.NewSessionTiming(s.now()),
-		httpapi.RequestIDFromContext(r.Context()),
-		result.Binding.ProviderType,
-		&bindingID,
-	)
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if revoked != nil {
-		s.publishSessionRevocation(revoked.ID, authn.ConcurrencyLimitReasonCode)
-	}
-	_ = session
 	s.setAuthCookies(w, sessionToken)
 	s.clearEnterpriseAuthCookie(w)
 	http.Redirect(w, r, result.ReturnTo, http.StatusSeeOther)

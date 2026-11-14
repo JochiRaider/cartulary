@@ -30,7 +30,7 @@ import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { expectAllInteractiveControlsNamed } from "./support/accessibility/assertions";
 import {
-  expectNoFocusTrap,
+  expectInitialTabRoundTrip,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
 import { withPresentation } from "./support/accessibility/presentation";
@@ -492,7 +492,7 @@ test("a11y.Evidence access states preview and download expose names and announce
   );
   await expectEvidenceControlsPainted(page, availablePreview.record_id);
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
 });
 
 test("a11y.Evidence preview close and pending cancellation preserve focus across density and layout", async ({

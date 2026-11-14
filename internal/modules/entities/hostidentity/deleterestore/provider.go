@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 )
 
@@ -35,15 +36,17 @@ func (HostSource) UpdateSourceDeleteStateTx(ctx context.Context, tx pgx.Tx, reco
 }
 
 func (HostSource) SyncEnvelopeMirrorTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	envelope, err := records.NewStore().LoadEnvelopeTx(ctx, tx, recordID, false)
+	if err != nil {
+		return fmt.Errorf("synchronize host envelope mirrors: %w", err)
+	}
 	tag, err := tx.Exec(ctx, `
 UPDATE hosts h
-   SET row_version = r.row_version,
-       updated_at = r.updated_at,
-       updated_by_user_id = r.updated_by_user_id
-  FROM records r
- WHERE r.record_id = $1
-   AND h.record_id = r.record_id
-`, recordID)
+   SET row_version = $2,
+       updated_at = $3,
+       updated_by_user_id = $4
+ WHERE h.record_id = $1
+`, recordID, envelope.RowVersion, envelope.UpdatedAt, envelope.UpdatedByUserID)
 	if err != nil {
 		return fmt.Errorf("synchronize host envelope mirrors: %w", err)
 	}
@@ -84,15 +87,17 @@ func (IdentitySource) UpdateSourceDeleteStateTx(ctx context.Context, tx pgx.Tx, 
 }
 
 func (IdentitySource) SyncEnvelopeMirrorTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	envelope, err := records.NewStore().LoadEnvelopeTx(ctx, tx, recordID, false)
+	if err != nil {
+		return fmt.Errorf("synchronize identity envelope mirrors: %w", err)
+	}
 	tag, err := tx.Exec(ctx, `
 UPDATE identities i
-   SET row_version = r.row_version,
-       updated_at = r.updated_at,
-       updated_by_user_id = r.updated_by_user_id
-  FROM records r
- WHERE r.record_id = $1
-   AND i.record_id = r.record_id
-`, recordID)
+   SET row_version = $2,
+       updated_at = $3,
+       updated_by_user_id = $4
+ WHERE i.record_id = $1
+`, recordID, envelope.RowVersion, envelope.UpdatedAt, envelope.UpdatedByUserID)
 	if err != nil {
 		return fmt.Errorf("synchronize identity envelope mirrors: %w", err)
 	}
@@ -142,4 +147,12 @@ func prepareEntityStateTransitionTx(ctx context.Context, tx pgx.Tx, request dele
 			BlockingRecordID: conflict.BlockingRecordID,
 		},
 	}}, nil
+}
+
+func (HostSource) ValidateStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
+}
+
+func (IdentitySource) ValidateStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
 }

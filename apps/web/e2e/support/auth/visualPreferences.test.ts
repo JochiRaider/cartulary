@@ -3,10 +3,17 @@ import { describe, expect, it, vi } from "vitest";
 import { VisualPreferences } from "./visualPreferences";
 
 describe("visual preference isolation", () => {
-  it("starts each page from no override despite previous variants and failures", () => {
+  it("starts each page from no override after previous variants and rejected writes", async () => {
     for (const density of ["compact", "comfortable", "default"] as const) {
       const failedPage = new VisualPreferences("owned-test-account");
       failedPage.select(density);
+      await expect(
+        failedPage.route({
+          request: () => ({ method: () => "PUT" }),
+          abort: vi.fn(async () => {}),
+        } as unknown as Route),
+      ).rejects.toMatchObject({ name: "CartularyVisualCaptureError" });
+      expect(failedPage.read().density_mode).toBe(density);
       const nextPage = new VisualPreferences("owned-test-account");
       expect(nextPage.read().density_mode).toBeNull();
       expect(nextPage.read().preferences_version).toBe(1);

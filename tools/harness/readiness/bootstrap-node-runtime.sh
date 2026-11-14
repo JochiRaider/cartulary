@@ -15,6 +15,22 @@ DOWNLOAD_RETRY_DELAY_SECONDS="${CARTULARY_BOOTSTRAP_DOWNLOAD_RETRY_DELAY_SECONDS
 LOCK_TIMEOUT_SECONDS="${CARTULARY_BOOTSTRAP_LOCK_TIMEOUT_SECONDS:-120}"
 LOCK_DIR=""
 LOCK_HELD=0
+DOWNLOAD_TMP=""
+RUNTIME_TMP=""
+
+cleanup() {
+  if [[ -n "${DOWNLOAD_TMP}" ]]; then
+    rm -f -- "${DOWNLOAD_TMP}"
+  fi
+  if [[ -n "${RUNTIME_TMP}" ]]; then
+    rm -rf -- "${RUNTIME_TMP}"
+  fi
+  release_lock
+}
+
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 detect_platform() {
   if [[ -n "${PLATFORM_OVERRIDE}" ]]; then
@@ -102,7 +118,6 @@ acquire_lock() {
     sleep 1
   done
   LOCK_HELD=1
-  trap release_lock EXIT
 }
 
 download_archive() {
@@ -111,24 +126,26 @@ download_archive() {
   local expected="$3"
   local archive_name
   local attempt
-  local temp_archive
   local actual
 
   mkdir -p "$(dirname "${archive}")"
   for ((attempt = 1; attempt <= DOWNLOAD_RETRIES; attempt += 1)); do
-    temp_archive="$(mktemp "${archive}.download.XXXXXX")"
-    if curl -fsSL -o "${temp_archive}" "${url}"; then
-      actual="$(sha256_file "${temp_archive}")"
+    DOWNLOAD_TMP="$(mktemp "${archive}.download.XXXXXX")"
+    if curl -fsSL -o "${DOWNLOAD_TMP}" "${url}"; then
+      actual="$(sha256_file "${DOWNLOAD_TMP}")"
       if [[ "${actual}" == "${expected}" ]]; then
-        mv -f "${temp_archive}" "${archive}"
+        mv -f "${DOWNLOAD_TMP}" "${archive}"
+        DOWNLOAD_TMP=""
         return 0
       fi
-      rm -f "${temp_archive}"
+      rm -f "${DOWNLOAD_TMP}"
+      DOWNLOAD_TMP=""
       archive_name="$(basename "${archive}")"
       echo "Node archive checksum mismatch for ${archive_name}: expected ${expected}, got ${actual}; archive removed before extraction" >&2
       return 1
     fi
-    rm -f "${temp_archive}"
+    rm -f "${DOWNLOAD_TMP}"
+    DOWNLOAD_TMP=""
     if (( attempt < DOWNLOAD_RETRIES )); then
       sleep "${DOWNLOAD_RETRY_DELAY_SECONDS}"
     fi
@@ -140,15 +157,13 @@ download_archive() {
 
 install_archive() {
   local archive="$1"
-  local temp_runtime
 
   mkdir -p "$(dirname "${NODE_RUNTIME_DIR}")"
-  temp_runtime="$(mktemp -d "${NODE_RUNTIME_DIR}.tmp.XXXXXX")"
-  trap 'rm -rf "${temp_runtime}"' RETURN
-  tar -xJf "${archive}" -C "${temp_runtime}" --strip-components=1
+  RUNTIME_TMP="$(mktemp -d "${NODE_RUNTIME_DIR}.tmp.XXXXXX")"
+  tar -xJf "${archive}" -C "${RUNTIME_TMP}" --strip-components=1
   rm -rf "${NODE_RUNTIME_DIR}"
-  mv "${temp_runtime}" "${NODE_RUNTIME_DIR}"
-  trap - RETURN
+  mv "${RUNTIME_TMP}" "${NODE_RUNTIME_DIR}"
+  RUNTIME_TMP=""
 }
 
 main() {

@@ -46,23 +46,79 @@ func TestMigrationEvidenceSemantics_Integration(t *testing.T) {
 		_ = sqlDB.Close()
 	})
 	payload := runMigrationEvidenceCaptureForDatabase(t, testDB.DSN).payload
-	if !payload.GooseLedger.MetadataPresent {
-		t.Fatalf("expected goose metadata table to be present: %#v", payload.GooseLedger)
+	head := migrationEvidenceManifestMaxVersionForTest(t, migrationEvidenceManifestPathForTest(t))
+	wantStates := make([]migrationevidence.GooseState, head+1)
+	for version := int64(0); version <= head; version++ {
+		wantStates[version] = migrationevidence.GooseState{Version: version, IsApplied: true}
 	}
-	if payload.GooseLedger.CurrentEffectiveAppliedVersion != payload.Manifest.ExpectedMaxVersion {
-		t.Fatalf("expected current version %d, got %d", payload.Manifest.ExpectedMaxVersion, payload.GooseLedger.CurrentEffectiveAppliedVersion)
-	}
-	if len(payload.SourceAudit) != payload.Manifest.ExpectedVersionCount {
-		t.Fatalf("expected %d source audit rows, got %d", payload.Manifest.ExpectedVersionCount, len(payload.SourceAudit))
+	assertMigrationLedgerProjection(t, payload, head, head+1, wantStates)
+	assertMigrationLedgerFindings(t, payload.Findings, nil)
+	if payload.Manifest.ExpectedMaxVersion != head || payload.Manifest.ExpectedVersionCount != int(head) || len(payload.SourceAudit) != int(head) {
+		t.Fatal("manifest/source projection disagrees with authored fixture allocation")
 	}
 	assertEditableMigrationBaseline(t, payload)
 
-	dbOnlyVersion := payload.Manifest.ExpectedMaxVersion + 1
-	if _, err := sqlDB.ExecContext(ctx, `INSERT INTO goose_db_version (version_id, is_applied) VALUES ($1, true)`, dbOnlyVersion); err != nil {
-		t.Fatalf("insert synthetic goose ledger version: %v", err)
+	dbOnlyVersion := head + 1
+	later := time.Date(2026, 4, 18, 12, 0, 0, 0, time.UTC)
+	earlier := later.Add(-time.Hour)
+	insertState := func(version int64, applied bool, stamp time.Time) {
+		t.Helper()
+		if _, err := sqlDB.ExecContext(ctx, `INSERT INTO public.goose_db_version (version_id, is_applied, tstamp) VALUES ($1, $2, $3)`, version, applied, stamp); err != nil {
+			t.Fatalf("insert synthetic goose ledger state: %v", err)
+		}
 	}
+	insertState(dbOnlyVersion, true, later)
+	wantStates = append(wantStates, migrationevidence.GooseState{Version: dbOnlyVersion, IsApplied: true, TStamp: later})
 	payload = runMigrationEvidenceCaptureForDatabase(t, testDB.DSN).payload
-	assertMigrationEvidenceFinding(t, payload.Findings, "db_version_not_in_manifest")
+	assertMigrationLedgerProjection(t, payload, dbOnlyVersion, head+2, wantStates)
+	assertMigrationLedgerFindings(t, payload.Findings, map[string]int64{"db_version_not_in_manifest": dbOnlyVersion})
+
+	insertState(1, false, later)
+	insertState(dbOnlyVersion, false, later)
+	wantStates[1] = migrationevidence.GooseState{Version: 1, IsApplied: false, TStamp: later}
+	wantStates[dbOnlyVersion].IsApplied = false
+	payload = runMigrationEvidenceCaptureForDatabase(t, testDB.DSN).payload
+	assertMigrationLedgerProjection(t, payload, head, head+4, wantStates)
+	assertMigrationLedgerFindings(t, payload.Findings, map[string]int64{"db_version_not_in_manifest": dbOnlyVersion, "db_applied_version_gap": 1})
+
+	// A later ledger ID wins even with an earlier timestamp. These are evidence
+	// fixtures on a disposable database, not an authorized production repair.
+	insertState(1, true, earlier)
+	insertState(dbOnlyVersion, true, earlier)
+	wantStates[1] = migrationevidence.GooseState{Version: 1, IsApplied: true, TStamp: earlier}
+	wantStates[dbOnlyVersion] = migrationevidence.GooseState{Version: dbOnlyVersion, IsApplied: true, TStamp: earlier}
+	payload = runMigrationEvidenceCaptureForDatabase(t, testDB.DSN).payload
+	assertMigrationLedgerProjection(t, payload, dbOnlyVersion, head+6, wantStates)
+	assertMigrationLedgerFindings(t, payload.Findings, map[string]int64{"db_version_not_in_manifest": dbOnlyVersion})
+}
+
+func assertMigrationLedgerProjection(t *testing.T, payload migrationevidence.Result, head, rows int64, states []migrationevidence.GooseState) {
+	t.Helper()
+	ledger := payload.GooseLedger
+	if !ledger.MetadataPresent || ledger.CurrentEffectiveAppliedVersion != head || ledger.RowCount != rows || len(ledger.LatestEffectiveStates) != len(states) {
+		t.Fatalf("unexpected ledger projection: %#v; want head=%d rows=%d states=%d", ledger, head, rows, len(states))
+	}
+	for index, want := range states {
+		got := ledger.LatestEffectiveStates[index]
+		if got.Version != want.Version || got.IsApplied != want.IsApplied || got.TStamp.IsZero() || (!want.TStamp.IsZero() && !got.TStamp.Equal(want.TStamp)) {
+			t.Fatalf("ledger state %d: got %#v want %#v", index, got, want)
+		}
+	}
+}
+
+func assertMigrationLedgerFindings(t *testing.T, findings []migrationevidence.Finding, expected map[string]int64) {
+	t.Helper()
+	seen := make(map[string]bool)
+	for _, finding := range findings {
+		version, ok := expected[finding.ReasonCode]
+		if !ok || seen[finding.ReasonCode] || finding.Version == nil || *finding.Version != version || finding.Severity != "blocking" {
+			t.Fatalf("unexpected ledger finding: %#v", finding)
+		}
+		seen[finding.ReasonCode] = true
+	}
+	if len(seen) != len(expected) {
+		t.Fatalf("ledger findings=%v, want %v", seen, expected)
+	}
 }
 
 type migrationEvidenceIntegrationCapture struct {

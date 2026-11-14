@@ -124,6 +124,28 @@ VALUES (
 		requireIndicatorContractRejection(t, err, want)
 	}
 
+	for _, text := range []any{nil, "", " \t", "retained"} {
+		if _, err := db.Exec(ctx, `UPDATE indicators SET defanged_value=$2,stix_pattern=$2 WHERE record_id=$1`, indicatorID, text); err != nil {
+			t.Fatalf("store optional presentation %#v: %v", text, err)
+		}
+		var exact bool
+		if err := db.QueryRow(ctx, `SELECT defanged_value IS NOT DISTINCT FROM $2::text AND stix_pattern IS NOT DISTINCT FROM $2::text FROM indicators WHERE record_id=$1`, indicatorID, text).Scan(&exact); err != nil || !exact {
+			t.Fatalf("stored optional presentation %#v exact=%v error=%v", text, exact, err)
+		}
+	}
+	for _, text := range []any{nil, "", " \t", "retained"} {
+		if _, err := db.Exec(ctx, `UPDATE indicator_state_intervals SET rationale=$2,assessor=$2 WHERE indicator_record_id=$1`, indicatorID, text); err != nil {
+			t.Fatalf("store optional interval text %#v: %v", text, err)
+		}
+		var exact bool
+		if err := db.QueryRow(ctx, `SELECT rationale IS NOT DISTINCT FROM $2::text AND assessor IS NOT DISTINCT FROM $2::text FROM indicator_state_intervals WHERE indicator_record_id=$1`, indicatorID, text).Scan(&exact); err != nil || !exact {
+			t.Fatalf("stored optional interval text %#v exact=%v error=%v", text, exact, err)
+		}
+	}
+	expectRejection("indicators_required_text_ck", `UPDATE indicators SET display_value='' WHERE record_id=$1`, indicatorID)
+	expectRejection("indicators_required_text_ck", `UPDATE indicators SET normalized_value='',dedupe_key='domain_name:' WHERE record_id=$1`, indicatorID)
+	expectRejection("indicators_required_text_ck", `UPDATE indicators SET hash_algorithm='',hash_value='a' WHERE record_id=$1`, indicatorID)
+
 	if err := indicatorMirrorColumnsAbsent(db); err != nil {
 		t.Fatal(err)
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -322,6 +323,14 @@ func timelineActionFailure(err error, clientTxnID string, invalidField string, t
 		}
 		return workbook.NoEffectiveChangeFailure(invalidField), true
 	}
+	var invalidCollection *timeline.InvalidCollectionActionError
+	if errors.As(err, &invalidCollection) {
+		return workbook.InvalidPayloadFailure(invalidCollection.FieldKey, "invalid_value"), true
+	}
+	var collection *links.CollectionValidationError
+	if errors.As(err, &collection) {
+		return workbook.InvalidPayloadFailure(collection.Field, "invalid_value"), true
+	}
 	var mentionTransition *mentions.MentionTransitionError
 	if errors.As(err, &mentionTransition) {
 		return workbook.IllegalTransitionFailure(
@@ -333,7 +342,7 @@ func timelineActionFailure(err error, clientTxnID string, invalidField string, t
 		return workbook.EntityMatchConflictFailure(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords), true
 	}
 	var mentionTarget *mentions.MentionTargetValidationError
-	if errors.As(err, &mentionTarget) || errors.Is(err, mentions.ErrEntityMentionNotFound) ||
+	if errors.As(err, &mentionTarget) || errors.Is(err, timeline.ErrResolvedRecordNotFound) || errors.Is(err, mentions.ErrEntityMentionNotFound) ||
 		errors.Is(err, mentions.ErrResolvedRecordNotFound) || errors.Is(err, mentions.ErrInvalidMentionResolution) {
 		return workbook.InvalidPayloadFailure(invalidField, "invalid_value"), true
 	}

@@ -17,6 +17,8 @@ import (
 )
 
 func TestEntityFieldRegistryMatchesOwnerProjection_Unit(t *testing.T) {
+	t.Run("canonical scalar conflict fields", exerciseEntityConflictSnapshotFields)
+	t.Run("canonical collection identity order", exerciseEntityCollectionIdentityOrder)
 	hostAliasID := uuid.MustParse("21000000-0000-4000-8000-000000000001")
 	hostIdentifierID := uuid.MustParse("21000000-0000-4000-8000-000000000002")
 	identityAliasID := uuid.MustParse("22000000-0000-4000-8000-000000000001")

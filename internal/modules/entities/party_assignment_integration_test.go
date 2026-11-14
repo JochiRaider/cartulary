@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
@@ -32,6 +33,8 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 		return result["row"].(map[string]any)["record_id"].(string)
 	}
 	a, b, foreignParty := party(incidentID.String(), "Alpha"), party(incidentID.String(), "Beta"), party(foreignID, "Foreign")
+	partyLabels := map[string]string{a: "Alpha", b: "Beta"}
+	exerciseEntityPartyActionOrder(t, h, login, incidentID, a)
 	add := func(ids ...string) map[string]any {
 		actions := []map[string]any{}
 		for _, id := range ids {
@@ -54,7 +57,7 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 			created := createEntityRow(t, h.Server.HTTP.URL, incidentID.String(), view, login, create, http.StatusCreated)
 			row := created["row"].(map[string]any)
 			id := row["record_id"].(string)
-			assertEntityPartyItems(t, row, field("subject"), []string{a})
+			assertEntityPartyItems(t, partyLabels, row, field("subject"), []string{a})
 			if got := row["row_version"].(float64); got != 1 {
 				t.Fatalf("create version %v", got)
 			}
@@ -73,7 +76,7 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 			if row["record_id"] != id || row["row_version"] != float64(2) {
 				t.Fatalf("reuse identity/version: %#v", row)
 			}
-			assertEntityPartyItems(t, row, field("subject"), []string{a, b})
+			assertEntityPartyItems(t, partyLabels, row, field("subject"), []string{a, b})
 			patch := func(txn string, version int, changes []map[string]any) map[string]any {
 				return map[string]any{"client_txn_id": txn, "view_schema_id": view, "base_row_version": version, "changes": changes}
 			}
@@ -88,7 +91,7 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 				}
 				code := "invalid_mutation_payload"
 				if status == http.StatusConflict {
-					code = "row_version_conflict"
+					code = "same_field_conflict"
 				}
 				httptestx.RequireErrorEnvelope(t, response, status, code)
 				return nil
@@ -99,8 +102,8 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 			if row["row_version"] != float64(3) {
 				t.Fatalf("multi-field patch version %#v", row["row_version"])
 			}
-			assertEntityPartyItems(t, row, field("responsible"), []string{b})
-			assertEntityPartyItems(t, row, field("observer"), []string{a})
+			assertEntityPartyItems(t, partyLabels, row, field("responsible"), []string{b})
+			assertEntityPartyItems(t, partyLabels, row, field("observer"), []string{a})
 			if count(`SELECT count(*) FROM change_set_mutations WHERE change_set_id=$1 AND target_kind='record_link'`, changed["change_set_id"]) != 2 {
 				t.Fatal("missing patch link history")
 			}
@@ -161,7 +164,7 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 			}
 			remove := map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{{"op": "remove_party_ref", "item_ref": "party_ref:" + a}}}
 			removed := send(patch("assignment-remove-"+family, 3, []map[string]any{change(field("observer"), remove)}), http.StatusOK)
-			assertEntityPartyItems(t, removed["row"].(map[string]any), field("observer"), nil)
+			assertEntityPartyItems(t, partyLabels, removed["row"].(map[string]any), field("observer"), nil)
 			retained, err := (linkfacts.FactReader{}).LoadPartyAssignmentsForRecords(context.Background(), tx, incidentID, []uuid.UUID{appsupport.MustUUID(t, id)})
 			if err != nil || !reflect.DeepEqual(facts, retained) {
 				t.Fatal("source snapshot changed with later removal", err)
@@ -179,25 +182,27 @@ func TestEntityPartyAssignmentWrites_Integration(t *testing.T) {
 			if selected == nil {
 				t.Fatal("assigned entity missing from query")
 			}
-			assertEntityPartyItems(t, selected, field("subject"), []string{a, b})
-			assertEntityPartyItems(t, selected, field("observer"), nil)
+			assertEntityPartyItems(t, partyLabels, selected, field("subject"), []string{a, b})
+			assertEntityPartyItems(t, partyLabels, selected, field("observer"), nil)
 		})
 	}
 }
 
-func assertEntityPartyItems(t *testing.T, row map[string]any, field string, want []string) {
+func assertEntityPartyItems(t *testing.T, labels map[string]string, row map[string]any, field string, want []string) {
 	t.Helper()
 	value := row["cells"].(map[string]any)[field].(map[string]any)["value"].(map[string]any)
 	if value["kind"] != "collection_value_v1" || value["ordered"] != false {
 		t.Fatalf("invalid assignment collection %#v", value)
 	}
 	items := value["items"].([]any)
+	want = slices.Clone(want)
+	slices.Sort(want)
 	if len(items) != len(want) {
 		t.Fatalf("%s count %d want %d", field, len(items), len(want))
 	}
 	for i, item := range items {
 		ref := item.(map[string]any)
-		if ref["party_id"] != want[i] || ref["item_ref"] != "party_ref:"+want[i] || ref["item_kind"] != "party_ref" || (ref["display_text"] != "Alpha" && ref["display_text"] != "Beta") {
+		if ref["party_id"] != want[i] || ref["item_ref"] != "party_ref:"+want[i] || ref["item_kind"] != "party_ref" || ref["display_text"] != labels[want[i]] {
 			t.Fatalf("invalid party item %#v", ref)
 		}
 	}

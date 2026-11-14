@@ -37,7 +37,7 @@ import { expect, test } from "./fixtures";
 import { expectAllInteractiveControlsNamed } from "./support/accessibility/assertions";
 import { expectVisibleSemanticGridCellFocus } from "./support/accessibility/grid";
 import {
-  expectNoFocusTrap,
+  expectInitialTabRoundTrip,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
 import { withPresentation } from "./support/accessibility/presentation";
@@ -559,5 +559,5 @@ test("a11y.inspector-history.row-01 Verify inspector tabs, relationship links, e
   await expect(deletePanel).toHaveCount(0);
 
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
 });

@@ -85,11 +85,11 @@ func (s *sourceMutationService) insertRowTx(ctx context.Context, tx pgx.Tx, reco
 INSERT INTO evidence (
     record_id, incident_id, title, lifecycle_state, requested_at, received_at,
     storage_ref, collector_party_text, collector_party_id, source_party_text,
-    source_party_id, object_blob_id, upload_state, blob_hash, created_at, updated_at
+    source_party_id, object_blob_id, upload_state, blob_hash, created_at, updated_at, owner_user_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9, $10,
-    $11, $12, $13, $14, $15, $15
+    $11, $12, $13, $14, $15, $15, $16
 )
 `, recordID, incidentID,
 		nullableTextValue(params.Values, "evidence.title"),
@@ -104,7 +104,7 @@ INSERT INTO evidence (
 		objectBlobID,
 		uploadState,
 		blobHash,
-		now)
+		now, nullableUUIDValue(params.Values, "evidence.owner_user_id"))
 	if err != nil {
 		return fmt.Errorf("insert evidence: %w", err)
 	}
@@ -165,6 +165,8 @@ func (s *sourceMutationService) applyDirectChangeTx(ctx context.Context, tx pgx.
 		column = "source_party_text"
 	case "evidence.source_party_id":
 		column = "source_party_id"
+	case "evidence.owner_user_id":
+		column = "owner_user_id"
 	case "evidence.upload_state":
 		column = "upload_state"
 	default:

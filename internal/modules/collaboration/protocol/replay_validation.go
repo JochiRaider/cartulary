@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -16,10 +15,10 @@ func ValidateReplayablePayload(incidentID uuid.UUID, family string, payload json
 	if incidentID == uuid.Nil {
 		return errors.New("replayable payload incident identity is invalid")
 	}
-	var object map[string]json.RawMessage
-	if len(payload) == 0 || json.Unmarshal(payload, &object) != nil || object == nil {
-		return errors.New("replayable payload must be a JSON object")
+	if err := validateReplayablePayloadShape(family, payload); err != nil {
+		return err
 	}
+
 	switch family {
 	case "record_changed":
 		if err := validateRecordChangedPayload(payload); err != nil {
@@ -27,16 +26,31 @@ func ValidateReplayablePayload(incidentID uuid.UUID, family string, payload json
 		}
 	case "job_progress":
 		var progress JobProgressPayload
-		if err := json.Unmarshal(payload, &progress); err != nil {
+		var scope, counters json.RawMessage
+		if err := decodeKnownPayloadFields(payload, payloadField{"job_id", &progress.JobID}, payloadField{"scope", &scope}, payloadField{"status", &progress.Status}, payloadField{"progress", &counters}, payloadField{"updated_at", &progress.UpdatedAt}); err != nil {
 			return fmt.Errorf("invalid job_progress payload: %w", err)
+		}
+		if err := decodeKnownPayloadFields(scope, payloadField{"kind", &progress.Scope.Kind}, payloadField{"incident_id", &progress.Scope.IncidentID}); err != nil {
+			return err
+		}
+		if err := decodeKnownPayloadFields(counters, payloadField{"completed", &progress.Progress.Completed}, payloadField{"total", &progress.Progress.Total}); err != nil {
+			return err
 		}
 		if err := ValidateIncidentJobProgressPayload(incidentID, progress); err != nil {
 			return fmt.Errorf("invalid job_progress payload: %w", err)
 		}
 	case "extension_resource_changed":
 		var change ExtensionResourceChangePayload
-		if err := json.Unmarshal(payload, &change); err != nil {
+		var refs []json.RawMessage
+		if err := decodeKnownPayloadFields(payload, payloadField{"extension_profile_id", &change.ExtensionProfileID}, payloadField{"resource_kind", &change.ResourceKind}, payloadField{"resource_id", &change.ResourceID}, payloadField{"change_kind", &change.ChangeKind}, payloadField{"reason_code", &change.ReasonCode}, payloadField{"workspace_refs", &refs}); err != nil {
 			return fmt.Errorf("invalid extension_resource_changed payload: %w", err)
+		}
+		for _, raw := range refs {
+			var ref ExtensionWorkspaceRef
+			if err := decodeKnownPayloadFields(raw, payloadField{"kind", &ref.Kind}, payloadField{"extension_profile_id", &ref.ExtensionProfileID}, payloadField{"workspace_key", &ref.WorkspaceKey}); err != nil {
+				return err
+			}
+			change.WorkspaceRefs = append(change.WorkspaceRefs, ref)
 		}
 		if err := ValidateExtensionResourceChangePayload(change); err != nil {
 			return fmt.Errorf("invalid extension_resource_changed payload: %w", err)
@@ -64,13 +78,9 @@ func ValidateSequencedReplayableMessage(message Message) error {
 	if message.StreamSeq == nil || *message.StreamSeq < 1 {
 		return errors.New("sequenced replayable stream sequence is invalid")
 	}
-	emittedAt, err := time.Parse(time.RFC3339Nano, message.EmittedAt)
+	emittedAt, err := parseUTCInstant(message.EmittedAt)
 	if err != nil || emittedAt.IsZero() {
 		return errors.New("sequenced replayable emitted_at is invalid")
-	}
-	_, offsetSeconds := emittedAt.Zone()
-	if offsetSeconds != 0 {
-		return errors.New("sequenced replayable emitted_at must be UTC")
 	}
 	return ValidateReplayablePayload(incidentID, message.Type, message.Payload)
 }

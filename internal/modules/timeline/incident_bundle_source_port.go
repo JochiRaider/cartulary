@@ -6,10 +6,10 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func NewIncidentBundleSourcePort() sourceport.Port {
+	binding := &timelinePreparationBinding{contractMajor: sourceport.ContractMajor}
 	descriptor := sourceport.Descriptor{
 		FamilyID: "timeline", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.timeline", OwnerRelationIDs: []string{"timeline-source"},
@@ -25,17 +25,40 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			"timeline.paired_time_coherent", "timeline.provenance_unique",
 			"timeline.provenance_non_orphaned",
 			"timeline.source_identity_admitted",
+			"timeline.profile_coherent", "timeline.profile_attribution_exact", "timeline.profile_state_exact",
+			"timeline.event_attribution_exact", "timeline.event_state_exact",
+			"timeline.provenance_coherent", "timeline.provenance_state_exact",
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: ExportIncidentBundleFiles,
 		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareMembers(ctx, descriptor, bundle, importContext.BundleVersion)
+			return prepareTimelineImport(ctx, bundle, importContext, descriptor, binding)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			return ImportIncidentBundleFilesTx(ctx, tx, value.(*incidentportability.BoundMembers), importContext.BundleVersion, importContext.ActorUserID, importContext.Attributions)
+			prepared, ok := value.(preparedTimelineImport)
+			if !ok || !prepared.matches(importContext, binding) || tx == nil {
+				return sourceport.ErrPreparedBinding
+			}
+			if err := prepared.preflightEvents(ctx, tx, descriptor); err != nil {
+				return err
+			}
+			if err := prepared.applyProfile(ctx, tx, importContext, descriptor); err != nil {
+				return err
+			}
+			if err := prepared.applyEvents(ctx, tx, importContext, descriptor); err != nil {
+				return err
+			}
+			return prepared.applyProvenance(ctx, tx, descriptor)
 		},
-		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
+		Validate: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
+			prepared, ok := value.(preparedTimelineImport)
+			if !ok || !prepared.matches(importContext, binding) || tx == nil {
+				return sourceport.ErrPreparedBinding
+			}
+			if err := prepared.validateProfile(ctx, tx, importContext, descriptor); err != nil {
+				return err
+			}
 			var invalid bool
 			if err := tx.QueryRow(ctx, `
 SELECT EXISTS (
@@ -50,7 +73,10 @@ SELECT EXISTS (
 			if invalid {
 				return descriptor.DeclaredFailure("timeline.envelope_type_scope")
 			}
-			return nil
+			if err := prepared.validateEvents(ctx, tx, importContext, descriptor); err != nil {
+				return err
+			}
+			return prepared.validateProvenance(ctx, tx, descriptor)
 		},
 	})
 }

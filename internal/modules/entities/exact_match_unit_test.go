@@ -3,6 +3,8 @@ package entities_test
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -124,11 +126,16 @@ UPDATE identities
 					wantRecordID = hostFQDNRecordID
 				}
 				if tc.wantSelector != "hostname" {
+					wantCandidates := []uuid.UUID{hostFQDNRecordID, hostHostnameRecordID}
+					if tc.wantSelector == "aad" {
+						wantCandidates = append(wantCandidates, hostAADRecordID)
+					}
+					slices.SortFunc(wantCandidates, func(a, b uuid.UUID) int { return strings.Compare(a.String(), b.String()) })
 					var conflict *hostidentity.ExactMatchConflictError
 					if !errors.As(err, &conflict) || conflict.IdentifierClass != map[string]string{
 						"aad":  "aad_device_id",
 						"fqdn": "fqdn",
-					}[tc.wantSelector] || len(conflict.CandidateRecords) < 2 {
+					}[tc.wantSelector] || !slices.Equal(conflict.CandidateRecords, wantCandidates) {
 						t.Fatalf("host cross-record match error = %#v, want ordered conflict", err)
 					}
 					return
@@ -237,13 +244,24 @@ UPDATE identities
 					wantRecordID = identityEmailRecordID
 				}
 				if tc.wantSelector != "sam" {
+					candidatesByClass := map[string]uuid.UUID{
+						"aad_object_id": identityAADRecordID, "sid": identitySIDRecordID,
+						"upn": identityUPNRecordID, "email": identityEmailRecordID, "sam_account_name": identitySAMRecordID,
+					}
+					var wantCandidates []uuid.UUID
+					for field, id := range candidatesByClass {
+						if _, supplied := tc.values["identity."+field]; supplied {
+							wantCandidates = append(wantCandidates, id)
+						}
+					}
+					slices.SortFunc(wantCandidates, func(a, b uuid.UUID) int { return strings.Compare(a.String(), b.String()) })
 					var conflict *hostidentity.ExactMatchConflictError
 					if !errors.As(err, &conflict) || conflict.IdentifierClass != map[string]string{
 						"aad":   "aad_object_id",
 						"sid":   "sid",
 						"upn":   "upn",
 						"email": "email",
-					}[tc.wantSelector] || len(conflict.CandidateRecords) < 2 {
+					}[tc.wantSelector] || !slices.Equal(conflict.CandidateRecords, wantCandidates) {
 						t.Fatalf("identity cross-record match error = %#v, want ordered conflict", err)
 					}
 					return

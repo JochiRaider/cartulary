@@ -44,32 +44,59 @@ describe("Workbook import typed transport", () => {
     vi.spyOn(document, "cookie", "get").mockReturnValue(
       "cartulary_csrf=csrf-test",
     );
+    const randomUUID = vi
+      .fn()
+      .mockReturnValueOnce("123e4567-e89b-42d3-a456-426614174000")
+      .mockReturnValueOnce("123e4567-e89b-42d3-a456-426614174001");
+    vi.stubGlobal("crypto", {
+      randomUUID,
+      getRandomValues: () => {
+        throw new Error("Unexpected fallback entropy request");
+      },
+    });
+    const fileBytes = new Uint8Array([0x00, 0xff, 0x0d, 0x0a, 0x61]);
+    const expectedMetadata = {
+      incident_id: ids.incident,
+      assistant_profile: "workbook_import_v1",
+      client_txn_id:
+        "workbook-import-upload-123e4567-e89b-42d3-a456-426614174000",
+    };
     const attempt = captureWorkbookUpload(
       importTestScope,
-      new File(["original bytes"], "one.csv", { type: "invalid/type" }),
+      new File([fileBytes], "one.csv", { type: "invalid/type" }),
     );
     const service = client();
     expect((await service.send(attempt, signal())).kind).toBe("accepted");
     expect((await service.send(attempt, signal(), true)).kind).toBe("accepted");
-    const bodies = fetch.mock.calls.map((call) => call[1].body as FormData);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(randomUUID).toHaveBeenCalledOnce();
     const read = (blob: Blob) =>
-      new Promise((resolve) => {
+      new Promise<ArrayBuffer>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.readAsText(blob);
+        reader.onload = () => resolve(reader.result as ArrayBuffer);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsArrayBuffer(blob);
       });
-    expect(await read(bodies[0]?.get("file") as Blob)).toBe("original bytes");
-    expect(await read(bodies[1]?.get("metadata") as Blob)).toBe(
-      await read(bodies[0]?.get("metadata") as Blob),
-    );
+    for (const [, request] of fetch.mock.calls) {
+      const body = request.body as FormData;
+      const file = body.get("file") as File;
+      expect(new Uint8Array(await read(file))).toEqual(fileBytes);
+      expect(file.type).toBe("application/octet-stream");
+      expect(
+        JSON.parse(
+          new TextDecoder().decode(await read(body.get("metadata") as Blob)),
+        ),
+      ).toEqual(expectedMetadata);
+      expect(new Headers(request.headers).get("X-CSRF-Token")).toBe(
+        "csrf-test",
+      );
+    }
     expect(attempt.file.type).toBe("application/octet-stream");
-    expect(
-      new Headers(fetch.mock.calls[0]?.[1].headers).get("X-CSRF-Token"),
-    ).toBe("csrf-test");
     expect(
       captureWorkbookUpload(importTestScope, new File(["new"], "two.csv"))
         .metadata.client_txn_id,
     ).not.toBe(attempt.metadata.client_txn_id);
+    expect(randomUUID).toHaveBeenCalledTimes(2);
   });
 
   it("separates acceptance from resource loading and retains complete selection receipts", async () => {

@@ -17,6 +17,7 @@ import (
 func TestEnvelopeStoreContract_Integration(t *testing.T) {
 	ctx := context.Background()
 	db := pgtest.Start(t).BeginRollbackDBT(t, "records-envelope-store-contract")
+	t.Run("bounded incident inventory", func(t *testing.T) { exerciseIncidentRecordEnumeration(t, db) })
 	actorID, incidentID := seedEnvelopeOwnerContext(t, db, "envelope-store")
 	store := NewStore()
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})

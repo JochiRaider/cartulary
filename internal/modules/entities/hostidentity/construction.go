@@ -21,11 +21,14 @@ var (
 
 type Store struct {
 	*mutationCore
-	pool             dbport.DB
-	authStore        *authn.Store
-	incidentAccess   *admission.Checker
-	keepSaved        conflicts.IdempotencyPort
-	projectionReader projectionports.QueryReader
+	pool              dbport.DB
+	authStore         *authn.Store
+	incidentAccess    *admission.Checker
+	conflictTokens    conflicts.ConflictTokenCodec
+	conflictFields    conflicts.FieldResolver
+	conflictSnapshots map[string]conflicts.RevisionSnapshotProjector
+	keepSaved         conflicts.IdempotencyPort
+	projectionReader  projectionports.QueryReader
 }
 
 type mutationCore struct {
@@ -35,6 +38,8 @@ type mutationCore struct {
 }
 
 type StoreDependencies struct {
+	ConflictTokens         conflicts.ConflictTokenCodec
+	ConflictFields         conflicts.FieldResolver
 	Postgres               dbport.DB
 	Revisions              *revisions.Appender
 	ProjectionMutationRows projectionports.MutationRows
@@ -53,13 +58,22 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 		{name: "ProjectionMutationRows", value: dependencies.ProjectionMutationRows},
 		{name: "ProjectionQueryReader", value: dependencies.ProjectionQueryReader},
 		{name: "KeepSavedIdempotency", value: dependencies.KeepSavedIdempotency},
+		{name: "ConflictFields", value: dependencies.ConflictFields},
 		{name: "Collaboration", value: dependencies.Collaboration},
 	} {
 		if isNilStoreDependency(dependency.value) {
 			return nil, fmt.Errorf("compose Host/Identity store: %s is required", dependency.name)
 		}
 	}
+	if reflect.ValueOf(dependencies.ConflictTokens).IsZero() {
+		return nil, fmt.Errorf("compose Host/Identity store: ConflictTokens is required")
+	}
+	snapshots, err := newEntityConflictSnapshotProjectors()
+	if err != nil {
+		return nil, err
+	}
 	return &Store{
+		conflictTokens: dependencies.ConflictTokens, conflictFields: dependencies.ConflictFields, conflictSnapshots: snapshots,
 		mutationCore:     newMutationCore(dependencies.Revisions, dependencies.ProjectionMutationRows, dependencies.Collaboration),
 		pool:             dependencies.Postgres,
 		authStore:        authn.NewStore(dependencies.Postgres),

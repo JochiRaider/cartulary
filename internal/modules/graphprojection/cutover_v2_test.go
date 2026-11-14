@@ -247,8 +247,10 @@ func checkSingleValueWorkV2(t *testing.T) {
 		if calls-baseline < count/graphProjectionLimits.CancellationCheckIntervalItems {
 			t.Fatalf("contributor loop skipped checkpoints: %d versus %d", calls, baseline)
 		}
+		aggregateCount := 0
 		for _, v := range r.Vertices {
 			if v.VertexKind == "summary" {
+				aggregateCount++
 				values := v.Properties
 				if metadata {
 					values = v.Metadata.MappedMetadata
@@ -257,6 +259,9 @@ func checkSingleValueWorkV2(t *testing.T) {
 					t.Fatal("missing aggregate default")
 				}
 			}
+		}
+		if aggregateCount != 1 {
+			t.Fatalf("default-value aggregate witnesses = %d, want 1", aggregateCount)
 		}
 		// The last callback closes the projection. The preceding periodic callbacks
 		// traverse this single group's contributors after collection has completed.

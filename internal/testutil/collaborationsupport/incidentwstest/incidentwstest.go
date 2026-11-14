@@ -85,7 +85,7 @@ func ConnectAndHello(t testing.TB, serverURL string, incidentID string, options 
 	defer cancel()
 
 	if err := rawClient.WriteJSON(ctx, platformws.Message{
-		Type: "hello",
+		Type: "hello", IncidentID: incidentID, EmittedAt: time.Now().UTC().Format(time.RFC3339Nano),
 		Payload: collabtestprotocol.RawPayload(t, map[string]any{
 			"client_instance_id": options.ClientInstanceID,
 			"presence":           options.Presence,
@@ -129,7 +129,7 @@ func ConnectAndResume(t testing.TB, serverURL string, incidentID string, options
 	defer cancel()
 
 	if err := rawClient.WriteJSON(ctx, platformws.Message{
-		Type: "resume",
+		Type: "resume", IncidentID: incidentID, EmittedAt: time.Now().UTC().Format(time.RFC3339Nano),
 		Payload: collabtestprotocol.RawPayload(t, map[string]any{
 			"client_instance_id":   options.ClientInstanceID,
 			"resume_token":         resumeToken,
@@ -236,7 +236,11 @@ func RequireDialRejectedStatus(t testing.TB, serverURL string, incidentID string
 	}
 }
 
+// Send supplies the envelope owned by this incident-bound client. Raw transport
+// tests use wstest directly when exercising invalid envelopes.
 func (c *Client) Send(ctx context.Context, message platformws.Message) error {
+	message.IncidentID = c.incidentID
+	message.EmittedAt = time.Now().UTC().Format(time.RFC3339Nano)
 	return c.raw.WriteJSON(ctx, message)
 }
 

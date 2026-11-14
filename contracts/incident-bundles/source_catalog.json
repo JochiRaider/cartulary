@@ -161,7 +161,14 @@
         "timeline.paired_time_coherent",
         "timeline.provenance_unique",
         "timeline.provenance_non_orphaned",
-        "timeline.source_identity_admitted"
+        "timeline.source_identity_admitted",
+        "timeline.profile_coherent",
+        "timeline.profile_attribution_exact",
+        "timeline.profile_state_exact",
+        "timeline.event_attribution_exact",
+        "timeline.event_state_exact",
+        "timeline.provenance_coherent",
+        "timeline.provenance_state_exact"
       ]
     },
     {
@@ -400,12 +407,16 @@
         }
       ],
       "invariant_ids": [
+        "artifacts.source_identity_admitted",
+        "artifacts.row_shape_exact",
         "artifacts.envelope_type_scope",
         "artifacts.subtype_exact",
         "artifacts.lifecycle_fields_legal",
         "artifacts.handoff_risk_target",
+        "artifacts.handoff_risk_legal",
         "artifacts.references_same_incident",
-        "artifacts.source_identity_admitted"
+        "artifacts.attribution_exact",
+        "artifacts.source_state_exact"
       ]
     },
     {
@@ -443,6 +454,8 @@
       ],
       "invariant_ids": [
         "tasks_decisions.envelope_type_scope",
+        "tasks_decisions.source_state_exact",
+        "tasks_decisions.attribution_exact",
         "tasks_decisions.lifecycle_legal",
         "tasks_decisions.dependent_fields_legal",
         "tasks_decisions.references_same_incident",
@@ -502,7 +515,11 @@
         "evidence.staged_bytes_digest",
         "evidence.custody_ordered",
         "evidence.custody_same_incident",
-        "evidence.source_identity_admitted"
+        "evidence.source_identity_admitted",
+        "evidence.row_shape_exact",
+        "evidence.attribution_exact",
+        "evidence.source_state_exact",
+        "evidence.references_same_incident"
       ]
     },
     {
@@ -528,10 +545,13 @@
         }
       ],
       "invariant_ids": [
+        "assessments.source_identity_admitted",
+        "assessments.row_shape_exact",
         "assessments.subject_type_scope",
         "assessments.state_confidence_rationale_legal",
         "assessments.timestamps_lifecycle_legal",
-        "assessments.source_identity_admitted"
+        "assessments.attribution_exact",
+        "assessments.source_state_exact"
       ]
     },
     {
@@ -602,7 +622,7 @@
         {
           "logical_path": "data/change_sets.ndjson",
           "content_role": "source_rows",
-          "schema_id": "cartulary.incident_bundle.change_sets.row.v1",
+          "schema_id": "cartulary.incident_bundle.change_sets.row.v3",
           "versions": [
             8
           ],
@@ -639,6 +659,7 @@
       ],
       "invariant_ids": [
         "revisions.references_complete",
+        "revisions.source_state_exact",
         "revisions.actor_references_complete",
         "revisions.mutation_sequence_contiguous",
         "revisions.record_version_unique",
@@ -692,7 +713,6 @@
       ],
       "invariant_ids": [
         "actors.reference_complete",
-        "actors.unique",
         "actors.inert"
       ]
     },
@@ -725,7 +745,7 @@
       ]
     },
     {
-      "family_id": "committed_source_blobs",
+      "family_id": "committed_sources",
       "owner_id": "module.imports",
       "logical_path": "sources/sha256/**",
       "versions": [

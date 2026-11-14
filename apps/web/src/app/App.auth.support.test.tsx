@@ -138,8 +138,6 @@ describe("ordinary shell support", () => {
     ).toBeTruthy();
     expect(screen.getByTestId(authTestId("shell-message"))).toBeTruthy();
     expect(screen.getByTestId(authTestId("feedback"))).toBeTruthy();
-    expect(screen.getByTestId(authTestId("feedback"))).toBeTruthy();
-    expect(screen.getByTestId(authTestId("feedback"))).toBeTruthy();
   });
 
   it("loads, filters, selects, and pages deployment users", async () => {

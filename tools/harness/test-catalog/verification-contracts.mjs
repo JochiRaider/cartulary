@@ -1,20 +1,16 @@
-import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 import {
-  parseStrictJSON,
+  assertMachineEvidencePath,
   semanticJSONDigest,
   validateSchemaSync,
 } from "../contract/index.mjs";
+import { inspectExecutableRepositoryPath, readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 
 const registrySchemaID = "cartulary.verification_registry.v3";
 const contractSchemaID = "cartulary.verification_contract.v3";
 const registryPath = "contracts/verification/registry.json";
 const contractRootPath = "contracts/verification/owners";
-
-function readJSON(file) {
-  return parseStrictJSON(readFileSync(file, "utf8"), file);
-}
 
 function assertSortedUnique(values, label) {
   const sorted = [...values].sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
@@ -27,24 +23,14 @@ function assertSortedUnique(values, label) {
 }
 
 function assertContainedRegularFile(root, relativeFile, expectedRoot, label) {
-  if (path.isAbsolute(relativeFile)) {
-    throw new Error(`${label} must be repository-relative`);
+  if (path.isAbsolute(relativeFile) || relativeFile.includes("\\") || path.posix.normalize(relativeFile) !== relativeFile) {
+    throw new Error(`${label} must be normalized and repository-relative`);
   }
+  if (!relativeFile.startsWith(`${expectedRoot}/`)) throw new Error(`${label} escapes ${expectedRoot}`);
   const candidate = path.resolve(root, relativeFile);
-  const containmentRoot = realpathSync(path.resolve(root, expectedRoot));
-  const resolved = realpathSync(candidate);
-  if (
-    resolved !== containmentRoot &&
-    !resolved.startsWith(`${containmentRoot}${path.sep}`)
-  ) {
-    throw new Error(`${label} escapes ${expectedRoot}`);
-  }
-  if (!lstatSync(candidate).isFile()) {
-    throw new Error(`${label} must reference a regular file`);
-  }
-  if (lstatSync(candidate).isSymbolicLink()) {
-    throw new Error(`${label} must not reference a symbolic link`);
-  }
+  assertMachineEvidencePath(candidate);
+  const admitted = inspectExecutableRepositoryPath(root, relativeFile);
+  if (!admitted?.stat.isFile()) throw new Error(`${label} must reference a non-symlink regular file`);
   return candidate;
 }
 
@@ -74,10 +60,9 @@ function validateProfile(verification, label) {
 }
 
 export function loadVerificationContracts(root) {
-  const registryFile = path.join(root, registryPath);
-  const registry = readJSON(registryFile);
+  const registry = readExecutableRepositoryJSON(root, registryPath);
   validateSchemaSync(registrySchemaID, registry);
-  const surface = readJSON(path.join(root, "tools/task_surface_owner.json"));
+  const surface = readExecutableRepositoryJSON(root, "tools/task_surface_owner.json");
   const publicTargets = new Set(surface.targets.filter((entry) => entry.target_class === "public" && entry.lifecycle_state === "public_active").map((entry) => entry.name));
 
   const ownerIDs = registry.owners.map((entry) => entry.owner_id);
@@ -94,7 +79,7 @@ export function loadVerificationContracts(root) {
       contractRootPath,
       `${registryPath}:${owner.owner_id}.contract_path`,
     );
-    const contract = readJSON(file);
+    const contract = readExecutableRepositoryJSON(root, path.relative(root, file));
     validateSchemaSync(contractSchemaID, contract);
     if (contract.owner_id !== owner.owner_id) {
       throw new Error(

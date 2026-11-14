@@ -312,10 +312,18 @@ func checkEdgeIdentitiesV2(t *testing.T) {
 	m["mapping_rule_id"] = "映射"
 	input["source_relationships"].([]any)[0].(map[string]any)["source_relationship_id"] = "雪"
 	r := project(input)
+	reverseCount := 0
 	for _, e := range r.Edges {
-		if e.EdgeFamily == "reverse" && (e.EdgeID != "ed_16c5abe16b3904238f7d765346bbaca3107485f9af82ab4af1f756987bdb4560" || e.SortKey != "sk_e1db3e3469842c4fecf158dd4795fdb6c8364578d80124c2febfb078f4c87157") {
+		if e.EdgeFamily != "reverse" {
+			continue
+		}
+		reverseCount++
+		if e.EdgeID != "ed_16c5abe16b3904238f7d765346bbaca3107485f9af82ab4af1f756987bdb4560" || e.SortKey != "sk_e1db3e3469842c4fecf158dd4795fdb6c8364578d80124c2febfb078f4c87157" {
 			t.Fatal("multibyte reverse transcript")
 		}
+	}
+	if len(r.Edges) != 2 || reverseCount != 1 {
+		t.Fatalf("multibyte edge witnesses = %d edges/%d reverse, want 2/1", len(r.Edges), reverseCount)
 	}
 	m["emit_reverse_edge"] = false
 	delete(m, "reverse_edge_kind")

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/textpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -124,13 +125,20 @@ func decodeEvidenceValue(
 	if json.Unmarshal(raw, &rawText) != nil {
 		return FieldValue{}, nil, newAdmissionFailure(fieldKey, admissionInvalidValue)
 	}
-	var normalized string
-	var ok bool
-	if field.StringContractID != nil && *field.StringContractID == "multiline_body_v1" {
-		normalized, ok = fieldnorm.NormalizeNote(rawText)
-	} else {
-		normalized, ok = fieldnorm.NormalizeLine(rawText)
+	if field.StringContractID != nil {
+		normalized, valid := textpolicy.Normalize(rawText, *field.StringContractID)
+		if !valid {
+			return FieldValue{}, nil, newAdmissionFailure(fieldKey, admissionInvalidValue)
+		}
+		if normalized == "" {
+			if field.Clearable {
+				return FieldValue{}, nil, nil
+			}
+			return FieldValue{}, nil, newAdmissionFailure(fieldKey, admissionInvalidValue)
+		}
+		return FieldValue{Text: &normalized}, normalized, nil
 	}
+	normalized, ok := fieldnorm.NormalizeLine(rawText)
 	if !ok {
 		return FieldValue{}, nil, newAdmissionFailure(fieldKey, admissionInvalidValue)
 	}

@@ -22,7 +22,7 @@ type MentionResolutionResult struct {
 }
 
 func (s *Store) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, fieldKey string, mentionID uuid.UUID, resolvedRecordID *uuid.UUID, now time.Time) (MentionResolutionResult, error) {
-	mention, err := loadMentionActionRecordTx(ctx, tx, mentionID)
+	mention, err := s.prepareMentionActionRecordTx(ctx, tx, mentionID, &sourceRecordID, fieldKey, resolvedRecordID)
 	if err != nil {
 		return MentionResolutionResult{}, err
 	}
@@ -40,7 +40,7 @@ func (s *Store) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, act
 	)
 	switch mention.EntityType {
 	case "host":
-		target, err := validateMentionResolvedTargetTx(ctx, tx, actor.ID, mention.IncidentID, mention.EntityType, *resolvedRecordID)
+		target, err := s.validateMentionResolvedTargetTx(ctx, tx, actor.ID, mention.IncidentID, mention.EntityType, *resolvedRecordID, mention.ResolvedRecordID)
 		if err != nil {
 			return MentionResolutionResult{}, err
 		}
@@ -50,7 +50,7 @@ func (s *Store) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, act
 			RecordID:   target.RecordID,
 		}
 	case "identity":
-		target, err := validateMentionResolvedTargetTx(ctx, tx, actor.ID, mention.IncidentID, mention.EntityType, *resolvedRecordID)
+		target, err := s.validateMentionResolvedTargetTx(ctx, tx, actor.ID, mention.IncidentID, mention.EntityType, *resolvedRecordID, mention.ResolvedRecordID)
 		if err != nil {
 			return MentionResolutionResult{}, err
 		}

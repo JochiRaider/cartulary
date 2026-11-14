@@ -83,6 +83,13 @@ const value = {
     },
     {
       "exclude_source": false,
+      "field_key": "evidence.owner_user_id",
+      "kind": "direct",
+      "target_domain": "incident_member",
+      "view_schema_id": "cartulary.view.evidence.v1"
+    },
+    {
+      "exclude_source": false,
       "field_key": "evidence.source_party_id",
       "kind": "direct",
       "target_domain": "party",

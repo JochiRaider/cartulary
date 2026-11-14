@@ -102,6 +102,15 @@ MUST NOT invent broader authority. File identity is not a capability boundary.
 | Indicators | The bounded source-owner root orchestrates create, observation, transition, lifecycle and list behavior. Owner-local admission and HTTP adapters may import root contracts; private source-state, identity, origin and vocabulary packages may not. Assembly injects Auth, Incidents, Records, Revisions and projection capabilities; construction rejects missing or typed-nil required dependencies without fallback or partial success. |
 | Collaboration | The runtime facade composes private protocol, route/hub, stream store and dispatcher capabilities; recovery and test support remain separate capabilities. Source owners independently supply Revisions facts and public Collaboration effects through separate consumer ports in one borrowed transaction. Neither consumer derives from or imports the other's representation. Collaboration is an implementation capability, not a new domain context. |
 
+Tasks/Decisions inverse providers MUST obtain current Link relation facts through
+narrow Links-owned capabilities adapted by application assembly. Their local SQL
+may read and update their own source tuples; it MUST NOT independently query the
+active Link view or authoritative relation tables to reconstruct those facts.
+Decision inverse lifecycle counts use the supplied active supersession facts in
+the borrowed transaction. A fact-read failure propagates before source mutation,
+without fallback, partial facts or relation repair. Retained-value admission and
+the source owner's lifecycle machine remain authoritative.
+
 Borrowed transactions MUST NOT be begun, committed, rolled back, nested or
 detached by participants. Source owners retain source meaning and admission;
 application composition does not transfer that authority. Runtime-excluded test
@@ -526,7 +535,7 @@ Contract tables. The tables in §3.3.2 through §3.3.2.2 are the compact owner-l
 | `POST /api/v1/auth/logout` | Current authenticated session | No route-specific request members are declared in the current profile | No create-time defaults apply | Revokes only the current session; later use of that session fails through ordinary auth | Revokes the current session immediately and emits `session_revoked` to any accepted WebSocket on that session | Ordinary auth failures |
 | `GET /api/v1/auth/session` | Current authenticated session | Singleton read; no body members | Pagination members are rejected with `invalid_pagination_request` and `reason_code=pagination_not_supported` | Read route | Returns one session resource | Ordinary auth failures; `invalid_pagination_request` |
 | `GET /api/v1/auth/credential-state` | Current authenticated session | Singleton read; no body members | Pagination members are rejected; `bootstrap_token` is not allowed on this route | Read route | Returns one safe credential-state resource | Ordinary auth failures; `credential_bootstrap_rejected`; `invalid_pagination_request` |
-| `POST /api/v1/auth/password/change` | Current authenticated session for the addressed current user | Required `client_txn_id`, `current_password`, `new_password`; optional `second_factor` | `second_factor` is optional only when no active TOTP credential exists; omitted or empty `reason` is not part of this route | Route-scoped idempotency within `(actor_user_id, client_txn_id)` | Updates password state, stamps `password.changed_at`, revokes all active sessions for the user, and returns safe success data including `sessions_revoked=true` | `invalid_current_password`, `invalid_second_factor`, `client_txn_conflict`, ordinary malformed-request failures |
+| `POST /api/v1/auth/password/change` | Current authenticated session for the addressed current user | Required `client_txn_id`, `current_password`, `new_password`; optional `second_factor` | `second_factor` is optional only when no active TOTP credential exists; omitted or empty `reason` is not part of this route | Route-scoped idempotency within `(actor_user_id, client_txn_id)`; committed replay returns the original result without new session or cookie effects | First execution updates password state, stamps `password.changed_at`, revokes all active sessions for the user, and returns safe success data including `sessions_revoked=true` | `invalid_current_password`, `invalid_second_factor`, `client_txn_conflict`, ordinary malformed-request failures |
 | `POST /api/v1/auth/mfa/totp/begin` | Exactly one of current authenticated session or valid `bootstrap_token` | Required `client_txn_id`; replacement under current-session auth also requires `current_password` and `second_factor` when one active factor already exists | No factor-less replacement path exists when one active TOTP credential is present | Idempotent within the same auth scope and `client_txn_id`; replay returns the original pending enrollment and seed material while pending | Returns `enrollment_id`, `expires_at`, and `totp_setup` with the seed material and fixed TOTP parameters | `credential_bootstrap_rejected`, `invalid_second_factor`, `client_txn_conflict`, ordinary malformed-request failures |
 | `POST /api/v1/auth/mfa/totp/complete` | Exactly one of current authenticated session or valid `bootstrap_token`, matching the begin route auth mode | Required `client_txn_id`, `enrollment_id`, and `code` | First-time bootstrap completion never auto-issues a session | Route-scoped idempotency uses the same auth scope discipline as begin; a stale or different replay fails rather than creating a second activation | Activates the pending TOTP secret, clears pending setup, consumes any bootstrap token used for the flow, and revokes all sessions only when replacing an existing factor | `totp_setup_not_pending`, `credential_bootstrap_rejected`, `client_txn_conflict`, ordinary malformed-request failures |
 
@@ -873,7 +882,7 @@ Contract tables. The tables in §3.3.2.2 compact the credential-state, password-
 
 | Route | Required members | Additional required conditions | Replay and idempotency | Success summary | Primary failures |
 | --- | --- | --- | --- | --- | --- |
-| `POST /api/v1/auth/mfa/totp/begin` | `client_txn_id` | Exactly one auth mode: current session or valid `bootstrap_token`; current-session replacement requires `current_password` and `second_factor` when one active TOTP credential exists | Replay within the same auth scope and `client_txn_id` returns the original pending enrollment and seed while pending | Returns `enrollment_id`, `expires_at`, and `totp_setup` with `secret_base32`, `otpauth_uri`, `algorithm='SHA256'`, `digits=6`, and `period_seconds=30` | `credential_bootstrap_rejected`, `invalid_second_factor`, `client_txn_conflict`, ordinary malformed-request failures |
+| `POST /api/v1/auth/mfa/totp/begin` | `client_txn_id` | Exactly one auth mode: current session or valid `bootstrap_token`; current-session replacement requires `current_password` and `second_factor` when one active TOTP credential exists | Replay within the same currently valid auth scope and `client_txn_id` returns the original pending enrollment and seed while pending; password/TOTP proofs authorize fresh creation only | Returns `enrollment_id`, `expires_at`, and `totp_setup` with `secret_base32`, `otpauth_uri`, `algorithm='SHA256'`, `digits=6`, and `period_seconds=30` | `credential_bootstrap_rejected`, `invalid_second_factor`, `client_txn_conflict`, ordinary malformed-request failures |
 | `POST /api/v1/auth/mfa/totp/complete` | `client_txn_id`, `enrollment_id`, `code` | Exactly one auth mode and it MUST match the begin route auth mode; `code` is exactly six ASCII decimal digits | Same auth-scope discipline as begin; stale or different replay does not create a second activation | Activates the pending TOTP secret, clears pending setup, consumes any bootstrap token used for the flow, and revokes all active sessions only when replacing an existing factor; first-time bootstrap completion never auto-issues a session | `totp_setup_not_pending`, `credential_bootstrap_rejected`, `client_txn_conflict`, ordinary malformed-request failures |
 
 **Table 3.3.2.2-E. Auth-family error and reason summary**
@@ -901,12 +910,12 @@ Profiles: base
 Verified by: AC-335, AC-339
 
 **REQ-01-524**
-`POST /api/v1/auth/password/change` MUST be session-authenticated and current-user scoped. The request body MUST be a JSON object and MUST accept required `client_txn_id`, required `current_password`, required `new_password`, and optional `second_factor`. `new_password` is bound to `string_contract_id=local_password_provision_v1`. `current_password` MUST be a non-null JSON string and MUST be verified using the same exact post-JSON-decoding code-point equality and UTF-8-without-BOM substrate used for local login-password verification. If the current account has one active TOTP credential, the request MUST also include `second_factor` using the same `kind='totp'` assertion shape as `POST /api/v1/auth/login`; omission or a structurally valid but wrong or expired TOTP code MUST fail with `401` and `error.code = invalid_second_factor`. A structurally valid `current_password` that does not match the current stored local password MUST fail with `409` and `error.code = invalid_current_password`. On success the server MUST update `password_hash`, stamp `password.changed_at`, revoke all active sessions for that user including the current session, and return the common success envelope with at least `user_id`, `password.changed_at`, and `sessions_revoked=true`. The route MUST use `client_txn_id` as a route-scoped idempotency key within `(actor_user_id, client_txn_id)`. Normalized replay comparison for this route MUST include exact `current_password`, exact `new_password`, and the normalized `second_factor` payload when supplied. Exact replay of a previously committed success MUST return `200 OK` with the original committed success payload before any fresh state evaluation runs. Reuse of the same route-scoped key with a different normalized request MUST fail with `409` and `error.code = client_txn_conflict`. Any deployment-local idempotency substrate for this route MUST NOT retain cleartext `current_password` or `new_password`.
+`POST /api/v1/auth/password/change` MUST be session-authenticated and current-user scoped. The request body MUST be a JSON object and MUST accept required `client_txn_id`, required `current_password`, required `new_password`, and optional `second_factor`. `new_password` is bound to `string_contract_id=local_password_provision_v1`. `current_password` MUST be a non-null JSON string and MUST be verified using the same exact post-JSON-decoding code-point equality and UTF-8-without-BOM substrate used for local login-password verification. If the current account has one active TOTP credential, the request MUST also include `second_factor` using the same `kind='totp'` assertion shape as `POST /api/v1/auth/login`; omission or a structurally valid but wrong or expired TOTP code MUST fail with `401` and `error.code = invalid_second_factor`. A structurally valid `current_password` that does not match the current stored local password MUST fail with `409` and `error.code = invalid_current_password`. On success the server MUST update `password_hash`, stamp `password.changed_at`, revoke all active sessions for that user including the current session, and return the common success envelope with at least `user_id`, `password.changed_at`, and `sessions_revoked=true`. The route MUST use `client_txn_id` as a route-scoped idempotency key within `(actor_user_id, client_txn_id)`. Normalized replay comparison for this route MUST include exact `current_password`, exact `new_password`, and the normalized `second_factor` payload when supplied. Exact replay of a previously committed success MUST return `200 OK` with the original committed success payload before any fresh state evaluation runs. Reuse of the same route-scoped key with a different normalized request MUST fail with `409` and `error.code = client_txn_conflict`. Any deployment-local idempotency substrate for this route MUST NOT retain cleartext `current_password` or `new_password`. A committed replay MUST NOT repeat credential mutation, session revocation or administrative audit effects, and MUST NOT clear or replace authentication cookies belonging to the session authenticating that replay. The original `sessions_revoked=true` describes the committed change; it does not revoke sessions established afterward. Current authentication and CSRF checks still precede replay.
 Profiles: base
 Verified by: AC-338, AC-339
 
 **REQ-01-525**
-`POST /api/v1/auth/mfa/totp/begin` MUST accept exactly one auth mode: either an authenticated current session or one valid `bootstrap_token`. The request body MUST be a JSON object and MUST accept required `client_txn_id`. When called with current-session auth and one existing active TOTP credential, it MUST also require `current_password` plus `second_factor` using the same TOTP assertion shape as the local-login route before issuing a replacement seed. On success it MUST return `enrollment_id`, `expires_at`, and a `totp_setup` object containing `secret_base32`, `otpauth_uri`, `algorithm='SHA256'`, `digits=6`, and `period_seconds=30`. `secret_base32` and `otpauth_uri` MUST appear only on this begin response and MUST NOT appear on later read routes, history payloads, WebSocket payloads, or safe user resources. For idempotency within the same auth scope and `client_txn_id`, replay of the same normalized request before enrollment expiry MUST return the original pending enrollment and the same seed material.
+`POST /api/v1/auth/mfa/totp/begin` MUST accept exactly one auth mode: either an authenticated current session or one valid `bootstrap_token`. The request body MUST be a JSON object and MUST accept required `client_txn_id`. When called with current-session auth and one existing active TOTP credential, it MUST also require `current_password` plus `second_factor` using the same TOTP assertion shape as the local-login route before issuing a replacement seed. On success it MUST return `enrollment_id`, `expires_at`, and a `totp_setup` object containing `secret_base32`, `otpauth_uri`, `algorithm='SHA256'`, `digits=6`, and `period_seconds=30`. `secret_base32` and `otpauth_uri` MUST appear only on this begin response and MUST NOT appear on later read routes, history payloads, WebSocket payloads, or safe user resources. TOTP begin identifies one pending setup by the exact auth scope and `client_txn_id`; the scope includes the specific session or bootstrap-token identity. After request-shape validation and current auth-scope validation, replay of that key while its enrollment remains pending and unexpired MUST return the original enrollment and identical seed material. `current_password` and `second_factor` are admission proofs for fresh creation, not replay-identity members; a matching pending replay MUST NOT require their resubmission or continued temporal validity, and implementations MUST NOT retain those proofs for replay comparison. A different key or auth scope while an enrollment remains pending MUST fail with `409` and `error.code = client_txn_conflict`. Concurrent matching begin requests MUST create at most one pending enrollment and one begin audit event, returning that enrollment to both callers. Fresh creation and replay MUST validate the current account and auth scope within the same serialization boundary as pending-enrollment admission; revoked, consumed, superseded or expired authority MUST NOT release seed material or create setup state. Fresh current-session replacement MUST validate the current password and active factor against the current credential state before committing a new pending enrollment. If an observed pending replay ceases to be valid before admission, the server MUST NOT silently create new setup state without fresh admission proofs. These rules do not make completion replayable after consumption.
 Profiles: base
 Verified by: AC-336, AC-339
 
@@ -973,8 +982,8 @@ Verified by: AC-429, AC-432
 
 The route MUST evaluate a valid request in this order:
 
-1. validate request shape, closed members, non-nullability, and string contracts;
-2. authorize the current authenticated session for the current actor only;
+1. authorize the current authenticated session for the current actor only and require valid cookie CSRF proof;
+2. validate request shape, closed members, non-nullability, and string contracts;
 3. check for an exact committed idempotency replay in the route scope `(actor_user_id, 'account.profile.patch', client_txn_id)`;
 4. reject the same route-scoped key with different normalized input using `409` and `error.code=client_txn_conflict`;
 5. reject a stale `base_user_version` using `409` and `error.code=user_version_conflict`;
@@ -1007,8 +1016,8 @@ Verified by: AC-431, AC-432
 
 The route MUST evaluate a valid request in this order:
 
-1. validate request shape, closed members, non-nullability, and closed density vocabulary;
-2. authorize the current authenticated session for the current actor only;
+1. authorize the current authenticated session for the current actor only and require valid cookie CSRF proof;
+2. validate request shape, closed members, non-nullability, and closed density vocabulary;
 3. check for an exact committed idempotency replay in the route scope `(actor_user_id, 'account.preferences.put', client_txn_id)`;
 4. reject the same route-scoped key with different normalized input using `409` and `error.code=client_txn_conflict`;
 5. reject a stale `base_preferences_version` using `409` and `error.code=preferences_version_conflict`;
@@ -1892,7 +1901,12 @@ Profiles: base
 Verified by: AC-444, AC-449, AC-451
 
 **REQ-01-612**
-`PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` MUST accept only `base_profile_version`, `enabled`, `local_offset_minutes`, and `local_label`. `base_profile_version` MUST match the current `profile_version`. `enabled` MUST be a boolean. When `enabled=true`, `local_offset_minutes` MUST be an integer from `-840` through `840`; when `enabled=false`, `local_offset_minutes` MAY be `null`. `local_label` MUST be a JSON string or `null`; non-null labels use `single_line_title_v1`. Unknown members, malformed members, and an enabled profile with no offset MUST fail with `400` and `error.code=invalid_mutation_payload`. A stale version MUST fail with `409` and `error.code=row_version_conflict`.
+`PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` MUST accept only `base_profile_version`, `enabled`, `local_offset_minutes`, and `local_label`. `base_profile_version` MUST match the current `profile_version`. `enabled` MUST be a boolean. When `enabled=true`, `local_offset_minutes` MUST be an integer from `-840` through `840`; when `enabled=false`, `local_offset_minutes` MAY be `null`. `local_label` MUST be a JSON string or `null`; non-null labels use `single_line_title_v1`. Unknown members, malformed members, and an enabled profile with no offset MUST fail with `400` and `error.code=invalid_mutation_payload`. A stale version MUST fail with `409` and `error.code=row_version_conflict`. A matching current version of `9223372036854775807` MUST fail with `400` and `error.code=invalid_mutation_payload`, with details exactly `field=base_profile_version` and `reason_code=invalid_value`, without changing any durable profile field. Stale-version rejection precedes this exhaustion check. The maximum version remains valid read and portable state; a successful mutation from the preceding version MUST advance to it exactly, never wrap or reset the version.
+Profile version comparison and persistence MUST be atomic, including the first
+write when no durable profile exists. Concurrent requests using the materialized
+base version1 MUST commit at most one version2 profile; a competing request whose
+base has become stale MUST return the existing 409 row_version_conflict without
+overwriting any committed profile field.
 Profiles: base
 Verified by: AC-444, AC-449, AC-451
 
@@ -2179,15 +2193,23 @@ Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
 **REQ-01-061**
-Indicator row-create receipts written with the legacy raw admitted-request
-digest MUST retain their original exact admitted-request comparison, including
-the transaction key and submitted identity representation. New receipts MUST
+Indicator and Assessment row-create receipts written with legacy admitted-request
+digests MUST retain their original comparison, including the transaction key and,
+for Indicators, the submitted identity representation. New receipts MUST
 compare normalized admitted create fields, excluding `client_txn_id` and route
 scope members. Implementations MUST retain legacy comparison alongside the new
 comparison without rewriting receipts. They MUST NOT infer an original request
-from its returned Indicator or current canonical state. A historical request
+from its returned record or current canonical state. A historical request
 variant that fails the legacy comparison MUST fail with `client_txn_conflict`.
 This exception does not relax current request admission or security checks.
+
+For normalized Assessment row-create comparison, support references MUST compare
+as one unordered set of record identities. Omitted assessor and assessment time
+MUST compare using the original create-time defaults. The receipt MUST retain the
+original default assessment timestamp independently of any explicitly submitted
+assessment timestamp or returned row. A replay MUST use that retained default
+context rather than resample the current time. A receipt with an unsupported
+comparison version or missing required default context MUST fail closed.
 
 When `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` supplies initial writable values keyed directly by `field_key`, a direct-write field MUST use its direct field value as the JSON value and a write-action field MUST use the same object that a patch `changes[]` entry would carry in `action_payload`. A declared create input MUST use the value shape named by its `value_contract_id` and MUST be normalized independently of field values. For row-create idempotency comparison, the normalized request MUST include only recognized create members after active-view validation and create-time normalization: normalized create-writable fields plus normalized declared create inputs. `client_txn_id` is the idempotency key and MUST NOT be part of that normalized request comparison. For direct-write fields, comparison MUST use the create-time normalized value that would be persisted. For write-action fields, comparison MUST use the semantically validated action payload after any field-specific normalization. For create inputs, comparison MUST use the value-contract-normalized input; `evidence.initial_object_blob_id` compares as one exact opaque identifier. Unknown or forbidden top-level members are never part of normalized comparison because the route rejects them. When a field contract makes omission and explicit JSON `null` equivalent for create-time authoritative state, they MUST compare equal. When a field contract declares a create-time default, omission and explicit transmission of that same default MUST compare equal.
 Profiles: base
@@ -2349,6 +2371,60 @@ error text. The delete-only preparation method is not a compatibility surface
 and MUST be removed when this contract is implemented; no forwarding method
 or dual port is permitted.
 
+Preparation preserves source-owned identity-lock ordering. After acquiring the
+ordinary delete envelope locks or destructive restore envelope locks and
+rechecking protected version/tombstone state, Revisions MUST call every source
+owner's `ValidateStateTransitionTx` before changing the envelope. This mandatory
+phase checks current owner preconditions in the same transaction and returns the
+same structured blocker type. In particular, Party active incoming-reference
+admission MUST be evaluated after the Party envelope lock is held, including
+references committed while that lock was awaited. A preparation-time observation
+MUST NOT substitute for this validation. Owners with no additional current
+precondition explicitly return an empty preparation result. The phase MUST NOT
+commit, roll back, apply the envelope mutation or expose database error text.
+
+Decision deletion MUST apply the live incoming Task scalar-reference guard owned
+by Core02 REQ-02-233 in this validation phase, after the Decision envelope lock.
+Rejection returns non-retryable `record_delete_blocked` with only the Decision
+record ID and `reason_code=active_incoming_task_decision_reference`. Replay,
+access and protected current-state gates retain their ordinary precedence; failed
+admission leaves no receipt, history, projection or publication effect.
+
+After its Task-reference guard, Decision deletion MUST enforce the surviving-peer
+lifecycle rule in Core02 REQ-02-114. A violation returns non-retryable
+`record_delete_blocked` with only the selected Decision ID and
+`reason_code=decision_supersession_dependency`; it has no mutation or receipt effect.
+
+Decision restore MUST enforce Core02 REQ-02-114's prospective selected/peer
+machine in this validation phase, after ordinary access, replay, destructive
+locks, version and tombstone gates. Invalid state returns non-retryable
+`record_restore_blocked` with only the selected Decision ID and
+`reason_code=decision_supersession_dependency`; non-waiting typed-source lock
+contention returns retryable `record_locked` identifying only the selected record.
+Admission changes no source, envelope, receipt, history or publication state.
+
+Task Request restore MUST apply the current requester/Decision guard owned by
+Core02 REQ-02-233 in this validation phase. Invalid current references return
+`record_restore_blocked` with `reason_code=inactive_task_reference`; non-waiting
+owner dependency-lock contention returns retryable `record_locked`. Both responses
+identify only the Task target, never a dependency or database detail. Ordinary
+access, replay, destructive-envelope, version and tombstone gates precede this
+admission, and failed admission consumes no receipt or publication/history effect.
+
+Evidence restore MUST apply the current Party-reference guard owned by
+REQ-02-198 in this validation phase. A rejected reference returns
+`record_restore_blocked` with `reason_code=inactive_evidence_party_reference`
+and only the target Evidence `record_id`; owner dependency-lock contention
+returns the existing retryable `record_locked` response for that same target.
+Authentication, CSRF, visibility, role, replay, destructive-envelope locking and
+version/tombstone gates precede this owner admission. No unsuccessful admission
+may append history, publish Collaboration intent or consume the request receipt.
+After Party admission, Evidence restore MUST apply REQ-02-190's current Blob
+bridge guard. Invalid association/lifecycle state returns `record_restore_blocked`
+with `reason_code=evidence_blob_state_conflict` and only the target `record_id`.
+Its non-waiting Blob dependency lock uses the same target-scoped retryable
+`record_locked` mapping and atomic failure requirements.
+
 For Host and Identity restore, ordinary authentication, CSRF, hidden-resource,
 role, destructive-lock, replay, and row-version gates precede active-claim
 conflict disclosure. After those gates, safe conflict details MAY contain only
@@ -2389,6 +2465,7 @@ point. The initial port has exactly these responsibilities:
 | `UpdateSourceDeleteStateTx` | Apply or clear only the source owner's current delete-state consequence in the supplied transaction. |
 | `ViewSchemaID` | Return the source-owned view consequence for the record. |
 | `PrepareStateTransitionTx` | Prepare one closed `delete` or `restore` transition before envelope mutation, acquire any source-owned locks, and return a structured source-owned blocker without applying the envelope mutation. |
+| `ValidateStateTransitionTx` | Validate current owner preconditions after protected envelope locking/version checks and before envelope mutation, using the same closed transition kind and structured blocker. |
 
 The catalog MUST fail application assembly for an empty, missing, duplicate,
 unknown, or typed-nil adapter; unknown record type; incomplete current-profile
@@ -2593,7 +2670,7 @@ Profiles: base
 Verified by: AC-215, AC-216, AC-217, AC-218, AC-231
 
 **REQ-01-104**
-The base-profile destructive-operation family is exactly `POST /api/v1/records/{record_id}/restore`, `POST /api/v1/records/{record_id}/rollback`, and `POST /api/v1/records/{survivor_record_id}/merge`. Ordinary `PATCH`, ordinary `DELETE`, and ordinary soft-delete are outside this family, MUST remain on the ordinary optimistic-concurrency path, and MUST NOT acquire destructive-operation locks in the current profile. The server MUST use short-lived internal destructive-operation locks for every request in that family. The public contract includes no client-visible lock-acquire route, no lock-holder identity surface, no manual unlock route, and no server-side queueing of destructive requests. The server MUST attempt lock acquisition fail-fast and MUST NOT wait for a held lock to clear and then continue evaluating the same request. Lock acquisition MUST use canonical ascending `record_id` order across the full protected set. If any required lock is unavailable, the route MUST fail immediately with `409`, `error.code = record_locked`, and `error.retryable = true`. Only after the full protected set is acquired MAY the server re-read authoritative current state and evaluate `row_version_conflict`, restore eligibility such as `record_not_deleted`, `rollback_precondition_failed`, or `merge_precondition_failed`. Locks MUST be released on commit, rollback, or request termination. For restore, the protected set contains the target `record_id` and the direct projection dependents defined by REQ-01-351. For rollback, the protected set contains every first-class `record_id` whose authoritative state would be mutated if the selected rollback target were applied against current authoritative state, together with the direct projection dependents defined by REQ-01-351. For merge, the protected set is the survivor record, the loser record, and every additional first-class `record_id` whose authoritative state the merge transaction mutates directly through repointing or deterministic recreation.
+The base-profile destructive-operation family is exactly `POST /api/v1/records/{record_id}/restore`, `POST /api/v1/records/{record_id}/rollback`, and `POST /api/v1/records/{survivor_record_id}/merge`. Ordinary `PATCH`, ordinary `DELETE`, and ordinary soft-delete are outside this family, MUST remain on the ordinary optimistic-concurrency path, and MUST NOT acquire destructive-operation locks in the current profile. The server MUST use short-lived internal destructive-operation locks for every request in that family. The public contract includes no client-visible lock-acquire route, no lock-holder identity surface, no manual unlock route, and no server-side queueing of destructive requests. The server MUST attempt lock acquisition fail-fast and MUST NOT wait for a held lock to clear and then continue evaluating the same request. Lock acquisition MUST use canonical ascending `record_id` order across the full protected set. If any required lock is unavailable, the route MUST fail immediately with `409`, `error.code = record_locked`, and `error.retryable = true`. Only after the full protected set is acquired MAY the server re-read authoritative current state and evaluate `row_version_conflict`, restore eligibility such as `record_not_deleted`, `rollback_precondition_failed`, or `merge_precondition_failed`. Locks MUST be released on commit, rollback, or request termination. For restore, the protected set contains the target `record_id` and the direct projection dependents defined by REQ-01-351. For rollback, the protected set contains every first-class `record_id` whose authoritative state would be mutated if the selected rollback target were applied against current authoritative state, together with the direct projection dependents defined by REQ-01-351. For merge, the protected set is the survivor record, the loser record, every additional first-class `record_id` whose authoritative state the merge transaction mutates directly through repointing or deterministic recreation, and their direct reference/projection dependents under REQ-01-351.
 Profiles: base
 Verified by: AC-182, AC-187, AC-215, AC-216, AC-217, AC-218, AC-231, AC-353
 
@@ -3342,7 +3419,7 @@ Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
 **REQ-01-166a**
-Incident create, incident lifecycle and membership-create admission MUST serialize competing requests for the same route idempotency identity before fresh owner mutation guards. The receipt MUST be read in a transaction view that includes any preceding committed competing request. Matching simultaneous requests MUST produce one mutation and replay its result, rather than fail a uniqueness, stale-version or lifecycle guard. Incident-scoped replay MUST rederive current caller authorization before returning the receipt. Mutation, attributable audit and receipt writes MUST commit atomically. A fresh mutation uses one UTC microsecond timestamp sampled after mutation admission; replay emits no second postcommit effect.
+Incident create, incident lifecycle and membership-create admission MUST serialize competing requests for the same route idempotency identity before fresh owner mutation guards. The receipt MUST be read in a transaction view that includes any preceding committed competing request. Matching simultaneous requests MUST produce one mutation and replay its result, rather than fail a uniqueness, stale-version or lifecycle guard. Incident-scoped replay MUST rederive current caller authorization before returning the receipt. Mutation, attributable audit and receipt writes MUST commit atomically. For incident create, metadata patch, lifecycle and membership create, patch or delete, a fresh mutation MUST use one UTC microsecond timestamp sampled after acquiring its mutation serialization locks and rederiving current authorization. That same timestamp MUST be used for its source changes and raw/projected audit records. A waiting request MUST NOT retain a timestamp sampled before those locks were acquired. Replay emits no second postcommit effect.
 Profiles: base
 Verified by: AC-170, AC-175, AC-178, AC-231, AC-418, AC-421
 
@@ -3709,6 +3786,12 @@ Verified by: AC-570
 
 **REQ-01-196**
 `POST /api/v1/entity-mentions/{entity_mention_id}/resolve` MUST apply one explicit action to one `entity_mentions` row.
+Before locking the Mention or typed source for that action, the coordinator MUST
+prepare and protect the source envelope plus its current previous resolved target
+and any requested new target as one Records-owned canonical `FOR NO KEY UPDATE`
+set under Core 02 REQ-02-025A. A changed Mention version during preparation requires
+rollback and preparation again before ordinary base-version admission. The source
+owner MUST NOT lock the foreign Records table through a Mention SQL join.
 Profiles: base
 Verified by: AC-019, AC-020, AC-021, AC-188, AC-189, AC-190, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
@@ -3817,6 +3900,18 @@ Verified by: AC-019, AC-020, AC-021, AC-188, AC-189, AC-190, AC-221, AC-222, AC-
 
 **REQ-01-212**
 When `action='resolve_item'`, `resolved_record_id` MUST identify a visible active target record in the same incident whose `record_type` matches the targeted mention's `entity_type`. If no such visible active target record exists, the route MUST fail with `404` and `error.code = resolved_record_not_found`. If a visible target record exists but fails the same-incident or `entity_type` compatibility check, the route MUST fail with `400` and `error.code = invalid_mutation_payload`.
+The target admission used by this route and the equivalent workbook mention
+lifecycle operation MUST hold Records-owned `FOR NO KEY UPDATE` envelope locks
+through transaction completion. Re-resolution MUST acquire the previous and
+requested targets together in canonical record-identity order before effects.
+After any wait, visibility, incident/type compatibility, non-deletion and the
+Host/Identity source's `stub` or `canonical` eligibility MUST be checked again.
+An active envelope whose typed source is `merged` is not an eligible target.
+Missing targets in the admitted set MUST NOT be accepted by a later unlocked
+read. Rejected admission MUST leave mention/source/Link/projection/history/
+publication/receipt state unchanged and MUST NOT consume the request identity.
+Exact committed replay precedes fresh admission, including after target deletion
+or merge. Historical references and merge's repoint obligations are unchanged.
 Profiles: base
 Verified by: AC-019, AC-020, AC-021, AC-188, AC-189, AC-190, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
@@ -5663,6 +5758,18 @@ Verified by: AC-068, AC-069, AC-070, AC-112, AC-185, AC-231
 
 **REQ-01-305**
 The base profile MUST also expose contextual `add linked note` actions from Timeline, Hosts, Identities, and Evidence. All Notes entry paths MUST create the same underlying artifact record shape. Contextual Note authoring MUST initially copy the selected record identity into editable source context. An explicit source replacement MUST preserve authored Note fields and associate the newly chosen source. Explicitly clearing the source MUST preserve those fields and use ordinary unlinked Notes creation on fresh submission. Selection, source-version, inspector, or sheet changes MUST NOT implicitly replace or clear the authored source context.
+
+Fresh contextual Note creation MUST hold a transaction-scoped writer lock on the
+selected source envelope through commit, using the Records-owned capability.
+It MUST acquire this lock before Note or relation writes, serializing creations
+on the same source without a later shared-lock upgrade for Links or projection.
+After waiting it MUST recheck that the source is non-deleted and belongs to an
+allowed contextual source type before creating the Note or relation. Missing,
+deleted or unsupported sources retain the existing not-found result and leave
+no Note, link, history, projection, publication or receipt effect. A later derived
+projection lock cannot substitute for this admission. Exact committed replay
+precedes fresh source admission, including after source deletion; rejection
+consumes no request identity, so a corrected source may be retried normally.
 Profiles: base
 Verified by: AC-068, AC-069, AC-070, AC-112, AC-185, AC-231
 
@@ -6221,6 +6328,17 @@ For these two fields:
 - `revert_to_unresolved` MUST preserve `raw_text`, clear `resolved_record_id` and any current resolution metadata such as `resolved_at`, `resolved_by_user_id`, and `resolution_method`, set the targeted mention back to unresolved state whether it was previously resolved or dismissed, and MUST remove or tombstone any corresponding active resolved `record_link` in the same `change_set`,
 - `dismiss_item` MUST preserve `raw_text`, stable mention identity, and provenance, MUST set `entity_mentions.resolution_status='dismissed'`, MUST clear `resolved_record_id` and any current resolution metadata such as `resolved_at`, `resolved_by_user_id`, and `resolution_method`, and MUST remove or tombstone any corresponding active resolved `record_link` in the same `change_set`,
 - duplicate `add_token` actions with identical `raw_text` in the same or later request MUST create distinct mention rows rather than coalescing them.
+Fresh `add_resolved_ref` admission MUST hold a Records-owned `FOR NO KEY UPDATE`
+lock on the requested target envelope through transaction completion, before
+inserting a mention or Link. After any wait, the target MUST remain non-deleted,
+same-incident and of the field-derived Host/Identity type, with typed source state
+`stub` or `canonical`. A merged source with an active envelope is ineligible.
+Failed admission MUST retain the workbook `invalid_mutation_payload` /
+`invalid_value` response and leave source, mention, Link, history, projection,
+publication and receipt state unchanged. It MUST NOT consume the request identity.
+Exact committed replay precedes fresh admission, including after target deletion
+or merge. This rule applies to create and patch consumers of the action; it does
+not change interactive auto-resolution's separately owned eligibility policy.
 Profiles: base
 Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-195, AC-196, AC-197, AC-198, AC-231
 
@@ -6453,7 +6571,7 @@ Verified by: AC-045, AC-097, AC-231
   `value_contract_id=object_blob_id_v1`, `required=false`, and
   `nullable=false`
 - `default_visible_fields`: `evidence.title`, `evidence.lifecycle_state`, `evidence.requested_at`, `evidence.received_at`, `evidence.storage_ref`, `evidence.blob_hash`, `evidence.collector_party_text`, `evidence.source_party_text`, `evidence.upload_state`, `evidence.linked_record_count`, `evidence.edited_at`
-- `default_hidden_fields`: `record_id`, `row_version`, `evidence.collector_party_id`, `evidence.source_party_id`
+- `default_hidden_fields`: `record_id`, `row_version`, `evidence.collector_party_id`, `evidence.source_party_id`, `evidence.owner_user_id`
 - these default-hidden direct-reference fields remain part of every full `view_row_v1.cells` object for this schema; default-hidden affects presentation only
 - `default_sort`: `evidence.requested_at desc`, `record_id asc`
 - `sort_fields`: `evidence.title`, `evidence.lifecycle_state`, `evidence.requested_at`, `evidence.received_at`, `evidence.storage_ref`, `evidence.blob_hash`, `evidence.collector_party_text`, `evidence.source_party_text`, `evidence.upload_state`, `evidence.linked_record_count`, `evidence.edited_at`
@@ -6461,10 +6579,12 @@ Verified by: AC-045, AC-097, AC-231
 - inline create: a blank zero-field create attempt MUST NOT commit. A create attempt that supplies no user-supplied non-empty writable evidence field MAY commit only when the same visible create flow successfully finalizes a blob attachment before first commit
 - minimum create signal: the first committed evidence row MUST include either at least one user-supplied non-empty writable evidence field after create-time normalization or one successfully finalized blob attachment from that same visible create flow
 - `evidence.collector_party_id` and `evidence.source_party_id` MAY be written through inspector or same-surface enrichment flows, but they MUST NOT by themselves satisfy the minimum create signal and MUST NOT clear preserved party text implicitly
+- `evidence.owner_user_id` is nullable, defaults to unassigned, and MAY be assigned or cleared through the ordinary direct mutation surface. It alone MUST NOT satisfy the minimum create signal. Assignment persists across lifecycle changes until explicitly changed or cleared.
 - server-filled defaults and create-time derived fields MUST NOT satisfy the minimum create signal
 - if `evidence.lifecycle_state` is omitted on create, the server MUST default it to `requested`; when that defaulted create omits `evidence.requested_at`, the server MUST fill `requested_at` from the commit timestamp
 - a failed create that lacks the minimum create signal, or a create flow whose blob finalization fails before first commit, MUST leave no committed evidence row and no misleading projection update
 - writable fields:
+  - `evidence.owner_user_id`: read the accountable owner reference; write target `evidence_records.owner_user_id`; `direct_reference_contract_id=incident_member_user_ref_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`. Explicit non-null direct writes require an active user with current incident membership, including create, patch and conflict resolution. Historical restore and portability preserve the admitted historical assignment under their source-owner contracts.
   - `evidence.title`: read the evidence title field; write target the evidence record title field; `string_contract_id=single_line_title_v1`; `conflict_resolution_class=text_compare_merge`
   - `evidence.lifecycle_state`: read `lifecycle_state`; write target `evidence_records.lifecycle_state`; `conflict_resolution_class=atomic_replace`. State-dependent field guards and blob-bridge invariants from Core 02 §13 and Core 03 §8.3 apply.
   - `evidence.requested_at`: read `requested_at`; write target `evidence_records.requested_at`; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
@@ -6481,6 +6601,7 @@ Verified by: AC-045, AC-097, AC-231
   - `evidence.collector_party_id`: read the canonical collector party reference; write target `evidence_records.collector_party_id`; `direct_reference_contract_id=same_incident_party_ref_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
   - `evidence.source_party_text`: read `source_party_text`; write target `evidence_records.source_party_text`; `string_contract_id=party_text_v1`; `conflict_resolution_class=text_compare_merge`
   - `evidence.source_party_id`: read the canonical source party reference; write target `evidence_records.source_party_id`; `direct_reference_contract_id=same_incident_party_ref_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
+- `evidence.title`, `evidence.storage_ref`, `evidence.collector_party_text`, and `evidence.source_party_text` are optional clearable string bindings. Explicit null and normalized-empty input MUST compare equally and persist as authoritative null on create, patch, and conflict resolution. Clearing does not supply the minimum create signal, bypass reserved server-managed reference rules, detach a linked blob, or implicitly clear a stable Party reference. Every write remains subject to owner blob-association invariants.
 - read-only computed fields: `evidence.blob_hash`, `evidence.upload_state`, `evidence.linked_record_count`, `evidence.edited_at`. `evidence.blob_hash` and `evidence.upload_state` are derived fields and MUST NOT satisfy the minimum create signal.
 - blob attach or replacement MUST remain an explicit evidence action. It MUST NOT be modeled as a direct write to `evidence.blob_hash` or `evidence.upload_state`.
 
@@ -6593,9 +6714,10 @@ Verified by: AC-100, AC-118, AC-124, AC-125, AC-128, AC-231, AC-278, AC-279, AC-
 - context-preseeded links from `add linked note` MUST remain editable context and MUST NOT by themselves satisfy the minimum create signal; explicit source replacement or clearing preserves authored fields and follows REQ-01-305 and the Notes-specific inspector binding in §7.4.1A
 - `note.tags` is optional follow-on structure and MUST NOT satisfy the minimum create signal
 - writable fields:
-  - `note.title`: read the note title field; write target the note artifact title field; `string_contract_id=single_line_title_v1`; `conflict_resolution_class=text_compare_merge`
-  - `note.body`: read the note body field; write target the note artifact body field; `string_contract_id=multiline_body_v1`; `conflict_resolution_class=text_compare_merge`
+  - `note.title`: read the note title field; write target the note artifact title field; `string_contract_id=single_line_title_v1`; `clearable=true`; `conflict_resolution_class=text_compare_merge`
+  - `note.body`: read the note body field; write target the note artifact body field; `string_contract_id=multiline_body_v1`; `clearable=true`; `conflict_resolution_class=text_compare_merge`
   - `note.tags`: read `tag_names`; write action upsert tags and `record_tags`; `conflict_resolution_class=collection_review`
+- `note.title` and `note.body` are individually optional. On patch and conflict resolution, explicit null and normalized-empty input MUST compare equally and clear to authoritative null; omission remains unchanged. The minimum create signal applies only to new Notes, so a retained Note MAY have both values null after edits. Clearing MUST use ordinary version, history, projection and publication semantics.
 - read-only computed fields: `note.linked_record_count`, `note.updated_at`, `note.created_by_user_id`
 Profiles: base
 Verified by: AC-068, AC-069, AC-070, AC-112, AC-118, AC-124, AC-125, AC-185, AC-231
@@ -6878,16 +7000,17 @@ Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-
   - `task.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `task_request` record; `direct_reference_contract_id=incident_member_user_ref_v1`; `conflict_resolution_class=atomic_replace`
   - `task.priority`: read `priority`; write target the `priority` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
   - `task.task_kind`: read `task_kind`; write target the `task_kind` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
-  - `task.workstream`: read `workstream`; write target the `workstream` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.workstream`: read `workstream`; write target the optional `workstream` field on the underlying `task_request` record; `string_contract_id=single_line_title_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
   - `task.due_at`: read `due_at`; write target the `due_at` field on the underlying `task_request` record; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
   - `task.requester_party_text`: read `requester_party_text`; write target the `requester_party_text` field on the underlying `task_request` record; `string_contract_id=party_text_v1`; `conflict_resolution_class=text_compare_merge`
   - `task.requester_party_id`: read the canonical requester party reference; write target the `requester_party_id` field on the underlying `task_request` record; `direct_reference_contract_id=same_incident_party_ref_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
-  - `task.blocked_reason`: read `blocked_reason`; write target the `blocked_reason` field on the underlying `task_request` record; `string_contract_id=reason_note_v1`; `conflict_resolution_class=text_compare_merge`
+  - `task.blocked_reason`: read `blocked_reason`; write target the `blocked_reason` field on the underlying `task_request` record; `string_contract_id=reason_note_v1`; `clearable=true`; `conflict_resolution_class=text_compare_merge`
   - `task.completed_at`: read `completed_at`; write target the `completed_at` field on the underlying `task_request` record; `direct_scalar_contract_id=timestamp_instant_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
-  - `task.external_ticket_ref`: read `external_ticket_ref`; write target the `external_ticket_ref` field on the underlying `task_request` record; `string_contract_id=locator_text_v1`; `conflict_resolution_class=atomic_replace`
-  - `task.closure_summary`: read `closure_summary`; write target the `closure_summary` field on the underlying `task_request` record; `string_contract_id=multiline_body_v1`; `conflict_resolution_class=text_compare_merge`
+  - `task.external_ticket_ref`: read `external_ticket_ref`; write target the `external_ticket_ref` field on the underlying `task_request` record; `string_contract_id=locator_text_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
+  - `task.closure_summary`: read `closure_summary`; write target the `closure_summary` field on the underlying `task_request` record; `string_contract_id=multiline_body_v1`; `clearable=true`; `conflict_resolution_class=text_compare_merge`
   - `task.linked_record_ids`: read linked record references; write action upsert or remove linked `record_links`; `conflict_resolution_class=collection_review`
   - `task.decision_record_id`: read `decision_record_id`; write target the `decision_record_id` field on the underlying `task_request` record or an equivalent linked decision reference; `direct_reference_contract_id=same_incident_decision_ref_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
+- `task.workstream`, `task.requester_party_text`, `task.blocked_reason`, `task.external_ticket_ref`, and `task.closure_summary` are optional string bindings: explicit null and normalized-empty input MUST clear to authoritative null and compare equally. Clearing `task.blocked_reason` remains subject to the resulting Core02 task lifecycle tuple; a resulting blocked task still requires a nonempty reason. `task.title` remains required.
 - read-only computed fields: `task.linked_record_count`, `task.updated_at`, `task.no_owner`
 Profiles: base
 Verified by: AC-085, AC-118, AC-124, AC-137, AC-138, AC-139, AC-140, AC-145, AC-231, AC-278, AC-279, AC-280, AC-300, AC-301, AC-303, AC-304, AC-315, AC-316, AC-317, AC-318, AC-319
@@ -7022,6 +7145,18 @@ change alone does not advance an unrelated record's source version or fabricate
 history. Coordinators that already publish a complete scope (merge, rollback,
 import and recovery) retain that responsibility; relationship storage alone is
 not sufficient composition for ordinary authoring.
+
+Merge MUST also discover and protect the direct Link endpoint and resolved-Mention
+source dependencies of its authoritative mutation set before acquiring any typed
+source or relationship locks or applying effects. Discovery MUST use the respective
+source-owner capabilities, and Merge MUST validate every returned envelope against
+the incident. The canonical union uses the same fail-fast destructive lock primitive
+as the authoritative mutation set. After protection, Merge MUST re-read the direct
+dependency set and reject a changed set as `merge_precondition_failed` with
+`reason_code=protected_set_changed`, without partial effects. Dependency discovery
+MUST NOT traverse transitively. Protection and projection refresh alone MUST NOT
+advance a dependent source version or append a source revision. Existing claim tuple
+preparation and source/target admission still apply.
 
 Interactive rollback, row restore, soft-delete and restore MUST refresh an explicit, source-owner-derived set of affected projection rows. They MUST NOT rebuild every projection in the incident. The refresh set includes the mutated records and direct dependents whose projection reads those records or their authoritative relationships. Links owns relationship endpoint dependencies; Entities owns resolved-mention and alias-provenance dependencies in the current base profile. New cross-record derivations require an explicit dependency contribution from their source owner. Discovery MUST include retained relationships with inactive endpoints when needed for restore, MUST remain incident-scoped, and MUST NOT expand transitively through unrelated records.
 
@@ -7945,6 +8080,22 @@ Operational backup and restore remain deployment-local recovery behavior. They a
 
 **REQ-01-571**
 Each successful operational backup MUST produce one retained `backup_set` bound to exactly one declared `consistency_point_at`. A coherent restore of one `backup_set` means that, after projection rebuild, the restored deployment contains all authoritative structured source rows as of that `consistency_point_at`, all deployment-local administrative audit state as of that `consistency_point_at`, all required blob bytes for any blob whose authoritative state at that point requires durable object bytes, and no evidence/blob invariant violations introduced by the restore. Projections, search indexes, sessions, presigned URLs, temporary work files, client-local drafts, export artifacts, and other deployment-local caches are not part of the authoritative backup set.
+For Evidence, durable required bytes include every finalized object blob in
+`available` or `quarantined` state at that consistency point, whether attached,
+unattached, or retained by soft-deleted Evidence. Quarantine restricts ordinary
+access; it MUST NOT discard the retained object from backup, restored-byte
+verification or integrity accounting, and restore MUST preserve quarantine.
+Pending and failed upload attempts are not finalized durable Evidence objects.
+Both owner inventory capabilities MUST select the complete required row set,
+including rows with absent observations; metadata validation MUST NOT narrow
+that selection or silently omit an invalid finalized row. Required rows MUST have nonnegative declared byte size,
+equal non-null observed size, a non-null canonical lowercase 64-digit hexadecimal
+observed SHA-256, and an optional expected SHA-256 exactly equal to that observed
+digest. Invalid metadata fails the inventory with no usable partial result before
+object streaming or successful backup publication. The exact snapshot-scoped
+inventory algorithm is `evidence.snapshot_blob_inventory.v2`; the frozen recovery
+catalog MUST bind this identity, without an old-algorithm alias or converter.
+
 Profiles: base
 Verified by: AC-398, AC-399, AC-440
 
@@ -8821,6 +8972,19 @@ Verified by: AC-164, AC-165, AC-166, AC-167, AC-168, AC-169, AC-236
 
 **REQ-01-564**
 A portability bundle MUST preserve enough authoritative history substrate for the importing deployment to materialize conformant `GET /api/v1/records/{record_id}/history` results and conformant rollback behavior for imported records. Exact byte preservation of opaque `history_entry_ref` values is not part of the portability contract. The importing deployment MAY reissue `history_entry_ref` values, but once issued there they MUST be stable for the retained-history lifetime of the imported record in that deployment.
+
+For currentness comparison and inverse restoration, imported retained actor
+fields MUST be interpreted through the immutable destination actor mapping of
+their imported change set. The attribution owner MUST resolve that mapping in
+the caller's transaction, scoped to the incident, change set and admitted
+portable actors. Source-owner providers receive a copied execution image whose
+non-null actor fields use that destination user; all other values and nulls
+remain exact. Native history receives no substitution. Missing admitted actors
+or mapping errors MUST fail closed. This execution translation MUST NOT rewrite
+retained history, create login users or memberships, or weaken complete source
+currentness checks. New inverse history records the actual destination mutation;
+immutable creation attribution and retirement of changed action attribution
+remain governed by REQ-01-444. An inverse MUST NOT reinstate a retired override.
 Profiles: incident_portability
 Verified by: AC-236, AC-386
 
@@ -8852,11 +9016,21 @@ Verified by: AC-164, AC-166, AC-169, AC-236
 The logical bundle root MUST contain `manifest.json`,
 `integrity/checksums.sha256`, the version-selected closed core path set in
 §12.3.7, every blob named by authoritative object metadata under
-`blobs/sha256/<sha256-lower-hex>`, and only the optional signature and admitted
+`blobs/sha256/<sha256-lower-hex>`, the exactly referenced original-source objects
+under `sources/sha256/<sha256-lower-hex>` required by REQ-01-685, and only the optional signature and admitted
 `ext/**` members defined by this Core and claimed extension participants.
 Profiles: incident_portability
 Verified by: AC-164, AC-166, AC-169, AC-236, AC-487, AC-490, AC-496,
  AC-507
+
+Available and quarantined finalized Evidence blobs MUST both retain their exact
+bytes in the full bundle. Quarantine withholds ordinary access; it does not
+remove the authoritative bytes needed for a later explicit clearance. Export,
+preparation, staging, import and re-export MUST preserve those bytes and the
+quarantined source state. Import MUST NOT clear quarantine, finalize a pending
+slot, promote failed state, or grant ordinary Evidence access merely because
+bytes have been staged. Pending and failed slots retain their admitted metadata;
+they do not establish a finalized blob-byte requirement.
 
 Empty source families MUST be represented by a present zero-row NDJSON file, or
 by the present singleton file for a required singleton input. Omission MUST NOT
@@ -8876,6 +9050,15 @@ Verified by: AC-164, AC-166, AC-169, AC-236
 
 **REQ-01-431**
 Portability export MUST serialize authoritative incident source state and blob bytes. It MUST NOT serialize derived or deployment-local runtime state.
+
+For bundle version `8`, `data/object_blobs.ndjson` MUST NOT contain physical
+`storage_key` members. Export MUST select the authoritative source fields
+explicitly rather than serialize the physical database row. An incoming
+`storage_key` member, even null or apparently harmless text, MUST fail
+`evidence.storage_reference_legal` before staging; it MUST NOT be ignored,
+normalized or accepted as a compatibility field. Evidence alone derives fresh
+destination keys under REQ-01-686. Re-export MUST omit those destination keys
+while preserving source metadata, historical actor attribution and exact bytes.
 Profiles: incident_portability
 Verified by: AC-164, AC-167, AC-236
 
@@ -8991,6 +9174,20 @@ Verified by: AC-164, AC-165, AC-236
 - stable `actor_id`,
 - display name,
 - non-secret match hints when available, such as normalized email or provider-subject hint.
+
+For the current bundle version, the row is closed: `actor_id` and
+`display_name` are required strings; only `email_hint` and
+`provider_subject_hint` are optional members. `actor_id` is a canonical,
+lowercase, nonzero UUID. `display_name` MAY be the explicit empty string;
+export MUST retain that field. Each present hint MUST be a nonempty string.
+Admitted name and hint values are preserved without coercion or normalization.
+Absent, null, wrongly typed or noncanonical required values and null, empty or
+wrongly typed hints fail `actors.reference_complete`. The roster uses strictly
+increasing actor IDs under REQ-01-686; duplicate or decreasing IDs fail the same
+invariant. Unknown or differently cased members fail `actors.inert`.
+`source_actor_id` is an attribution-storage/API field, not an alternate bundle
+member; no alias or legacy row reader is admitted. These failures occur before
+actor persistence and expose no descriptor values in diagnostics.
 Profiles: incident_portability
 Verified by: AC-167, AC-168, AC-236
 
@@ -9191,9 +9388,9 @@ source-owner semantic contract admits null.
 
 | File | Stable row identity | Required members | Allowed members |
 | --- | --- | --- | --- |
-| `timeline_time_profiles.ndjson` | `incident_id` | `incident_id`, `enabled`, `profile_version`, `updated_at` | Required members plus `local_offset_minutes`, `local_label`, `updated_by_user_id` |
-| `timeline_records.ndjson` | `record_id` | `record_id`, `incident_id`, `capture_state`, `activity_utc_generated`, `activity_local_generated`, `activity_time_pair_state` | Required members plus `reviewed_by_user_id`, `reviewed_at`, `superseded_by_user_id`, `superseded_at`, `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, `data_source_text` |
-| `timeline_source_provenance.ndjson` | `(record_id, source_row_ordinal, source_column_ordinal, source_identity_sha256)` | `record_id`, `source_identity_sha256`, `source_row_ordinal`, `source_column_ordinal`, `source_kind`, `source_metadata`, `source_header`, `raw_value`, `created_at` | Required members plus `cell_kind` |
+| `timeline_time_profiles.ndjson` | `incident_id` | `incident_id`, `enabled`, `local_offset_minutes`, `local_label`, `profile_version`, `updated_at`, `updated_by_user_id` | Exactly the required members |
+| `timeline_records.ndjson` | `record_id` | `record_id`, `incident_id`, `capture_state`, `reviewed_by_user_id`, `reviewed_at`, `superseded_by_user_id`, `superseded_at`, `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, `data_source_text`, `activity_utc_generated`, `activity_local_generated`, `activity_time_pair_state` | Exactly the required members |
+| `timeline_source_provenance.ndjson` | `(record_id, source_row_ordinal, source_column_ordinal, source_identity_sha256)` | `record_id`, `source_identity_sha256`, `source_row_ordinal`, `source_column_ordinal`, `source_kind`, `source_metadata`, `source_header`, `raw_value`, `cell_kind`, `created_at` | Exactly the required members |
 
 The version-8 Timeline record-envelope fields `row_version`, `created_at`,
 `updated_at`, `created_by_user_id`, and `updated_by_user_id` MUST come from the
@@ -9211,6 +9408,161 @@ catalog/runtime addition; generic version-aware interfaces alone do not admit
 another version.
 Profiles: incident_portability
 Verified by: AC-487, AC-488, AC-489, AC-491, AC-503, AC-506
+
+**REQ-01-697**
+A version-8 Timeline time-profile member MUST contain zero or one durable row
+for the imported incident. Absence MUST remain absence; import MUST NOT persist
+the default read resource in REQ-01-611. All seven REQ-01-636 members are required,
+including explicit nulls. `incident_id` and non-null `updated_by_user_id` MUST
+be canonical lowercase nonzero UUIDs. `enabled` MUST be a JSON boolean.
+`profile_version` MUST be a positive signed-64-bit JSON integer in canonical
+decimal notation. `local_offset_minutes` MUST be null or a canonical decimal
+JSON integer in the inclusive range -840 through 840, and MUST be non-null
+when enabled. `local_label` MUST be null or the nonempty stored representation
+of the REQ-01-612 `single_line_title_v1` binding; import MUST NOT normalize it
+into acceptance. `updated_at` MUST satisfy REQ-01-693's canonical lossless UTC
+timestamp contract. Every non-null source actor MUST exist in the admitted
+actor catalog.
+
+Profile preparation MUST reject malformed shapes and scalar representations as
+`timeline.version_shape_exact`; malformed or duplicate identities as
+`timeline.source_identity_admitted`; foreign incident or enabled-without-offset
+state as `timeline.profile_coherent`; and missing source actors as
+`timeline.profile_attribution_exact`. Apply MUST reject an occupied profile
+identity before any Timeline owner writes, use fixed typed persistence, and
+remap only a present source actor to the local importer. Validation MUST compare
+all seven persisted values and row presence with admitted input, reporting
+`timeline.profile_state_exact` for any difference. It MUST also prove the exact
+profile attribution sidecar, including source actor, local actor, table, row
+and column, or its absence when the actor/profile is null/absent; missing,
+duplicate, foreign and extra sidecars fail `timeline.profile_attribution_exact`.
+Preparation remains bound to its creating port instance, incident, local actor,
+operation and bundle version. These profile checks do not derive or rewrite
+existing Timeline event generated-time facts from the current profile.
+Profiles: incident_portability
+Verified by: AC-487, AC-489, AC-496
+
+**REQ-01-698**
+Version-8 portable Timeline events MUST contain all twenty REQ-01-636 logical
+members, including explicit nulls. Record and incident UUIDs are non-null;
+reviewer and superseding actor UUIDs are nullable. Every present UUID MUST be
+canonical lowercase hyphenated and nonzero. Capture and pair states are
+non-null strings and both generated flags are JSON booleans. Review and
+supersession clocks are nullable REQ-01-693 timestamps. All ten visible-text
+members are nullable source-preserving `timeline_visible_text_v1` strings;
+null, empty, decomposed Unicode and line endings MUST remain distinct.
+
+Prepare MUST complete strict syntax, canonical strictly ascending unique record
+identity, closed shape/scalars/text, incident scope, lifecycle, generated-time,
+paired-time and source-actor membership phases over the member in that order.
+The lifecycle, generated-time and paired-time rules are exactly the intrinsic
+Timeline source rules in Core02 REQ-02-265. In particular, supersession may
+retain a complete earlier review tuple, and disabled/unavailable conversion
+may retain generated facts. Current profiles MUST NOT reinterpret these facts.
+Identity failures are `timeline.source_identity_admitted`; scalar/shape/text
+failures are `timeline.version_shape_exact`; incident scope fails
+`timeline.envelope_type_scope`; the three semantic phases use respectively
+`timeline.lifecycle_coherent`, `timeline.generated_time_coherent` and
+`timeline.paired_time_coherent`. Every present review/supersession actor MUST
+belong to the admitted catalog or fail `timeline.event_attribution_exact`.
+
+Before any Timeline-owner write, Apply MUST verify every event's same-incident
+`timeline_event` envelope and reject every occupied event identity. Missing,
+foreign or wrong-type envelopes fail `timeline.envelope_type_scope`; occupied
+identities fail `timeline.source_identity_admitted`. Typed fixed SQL MUST
+preserve the twenty fields, except that each present source actor is remapped
+to the importing local actor with an exact historical sidecar. Null actors
+remain null without sidecars. The five envelope-derived source mirrors MUST
+come from that same Records row: `row_version`, `recorded_at` from `created_at`,
+`edited_at` from `updated_at`, `created_by_user_id`, `updated_by_user_id`.
+
+Validate MUST compare every admitted event field and the entire incident event
+cardinality, including missing/extra rows, and prove all five mirrors still
+agree with Records. Differences fail `timeline.event_state_exact`. Historical
+sidecars MUST exactly match table, row, column, source actor and local importing
+actor; missing, duplicate, extra or unexpected sidecars fail
+`timeline.event_attribution_exact`. No importer may rewrite source text or
+lifecycle facts to make a row admissible. All failures require caller-owned
+transaction rollback before publication.
+Profiles: incident_portability
+Verified by: AC-487, AC-489, AC-496, AC-503
+
+**REQ-01-699**
+Version-8 Timeline provenance MUST contain exactly the ten REQ-01-636 members.
+`record_id` is a canonical lowercase hyphenated nonzero UUID. Both ordinals are
+canonical decimal JSON integers in the inclusive range 1 through 2147483647,
+consistent with Core02 REQ-02-050. `source_identity_sha256` is lowercase64hex.
+`created_at` is a required REQ-01-693 timestamp. `source_kind` and non-null
+`cell_kind` are nonempty strings of at most64 UTF-8 bytes with no C0/C1 controls.
+`cell_kind` is required and nullable; an empty string MUST NOT stand for null.
+`source_header` is required and is null or raw Unicode text, preserving empty
+text distinctly. `raw_value` is required Unicode text. Every string MUST be
+valid Unicode and NUL-free. No trimming, Unicode normalization, replacement,
+rounding or type coercion may make a retained row admissible.
+
+`source_metadata` is a required object with exactly the producer's closed key
+set: required `source_kind`, and optional `paste_client_txn_id`,
+`import_session_id`, `import_unit_id`, `mapping_fingerprint`, `source_file_kind`,
+`source_content_sha256`, `parser_profile_id`, `parser_version`, `locator_kind`,
+`locator`, `source_rect_a1`. Every present value is a nonempty Unicode string;
+metadata source kind MUST equal the row's source kind. Present session/unit
+identifiers are canonical nonzero UUIDs; present mapping/content digests are
+lowercase64hex. File-import provenance MUST contain the session/unit identifiers,
+mapping digest, file kind/content digest, parser profile/version, and locator
+kind/value required by Core02 REQ-02-046–050. The current Timeline workbook
+mapping also requires `source_rect_a1` under Core03 REQ-03-188, including CSV
+regions. Clipboard-paste provenance MUST contain its paste
+transaction identity and mapping digest. These retained identities do not
+require live import-session or user resources in the destination deployment.
+
+The source identity digest is SHA-256 over the following exact metadata bytes:
+UTF-8 compact JSON, keys in ascending ASCII order, no insignificant whitespace
+or trailing newline, strings escaping quote/backslash and C0 controls with the
+standard short escapes for backspace/tab/newline/form-feed/carriage-return and
+lowercase `\u00xx` otherwise; additionally `<`, `>` and `&` are escaped as
+`\u003c`, `\u003e`, `\u0026`, and U+2028/U+2029 as `\u2028`/`\u2029`.
+Other Unicode remains UTF-8, with no normalization. This preserves the current
+producer's source identities. Header, raw value, cell kind, ordinals, record ID
+and creation clock are not digest input. Import MUST recompute this exact
+metadata digest and compare it; it MUST NOT hash PostgreSQL JSONB display text
+or replace an admitted identity with another serialization's digest.
+
+Metadata and header MUST each fit both65536-byte bounds: their compact JSON
+encoding above and their UTF-8 PostgreSQL JSONB text representation. For these
+closed string-only values, the latter uses unescaped HTML/U+2028/U+2029,
+standard JSON escaping of quote/backslash/C0, one space after object colons and
+commas, and no other insignificant whitespace; key ordering does not change
+its byte length. Raw value MUST be at most65536 UTF-8 bytes. Each Timeline event
+MUST have at most4096 provenance identities. Ordinary producers and portable
+admission MUST share these value bounds and identity semantics so admitted
+values cannot exceed storage bounds only after a cast.
+An ordinary provenance append call is bounded to4096 input items and MUST
+serialize against other writes to its target Timeline event through transaction
+completion. It MUST validate every item and preflight distinct natural identities
+before provenance mutation. Exact existing or repeated-input identities with
+identical retained values are replays: they consume no additional capacity and
+preserve the original creation clock. The same identity with different retained
+values is a provenance identity collision, even at capacity. Capacity counts
+only existing identities plus distinct absent identities; a rejected capacity,
+value or collision preflight MUST leave provenance unchanged. Callers continue
+to own commit/rollback for their complete mutation.
+
+Prepare MUST complete strict syntax, canonical sorted unique composite identity,
+closed shape/scalars/bounds, and metadata/digest/per-record-count phases before
+transaction work. Shape/scalar/size failures are `timeline.version_shape_exact`;
+identity failures are `timeline.source_identity_admitted`; metadata, digest or
+entry-count failures are `timeline.provenance_coherent`. Apply MUST bind every
+provenance row to an admitted same-incident Timeline event and reject existing
+natural-key collisions before inserting provenance. Invalid event binding fails
+`timeline.provenance_non_orphaned`; collisions fail `timeline.provenance_unique`.
+Fixed typed persistence MUST preserve all ten values. Validate MUST compare
+complete admitted provenance and incident-scoped cardinality, including every
+missing, extra or changed row, as `timeline.provenance_state_exact`. References
+and exact source state MUST be rechecked before publication; a failure after
+earlier owner writes requires caller transaction rollback. No schema migration
+or historical identity rewrite is required by this contract.
+Profiles: incident_portability, base, import
+Verified by: AC-003, AC-065, AC-231, AC-232, AC-487, AC-489, AC-496, AC-503
 
 **REQ-01-637**
 A claimed Incident Portability profile requires one non-nil configured Jobs
@@ -9267,8 +9619,17 @@ Every port MUST provide the following behavioral interface:
 | Validate import transaction | Supplied transaction, matching prepared value, and immutable import context | Success or typed failure | Compares admitted input with transaction state and proves aggregate, cross-row, and declared cross-family invariants before publication. |
 
 The current source-port contract major is `3`. A prepared value is bound to
-that major in addition to its creating port, operation, incident, and admitted
-bundle version.
+that major in addition to its creating port instance, operation, incident,
+importing actor, admitted bundle version and immutable inert actor-catalog
+contents. Equal catalog contents may be reused independently of allocation or
+ordering. Transaction attribution and rewritten-object capabilities are supplied
+at their execution phase and do not substitute for these stable bindings.
+Preparation MUST reject a missing operation, zero incident/importing actor or
+unsupported contract major before invoking the owner. Apply and Validate MUST
+reject every binding mismatch, including a different port instance with an equal
+descriptor, before invoking the owner or accessing the supplied transaction.
+Prepared construction and owner-value access MUST remain private to the adapter;
+callers MUST NOT forge a value from owner/family strings or open its opaque state.
 
 A prepared value is bound to its creating port and operation and MUST be passed
 only to that same port. The catalog MUST reject duplicate family IDs, duplicate
@@ -9293,16 +9654,17 @@ The current contract-major-`3` source catalog and closed invariant IDs are:
 | --- | --- | --- |
 | `incident` | `[]` | `incident.source_identity_admitted`, `incident.exact_shape`, `incident.identity_key_lifecycle`, `incident.attribution_version` |
 | `records` | `incident` | `records.source_identity_admitted`, `records.incident_scope`, `records.envelope_legal`, `records.subtype_complete` |
-| `timeline` | `records` | `timeline.source_identity_admitted`, `timeline.version_shape_exact`, `timeline.envelope_type_scope`, `timeline.lifecycle_coherent`, `timeline.generated_time_coherent`, `timeline.paired_time_coherent`, `timeline.provenance_unique`, `timeline.provenance_non_orphaned` |
+| `committed_sources` | `incident`, `records` | `committed_sources.source_identity_admitted`, `committed_sources.metadata_exact`, `committed_sources.mapping_exact`, `committed_sources.blob_exact`, `committed_sources.attribution_exact`, `committed_sources.record_binding_exact` |
+| `timeline` | `records` | `timeline.source_identity_admitted`, `timeline.version_shape_exact`, `timeline.envelope_type_scope`, `timeline.lifecycle_coherent`, `timeline.generated_time_coherent`, `timeline.paired_time_coherent`, `timeline.provenance_unique`, `timeline.provenance_non_orphaned`, `timeline.profile_coherent`, `timeline.profile_attribution_exact`, `timeline.profile_state_exact`, `timeline.event_attribution_exact`, `timeline.event_state_exact`, `timeline.provenance_coherent`, `timeline.provenance_state_exact` |
 | `parties` | `timeline` | `parties.source_identity_admitted`, `parties.version_shape_exact`, `parties.envelope_type_scope`, `parties.identity_lifecycle`, `parties.normalization_exact` |
 | `entities` | `parties` | `entities.source_identity_admitted`, `entities.mentions_observational`, `entities.envelope_type_scope`, `entities.resolution_merge_coherent`, `entities.alias_identifier_normalized`, `entities.alias_identifier_classified`, `entities.alias_identifier_unique`, `entities.alias_identifier_same_incident` |
 | `indicators` | `entities` | `indicators.source_identity_admitted`, `indicators.representation_legal`, `indicators.normalization_exact`, `indicators.identity_unique`, `indicators.observation_same_incident`, `indicators.observation_ordered`, `indicators.observation_coherent`, `indicators.interval_same_incident`, `indicators.interval_ordered`, `indicators.interval_coherent`, `indicators.repeated_observations_preserved` |
-| `artifacts` | `indicators` | `artifacts.source_identity_admitted`, `artifacts.envelope_type_scope`, `artifacts.subtype_exact`, `artifacts.lifecycle_fields_legal`, `artifacts.handoff_risk_target`, `artifacts.references_same_incident` |
-| `tasks_decisions` | `artifacts` | `tasks_decisions.source_identity_admitted`, `tasks_decisions.envelope_type_scope`, `tasks_decisions.lifecycle_legal`, `tasks_decisions.dependent_fields_legal`, `tasks_decisions.references_same_incident` |
-| `evidence` | `tasks_decisions` | `evidence.source_identity_admitted`, `evidence.envelope_type_scope`, `evidence.object_metadata_agree`, `evidence.storage_reference_legal`, `evidence.byte_size_digest_agree`, `evidence.lifecycle_legal`, `evidence.staged_bytes_digest`, `evidence.custody_ordered`, `evidence.custody_same_incident` |
-| `assessments` | `evidence` | `assessments.source_identity_admitted`, `assessments.subject_type_scope`, `assessments.state_confidence_rationale_legal`, `assessments.timestamps_lifecycle_legal` |
+| `artifacts` | `indicators` | `artifacts.source_identity_admitted`, `artifacts.row_shape_exact`, `artifacts.envelope_type_scope`, `artifacts.subtype_exact`, `artifacts.lifecycle_fields_legal`, `artifacts.handoff_risk_target`, `artifacts.handoff_risk_legal`, `artifacts.references_same_incident`, `artifacts.attribution_exact`, `artifacts.source_state_exact` |
+| `tasks_decisions` | `artifacts` | `tasks_decisions.source_identity_admitted`, `tasks_decisions.envelope_type_scope`, `tasks_decisions.source_state_exact`, `tasks_decisions.attribution_exact`, `tasks_decisions.lifecycle_legal`, `tasks_decisions.dependent_fields_legal`, `tasks_decisions.references_same_incident` |
+| `evidence` | `tasks_decisions` | `evidence.source_identity_admitted`, `evidence.row_shape_exact`, `evidence.envelope_type_scope`, `evidence.attribution_exact`, `evidence.source_state_exact`, `evidence.references_same_incident`, `evidence.object_metadata_agree`, `evidence.storage_reference_legal`, `evidence.byte_size_digest_agree`, `evidence.lifecycle_legal`, `evidence.staged_bytes_digest`, `evidence.custody_ordered`, `evidence.custody_same_incident` |
+| `assessments` | `evidence` | `assessments.source_identity_admitted`, `assessments.row_shape_exact`, `assessments.subject_type_scope`, `assessments.state_confidence_rationale_legal`, `assessments.timestamps_lifecycle_legal`, `assessments.attribution_exact`, `assessments.source_state_exact` |
 | `links_tags` | `assessments` | `links_tags.source_identity_admitted`, `links_tags.endpoints_same_incident`, `links_tags.link_tuple_legal`, `links_tags.link_unique`, `links_tags.deletion_tuple_legal`, `links_tags.tag_normalized`, `links_tags.tag_catalog_exact` |
-| `revisions` | `links_tags` | `revisions.source_identity_admitted`, `revisions.references_complete`, `revisions.actor_references_complete`, `revisions.mutation_sequence_contiguous`, `revisions.record_version_unique`, `revisions.history_reconstruction`, `revisions.sequence_repair_after_validation` |
+| `revisions` | `links_tags` | `revisions.source_identity_admitted`, `revisions.references_complete`, `revisions.source_state_exact`, `revisions.actor_references_complete`, `revisions.mutation_sequence_contiguous`, `revisions.record_version_unique`, `revisions.history_reconstruction`, `revisions.sequence_repair_after_validation` |
 | `saved_views` | `revisions` | `saved_views.source_identity_admitted`, `saved_views.row_shape_exact`, `saved_views.identity_scope_legal`, `saved_views.owner_tuple_legal`, `saved_views.display_name_normalized`, `saved_views.query_layout_legal`, `saved_views.version_timestamps_legal`, `saved_views.reference_pack_degradation_bounded` |
 
 The corresponding source-owner invariant meanings are exactly:
@@ -9316,17 +9678,425 @@ archive order, and database error text MUST NOT select it.
 | Family | Required invariant meaning |
 | --- | --- |
 | Records | Every row belongs to the imported incident; record type, row version, timestamps, actor attribution, and deletion tuples are legal; every subtype-required envelope has exactly its admitted owner row. |
-| Timeline | Every row has the current registered closed shape; every row binds a same-incident `timeline_event` envelope; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. |
+| Committed sources | REQ-01-685's immutable source metadata, approved mapping, exact original blob bytes and historical actor attribution are preserved; each generic row association binds an admitted source row to a same-incident record of its target type. |
+| Timeline | Every row has the current registered closed shape; event rows bind same-incident `timeline_event` envelopes; capture, review, supersession, generated-time, and paired-time state are coherent; provenance identities are unique and non-orphaned. Profiles satisfy REQ-01-697, preserve exact state or absence, and retain exact source attribution. Event fields, envelope mirrors and actor sidecars satisfy REQ-01-698 exactly. Provenance identity/value bounds, binding and exact state satisfy REQ-01-699. |
 | Parties | Every row has the exact version-8 closed shape; every row has a same-incident party envelope; required identity fields, lifecycle state, and active claims are exact; every string equals the Party field-registry stored representation. |
 | Entities | Mentions remain observations; hosts and identities have the correct envelopes; resolution and merge-lineage tuples are coherent; aliases and preserved identifiers are normalized, classified, unique, and same-incident. |
 | Indicators | Type/value/hash representation and normalization are legal; duplicate identities are rejected; observations and state intervals are same-incident, ordered, and coherent; repeated observations are not silently merged. |
 | Artifacts | Every artifact has the correct envelope and exactly the admitted subtype; subtype lifecycle and required fields are legal; handoff-risk references target handoffs; all references are same-incident. |
 | Tasks and Decisions | Envelope type and lifecycle are legal; owner/completion/decision dependent fields form admitted tuples; referenced records belong to the incident. |
-| Evidence | Evidence envelope, object metadata, storage reference, byte size, digest, and lifecycle agree; staged bytes match the declared digest; custody events are ordered and reference same-incident evidence and records. |
+| Evidence | Both Party references satisfy Core02 REQ-02-198, including the live/deleted distinction; Evidence envelope, object metadata, storage reference, byte size, digest, and lifecycle agree; staged bytes match the declared digest; custody events are ordered and reference same-incident evidence and records. |
 | Assessments | The subject is a same-incident host or identity of the admitted type; state, confidence, rationale, timestamps, and lifecycle form legal tuples. |
 | Links and Tags | Link endpoints are valid same-incident records; type, direction, field key, uniqueness, and deletion tuples are legal; tags are normalized; `tags.ndjson` exactly equals the distinct `(tag_name, normalized_tag_name)` catalog derived from imported record tags. |
 | Revisions | Referenced change sets, mutations, revisions, records, and actors exist; mutation sequence is contiguous; `(record_id, row_version)` is unique; before/after history reconstructs imported current state; sequence repair runs only after validation. |
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
+
+For Evidence blob rows in `upload_state=available` or `quarantined`, Prepare MUST require
+`byte_size` and `observed_size` as exact nonnegative signed-64-bit JSON integers
+in canonical decimal notation. Both MUST equal the byte size of the admitted
+`blobs/sha256/<observed_sha256_hex>` member. `observed_sha256_hex` MUST be a
+required lowercase64hex string; `expected_sha256_hex` MUST be present and either
+null or that same digest. An expected digest MUST NOT substitute for a missing
+observation. These source-metadata failures are
+`evidence.byte_size_digest_agree`. Export MUST inspect every available and
+quarantined source row, including rows with absent observations. It MUST require
+the same nonnegative declared/observed size and observed/optional expected digest
+agreement, and compare both sizes with the emitted member's actual byte size.
+Export MUST report metadata disagreement with that same source invariant and
+MUST NOT publish a bundle descriptor. Content deduplication MUST occur only after
+each source row's metadata has been checked against the emitted member; one valid
+row MUST NOT conceal another inconsistent row naming the same digest. A missing required member remains
+`missing_required_blob`; a present member whose digest disagrees with its
+observed-digest identity remains `blob_hash_mismatch`. These checks precede
+visible staging. The staging owner MUST still independently verify actual read
+bytes and the sealed size/digest before publication; metadata agreement alone
+does not establish byte integrity.
+
+**REQ-01-694**
+For Incident Bundle version `8`, `data/evidence_records.ndjson` MUST contain
+closed objects with exactly these17 members, including every nullable member:
+`record_id`, `incident_id`, `title`, `lifecycle_state`, `requested_at`,
+`received_at`, `storage_ref`, `blob_hash`, `collector_party_text`,
+`collector_party_id`, `source_party_text`, `source_party_id`, `upload_state`,
+`object_blob_id`, `owner_user_id`, `created_at`, `updated_at`.
+
+`record_id` and `incident_id` are required non-null canonical lowercase hyphenated
+nonzero UUID strings. The two Party IDs, object-blob ID and owner ID are nullable
+UUIDs in that same form. `created_at` and `updated_at` are non-null timestamps;
+`requested_at` and `received_at` are nullable timestamps. Every present timestamp
+uses the canonical lossless UTC form in REQ-01-693. The five text members `title`,
+`storage_ref`, `blob_hash`, `collector_party_text` and `source_party_text` are
+nullable strings. The title, locator and Party text MUST equal their admitted
+stored representation under REQ-01-328, including authoritative null for empty
+optional text. `lifecycle_state` and `upload_state` are required non-null strings
+in their closed Core02 vocabularies. Portable input MUST NOT be coerced, defaulted,
+normalized, truncated or silently discarded.
+
+All Evidence source strings MUST be valid Unicode without NUL under Core02
+REQ-02-197, including the nullable `blob_hash`. Complete shape/scalar admission
+rejects violations as `evidence.row_shape_exact` before database mutation; the
+preceding syntax and stable-identity phases keep their declared precedence.
+
+Prepare MUST reject malformed NDJSON, unknown/missing members, scalar/type/form
+errors and noncanonical text as `evidence.row_shape_exact`, except the stable-identity
+failures assigned below. Duplicate JSON members,
+invalid Unicode, non-object rows, blank logical rows, trailing or multiple values,
+and oversized logical rows are malformed. Within this member, all syntax checks
+precede stable-identity checks; identities MUST be strictly ascending and unique,
+otherwise `evidence.source_identity_admitted`. Complete shape/scalar/text admission
+then precedes incident identity (`evidence.envelope_type_scope`), row-local
+lifecycle/blob bridge (`evidence.lifecycle_legal`), reserved logical object-reference
+association (`evidence.storage_reference_legal`), and historical owner roster
+membership (`evidence.attribution_exact`). Each phase completes over the member
+before the next. Existing object-blob byte and custody contracts remain separate.
+
+Apply MUST require same-incident Evidence envelopes before inserting Evidence
+rows, use explicit fixed owner-controlled columns and typed values, and require
+one affected row per admitted identity. The only remapped source member is a
+non-null `owner_user_id`, whose runtime value is the local importing actor; its
+historical actor is recorded explicitly as attribution under Core02 REQ-02-199.
+Null owner remains null and creates no sidecar. Prepared values MUST bind the
+creating source-port instance, operation, incident, importing actor and bundle
+version; a different binding MUST fail before database access.
+
+Validate MUST compare all17 admitted values against the complete ordered
+transaction relation, with only the declared runtime actor remapping and UTC
+representation of equal timestamp instants. Missing, extra, duplicate or changed
+source rows fail `evidence.source_state_exact`. Historical owner sidecars MUST
+match exact source table/row/column, source actor and local importing actor;
+missing, duplicate, extra or unexpected sidecars fail `evidence.attribution_exact`.
+Owner references confer no authorization and MUST NOT create source users or
+memberships. Before any Evidence-owner insertion, Apply MUST complete the Party-reference
+phase over every Evidence row under Core02 REQ-02-198. Both Party reference
+members are nullable; present targets require same-incident Party envelopes and
+source rows, with active targets for live Evidence and retained deleted targets
+allowed only for deleted Evidence. Violations fail
+`evidence.references_same_incident`. Validate MUST recheck that phase after exact
+Evidence source and attribution comparison. It MUST NOT rewrite or clear a
+reference to make the bundle admissible. This requirement does not replace the
+Evidence/object-metadata or custody cross-row invariants in REQ-01-640 and
+Core02 §13.
+
+After inserting admitted Blob rows in the caller transaction, Apply MUST resolve
+each Evidence association against a locked authoritative same-incident Blob row
+before inserting that Evidence row. Missing, foreign or already-associated
+targets fail `evidence.object_metadata_agree`; only the specific association
+uniqueness constraint maps a concurrent collision to that same failure. Pending
+or failed targets and live Evidence bridge violations fail
+`evidence.lifecycle_legal`. The live/deleted scope in Core02 REQ-02-190 applies;
+retained upload-state copies MUST NOT replace actual Blob state or be rewritten
+to force agreement. Validate MUST recheck this relation after exact owner source
+and attribution comparison. Apply failures require rollback of the caller
+transaction; no partial source, attribution or object publication may commit.
+Profiles: incident_portability
+Verified by: AC-496, AC-498, AC-501, AC-503
+
+**REQ-01-695**
+For Incident Bundle version `8`, `data/object_blobs.ndjson` MUST contain exactly
+these20 members, including every nullable member: `object_blob_id`, `incident_id`,
+`created_by_user_id`, `upload_state`, `byte_size`, `filename_hint`,
+`content_type_hint`, `expected_sha256_hex`, `observed_size`, `observed_content_type`,
+`observed_sha256_hex`, `target_expires_at`, `pending_expires_at`, `finalized_at`,
+`terminal_reason`, `failed_at`, `cleanup_due_at`, `cleaned_up_at`, `created_at`,
+`updated_at`. No physical source key is admitted under REQ-01-431.
+
+The three UUID members MUST be non-null canonical lowercase hyphenated nonzero
+UUID strings. Creation, update and both expiry clocks are non-null timestamps;
+finalization, failure and both cleanup clocks are nullable timestamps. All clocks
+use REQ-01-693's canonical lossless UTC representation. `byte_size` is non-null;
+`observed_size` is nullable. Present sizes MUST be nonnegative signed64-bit JSON
+integers in canonical decimal notation. Both digest members are nullable
+lowercase64hex strings. The two hints, observed content type and terminal reason
+are nullable strings; hints MUST equal their trimmed nonempty stored form or be
+null, under REQ-01-244. Strings MUST be valid Unicode and contain no NUL. Upload
+state is a non-null string with the Core02 §13.2 closed vocabulary and retained
+lifecycle tuple. Historical creator MUST belong to the admitted actor roster.
+
+Within this path, Prepare MUST complete syntax checks, strictly ascending unique
+canonical stable identity, physical-key exclusion, finalized observation checks
+under REQ-01-640, full shape/scalars, incident scope, lifecycle tuple and historical
+creator admission in that order. Syntax and full shape/scalar failures are
+`evidence.row_shape_exact`; stable identity, physical-key and finalized-observation
+failures retain their existing invariants. Wrong incident is
+`evidence.envelope_type_scope`, an invalid retained lifecycle tuple is
+`evidence.lifecycle_legal`, and missing creator attribution is
+`evidence.attribution_exact`. No database coercion, defaulting, discarded fields
+or normalization may repair source input.
+
+Apply MUST admit the complete operation-bound rewritten member before inserts.
+It MUST equal prepared source in order and every value, with only a required
+`storage_key` added by Evidence staging. That key MUST use the current canonical
+incident/blob/nonzero-generation grammar and match both source identities.
+Changed, missing, duplicate or extra rewritten rows fail
+`evidence.source_state_exact`; an absent/invalid/mismatched key fails
+`evidence.storage_reference_legal`. The immutable rewritten descriptor accepted
+by Apply MUST remain bound to this prepared value through Validate; it cannot be
+replaced by another valid generation. Apply MUST use fixed explicit columns and
+typed values, reject existing identities, require one inserted row per identity,
+remap only `created_by_user_id` to the local importer and record the exact
+historical creator sidecar. All source and rewritten reads remain bounded by
+individual rows rather than total member size.
+
+Validate MUST compare the complete ordered transaction Blob relation with
+prepared source plus the bound rewritten key and declared creator remapping.
+Any missing, extra or changed row/value/key fails `evidence.source_state_exact`.
+Creator sidecars MUST match exact source table, row, column, historical actor and
+local importer; missing, duplicate, extra or unexpected sidecars fail
+`evidence.attribution_exact`. No source user, membership or upload capability is
+created. Evidence-to-Blob, Party and Custody cross-row invariants remain separately
+required by REQ-01-640 and Core02 §13; typed row admission does not replace them.
+Profiles: incident_portability
+Verified by: AC-496, AC-498, AC-501, AC-503
+
+**REQ-01-696**
+For Incident Bundle version `8`, `data/evidence_custody_events.ndjson` MUST contain
+closed objects with exactly these 9 members, including nullable members:
+`custody_event_id`, `incident_id`, `evidence_record_id`, `custody_event_type`,
+`actor_user_id`, `occurred_at`, `location_text`, `note`, `metadata`.
+The three identity/reference UUIDs are non-null canonical lowercase hyphenated
+nonzero UUID strings. Actor is null or a UUID in that form and, when non-null,
+MUST belong to the admitted historical actor roster. Event type is a non-null
+string from Core02 REQ-02-201's closed vocabulary. Occurrence is a non-null
+canonical lossless UTC timestamp under REQ-01-693. Location and note are nullable
+strings preserved exactly, without trimming, normalization or empty/null collapse.
+All strings and object keys, recursively, MUST be valid Unicode without NUL.
+
+Metadata MUST be a non-null JSON object, whose values may recursively be objects,
+arrays, strings, booleans, null and finite exact decimal JSON numbers. Array order
+and string contents are significant; object key order and numeric formatting are
+not. Numbers MUST be preserved by exact decimal value, never binary floating-point
+rounding. After insignificant leading/trailing zeros and exponent notation are
+resolved, nonzero values MUST require at most 131072 digits before and 16383 digits
+after the decimal point. Over-range or underflowing values MUST be rejected,
+not rounded. Zero and negative zero have the same numeric value. Exact decimal
+normalization and the complete normalized row MUST stay within the existing
+logical-row byte ceiling; short exponent text MUST NOT cause unbounded allocation.
+Only the top-level `actor_user_id` is an attribution field; metadata stays inert.
+
+Within this path, Prepare MUST complete syntax, strictly ascending unique stable
+identity, complete shape/scalars/metadata, occurrence-time admission, incident
+scope and historical actor-roster checks in that order. Syntax and shape failures
+are `evidence.row_shape_exact`; stable identity failures are
+`evidence.source_identity_admitted`; invalid occurrence time is
+`evidence.custody_ordered`; wrong incident is `evidence.custody_same_incident`;
+missing historical actor is `evidence.attribution_exact`. Do not impose temporal
+monotonicity in UUID transport order or derive current lifecycle from events.
+
+Apply MUST verify every event's referenced Evidence source row and Evidence
+record envelope exist in the imported incident, including retained soft-deleted
+records, before inserting any custody row or custody attribution. Missing, foreign
+or wrong-type references fail `evidence.custody_same_incident`. Existing event
+identities fail `evidence.source_identity_admitted`. Insert uses fixed explicit
+columns, typed values and one affected row per admitted event, without database
+record-population, defaulting, dropped members or scalar coercion. The only actor
+remapping is non-null top-level `actor_user_id` to the local importer, accompanied
+by its exact historical sidecar; null remains null with no sidecar. JSON decimal
+formatting may change only while preserving the exact numeric value.
+
+Validate MUST recheck same-incident references and compare all 9 source values
+against the complete ordered transaction relation, accounting only for the
+specified actor remapping, equivalent UTC timestamp representation and exact JSON
+number/object semantics. Changed, missing or extra rows fail
+`evidence.source_state_exact`. Sidecars MUST match source table/row/column,
+historical actor and local importer exactly; missing, duplicate, extra or
+unexpected sidecars fail `evidence.attribution_exact`. Prepared instance,
+operation, incident, importing actor, version and immutable-member bindings remain
+required. Complete source comparison preserves occurrence chronology without
+requiring an additional chronology projection or generated sequence.
+Profiles: incident_portability
+Verified by: AC-496, AC-498, AC-501, AC-503
+
+**REQ-01-692**
+For Incident Bundle version `8`, the Artifacts source owner MUST admit exactly
+these five ordered NDJSON members. Each row is a closed object containing every
+listed member, including nullable members; no unknown member is admitted.
+
+| Member path | Exact row members |
+| --- | --- |
+| `data/artifacts.ndjson` | `record_id`, `incident_id`, `artifact_type`, `title`, `body`, `timestamp_utc`, `updated_at`, `created_at`, `comm_id`, `comm_type`, `audience`, `channel_or_meeting`, `summary`, `next_report_at`, `privilege_tag`, `handoff_id`, `outgoing_owner_user_id`, `incoming_owner_user_id`, `current_state_summary`, `next_checks`, `acknowledged_at`, `status_review_id`, `review_owner_user_id`, `active_risks_summary`, `lesson_id`, `owner_user_id`, `closure_state`, `created_by_user_id`. |
+| `data/artifact_findings.ndjson` | `record_id`, `incident_id`, `kind`, `statement`, `state`, `confidence_score`, `owner_user_id`, `closed_at`, `created_at`, `updated_at`. |
+| `data/artifact_investigative_queries.ndjson` | `record_id`, `incident_id`, `query_id`, `platform`, `purpose`, `query_text`, `created_by_user_id`, `created_at`, `updated_at`. |
+| `data/artifact_forensic_keywords.ndjson` | `record_id`, `incident_id`, `keyword_id`, `pattern`, `reason`, `match_mode`, `case_sensitive`, `created_at`, `updated_at`. |
+| `data/handoff_risk_refs.ndjson` | `risk_ref_id`, `incident_id`, `handoff_record_id`, `risk_ref_text`, `created_by_user_id`, `created_at`, `deleted_at`, `deleted_by_user_id`. |
+
+The stable identity is `record_id` for the first four paths and `risk_ref_id` for
+the fifth. Identities MUST be unique and strictly ascending within each member.
+Every UUID scalar MUST be a canonical lowercase hyphenated nonzero UUID string.
+`incident_id` MUST equal the immutable imported incident. Every timestamp MUST
+be a UTC RFC3339 string in years 0001 through 9999, with at most microsecond
+precision, no trailing fractional zeroes, and either `Z` or `+00:00`. Import MUST
+NOT normalize, default, coerce, discard, merge or repair source values. Duplicate
+JSON members, invalid Unicode, non-object rows, blank logical rows, trailing or
+multiple JSON values, and rows exceeding the admitted bounded logical-row size
+MUST fail. Physical database-record JSON decoding MUST NOT define this contract.
+
+The parent row requires non-null `record_id`, `incident_id`, `artifact_type`,
+`created_at` and `updated_at`. Its other members are nullable except where the
+active subtype requires them below. The exact discriminator vocabulary is `note`,
+`comm_log`, `handoff`, `status_review`, `lesson`, `finding`, `investigative_query`,
+and `forensic_keyword`. Known wide-parent columns remain source state even when
+not exposed by the active workbook surface: import MUST preserve populated known
+columns and validate their declared scalar policy; surface visibility does not
+permit their deletion. This does not admit unknown fields or a second subtype.
+
+Every populated parent text scalar MUST already have its authoritative stored
+form: `title`, `channel_or_meeting`, `summary`, and `privilege_tag` use
+`single_line_title_v1`; `body`, `current_state_summary`, `next_checks`, and
+`active_risks_summary` use `multiline_body_v1`; `audience` uses `party_text_v1`.
+Populated bound text MUST be non-empty; optional cleared text is JSON null.
+Populated `comm_type` and `closure_state` MUST use their exact Core02 §18 tokens.
+The immutable display identifiers `comm_id`, `handoff_id`, `status_review_id`,
+`lesson_id`, `query_id`, and `keyword_id` are non-empty, non-whitespace source
+strings without NUL; import MUST preserve them without reinterpreting them as
+record UUIDs or generating replacements. Within the incident, `query_id` values
+MUST be unique among Query children, and `keyword_id` values MUST be unique among
+Keyword children; violations select `artifacts.subtype_exact`.
+
+The parent requires the following active-subtype fields in addition to common
+members: Communication requires `comm_id`, `comm_type`, `timestamp_utc`,
+`audience`, `channel_or_meeting`, `summary`; Handoff requires `handoff_id`,
+`timestamp_utc`, both outgoing/incoming owner UUIDs and `current_state_summary`;
+Status Review requires `status_review_id`, `timestamp_utc`, `review_owner_user_id`
+and `current_state_summary`; Lesson requires `lesson_id`, `timestamp_utc`,
+`summary` and `owner_user_id`. Note title/body remain individually nullable;
+create-only minimum signal MUST NOT be reapplied to retained source rows.
+Explicit `timestamp_utc`, `next_report_at` and `acknowledged_at` do not acquire
+undeclared server-managed ordering constraints.
+
+A Finding parent MUST have exactly one Finding child and no Query or Keyword
+child; Query and Keyword parents likewise require exactly their own child.
+Other parent types MUST have none of those three child kinds. A child without
+its same-incident parent, a missing required child, or a child of the wrong
+parent discriminator is invalid. Child members are non-null except Finding
+`confidence_score` and `closed_at`. Finding kind/state use Core02 §18;
+`statement` uses `multiline_body_v1`; confidence is null or a canonical decimal
+JSON integer 0 through 100, without exponent, fraction or signed zero. `closed_at`
+is populated exactly for state `closed`. Query platform/purpose use
+`single_line_title_v1`, query text uses `multiline_body_v1`. Keyword pattern uses
+`single_line_title_v1`, reason uses `reason_note_v1`, match mode is exactly
+`literal` or `regex`, and case sensitivity is a JSON boolean. These bound text
+members are required, non-empty and already canonical.
+
+Each parent or child having both persistence clocks requires `created_at <=
+updated_at`; a closed Finding additionally requires its `closed_at` within its
+own creation/update interval. Each physical row's clocks remain independently
+preserved; import MUST NOT manufacture parent/child clock equality. Risk rows
+require all members except their deletion tuple; risk text is required canonical
+`single_line_title_v1`. Deletion members are both null or both populated, with
+`deleted_at >= created_at`. Active risks MUST be unique by parent and exact
+case-preserving canonical text, as REQ-01-504 requires. Each risk parent MUST be
+a same-incident Handoff; deleted parent envelopes remain valid retained history.
+
+All populated actor members MUST occur in the immutable bundle actor catalog.
+The declared actor columns are the five parent user-ID columns, Finding owner,
+Query creator, and Risk creator/deleter. Import remaps populated runtime actor
+columns to the importing local user and preserves the exact original actor
+references in attribution sidecars. Null actors create no sidecar. Import MUST
+NOT infer actors from arbitrary suffixes or create local user accounts.
+
+Prepare requires no database capability. It MUST complete bounded whole-family
+passes in this order: strict framing/Unicode (`artifacts.row_shape_exact`), stable
+identity (`artifacts.source_identity_admitted`), exact scalar/member shape
+(`artifacts.row_shape_exact`), local incident scope (`artifacts.references_same_incident`),
+row-local subtype/text/vocabulary (`artifacts.subtype_exact`), source clock and
+lifecycle tuples (`artifacts.lifecycle_fields_legal`), then actor membership
+(`artifacts.attribution_exact`). Malformed stable identity selects identity;
+malformed other scalars select shape. The opaque preparation binds the creating
+port, contract major, operation, incident, version, importing actor and verified
+immutable member bytes. Archive order, descriptor order and database error text
+MUST NOT choose the failing invariant. Bounded repeated reads are permitted;
+whole-member row retention is forbidden.
+
+Apply uses the supplied single transaction and fixed explicit owner columns with
+typed parameters, requires exactly one inserted row per input, and records only
+declared actor attributions. It MUST check same-incident Artifact envelopes for
+parent and subtype rows before source insertion. Stable identity collisions and
+affected-row mismatches select `artifacts.source_identity_admitted`. It inserts
+parents before children and risks, checks risk parent type/scope before that risk
+is inserted, and rejects an existing active canonical risk tuple as
+`artifacts.handoff_risk_legal`. No conflict-ignore or database-record JSON import
+path is admitted. A failure is never publication; the coordinator must roll back
+all source and attribution writes in the caller's transaction.
+
+Validate MUST recheck the complete transaction-scoped owner set in this order:
+Artifact envelope scope (`artifacts.envelope_type_scope`), exact subtype cardinality
+(`artifacts.subtype_exact`), risk parent/scope (`artifacts.handoff_risk_target`),
+active canonical risk uniqueness (`artifacts.handoff_risk_legal`), exact admitted
+source state (`artifacts.source_state_exact`), and exact historical attribution
+(`artifacts.attribution_exact`). Missing, extra or altered rows fail source-state
+comparison, including every scalar, null, independently retained timestamp instant
+and remapped runtime actor. Missing, extra, duplicate or altered attribution rows
+fail attribution comparison. Per-phase invariant priority applies across all five
+members. Export MUST use the same explicit current column sets and deterministic
+stable-identity ordering. Separately owned Links/Tags and Revisions remain with
+their source owners; this contract does not fold them into Artifact rows.
+Profiles: incident_portability
+Verified by: AC-496, AC-498, AC-501, AC-503
+
+**REQ-01-691**
+For Incident Bundle version `8`, the Assessments source owner MUST admit
+`data/compromise_assessments.ndjson` as an ordered stream of closed objects with
+exactly the following 13 members. Every member is required, including nullable
+members. Duplicate members, invalid Unicode, non-object rows, blank logical rows,
+and multiple or trailing JSON values are forbidden. Import MUST NOT default,
+coerce, normalize, skip, merge or repair source values.
+
+| Members | Required form |
+| --- | --- |
+| `record_id`, `incident_id`, `subject_record_id`, `assessor_user_id` | Canonical lowercase hyphenated nonzero UUID strings. `incident_id` equals the immutable import context. |
+| `subject_type` | Exactly `host` or `identity`; the subject differs from this Assessment record. |
+| `assessment_state` | Exactly a Core 02 REQ-02-084 state. |
+| `confidence_score` | JSON `null` or a canonical decimal integer from 0 through 100, without a sign on zero, exponent or fraction. |
+| `rationale` | Non-empty, trimmed NFC note text; interior LF and TAB are permitted, CR and all other Unicode control/format characters are forbidden. |
+| `assessed_at`, `created_at`, `updated_at` | UTC RFC 3339 timestamps in years 0001 through 9999 with at most microsecond precision, canonical fractional spelling (no trailing fractional zeroes), and either `Z` or `+00:00`. |
+| `deleted_at` | JSON `null` or a timestamp in the same admitted form. |
+| `deleted_by_user_id` | JSON `null` or a canonical lowercase hyphenated nonzero UUID string. |
+
+`record_id` values MUST be strictly ascending and unique. `created_at <=
+updated_at`. Deletion members are both null or both populated, with
+`created_at <= deleted_at <= updated_at`. `assessed_at` is an explicit judgment
+instant independent of persistence clocks; it may precede creation or be future
+dated. Every populated actor UUID MUST occur in the immutable bundle actor
+catalog; import binds the runtime actor columns to the importing local user and
+preserves exactly the historical actor references in owner-declared attribution
+sidecars. The importer MUST NOT create local users from those references.
+
+Prepare MUST complete bounded read-only passes in the following order across the
+whole member: strict JSON framing/Unicode (`assessments.row_shape_exact`), stable
+identity (`assessments.source_identity_admitted`), exact member/scalar shape
+(`assessments.row_shape_exact`), local incident/subject/type admission
+(`assessments.subject_type_scope`), state/confidence/rationale
+(`assessments.state_confidence_rationale_legal`), source timestamp/deletion tuples
+(`assessments.timestamps_lifecycle_legal`), and actor membership
+(`assessments.attribution_exact`). Malformed stable identities select the identity
+invariant; malformed other scalars select the shape invariant. No database
+capability is required in Prepare. The opaque preparation binds the creating port,
+operation, incident, version, importing actor and verified immutable member bytes.
+
+Apply MUST first prove for every row that its envelope is a same-incident
+`assessment` and its subject is a same-incident record of its declared Host or
+Identity type. Deleted envelopes and subjects remain admissible historical
+records. Any failure selects `assessments.subject_type_scope` before the first
+Assessment write. Apply then uses fixed explicit columns with typed parameters,
+requires exactly one inserted row per input, and records only the two declared
+actor columns. A duplicate or affected-row mismatch selects the identity
+invariant. There is no generic database-record JSON import or conflict-ignore
+path. All mutations remain within the caller's single transaction.
+
+Validate MUST compare the complete ordered Assessment source set in that
+transaction with the admitted input, including every scalar, null, timestamp
+instant and remapped runtime actor; missing, extra or altered rows select
+`assessments.source_state_exact`. It MUST recheck envelope/subject scope before
+that comparison and compare the exact historical attribution set, rejecting
+missing, extra, duplicate or altered sidecars as `assessments.attribution_exact`.
+Thus Prepare admission precedes transaction-dependent scope admission, which
+precedes exact source-state and attribution comparison. Within each phase the
+stated order applies across the entire member, independent of archive entry
+order, descriptor ordering and database error text. Bounded repeated reads are
+permitted; whole-member retention is not. The source owner retains Core 02's
+append-only judgment vocabulary and does not infer new judgments from import.
+Profiles: incident_portability
+Verified by: AC-496, AC-498, AC-501, AC-503
 
 **REQ-01-673**
 For Incident Bundle version `8`, source family `incident`, contract major `3`,
@@ -9403,12 +10173,17 @@ aliases by `entity_alias_id`, all ascending. Physical relation column order,
 `SELECT *`, `to_jsonb(table_row)`, and database record-population functions are
 not portable-shape authority.
 
+Alias and preserved-identifier deletion clocks MUST be null or greater than or
+equal to their creation clocks, as required by the complete source/history
+contract in Core02. A malformed timestamp or reversed collection chronology
+fails `entities.source_identity_admitted`; import MUST NOT repair either clock.
+
 Entities assigns every semantic defect to exactly one invariant in this
 precedence order:
 
 | Precedence | Invariant ID | Exclusive acceptance rule |
 | ---: | --- | --- |
-| 1 | `entities.source_identity_admitted` | Every path has its exact row shape and every declared stable identity is canonical and unique within that path. |
+| 1 | `entities.source_identity_admitted` | Every path has its exact row shape, every declared stable identity is canonical and unique within that path, timestamps use the declared canonical form, and collection deletion does not predate creation. |
 | 2 | `entities.mentions_observational` | Mention source text, locator, type, origin, positive version and ordinal, and observational lifecycle fields use the closed Entities vocabulary. |
 | 3 | `entities.envelope_type_scope` | Every Host and Identity has exactly one same-incident Records envelope of the matching record type, and retained envelope fields agree. |
 | 4 | `entities.resolution_merge_coherent` | Mention resolution tuples and Host/Identity active-or-merged lineage tuples are complete, same-incident, type-correct, and non-self-referential. |
@@ -9445,8 +10220,8 @@ input.
 | `indicator_type` | One exact current Core 02 Indicator type token. |
 | `value_kind` | Exactly `atomic`, `pattern`, or `reference`. |
 | `display_value` | Non-empty JSON string without NUL in the canonical type-specific form. |
-| `normalized_value` | JSON `null` or a non-empty JSON string without NUL in the canonical type-specific form. |
-| `dedupe_key` | Exactly 64 lowercase hexadecimal characters equal to the owner identity derivation. |
+| `normalized_value` | Non-null, non-empty JSON string equal to the successful Reference Data normalization output under RP-REQ-119/120 and Core 02 canonical Indicator identity. |
+| `dedupe_key` | Exact type-specific key returned by Reference Data under RP-REQ-131 for the effective immutable registry set; no private identity derivation or additional component. |
 | `defanged_value` | JSON `null` or a JSON string without NUL, preserved exactly and excluded from canonical identity. |
 | `hash_algorithm` | JSON `null` or a non-empty JSON string without NUL in canonical lowercase form. |
 | `hash_value` | JSON `null` or non-empty lowercase hexadecimal text; it is populated if and only if `hash_algorithm` is populated. |
@@ -9535,6 +10310,7 @@ operator output. Selection MUST NOT depend on archive order, NDJSON row order,
 filesystem order, map iteration, unsorted SQL output, constraint-reporting
 order, PostgreSQL error text, or a descriptor-default invariant.
 
+**REQ-01-701**
 For Incident Bundle version `8`, source family `revisions`, contract
 major `3`, each non-empty row of the three Revisions files MUST be one exact
 JSON object. Every member listed below is required, including members whose
@@ -9552,11 +10328,13 @@ admission; Revisions MUST NOT repair, skip, merge, or normalize such input.
 | `client_txn_id` | JSON `null` or a JSON string without NUL, preserved exactly. |
 | `request_id` | JSON `null` or a JSON string without NUL, preserved exactly. |
 | `created_at` | Canonical UTC RFC3339Nano string using `Z`, with at most six fractional digits so the value is exactly representable by the authoritative timestamp substrate. |
+| `history_order` | Canonical decimal JSON integer from `1` through `9223372036854775807`, inclusive; unique within this incident, preserved exactly and interpreted under Core02 REQ-02-213. Malformed scalars fail `revisions.references_complete`; duplicate orders fail `revisions.history_reconstruction`. |
+| `actor_import_contexts` | Required array, oldest import first, of closed `{import_id, actor_user_id}` objects; an empty array denotes history captured in the exporting deployment. Each ID is a canonical nonzero UUID; each actor resolves through the admitted roster. |
 
 | `data/change_set_mutations.ndjson` member | Required form |
 | --- | --- |
 | `change_set_id` | Canonical UUID resolving exactly once to an admitted Revisions change set. |
-| `sequence_no` | Canonical positive decimal JSON integer greater than or equal to `1`. |
+| `sequence_no` | Canonical decimal JSON integer from `1` through `2147483647`, inclusive, independently of host integer width. |
 | `target_kind` | Non-empty JSON string without NUL, preserved exactly and resolved by the owning mutation-target provider. |
 | `target_id` | Non-empty JSON string without NUL in the target owner's canonical identity form. |
 | `operation_kind` | Non-empty JSON string without NUL in the target owner's admitted vocabulary. |
@@ -9575,6 +10353,56 @@ admission; Revisions MUST NOT repair, skip, merge, or normalize such input.
 | `after_json` | JSON object or JSON `null`. |
 | `created_at` | Canonical UTC RFC3339Nano string using `Z`, with at most six fractional digits so the value is exactly representable by the authoritative timestamp substrate. |
 
+Prepare MUST enforce the mutation sequence scalar range before any database
+access; out-of-range values fail `revisions.mutation_sequence_contiguous` without
+clamping or narrowing. Admitting an in-range scalar does not establish aggregate
+sequence continuity: each change set must still contain exactly `1..N`.
+
+A mutation dispatched to a first-class row provider MUST carry a complete
+non-null `after_value` snapshot, including for soft deletion. A before-only row
+mutation fails `revisions.history_reconstruction` before persistence, after
+higher-priority reference, attribution, sequence and version admission. Non-row
+target absence remains governed by its owning validator. This shares the typed
+append after-state requirement in Core02 REQ-02-265 and never infers a tombstone.
+
+Every fixed-row UUID member and every non-null nested historical actor ID MUST
+be a canonical lowercase hyphenated nonzero UUID. Membership in an actor catalog
+MUST NOT legitimize a zero or noncanonical actor scalar. Prepare rejects invalid
+fixed reference identities as `revisions.references_complete` and invalid actor
+IDs as `revisions.actor_references_complete`, without normalization. Nested
+snapshot nullability remains with the snapshot owner. Mutation target identity
+forms remain with the target owner and are not reinterpreted by this UUID rule.
+
+After Apply, Validate MUST compare the complete incident-owned inventory and
+every typed value in these three member schemas with the admitted input. The
+only destination additions/substitutions are each change-set `actor_user_id` to
+the immutable importing actor and appending the current import context as
+defined below; actor IDs inside retained snapshots remain the admitted portable IDs.
+Comparison MUST preserve nullable values, exact JSON numbers and objects, clocks,
+and empty-member absence. Mutation `history_record_ids` and
+`history_entry_record_ids` MUST also equal the sorted unique arrays recomputed by
+the admitted target-semantics catalog under REQ-01-659. Any missing, extra or
+drifted row/value/association fails `revisions.source_state_exact`. Reference
+resolution precedes this comparison, which precedes actor attribution and
+sequence/version/history checks. Ordered source streams and bounded member walks
+MUST NOT retain a complete source-row inventory in memory.
+
+Apply and Validate MUST require the imported-attribution capability, including
+for empty Revisions members. After the reference pass, missing capability fails
+`revisions.actor_references_complete`. Apply MUST record each change-set mapping
+before inserting that change set in the same final transaction. Validate, after
+exact source-state comparison and before history checks, MUST require exactly
+one mapping per admitted change set: `change_sets`, its canonical change-set ID,
+`actor_user_id`, its admitted portable actor ID and the immutable importing local
+actor ID. Missing, duplicate, extra or altered mappings, including any mapping
+for empty admitted change sets, fail `revisions.actor_references_complete`.
+This comparison uses the attribution capability and bounded member walks. It
+MUST NOT infer mapping validity from the substituted SQL actor, rewrite nested
+historical actors or retain an entire attribution inventory. Ordinary capability
+errors MUST remain available through Go error unwrapping and MUST NOT become
+semantic invariant failures. Member-close errors may be joined without dropping
+the capability error cause.
+
 Export MUST emit exactly those members and preserve portable actor attribution.
 It sorts change sets by `change_set_id`, mutations by
 `(change_set_id, sequence_no)`, and revisions by `revision_id`. Apply uses only
@@ -9584,19 +10412,152 @@ semantic defect to exactly one invariant in this precedence order:
 | Precedence | Invariant ID | Exclusive acceptance rule |
 | --- | --- | --- |
 | 1 | `revisions.references_complete` | Every change set belongs to the imported incident; every mutation and revision references exactly one admitted change set; every revision references one same-incident record; and every mutation target resolves exactly once through its owner provider. Actor resolution and history-chain defects assigned below are excluded. |
-| 2 | `revisions.actor_references_complete` | Every change-set actor resolves exactly once through the admitted inert actor catalog and imported-attribution mapping. |
-| 3 | `revisions.mutation_sequence_contiguous` | Each change set has exactly the canonical sequence `1..N` with no duplicate, zero, negative, or gap. |
-| 4 | `revisions.record_version_unique` | `revision_id` and `(record_id, row_version)` are each unique; row versions for one record strictly increase. |
-| 5 | `revisions.history_reconstruction` | Before/after snapshots form one exact row-version chain and its terminal state equals the canonical current row returned by an application-composed source-owner reader, never a projection table or visible label. |
-| 6 | `revisions.sequence_repair_after_validation` | Sequence exclusion is acquired without changing the next value before Apply; the real repair executes only after every source-owner validation, advances to at least the larger of the pre-import next value and imported maximum plus one, and rolls back with the final transaction. |
+| 2 | `revisions.source_state_exact` | The complete stored change-set, mutation and revision inventory equals admitted typed input after the declared change-set actor substitution and import-context append; both derived mutation association arrays equal recomputation. Missing, extra or drifted state violates this invariant. |
+| 3 | `revisions.actor_references_complete` | Every change-set actor resolves exactly once through the admitted inert actor catalog and imported-attribution mapping. |
+| 4 | `revisions.mutation_sequence_contiguous` | Each change set has exactly the canonical sequence `1..N` with no duplicate, zero, negative, or gap. |
+| 5 | `revisions.record_version_unique` | `revision_id` and `(record_id, row_version)` are each unique; row versions for one record strictly increase. |
+| 6 | `revisions.history_reconstruction` | Before/after snapshots form one exact row-version chain and its terminal state equals the canonical current row returned by an application-composed source-owner reader, never a projection table or visible label. |
+| 7 | `revisions.sequence_repair_after_validation` | Sequence exclusion is acquired without changing the next value before Apply; the real repair executes only after every source-owner validation, advances to at least the larger of the pre-import next value and imported maximum plus one, and rolls back with the final transaction. |
 
-When several defects exist, the lowest precedence number wins. Within that
-invariant, the first failure is selected by logical path and stable row identity
-ascending. Selection MUST NOT depend on archive order, NDJSON row order,
-filesystem order, map iteration, unsorted SQL output, constraint-reporting
-order, or PostgreSQL error text. The current-state reader is a Revisions-owned
-consumer port whose providers are constructed by authoritative source owners
-and whose complete immutable catalog is validated by application composition.
+Every imported Records envelope in the incident, including a soft-deleted
+record, MUST have a retained row-revision chain. An empty history member is valid
+only when that incident has no Records envelopes. Revisions MUST check this
+coverage during final validation at `revisions.history_reconstruction` precedence,
+using bounded incident identity enumeration owned by Records and exposed through
+an application-composed consumer capability. This check MUST NOT infer creation
+history, consult projection tables or build an unbounded envelope inventory.
+Higher-priority reference, exact-source and attribution failures still win.
+
+Revisions MUST retain an immutable `actor_import_contexts` path with each change
+set. A native change set starts with `[]`. On insertion into an importing
+deployment, Apply appends exactly one context containing the immutable import
+operation UUID and destination actor UUID to every admitted change-set path.
+Prepare requires a canonical nonzero import operation UUID. No existing change
+set, mutation or snapshot is rewritten. Export preserves this path, including
+actor descriptors referenced only by prior import contexts. Recovery preserves
+it as authoritative Revisions state. Missing paths are not legacy-native aliases;
+pre-production history without the required provenance must be recreated.
+
+Before persistence, Prepare MUST prove that the complete canonical change-set
+row, including the one mandatory destination context append, fits the existing
+16 MiB NDJSON logical-line ceiling (excluding the terminal LF). This check uses
+the canonical export encoding, including string escaping, rather than incoming
+byte length or path count. A row that would exceed that ceiling fails
+`revisions.references_complete` at preparation precedence, before actor or
+history defects. The source bytes, historical text and prior contexts MUST NOT
+be truncated or normalized to make room. Equality with the ceiling is admitted.
+
+Within the imported incident every path MUST be a suffix of one common longest
+path. Import IDs MUST NOT repeat in a path or equal the current import operation
+ID; each shared import ID MUST have one exact actor binding and position relative
+to the other IDs. Malformed path shapes and IDs fail
+`revisions.references_complete`; noncanonical or unadmitted path actors fail
+`revisions.actor_references_complete`; duplicate IDs, divergent paths and
+chronologically reversed transitions fail `revisions.history_reconstruction`.
+All row-local path checks occur in Prepare; cross-row suffix validation occurs
+at history precedence. Walks retain at most one longest path and adjacent rows,
+within the existing per-member/per-frame resource bounds.
+
+When comparing an adjacent previous-after and next-before pair, the previous
+change-set path MUST contain the next path as a suffix. Equal paths require exact
+snapshot equality, including every actor. For a strict suffix transition, only
+the previous snapshot's non-null actor fields are translated through the
+unmatched import prefix, whose last destination actor is the effective value;
+the next snapshot and every non-actor value remain exact. The shared suffix MUST
+NOT be applied to either side. This permits source-to-runtime actor transitions
+at recorded import boundaries without hiding actor-only contradictions within
+one capture context. Repeated import/export without local mutation appends a
+common suffix and therefore cannot weaken earlier chain checks. The terminal
+current-source comparison and inverse execution mapping remain as specified
+above and in REQ-01-564. Import contexts are inert history provenance, never login,
+membership, trust or executable metadata.
+
+Within each record's increasing row-version chain, parent change-set
+`history_order` MUST NOT decrease. Reversed committed chronology fails
+`revisions.history_reconstruction`, even if snapshots, import contexts and current
+source state otherwise agree. Equal order is possible only within the same
+change set; gaps for other incident actions are valid. Validation retains only
+adjacent chain state and does not infer order from clocks or UUIDs.
+
+Each represented record-revision chain MUST start at row version `1` with
+`before_json=null`. Every `after_json` MUST be a complete non-null snapshot, and
+every revision above version `1` MUST have a non-null `before_json`. Missing
+creation prefixes, gaps, null later before values and null after values fail
+`revisions.history_reconstruction`, including for deleted records. Row-local
+snapshot boundaries are checked before history persistence and again in final
+chain validation; chain-origin and adjacency checks run during final validation.
+These rules implement Core02 REQ-02-238–242; positive signed-64-bit scalar admission
+alone does not establish a complete retained chain.
+
+Each present `record_revisions.after_json.record.row_version` MUST equal the
+row's `row_version` exactly. Each present
+`record_revisions.before_json.record.row_version` MUST equal the immediately
+preceding positive integer. This agreement uses exact integers without floating
+point conversion and is checked after source-owner snapshot validation before
+history persistence, then again during final chain validation. A disagreement
+fails `revisions.history_reconstruction`; higher-precedence invariants still win.
+It does not replace adjacent-chain, terminal-source or retained-history checks,
+or permit Revisions to interpret source fields or opaque mutation version IDs.
+
+If the required next revision ID cannot be represented in the allocator's
+positive signed-64-bit domain, import MUST fail
+`revisions.sequence_repair_after_validation` and roll back the final transaction,
+including imported source rows and sequence changes. It MUST NOT wrap, clamp or
+reuse an allocated ID. An imported maximum of `9223372036854775806` permits the
+next value `9223372036854775807`; an imported maximum of `9223372036854775807`
+cannot be repaired successfully.
+
+A row mutation target or record revision resolves only when its same-incident
+Records envelope, registered source provider, and authoritative current source
+row all exist. A missing current source row or provider MUST fail
+`revisions.references_complete`, even when another row has a sequence, version,
+snapshot or chain defect. Revisions MUST check this complete reference scope
+through source-owner capabilities before lower-ranked pre-write checks and again
+before final history validation. It MUST NOT add direct source-table SQL or retain
+a whole-family snapshot inventory. The catalog's source-owner dependency order
+MUST make these source rows available before Revisions Apply.
+
+For every retained non-row mutation, the complete reference pass consumes its
+source-owned reference projection from both object sides under Core02
+REQ-02-265, including the Links-specific requirements in REQ-02-269. Every projected incident MUST equal the immutable imported incident,
+and every projected record MUST resolve as above. Missing, malformed, zero or
+noncanonical reference scalars, foreign scope, missing envelopes and missing
+current source rows fail `revisions.references_complete`. A lower-ranked shape,
+sequence or history defect MUST NOT mask this reference failure. Other source-owner
+value members, target grammar and transition rules retain
+`revisions.history_reconstruction` ownership. Non-object sides do not supply
+references and still undergo full history-shape rejection before persistence.
+
+Preparation admission precedes transaction-dependent validation under
+REQ-01-639. Prepare MUST reject row-local defects without database access. A
+transaction-dependent reference, history or other defect MUST NOT replace a
+preparation rejection. This ordering does not permit invalid source scalars or
+actors to reach Apply or relax final validation. Cross-row change-set membership,
+sequence continuity, record-version uniqueness/order, target-provider binding,
+source-owner snapshot validation and history reconstruction remain aggregate or
+transaction-dependent duties.
+
+Within each phase, the lowest precedence number across all three members and
+all rows wins. Prepare assigns exact-member shape, reference/string scalar forms,
+change-set incident equality and unique ascending change-set identity to
+references_complete; change-set and nested snapshot actor admission to
+actor_references_complete; mutation sequence scalar form to
+mutation_sequence_contiguous; revision/version scalar forms to
+record_version_unique; snapshot object form and source-clock form to
+history_reconstruction. These names refer to the fully qualified IDs above.
+Malformed JSON/framing has references_complete priority. Reader/capability errors
+remain failures, never successful preparation. Bounded member walks MUST finish
+before selecting a lower-ranked semantic failure; whole-member row catalogs are
+forbidden. Within the selected invariant, logical path and stable row identity
+ascending provide a private tie-break. Selection MUST NOT depend on archive order,
+NDJSON row position, filesystem order, map iteration, unsorted SQL output,
+constraint-reporting order, or PostgreSQL error text. Transaction validation
+retains whole-family priority after preparation succeeds. The current-state reader
+is a Revisions-owned consumer port whose providers are constructed by authoritative
+source owners and whose complete immutable catalog is validated by application
+composition.
+Profiles: incident_portability
+Verified by: AC-496, AC-498, AC-501, AC-503
 
 **REQ-01-659**
 For Incident Bundle version `8`, the outer exact member sets,
@@ -9634,21 +10595,102 @@ feature flag, or historical-shape inference.
 Profiles: incident_portability
 Verified by: AC-529
 
+**REQ-01-693**
+For Incident Bundle version `8`, every non-null Task Request `due_at`,
+`completed_at`, `created_at`, and `updated_at`, and Decision `decided_at`,
+`created_at`, and `updated_at`, MUST be a UTC RFC 3339 timestamp in years
+`0001` through `9999`, with at most microsecond precision, no trailing fractional
+zeroes, and either `Z` or `+00:00`. Only Task `due_at` and `completed_at` admit
+JSON `null`. Prepare MUST reject values outside this exact representation as
+`tasks_decisions.dependent_fields_legal`; it MUST NOT round, truncate, normalize
+or repair them into acceptance. Apply and export MUST preserve each admitted
+instant exactly. These lexical and precision rules do not substitute for the
+separately defined lifecycle and timestamp-tuple rules.
+Profiles: incident_portability
+Verified by: AC-496, AC-498, AC-501, AC-503
+
+**REQ-01-700**
+Tasks and Decisions import validation MUST compare the complete admitted source
+inventory and every typed source value with the transaction's incident-owned
+state. Task Request source rows contain exactly `record_id`, `incident_id`,
+`title`, `status`, `owner_user_id`, `priority`, `task_kind`, `workstream`, `due_at`,
+`requester_party_text`, `requester_party_id`, `blocked_reason`, `completed_at`,
+`external_ticket_ref`, `closure_summary`, `decision_record_id`, `created_at`, and
+`updated_at`. Decision source rows contain exactly `record_id`, `incident_id`,
+`summary`, `status`, `owner_user_id`, `decision_type`, `decided_at`, `rationale`,
+`created_at`, and `updated_at`. Existing source-owner nullability, canonical
+text/time, lifecycle and reference contracts continue to apply.
+Every non-null UUID source member MUST be a canonical lowercase hyphenated
+nonzero UUID string. Task `owner_user_id`, `requester_party_id`, and
+`decision_record_id` alone admit null UUID values, subject to their lifecycle
+rules. Prepare MUST reject malformed, zero or noncanonical source identities as
+`tasks_decisions.envelope_type_scope`, owner IDs as
+`tasks_decisions.dependent_fields_legal`, and Task reference IDs as
+`tasks_decisions.references_same_incident`, without normalizing into acceptance.
+Prepare MUST also reject a Task status/owner/blocked-reason/completion/creation
+clock tuple that violates Core 02 REQ-02-103 as
+`tasks_decisions.dependent_fields_legal`, before any source mutation. It MUST
+validate the admitted tuple without clearing fields or supplying missing values;
+ordinary mutation transition defaults do not apply to portable source admission.
+
+The sole source-value substitution is each non-null source `owner_user_id` to
+the immutable importing actor; null Task ownership remains null. Portable actor
+attribution remains separately required. Validation MUST reject any missing or
+extra incident-owned source row, changed identity, changed nullability, or unequal
+typed value as `tasks_decisions.source_state_exact`, including when the admitted
+member is empty. It MUST preserve admitted clocks exactly. Envelope binding
+precedes this comparison; lifecycle, dependent-field and reference checks operate
+only on source state that matches the admitted input.
+
+Apply and Validate MUST require the transaction-bound attribution capability,
+including for empty members. A missing capability MUST fail as
+`tasks_decisions.attribution_exact` before Apply writes source rows. Each non-null
+portable `owner_user_id` MUST have exactly one sidecar with the corresponding
+source table (`task_requests` or `decisions`), record identity, column
+`owner_user_id`, unchanged source actor ID, and immutable importing local user ID.
+Null Task ownership MUST have no sidecar. Validation MUST reject missing,
+duplicate, altered or extra owner-table sidecars as the same invariant, including
+when the source member is empty. It MUST use the attribution owner's capability;
+ordinary capability failures remain errors and MUST NOT be treated as missing
+attribution or successful validation. Source-state equality precedes sidecar
+comparison, which precedes lifecycle/dependent/reference validation.
+Profiles: incident_portability
+Verified by: AC-496, AC-498, AC-501, AC-503
+
 Tasks and Decisions assigns every admitted semantic condition to exactly one
 invariant in this precedence order:
 
 | Precedence | Invariant ID | Exclusive acceptance rule |
 | --- | --- | --- |
 | 1 | `tasks_decisions.envelope_type_scope` | Every task source row binds exactly one imported-incident envelope of type `task_request`, and every decision source row binds exactly one imported-incident envelope of type `decision`. Missing, different-incident, wrong-type, or multiply bound envelopes violate this invariant. |
-| 2 | `tasks_decisions.lifecycle_legal` | Task and decision lifecycle tokens belong to their closed Core 02 vocabularies. Persisted Decision status plus the active Decision-to-Decision `supersedes` relation resolves to exactly one legal machine condition. Direct/source `superseded` state without its required relation, an illegal superseder or target state, wrong relation direction, or target state inconsistent with the relation violates this invariant. Scalar tuple guards assigned below are excluded. |
-| 3 | `tasks_decisions.dependent_fields_legal` | Task `status`, `owner_user_id`, `blocked_reason`, `completed_at`, and `created_at` form a legal Core 02 tuple. A Task convenience Decision reference agrees with its authoritative relation when both are materialized. Required Decision source members retain admitted presence and nullability, and projection-only `supersedes_record_id` never becomes authoritative source state. |
-| 4 | `tasks_decisions.references_same_incident` | Task requester-party, linked-record, and Decision references plus Decision support and affected-record references resolve to the required type, lifecycle, and incident. This owner-field invariant is primary for Task/Decision-derived links; `links_tags.endpoints_same_incident` remains the fallback for generic links without an owner-field contract. |
+| 2 | `tasks_decisions.source_state_exact` | The complete source inventory and every typed source value equal admitted input after the sole actor substitution in REQ-01-700. Missing, extra or drifted source state violates this invariant. |
+| 3 | `tasks_decisions.attribution_exact` | Every non-null owner and no null owner has exactly the REQ-01-700 sidecar, with no missing, duplicate, altered or extra Task/Decision attribution. |
+| 4 | `tasks_decisions.lifecycle_legal` | Task and decision lifecycle tokens belong to their closed Core 02 vocabularies. For live Decisions, persisted status plus the active Decision-to-Decision `supersedes` relation resolves to exactly one legal machine condition. Live `superseded` state without its required relation, an illegal live superseder or target state, wrong relation direction, or live target state inconsistent with the relation violates this invariant. Deleted Decisions may retain their admitted source status while endpoint deletion hides the active relations under Core02 REQ-02-114; this does not waive scalar, actor, type, incident, exact source-state or attribution validation. Scalar tuple guards assigned below are excluded. |
+| 5 | `tasks_decisions.dependent_fields_legal` | Task `status`, `owner_user_id`, `blocked_reason`, `completed_at`, and `created_at` form a legal Core 02 tuple. Every retained non-deleted `task.decision_record_id` binding, including bindings hidden by a deleted endpoint, requires exactly one `references_record` binding matching a non-null Task convenience Decision reference. A null scalar with a retained binding, mismatched target/type, or multiple bindings violates this invariant. Zero bindings remain admitted for null or non-null scalars; tombstoned bindings are excluded. Validation MUST use Links-owned retained-binding facts and MUST NOT synthesize or normalize associations. Required Decision source members retain admitted presence and nullability, and projection-only `supersedes_record_id` never becomes authoritative source state. |
+| 6 | `tasks_decisions.references_same_incident` | Task requester-party, linked-record, and Decision references plus Decision support and affected-record references resolve to the required type, lifecycle, and incident. Each non-null Task requester Party or Decision scalar resolves to both a same-incident typed envelope and source; live Tasks require an active target, while deleted Tasks may retain a deleted target under Core02 REQ-02-231/233. Missing targets or typed sources, wrong types and foreign incidents remain invalid; null scalars remain null without target lookup. This owner-field invariant is primary for Task/Decision-derived links; `links_tags.endpoints_same_incident` remains the fallback for generic links without an owner-field contract. |
 
-One condition MUST map to one invariant. When a candidate has multiple defects,
-the source owner MUST select the lowest precedence number above and MAY use
-stable owner-row identity only as a private tie-break. Selection MUST NOT depend
-on archive order, NDJSON row order, filesystem order, map iteration, or unsorted
-SQL output.
+One condition MUST map to one invariant. Tasks/Decisions preparation admission
+precedes transaction-dependent validation under REQ-01-639. Prepare MUST reject
+row-local defects without a database capability; a later transaction-dependent
+envelope, lifecycle-relation or reference defect MUST NOT replace an earlier
+preparation rejection. This phase ordering does not permit invalid source values
+to enter Apply or relax any final validation rule.
+
+Within each phase, the source owner MUST select the lowest precedence number
+above across both members and all rows, and MAY use stable owner-row identity
+only as a private tie-break. In Prepare, exact member sets, source identity,
+incident equality and canonical unique ascending identity order belong to
+envelope_type_scope; invalid string lifecycle tokens belong to lifecycle_legal;
+other row-local scalar/text/time/actor/tuple defects belong to
+dependent_fields_legal; malformed nullable Task reference UUIDs belong to
+references_same_incident. These names refer to the fully qualified invariant IDs
+above. Whole-member bounded walks MUST finish before selecting a lower-priority
+semantic failure; retaining whole-member row catalogs is forbidden. Malformed
+JSON/framing retains envelope_type_scope priority. Reader and capability failures
+MUST remain errors, never successful preparation. Selection within a phase MUST
+NOT depend on archive order, row position, member iteration, filesystem order,
+map iteration, or unsorted SQL output. Transaction validation retains the table's
+whole-family order after all source families have been applied.
 
 The required special inputs and their closed family identifiers and dispositions
 are:
@@ -9657,11 +10699,12 @@ are:
 | --- | --- | --- |
 | `incident`: `data/incident.json` | Incidents source-owner port | Exact shape, incident identity/key/lifecycle, attribution, and version tuples; creates only the unpublished incident source row. |
 | `actors`: `data/actors.ndjson` | Incident Bundles attribution adapter with Revisions semantics | Every referenced source actor has exactly one unique descriptor; `actors.reference_complete` and `actors.inert` prohibit skipping malformed or missing actor identity and prohibit creating login, provider binding, deployment role, incident membership, or session state. |
+| `committed_sources`: `sources/sha256/**` | Imports source-owner port through the admitted member stream | REQ-01-685 requires exactly the referenced original source blobs, each with its exact SHA-256 and size. Failures remain `committed_sources.blob_exact`; the blob consumer is not a separate source diagnostic family. |
 | `reference_pack_refs`: `data/reference_pack_refs.json` | Incident Bundles coordinator with Reference Pack owner contract | `reference_pack_refs.exact_shape` and `reference_pack_refs.identity_exact` require the closed shape and reference identity; `reference_pack_refs.degradation_bounded` permits missing optional packs to degrade only admitted overlays without changing authoritative incident state. |
 | `extension_payload`: admitted `ext/**` member | Matching claimed extension participant | `extension_payload.participant_admitted`, `extension_payload.contract_compatible`, `extension_payload.schema_digest_valid`, and `extension_payload.resource_bounded` require exact profile ID, contract major, payload schema, digest, resource bounds, and participant admission; unknown, unclaimed, or mismatched participants are never invoked. |
 
 The complete closed source-family identifier vocabulary is `incident`,
-`records`, `timeline`, `parties`, `entities`, `indicators`, `artifacts`,
+`records`, `committed_sources`, `timeline`, `parties`, `entities`, `indicators`, `artifacts`,
 `tasks_decisions`, `evidence`, `assessments`, `links_tags`, `revisions`,
 `saved_views`, `actors`, `reference_pack_refs`, and `extension_payload`.
 Profiles: incident_portability
@@ -9678,13 +10721,23 @@ members:
 | `record_id` | Canonical lowercase hyphenated UUID string, stable and unique in the Records family. |
 | `incident_id` | Canonical lowercase hyphenated UUID string equal to the immutable import context and manifest incident. |
 | `record_type` | One exact token from the closed mapping below. |
-| `created_at` | Canonical UTC RFC3339Nano string using `Z`. |
+| `created_at` | Canonical UTC RFC3339Nano string using `Z`, with at most six fractional digits. |
 | `created_by_user_id` | Canonical UUID resolving exactly once through the admitted actor catalog. |
-| `updated_at` | Canonical UTC RFC3339Nano string using `Z`, not earlier than `created_at`. |
+| `updated_at` | Canonical UTC RFC3339Nano string using `Z`, with at most six fractional digits, not earlier than `created_at`. |
 | `updated_by_user_id` | Canonical UUID resolving exactly once through the admitted actor catalog. |
 | `row_version` | Canonical positive decimal JSON integer greater than or equal to `1`. |
-| `deleted_at` | JSON `null` for an active row; otherwise canonical UTC RFC3339Nano using `Z` with `created_at <= deleted_at <= updated_at`. |
+| `deleted_at` | JSON `null` for an active row; otherwise canonical UTC RFC3339Nano using `Z`, with at most six fractional digits and `created_at <= deleted_at <= updated_at`. |
 | `deleted_by_user_id` | JSON `null` exactly when `deleted_at` is `null`; otherwise a canonical UUID resolving exactly once through the admitted actor catalog. |
+
+All non-null row clocks MUST be in years `0001` through `9999` and exactly
+representable at microsecond precision. Finer or out-of-range input MUST fail
+`records.envelope_legal` during preparation, without rounding or truncation.
+Historical Records envelopes under Core02 REQ-02-265 use the same scalar and
+lifecycle rules, additionally admitting the SQL UTC spelling `+00:00` alongside
+`Z`. Historical validation MUST require that exact canonical spelling before any
+internal spelling bridge; arbitrary offsets, trailing fractional zeroes and
+other noncanonical forms MUST NOT be repaired into acceptance. Validation MUST
+leave every retained input member unchanged.
 
 Unknown, missing, duplicate, aliased, wrongly typed, noncanonical, blank-line,
 multivalue, or trailing-content input MUST fail admission. Admission MUST NOT
@@ -9720,7 +10773,7 @@ The exact Records invariant rules are:
 | `records.envelope_legal` | Exact shape, stable identity, UUIDs, record type, positive version, canonical timestamps, actor references, and deletion tuple satisfy this requirement. |
 | `records.subtype_complete` | Every envelope has exactly one compatible primary source-owner binding, and no primary source-owner binding targets a missing, different-incident, or incompatible envelope. |
 
-Version `6` uses this contract-major-`3` Records row and type mapping. It has no
+Version `8` uses this contract-major-`3` Records row and type mapping. It has no
 additive-field tolerance, and no legacy-invalid-record switch exists. Export
 MUST emit the exact shape in `record_id` order and MUST preserve portable
 source actor attribution on re-export. Apply MUST use fixed parameterized SQL
@@ -9890,8 +10943,8 @@ invariant when safe. They expose no row value, Party identity, SQL, relation,
 constraint, path, driver diagnostic, or storage topology. Cancellation or
 failure in prepare, apply, validation, claim validation, projection rebuild,
 or publication leaves no visible incident, Party, claim, projection,
-attribution, success result, or final object. Versions `1` through `5` and every integer other than `6`
-are unsupported; no version-2 reader, converter, translator, feature
+attribution, success result, or final object. Every integer other than `8`
+is unsupported; no version-2 reader, converter, translator, feature
 flag, alias, fallback, or dual decoder exists.
 Profiles: incident_portability
 Verified by: AC-563
@@ -9912,8 +10965,8 @@ eleven required members:
 | `query_json` | Non-null object structurally equal to the REQ-01-142 canonical query for `view_schema_id`. |
 | `layout_json` | Canonical complete `cartulary.layout.v2` object under REQ-01-143, including required nullable freezing. `{}`, omitted members, retired/unknown versions and version/grammar mismatches are invalid. |
 | `owner_user_id` | UUID string for `private` and `shared`; JSON `null` for `system`. |
-| `created_at` | Canonical UTC RFC3339Nano string using `Z`. |
-| `updated_at` | Canonical UTC RFC3339Nano string using `Z`, not earlier than `created_at`. |
+| `created_at` | Canonical UTC RFC3339Nano string using `Z`, with at most six fractional digits. |
+| `updated_at` | Canonical UTC RFC3339Nano string using `Z`, with at most six fractional digits, not earlier than `created_at`. |
 | `saved_view_version` | JSON integer greater than or equal to `1`. |
 
 The importer MUST reject `id`, `view_scope`, every other alias, every unknown
@@ -9941,14 +10994,19 @@ values, trailing content, malformed JSON, and logical lines larger than
 members recursively. JSON member order and insignificant whitespace MAY vary.
 The submitted display name, query, layout, and timestamps MUST already equal
 their canonical values; preparation MUST reject rather than repair
-noncanonical values. Query requires present `sort` and `filters` arrays, no
+noncanonical values. The row clocks `created_at` and `updated_at` MUST be exactly
+representable at microsecond precision; finer input MUST fail
+`saved_views.version_timestamps_legal` during preparation, without rounding or
+truncation. This row-clock limit does not narrow timestamp strings in canonical
+query predicates, whose precision remains governed by REQ-01-142.
+Query requires present `sort` and `filters` arrays, no
 inactive `group_by`, at most `8` raw sort items, and at most `16` raw filters.
 Layout requires every member of the closed v2 grammar and widths in `40..4096`.
 The active `saved_views.row.v2` schema defines the version-8 portable row; the
 retired v1 row schema is not an active binding. Preparation MUST reject layout.v1,
 empty-object defaults and every other invalid representation rather than convert
 or repair them. Prepared canonical v2 bytes are the authoritative apply and
-transaction-validation value. Version-4 export MUST preserve non-null freezing,
+transaction-validation value. Version-8 export MUST preserve non-null freezing,
 including after restore and re-export. Original-byte integrity precedes source
 preparation; strict portable canonical validation completes before any prepared
 value is admitted for apply or publication.
@@ -11796,6 +12854,7 @@ Verified by: AC-015, AC-085, AC-100, AC-118, AC-231
 `tag_label_v1` is the required incident-scoped tag-label contract.
 
 - apply the same NFC, trim, and control-character rules as `display_name_line_v1`,
+- reject C0/C1 controls before trimming; Unicode format characters outside those ranges remain source data and MUST NOT be rejected merely for being format characters,
 - enforce a maximum length of 64 Unicode scalar values after normalization,
 - authoritative storage MUST remain the normalized label without case-folding,
 - dedupe and uniqueness comparison MUST use the trimmed Unicode-NFC form with case-insensitive comparison,
@@ -11818,6 +12877,7 @@ Verified by: AC-118, AC-202, AC-231
 `reason_note_v1` is the bounded multiline audit-note contract for optional or required action reasons and other reason-style note fields.
 
 - apply the same NFC, line-ending normalization, trim, and control-character rules as `multiline_body_v1`,
+- after line-ending normalization and before trimming, reject C0/C1 controls other than the permitted `LF` and `TAB`; trimming MUST NOT hide a rejected boundary control,
 - enforce a maximum length of 4096 Unicode scalar values after normalization,
 - when the binding is optional, omission, explicit JSON `null`, and normalized-empty input MUST compare equal and MUST persist as authoritative `null`,
 - when the binding is required, `null` or normalized-empty input is invalid.
@@ -12237,6 +13297,7 @@ Verified by: AC-116, AC-117, AC-118, AC-231, AC-281, AC-300, AC-301, AC-302, AC-
 
   - `risk_ref_text` in `add_risk_ref` MUST use `string_contract_id=single_line_title_v1`.
   - Duplicate adds for the same patched `record_id`, active `field_key`, and normalized `risk_ref_text` under `single_line_title_v1` MUST coalesce to one surviving active risk reference. Removal MUST target `item_ref` only.
+  - Risk-reference identity and normalized request replay MUST compare the exact case-preserving canonical `risk_ref_text`. Case-distinct canonical strings MUST remain distinct references; case folding for text filters or sorts MUST NOT redefine collection identity or replay equality. No separately stored case-folded risk key is authoritative.
   - `risk_ref_id` MUST be a stable server-generated child-row identifier. Clients MUST NOT derive or predict `risk_ref_id` from raw text or a public hash.
   - An invalid or foreign `item_ref` MUST fail with `400 Bad Request` and `error.code = invalid_mutation_payload`.
 - read-only computed or system-managed fields: `handoff.handoff_id`, `handoff.timestamp_day`, `handoff.ack_state`, `handoff.updated_at`

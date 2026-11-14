@@ -15,71 +15,72 @@ import { openExecutionChannel } from "../../test-support/execution-channel-fixtu
 const root = path.resolve(import.meta.dirname, "../../../..");
 const fixture = path.join(root, "tmp", `vitest-diagnostics-${randomUUID()}`);
 const groupedFixture = path.join(root, "apps/web/.cartulary", `vitest-group-${randomUUID()}`);
-mkdirSync(fixture, { recursive: true, mode: 0o700 });
-mkdirSync(groupedFixture, { recursive: true, mode: 0o700 });
-const runRoot = path.resolve(root, process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
-const output = path.join(runRoot, "vitest-diagnostics-contract", randomUUID());
-mkdirSync(output, { recursive: true, mode: 0o700 });
-const ownedRuntime = process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT ? null : createRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID });
-const fixtureEnvironment = { ...process.env, ...(ownedRuntime ? {
-  CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: ownedRuntime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: ownedRuntime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: ownedRuntime.runID,
-} : {}) };
-fixtureEnvironment.VITEST_MAX_WORKERS = "1";
-fixtureEnvironment.PATH = [path.dirname(process.execPath), fixtureEnvironment.PATH].filter(Boolean).join(path.delimiter);
-delete fixtureEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
-const api = pathToFileURL(path.join(root, "apps/web/node_modules/vitest/dist/index.js")).href;
-const cli = path.join(root, "tools/harness/execution/vitest-invocation-cli.mjs");
-const configFile = path.join(fixture, "vitest.config.mjs");
-const relative = (file) => path.relative(root, file);
-const save = (file, value) => { mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 }); writeFileSync(file, `${JSON.stringify(value)}\n`, { mode: 0o600 }); };
-function config(extra = {}) { writeFileSync(configFile, `export default ${JSON.stringify({ root: fixture, test: { name: "fixture", include: ["**/*.test.mjs"], environment: "node", testTimeout: 500, hookTimeout: 100, retry: 0, ...extra } })};`); }
-function request(files) { return { schema_id: "cartulary.vitest_invocation.v1", project: "fixture", config: relative(configFile), publish_rows: false,
-  files: files.map(([file, titles]) => ({ file: relative(file), rows: titles.map((title, index) => ({ row_id: `${path.basename(file)}.${index}`, selectors: [title] })) })) }; }
-function prepare(name, selection) {
-  const directory = path.join(output, name);
-  const requestFile = path.join(directory, "invocation.json"), runnerJSON = path.join(directory, "runner.json"), detailsFile = path.join(directory, "vitest-failure-details.json");
-  save(requestFile, selection);
-  return { ...vitestInvocation(root, selection), requestFile, runnerJSON, detailsFile, args: [cli, runnerJSON, detailsFile, requestFile] };
-}
-function run(name, selection) {
-  const invocation = prepare(name, selection);
-  const result = spawnSync(process.execPath, invocation.args, { cwd: root, env: fixtureEnvironment, encoding: "utf8", timeout: 30000 });
-  assert.ok(existsSync(invocation.detailsFile), `missing diagnostics (${name}): ${result.stderr}`);
-  const details = readVitestJSON(invocation.detailsFile), report = readVitestJSON(path.resolve(root, details.runner_json));
-  validateSchemaSync(details.schema_id, details);
-  return { invocation, result, details, report, rows: adaptVitestInvocation(invocation, { details, report, status: result.status }) };
-}
-function runObserved(name, selection) {
-  // Independently owned runtimes need distinct immutable recovery identities.
-  const runID = `vitest-${name}-${randomUUID()}`;
-  const observedRoot = path.join(output, runID);
-  mkdirSync(observedRoot, { mode: 0o700 });
-  const runtime = createRuntime({ repoRoot: root, runRoot: observedRoot, runID });
-  const channel = openExecutionChannel(runtime);
-  const before = { ...fixtureEnvironment };
-  Object.assign(fixtureEnvironment, channel.environment, {
-    CARTULARY_TEST_RESULTS_DIR: output,
-    CARTULARY_TEST_RUN_ID: runID,
-    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
-    CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
-    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
-  });
-  try {
-    const result = run(runID, selection);
-    channel.close();
-    return { ...result, activities: channel.records().map((entry) => entry.record ?? entry).filter((entry) => entry.kind === "activity") };
-  } finally {
-    for (const key of Object.keys(fixtureEnvironment)) delete fixtureEnvironment[key];
-    Object.assign(fixtureEnvironment, before);
-    runtime.close();
-  }
-}
-async function waitForFile(file, child) {
-  const end = Date.now() + 15000;
-  while (!existsSync(file) && Date.now() < end && child.exitCode === null && child.signalCode === null) await new Promise((resolve) => setTimeout(resolve, 20));
-  assert.ok(existsSync(file), `child did not reach ${path.basename(file)}`);
-}
+let ownedRuntime;
 try {
+  mkdirSync(fixture, { recursive: true, mode: 0o700 });
+  mkdirSync(groupedFixture, { recursive: true, mode: 0o700 });
+  const runRoot = path.resolve(root, process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
+  const output = path.join(runRoot, "vitest-diagnostics-contract", randomUUID());
+  mkdirSync(output, { recursive: true, mode: 0o700 });
+  ownedRuntime = process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT ? null : createRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID });
+  const fixtureEnvironment = { ...process.env, ...(ownedRuntime ? {
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: ownedRuntime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: ownedRuntime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: ownedRuntime.runID,
+  } : {}) };
+  fixtureEnvironment.VITEST_MAX_WORKERS = "1";
+  fixtureEnvironment.PATH = [path.dirname(process.execPath), fixtureEnvironment.PATH].filter(Boolean).join(path.delimiter);
+  delete fixtureEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+  const api = pathToFileURL(path.join(root, "apps/web/node_modules/vitest/dist/index.js")).href;
+  const cli = path.join(root, "tools/harness/execution/vitest-invocation-cli.mjs");
+  const configFile = path.join(fixture, "vitest.config.mjs");
+  const relative = (file) => path.relative(root, file);
+  const save = (file, value) => { mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 }); writeFileSync(file, `${JSON.stringify(value)}\n`, { mode: 0o600 }); };
+  function config(extra = {}) { writeFileSync(configFile, `export default ${JSON.stringify({ root: fixture, test: { name: "fixture", include: ["**/*.test.mjs"], environment: "node", testTimeout: 500, hookTimeout: 100, retry: 0, ...extra } })};`); }
+  function request(files) { return { schema_id: "cartulary.vitest_invocation.v1", project: "fixture", config: relative(configFile), publish_rows: false,
+    files: files.map(([file, titles]) => ({ file: relative(file), rows: titles.map((title, index) => ({ row_id: `${path.basename(file)}.${index}`, selectors: [title] })) })) }; }
+  function prepare(name, selection) {
+    const directory = path.join(output, name);
+    const requestFile = path.join(directory, "invocation.json"), runnerJSON = path.join(directory, "runner.json"), detailsFile = path.join(directory, "vitest-failure-details.json");
+    save(requestFile, selection);
+    return { ...vitestInvocation(root, selection), requestFile, runnerJSON, detailsFile, args: [cli, runnerJSON, detailsFile, requestFile] };
+  }
+  function run(name, selection) {
+    const invocation = prepare(name, selection);
+    const result = spawnSync(process.execPath, invocation.args, { cwd: root, env: fixtureEnvironment, encoding: "utf8", timeout: 30000 });
+    assert.ok(existsSync(invocation.detailsFile), `missing diagnostics (${name}): ${result.stderr}`);
+    const details = readVitestJSON(invocation.detailsFile), report = readVitestJSON(path.resolve(root, details.runner_json));
+    validateSchemaSync(details.schema_id, details);
+    return { invocation, result, details, report, rows: adaptVitestInvocation(invocation, { details, report, status: result.status }) };
+  }
+  function runObserved(name, selection) {
+    // Independently owned runtimes need distinct immutable recovery identities.
+    const runID = `vitest-${name}-${randomUUID()}`;
+    const observedRoot = path.join(output, runID);
+    mkdirSync(observedRoot, { mode: 0o700 });
+    const runtime = createRuntime({ repoRoot: root, runRoot: observedRoot, runID });
+    const before = { ...fixtureEnvironment };
+    try {
+      const channel = openExecutionChannel(runtime);
+      Object.assign(fixtureEnvironment, channel.environment, {
+        CARTULARY_TEST_RESULTS_DIR: output,
+        CARTULARY_TEST_RUN_ID: runID,
+        CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
+        CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
+        CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
+      });
+      const result = run(runID, selection);
+      channel.close();
+      return { ...result, activities: channel.records().map((entry) => entry.record ?? entry).filter((entry) => entry.kind === "activity") };
+    } finally {
+      for (const key of Object.keys(fixtureEnvironment)) delete fixtureEnvironment[key];
+      Object.assign(fixtureEnvironment, before);
+      runtime.close();
+    }
+  }
+  async function waitForFile(file, child) {
+    const end = Date.now() + 15000;
+    while (!existsSync(file) && Date.now() < end && child.exitCode === null && child.signalCode === null) await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.ok(existsSync(file), `child did not reach ${path.basename(file)}`);
+  }
   config();
   const testFile = path.join(fixture, "diagnostics.test.mjs");
   const titles = ["deadline", "hook deadline", "original cause", "marker only", "redaction", "left same name", "right same name"];
@@ -401,7 +402,10 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   assert.match(readFileSync(path.resolve(root, interruption.artifacts.stderr_log), "utf8"), /interruption stderr/u);
   process.stdout.write("Vitest exact cohorts, file settlement, diagnostic attribution, interruption and privacy contracts passed\n");
 } finally {
-  rmSync(groupedFixture, { recursive: true, force: true });
-  rmSync(fixture, { recursive: true, force: true });
   ownedRuntime?.close();
+  try {
+    rmSync(groupedFixture, { recursive: true, force: true });
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
 }

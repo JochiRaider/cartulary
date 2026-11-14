@@ -16,8 +16,11 @@ func applyPreparedTasksDecisionsImportTx(
 	importContext sourceport.ImportContext,
 ) error {
 	actorUserID, attributions := importContext.ActorUserID, importContext.Attributions
+	if attributions == nil {
+		return tasksDecisionsInvariantFailure("tasks_decisions.attribution_exact")
+	}
 	if err := prepared.walkTasks(ctx, importContext, func(row portableTaskRequest) error {
-		if attributions != nil && row.PortableOwnerUserID != nil {
+		if row.PortableOwnerUserID != nil {
 			if err := attributions.RecordImportedAttribution("task_requests", row.RecordID.String(), "owner_user_id", row.PortableOwnerUserID.String()); err != nil {
 				return err
 			}
@@ -51,10 +54,8 @@ INSERT INTO task_requests (
 		return err
 	}
 	if err := prepared.walkDecisions(ctx, importContext, func(row portableDecision) error {
-		if attributions != nil {
-			if err := attributions.RecordImportedAttribution("decisions", row.RecordID.String(), "owner_user_id", row.PortableOwnerUserID.String()); err != nil {
-				return err
-			}
+		if err := attributions.RecordImportedAttribution("decisions", row.RecordID.String(), "owner_user_id", row.PortableOwnerUserID.String()); err != nil {
+			return err
 		}
 		tag, err := tx.Exec(ctx, `
 INSERT INTO decisions (

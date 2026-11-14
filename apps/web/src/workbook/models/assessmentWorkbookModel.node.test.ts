@@ -55,15 +55,18 @@ describe("assessmentWorkbookModel", () => {
           assessmentState: " confirmed ",
           confidenceBand: "medium",
           rationale: " Confirmed by support. ",
-          subjectRecordId: " host-1 ",
+          subjectRecordId: " 00000000-0000-4000-8000-000000000101 ",
           subjectType: "host",
-          supportRecordIds: [" support-1 ", "support-1"],
+          supportRecordIds: [
+            " 00000000-0000-4000-8000-000000000102 ",
+            "00000000-0000-4000-8000-000000000102",
+          ],
         },
         "txn-assessment-create",
       ),
     ).toEqual({
       client_txn_id: "txn-assessment-create",
-      "assessment.subject_ref": "host-1",
+      "assessment.subject_ref": "00000000-0000-4000-8000-000000000101",
       "assessment.subject_type": "host",
       "assessment.assessment_state": "confirmed",
       "assessment.confidence_score": 55,
@@ -74,7 +77,7 @@ describe("assessmentWorkbookModel", () => {
         actions: [
           {
             op: "add_record_ref",
-            linked_record_id: "support-1",
+            linked_record_id: "00000000-0000-4000-8000-000000000102",
           },
         ],
       },

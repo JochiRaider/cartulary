@@ -133,36 +133,28 @@ test("merges duplicate entities from the inspector and preserves survivor identi
   });
 
   await exerciseEntityMerge(page, {
-    dependentRow,
+    dependentRecordId: dependentRow.record_id,
     entityType: "host",
     expectAdminRole: true,
-    fieldKey: hostRefsFieldKey,
     incidentId,
-    loser,
+    loserRecordId: loser.record_id,
     loserLabel: "WS-023 duplicate",
     mergeReason: "Record relationships entity-resolution duplicate merge",
-    rawText: "Workstation 23",
-    recordType: "host",
     resolvedLabel: "WS-023",
-    survivor,
+    survivorRecordId: survivor.record_id,
     survivorLabel: "WS-023",
-    viewSchemaId: hostsViewSchemaId,
   });
 
   await exerciseEntityMerge(page, {
-    dependentRow: identityDependentRow,
+    dependentRecordId: identityDependentRow.record_id,
     entityType: "identity",
-    fieldKey: identityRefsFieldKey,
     incidentId,
-    loser: identityLoser,
+    loserRecordId: identityLoser.record_id,
     loserLabel: "Alex Analyst duplicate",
     mergeReason:
       "Record relationships entity-resolution identity duplicate merge",
-    rawText: "Case Owner",
-    recordType: "identity",
     resolvedLabel: "Alex Analyst",
-    survivor: identitySurvivor,
+    survivorRecordId: identitySurvivor.record_id,
     survivorLabel: "Alex Analyst",
-    viewSchemaId: identitiesViewSchemaId,
   });
 });

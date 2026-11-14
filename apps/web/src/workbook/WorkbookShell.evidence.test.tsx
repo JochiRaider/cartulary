@@ -1,6 +1,12 @@
-import { gridShellTestId, rowCellTestId } from "@cartulary/ui-contracts";
+import {
+  gridShellTestId,
+  rowCellTestId,
+  rowInspectButtonTestId,
+  timelineInspectorSectionTestId,
+} from "@cartulary/ui-contracts";
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -103,6 +109,22 @@ describe("workbook evidence coverage", () => {
     const gridShellBeforeRefresh = screen.getByTestId(
       gridShellTestId(timelineViewSchemaId),
     );
+    fireEvent.contextMenu(
+      screen.getByTestId(
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+      ),
+      { clientX: 32, clientY: 48 },
+    );
+    fireEvent.click(screen.getByTestId(rowInspectButtonTestId(recordId)));
+    const evidencePanel = screen.getByTestId(
+      timelineInspectorSectionTestId("evidence"),
+    );
+    expect(
+      within(evidencePanel).getByText("Attached evidence count: 0"),
+    ).toBeTruthy();
+    expect(evidencePanel.getAttribute("data-evidence-count-state")).toBe(
+      "empty",
+    );
     expect(webSocketInstance).not.toBeNull();
 
     emitRecordChanged(
@@ -128,6 +150,15 @@ describe("workbook evidence coverage", () => {
       gridShellBeforeRefresh,
     );
     await waitFor(() => {
+      const updatedPanel = screen.getByTestId(
+        timelineInspectorSectionTestId("evidence"),
+      );
+      expect(
+        within(updatedPanel).getByText("Attached evidence count: 1"),
+      ).toBeTruthy();
+      expect(updatedPanel.getAttribute("data-evidence-count-state")).toBe(
+        "available",
+      );
       const committedRow = visibleGridRows(container).find(
         (row) => row.getAttribute("data-grid-record-id") === recordId,
       );

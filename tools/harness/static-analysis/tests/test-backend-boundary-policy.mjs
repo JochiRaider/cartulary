@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { emptyPolicy, inspect, repositoryPolicy } from "./backend-boundary-fixtures.mjs";
+import { emptyPolicy, inspect, repositoryPolicy, repositoryPolicyInput } from "./backend-boundary-fixtures.mjs";
 
 const checkSQLTableAccess = (files, rules, scope) => scope === "test_fixture"
   ? inspect([], { sqlTableAccess: rules }, { testSupportFiles: files }) : inspect(files, { sqlTableAccess: rules });
@@ -13,6 +13,318 @@ import { prepareBoundaryPolicy } from "../backend-module-boundary-check.mjs";
 import { sqlStatements } from "../sql-relations.mjs";
 
 export function registerBoundariesTests() {
+  test("backend policy: Entities portable joins require exact owner shapes", () => {
+    const owner="internal/modules/entities";
+    const rule=repositoryPolicy().sqlTableAccess.find((entry)=>entry.id==="records-current-envelope-access");
+    const grants=repositoryPolicyInput().sql_table_access.find((entry)=>entry.id===rule.id).read_allowed_statements.filter((entry)=>entry.package===owner);
+    assert.equal(grants.length,2);
+    assert.ok(!rule.readAllowedPaths.includes(`${owner}/*.go`));
+    const scoped={...rule,readAllowedStatements:rule.readAllowedStatements.filter((entry)=>entry.package===owner)};
+    const source=(entries)=>'package entities\nimport "context"\nimport "github.com/jackc/pgx/v5"\n'+entries.map((entry)=>`func ${entry.declaration}(ctx context.Context,db pgx.Tx) { db.Query(ctx,${JSON.stringify(entry.sql)}) }`).join("\n");
+    const evaluate=(content,file)=>checkSQLTableAccess([{relative:`${owner}/${file}`,content}],[scoped]);
+    for(const file of ["renamed.go","split.go"]) {
+      assert.deepEqual(evaluate(source(grants),file),[]);
+      for(const grant of grants) {
+        assert.ok(evaluate(source(grants.map((entry)=>entry===grant?{...entry,sql:entry.sql.replace("$1","$9")}:entry)),file).some((entry)=>entry.code==="sql_table_read_access"));
+      }
+      for(const query of ["SELECT incident_id FROM records WHERE record_id=$1","SELECT record_id FROM records FOR UPDATE"]) {
+        assert.ok(evaluate(source(grants)+`\nfunc bypass(ctx context.Context,db pgx.Tx) { db.Query(ctx,${JSON.stringify(query)}) }`,file).some((entry)=>entry.code==="sql_table_read_access"));
+      }
+    }
+    assert.ok(evaluate(source(grants),"child/read.go").some((entry)=>entry.code==="sql_table_read_access"));
+  });
+
+  test("backend policy: entity delete/restore permits only exact envelope snapshots", () => {
+    const owner = "internal/modules/entities/hostidentity/deleterestore";
+    const rule = repositoryPolicy().sqlTableAccess.find((entry) => entry.id === "records-current-envelope-access");
+    const grants = repositoryPolicyInput().sql_table_access.find((entry) => entry.id === rule.id).read_allowed_statements.filter((entry) => entry.package === owner);
+    assert.equal(grants.length, 2);
+    assert.ok(!rule.readAllowedPaths.includes(`${owner}/*.go`));
+    const scoped = {...rule,readAllowedStatements:rule.readAllowedStatements.filter((entry) => entry.package === owner)};
+    const source = (entries) => 'package deleterestore\nimport "context"\nimport "github.com/jackc/pgx/v5"\n' + entries.map((entry) => {
+      const [type,method] = entry.declaration.split(".");
+      return `type ${type} struct{}\nfunc (s ${type}) ${method}(ctx context.Context, db pgx.Tx) { db.Query(ctx,${JSON.stringify(entry.sql)}) }`;
+    }).join("\n");
+    const evaluate = (content,file="renamed.go") => checkSQLTableAccess([{relative:`${owner}/${file}`,content}], [scoped]);
+    for (const file of ["renamed.go","split.go"]) {
+      assert.deepEqual(evaluate(source(grants),file), []);
+      for (const grant of grants) {
+        assert.ok(evaluate(source(grants.map((entry) => entry===grant ? {...entry,sql:entry.sql.replace("$1","$2")} : entry)),file).some((entry) => entry.code==="sql_table_read_access"));
+      }
+      for (const query of ["SELECT * FROM records", "UPDATE hosts h SET row_version=r.row_version FROM records r WHERE h.record_id=r.record_id"]) {
+        assert.ok(evaluate(source(grants)+`\nfunc bypass(ctx context.Context,db pgx.Tx) { db.Exec(ctx,${JSON.stringify(query)}) }`,file).some((entry) => entry.code==="sql_table_read_access"));
+      }
+    }
+    assert.ok(evaluate(source(grants),"child/read.go").some((entry) => entry.code==="sql_table_read_access"));
+  });
+
+  test("backend policy: entity projection envelope joins require exact point/page shapes", () => {
+    const owner = "internal/modules/entities/hostidentity/projectionprovider";
+    const rule = repositoryPolicy().sqlTableAccess.find((entry) => entry.id === "records-current-envelope-access");
+    const grants = repositoryPolicyInput().sql_table_access.find((entry) => entry.id === rule.id).read_allowed_statements.filter((entry) => entry.package === owner);
+    assert.equal(grants.length, 6);
+    assert.ok(!rule.readAllowedPaths.includes(`${owner}/*.go`));
+    const scoped = {...rule, readAllowedStatements: rule.readAllowedStatements.filter((entry) => entry.package === owner)};
+    const source = (entries) => 'package projectionprovider\nimport "context"\nimport "github.com/jackc/pgx/v5"\ntype source struct{}\n' + entries.map((entry) => entry.declaration.includes(".")
+      ? `func (s *source) ${entry.declaration.split(".")[1]}(ctx context.Context, db pgx.Tx) { db.Query(ctx, ${JSON.stringify(entry.sql)}) }`
+      : `const ${entry.declaration} = ${JSON.stringify(entry.sql)}`).join("\n");
+    const evaluate = (content, file) => checkSQLTableAccess([{relative:`${owner}/${file}`,content}], [scoped]);
+    for (const file of ["renamed.go", "split.go"]) {
+      assert.deepEqual(evaluate(source(grants),file), []);
+      for (const grant of grants) for (const [before,after] of [["$1","$9"],["deleted_at IS NULL","deleted_at IS NOT NULL"]].filter(([before]) => grant.sql.includes(before))) {
+        assert.ok(evaluate(source(grants.map((entry) => entry === grant ? {...entry,sql:entry.sql.replace(before,after)} : entry)),file).some((entry) => entry.code === "sql_table_read_access"), `${file}: ${grant.declaration}: ${before}`);
+      }
+      assert.ok(evaluate(source(grants)+'\nfunc bypass(ctx context.Context,db pgx.Tx) { db.Query(ctx,"SELECT * FROM records") }',file).some((entry) => entry.code === "sql_table_read_access"));
+    }
+    assert.ok(evaluate(source(grants),"child/read.go").some((entry) => entry.code === "sql_table_read_access"));
+  });
+
+  test("backend policy: entity collection rollback reads envelopes only through Records", () => {
+    const rules = repositoryPolicy().sqlTableAccess.filter((rule) => rule.id === "records-current-envelope-access");
+    assert.equal(rules.length, 1);
+    for (const name of ["renamed.go", "split.go", "child/read.go"]) {
+      const relative = `internal/modules/entities/hostidentity/rollbackprovider/${name}`;
+      const evaluate = (query) => checkSQLTableAccess([{relative, content: `package rollbackprovider\nconst query = ${JSON.stringify(query)}`}], rules);
+      for (const query of ["SELECT incident_id, record_type FROM records WHERE record_id=$1", "SELECT record_id FROM records FOR UPDATE"]) {
+        assert.ok(evaluate(query).some((entry) => entry.code === "sql_table_read_access"), `${relative}: ${query}`);
+      }
+      assert.ok(evaluate("DELETE FROM records").some((entry) => entry.code === "sql_table_write_access"), relative);
+      assert.deepEqual(evaluate("SELECT entity_alias_id FROM entity_aliases"), []);
+    }
+  });
+
+  test("backend policy: Merge reference dependencies bind through the exact application package", () => {
+    const rules = repositoryPolicy().forbiddenGoImports.filter((rule) => rule.id === "entities-root-direct-consumers");
+    assert.equal(rules.length, 1);
+    const content = 'package assembly\nimport "github.com/JochiRaider/cartulary/internal/modules/entities"';
+    for (const [relative, allowed] of [
+      ["internal/app/entitymergeassembly/renamed.go", true],
+      ["internal/app/entitymergeassembly/split.go", true],
+      ["internal/app/entitymergeassembly/child/read.go", false],
+      ["internal/app/peer/read.go", false],
+      ["internal/modules/entities/merge/read.go", false],
+    ]) {
+      assert.equal(checkForbiddenGoImports([{relative, content}], rules).length === 0, allowed, relative);
+    }
+  });
+
+  test("backend policy: HostIdentity scalar conflicts consume only the owner-local entity contract", () => {
+    const rules = repositoryPolicy().forbiddenGoImports.filter((rule) => rule.id === "entities-entitycontract-remains-owner-local");
+    assert.equal(rules.length, 1);
+    const content = 'package boundary\nimport "github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"';
+    assert.deepEqual(checkForbiddenGoImports([{relative: "internal/modules/entities/hostidentity/scalar_conflict.go", content}], rules), []);
+    for (const relative of ["internal/modules/entities/hostidentity/child/scalar_conflict.go", "internal/modules/timeline/scalar_conflict.go", "internal/modules/workbook/scalar_conflict.go"]) {
+      assert.ok(checkForbiddenGoImports([{relative, content}], rules).some((finding) => finding.code === "forbidden_go_import"), relative);
+    }
+  });
+  test("backend policy: HostIdentity Records reads require exact source joins", () => {
+    const rule = repositoryPolicy().sqlTableAccess.find((entry) => entry.id === "records-current-envelope-access");
+    const owner = "internal/modules/entities/hostidentity";
+    const grants = repositoryPolicyInput().sql_table_access.find((entry) => entry.id === rule.id).read_allowed_statements.filter((entry) => entry.package === owner);
+    assert.equal(grants.length, 8);
+    assert.ok(!rule.readAllowedPaths.includes(`${owner}/*.go`));
+    const scoped = {...rule, readAllowedStatements: rule.readAllowedStatements.filter((entry) => entry.package === owner)};
+    const source = (entries) => {
+      const declarations = new Map();
+      for (const entry of entries) {
+        const calls = declarations.get(entry.declaration) ?? [];
+        calls.push(`db.Query(ctx, ${JSON.stringify(entry.sql)})`);
+        declarations.set(entry.declaration, calls);
+      }
+      const types = new Set([...declarations.keys()].filter((name) => name.includes(".")).map((name) => name.split(".")[0]));
+      return [...types].map((name) => `type ${name} struct{}`).join("\n") + "\n" + [...declarations].map(([name, calls]) => {
+        const parts = name.split(".");
+        const declaration = parts.length === 2 ? `(receiver *${parts[0]}) ${parts[1]}` : name;
+        return `func ${declaration}(ctx context.Context, db pgx.Tx) { ${calls.join("; ")} }`;
+      }).join("\n");
+    };
+    const evaluate = (content, relative = `${owner}/renamed.go`) => checkSQLTableAccess([{relative, content: `package hostidentity\nimport "context"\nimport "github.com/jackc/pgx/v5"\n${content}`}], [scoped]);
+    assert.deepEqual(evaluate(source(grants)), []);
+    for (const query of ["SELECT record_id FROM records", "SELECT r.record_id FROM records r JOIN decisions d ON d.record_id=r.record_id FOR SHARE OF r", "DELETE FROM records", "SELECT record_id FROM records FOR UPDATE NOWAIT"]) {
+      assert.ok(evaluate(`${source(grants)}\nfunc bypass(ctx context.Context, db pgx.Tx) { db.Query(ctx, ${JSON.stringify(query)}) }`).some((entry) => entry.code.startsWith("sql_table_")), query);
+    }
+    for (const entry of grants) {
+      assert.ok(evaluate(source(grants.map((other) => other === entry ? {...entry, sql: entry.sql.replace("$1", "$9")} : other))).some((item) => item.code === "sql_table_read_access"), entry.declaration);
+    }
+    assert.ok(evaluate(source(grants.map((entry) => ({...entry, declaration: "foreignRead"})))).some((entry) => entry.code === "sql_table_read_access"));
+    assert.ok(evaluate(source(grants), `${owner}/child/read.go`).some((entry) => entry.code === "sql_table_read_access"));
+  });
+
+  test("backend policy: Task source Records reads have exact joined shapes and no locks", () => {
+    const rule = repositoryPolicy().sqlTableAccess.find((entry) => entry.id === "records-current-envelope-access");
+    const owner = "internal/modules/tasksdecisions/internal/source";
+    const grants = repositoryPolicyInput().sql_table_access.find((entry) => entry.id === rule.id).read_allowed_statements.filter((entry) => entry.package === owner);
+    assert.equal(grants.length, 5);
+    assert.ok(!rule.readAllowedPaths.includes(`${owner}/*.go`));
+    const scoped = {...rule, readAllowedStatements: rule.readAllowedStatements.filter((entry) => entry.package === owner)};
+    const source = (entries) => {
+      const declarations = new Map();
+      for (const entry of entries) {
+        const calls = declarations.get(entry.declaration) ?? [];
+        calls.push(`db.Query(ctx, ${JSON.stringify(entry.sql)})`);
+        declarations.set(entry.declaration, calls);
+      }
+      return [...declarations].map(([name, calls]) => `func ${name}(ctx context.Context, db pgx.Tx) { ${calls.join("; ")} }`).join("\n");
+    };
+    const evaluate = (content, relative = `${owner}/renamed.go`) => checkSQLTableAccess([{relative, content: `package source\nimport "context"\nimport "github.com/jackc/pgx/v5"\n${content}`}], [scoped]);
+    assert.deepEqual(evaluate(source(grants)), []);
+    for (const query of ["SELECT record_id FROM records", "SELECT r.record_id FROM records r JOIN decisions d ON d.record_id=r.record_id FOR SHARE OF r", "DELETE FROM records", "SELECT record_id FROM records FOR UPDATE NOWAIT"]) {
+      assert.ok(evaluate(`${source(grants)}\nfunc bypass(ctx context.Context, db pgx.Tx) { db.Query(ctx, ${JSON.stringify(query)}) }`).some((entry) => entry.code.startsWith("sql_table_")), query);
+    }
+    for (const entry of grants) {
+      assert.ok(evaluate(source(grants.map((other) => other === entry ? {...entry, sql: entry.sql.replace("$1", "$9")} : other))).some((item) => item.code === "sql_table_read_access"), entry.declaration);
+    }
+    assert.ok(evaluate(source(grants), `${owner}/child/read.go`).some((entry) => entry.code === "sql_table_read_access"));
+  });
+
+  test("backend policy: Task portable envelope reads use the consumer contract", () => {
+    const manifest = repositoryPolicy();
+    for (const [id, consumer] of [
+      ["tasks-decisions-incident-bundle-provider-exact-imports", "providers/incidentbundle"],
+      ["tasks-decisions-private-source-exact-imports", "source"],
+    ]) {
+      const rules = manifest.goImportAllowlists.filter((rule) => rule.id === id);
+      assert.equal(rules.length, 1);
+      for (const file of ["renamed.go", "split.go", "child/read.go"]) {
+        const relative = `internal/modules/tasksdecisions/internal/${consumer}/${file}`;
+        for (const [suffix, allowed] of [
+          ["tasksdecisions/internal/envelopefacts", true],
+          ["records", false],
+          ["records/enveloperead", false],
+          ["tasksdecisions/internal/envelopefacts/child", false],
+        ]) {
+          const content = `package source\nimport "github.com/JochiRaider/cartulary/internal/modules/${suffix}"`;
+          assert.equal(checkGoImportAllowlists([{relative, content}], rules).length === 0, allowed, `${relative}: ${suffix}`);
+        }
+      }
+    }
+  });
+
+  test("backend policy: Task and Decision inverses consume active Links through ports", () => {
+    const rules = repositoryPolicy().sqlTableAccess.filter((rule) => rule.id === "tasksdecisions-inverse-link-facts-port");
+    assert.equal(rules.length, 1);
+    const evaluate = (relative, query) => checkSQLTableAccess([{ relative, content: `package inverse\nconst query = ${JSON.stringify(query)}` }], rules);
+    for (const name of ["renamed.go", "split.go", "child/read.go"]) {
+      const relative = `internal/modules/tasksdecisions/internal/providers/rollback/${name}`;
+      for (const query of ["SELECT count(*) FROM active_record_links_v1", "SELECT d.status,(SELECT count(*) FROM active_record_links_v1 l WHERE l.dst_record_id=d.record_id) FROM decisions d"]) {
+        assert.ok(evaluate(relative, query).some((entry) => entry.code === "sql_table_read_access"), `${relative}: ${query}`);
+      }
+      assert.deepEqual(evaluate(relative, "SELECT status FROM decisions"), []);
+    }
+    assert.deepEqual(evaluate("internal/modules/links/facts/renamed.go", "SELECT * FROM active_record_links_v1"), []);
+  });
+
+  test("backend policy: Reference Data fixture imports require explicit test package authority", () => {
+    const manifest = repositoryPolicy();
+    const rule = manifest.ownerPortOnlyImports.find((entry) => entry.id === "reference-data-facade-import");
+    assert.ok(rule);
+    assert.deepEqual(rule.allowedImporters, []);
+    for (const name of ["renamed", "split"]) for (const [receiver, suffix, isTest, allowed] of [
+      ["internal/modules/incidentbundles", "", true, true],
+      ["internal/modules/indicators", "/testsupport", true, true],
+      ["internal/modules/revisions", "/testsupport", true, true],
+      ["internal/modules/indicators", "/testsupport", false, false],
+      ["internal/modules/revisions", "/testsupport", false, false],
+      ["internal/modules/indicators/child", "/testsupport", true, false],
+      ["internal/modules/peer", "/testsupport", true, false],
+      ["internal/modules/revisions", "/testsupport/private", true, false],
+      ["internal/modules/revisions", "/testsupport/fixturehttp", true, false],
+      ["internal/modules/incidentbundles", "/testsupport/fixturehttp", true, true],
+      ["internal/modules/incidentbundles", "/testsupport/fixturehttp", false, false],
+      ["internal/app/recoveryassembly", "/recoverycontribution", false, true],
+      ["internal/modules/recovery", "/recoverycontribution", false, false],
+      ["internal/modules/reference_data/contractadmission", "/internal/packformat", false, true],
+      ["internal/modules/reporting", "/internal/packformat", false, false],
+      ["internal/app/referenceassembly", "/contractadmission", false, true],
+      ["internal/app/referenceassembly/child", "/contractadmission", false, false],
+    ]) {
+      const relative = `${receiver}/${name}${isTest ? "_test" : ""}.go`;
+      const files = [{ relative, content: `package fixture\nimport "${rule.import}${suffix}"` }];
+      assert.equal(checkOwnerPortOnlyImports(files, [rule]).length === 0, allowed, `${relative}: ${suffix}`);
+    }
+    const productionRule = manifest.forbiddenGoImports.find((entry) => entry.id === "production-no-reference-pack-fixtures");
+    assert.ok(productionRule);
+    for (const relative of ["internal/modules/indicators/testsupport/fixtures.go", "internal/modules/indicators/testsupport/split.go", "internal/modules/peer/read.go"]) {
+      const files = [{ relative, content: `package fixture\nimport "${rule.import}/testsupport"` }];
+      assert.ok(checkForbiddenGoImports(files, [productionRule]).some((entry) => entry.code === "forbidden_go_import"), relative);
+    }
+    assert.deepEqual(checkForbiddenGoImports([{ relative: "internal/modules/indicators/fixture_test.go", content: `package fixture\nimport "${rule.import}/testsupport"` }], [productionRule]), []);
+  });
+
+  test("backend policy: source snapshot contract grants survive file changes without wider authority", () => {
+    const rule = repositoryPolicy().ownerPortOnlyImports.find((entry) => entry.id === "revisions-delete-restore-source-contract-import");
+    assert.ok(rule);
+    assert.deepEqual(rule.allowedImporters, []);
+    const evaluate = (relative, imported = rule.import) => checkOwnerPortOnlyImports([{ relative, content: `package fixture\nimport "${imported}"` }], [rule]);
+    for (const name of ["renamed.go", "split.go"]) {
+      for (const receiver of ["artifacts/internal/providers/deleterestore", "assessments/internal/providers/deleterestore", "entities/hostidentity/deleterestore", "evidence/internal/providers/deleterestore", "evidence/internal/sourcevalue", "indicators/internal/providers/deleterestore", "indicators/internal/sourcevalue", "parties/internal/providers/deleterestore", "tasksdecisions/internal/providers/deleterestore", "timeline/deleterestore", "timeline/internal/sourcevalue", "revisions"]) {
+        const relative = `internal/modules/${receiver}/${name}`;
+        assert.deepEqual(evaluate(relative), []);
+        assert.ok(evaluate(relative, `${rule.import}/private`).length > 0);
+        assert.ok(evaluate(`internal/modules/${receiver}/child/${name}`).length > 0);
+      }
+    }
+    assert.deepEqual(evaluate("internal/modules/revisions/renamed_test.go"), []);
+    for (const relative of ["internal/modules/evidence/internal/sourcevalue/renamed_test.go", "internal/modules/artifacts/internal/providers/deleterestore/split_test.go", "internal/modules/revisions/peer/read.go", "internal/modules/evidence/internal/peer/read.go", "internal/app/revisionassembly/read.go"]) {
+      assert.ok(evaluate(relative).length > 0, relative);
+    }
+  });
+
+  test("backend policy: IncidentBundles grants distinguish facade and exact portable ports", () => {
+    const manifest = repositoryPolicy();
+    const rules = manifest.ownerPortOnlyImports.filter((rule) => ["incidentbundles-facade-import", "incident-bundle-import-finalizer-port-import"].includes(rule.id));
+    assert.equal(rules.length, 2);
+    for (const rule of rules) assert.deepEqual(rule.allowedImporters, []);
+    const artifactRules = manifest.forbiddenGoImports.filter((rule) => rule.id === "artifact-subtree-no-consumer-implementations");
+    assert.equal(artifactRules.length, 1);
+    const prefix = "github.com/JochiRaider/cartulary/internal/modules/incidentbundles";
+    for (const name of ["renamed", "split"]) for (const [receiver, suffix, isTest, allowed] of [
+      ["internal/modules/artifacts", "/sourceport", false, true],
+      ["internal/modules/artifacts", "/sourceport", true, true],
+      ["internal/modules/tasksdecisions/internal/providers/incidentbundle", "/sourceport", false, true],
+      ["internal/modules/tasksdecisions/internal/providers/incidentbundle", "/sourceport", true, false],
+      ["internal/modules/artifacts/child", "/sourceport", false, false],
+      ["internal/modules/artifacts", "/sourceport/private", false, false],
+      ["internal/modules/artifacts", "", false, false],
+      ["internal/modules/evidence", "", false, false],
+      ["internal/modules/reporting", "/artifactport", false, true],
+      ["internal/modules/reporting", "/sourceport", false, false],
+      ["internal/modules/incidents", "/importfinalizerport", false, true],
+      ["internal/modules/incidents", "/importfinalizerport", true, true],
+      ["internal/modules/incidents/child", "/importfinalizerport", false, false],
+      ["internal/app/incidentportabilityassembly", "", false, true],
+      ["internal/app/incidentportabilityassembly/child", "", false, false],
+      ["internal/modules/peer", "/sourceport", false, false],
+    ]) {
+      const files = [{ relative: `${receiver}/${name}${isTest ? "_test" : ""}.go`, content: `package fixture\nimport "${prefix}${suffix}"` }];
+      assert.equal(inspect(files, { ownerPortOnlyImports: rules, forbiddenGoImports: artifactRules }).length === 0, allowed, `${receiver}: ${suffix}: ${isTest}`);
+    }
+  });
+
+  test("backend policy: retained Links field facts are an exact read-only capability", () => {
+    const manifest = repositoryPolicy();
+    const sourceTableAccess = manifest.sourceTableAccess.filter((rule) => rule.id === "links-source-tables");
+    const sqlTableAccess = manifest.sqlTableAccess.filter((rule) => rule.id === "links-retained-field-facts-read-only");
+    assert.equal(sourceTableAccess.length, 1);
+    assert.equal(sqlTableAccess.length, 1);
+    const evaluate = (relative, query) => {
+      const files = [{ relative, content: `package facts\nconst query = ${JSON.stringify(query)}` }];
+      return inspect(files, { sourceTableAccess, sqlTableAccess });
+    };
+    for (const name of ["renamed.go", "split.go"]) {
+      const file = `internal/modules/links/facts/${name}`;
+      assert.deepEqual(evaluate(file, "SELECT dst_record_id FROM record_links"), []);
+      for (const query of ["INSERT INTO record_links (record_link_id) VALUES ($1)", "UPDATE record_links SET deleted_at = now()", "DELETE FROM record_links"]) {
+        assert.ok(evaluate(file, query).some((entry) => entry.code === "sql_table_write_access"), query);
+      }
+      assert.ok(evaluate(file, "SELECT * FROM record_links FOR UPDATE").some((entry) => entry.code === "sql_table_lock_access"));
+    }
+    for (const file of ["internal/modules/links/facts/child/read.go", "internal/modules/links/facts/testsupport/read.go", "internal/modules/links/peer/read.go", "internal/modules/peer/read.go"]) {
+      assert.ok(evaluate(file, "SELECT * FROM record_links").some((entry) => entry.code === "source_table_access"), file);
+    }
+    assert.deepEqual(evaluate("internal/modules/links/renamed.go", "UPDATE record_links SET deleted_at = now()"), []);
+  });
+
   test("backend policy: package capabilities survive rename and split without granting descendants", () => {
     const manifest = repositoryPolicy();
     for (const id of ["evidence-private-projection-provider-import", "indicator-projection-provider-import", "party-projection-provider-import", "tasks-decisions-projection-provider-import"]) {
@@ -45,7 +357,7 @@ export function registerBoundariesTests() {
 
   test("backend policy: Links Records grants constrain exact SQL shapes", () => {
     const rule = repositoryPolicy().sqlTableAccess.find((entry) => entry.id === "records-current-envelope-access");
-    assert.equal(rule.readAllowedStatements.length, 3);
+    assert.equal(rule.readAllowedStatements.filter((entry) => entry.package.startsWith("internal/modules/links")).length, 3);
     assert.ok(!rule.readAllowedPaths.some((entry) => entry.startsWith("internal/modules/links/")));
     const rawRule = {
       id: "exact-records", table: "records", scan_paths: ["internal/modules/**"],
@@ -103,6 +415,7 @@ export function registerBoundariesTests() {
     const evaluate = (relative, sql) => inspect([{relative, content: `package fixture\nconst query = ${JSON.stringify(sql)}`}], {sqlTableAllowlists: rules, sqlTableAccess: manifest.sqlTableAccess});
     for (const [file, sql] of [
       ["internal/modules/entities/merge/renamed.go", 'UPDATE /* spaced */ "public"."entity_mentions" SET row_version=2'],
+      ["internal/modules/entities/merge/admission.go", 'SELECT * FROM records'],
       ["internal/modules/entities/merge/renamed.go", 'WITH changed AS (DELETE FROM host_grid_projection RETURNING *) SELECT * FROM changed'],
       ["internal/modules/reporting/renamed.go", 'select * from "public"."records"'],
       ["internal/modules/reporting/renamed.go", 'WITH x AS (SELECT * FROM reference_pack_unknown) SELECT * FROM x'],
@@ -111,7 +424,6 @@ export function registerBoundariesTests() {
     ]) assert.ok(evaluate(file,sql).some((entry) => entry.code === "sql_table_allowlist"), sql);
     for (const [file, sql] of [
       ["internal/modules/entities/merge/renamed.go", 'SELECT * FROM entity_aliases'],
-      ["internal/modules/entities/merge/admission.go", 'SELECT * FROM records'],
       ["internal/modules/reporting/renamed.go", 'WITH records AS (SELECT * FROM reporting_snapshots) SELECT * FROM records'],
       ["internal/modules/reporting/store.go", 'SELECT * FROM route_idempotency'],
       ["internal/modules/reporting/graph_source.go", 'SELECT * FROM jobs'],
@@ -125,7 +437,11 @@ export function registerBoundariesTests() {
       assert.deepEqual(evaluate("internal/modules/reporting/split.go",`SELECT * FROM ${table}`),[]);
       assert.ok(evaluate("internal/modules/reporting/child/read.go",`SELECT * FROM ${table}`).some((entry)=>entry.code==="sql_table_read_access"));
     }
-    assert.deepEqual(evaluate("internal/modules/entities/merge/renamed.go","SELECT * FROM records"),[]);
+    for (const relative of ["internal/modules/entities/merge/renamed.go", "internal/modules/entities/merge/split.go", "internal/modules/entities/merge/child/read.go"]) {
+      for (const [sql,code] of [["SELECT record_id FROM records","sql_table_read_access"],["UPDATE records SET row_version=2","sql_table_write_access"],["SELECT record_id FROM records FOR UPDATE","sql_table_read_access"]]) {
+        assert.ok(evaluate(relative,sql).some(entry=>entry.code===code),`${relative}: ${sql}`);
+      }
+    }
     assert.ok(evaluate("internal/modules/entities/merge/child/read.go","SELECT * FROM records").some(entry=>entry.code==="sql_table_read_access"));
     assert.deepEqual(evaluate("internal/modules/reporting/renamed.go","SELECT 'FROM records' /* JOIN timeline_events */ FROM reporting_snapshots"),[]);
   });

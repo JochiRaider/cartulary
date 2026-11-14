@@ -193,6 +193,44 @@ FAKE_NODE_ARCHIVE="${valid_archive}" \
 assert_file_exists "${retry_dir}/runtime/bin/node" "retry success installs runtime"
 assert_equals "$("${retry_dir}/runtime/bin/node" -v)" "v24.15.0" "retry success node version"
 assert_equals "$(cat "${retry_dir}/curl.count")" "2" "retry success curl attempts"
+for candidate in "${retry_dir}"/runtime.tmp.* "${retry_dir}"/archives/*.download.*; do
+  assert_file_absent "${candidate}" "successful preparation staging cleanup"
+done
+
+extraction_fail_dir="$(mktemp -d "${ROOT_DIR}/tmp/bootstrap-node-extraction-fail.XXXXXX")"
+cleanup_paths+=("${extraction_fail_dir}")
+mkdir -p "${extraction_fail_dir}/archives" "${extraction_fail_dir}/runtime/bin"
+make_fake_node_archive "${extraction_fail_dir}" "${extraction_fail_dir}/archives/node-v24.15.0-linux-x64.tar.xz"
+cp "${retry_dir}/runtime/bin/node" "${extraction_fail_dir}/runtime/bin/node"
+make_fake_sha256sum "${extraction_fail_dir}"
+make_fake_curl "${extraction_fail_dir}" fail
+cat >"${extraction_fail_dir}/tar" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+while [[ "$#" -gt 0 ]]; do
+  if [[ "$1" == "-C" ]]; then
+    printf 'partial extraction' >"$2/partial"
+    exit 42
+  fi
+  shift
+done
+exit 99
+EOF
+chmod +x "${extraction_fail_dir}/tar"
+extraction_fail_status=0
+PATH="${extraction_fail_dir}:${PATH}" \
+NODE_RUNTIME_DIR="${extraction_fail_dir}/runtime" \
+CARTULARY_NODE_ARCHIVE_DIR="${extraction_fail_dir}/archives" \
+CARTULARY_BOOTSTRAP_NODE_PLATFORM="linux-x64" \
+CARTULARY_FORCE_REINSTALL=1 \
+  "${SCRIPT}" || extraction_fail_status=$?
+assert_equals "${extraction_fail_status}" "42" "failed extraction exit"
+cmp "${retry_dir}/runtime/bin/node" "${extraction_fail_dir}/runtime/bin/node"
+assert_file_absent "${extraction_fail_dir}/runtime.lock" "failed extraction lock cleanup"
+assert_file_absent "${extraction_fail_dir}/curl.log" "verified archive reuse"
+for candidate in "${extraction_fail_dir}"/runtime.tmp.*; do
+  assert_file_absent "${candidate}" "failed extraction staging cleanup"
+done
 
 download_fail_dir="$(mktemp -d "${ROOT_DIR}/tmp/bootstrap-node-download-fail.XXXXXX")"
 cleanup_paths+=("${download_fail_dir}")
@@ -246,8 +284,12 @@ CARTULARY_BOOTSTRAP_DOWNLOAD_RETRY_DELAY_SECONDS=0 \
 FAKE_NODE_ARCHIVE="${concurrent_archive}" \
   "${SCRIPT}" &
 second_pid=$!
-wait "${first_pid}"
-wait "${second_pid}"
+first_status=0
+second_status=0
+wait "${first_pid}" || first_status=$?
+wait "${second_pid}" || second_status=$?
+assert_equals "${first_status}" "0" "concurrent install first exit"
+assert_equals "${second_status}" "0" "concurrent install second exit"
 assert_file_exists "${concurrent_dir}/runtime/bin/node" "concurrent install runtime"
 assert_equals "$("${concurrent_dir}/runtime/bin/node" -v)" "v24.15.0" "concurrent install node version"
 assert_file_absent "${concurrent_dir}/runtime.lock" "concurrent install lock cleanup"

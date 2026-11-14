@@ -25,4 +25,12 @@ export const ownersByVersion = new Map([
  [48, "reference_data"],
  [49, "imports"],
  [50, "reference_data"],
+ [51, "incidentbundles"],
+ [52, "artifacts"],
+ [53, "evidence"],
+ [54, "projections"],
+ [55, "indicators"],
+ [56, "indicators"],
+ [57, "revisions"],
+ [58, "revisions"],
 ]);

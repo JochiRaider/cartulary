@@ -47,6 +47,9 @@ func (f *mutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := f.lockPatchReferenceScopeTx(ctx, tx, command.RecordID, request); err != nil {
+		return MutationResult{}, err
+	}
 	meta, err := f.loadEvidenceRecordMetaForUpdateTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return MutationResult{}, err

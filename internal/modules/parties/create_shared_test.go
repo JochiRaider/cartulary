@@ -1,6 +1,9 @@
 package parties
 
 import (
+	"encoding/json"
+	"maps"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,6 +41,66 @@ func TestPartyCreateAdmissionDefaultsAreShared_Unit(t *testing.T) {
 }
 
 func TestPartyImportCreateScalarAdmissionMatrix_Unit(t *testing.T) {
+	t.Run("historical stored scalar policy", func(t *testing.T) {
+		validate := NewRevisionContribution().Records[0].ValidateSnapshotSource
+		record := map[string]any{"record_id": "11111111-1111-4111-8111-111111111111", "incident_id": "22222222-2222-4222-8222-222222222222"}
+		base := map[string]any{
+			"record_id": record["record_id"], "incident_id": record["incident_id"],
+			"display_name": "Café Team", "party_kind": "team", "organization_name": "Acme", "role_title": "Responder",
+			"primary_email": "Case.Sensitive@Example.test", "timezone_name": "Etc/UTC", "external_ref": "case/123", "notes": "Line one\n\tLine two",
+		}
+		for _, kind := range []string{"person", "team", "organization", "distribution_list", "other"} {
+			value := maps.Clone(base)
+			value["party_kind"] = kind
+			before, err := json.Marshal(value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := validate(record, value); err != nil {
+				t.Fatalf("valid %s snapshot: %v", kind, err)
+			}
+			after, err := json.Marshal(value)
+			if err != nil || string(after) != string(before) {
+				t.Fatalf("valid stored values changed: %s / %s (%v)", before, after, err)
+			}
+		}
+		for _, test := range []struct{ name, field, value string }{
+			{"empty required", "display_name", ""},
+			{"display spaces", "display_name", "Café  Team"},
+			{"display NFC", "display_name", "Cafe\u0301 Team"},
+			{"unknown kind", "party_kind", "Team"},
+			{"organization trim", "organization_name", " Acme "},
+			{"role control", "role_title", "Role\x00"},
+			{"email syntax", "primary_email", "invalid"},
+			{"timezone registry", "timezone_name", "utc"},
+			{"external empty", "external_ref", ""},
+			{"notes newline", "notes", "Line one\r\nLine two"},
+			{"name bound", "display_name", strings.Repeat("a", 4096)},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				value := maps.Clone(base)
+				value[test.field] = test.value
+				before, err := json.Marshal(value)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := validate(record, value); err == nil {
+					t.Fatal("invalid retained scalar accepted")
+				}
+				after, err := json.Marshal(value)
+				if err != nil || string(after) != string(before) {
+					t.Fatal("invalid retained scalar was repaired")
+				}
+			})
+		}
+		optionalNulls := maps.Clone(base)
+		for _, field := range []string{"organization_name", "role_title", "primary_email", "timezone_name", "external_ref", "notes"} {
+			optionalNulls[field] = nil
+		}
+		if err := validate(record, optionalNulls); err != nil {
+			t.Fatalf("explicit optional nulls rejected: %v", err)
+		}
+	})
 	displayName := "Acme"
 	partyKind := "organization"
 	values, err := valuesFromImport(map[string]ownerfacade.ImportScalarValue{

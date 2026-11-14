@@ -2,6 +2,7 @@ package storetest
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"strings"
 	"testing"
@@ -18,13 +19,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
-type IncidentCreateReplaySelector struct {
+type IncidentCreateSelector struct {
 	ActorUserID uuid.UUID
 	ClientTxnID string
 	IncidentID  uuid.UUID
 }
 
-type IncidentCreateReplaySideEffects struct {
+type IncidentCreateSideEffectCounts struct {
 	BootstrapMembershipRows        int
 	IncidentRows                   int
 	IncidentWorkbookPreferenceRows int
@@ -165,14 +166,36 @@ WHERE m.incident_id = $1 AND m.user_id = $2`, incidentID, userID).Scan(
 	return record
 }
 
-func SnapshotIncidentCreateReplaySideEffects(
+// SnapshotIncidentCreateContent observes the complete bootstrap state in an
+// isolated scenario database. Ordering makes equality independent of scan order;
+// hashing keeps source and receipt payloads out of failure diagnostics. Ordinary
+// authentication/session writes are outside incident-create effects.
+func SnapshotIncidentCreateContent(t testing.TB, db ReplayDatabase) [32]byte {
+	t.Helper()
+	var content string
+	if err := db.queryRow(context.Background(), `SELECT jsonb_build_object(
+ 'incidents',(SELECT coalesce(jsonb_agg(to_jsonb(i) ORDER BY id),'[]') FROM incidents i),
+ 'memberships',(SELECT coalesce(jsonb_agg(to_jsonb(m) ORDER BY incident_id,user_id),'[]') FROM incident_memberships m),
+ 'issued_versions',(SELECT coalesce(jsonb_agg(to_jsonb(v) ORDER BY incident_id,user_id),'[]') FROM incident_membership_versions v),
+ 'defaults',(SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY incident_id),'[]') FROM incident_workbook_preferences p),
+ 'personal',(SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY incident_id,user_id),'[]') FROM user_workbook_preferences p),
+ 'audit',(SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY id),'[]') FROM deployment_admin_audit_events a WHERE event_source='incidents'),
+ 'audit_projections',(SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY audit_event_id),'[]') FROM administrative_audit_projections a WHERE scope_kind='incident'),
+ 'receipts',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]') FROM route_idempotency r WHERE route_key='incidents.create')
+ )::text`).Scan(&content); err != nil {
+		t.Fatalf("snapshot incident-create content: %v", err)
+	}
+	return sha256.Sum256([]byte(content))
+}
+
+func CountIncidentCreateSideEffects(
 	t testing.TB,
 	db ReplayDatabase,
-	selector IncidentCreateReplaySelector,
-) IncidentCreateReplaySideEffects {
+	selector IncidentCreateSelector,
+) IncidentCreateSideEffectCounts {
 	t.Helper()
 
-	return IncidentCreateReplaySideEffects{
+	return IncidentCreateSideEffectCounts{
 		BootstrapMembershipRows: queryReplayCount(
 			t,
 			db,

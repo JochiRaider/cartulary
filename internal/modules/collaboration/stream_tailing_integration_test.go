@@ -2,6 +2,7 @@ package collaboration_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -172,6 +173,63 @@ SELECT dispatch_state = 'sequenced'
 		for index, message := range messages {
 			if message.StreamSeq == nil || *message.StreamSeq != int64(index+1) {
 				t.Fatalf("repaired durable tail order = %#v", messages)
+			}
+		}
+	})
+	t.Run("clock regression preserves sequence across tail batches and incidents", func(t *testing.T) {
+		store := newPostgresStreamForTest(t, pool)
+		cursor, err := store.SeedTailCursor(ctx)
+		if err != nil {
+			t.Fatalf("seed tail cursor: %v", err)
+		}
+		want := make(map[uuid.UUID][]uuid.UUID)
+		for incidentIndex, count := range []int{102, 3} {
+			incidentID := uuid.MustParse(createDurableStreamIncident(t, harness, admin, fmt.Sprintf("clock-tail-%d", incidentIndex)))
+			t.Cleanup(func() {
+				// Keep this batch-boundary fixture from consuming later scenarios'
+				// independent dispatcher batches in the shared owned database.
+				if _, err := pool.Exec(ctx, `DELETE FROM collaboration_replay_events WHERE incident_id = $1`, incidentID); err != nil {
+					t.Errorf("remove clock-tail fixture: %v", err)
+				}
+			})
+			payload := collabtestprotocol.RawPayload(t, collabtestprotocol.NewIncidentJobProgressPayload(
+				"clock-tail", incidentID, collabprotocol.JobStatusRunning, collabprotocol.JobProgress{}, clockNow,
+			))
+			fixtures := make([]intenttest.PersistedReplayEventFixture, 0, count)
+			for sequence := 1; sequence <= count; sequence++ {
+				eventID := uuid.New()
+				want[incidentID] = append(want[incidentID], eventID)
+				fixtures = append(fixtures, intenttest.PersistedReplayEventFixture{
+					EventID: eventID, IncidentID: incidentID, StreamSeq: int64(sequence),
+					IntentKey:   fmt.Sprintf("clock-tail:%s:%d", incidentID, sequence),
+					EventFamily: privatestream.EventFamilyJobProgress, CanonicalPayload: payload,
+					EmittedAt: clockNow.Add(-time.Duration(sequence+incidentIndex) * time.Second),
+				})
+			}
+			intenttest.InsertPersistedReplayEventFixtures(t, pool, fixtures...)
+		}
+		seen := make(map[uuid.UUID]int)
+		for _, wantPageSize := range []int{100, 5, 0} {
+			messages, err := store.TailReplay(ctx, cursor)
+			if err != nil {
+				t.Fatalf("read clock-regressed tail: %v", err)
+			}
+			if len(messages) != wantPageSize {
+				t.Fatalf("tail page length = %d want %d", len(messages), wantPageSize)
+			}
+			for _, message := range messages {
+				id := uuid.MustParse(message.IncidentID)
+				index := seen[id]
+				if index >= len(want[id]) || message.StreamSeq == nil || *message.StreamSeq != int64(index+1) || message.EventID != want[id][index].String() {
+					t.Fatalf("tail event = %#v want incident %s index %d", message, id, index)
+				}
+				seen[id]++
+				cursor[id] = *message.StreamSeq
+			}
+		}
+		for id, events := range want {
+			if seen[id] != len(events) {
+				t.Fatalf("incident %s delivered %d events want %d", id, seen[id], len(events))
 			}
 		}
 	})

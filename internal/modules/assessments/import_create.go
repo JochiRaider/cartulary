@@ -22,7 +22,7 @@ type assessmentImportRevisionAppender interface {
 }
 
 type ImportCreateDependencies struct {
-	Subjects      SubjectValidator
+	References    ReferenceAdmission
 	Assessors     AssessorValidator
 	Records       RecordEnvelopeCreator
 	Revisions     assessmentImportRevisionAppender
@@ -45,8 +45,8 @@ func NewImportCreateFacade(
 		return nil, fmt.Errorf("assessment import surface %q not mapped", targetViewSchemaID)
 	}
 	switch {
-	case isNilDependency(dependencies.Subjects):
-		return nil, errors.New("construct assessment import facade: subject validator is required")
+	case isNilDependency(dependencies.References):
+		return nil, errors.New("construct assessment import facade: reference admission is required")
 	case isNilDependency(dependencies.Assessors):
 		return nil, errors.New("construct assessment import facade: assessor validator is required")
 	case isNilDependency(dependencies.Records):
@@ -62,7 +62,7 @@ func NewImportCreateFacade(
 		revisions:    dependencies.Revisions,
 		publications: dependencies.Collaboration,
 		creator: newAssessmentCreateService(
-			dependencies.Subjects,
+			dependencies.References,
 			dependencies.Assessors,
 			dependencies.Records,
 			dependencies.Projections,
@@ -102,7 +102,7 @@ func (f *importCreateFacade) createImportRowTx(
 		Input:       input,
 		Now:         command.Now.UTC(),
 	}
-	if err := f.creator.validateSubjectTx(ctx, tx, create); err != nil {
+	if err := f.creator.admitReferencesTx(ctx, tx, create); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 

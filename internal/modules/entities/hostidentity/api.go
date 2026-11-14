@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/aliashistory"
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mutationadmission"
@@ -49,7 +50,7 @@ type HostRecord struct {
 	EntityOrigin          string
 	SeedMentionID         *uuid.UUID
 	SuggestionOnlyAliases []AliasValue
-	AliasMutations        []AliasMutationValue
+	AliasMutations        []aliashistory.Value
 	ReusableIdentifiers   []ReusableIdentifier
 	PartyAssignments      map[string][]PartyReference
 	partyMutations        []collectionMutation
@@ -79,7 +80,7 @@ type IdentityRecord struct {
 	EntityOrigin          string
 	SeedMentionID         *uuid.UUID
 	SuggestionOnlyAliases []AliasValue
-	AliasMutations        []AliasMutationValue
+	AliasMutations        []aliashistory.Value
 	ReusableIdentifiers   []ReusableIdentifier
 	PartyAssignments      map[string][]PartyReference
 	partyMutations        []collectionMutation
@@ -102,38 +103,8 @@ type AliasValue struct {
 	AliasText     string
 }
 
-type AliasMutationValue struct {
-	EntityAliasID uuid.UUID
-	IncidentID    uuid.UUID
-	RecordID      uuid.UUID
-	EntityType    string
-	AliasText     string
-	CreatedByUser uuid.UUID
-	CreatedAt     time.Time
-	DeletedAt     *time.Time
-}
-
-func (value AliasMutationValue) MutationValue() map[string]any {
-	var deletedAt any
-	if value.DeletedAt != nil {
-		deletedAt = value.DeletedAt.UTC()
-	}
-	return map[string]any{
-		"entity_alias_id":    value.EntityAliasID.String(),
-		"incident_id":        value.IncidentID.String(),
-		"record_id":          value.RecordID.String(),
-		"entity_type":        value.EntityType,
-		"raw_text":           value.AliasText,
-		"normalized_text":    value.AliasText,
-		"classification":     "suggestion_only",
-		"created_by_user_id": value.CreatedByUser.String(),
-		"created_at":         value.CreatedAt.UTC(),
-		"deleted_at":         deletedAt,
-	}
-}
-
 type AliasSyncResult struct {
-	Added              []AliasMutationValue
+	Added              []aliashistory.Value
 	DuplicateNoopCount int
 }
 
@@ -400,6 +371,11 @@ func decodeAliasActionPayload(viewSchemaID string, fieldKey string, value json.R
 func collectionValue(ordered bool, items []map[string]any) map[string]any {
 	if items == nil {
 		items = []map[string]any{}
+	} else if !ordered {
+		items = slices.Clone(items)
+		slices.SortFunc(items, func(a, b map[string]any) int {
+			return strings.Compare(a["item_ref"].(string), b["item_ref"].(string))
+		})
 	}
 	return map[string]any{
 		"kind":    "collection_value_v1",

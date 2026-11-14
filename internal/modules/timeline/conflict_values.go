@@ -1,18 +1,24 @@
 package timeline
 
 import (
+	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/valuecodec"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
+
+type InvalidCollectionActionError struct{ FieldKey string }
+
+func (e *InvalidCollectionActionError) Error() string { return "timeline: invalid collection action" }
 
 type SameFieldConflictError struct {
 	Conflict SameFieldConflict
@@ -93,7 +99,7 @@ func overlappingPatchChange(changes []PatchChange, changedFields map[string]patc
 	return PatchChange{}, patchChangedField{}, false
 }
 
-func (s *store) buildSameFieldConflict(recordID uuid.UUID, current workbookprojection.DerivedRecord, baseRowVersion int64, requestHash []byte, window patchConflictWindow, change PatchChange, changed patchChangedField) (*SameFieldConflictError, error) {
+func (s *store) buildSameFieldConflictTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, current workbookprojection.DerivedRecord, baseRowVersion int64, requestHash []byte, window patchConflictWindow, change PatchChange, changed patchChangedField) (*SameFieldConflictError, error) {
 	baseValue, ok := rowCellValue(window.BaseRow, change.FieldKey)
 	if !ok {
 		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
@@ -102,8 +108,83 @@ func (s *store) buildSameFieldConflict(recordID uuid.UUID, current workbookproje
 	if !ok {
 		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
 	}
-	clientValue, err := patchClientConflictValue(recordID, change, baseValue, requestHash)
+	if isTimelineAttachedEvidenceCollection(change.FieldKey) && change.ActionPayload != nil {
+		targets := make([]uuid.UUID, 0, len(change.ActionPayload.Actions))
+		for _, action := range change.ActionPayload.Actions {
+			if action.Op != "add_record_ref" {
+				continue
+			}
+			if action.LinkedRecordID == nil {
+				return nil, &InvalidCollectionActionError{FieldKey: change.FieldKey}
+			}
+			targets = append(targets, *action.LinkedRecordID)
+		}
+		if err := s.evidenceStore.ValidateTimelineAttachmentsTx(ctx, tx, current.IncidentID, targets); err != nil {
+			return nil, err
+		}
+	}
+	if isTimelineMentionCollection(change.FieldKey) && change.ActionPayload != nil {
+		for _, action := range change.ActionPayload.Actions {
+			if action.Op != "add_resolved_ref" && action.Op != "resolve_item" {
+				continue
+			}
+			if action.ResolvedRecord == nil {
+				return nil, &InvalidCollectionActionError{FieldKey: change.FieldKey}
+			}
+			err := s.entityStore.InspectResolvedTargetTx(ctx, tx, current.IncidentID, collectionEntityType(change.FieldKey), *action.ResolvedRecord)
+			if errors.Is(err, ErrResolvedRecordNotFound) {
+				return nil, &InvalidCollectionActionError{FieldKey: change.FieldKey}
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	var mentionFacts []MentionSourceFact
+	if isTimelineMentionCollection(change.FieldKey) && change.ActionPayload != nil {
+		refs := make([]uuid.UUID, 0)
+		for _, action := range change.ActionPayload.Actions {
+			switch action.Op {
+			case "resolve_item", "dismiss_item", "revert_to_unresolved":
+				id, err := mentionIDFromItemRef(action.ItemRef)
+				if err != nil {
+					return nil, &InvalidCollectionActionError{FieldKey: change.FieldKey}
+				}
+				refs = append(refs, id)
+			}
+		}
+		if len(refs) > 0 {
+			facts, err := s.mentionStore.LoadCollectionSourceFactsTx(ctx, tx, recordID, change.FieldKey)
+			if err != nil {
+				return nil, err
+			}
+			mentionFacts = facts
+			known := make(map[uuid.UUID]bool, len(facts))
+			for _, fact := range facts {
+				known[fact.MentionID] = true
+			}
+			for _, ref := range refs {
+				if !known[ref] {
+					return nil, &InvalidCollectionActionError{FieldKey: change.FieldKey}
+				}
+			}
+		}
+	}
+	var clientValue any
+	var err error
+	if isTimelineMentionCollection(change.FieldKey) && change.ActionPayload != nil {
+		clientValue, err = s.applyMentionConflictActions(recordID, change.FieldKey, baseValue, change.ActionPayload, requestHash, mentionFacts)
+		if err != nil && !errors.Is(err, errInvalidMentionConflictBase) {
+			return nil, err
+		}
+	} else {
+		clientValue, err = patchClientConflictValue(recordID, change, baseValue, requestHash)
+	}
 	if err != nil {
+		var invalid *InvalidCollectionActionError
+		if errors.As(err, &invalid) {
+			return nil, err
+		}
 		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
 	}
 
@@ -182,37 +263,32 @@ func applyCollectionConflictActions(recordID uuid.UUID, fieldKey string, baseVal
 	}
 	for index, action := range payload.Actions {
 		switch action.Op {
-		case "add_token", "add_tag":
-			items = append(items, newClientCollectionItem(recordID, fieldKey, action, requestHash, index, false))
-		case "add_resolved_ref":
-			items = append(items, newClientCollectionItem(recordID, fieldKey, action, requestHash, index, true))
-		case "add_record_ref":
-			items = append(items, newClientCollectionItem(recordID, fieldKey, action, requestHash, index, true))
-		case "resolve_item":
-			if item := findCollectionItem(items, action.ItemRef); item != nil {
-				item["item_kind"] = "resolved_ref"
-				if action.ResolvedRecord != nil {
-					item["resolved_record_id"] = action.ResolvedRecord.String()
+		case "add_tag":
+			duplicate := false
+			for _, item := range items {
+				label, _ := item["display_text"].(string)
+				normalized, valid := normalizeCollectionToken(fieldKey, label)
+				if valid && normalized == action.NormalizedText {
+					duplicate = true
+					break
 				}
-				removeResolutionMetadata(item, false)
 			}
-		case "dismiss_item":
-			items = removeCollectionItem(items, action.ItemRef)
-		case "revert_to_unresolved":
-			if item := findCollectionItem(items, action.ItemRef); item != nil {
-				item["item_kind"] = "unresolved_mention"
-				removeResolutionMetadata(item, true)
+			if !duplicate {
+				items = append(items, newClientCollectionItem(recordID, fieldKey, action, requestHash, index, false))
+			}
+		case "add_record_ref":
+			item := newClientCollectionItem(recordID, fieldKey, action, requestHash, index, true)
+			if findCollectionItem(items, item["item_ref"].(string)) == nil {
+				items = append(items, item)
 			}
 		case "remove_record_ref", "remove_tag":
+			if findCollectionItem(items, action.ItemRef) == nil {
+				return nil, &InvalidCollectionActionError{FieldKey: fieldKey}
+			}
 			items = removeCollectionItem(items, action.ItemRef)
 		default:
 			return nil, fmt.Errorf("unsupported collection action: %s", action.Op)
 		}
-	}
-	if !ordered {
-		sort.SliceStable(items, func(left int, right int) bool {
-			return collectionSortKey(items[left]) < collectionSortKey(items[right])
-		})
 	}
 	return valuecodec.Collection(ordered, items), nil
 }
@@ -359,13 +435,4 @@ func removeResolutionMetadata(item map[string]any, removeResolvedID bool) {
 	delete(item, "provenance")
 	delete(item, "confidence")
 	delete(item, "matched_alias_text")
-}
-
-func collectionSortKey(item map[string]any) string {
-	for _, key := range []string{"display_text", "raw_text", "item_ref"} {
-		if value, ok := item[key].(string); ok {
-			return value
-		}
-	}
-	return ""
 }

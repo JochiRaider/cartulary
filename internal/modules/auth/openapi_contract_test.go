@@ -21,8 +21,8 @@ func TestAuthOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		"completeEnterpriseOIDC":          {"303", "404", "409", "500"},
 		"completeEnterpriseSAML":          {"303", "404", "409", "500"},
 		"completeTOTPEnrollment":          {"200", "400", "401", "403", "409", "500"},
-		"createDeploymentUser":            {"201", "400", "401", "403", "409", "500", "503"},
-		"createEnterpriseAuthBinding":     {"201", "400", "401", "403", "404", "409", "500"},
+		"createDeploymentUser":            {"200", "201", "400", "401", "403", "409", "500", "503"},
+		"createEnterpriseAuthBinding":     {"200", "201", "400", "401", "403", "404", "409", "500"},
 		"finishEnterpriseSAML":            {"303", "404", "409", "500"},
 		"getCredentialState":              {"200", "400", "401", "409", "500"},
 		"getCurrentAccountPreferences":    {"200", "400", "401", "409", "500"},
@@ -61,6 +61,16 @@ func TestAuthOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 		if want := expectedStatuses[descriptor.OperationID]; !slices.Equal(statuses, want) {
 			t.Fatalf("%s response statuses changed: got %v want %v", descriptor.OperationID, statuses, want)
 		}
+		if descriptor.OperationID == "createDeploymentUser" || descriptor.OperationID == "createEnterpriseAuthBinding" {
+			for status, reference := range map[string]string{
+				"200": "#/components/responses/AuthSafeUserSuccessResponse",
+				"201": "#/components/responses/AuthSafeUserCreatedResponse",
+			} {
+				if response := authOpenAPIObjectAt(t, responses, status); response["$ref"] != reference {
+					t.Fatalf("%s %s must return the safe user envelope: %#v", descriptor.OperationID, status, response)
+				}
+			}
+		}
 		for status, rawResponse := range responses {
 			response := authOpenAPIObject(t, rawResponse)
 			if ref, ok := response["$ref"].(string); ok {
@@ -88,6 +98,11 @@ func TestAuthOpenAPIResponsesAndSecurityMatchRuntime_Unit(t *testing.T) {
 	assertAuthResponseSchemaChain(t, document, "AuthSessionSuccessResponse", "SessionEnvelope", "SessionResource")
 	assertAuthResponseSchemaChain(t, document, "AuthCredentialStateSuccessResponse", "CredentialStateEnvelope", "CredentialStateResource")
 	assertAuthResponseSchemaChain(t, document, "AuthSafeUserSuccessResponse", "SafeUserEnvelope", "SafeUserResource")
+	assertAuthResponseSchemaChain(t, document, "AuthSafeUserListSuccessResponse", "SafeUserListEnvelope", "SafeUserListData")
+	listMeta := authOpenAPIObjectAt(t, document, "components", "schemas", "SafeUserListEnvelope", "properties", "meta")
+	if listMeta["$ref"] != "#/components/schemas/PagedEnvelopeMeta" {
+		t.Fatalf("user collection must require paging metadata: %#v", listMeta)
+	}
 	assertAuthResponseSchemaChain(t, document, "AuthTOTPBeginSuccessResponse", "TOTPBeginEnvelope", "TOTPBeginResponse")
 }
 

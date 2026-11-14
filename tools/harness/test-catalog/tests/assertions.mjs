@@ -451,7 +451,7 @@ export function assertPostgresCatalogClosure(context) {
 export function assertPostgresPolicyFixtures(context) {
   const base = context.readJSON("tools/postgres_fixture_policy_registry.json");
   const directory = mkdtempSync(path.join(tmpdir(), "cartulary-postgres-policy."));
-  const policyPath = path.join(directory, "policy.json");
+  const policyPath = path.join(directory, "tools/postgres_fixture_policy_registry.json");
   const row = (name, capability, status = "active") => ({
     row_id: `harness.test_catalog.fixture.${name}`,
     fixture_capability: capability,
@@ -468,9 +468,10 @@ export function assertPostgresPolicyFixtures(context) {
   ];
   const validate = (input, approvals = [transaction.row_id], policy = base) => {
     writeFileSync(policyPath, JSON.stringify({ ...policy, transaction_row_approvals: approvals }));
-    return validatePostgresFixturePolicy(context.root, input, { policyPath });
+    return validatePostgresFixturePolicy(directory, input);
   };
   try {
+    mkdirSync(path.dirname(policyPath), { recursive: true });
     assert.deepEqual(validate(rows).counts, {
       postgres_dedicated: 1, postgres_migration: 1, postgres_transaction: 1,
     });

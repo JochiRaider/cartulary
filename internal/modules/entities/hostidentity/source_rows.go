@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -116,6 +118,13 @@ UPDATE identities
 }
 
 func loadHostByRecordIDTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (HostRecord, error) {
+	// Keep envelope locking in Records, before taking the typed source lock.
+	if _, err := records.NewStore().LoadEnvelopeTx(ctx, tx, recordID, true); err != nil {
+		if errors.Is(err, enveloperead.ErrEnvelopeNotFound) {
+			return HostRecord{}, ErrHostIdentityRecordNotFound
+		}
+		return HostRecord{}, err
+	}
 	record, err := scanHostRecord(tx.QueryRow(ctx, `
 SELECT
     h.record_id,
@@ -142,7 +151,7 @@ SELECT
  JOIN records r
     ON r.record_id = h.record_id
  WHERE h.record_id = $1
- FOR UPDATE OF h, r
+ FOR UPDATE OF h
 `, recordID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return HostRecord{}, ErrHostIdentityRecordNotFound
@@ -154,6 +163,13 @@ SELECT
 }
 
 func loadIdentityByRecordIDTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (IdentityRecord, error) {
+	// Keep envelope locking in Records, before taking the typed source lock.
+	if _, err := records.NewStore().LoadEnvelopeTx(ctx, tx, recordID, true); err != nil {
+		if errors.Is(err, enveloperead.ErrEnvelopeNotFound) {
+			return IdentityRecord{}, ErrHostIdentityRecordNotFound
+		}
+		return IdentityRecord{}, err
+	}
 	record, err := scanIdentityRecord(tx.QueryRow(ctx, `
 SELECT
     i.record_id,
@@ -180,7 +196,7 @@ SELECT
  JOIN records r
     ON r.record_id = i.record_id
  WHERE i.record_id = $1
- FOR UPDATE OF i, r
+ FOR UPDATE OF i
 `, recordID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IdentityRecord{}, ErrHostIdentityRecordNotFound

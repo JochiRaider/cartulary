@@ -187,15 +187,16 @@ func compose(dependencies Dependencies) (composition, error) {
 		return composition{}, fmt.Errorf("compose Timeline bundle: %w", err)
 	}
 	entityMergeStore, err := merge.NewStore(merge.StoreDependencies{
-		Postgres:      dependencies.Postgres,
-		Revisions:     dependencies.Revisions,
-		HostIdentity:  hostidentity.NewMergeCapability(),
-		Assessments:   entityAssessmentEffects,
-		Mentions:      entityMentionStore,
-		Links:         entitymergeassembly.NewLinkEffects(),
-		Timeline:      mentionEffects,
-		Projections:   entityProjectionWriter,
-		Collaboration: dependencies.Collaboration,
+		Postgres:       dependencies.Postgres,
+		Revisions:      dependencies.Revisions,
+		HostIdentity:   hostidentity.NewMergeCapability(),
+		Assessments:    entityAssessmentEffects,
+		Mentions:       entityMentionStore,
+		Links:          entitymergeassembly.NewLinkEffects(),
+		Timeline:       mentionEffects,
+		Projections:    entityProjectionWriter,
+		Collaboration:  dependencies.Collaboration,
+		ReferenceScope: entitymergeassembly.NewReferenceScope(),
 	})
 	if err != nil {
 		return composition{}, fmt.Errorf("compose Timeline bundle: %w", err)

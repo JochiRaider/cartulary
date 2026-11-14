@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
@@ -195,36 +196,38 @@ func testRendererOwnership(t *testing.T) {
 		t.Run("cancelled_"+policy+"_waiters_release_provisional_pins", func(t *testing.T) { pressure(t, true, policy) })
 	}
 	t.Run("six_slots_and_waiting_seventh", func(t *testing.T) {
-		owner := &rendererOwner{options: ProductionOptions{BrowserLaneLimit: 6}, changed: make(chan struct{})}
-		for i := 0; i < 6; i++ {
-			slot, err := owner.reserve(t.Context(), fmt.Sprintf("borrower-%d", i), "default", "pooled", false)
-			if err != nil || slot.id != i+1 {
-				t.Fatal("six-slot reservation", slot, err)
+		synctest.Test(t, func(t *testing.T) {
+			owner := &rendererOwner{options: ProductionOptions{BrowserLaneLimit: 6}, changed: make(chan struct{})}
+			for i := 0; i < 6; i++ {
+				slot, err := owner.reserve(t.Context(), fmt.Sprintf("borrower-%d", i), "default", "pooled", false)
+				if err != nil || slot.id != i+1 {
+					t.Fatal("six-slot reservation", slot, err)
+				}
 			}
-		}
-		ctx, cancel := context.WithCancel(t.Context())
-		started := make(chan struct{})
-		result := make(chan error, 1)
-		go func() {
-			close(started)
-			_, err := owner.reserve(ctx, "seventh", "default", "pooled", false)
-			result <- err
-		}()
-		<-started
-		select {
-		case err := <-result:
-			t.Fatal("seventh borrower did not wait", err)
-		default:
-		}
-		cancel()
-		if err := <-result; !errors.Is(err, context.Canceled) {
-			t.Fatal("waiting borrower ignored cancellation", err)
-		}
-		owner.unreserve(owner.slots[0])
-		slot, err := owner.reserve(t.Context(), "replacement", "default", "pooled", false)
-		if err != nil || slot.id != 1 || len(owner.slots) != 6 {
-			t.Fatal("slot was not reused", slot, err)
-		}
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			result := make(chan error, 1)
+			go func() {
+				_, err := owner.reserve(ctx, "seventh", "default", "pooled", false)
+				result <- err
+			}()
+			// Observe the reservation after it has run, not just worker scheduling.
+			synctest.Wait()
+			select {
+			case err := <-result:
+				t.Fatal("seventh borrower did not wait", err)
+			default:
+			}
+			cancel()
+			if err := <-result; !errors.Is(err, context.Canceled) {
+				t.Fatal("waiting borrower ignored cancellation", err)
+			}
+			owner.unreserve(owner.slots[0])
+			slot, err := owner.reserve(t.Context(), "replacement", "default", "pooled", false)
+			if err != nil || slot.id != 1 || len(owner.slots) != 6 {
+				t.Fatal("slot was not reused", slot, err)
+			}
+		})
 	})
 	t.Run("resident_stack_pressure_progresses_after_renderers_are_gone", func(t *testing.T) {
 		runtime, root, run := runtimeFixture(t)

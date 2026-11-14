@@ -11,15 +11,16 @@ import (
 )
 
 type targetAdmission struct {
-	sourceOwnerID    string
-	dispatchClass    rollbackcontract.DispatchClass
-	recordType       string
-	history          HistoryFacet
-	historyValidator HistoryValidator
-	rowProvider      rollbackcontract.RowSourceProvider
-	nonRowProvider   rollbackcontract.NonRowTargetProvider
-	historyProjector historycontract.Projector
-	snapshotSchemaID string
+	sourceOwnerID     string
+	dispatchClass     rollbackcontract.DispatchClass
+	recordType        string
+	history           HistoryFacet
+	historyValidator  HistoryValidator
+	historyReferences HistoryReferenceProjector
+	rowProvider       rollbackcontract.RowSourceProvider
+	nonRowProvider    rollbackcontract.NonRowTargetProvider
+	historyProjector  historycontract.Projector
+	snapshotSchemaID  string
 }
 
 func compileTargetSemanticsCatalog(requirements []targetSemanticsRequirement, contributions []ProviderContribution) (*TargetSemanticsCatalog, error) {
@@ -61,12 +62,13 @@ func compileTargetSemanticsCatalog(requirements []targetSemanticsRequirement, co
 		}
 		for _, target := range contribution.NonRowTargets {
 			admissions[target.TargetKind] = append(admissions[target.TargetKind], targetAdmission{
-				sourceOwnerID:    string(contribution.SourceOwnerModule),
-				dispatchClass:    rollbackcontract.DispatchNonRow,
-				history:          target.HistoryFacet,
-				historyValidator: target.HistoryValidator,
-				historyProjector: target.HistoryProjector,
-				nonRowProvider:   target.RollbackProvider,
+				sourceOwnerID:     string(contribution.SourceOwnerModule),
+				dispatchClass:     rollbackcontract.DispatchNonRow,
+				history:           target.HistoryFacet,
+				historyValidator:  target.HistoryValidator,
+				historyReferences: target.HistoryReferences,
+				historyProjector:  target.HistoryProjector,
+				nonRowProvider:    target.RollbackProvider,
 			})
 		}
 	}
@@ -120,6 +122,7 @@ func normalizeTargetRequirement(requirement targetSemanticsRequirement) (targetS
 	requirement.AdmittedRecordTypes = sortedUniqueStrings(requirement.AdmittedRecordTypes)
 	requirement.HistoryRecordIDFields = sortedUniqueStrings(requirement.HistoryRecordIDFields)
 	if requirement.TargetKind == "" || requirement.SourceOwnerID == "" ||
+		(requirement.HistoryValidatorRequired && requirement.DispatchClass != rollbackcontract.DispatchNonRow) ||
 		(requirement.DispatchClass != rollbackcontract.DispatchRow && requirement.DispatchClass != rollbackcontract.DispatchNonRow) ||
 		(requirement.Addressability != HistorySingleEntry && requirement.Addressability != HistoryNotIndividuallyAddressable) {
 		return targetSemanticsRequirement{}, fmt.Errorf("%w: incomplete requirement for target %q", ErrInvalidTargetSemantics, requirement.TargetKind)
@@ -169,13 +172,17 @@ func compileTargetSemantics(requirement targetSemanticsRequirement, values []tar
 			}
 			compiled.rowHistory[admission.recordType] = rowHistoryProjection{schemaID: admission.snapshotSchemaID, project: admission.historyProjector}
 		case rollbackcontract.DispatchNonRow:
+			if admission.historyReferences == nil {
+				return compiledTargetSemantics{}, fmt.Errorf("%w: target kind %q history references", ErrInvalidTargetSemantics, requirement.TargetKind)
+			}
 			if nilNonRowTargetProvider(admission.nonRowProvider) {
 				return compiledTargetSemantics{}, fmt.Errorf("%w: target kind %q non-row provider", ErrInvalidTargetSemantics, requirement.TargetKind)
 			}
-			if nilHistoryValidator(admission.historyValidator) {
+			if (requirement.HistoryValidatorRequired || admission.historyValidator != nil) && nilHistoryValidator(admission.historyValidator) {
 				return compiledTargetSemantics{}, fmt.Errorf("%w: target kind %q history validator", ErrInvalidTargetSemantics, requirement.TargetKind)
 			}
 			compiled.historyValidator = admission.historyValidator
+			compiled.historyReferences = admission.historyReferences
 			compiled.nonRowProvider = admission.nonRowProvider
 			compiled.historyProjector = admission.historyProjector
 		}
@@ -210,10 +217,15 @@ func nilNonRowTargetProvider(provider rollbackcontract.NonRowTargetProvider) boo
 
 func nilHistoryValidator(validator HistoryValidator) bool {
 	if validator == nil {
-		return false
+		return true
 	}
 	value := reflect.ValueOf(validator)
-	return value.Kind() == reflect.Pointer && value.IsNil()
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func sortedUniqueStrings(values []string) []string {

@@ -22,6 +22,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkbookImportController } from "../imports/WorkbookImportController";
@@ -41,10 +42,6 @@ import {
 import { useWorkbookMutationRuntimeTestRegistry } from "../testing/workbookMutationRuntimeTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { NetworkFlowImportController } from "./features/NetworkFlowOperations";
-import {
-  buildAssessmentCreatePayload,
-  confidenceScoreFromBand,
-} from "./models/assessmentWorkbookModel";
 import { WorkbookShell as WorkbookShellImpl } from "./WorkbookShell";
 
 vi.mock(
@@ -147,49 +144,6 @@ describe("Assessment workbook surface", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
-  });
-
-  it("maps band-first assessment create payloads without submitting the derived band", () => {
-    expect(confidenceScoreFromBand("unset")).toBeNull();
-    expect(confidenceScoreFromBand("low")).toBe(25);
-    expect(confidenceScoreFromBand("medium")).toBe(55);
-    expect(confidenceScoreFromBand("high")).toBe(85);
-
-    const payload = buildAssessmentCreatePayload(
-      {
-        assessedAt: "2026-04-24T12:00:00Z",
-        assessmentState: "confirmed",
-        confidenceBand: "medium",
-        rationale: "Confirmed by support.",
-        subjectRecordId: "00000000-0000-4000-8000-000000000101",
-        subjectType: "host",
-        supportRecordIds: [
-          "00000000-0000-4000-8000-000000000102",
-          "00000000-0000-4000-8000-000000000102",
-        ],
-      },
-      "txn-assessment-create",
-    );
-
-    expect(payload).toEqual({
-      client_txn_id: "txn-assessment-create",
-      "assessment.subject_ref": "00000000-0000-4000-8000-000000000101",
-      "assessment.subject_type": "host",
-      "assessment.assessment_state": "confirmed",
-      "assessment.confidence_score": 55,
-      "assessment.rationale": "Confirmed by support.",
-      "assessment.assessed_at": "2026-04-24T12:00:00Z",
-      "assessment.support_refs": {
-        kind: "collection_actions_v1",
-        actions: [
-          {
-            op: "add_record_ref",
-            linked_record_id: "00000000-0000-4000-8000-000000000102",
-          },
-        ],
-      },
-    });
-    expect(payload).not.toHaveProperty("assessment.confidence_band");
   });
 
   it("submits assessment creates through the workbook UI", async () => {
@@ -372,8 +326,8 @@ describe("Assessment workbook surface", () => {
     expect(assessmentControlValue("subject")).toBe("");
     expect(assessmentControlValue("rationale")).toBe("Confirmed from support.");
     expect(assessmentControlValue("confidence-band")).toBe("high");
-    expect(selectedAssessmentSupportRecordIds()).toEqual([
-      "00000000-0000-4000-8000-000000000102",
+    expect(selectedAssessmentSupportLabels()).toEqual([
+      "Supporting timeline row",
     ]);
     fireEvent.change(
       screen.getByTestId(assessmentCreateControlTestId("subject-type")),
@@ -748,8 +702,8 @@ describe("Assessment workbook surface", () => {
     expect(assessmentControlValue("rationale")).toBe(
       "Fresh follow-on rationale",
     );
-    expect(selectedAssessmentSupportRecordIds()).toEqual([
-      "00000000-0000-4000-8000-000000000102",
+    expect(selectedAssessmentSupportLabels()).toEqual([
+      "Supporting timeline row",
     ]);
     expect(
       restoredOriginalCell.closest("tr")?.getAttribute("aria-current"),
@@ -1344,13 +1298,13 @@ function assessmentControlValue(
   ).value;
 }
 
-function selectedAssessmentSupportRecordIds(): string[] {
+function selectedAssessmentSupportLabels(): string[] {
   const summary = screen.getByRole("region", {
     name: "Assessment supporting records",
   });
-  return summary.textContent?.includes("Supporting timeline row")
-    ? ["00000000-0000-4000-8000-000000000102"]
-    : [];
+  return within(summary)
+    .queryAllByRole("listitem")
+    .map((item) => item.textContent ?? "");
 }
 
 function assessmentPayloadWithoutClientTxn(

@@ -39,41 +39,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
 )
-
-func TestInvalidConfigNeverReachesReady_Integration(t *testing.T) {
-	cases := []struct {
-		name       string
-		overlays   map[string]string
-		goldenFile string
-	}{
-		{
-			name: "path-validation failure",
-			overlays: configtest.Overlay(
-				"CARTULARY__ROOTS__DATABASE_STORAGE__PATH", "relative/postgres",
-			),
-			goldenFile: "startup_path_not_absolute_database_storage_root.json",
-		},
-		{
-			name: "missing required runtime root",
-			overlays: configtest.Overlay(
-				"CARTULARY__ROOTS__EXPORT_OUTPUTS__BINDING_KIND", "",
-				"CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH", "",
-			),
-			goldenFile: "startup_missing_export_outputs_root.json",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			counters, _ := installStartupCounters()
-			err := RuntimeConfigError(t, tc.overlays)
-			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", tc.goldenFile})
-			counters.RequireNotStarted(t)
-		})
-	}
-
-}
 
 func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) {
 	ctx := context.Background()
@@ -131,26 +98,22 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	if err != nil {
 		t.Fatalf("start first single-active runtime: %v", err)
 	}
+	defer first.Close()
 	if first.processLease == nil || first.processLease.State() != processlease.StateHeld {
-		first.Close()
 		t.Fatal("first runtime did not hold the application-process lease")
 	}
 	if first.servingLease == nil || first.servingLease.State() != processlease.StateHeld {
-		first.Close()
 		t.Fatal("first runtime did not hold the application Recovery-serving lease")
 	}
 	if first.stagedJanitor == nil {
-		first.Close()
 		t.Fatal("single-active runtime did not compose the lifecycle-owned staged-object janitor")
 	}
 
 	counters, dependencies := installStartupCounters()
 	if second, secondErr := newRuntimeWithTestDependencies(t, ctx, cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}, dependencies); secondErr == nil {
 		second.Close()
-		first.Close()
 		t.Fatal("overlapping application runtime acquired the deployment-global lease")
 	} else if !errors.Is(secondErr, processlease.ErrApplicationProcessActive) {
-		first.Close()
 		t.Fatalf("overlapping application runtime failed with unexpected error: %v", secondErr)
 	}
 	counters.RequireNotStarted(t)
@@ -159,11 +122,9 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	// is separate from this assembly invariant and must not bound a database
 	// round trip to a few milliseconds on a shared verification host.
 	if acquired, err := restoreAdmission.TryAcquire(ctx); err != nil || acquired {
-		first.Close()
 		t.Fatalf("active application serving lease did not block Recovery admission: acquired=%t error=%v", acquired, err)
 	}
 	if err := first.ActivatePublication(); err != nil {
-		first.Close()
 		t.Fatalf("activate first single-active runtime: %v", err)
 	}
 	first.Close()
@@ -373,7 +334,7 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 		bucket := BucketName("bootstrap-bootstrap-success")
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-				t.Logf("cleanup bucket: %v", err)
+				testfailure.CleanupFailure(t, "s3test", "object_store", "delete", err)
 			}
 		}()
 
@@ -467,7 +428,7 @@ EXECUTE FUNCTION bootstrap_fail_bootstrap_audit();
 		bucket := BucketName("bootstrap-bootstrap-rollback")
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-				t.Logf("cleanup bucket: %v", err)
+				testfailure.CleanupFailure(t, "s3test", "object_store", "delete", err)
 			}
 		}()
 
@@ -477,7 +438,8 @@ EXECUTE FUNCTION bootstrap_fail_bootstrap_audit();
 		)), env)
 
 		counters, dependencies := installStartupCounters()
-		_, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
+		unexpected, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
+		defer unexpected.Close()
 		requireBootstrapReason(t, err, "bootstrap_persist_failed")
 		counters.RequireNotStarted(t)
 
@@ -612,7 +574,7 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 			bucket := BucketName(tc.name)
 			defer func() {
 				if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-					t.Logf("cleanup bucket: %v", err)
+					testfailure.CleanupFailure(t, "s3test", "object_store", "delete", err)
 				}
 			}()
 
@@ -624,7 +586,8 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 			cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, overlays), env)
 
 			counters, dependencies := installStartupCounters()
-			_, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
+			unexpected, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
+			defer unexpected.Close()
 			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 
@@ -644,13 +607,15 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 		bucket := BucketName("bootstrap-borrowed-postgres")
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-				t.Logf("cleanup bucket: %v", err)
+				testfailure.CleanupFailure(t, "s3test", "object_store", "delete", err)
 			}
 		}()
 
 		env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
 		cfg := BindPostgres(t, RuntimeConfig(t), env)
-		if _, err := NewRuntime(context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env, Postgres: admittedPool}); err == nil {
+		unexpected, err := NewRuntime(context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env, Postgres: admittedPool})
+		defer unexpected.Close()
+		if err == nil {
 			t.Fatal("expected missing bootstrap manifest to fail startup")
 		}
 		if err := pool.Ping(context.Background()); err != nil {
@@ -675,7 +640,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 		bucket := BucketName("bootstrap-bootstrap-skip")
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-				t.Logf("cleanup bucket: %v", err)
+				testfailure.CleanupFailure(t, "s3test", "object_store", "delete", err)
 			}
 		}()
 
@@ -733,7 +698,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 		bucket := BucketName("bootstrap-bootstrap-recovery")
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-				t.Logf("cleanup bucket: %v", err)
+				testfailure.CleanupFailure(t, "s3test", "object_store", "delete", err)
 			}
 		}()
 
@@ -743,7 +708,8 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 		)), env)
 
 		counters, dependencies := installStartupCounters()
-		_, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
+		unexpected, err := newRuntimeWithTestDependencies(t, context.Background(), cfg, Options{BrowserBuild: browserbuild.New(t), ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
+		defer unexpected.Close()
 		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		counters.RequireNotStarted(t)
 

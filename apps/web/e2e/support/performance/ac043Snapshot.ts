@@ -22,6 +22,7 @@ import {
 } from "@cartulary/view-contracts";
 import type { BrowserContext, Page } from "@playwright/test";
 import { csrfHeaders } from "../auth/browserSession";
+import { withOwnedRequestContext } from "../auth/requestLifetime";
 import type { FixtureActorCredentials } from "../auth/sessions";
 import {
   loginBootstrapControlPlaneContext,
@@ -242,7 +243,7 @@ export async function startAc043SnapshotTraffic(
         await backgroundPage.setViewportSize({ width: 1920, height: 1080 });
         await backgroundPage.goto(`${webBase}/?incident_id=${incidentId}`);
       } else {
-        await establishPresenceClient(backgroundPage, incidentId, index);
+        await establishAc043PresenceClient(backgroundPage, incidentId, index);
       }
       const assignedRow = rows[index];
       if (assignedRow === undefined) {
@@ -323,53 +324,55 @@ async function admitForegroundWorker(
   role: "editor" | "reviewer",
 ) {
   const controlPlane = await loginBootstrapControlPlaneContext();
-  try {
-    const incidents = await publicHttpOperation({
-      operationID: "listVisibleIncidents",
-      query: { limit: 100, search: fixtureIncidentKey },
-      request: controlPlane.request,
-    });
-    if (!incidents.ok) {
-      throw new Error(
-        `AC-043 snapshot incident query failed with HTTP ${incidents.status}`,
+  return withOwnedRequestContext(
+    controlPlane.request,
+    async (request) => {
+      const incidents = await publicHttpOperation({
+        operationID: "listVisibleIncidents",
+        query: { limit: 100, search: fixtureIncidentKey },
+        request,
+      });
+      if (!incidents.ok) {
+        throw new Error(
+          `AC-043 snapshot incident query failed with HTTP ${incidents.status}`,
+        );
+      }
+      const matches = incidents.payload.data.incidents.filter(
+        (incident) => incident.incident_key === fixtureIncidentKey,
       );
-    }
-    const matches = incidents.payload.data.incidents.filter(
-      (incident) => incident.incident_key === fixtureIncidentKey,
-    );
-    if (matches.length !== 1) {
-      throw new Error(
-        `AC-043 snapshot incident query resolved ${matches.length} workspaces`,
-      );
-    }
-    const incidentId = matches[0]?.incident_id;
-    if (typeof incidentId !== "string" || incidentId === "") {
-      throw new Error("AC-043 snapshot incident lacks an identity");
-    }
-    const membership = await publicHttpOperation({
-      body: {
-        client_txn_id: uniqueTxn("ac043-foreground-membership"),
-        email: testActor.email,
-        role,
-      },
-      operationID: "createIncidentMembership",
-      pathParameters: { incident_id: incidentId },
-      request: controlPlane.request,
-    });
-    if (!membership.ok) {
-      throw new Error(
-        `AC-043 foreground membership failed with HTTP ${membership.status}`,
-      );
-    }
-    return incidentId;
-  } finally {
-    await logoutAndVerify(
-      controlPlane.request,
-      controlPlane.storageState,
-      "AC-043 foreground snapshot admission",
-    );
-    await controlPlane.request.dispose();
-  }
+      if (matches.length !== 1) {
+        throw new Error(
+          `AC-043 snapshot incident query resolved ${matches.length} workspaces`,
+        );
+      }
+      const incidentId = matches[0]?.incident_id;
+      if (typeof incidentId !== "string" || incidentId === "") {
+        throw new Error("AC-043 snapshot incident lacks an identity");
+      }
+      const membership = await publicHttpOperation({
+        body: {
+          client_txn_id: uniqueTxn("ac043-foreground-membership"),
+          email: testActor.email,
+          role,
+        },
+        operationID: "createIncidentMembership",
+        pathParameters: { incident_id: incidentId },
+        request,
+      });
+      if (!membership.ok) {
+        throw new Error(
+          `AC-043 foreground membership failed with HTTP ${membership.status}`,
+        );
+      }
+      return incidentId;
+    },
+    (request) =>
+      logoutAndVerify(
+        request,
+        controlPlane.storageState,
+        "AC-043 foreground snapshot admission",
+      ),
+  );
 }
 
 async function validateDefaultView(page: Page, incidentId: string) {
@@ -513,7 +516,7 @@ function requireExactRows(
   }
 }
 
-async function establishPresenceClient(
+export async function establishAc043PresenceClient(
   page: Page,
   incidentId: string,
   sessionIndex: number,
@@ -524,7 +527,7 @@ async function establishPresenceClient(
   const socketURL = new URL(`/ws/v1/incidents/${incidentId}`, apiBase);
   socketURL.protocol = socketURL.protocol === "https:" ? "wss:" : "ws:";
   await page.evaluate(
-    ({ clientInstanceId, url }) =>
+    ({ clientInstanceId, url, incidentId }) =>
       new Promise<void>((resolve, reject) => {
         const socket = new WebSocket(url);
         const timeout = window.setTimeout(() => {
@@ -545,6 +548,8 @@ async function establishPresenceClient(
                 },
               },
               type: "hello",
+              incident_id: incidentId,
+              emitted_at: new Date().toISOString(),
             }),
           );
         });
@@ -555,7 +560,14 @@ async function establishPresenceClient(
             type?: unknown;
           };
           if (message.type === "ping") {
-            socket.send(JSON.stringify({ payload: {}, type: "pong" }));
+            socket.send(
+              JSON.stringify({
+                payload: {},
+                type: "pong",
+                incident_id: incidentId,
+                emitted_at: new Date().toISOString(),
+              }),
+            );
             return;
           }
           if (message.type === "hello_ack") {
@@ -577,6 +589,7 @@ async function establishPresenceClient(
       }),
     {
       clientInstanceId: `ac043-background-${sessionIndex + 1}`,
+      incidentId,
       url: socketURL.toString(),
     },
   );

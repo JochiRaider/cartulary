@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ func TestRecordsIncidentBundleSourcePortRejectsDuplicateIdentity_Unit(t *testing
 	recordID := uuid.New()
 	incidentID := uuid.New()
 	actorID := uuid.New()
-	now := time.Date(2026, time.July, 29, 20, 0, 0, 1, time.UTC)
+	now := time.Date(2026, time.July, 29, 20, 0, 0, 1000, time.UTC)
 	row := validRecordsPortableMap(recordID, incidentID, actorID, now)
 	payload := append(encodeRecordsPortableRow(t, row), encodeRecordsPortableRow(t, row)...)
 	port := newRecordsTestPort(t, true)
@@ -51,7 +52,7 @@ func TestRecordsIncidentBundleSourcePortAppliesAndRollsBack_Integration(t *testi
 	db := pgtest.Start(t).BeginRollbackDBT(t, "records-incident-bundle-source-port")
 	actorID, incidentID := seedEnvelopeOwnerContext(t, db, "records-source-port")
 	recordID := uuid.New()
-	now := time.Date(2026, time.July, 29, 20, 1, 0, 1, time.UTC)
+	now := time.Date(2026, time.July, 29, 20, 1, 0, 1000, time.UTC)
 	payload := encodeRecordsPortableRow(
 		t,
 		validRecordsPortableMap(recordID, incidentID, actorID, now),
@@ -119,10 +120,55 @@ func TestRecordsPortableEnvelopeInvariantContract_Integration(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "records-portable-envelope-invariants")
 	actorID, incidentID := seedEnvelopeOwnerContext(t, db, "portable-envelope")
 	port := newRecordsTestPort(t, true)
+	t.Run("deleted row clocks round trip exactly", func(t *testing.T) {
+		recordID := uuid.New()
+		row := validRecordsPortableMap(recordID, incidentID, actorID, time.Date(2026, time.July, 29, 20, 0, 0, 1000, time.UTC))
+		row["updated_at"] = "2026-07-29T20:00:00.999999Z"
+		row["deleted_at"] = "2026-07-29T20:00:00.123456Z"
+		row["deleted_by_user_id"] = actorID.String()
+		input := recordsTestImportContext(t, incidentID, actorID, "records-clock-preservation", &recordsTestAttributions{})
+		prepared, err := port.PrepareImport(ctx, portabilitysupport.MapBundle{recordsBundlePath: encodeRecordsPortableRow(t, row)}, input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		if err := port.ApplyImportTx(ctx, tx, prepared, input); err != nil {
+			t.Fatal(err)
+		}
+		if err := port.ValidateImportTx(ctx, tx, prepared, input); err != nil {
+			t.Fatal(err)
+		}
+		var created, updated, deleted time.Time
+		if err := tx.QueryRow(ctx, `SELECT created_at,updated_at,deleted_at FROM records WHERE record_id=$1`, recordID).Scan(&created, &updated, &deleted); err != nil {
+			t.Fatal(err)
+		}
+		if created.UTC().Format(time.RFC3339Nano) != "2026-07-29T20:00:00.000001Z" ||
+			updated.UTC().Format(time.RFC3339Nano) != "2026-07-29T20:00:00.999999Z" ||
+			deleted.UTC().Format(time.RFC3339Nano) != "2026-07-29T20:00:00.123456Z" {
+			t.Fatalf("stored row clocks changed: %v %v %v", created, updated, deleted)
+		}
+		files, err := portabilitysupport.Export(port, ctx, sourceport.ExportContext{Query: tx, IncidentID: incidentID})
+		if err != nil || len(files) != 1 || files[0].Path != recordsBundlePath {
+			t.Fatalf("clock re-export: %v %v", files, err)
+		}
+		rows, err := incidentportability.DecodeNDJSON(files[0].Payload)
+		if err != nil || len(rows) != 1 {
+			t.Fatalf("clock re-export rows: %v %v", rows, err)
+		}
+		if rows[0]["created_at"] != "2026-07-29T20:00:00.000001Z" ||
+			rows[0]["updated_at"] != "2026-07-29T20:00:00.999999Z" ||
+			rows[0]["deleted_at"] != "2026-07-29T20:00:00.123456Z" {
+			t.Fatalf("re-exported row clocks changed: %#v", rows[0])
+		}
+	})
 	for _, bundleVersion := range []int{8} {
 		t.Run(fmt.Sprintf("bundle_version_%d", bundleVersion), func(t *testing.T) {
 			recordID := uuid.New()
-			now := time.Date(2026, time.July, 29, 19, bundleVersion, 0, bundleVersion, time.UTC)
+			now := time.Date(2026, time.July, 29, 19, bundleVersion, 0, bundleVersion*1000, time.UTC)
 			payload := encodeRecordsPortableRow(
 				t,
 				validRecordsPortableMap(recordID, incidentID, actorID, now),
@@ -194,13 +240,135 @@ SELECT count(*)
 func TestRecordsPortableEnvelopeRejectsEveryInvalidCategory_Unit(t *testing.T) {
 	incidentID := uuid.New()
 	actorID := uuid.New()
-	recordID := uuid.New()
-	now := time.Date(2026, time.July, 29, 20, 2, 0, 123, time.UTC)
+	recordID := uuid.MustParse("abcdef01-2345-4678-9abc-def012345678")
+	now := time.Date(2026, time.July, 29, 20, 2, 0, 123000, time.UTC)
 	base := validRecordsPortableMap(recordID, incidentID, actorID, now)
 	port := newRecordsTestPort(t, true)
 	baseContext := recordsTestImportContext(
 		t, incidentID, actorID, "records-invalid-category", nil,
 	)
+	t.Run("historical envelope validation", func(t *testing.T) {
+		for _, tc := range []struct {
+			name   string
+			mutate func(map[string]any)
+			valid  bool
+		}{
+			{"complete", func(map[string]any) {}, true},
+			{"SQL clock spelling", func(row map[string]any) { row["created_at"] = "2026-07-29T20:02:00.000123+00:00" }, true},
+			{"decoded number", func(row map[string]any) { row["row_version"] = float64(1) }, true},
+			{"submicrosecond clock", func(row map[string]any) { row["created_at"] = "2026-07-29T20:02:00.0000001Z" }, false},
+			{"record binding", func(row map[string]any) { row["record_id"] = uuid.NewString() }, false},
+			{"incident binding", func(row map[string]any) { row["incident_id"] = uuid.NewString() }, false},
+			{"type binding", func(row map[string]any) { row["record_type"] = "host" }, false},
+			{"missing nullable", func(row map[string]any) { delete(row, "deleted_at") }, false},
+			{"unknown member", func(row map[string]any) { row["derived"] = true }, false},
+			{"nil actor", func(row map[string]any) { row["created_by_user_id"] = uuid.Nil.String() }, false},
+			{"malformed actor", func(row map[string]any) { row["updated_by_user_id"] = "not-a-uuid" }, false},
+			{"invalid version", func(row map[string]any) { row["row_version"] = "1" }, false},
+			{"reversed clocks", func(row map[string]any) { row["updated_at"] = "2000-01-01T00:00:00Z" }, false},
+			{"partial deletion", func(row map[string]any) { row["deleted_at"] = row["updated_at"] }, false},
+			{"complete deletion", func(row map[string]any) {
+				row["deleted_at"] = row["updated_at"]
+				row["deleted_by_user_id"] = actorID.String()
+			}, true},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				row := cloneRecordsPortableMap(base)
+				tc.mutate(row)
+				before := encodeRecordsPortableRow(t, row)
+				err := ValidateSnapshotEnvelope(incidentID, recordID, "timeline_event", row)
+				if (err == nil) != tc.valid {
+					t.Fatalf("snapshot validation = %v, valid %t", err, tc.valid)
+				}
+				if !bytes.Equal(before, encodeRecordsPortableRow(t, row)) {
+					t.Fatal("snapshot validation changed history")
+				}
+			})
+		}
+	})
+
+	t.Run("historical and portable exact clock forms", func(t *testing.T) {
+		for _, field := range []string{"created_at", "updated_at", "deleted_at"} {
+			for _, test := range []struct {
+				value                string
+				historical, portable bool
+			}{
+				{"0001-01-01T00:00:00Z", true, true},
+				{"9999-12-31T23:59:59.999999Z", true, true},
+				{"2026-07-29T20:02:00.000001Z", true, true},
+				{"2026-07-29T20:02:00.000123+00:00", true, false},
+				{"0000-01-01T00:00:00Z", false, false},
+				{"10000-01-01T00:00:00Z", false, false},
+				{"2026-07-29T21:02:00.000123+01:00", false, false},
+				{"2026-07-29T19:02:00.000123-01:00", false, false},
+				{"2026-07-29T20:02:00.000123-00:00", false, false},
+				{"2026-07-29T20:02:00.100000Z", false, false},
+				{"2026-07-29T20:02:00.0001230Z", false, false},
+				{"2026-07-29T20:02:00.0000001Z", false, false},
+				{"2026-07-29T20:02:00,000123Z", false, false},
+				{"2026-07-29T20:02:00Z ", false, false},
+			} {
+				t.Run(field+"/"+test.value, func(t *testing.T) {
+					row := cloneRecordsPortableMap(base)
+					row["created_at"], row["updated_at"] = "0001-01-01T00:00:00Z", "9999-12-31T23:59:59.999999Z"
+					row[field] = test.value
+					if field == "deleted_at" {
+						row["deleted_by_user_id"] = actorID.String()
+					}
+					before := encodeRecordsPortableRow(t, row)
+					err := ValidateSnapshotEnvelope(incidentID, recordID, "timeline_event", row)
+					if test.historical {
+						if err != nil {
+							t.Fatalf("canonical history rejected: %v", err)
+						}
+					} else if err == nil {
+						t.Fatal("noncanonical historical timestamp accepted")
+					}
+					if !bytes.Equal(before, encodeRecordsPortableRow(t, row)) {
+						t.Fatal("historical clock rewritten")
+					}
+					bundle := portabilitysupport.MapBundle{recordsBundlePath: bytes.Clone(before)}
+					_, err = port.PrepareImport(t.Context(), bundle, baseContext)
+					if test.portable {
+						if err != nil {
+							t.Fatalf("canonical portable clock rejected: %v", err)
+						}
+					} else {
+						requireRecordsFailure(t, err, "records.envelope_legal")
+					}
+					if !bytes.Equal(before, bundle[recordsBundlePath]) {
+						t.Fatal("portable clock rewritten")
+					}
+				})
+			}
+		}
+	})
+	t.Run("row clock precision", func(t *testing.T) {
+		for _, field := range []string{"created_at", "updated_at", "deleted_at"} {
+			for _, value := range []string{
+				"2026-07-29T20:02:00Z", "2026-07-29T20:02:00.000001Z", "2026-07-29T20:02:00.999999Z",
+				"2026-07-29T20:02:00.1234567Z", "2026-07-29T20:02:00.000000001Z",
+			} {
+				t.Run(field+"/"+value, func(t *testing.T) {
+					row := cloneRecordsPortableMap(base)
+					row["created_at"] = "2026-07-29T20:02:00Z"
+					row["updated_at"] = "2026-07-29T20:02:01Z"
+					row[field] = value
+					if field == "deleted_at" {
+						row["deleted_by_user_id"] = actorID.String()
+					}
+					_, err := port.PrepareImport(t.Context(), portabilitysupport.MapBundle{
+						recordsBundlePath: encodeRecordsPortableRow(t, row),
+					}, baseContext)
+					if value == "2026-07-29T20:02:00.1234567Z" || value == "2026-07-29T20:02:00.000000001Z" {
+						requireRecordsFailure(t, err, "records.envelope_legal")
+					} else if err != nil {
+						t.Fatalf("representable %s rejected: %v", field, err)
+					}
+				})
+			}
+		}
+	})
 
 	for member := range base {
 		t.Run("missing_"+member, func(t *testing.T) {
@@ -328,7 +496,7 @@ func TestRecordsPortableEnvelopeRejectsIncompleteSubtypeBindings_Integration(t *
 	db := pgtest.Start(t).BeginRollbackDBT(t, "records-subtype-incomplete")
 	actorID, incidentID := seedEnvelopeOwnerContext(t, db, "records-subtype")
 	recordID := uuid.New()
-	now := time.Date(2026, time.July, 29, 20, 3, 0, 1, time.UTC)
+	now := time.Date(2026, time.July, 29, 20, 3, 0, 1000, time.UTC)
 	port := newRecordsTestPort(t, false)
 	attributions := &recordsTestAttributions{}
 	importContext := recordsTestImportContext(
@@ -370,11 +538,19 @@ func TestRecordsPortableExportPreservesSourceActorsAndExactShape_Integration(t *
 	createdAt := time.Date(2026, time.July, 29, 20, 4, 0, 123000, time.UTC)
 	updatedAt := createdAt.Add(time.Minute)
 	resolver := recordsTestPortableResolver{"created_by_user_id": {}, "updated_by_user_id": {}}
+	expected := make(map[string]map[string]any)
 	const count = 257
 	for i := 0; i < count; i++ {
 		recordID := uuid.New()
 		resolver["created_by_user_id"][recordID.String()] = sourceActorID.String()
 		resolver["updated_by_user_id"][recordID.String()] = sourceActorID.String()
+		expected[recordID.String()] = map[string]any{
+			"record_id": recordID.String(), "incident_id": incidentID.String(),
+			"record_type": "timeline_event", "row_version": json.Number("2"),
+			"created_at": createdAt.Format(time.RFC3339Nano), "created_by_user_id": sourceActorID.String(),
+			"updated_at": updatedAt.Format(time.RFC3339Nano), "updated_by_user_id": sourceActorID.String(),
+			"deleted_at": nil, "deleted_by_user_id": nil,
+		}
 
 		if _, err := db.Exec(ctx, `
 INSERT INTO records (
@@ -415,12 +591,12 @@ VALUES ($1, $2, 'timeline_event', $3, $4, $3, $5, 2)
 	previous := ""
 	for _, row := range rows {
 		id := row["record_id"].(string)
-		if id <= previous || len(row) != 10 || resolver["created_by_user_id"][id] == "" {
+		if id <= previous || expected[id] == nil {
 			t.Fatalf("invalid or duplicate exported envelope: %#v", row)
 		}
 		previous = id
-		if row["created_by_user_id"] != sourceActorID.String() || row["updated_by_user_id"] != sourceActorID.String() || row["created_at"] != createdAt.Format(time.RFC3339Nano) || row["updated_at"] != updatedAt.Format(time.RFC3339Nano) {
-			t.Fatalf("changed source attribution: %#v", row)
+		if !reflect.DeepEqual(row, expected[id]) {
+			t.Fatalf("exported envelope differs from seeded values: got=%#v want=%#v", row, expected[id])
 		}
 	}
 }
@@ -625,7 +801,7 @@ func TestRecordsPortableEnvelopeRejectsTrailingContent_Unit(t *testing.T) {
 	actorID := uuid.New()
 	payload := encodeRecordsPortableRow(
 		t,
-		validRecordsPortableMap(uuid.New(), incidentID, actorID, time.Now().UTC()),
+		validRecordsPortableMap(uuid.New(), incidentID, actorID, time.Date(2026, time.July, 29, 20, 5, 0, 123000, time.UTC)),
 	)
 	payload = bytes.TrimSuffix(payload, []byte{'\n'})
 	payload = append(payload, []byte(" true\n")...)

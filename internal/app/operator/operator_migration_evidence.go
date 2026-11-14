@@ -35,7 +35,9 @@ func (executor migrationEvidenceExecutor) runCommand(ctx context.Context, args [
 		return exitCode
 	}
 	if err := executor.capture(ctx, parsed); err != nil {
-		executor.transport.logger().Error("operator command failed", "error", err)
+		// Errors retain their causes internally; the transport never serializes
+		// configuration, driver, filesystem, or writer error text.
+		executor.transport.logger().Error("migration evidence capture failed")
 		return 1
 	}
 	return 0
@@ -77,14 +79,18 @@ func (executor migrationEvidenceExecutor) capture(ctx context.Context, parsed mi
 
 func parseMigrationEvidenceCaptureArgs(args []string, stderr io.Writer) (migrationEvidenceCaptureArgs, bool, int) {
 	flags := flag.NewFlagSet("operator migration-evidence capture", flag.ContinueOnError)
-	flags.SetOutput(normalizeOperatorWriter(stderr))
+	flags.SetOutput(io.Discard)
 	sourceConfig := flags.String("source-config", "", "optional source deployment config path")
 	manifest := flags.String("manifest", migrationevidence.DefaultManifestPath, "migration history manifest path")
 	asOfRaw := flags.String("as-of", "", "RFC3339 evidence collection timestamp")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			flags.SetOutput(normalizeOperatorWriter(stderr))
+			_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "Usage of operator migration-evidence capture:")
+			flags.PrintDefaults()
 			return migrationEvidenceCaptureArgs{}, true, 0
 		}
+		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "invalid migration evidence arguments")
 		return migrationEvidenceCaptureArgs{}, true, 2
 	}
 	asOf, ok := parseOperatorAsOfFlag(stderr, *asOfRaw)
@@ -109,7 +115,7 @@ func parseOperatorAsOfFlag(stderr io.Writer, asOfRaw string) (time.Time, bool) {
 	}
 	parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(asOfRaw))
 	if err != nil {
-		_, _ = fmt.Fprintf(normalizeOperatorWriter(stderr), "as-of must be RFC3339: %v\n", err)
+		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "as-of must be RFC3339")
 		return time.Time{}, false
 	}
 	return parsed.UTC(), true

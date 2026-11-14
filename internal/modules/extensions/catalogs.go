@@ -169,13 +169,23 @@ type PortabilityPolicy struct {
 	ParticipantID          string
 	ParticipantSHA256      string
 	ParticipantSchemaID    string
-	MaximumInputBytes      int64
-	MaximumOutputBytes     int64
+	Export                 PortabilityOperationPolicy
+	Import                 PortabilityOperationPolicy
 	AuthoritativeFamilyIDs []string
 	BlockingFamilyIDs      []string
 }
 
+type PortabilityOperationPolicy struct {
+	OutputSchemaID     string
+	StateFamilyIDs     []string
+	MaximumInputBytes  int64
+	MaximumOutputBytes int64
+	MaximumItems       int
+}
+
 func clonePortabilityPolicy(policy PortabilityPolicy) PortabilityPolicy {
+	policy.Export.StateFamilyIDs = append([]string(nil), policy.Export.StateFamilyIDs...)
+	policy.Import.StateFamilyIDs = append([]string(nil), policy.Import.StateFamilyIDs...)
 	policy.AuthoritativeFamilyIDs = append([]string(nil), policy.AuthoritativeFamilyIDs...)
 	policy.BlockingFamilyIDs = append([]string(nil), policy.BlockingFamilyIDs...)
 	return policy
@@ -374,8 +384,31 @@ func (c *Coordinator) admitPortabilityPolicies(source ArtifactSource, supportDig
 				return unavailableBinding(profileID, c.profiles[profileID].descriptor.ContractMajor)
 			}
 			policy.ParticipantSchemaID = participant.ContractKind
-			policy.MaximumInputBytes = 64 * 1024 * 1024
-			policy.MaximumOutputBytes = 64 * 1024 * 1024
+			seen := map[string]bool{}
+			for _, operation := range participant.Operations {
+				if seen[operation.OperationKind] {
+					return registryInvalid("duplicate_portability_operation")
+				}
+				seen[operation.OperationKind] = true
+				projected := PortabilityOperationPolicy{
+					OutputSchemaID:     operation.OutputSchemaID,
+					StateFamilyIDs:     append([]string(nil), operation.StateFamilyIDs...),
+					MaximumInputBytes:  operation.MaxInputBytes,
+					MaximumOutputBytes: operation.MaxOutputBytes,
+					MaximumItems:       operation.MaxItems,
+				}
+				switch operation.OperationKind {
+				case "export":
+					policy.Export = projected
+				case "import":
+					policy.Import = projected
+				default:
+					return registryInvalid("unknown_portability_operation")
+				}
+			}
+			if !seen["export"] || !seen["import"] {
+				return registryInvalid("missing_portability_operation")
+			}
 		case PortabilityBlockedWhenPresent:
 			path := "contracts/extensions/profiles/" + profileID + "/portability-blocking-predicate.json"
 			predicate, artifact, err := readArtifactObject(source, path)

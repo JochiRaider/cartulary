@@ -12,6 +12,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/aliashistory"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
@@ -155,7 +156,7 @@ func (s *Store) applyClipboardPaste(ctx context.Context, actor authn.UserRecord,
 			beforeRow      map[string]any
 			afterRow       map[string]any
 			operationKind  string
-			aliasMutations []AliasMutationValue
+			aliasMutations []aliashistory.Value
 			beforeSnapshot *revisions.RecordSnapshot
 		)
 		switch viewSchemaID {

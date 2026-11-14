@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -47,22 +46,9 @@ type generationPlan struct {
 }
 
 func loadGenerationPlan(root string) (generationPlan, error) {
-	registryPath := filepath.Join(root, "contracts", "index.json")
-	file, err := os.Open(registryPath)
-	if err != nil {
-		return generationPlan{}, fmt.Errorf("open contract family registry: %w", err)
-	}
-	defer file.Close()
-
-	decoder := json.NewDecoder(file)
-	decoder.DisallowUnknownFields()
 	var registry contractFamilyRegistry
-	if err := decoder.Decode(&registry); err != nil {
-		return generationPlan{}, fmt.Errorf("decode contract family registry: %w", err)
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err == nil {
-		return generationPlan{}, fmt.Errorf("contract family registry must contain exactly one JSON document")
+	if err := decodeStrictContractFile(filepath.Join(root, "contracts", "index.json"), &registry); err != nil {
+		return generationPlan{}, err
 	}
 
 	return generationPlanFromRegistry(root, registry)

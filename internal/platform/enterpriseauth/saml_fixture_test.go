@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
-	"strings"
 	"testing"
 	"time"
 
@@ -77,6 +76,7 @@ func signedSAMLFixtureScope(t *testing.T, mutate func(*etree.Element), assertion
 }
 
 func TestEnterpriseSAMLStructuralAdmission(t *testing.T) {
+	assertSAMLStructuralBounds(t)
 	t.Run("signed assertion alone", func(t *testing.T) {
 		r := signedSAMLFixtureScope(t, nil, true)
 		if _, err := (ProductionSAMLVerifier{}).VerifyACS(context.Background(), r); err != nil {
@@ -191,9 +191,5 @@ func TestEnterpriseSAMLStructuralAdmission(t *testing.T) {
 			}
 		})
 	}
-	for _, raw := range []string{"<!DOCTYPE x><x/>", strings.Repeat("<x>", 65) + strings.Repeat("</x>", 65), "<x/><x/>"} {
-		if admitSAMLXML([]byte(raw)) == nil {
-			t.Fatal("unbounded or ambiguous XML accepted")
-		}
-	}
+
 }

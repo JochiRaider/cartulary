@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -1027,9 +1026,7 @@ func stateMetadataSHA256(metadata StateMetadata) string {
 		LastMigrationID:    metadata.LastMigrationID,
 		MetadataVersion:    metadata.MetadataVersion,
 	}
-	encoded, _ := json.Marshal(payload)
-	sum := sha256.Sum256(append(encoded, '\n'))
-	return hex.EncodeToString(sum[:])
+	return canonicalDigest(payload)
 }
 
 func migrationLedgerEntryEqual(left, right MigrationLedgerEntry) bool {

@@ -121,6 +121,18 @@ func (a recordAdapter) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, recordIDs
 	return result, nil
 }
 
+func (a recordAdapter) LoadEnvelopesForNoKeyUpdateTx(ctx context.Context, tx pgx.Tx, ids []uuid.UUID) (map[uuid.UUID]sourcerepository.Envelope, error) {
+	envelopes, err := a.store.LoadEnvelopesForNoKeyUpdateTx(ctx, tx, ids)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uuid.UUID]sourcerepository.Envelope, len(envelopes))
+	for id, envelope := range envelopes {
+		result[id] = timelineEnvelope(envelope)
+	}
+	return result, nil
+}
+
 func timelineEnvelope(envelope recordenvelope.Envelope) sourcerepository.Envelope {
 	return sourcerepository.Envelope{
 		RecordID:        envelope.RecordID,

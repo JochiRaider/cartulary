@@ -25,6 +25,7 @@ type Options struct {
 	ServiceVersion             string
 	Now                        func() time.Time
 	PublicationCatalog         *PublicationCatalog
+	ClaimedWorkspaces          []ClaimedWorkspace
 	OnUnexpectedDispatcherLoss func()
 }
 
@@ -32,6 +33,7 @@ type routeDependencies struct {
 	acceptSocket   protocol.AcceptSocket
 	checkOrigin    protocol.CheckBrowserOrigin
 	serviceVersion string
+	workspaces     claimedWorkspaces
 }
 
 // Runtime is Collaboration's application facade. Concrete live-session and
@@ -72,6 +74,10 @@ func NewRuntime(options Options) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
+	workspaces, err := newClaimedWorkspaces(options.ClaimedWorkspaces)
+	if err != nil {
+		return nil, err
+	}
 	liveHub := newHub(serviceVersion)
 	store, err := privatestream.NewPostgresStream(options.Postgres)
 	if err != nil {
@@ -88,6 +94,7 @@ func NewRuntime(options Options) (*Runtime, error) {
 			acceptSocket:   options.AcceptSocket,
 			checkOrigin:    options.CheckBrowserOrigin,
 			serviceVersion: serviceVersion,
+			workspaces:     workspaces,
 		},
 	}
 	runtime.dispatcher, err = privatestream.NewDispatcher(

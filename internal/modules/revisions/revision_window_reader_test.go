@@ -38,6 +38,7 @@ VALUES ($1, $2, $3, 'revision_window_test', $4)
 	versionOne := canonicalRowSnapshot(
 		recordID,
 		incident.ID,
+		actor.ID,
 		"host",
 		"cartulary.revisions.snapshot.host.v1",
 		1,
@@ -46,6 +47,7 @@ VALUES ($1, $2, $3, 'revision_window_test', $4)
 	versionTwo := canonicalRowSnapshot(
 		recordID,
 		incident.ID,
+		actor.ID,
 		"host",
 		"cartulary.revisions.snapshot.host.v1",
 		2,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -26,6 +25,7 @@ type incidentBundleValidationCatalog struct {
 
 type IncidentBundleRecordEnvelopeReader interface {
 	RecordTypeTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, error)
+	VisitIncidentRecordIDsTx(context.Context, pgx.Tx, uuid.UUID, func(uuid.UUID) error) error
 }
 
 func newIncidentBundleValidationCatalog(
@@ -58,7 +58,7 @@ func (c *incidentBundleValidationCatalog) resolvesTargetKind(targetKind string) 
 	return c.targets.hasTargetKind(targetKind)
 }
 
-func (c *incidentBundleValidationCatalog) validateSnapshot(recordID uuid.UUID, recordType string, value any) error {
+func (c *incidentBundleValidationCatalog) validateSnapshot(incidentID, recordID uuid.UUID, recordType string, value any) error {
 	if c == nil {
 		return ErrMissingHistoryTargetProvider
 	}
@@ -69,7 +69,7 @@ func (c *incidentBundleValidationCatalog) validateSnapshot(recordID uuid.UUID, r
 	if !ok {
 		return ErrInvalidRecordSnapshot
 	}
-	return c.snapshots.validatePersisted(recordID, recordType, snapshot)
+	return c.snapshots.validatePersisted(incidentID, recordID, recordType, snapshot)
 }
 
 func (c *incidentBundleValidationCatalog) targetKinds() []string {
@@ -92,6 +92,15 @@ func (c *incidentBundleValidationCatalog) currentRowTx(
 	if err != nil {
 		return nil, err
 	}
+	return c.currentSourceRowTx(ctx, tx, recordID, recordType)
+}
+
+func (c *incidentBundleValidationCatalog) currentSourceRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	recordID uuid.UUID,
+	recordType string,
+) (map[string]any, error) {
 	capture, ok := c.snapshots.byRecordType[recordType]
 	if !ok {
 		return nil, fmt.Errorf("%w: current row provider", ErrUnexpectedHistoryTargetProvider)
@@ -128,85 +137,7 @@ func canonicalHistoryRowMatchesSnapshot(
 	nestedRecord, recordPresent := historyRow["record"].(map[string]any)
 	nestedSource, sourcePresent := historyRow["source"].(map[string]any)
 	return recordPresent && sourcePresent &&
-		sameCanonicalScalar(nestedRecord["record_id"], recordID.String()) &&
-		canonicalObjectSubsetMatches(nestedRecord, currentRecord) &&
-		canonicalObjectSubsetMatches(nestedSource, currentSource)
-}
-
-func canonicalObjectSubsetMatches(expected map[string]any, current map[string]any) bool {
-	if len(expected) == 0 {
-		return false
-	}
-	for key, expectedValue := range expected {
-		currentValue, present := current[key]
-		if !present || !canonicalValueSubsetMatches(expectedValue, currentValue) {
-			return false
-		}
-	}
-	return true
-}
-
-func canonicalValueSubsetMatches(expected any, current any) bool {
-	switch expectedValue := expected.(type) {
-	case map[string]any:
-		currentValue, ok := current.(map[string]any)
-		return ok && canonicalObjectSubsetMatches(expectedValue, currentValue)
-	case []any:
-		currentValue, ok := current.([]any)
-		if !ok || len(expectedValue) != len(currentValue) {
-			return false
-		}
-		for index := range expectedValue {
-			if !canonicalValueSubsetMatches(expectedValue[index], currentValue[index]) {
-				return false
-			}
-		}
-		return true
-	default:
-		return sameCanonicalScalar(expected, current)
-	}
-}
-
-func sameCanonicalScalar(left any, right any) bool {
-	leftText, leftIsText := left.(string)
-	rightText, rightIsText := right.(string)
-	if leftIsText && rightIsText {
-		leftTime, leftTimeErr := time.Parse(time.RFC3339Nano, leftText)
-		rightTime, rightTimeErr := time.Parse(time.RFC3339Nano, rightText)
-		if leftTimeErr == nil && rightTimeErr == nil {
-			return leftTime.Truncate(time.Microsecond).Equal(rightTime.Truncate(time.Microsecond))
-		}
-	}
-	return sameCanonicalJSON(map[string]any{"value": left}, map[string]any{"value": right})
-}
-
-func sameStoredCanonicalJSON(left map[string]any, right map[string]any) bool {
-	leftNormalized, leftOK := normalizeStoredJSONValue(left).(map[string]any)
-	rightNormalized, rightOK := normalizeStoredJSONValue(right).(map[string]any)
-	return leftOK && rightOK && sameCanonicalJSON(leftNormalized, rightNormalized)
-}
-
-func normalizeStoredJSONValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		result := make(map[string]any, len(typed))
-		for key, member := range typed {
-			result[key] = normalizeStoredJSONValue(member)
-		}
-		return result
-	case []any:
-		result := make([]any, len(typed))
-		for index, member := range typed {
-			result[index] = normalizeStoredJSONValue(member)
-		}
-		return result
-	case string:
-		parsed, err := time.Parse(time.RFC3339Nano, typed)
-		if err != nil {
-			return typed
-		}
-		return parsed.UTC().Truncate(time.Microsecond).Format(time.RFC3339Nano)
-	default:
-		return value
-	}
+		nestedRecord["record_id"] == recordID.String() &&
+		sameCanonicalJSON(nestedRecord, currentRecord) &&
+		sameCanonicalJSON(nestedSource, currentSource)
 }

@@ -56,13 +56,20 @@ export async function createPortableInvestigation(
     expect(response.ok(), await response.text()).toBeTruthy();
     return ((await response.json()) as { data: T }).data;
   };
-  const post = async <T>(path: string, body: unknown): Promise<T> => {
+  const post = async <T>(
+    path: string,
+    body: unknown,
+    jobIdentity?: (data: T) => string,
+  ): Promise<T> => {
     const response = await ownedJobsFor(page).admit(
       () => page.request.post(apiBase + path, { headers, data: body }),
       async (response) => {
-        if (response.status() !== 202) return null;
-        const data = ((await response.json()) as { data: Job }).data;
-        return data.job_id ? { jobId: data.job_id, headers } : null;
+        if (response.status() !== 202 || !jobIdentity) return null;
+        const data = ((await response.json()) as { data: T }).data;
+        const jobId = jobIdentity(data);
+        if (typeof jobId !== "string" || !jobId)
+          throw new Error("Invalid portable investigation Job identity");
+        return { jobId, headers };
       },
     );
     expect(response.ok(), await response.text()).toBeTruthy();
@@ -85,7 +92,9 @@ export async function createPortableInvestigation(
     return terminal;
   };
   const resource = async (path: string, body: unknown, kind: string) => {
-    const job = await wait((await post<Job>(path, body)).job_id);
+    const job = await wait(
+      (await post<Job>(path, body, (data) => data.job_id)).job_id,
+    );
     const id = job.result_summary?.resource_refs.find(
       (ref) => ref.kind === kind,
     )?.id;
@@ -100,22 +109,26 @@ export async function createPortableInvestigation(
   const created = await post<{
     job: Job;
     graph_view: { graph_view_id: string };
-  }>(`${root}/graph-views`, {
-    schema_id: "cartulary.network_flow.graph_view_create_request.v5",
-    refresh_scope: "all_active_tables",
-    client_txn_id: uniqueTxn("portable-graph"),
-    display_name: "Retained browser analysis",
-    semantic_query: {
-      schema_id: "cartulary.network_flow.graph_semantic_query.v3",
-      selected_table_ids: tables.map((table) => table.network_flow_table_id),
-      filters: [],
-      time_range: { start_utc: null, end_utc: null },
-      aggregation: {
-        mode: "default_flow_edge_v1",
-        include_example_row_refs: true,
+  }>(
+    `${root}/graph-views`,
+    {
+      schema_id: "cartulary.network_flow.graph_view_create_request.v5",
+      refresh_scope: "all_active_tables",
+      client_txn_id: uniqueTxn("portable-graph"),
+      display_name: "Retained browser analysis",
+      semantic_query: {
+        schema_id: "cartulary.network_flow.graph_semantic_query.v3",
+        selected_table_ids: tables.map((table) => table.network_flow_table_id),
+        filters: [],
+        time_range: { start_utc: null, end_utc: null },
+        aggregation: {
+          mode: "default_flow_edge_v1",
+          include_example_row_refs: true,
+        },
       },
     },
-  });
+    (data) => data.job.job_id,
+  );
   await wait(created.job.job_id);
   const graph = await get<SelectedGraph>(
     `${root}/graph-views/${created.graph_view.graph_view_id}/result`,

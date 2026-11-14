@@ -443,7 +443,7 @@ func parseCanonicalTimestampMember(value any) (time.Time, bool) {
 
 func parseCanonicalTimestamp(value string) (time.Time, bool) {
 	parsed, err := time.Parse(time.RFC3339Nano, value)
-	if err != nil || parsed.UTC().Format(time.RFC3339Nano) != value {
+	if err != nil || parsed.Year() < 1 || parsed.Year() > 9999 || parsed.Nanosecond()%1_000 != 0 || parsed.UTC().Format(time.RFC3339Nano) != value {
 		return time.Time{}, false
 	}
 	return parsed.UTC(), true

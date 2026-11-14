@@ -73,7 +73,7 @@ func (p ProductionOptions) cleanupResource(ctx context.Context, resource harness
 			return err
 		}
 		return releaseResident(ctx, file)
-	case "helper_process", "browser_process", "diagnostic_scope", "browser_renderer", "object_store_proxy":
+	case "helper_process", "browser_process", "diagnostic_scope", "browser_renderer", "object_store_proxy", "package_resource", "package_deployment":
 		return p.stopResource(ctx, resource)
 	case "borrowed_suite":
 		p.Dependencies = []string{resource.Reference()}

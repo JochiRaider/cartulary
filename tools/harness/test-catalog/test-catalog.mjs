@@ -1,15 +1,9 @@
-import {
-  existsSync,
-  lstatSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-} from "node:fs";
+import { readdirSync } from "node:fs";
 import path from "node:path";
 
 import {
   canonicalJSONString,
-  parseStrictJSON,
+  assertMachineEvidencePath,
   semanticJSONDigest,
   validateSchemaSync,
 } from "../contract/index.mjs";
@@ -19,6 +13,7 @@ import { loadVerificationContracts } from "./verification-contracts.mjs";
 import { assertSortedUnique, createRowSelectorResolver } from "./selector-resolution.mjs";
 import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
+import { inspectExecutableRepositoryPath, readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
 const familyManifestSchemaID = "cartulary.test_family_manifest.v13";
@@ -84,10 +79,6 @@ const expectedProfiles = Object.freeze({
     "ui_review_report",
   ],
 });
-function readStrictJSON(file) {
-  return parseStrictJSON(readFileSync(file, "utf8"), file);
-}
-
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
@@ -100,21 +91,15 @@ function assertContainedRegularFile(root, relativeFile, expectedRoot, label) {
   if (normalized !== relativeFile || normalized.startsWith("../")) {
     throw new Error(`${label} contains traversal or normalization drift`);
   }
-  const candidate = path.resolve(root, relativeFile);
-  if (!existsSync(candidate)) {
-    throw new Error(`${label} does not exist: ${relativeFile}`);
-  }
-  const stat = lstatSync(candidate);
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw new Error(`${label} must reference a non-symlink regular file`);
-  }
-  const resolved = realpathSync(candidate);
-  const containmentRoot = realpathSync(path.resolve(root, expectedRoot));
-  if (
-    resolved !== containmentRoot &&
-    !resolved.startsWith(`${containmentRoot}${path.sep}`)
-  ) {
+  if (!relativeFile.startsWith(`${expectedRoot}/`)) {
     throw new Error(`${label} escapes ${expectedRoot}`);
+  }
+  const candidate = path.resolve(root, relativeFile);
+  assertMachineEvidencePath(candidate);
+  const admitted = inspectExecutableRepositoryPath(root, relativeFile);
+  if (!admitted) throw new Error(`${label} does not exist: ${relativeFile}`);
+  if (!admitted.stat.isFile()) {
+    throw new Error(`${label} must reference a non-symlink regular file`);
   }
   return candidate;
 }
@@ -129,7 +114,7 @@ function assertExactIDs(entries, expected, label) {
 
 function loadTopologyProfiles(root) {
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
-  const topology = readStrictJSON(topologyPath);
+  const topology = readExecutableRepositoryJSON(root, path.relative(root, topologyPath));
   validateSchemaSync("cartulary.execution_topology.v16", topology);
   for (const [key, ids] of Object.entries(expectedProfiles)) {
     if (!Array.isArray(topology[key])) {
@@ -137,7 +122,7 @@ function loadTopologyProfiles(root) {
     }
     assertExactIDs(topology[key], ids, `${topologyPath}.${key}`);
   }
-  const resources = readStrictJSON(path.join(root, "tools/scheduler_resource_registry.json"));
+  const resources = readExecutableRepositoryJSON(root, "tools/scheduler_resource_registry.json");
   const knownResources = new Set(resources.resources.map((entry) => entry.name));
   const knownServices = new Set(Object.keys(topology.service_resource_minimums));
   for (const profile of topology.runtime_profiles) {
@@ -192,7 +177,7 @@ function loadTopologyProfiles(root) {
 
 function loadRunnerRegistry(root) {
   const registryPath = path.join(root, "tools/test_runner_registry.json");
-  const registry = readStrictJSON(registryPath);
+  const registry = readExecutableRepositoryJSON(root, path.relative(root, registryPath));
   validateSchemaSync(runnerRegistrySchemaID, registry);
   const runnerIDs = registry.runners.map((entry) => entry.runner);
   assertSortedUnique(runnerIDs, `${registryPath}.runners.runner`);
@@ -425,7 +410,7 @@ function validateRowSemantics({
 // makes no claim about source-selector resolution or complete catalog success.
 function readCatalogDefinition(root) {
   const registryPath = path.join(root, "tools/test_catalog_owner.json");
-  const registry = readStrictJSON(registryPath);
+  const registry = readExecutableRepositoryJSON(root, path.relative(root, registryPath));
   validateSchemaSync(ownerRegistrySchemaID, registry);
   const ownerIDs = registry.owners.map((entry) => entry.owner_id);
   const manifestPaths = registry.owners.map((entry) => entry.manifest_path);
@@ -437,7 +422,7 @@ function readCatalogDefinition(root) {
   const runners = loadRunnerRegistry(root);
   const profiles = loadTopologyProfiles(root);
   const fixtureProfiles = loadPerformanceFixtureSnapshotRegistry(root);
-  const graphOwner = readStrictJSON(path.join(root, "tools/harness_work_graph_owner.json"));
+  const graphOwner = readExecutableRepositoryJSON(root, "tools/harness_work_graph_owner.json");
   const operationIDs = new Set(Object.keys(graphOwner.operations));
   const manifests = [];
   const rows = [];
@@ -453,7 +438,7 @@ function readCatalogDefinition(root) {
       "tools/test_families",
       `${registryPath}:${owner.owner_id}.manifest_path`,
     );
-    const manifest = readStrictJSON(manifestFile);
+    const manifest = readExecutableRepositoryJSON(root, path.relative(root, manifestFile));
     validateSchemaSync(familyManifestSchemaID, manifest);
     for (const row of manifest.rows) for (const operationID of row.preparation_operations ?? []) {
       if (!operationIDs.has(operationID)) throw new Error(`${row.row_id} references unknown preparation operation ${operationID}`);
@@ -500,9 +485,7 @@ function readCatalogDefinition(root) {
     throw new Error(`${familyRoot} contains an unregistered or missing owner manifest`);
   }
 
-  const rowMigrations = readStrictJSON(
-    path.join(root, "tools/test_catalog_row_migrations.json"),
-  );
+  const rowMigrations = readExecutableRepositoryJSON(root, "tools/test_catalog_row_migrations.json");
   validateSchemaSync(rowMigrationSchemaID, rowMigrations);
   const retiredRowIDs = rowMigrations.migrations.map((entry) => entry.retired_row_id);
   assertSortedUnique(retiredRowIDs, "tools/test_catalog_row_migrations.json.migrations.retired_row_id");

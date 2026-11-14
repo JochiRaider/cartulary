@@ -256,6 +256,7 @@ export function useTimelineMutationComposition({
     beginRowsLoad: queryAdmission.beginLoad,
     clearCommittedRows: foundation.committedRows.clearProtectedRows,
     collaborationProjection,
+    readScope: query.viewQuery.readScope,
     refreshRows: refreshRowsForCollaboration,
     resolveClientTxn: rowMutations.commands.resolvePendingSocketTxn,
     rowsRef: foundation.rowsRef,

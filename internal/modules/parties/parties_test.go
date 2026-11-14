@@ -617,3 +617,7 @@ func restorePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor authn
 	})
 	return err
 }
+
+func (partyTestAttributionResolver) ResolveImportedHistoryActorsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, []string) (map[string]string, error) {
+	return nil, nil
+}

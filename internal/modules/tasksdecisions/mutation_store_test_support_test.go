@@ -1,10 +1,13 @@
 package tasksdecisions_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -470,4 +473,104 @@ func testTime(offset time.Duration) time.Time {
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+func requireTaskDecisionAdmittedTextPersistence(t *testing.T, db dbport.DB, owner *tasksdecisions.MutationFacade, actor authn.UserRecord, incident uuid.UUID) {
+	t.Helper()
+	ctx := t.Context()
+	encode := func(value any) *bytes.Reader {
+		data, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return bytes.NewReader(data)
+	}
+	taskInput := map[string]any{"client_txn_id": "task-text-create", "task.task_kind": "request", "task.status": "blocked",
+		"task.title": " Cafe\u0301 title\u200d ", "task.workstream": " Cafe\u0301 stream\u200d ", "task.requester_party_text": " Cafe\u0301 party\u200d ",
+		"task.blocked_reason": " Blocked\r\n\treason\u200d ", "task.external_ticket_ref": " Cafe\u0301 locator\u200d ", "task.closure_summary": " Closure\r\n\tsummary\u200d ",
+	}
+	request, failure := tasksdecisions.AdmitCreateJSON(tasksdecisions.TaskRequestsViewSchemaID, encode(taskInput))
+	if failure != nil {
+		t.Fatal(failure)
+	}
+	task, err := createTaskDecision(owner, actor, incident, request, "task-text-create", testTime(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	readTask := func() map[string]any {
+		var raw []byte
+		if err := db.QueryRow(ctx, `SELECT jsonb_build_object('title',title,'workstream',workstream,'requester_party_text',requester_party_text,'blocked_reason',blocked_reason,'external_ticket_ref',external_ticket_ref,'closure_summary',closure_summary) FROM task_requests WHERE record_id=$1`, task.RecordID).Scan(&raw); err != nil {
+			t.Fatal(err)
+		}
+		var result map[string]any
+		if err := json.Unmarshal(raw, &result); err != nil {
+			t.Fatal(err)
+		}
+		return result
+	}
+	expected := map[string]any{"title": "Café title\u200d", "workstream": "Café stream\u200d", "requester_party_text": "Café party\u200d", "blocked_reason": "Blocked\n\treason\u200d", "external_ticket_ref": "Café locator\u200d", "closure_summary": "Closure\n\tsummary\u200d"}
+	if actual := readTask(); !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("admitted Task text: got=%#v want=%#v", actual, expected)
+	}
+	admitPatch := func(txn string, changes []map[string]any) tasksdecisions.PatchRequest {
+		request, failure := tasksdecisions.AdmitPatchJSON(encode(map[string]any{"view_schema_id": tasksdecisions.TaskRequestsViewSchemaID, "base_row_version": 1, "client_txn_id": txn, "changes": changes}))
+		if failure != nil {
+			t.Fatal(failure)
+		}
+		return request
+	}
+	rejected := admitPatch("task-text-blocker-reject", []map[string]any{{"field_key": "task.blocked_reason", "value": nil}})
+	before := taskSnapshot(t, db, task.RecordID)
+	_, err = patchRecord(owner, actor, task.RecordID, rejected.ViewSchemaID, rejected.BaseRowVersion, rejected.ClientTxnID, rejected.Changes...)
+	requireLifecycle(t, err)
+	requireTaskSnapshot(t, taskSnapshot(t, db, task.RecordID), before, "clearing required blocker")
+	if actual := readTask(); !reflect.DeepEqual(actual, expected) {
+		t.Fatal("rejected blocker clear changed source text")
+	}
+	changes := []map[string]any{{"field_key": "task.status", "value": "in_progress"}}
+	for _, field := range []string{"task.workstream", "task.requester_party_text", "task.blocked_reason", "task.external_ticket_ref", "task.closure_summary"} {
+		changes = append(changes, map[string]any{"field_key": field, "value": " \u2003 "})
+	}
+	clear := admitPatch("task-text-clear", changes)
+	result, err := patchRecord(owner, actor, task.RecordID, clear.ViewSchemaID, clear.BaseRowVersion, clear.ClientTxnID, clear.Changes...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key := range expected {
+		if key != "title" {
+			expected[key] = nil
+		}
+	}
+	if actual := readTask(); !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("optional clear stored=%#v want=%#v", actual, expected)
+	}
+	after := taskSnapshot(t, db, task.RecordID)
+	if after.Status != "in_progress" || after.RowVersion != 2 {
+		t.Fatalf("cleared Task state=%#v", after)
+	}
+	for _, change := range changes[1:] {
+		change["value"] = nil
+	}
+	replayRequest := admitPatch("task-text-clear", changes)
+	replay, err := patchRecord(owner, actor, task.RecordID, replayRequest.ViewSchemaID, replayRequest.BaseRowVersion, replayRequest.ClientTxnID, replayRequest.Changes...)
+	if err != nil || !replay.Replayed || replay.ChangeSetID != result.ChangeSetID {
+		t.Fatalf("null/empty replay=%#v err=%v", replay, err)
+	}
+	requireTaskSnapshot(t, taskSnapshot(t, db, task.RecordID), after, "normalized clear replay")
+	decisionInput := map[string]any{"client_txn_id": "decision-text-create", "decision.decision_type": "scope", "decision.summary": " Cafe\u0301 decision\u200d ", "decision.rationale": " Rationale\r\n\ttext\u200d "}
+	decisionRequest, failure := tasksdecisions.AdmitCreateJSON(tasksdecisions.DecisionsViewSchemaID, encode(decisionInput))
+	if failure != nil {
+		t.Fatal(failure)
+	}
+	decision, err := createTaskDecision(owner, actor, incident, decisionRequest, "decision-text-create", testTime(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var summary, rationale string
+	if err := db.QueryRow(ctx, `SELECT summary,rationale FROM decisions WHERE record_id=$1`, decision.RecordID).Scan(&summary, &rationale); err != nil {
+		t.Fatal(err)
+	}
+	if summary != "Café decision\u200d" || rationale != "Rationale\n\ttext\u200d" {
+		t.Fatalf("Decision normalized source=%q/%q", summary, rationale)
+	}
 }

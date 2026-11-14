@@ -2,6 +2,11 @@
 
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1`'s JSON-Schema
+ * via the `definition` "TimestampUTC".
+ */
+export type TimestampUTC = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1`'s JSON-Schema
  * via the `definition` "ClientSheetRef".
  */
 export type ClientSheetRef =
@@ -36,6 +41,52 @@ export type ServerSheetRef =
       extension_profile_id: string;
       workspace_key: string;
     };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1`'s JSON-Schema
+ * via the `definition` "ClientPresence".
+ */
+export type ClientPresence = {
+  [k: string]: unknown;
+} & {
+  sheet_ref: ClientSheetRef;
+  record_id?: string;
+  field_key?: string;
+  mode: "viewing" | "editing" | "idle";
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1`'s JSON-Schema
+ * via the `definition` "PresenceRecord".
+ */
+export type PresenceRecord = {
+  [k: string]: unknown;
+} & {
+  connection_id: string;
+  user_id: string;
+  display_name: string;
+  sheet_ref: ServerSheetRef;
+  record_id?: string;
+  field_key?: string;
+  mode: "viewing" | "editing" | "idle";
+  observed_at: TimestampUTC;
+  expires_at: TimestampUTC;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1`'s JSON-Schema
+ * via the `definition` "PresenceRemoval".
+ */
+export type PresenceRemoval = {
+  [k: string]: unknown;
+} & {
+  connection_id: string;
+  user_id?: string;
+  display_name?: string;
+  sheet_ref?: ServerSheetRef;
+  record_id?: string;
+  field_key?: string;
+  mode?: "viewing" | "editing" | "idle";
+  observed_at?: TimestampUTC;
+  expires_at?: TimestampUTC;
+};
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1`'s JSON-Schema
  * via the `definition` "AffectedViewChange".
@@ -100,46 +151,6 @@ export interface HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1`'s JSON-Schema
- * via the `definition` "ClientPresence".
- */
-export interface ClientPresence {
-  sheet_ref: ClientSheetRef;
-  record_id?: string;
-  field_key?: string;
-  mode: "viewing" | "editing" | "idle";
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1`'s JSON-Schema
- * via the `definition` "PresenceRecord".
- */
-export interface PresenceRecord {
-  connection_id: string;
-  user_id: string;
-  display_name: string;
-  sheet_ref: ServerSheetRef;
-  record_id?: string;
-  field_key?: string;
-  mode: "viewing" | "editing" | "idle";
-  observed_at: string;
-  expires_at: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1`'s JSON-Schema
- * via the `definition` "PresenceRemoval".
- */
-export interface PresenceRemoval {
-  connection_id: string;
-  user_id?: string;
-  display_name?: string;
-  sheet_ref?: ServerSheetRef;
-  record_id?: string;
-  field_key?: string;
-  mode?: "viewing" | "editing" | "idle";
-  observed_at?: string;
-  expires_at?: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCollaborationProjectedV1`'s JSON-Schema
  * via the `definition` "ViewCell".
  */
 export interface ViewCell {
@@ -165,6 +176,8 @@ export interface ViewRowPatch {
  */
 export interface HelloMessage {
   type: "hello";
+  incident_id: string;
+  emitted_at: TimestampUTC;
   payload: {
     client_instance_id: string;
     presence: ClientPresence;
@@ -176,6 +189,8 @@ export interface HelloMessage {
  */
 export interface ResumeMessage {
   type: "resume";
+  incident_id: string;
+  emitted_at: TimestampUTC;
   payload: {
     client_instance_id: string;
     resume_token: string;
@@ -189,6 +204,8 @@ export interface ResumeMessage {
  */
 export interface PongMessage {
   type: "pong";
+  incident_id: string;
+  emitted_at: TimestampUTC;
   payload: {};
 }
 /**
@@ -197,6 +214,8 @@ export interface PongMessage {
  */
 export interface PresenceUpdateMessage {
   type: "presence_update";
+  incident_id: string;
+  emitted_at: TimestampUTC;
   payload: {
     presence: ClientPresence;
   };
@@ -208,12 +227,12 @@ export interface PresenceUpdateMessage {
 export interface HelloAckMessage {
   type: "hello_ack";
   incident_id: string;
+  emitted_at: TimestampUTC;
   event_id: string;
-  emitted_at: string;
   payload: {
     connection_id: string;
     resume_token: string;
-    server_time: string;
+    server_time: TimestampUTC;
     heartbeat_interval_ms: 15000;
     presence_ttl_ms: 45000;
     resume_window_ms: number;
@@ -226,8 +245,8 @@ export interface HelloAckMessage {
 export interface ResumeAckMessage {
   type: "resume_ack";
   incident_id: string;
+  emitted_at: TimestampUTC;
   event_id: string;
-  emitted_at: string;
   payload: {
     status: "replayed" | "reset_required" | "rejected";
     resume_token: string;
@@ -241,8 +260,8 @@ export interface ResumeAckMessage {
 export interface PresenceSnapshotMessage {
   type: "presence_snapshot";
   incident_id: string;
+  emitted_at: TimestampUTC;
   event_id: string;
-  emitted_at: string;
   payload: {
     presences: PresenceRecord[];
   };
@@ -254,8 +273,8 @@ export interface PresenceSnapshotMessage {
 export interface PresenceDeltaMessage {
   type: "presence_delta";
   incident_id: string;
+  emitted_at: TimestampUTC;
   event_id: string;
-  emitted_at: string;
   payload:
     | {
         delta_kind: "upsert";
@@ -273,8 +292,8 @@ export interface PresenceDeltaMessage {
 export interface RecordChangedMessage {
   type: "record_changed";
   incident_id: string;
+  emitted_at: TimestampUTC;
   event_id: string;
-  emitted_at: string;
   payload: {
     record_id: string;
     row_version: number;
@@ -296,8 +315,8 @@ export interface RecordChangedMessage {
 export interface ExtensionResourceChangedMessage {
   type: "extension_resource_changed";
   incident_id: string;
+  emitted_at: TimestampUTC;
   event_id: string;
-  emitted_at: string;
   payload: {
     extension_profile_id: string;
     resource_kind: string;
@@ -319,8 +338,8 @@ export interface ExtensionResourceChangedMessage {
 export interface JobProgressMessage {
   type: "job_progress";
   incident_id: string;
+  emitted_at: TimestampUTC;
   event_id: string;
-  emitted_at: string;
   payload: {
     job_id: string;
     scope: {
@@ -332,12 +351,12 @@ export interface JobProgressMessage {
       completed: number;
       total: number | null;
     };
-    updated_at: string;
+    updated_at: TimestampUTC;
     cancelable?: boolean;
     message?: string;
     result_summary?: JobResultSummary;
     error_summary?: JobErrorSummary;
-    retained_until?: string | null;
+    retained_until?: TimestampUTC | null;
   };
   stream_seq: number;
 }
@@ -348,8 +367,8 @@ export interface JobProgressMessage {
 export interface PingMessage {
   type: "ping";
   incident_id: string;
+  emitted_at: TimestampUTC;
   event_id: string;
-  emitted_at: string;
   payload: {};
 }
 /**
@@ -359,8 +378,8 @@ export interface PingMessage {
 export interface ErrorMessage {
   type: "error";
   incident_id: string;
+  emitted_at: TimestampUTC;
   event_id: string;
-  emitted_at: string;
   payload: {
     code: string;
     message: string;
@@ -377,8 +396,8 @@ export interface ErrorMessage {
 export interface SessionRevokedMessage {
   type: "session_revoked";
   incident_id: string;
+  emitted_at: TimestampUTC;
   event_id: string;
-  emitted_at: string;
   payload: {
     reason_code: "session_expired" | "session_revoked" | "incident_access_revoked" | "concurrency_limit";
     message?: string;

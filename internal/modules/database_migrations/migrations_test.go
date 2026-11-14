@@ -123,10 +123,10 @@ func TestApplyCancellationWhileWaitingForLock(t *testing.T) {
 	if _, err := holder.ExecContext(context.Background(), `SELECT pg_advisory_lock($1)`, int64(4097083626)); err != nil {
 		t.Fatalf("hold migration lock: %v", err)
 	}
-	locked := true
+	unlock := migrationFixtureUnlock(holder, 4097083626)
 	defer func() {
-		if locked {
-			_, _ = holder.ExecContext(context.Background(), `SELECT pg_advisory_unlock($1)`, int64(4097083626))
+		if err := unlock(); err != nil {
+			t.Errorf("settle migration lock holder: %v", err)
 		}
 	}()
 
@@ -138,10 +138,9 @@ func TestApplyCancellationWhileWaitingForLock(t *testing.T) {
 	}
 	requireExternalMigrationFailureReason(t, err, "migration_lock_acquisition_failed")
 
-	if _, err := holder.ExecContext(context.Background(), `SELECT pg_advisory_unlock($1)`, int64(4097083626)); err != nil {
+	if err := unlock(); err != nil {
 		t.Fatalf("release migration lock: %v", err)
 	}
-	locked = false
 	if err := postgres.Apply(context.Background(), db, testMigrationSource(t, validExternalMigrationBody)); err != nil {
 		t.Fatalf("apply after lock cancellation: %v", err)
 	}

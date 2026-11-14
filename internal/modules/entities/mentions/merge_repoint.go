@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions/historyvalue"
 )
 
 type MergeMutation struct {
@@ -46,6 +48,9 @@ type mergeMentionRecord struct {
 	NormalizedText   string
 	ResolutionStatus string
 	RowVersion       int64
+	Ordinal          int32
+	CreatedByUserID  uuid.UUID
+	CreatedAt        time.Time
 	ResolvedRecordID *uuid.UUID
 	ResolvedByUserID *uuid.UUID
 	ResolvedAt       *time.Time
@@ -65,6 +70,9 @@ SELECT
     normalized_text,
     resolution_status,
     row_version,
+    ordinal,
+    created_by_user_id,
+    created_at,
     resolved_record_id,
     resolved_by_user_id,
     resolved_at,
@@ -130,22 +138,16 @@ UPDATE entity_mentions
 }
 
 func buildMergeMentionValue(record mergeMentionRecord) map[string]any {
-	return map[string]any{
-		"entity_mention_id":   record.EntityMentionID.String(),
-		"source_record_id":    record.SourceRecordID.String(),
-		"source_field_key":    record.SourceFieldKey,
-		"entity_type":         record.EntityType,
-		"origin_kind":         record.OriginKind,
-		"origin_locator":      record.OriginLocator,
-		"raw_text":            record.RawText,
-		"normalized_text":     record.NormalizedText,
-		"resolution_status":   record.ResolutionStatus,
-		"row_version":         record.RowVersion,
-		"resolved_record_id":  formatUUIDPointer(record.ResolvedRecordID),
-		"resolved_by_user_id": formatUUIDPointer(record.ResolvedByUserID),
-		"resolved_at":         formatTimestampPointer(record.ResolvedAt),
-		"resolution_method":   derefString(record.ResolutionMethod),
-	}
+	return (historyvalue.Value{
+		MentionID: record.EntityMentionID, SourceRecordID: record.SourceRecordID,
+		EntityType: record.EntityType, SourceFieldKey: record.SourceFieldKey,
+		OriginKind: record.OriginKind, OriginLocator: record.OriginLocator,
+		RawText: record.RawText, NormalizedText: record.NormalizedText,
+		ResolutionStatus: record.ResolutionStatus, RowVersion: record.RowVersion,
+		Ordinal: record.Ordinal, CreatedByUserID: record.CreatedByUserID, CreatedAt: record.CreatedAt,
+		ResolvedRecordID: record.ResolvedRecordID, ResolvedByUserID: record.ResolvedByUserID,
+		ResolvedAt: record.ResolvedAt, ResolutionMethod: record.ResolutionMethod,
+	}).Map()
 }
 
 func scanMergeMentionRecord(scanner interface{ Scan(dest ...any) error }) (mergeMentionRecord, error) {
@@ -167,6 +169,9 @@ func scanMergeMentionRecord(scanner interface{ Scan(dest ...any) error }) (merge
 		&record.NormalizedText,
 		&record.ResolutionStatus,
 		&record.RowVersion,
+		&record.Ordinal,
+		&record.CreatedByUserID,
+		&record.CreatedAt,
 		&resolvedRecordID,
 		&resolvedByUserID,
 		&resolvedAt,

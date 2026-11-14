@@ -1,17 +1,7 @@
 import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { join } from "node:path";
-
-import {
-  resolvePlaywrightStateDirectory,
-  resolvePlaywrightStateFile,
-} from "../runtime/harnessState";
-import { atomicWritePrivateFile } from "../runtime/privateState";
+  readBrowserState,
+  writeBrowserState,
+} from "../../../../../tools/harness/browser/private-state.mjs";
 
 export type WorkerAdminBlueprint = {
   parallelIndex: number;
@@ -35,13 +25,7 @@ export type WorkerAdminManifest = {
 export const workerAdminManifestSchemaID =
   "cartulary.playwright_worker_admin_manifest.v1" as const;
 
-const workerAdminManifestFilePath = resolvePlaywrightStateFile(
-  "cartulary-playwright-worker-admins.json",
-);
-
-const workerAdminCleanupMarkerDirectory = resolvePlaywrightStateDirectory(
-  "cartulary-playwright-worker-admin-cleanup",
-);
+const workerAdminManifestFile = "cartulary-playwright-worker-admins.json";
 
 export function buildWorkerAdminBlueprints(workerCount: number) {
   return Array.from({ length: workerCount }, (_, parallelIndex) => ({
@@ -53,8 +37,8 @@ export function buildWorkerAdminBlueprints(workerCount: number) {
 }
 
 export function writeWorkerAdminManifest(manifest: WorkerAdminManifest) {
-  atomicWritePrivateFile(
-    workerAdminManifestFilePath,
+  writeBrowserState(
+    workerAdminManifestFile,
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
 }
@@ -153,50 +137,12 @@ export function parseWorkerAdminManifest(
 }
 
 export function loadWorkerAdminManifest() {
-  if (!existsSync(workerAdminManifestFilePath)) {
-    throw new Error("missing worker admin manifest");
-  }
-  return parseWorkerAdminManifest(
-    readFileSync(workerAdminManifestFilePath, "utf8"),
-  );
+  const manifest = loadWorkerAdminManifestIfPresent();
+  if (manifest === null) throw new Error("missing worker admin manifest");
+  return manifest;
 }
 
 export function loadWorkerAdminManifestIfPresent() {
-  if (!existsSync(workerAdminManifestFilePath)) {
-    return null;
-  }
-  return loadWorkerAdminManifest();
-}
-
-export function clearWorkerAdminSuiteState() {
-  rmSync(workerAdminManifestFilePath, { force: true });
-  rmSync(workerAdminCleanupMarkerDirectory, { force: true, recursive: true });
-}
-
-export function clearWorkerAdminCleanupMarkers() {
-  rmSync(workerAdminCleanupMarkerDirectory, { force: true, recursive: true });
-}
-
-export function ensureWorkerAdminCleanupMarkerDirectory() {
-  mkdirSync(workerAdminCleanupMarkerDirectory, { recursive: true });
-}
-
-function workerAdminCleanupMarkerPath(parallelIndex: number) {
-  return join(
-    workerAdminCleanupMarkerDirectory,
-    `worker-${parallelIndex}-cleaned`,
-  );
-}
-
-export function markWorkerAdminCleaned(parallelIndex: number) {
-  ensureWorkerAdminCleanupMarkerDirectory();
-  writeFileSync(
-    workerAdminCleanupMarkerPath(parallelIndex),
-    "cleaned\n",
-    "utf8",
-  );
-}
-
-export function workerAdminNeedsJanitor(parallelIndex: number) {
-  return !existsSync(workerAdminCleanupMarkerPath(parallelIndex));
+  const contents = readBrowserState(workerAdminManifestFile);
+  return contents === null ? null : parseWorkerAdminManifest(contents);
 }

@@ -21,6 +21,25 @@ describe("workbook collaboration presence messages", () => {
   it("includes field_key only for editing presence payloads", () => {
     const sheetRef = { kind: "saved_view" as const, id: "saved-view-1" };
 
+    for (const recordId of [null, ""]) {
+      expect(
+        buildWorkbookPresenceInput(
+          {
+            fieldKey: "timeline.activity_synopsis_text",
+            mode: "editing",
+            recordId,
+          },
+          sheetRef,
+        ),
+      ).toEqual({ sheet_ref: sheetRef, mode: "editing" });
+    }
+    expect(
+      buildWorkbookPresenceInput(
+        { fieldKey: "", mode: "editing", recordId: "record-1" },
+        sheetRef,
+      ),
+    ).toEqual({ sheet_ref: sheetRef, mode: "editing", record_id: "record-1" });
+
     expect(
       buildWorkbookPresenceInput(
         {

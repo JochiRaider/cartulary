@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/outputcontract"
 
@@ -363,9 +364,17 @@ func DecodeReleaseActionRequest(reader io.Reader) (ReleaseActionRequest, *httpap
 			if apiErr != nil {
 				return ReleaseActionRequest{}, apiErr
 			}
-			trimmed := strings.TrimSpace(parsed)
-			if trimmed != "" {
-				reason = &trimmed
+			normalized := strings.TrimSpace(norm.NFC.String(strings.ReplaceAll(strings.ReplaceAll(parsed, "\r\n", "\n"), "\r", "\n")))
+			if utf8.RuneCountInString(normalized) > 4096 {
+				return ReleaseActionRequest{}, invalidReleaseRequest("reason", "invalid_value")
+			}
+			for _, r := range normalized {
+				if r != '\n' && r != '\t' && unicode.IsControl(r) {
+					return ReleaseActionRequest{}, invalidReleaseRequest("reason", "invalid_value")
+				}
+			}
+			if normalized != "" {
+				reason = &normalized
 			}
 		}
 	}

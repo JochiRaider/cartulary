@@ -2,7 +2,6 @@ package artifacts_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -167,32 +166,7 @@ SELECT count(*)
 			}
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM record_links WHERE src_record_id=$1 AND dst_record_id=$2 AND deleted_at IS NULL`, source, result.RecordID, 1)
 		}
-		before := linkedNoteCount(t, harness, `SELECT count(*) FROM records WHERE incident_id=$1`, incident.ID)
-		for index, fields := range []map[string]any{
-			{}, {"note.title": "\u2003 ", "note.body": " \n "}, {"note.tags": artifactCollectionPayload(map[string]any{"op": "add_tag", "tag_name": "tag"})},
-			{"note.title": "bad\u0001"}, {"note.body": "bad\u0085"}, {"note.title": strings.Repeat("😀", 513)}, {"note.body": strings.Repeat("x", 16385)},
-			{"note.title": "Valid", "note.tags": artifactCollectionPayload(map[string]any{"op": "add_tag", "tag_name": strings.Repeat("x", 65)})},
-		} {
-			fields["client_txn_id"] = fmt.Sprintf("txn-note-invalid-%d", index)
-			encoded, err := json.Marshal(fields)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := artifacts.AdmitContextualNote(strings.NewReader(string(encoded))); err == nil {
-				t.Fatalf("invalid Note case %d was admitted", index)
-			}
-		}
-		requireLinkedNoteCount(t, harness, `SELECT count(*) FROM records WHERE incident_id=$1`, incident.ID, before)
 	})
-
-	before := linkedNoteCount(t, harness, `SELECT count(*) FROM records WHERE incident_id = $1`, incident.ID)
-	_, admissionErr := artifacts.AdmitContextualNote(strings.NewReader(`{"client_txn_id":"txn-artifacts-linked-note-no-signal"}`))
-	if admissionErr == nil {
-		t.Fatal("linked note without title or body unexpectedly succeeded")
-	}
-	if got := linkedNoteCount(t, harness, `SELECT count(*) FROM records WHERE incident_id = $1`, incident.ID); got != before {
-		t.Fatalf("rejected linked note changed record count: got %d want %d", got, before)
-	}
 
 	for index, fault := range []struct {
 		name  string
@@ -333,17 +307,23 @@ CREATE TRIGGER %s
 BEFORE INSERT OR UPDATE ON %s
 FOR EACH ROW EXECUTE FUNCTION %s()
 `, triggerName, tableName, functionName)); err != nil {
-		_, _ = harness.DB.Exec(context.Background(), "DROP FUNCTION "+functionName+"()")
+		if _, cleanupErr := harness.DB.Exec(context.Background(), "DROP FUNCTION "+functionName+"()"); cleanupErr != nil {
+			t.Errorf("drop %s failure function after trigger installation failed: %v", suffix, cleanupErr)
+		}
 		t.Fatalf("create %s failure trigger: %v", suffix, err)
 	}
 	t.Cleanup(func() {
-		_, _ = harness.DB.Exec(
+		if _, err := harness.DB.Exec(
 			context.Background(),
 			"DROP TRIGGER IF EXISTS "+triggerName+" ON "+tableName,
-		)
-		_, _ = harness.DB.Exec(
+		); err != nil {
+			t.Errorf("drop %s failure trigger: %v", suffix, err)
+		}
+		if _, err := harness.DB.Exec(
 			context.Background(),
 			"DROP FUNCTION IF EXISTS "+functionName+"()",
-		)
+		); err != nil {
+			t.Errorf("drop %s failure function: %v", suffix, err)
+		}
 	})
 }

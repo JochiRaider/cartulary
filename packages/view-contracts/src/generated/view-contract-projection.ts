@@ -3165,7 +3165,8 @@ const value = [
       "record_id",
       "row_version",
       "evidence.collector_party_id",
-      "evidence.source_party_id"
+      "evidence.source_party_id",
+      "evidence.owner_user_id"
     ],
     "defaultSort": [
       {
@@ -3192,7 +3193,7 @@ const value = [
     ],
     "fields": [
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
         "createWritable": true,
         "defaultHidden": false,
@@ -3296,7 +3297,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "atomic_replace",
         "createWritable": true,
         "defaultHidden": false,
@@ -3512,6 +3513,28 @@ const value = [
         "stringContractId": null,
         "writeAction": null,
         "writeKind": "read_only"
+      },
+      {
+        "clearable": true,
+        "conflictResolutionClass": "atomic_replace",
+        "createWritable": true,
+        "defaultHidden": true,
+        "directReferenceContractId": "incident_member_user_ref_v1",
+        "directScalarContractId": null,
+        "entityBindingMode": null,
+        "enumValues": null,
+        "fieldKey": "evidence.owner_user_id",
+        "filterOps": [],
+        "gridEditable": true,
+        "groupable": false,
+        "headerSortFieldKey": null,
+        "label": "Owner",
+        "patchWritable": true,
+        "readKind": "text",
+        "sortable": false,
+        "stringContractId": null,
+        "writeAction": null,
+        "writeKind": "direct_value"
       }
     ],
     "filterFields": [
@@ -4051,7 +4074,7 @@ const value = [
     ],
     "fields": [
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
         "createWritable": true,
         "defaultHidden": false,
@@ -4073,7 +4096,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
         "createWritable": true,
         "defaultHidden": false,
@@ -6081,7 +6104,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "atomic_replace",
         "createWritable": true,
         "defaultHidden": false,
@@ -6101,7 +6124,7 @@ const value = [
         "patchWritable": true,
         "readKind": "text",
         "sortable": true,
-        "stringContractId": null,
+        "stringContractId": "single_line_title_v1",
         "writeAction": null,
         "writeKind": "direct_value"
       },
@@ -6178,7 +6201,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
         "createWritable": true,
         "defaultHidden": false,
@@ -6228,7 +6251,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "atomic_replace",
         "createWritable": true,
         "defaultHidden": false,
@@ -6253,7 +6276,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
         "createWritable": true,
         "defaultHidden": true,

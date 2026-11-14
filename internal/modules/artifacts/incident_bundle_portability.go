@@ -3,11 +3,7 @@ package artifacts
 import (
 	"context"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
@@ -25,7 +21,7 @@ func exportIncidentBundleFiles(ctx context.Context, input sourceport.ExportConte
 			return errInvalidSourceStateManifest
 		}
 		identity := relation.stableIdentity[0]
-		query, err := sourceExportQuery(relation.tableName, identity)
+		query, err := sourceExportQuery(relation.tableName)
 		if err != nil {
 			return err
 		}
@@ -36,33 +32,31 @@ func exportIncidentBundleFiles(ctx context.Context, input sourceport.ExportConte
 	return nil
 }
 
-func importIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files incidentportability.MemberReader, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	manifest, err := loadSourceStateManifest()
-	if err != nil {
-		return err
-	}
-	specs := manifest.importSpecifications()
-	for _, spec := range specs {
-		if err := incidentportability.ImportFixedMemberNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func sourceExportQuery(table, identity string) (sqlshape.Fragment, error) {
-	column := sqlshape.Identifier(identity)
+func sourceExportQuery(table string) (sqlshape.Fragment, error) {
 	switch table {
 	case "artifacts":
-		return sqlshape.Format(`SELECT to_jsonb(t) FROM "artifacts" t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128`, column, column), nil
+		return sqlshape.Literal(`SELECT to_jsonb(t) FROM (
+ SELECT record_id,incident_id,artifact_type,title,body,timestamp_utc,updated_at,created_at,
+ comm_id,comm_type,audience,channel_or_meeting,summary,next_report_at,privilege_tag,
+ handoff_id,outgoing_owner_user_id,incoming_owner_user_id,current_state_summary,next_checks,acknowledged_at,
+ status_review_id,review_owner_user_id,active_risks_summary,lesson_id,owner_user_id,closure_state,created_by_user_id
+ FROM artifacts WHERE incident_id=$1 AND ($2::uuid IS NULL OR record_id>$2) ORDER BY record_id LIMIT 128) t`), nil
 	case "artifact_findings":
-		return sqlshape.Format(`SELECT to_jsonb(t) FROM "artifact_findings" t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128`, column, column), nil
+		return sqlshape.Literal(`SELECT to_jsonb(t) FROM (
+ SELECT record_id,incident_id,kind,statement,state,confidence_score,owner_user_id,closed_at,created_at,updated_at
+ FROM artifact_findings WHERE incident_id=$1 AND ($2::uuid IS NULL OR record_id>$2) ORDER BY record_id LIMIT 128) t`), nil
 	case "artifact_investigative_queries":
-		return sqlshape.Format(`SELECT to_jsonb(t) FROM "artifact_investigative_queries" t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128`, column, column), nil
+		return sqlshape.Literal(`SELECT to_jsonb(t) FROM (
+ SELECT record_id,incident_id,query_id,platform,purpose,query_text,created_by_user_id,created_at,updated_at
+ FROM artifact_investigative_queries WHERE incident_id=$1 AND ($2::uuid IS NULL OR record_id>$2) ORDER BY record_id LIMIT 128) t`), nil
 	case "artifact_forensic_keywords":
-		return sqlshape.Format(`SELECT to_jsonb(t) FROM "artifact_forensic_keywords" t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128`, column, column), nil
+		return sqlshape.Literal(`SELECT to_jsonb(t) FROM (
+ SELECT record_id,incident_id,keyword_id,pattern,reason,match_mode,case_sensitive,created_at,updated_at
+ FROM artifact_forensic_keywords WHERE incident_id=$1 AND ($2::uuid IS NULL OR record_id>$2) ORDER BY record_id LIMIT 128) t`), nil
 	case "handoff_risk_refs":
-		return sqlshape.Format(`SELECT to_jsonb(t) FROM "handoff_risk_refs" t WHERE incident_id=$1 AND ($2::uuid IS NULL OR %s>$2) ORDER BY %s LIMIT 128`, column, column), nil
+		return sqlshape.Literal(`SELECT to_jsonb(t) FROM (
+ SELECT risk_ref_id,incident_id,handoff_record_id,risk_ref_text,created_by_user_id,created_at,deleted_at,deleted_by_user_id
+ FROM handoff_risk_refs WHERE incident_id=$1 AND ($2::uuid IS NULL OR risk_ref_id>$2) ORDER BY risk_ref_id LIMIT 128) t`), nil
 	default:
 		return sqlshape.Fragment{}, errInvalidSourceStateManifest
 	}

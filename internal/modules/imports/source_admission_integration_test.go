@@ -2,7 +2,9 @@ package imports_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -191,7 +193,7 @@ func TestNetworkFlowPublicSourceAdmission(t *testing.T) {
 				resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, h.Server.HTTP.URL+base+"/preview", nil, httptestx.WithCookies(login.Session))
 				httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 			}
-			assertPublicAnalyticalSource(t, h, login, session, unit, tc.previewOK, tc.applyOK, tc.accepted)
+			assertPublicAnalyticalSource(t, h, login, session, unit, sourceAdmissionHeader+tc.body, tc.previewOK, tc.applyOK, tc.accepted)
 		})
 	}
 	t.Run("owner_column_limit", func(t *testing.T) {
@@ -220,34 +222,55 @@ func TestNetworkFlowPublicSourceAdmission(t *testing.T) {
 // the backend_capacity_isolated profile; the apply observation is bounded below.
 func TestNetworkFlowPublicDefaultLimit100001Rows(t *testing.T) {
 	h, login, incident := sourceAdmissionHarness(t, nil)
-	session, unit := startCSVImportSession(t, h.Server.HTTP.URL, login, incident, "large-source", sourceAdmissionHeader+strings.Repeat(sourceAdmissionRow, 100001), "large.csv")
-	assertPublicAnalyticalSource(t, h, login, session, unit, true, true, 100001)
+	content := sourceAdmissionHeader + strings.Repeat(sourceAdmissionRow, 100001)
+	session, unit := startCSVImportSession(t, h.Server.HTTP.URL, login, incident, "large-source", content, "large.csv")
+	assertPublicAnalyticalSource(t, h, login, session, unit, content, true, true, 100001)
 }
 
-func assertPublicAnalyticalSource(t *testing.T, h *appsupport.ServerHarness, login authcookietest.AuthCookies, session, unit string, previewOK, applyOK bool, accepted int) {
+func assertPublicAnalyticalSource(t *testing.T, h *appsupport.ServerHarness, login authcookietest.AuthCookies, session, unit, content string, previewOK, applyOK bool, accepted int) {
 	t.Helper()
 	base := "/api/v1/import-sessions/" + session + "/units/" + unit
 	inspection := doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPost, base+"/source-inspection", map[string]any{"target_kind": "network_flow_table", "extension_profile_id": "network_flow_activity"})
 	owner := httptestx.RequireSuccessEnvelope(t, inspection, http.StatusOK)["data"].(map[string]any)["owner_result"].(map[string]any)
+	wantSHA := fmt.Sprintf("%x", sha256.Sum256([]byte(content)))
+	if owner["source_content_sha256"] != wantSHA {
+		t.Fatalf("inspection source digest = %v, want %s", owner["source_content_sha256"], wantSHA)
+	}
+	wantHeaders := strings.Split(strings.TrimSuffix(sourceAdmissionHeader, "\n"), ",")
+	columns := owner["source_columns"].([]any)
+	if len(columns) != len(wantHeaders) {
+		t.Fatalf("inspection columns = %d, want %d", len(columns), len(wantHeaders))
+	}
+	for i, raw := range columns {
+		column := raw.(map[string]any)
+		if column["source_column_ordinal"] != float64(i+1) || column["raw_header_text"] != wantHeaders[i] {
+			t.Fatalf("inspection column %d has incorrect ordinal or raw header", i+1)
+		}
+	}
 	preview := doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPost, base+"/mapping-preview", networkFlowMappingPreviewPayload())
 	if !previewOK {
 		httptestx.RequireErrorEnvelope(t, preview, http.StatusBadRequest, "invalid_import_request")
 		return
 	}
 	previewResult := httptestx.RequireSuccessEnvelope(t, preview, http.StatusOK)["data"].(map[string]any)["owner_result"].(map[string]any)
-	if previewResult["source_content_sha256"] != owner["source_content_sha256"] {
-		t.Fatal("preview changed inspected source identity")
+	if previewResult["source_content_sha256"] != wantSHA {
+		t.Fatalf("preview source digest = %v, want %s", previewResult["source_content_sha256"], wantSHA)
+	}
+	fingerprint, ok := previewResult["mapping_fingerprint"].(string)
+	decoded, err := hex.DecodeString(fingerprint)
+	if !ok || err != nil || len(decoded) != sha256.Size || fingerprint != strings.ToLower(fingerprint) {
+		t.Fatal("preview mapping fingerprint is not lower-hex SHA-256")
 	}
 	mapping := networkFlowMappingPayload("map-" + unit)
 	echoes := mapping["source_columns"].([]map[string]any)
-	for i, raw := range owner["source_columns"].([]any) {
+	for i, raw := range columns {
 		column := raw.(map[string]any)
 		echoes[i]["source_header_text"] = column["raw_header_text"]
 		echoes[i]["source_column_ordinal"] = column["source_column_ordinal"]
 	}
 	resp := doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPut, base+"/mapping", mapping)
 	approved := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
-	if approved["mapping_fingerprint"] != previewResult["mapping_fingerprint"] {
+	if approved["mapping_fingerprint"] != fingerprint {
 		t.Fatal("approval differs from preview")
 	}
 	resp = doImportJSON(t, h.Server.HTTP.URL, login, http.MethodPost, base+"/select", map[string]any{"client_txn_id": "select-" + unit})

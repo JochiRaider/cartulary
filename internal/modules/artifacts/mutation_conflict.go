@@ -320,13 +320,17 @@ func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action collect
 }
 
 func conflictLocalUUID(recordID uuid.UUID, fieldKey string, action collectionAction, requestHash []byte, actionIndex int) uuid.UUID {
+	text := action.NormalizedText
+	if action.Op == "add_risk_ref" {
+		text = action.RiskRefText
+	}
 	seed, _ := json.Marshal(map[string]any{
 		"record_id":     recordID.String(),
 		"field_key":     fieldKey,
 		"request_hash":  base64.RawURLEncoding.EncodeToString(requestHash),
 		"action_index":  actionIndex,
 		"op":            action.Op,
-		"risk_ref_text": action.NormalizedText,
+		"risk_ref_text": text,
 	})
 	return uuid.NewSHA1(uuid.NameSpaceOID, seed)
 }

@@ -60,7 +60,7 @@ func TestMigrateFacadeFreshStateAdmission_Integration(t *testing.T) {
 			}
 			var count int
 			var format string
-			if err := db.QueryRow(`SELECT count(*),min(format_id) FROM public.application_crypto_format`).Scan(&count, &format); err != nil || count != 1 || format != database_migrations.ApplicationCryptoFormat {
+			if err := db.QueryRow(`SELECT count(*),min(format_id) FROM public.application_crypto_format`).Scan(&count, &format); err != nil || count != 1 || format != "cartulary.application_crypto_format.v1" {
 				t.Fatalf("identity: %d %q %v", count, format, err)
 			}
 			if _, err := db.Exec(`DELETE FROM public.application_crypto_format`); err != nil {

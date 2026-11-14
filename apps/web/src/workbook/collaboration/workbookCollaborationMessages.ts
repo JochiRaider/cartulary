@@ -49,13 +49,19 @@ export function buildWorkbookPresenceInput(
     sheet_ref: { ...sheetRef },
     mode: presence.mode,
   };
-  if (sheetRef.kind !== "extension_workspace" && presence.recordId !== null) {
+  if (
+    sheetRef.kind !== "extension_workspace" &&
+    presence.recordId !== null &&
+    presence.recordId !== ""
+  ) {
     input.record_id = presence.recordId;
   }
   if (
     sheetRef.kind !== "extension_workspace" &&
     presence.mode === "editing" &&
-    presence.fieldKey !== null
+    input.record_id !== undefined &&
+    presence.fieldKey !== null &&
+    presence.fieldKey !== ""
   ) {
     input.field_key = presence.fieldKey;
   }

@@ -37,16 +37,21 @@ type MentionEffectsPort interface {
 	RepointMergedMentionsTx(context.Context, pgx.Tx, mentions.RepointMergedMentionsCommand) (mentions.RepointMergedMentionsResult, error)
 }
 
+type ReferenceScopePort interface {
+	DependentsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) ([]uuid.UUID, error)
+}
+
 type StoreDependencies struct {
-	Postgres      dbport.DB
-	Revisions     *revisions.Appender
-	HostIdentity  *hostidentity.MergeCapability
-	Assessments   AssessmentEffectsPort
-	Mentions      MentionEffectsPort
-	Links         LinkEffectsPort
-	Timeline      TimelineEffectsPort
-	Projections   projectionports.MutationRows
-	Collaboration collaboration.RecordChangedAppender
+	Postgres       dbport.DB
+	Revisions      *revisions.Appender
+	HostIdentity   *hostidentity.MergeCapability
+	Assessments    AssessmentEffectsPort
+	Mentions       MentionEffectsPort
+	Links          LinkEffectsPort
+	Timeline       TimelineEffectsPort
+	Projections    projectionports.MutationRows
+	Collaboration  collaboration.RecordChangedAppender
+	ReferenceScope ReferenceScopePort
 }
 
 func NewStore(dependencies StoreDependencies) (*Store, error) {
@@ -63,6 +68,7 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 		{name: "Timeline", value: dependencies.Timeline},
 		{name: "Projections", value: dependencies.Projections},
 		{name: "Collaboration", value: dependencies.Collaboration},
+		{name: "ReferenceScope", value: dependencies.ReferenceScope},
 	} {
 		if isNilStoreDependency(dependency.value) {
 			return nil, fmt.Errorf("compose Merge store: %s is required", dependency.name)
@@ -74,6 +80,7 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 	ports.links = dependencies.Links
 	ports.timeline = dependencies.Timeline
 	ports.collaboration = dependencies.Collaboration
+	ports.referenceScope = dependencies.ReferenceScope
 	return &Store{
 		pool:           dependencies.Postgres,
 		authStore:      authn.NewStore(dependencies.Postgres),

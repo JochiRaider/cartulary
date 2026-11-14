@@ -44,7 +44,7 @@ func (d ImportDependencies) validate() error {
 		{name: "Collaboration publication appender", value: d.Collaboration},
 	}
 	for _, dependency := range required {
-		if dependency.value == nil {
+		if isNilCapability(dependency.value) {
 			return fmt.Errorf("artifacts import dependencies: %s is required", dependency.name)
 		}
 	}

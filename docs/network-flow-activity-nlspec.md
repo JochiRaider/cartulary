@@ -4836,6 +4836,14 @@ the caller's restricted consistent export snapshot and emits canonical catalogs,
 ordered NDJSON members and digest-addressed blobs through the bundle owner.
 Bulk rows and blobs MUST NOT be embedded as base64 in metadata payloads.
 
+Under EXT-REQ-232, the export input selection consists of the five logical
+authoritative family streams, not their row populations. The five emitted
+NDJSON members count as five export output items and five import input items,
+including empty members. Import preparation and staged publication members
+count separately under the import operation's output limit. Complete streamed
+observations remain subject to source record and Core archive limits; metadata
+limits do not truncate them or impose a 10,000-row transfer ceiling.
+
 The observation member is ordered by table identifier, then logical source-record
 number; each table/source-record pair is unique. Import verifies the observations
 against a bounded sequential interpretation of the exact committed source and
@@ -4853,8 +4861,8 @@ existing graph result semantics without sorting or buffering every observation.
 
 **NF-REQ-225**
 Transfer requires compatible enabled Network Flow at the destination and bundle
-version 7. It never enables a profile, drops extension state or grants source
-permissions. All source/member hashes, counts, mappings, actors, indicator
+version 8 under Core 01 REQ-01-635. It never enables a profile, drops extension
+state or grants source permissions. All source/member hashes, counts, mappings, actors, indicator
 targets and selected graph bindings validate before publication. Pure Graph
 computation and exact-result verification are shared with Recovery; publication
 for transfer is incident-scoped and uses the final incident-import transaction.

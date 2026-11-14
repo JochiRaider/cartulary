@@ -301,12 +301,11 @@ export async function flushWorkbookAsync() {
 function workbookGridScope(
   container: HTMLElement,
   surface: string,
-): HTMLElement {
-  return (
-    container.querySelector<HTMLElement>(
-      testIdSelector(gridShellTestId(surface)),
-    ) ?? container
-  );
+): HTMLElement | null {
+  const selector = testIdSelector(gridShellTestId(surface));
+  return container.matches(selector)
+    ? container
+    : container.querySelector<HTMLElement>(selector);
 }
 
 function workbookRowDiagnostic(options: {
@@ -315,10 +314,10 @@ function workbookRowDiagnostic(options: {
   expectedVisibleRows?: number | undefined;
   surface: string;
 }) {
-  const grid = workbookGridScope(options.container, options.surface);
-  const mountedRecordIds = visibleGridRows(grid)
-    .map((row) => row.getAttribute("data-grid-record-id") ?? "")
-    .filter(Boolean);
+  const mountedRecordIds = visibleGridRowRecordIds(
+    options.container,
+    options.surface,
+  ).filter(Boolean);
   const expected =
     options.expectedRecordIds === undefined
       ? `count=${options.expectedVisibleRows ?? "(any)"}`
@@ -334,8 +333,9 @@ export function visibleGridRowRecordIds(
   container: HTMLElement,
   surface?: string,
 ): string[] {
-  const scope = surface ? workbookGridScope(container, surface) : container;
-  return visibleGridRows(scope).map(
+  const scope =
+    surface === undefined ? container : workbookGridScope(container, surface);
+  return (scope === null ? [] : visibleGridRows(scope)).map(
     (row) => row.getAttribute("data-grid-record-id") ?? "",
   );
 }
@@ -361,6 +361,9 @@ export async function waitForVisibleGridRowRecordIds(
 ) {
   await waitFor(
     () => {
+      if (workbookGridScope(container, surface) === null) {
+        throw new Error("Requested workbook grid is not mounted.");
+      }
       expect(visibleGridRowRecordIds(container, surface)).toEqual(
         expectedRecordIds,
       );
@@ -395,27 +398,27 @@ export async function waitForWorkbookRows({
       "waitForWorkbookRows requires expectedRecordIds or expectedVisibleRows.",
     );
   }
-  const grid = await screen.findByTestId(gridShellTestId(surface), undefined, {
-    timeout: workbookAsyncTimeoutMs,
-  });
-  await screen.findByTestId(
-    workbookViewBarQueryControlsTestId(surface),
-    undefined,
-    {
-      timeout: workbookAsyncTimeoutMs,
-    },
-  );
-  await waitFor(
+  return waitFor(
     () => {
+      const grid = workbookGridScope(container, surface);
+      if (grid === null) {
+        throw new Error("Requested workbook grid is not mounted.");
+      }
+      if (
+        container.querySelector(
+          testIdSelector(workbookViewBarQueryControlsTestId(surface)),
+        ) === null
+      ) {
+        throw new Error("Requested workbook query controls are not mounted.");
+      }
       if (expectedRecordIds !== undefined) {
         expect(visibleGridRowRecordIds(container, surface)).toEqual(
           expectedRecordIds,
         );
-        return;
+      } else {
+        expect(visibleGridRows(grid)).toHaveLength(expectedVisibleRows ?? 0);
       }
-      expect(
-        visibleGridRows(workbookGridScope(container, surface)),
-      ).toHaveLength(expectedVisibleRows ?? 0);
+      return grid;
     },
     {
       onTimeout: (error) =>
@@ -430,7 +433,6 @@ export async function waitForWorkbookRows({
       timeout: workbookAsyncTimeoutMs,
     },
   );
-  return grid;
 }
 
 // Initial workbook readiness only covers mounted controls and row count.
@@ -468,12 +470,9 @@ export function gridScalarInput(
   fieldKey: string,
   surface?: string,
 ) {
-  const row = Array.from(
-    (surface
-      ? workbookGridScope(container, surface)
-      : container
-    ).querySelectorAll<HTMLElement>(gridSavedRowsSelector()),
-  ).find(
+  const scope =
+    surface === undefined ? container : workbookGridScope(container, surface);
+  const row = (scope === null ? [] : visibleGridRows(scope)).find(
     (candidate) => candidate.getAttribute("data-grid-record-id") === recordId,
   );
   if (!row) {

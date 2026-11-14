@@ -3,9 +3,11 @@ package recovery_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +36,7 @@ func TestRecoveryEvidenceInventoryClosure_Integration(t *testing.T) {
 	})
 	incidentID := uuid.MustParse(incident["incident_id"].(string))
 	ctx := context.Background()
-	fixedAt := time.Date(2026, time.July, 7, 13, 0, 0, 0, time.UTC)
+	fixedAt := time.Now().UTC().Truncate(time.Microsecond)
 	availableAttachedID := uuid.MustParse("00000000-0000-0000-0000-000000710001")
 	availableUnattachedID := uuid.MustParse("00000000-0000-0000-0000-000000710002")
 	pendingID := uuid.MustParse("00000000-0000-0000-0000-000000710003")
@@ -43,38 +45,54 @@ func TestRecoveryEvidenceInventoryClosure_Integration(t *testing.T) {
 	digestA := strings.Repeat("a", 64)
 	digestB := strings.Repeat("b", 64)
 
-	if _, err := harness.Pool.Exec(ctx, `
-INSERT INTO object_blobs (
-    object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
-    byte_size, expected_sha256_hex, observed_size, observed_content_type,
-    observed_sha256_hex, target_expires_at, pending_expires_at, finalized_at,
-    terminal_reason, failed_at, created_at, updated_at
-) VALUES
-    ($1, $5, $6, 'evidence/available-attached', 'available',
-     11, $7, 11, 'text/plain', $7, $8, $8, $9, NULL, NULL, $9, $9),
-    ($2, $5, $6, 'evidence/available-unattached', 'available',
-     12, $10, 12, 'application/pdf', $10, $8, $8, $9, NULL, NULL, $9, $9),
-    ($3, $5, $6, 'evidence/pending-private', 'pending',
-     13, NULL, NULL, NULL, NULL, $8, $8, NULL, NULL, NULL, $9, $9),
-    ($4, $5, $6, 'evidence/failed-private', 'failed',
-     14, NULL, NULL, NULL, NULL, $8, $8, NULL, 'declared_size_mismatch', $9, $9, $9)
-`, availableAttachedID, availableUnattachedID, pendingID, failedID, incidentID, actorID.String(),
-		digestA, fixedAt.Add(time.Hour), fixedAt, digestB); err != nil {
-		t.Fatalf("seed Evidence recovery object states: %v", err)
+	quarantinedAttachedID := uuid.MustParse("00000000-0000-0000-0000-000000710006")
+	quarantinedUnattachedID := uuid.MustParse("00000000-0000-0000-0000-000000710007")
+	deletedEvidenceID := uuid.MustParse("00000000-0000-0000-0000-000000710008")
+	digestC, digestD := strings.Repeat("c", 64), strings.Repeat("d", 64)
+	key := func(id uuid.UUID) string {
+		return fmt.Sprintf("incidents/%s/object-blobs/%s/objects/00000000-0000-4000-8000-000000710009", incidentID, id)
 	}
-	if _, err := harness.Pool.Exec(ctx, `
-WITH record AS (
-    INSERT INTO records (
-        record_id, incident_id, record_type, created_by_user_id, updated_by_user_id,
-        created_at, updated_at
-    ) VALUES ($1, $2, 'evidence', $3, $3, $4, $4)
-)
-INSERT INTO evidence (
-    record_id, incident_id, title, lifecycle_state, received_at,
-    blob_hash, upload_state, object_blob_id, created_at, updated_at
-) VALUES ($1, $2, 'Attached recovery Evidence', 'available', $4, $5, 'complete', $6, $4, $4)
-`, evidenceRecordID, incidentID, actorID.String(), fixedAt, digestA, availableAttachedID); err != nil {
-		t.Fatalf("seed attached Evidence recovery row: %v", err)
+	for _, item := range []struct {
+		id       uuid.UUID
+		state    string
+		size     int64
+		digest   any
+		expected any
+	}{
+		{availableAttachedID, "available", 11, digestA, digestA},
+		{availableUnattachedID, "available", 12, digestB, digestB},
+		{pendingID, "pending", 13, nil, nil}, {failedID, "failed", 14, nil, nil},
+		{quarantinedAttachedID, "quarantined", 15, digestC, digestC},
+		{quarantinedUnattachedID, "quarantined", 16, digestD, nil},
+	} {
+		var observed, finalized, reason, failed, cleanup, contentType any
+		if item.state == "available" || item.state == "quarantined" {
+			observed = item.size
+			finalized = fixedAt
+			contentType = "text/plain"
+		}
+		if item.state == "failed" {
+			reason = "declared_size_mismatch"
+			failed = fixedAt
+			cleanup = fixedAt.Add(45 * time.Minute)
+		}
+		if _, err := harness.Pool.Exec(ctx, `INSERT INTO object_blobs(object_blob_id,incident_id,created_by_user_id,storage_key,upload_state,byte_size,expected_sha256_hex,observed_size,observed_content_type,observed_sha256_hex,target_expires_at,pending_expires_at,finalized_at,terminal_reason,failed_at,cleanup_due_at,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$17,$9,$10,$11,$12,$13,$14,$15,$16,$16)`, item.id, incidentID, actorID, key(item.id), item.state, item.size, item.expected, observed, item.digest, fixedAt.Add(time.Hour), fixedAt.Add(24*time.Hour), finalized, reason, failed, cleanup, fixedAt, contentType); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, item := range []struct {
+		record, blob  uuid.UUID
+		state, digest string
+		deleted       bool
+	}{{evidenceRecordID, availableAttachedID, "available", digestA, false}, {deletedEvidenceID, quarantinedAttachedID, "quarantined", digestC, true}} {
+		if _, err := harness.Pool.Exec(ctx, `WITH record AS (INSERT INTO records(record_id,incident_id,record_type,created_by_user_id,updated_by_user_id,created_at,updated_at) VALUES($1,$2,'evidence',$3,$3,$4,$4)) INSERT INTO evidence(record_id,incident_id,title,lifecycle_state,received_at,blob_hash,upload_state,object_blob_id,created_at,updated_at) VALUES($1,$2,'Retained recovery Evidence',$5,$4,$6,$5,$7,$4,$4)`, item.record, incidentID, actorID, fixedAt, item.state, item.digest, item.blob); err != nil {
+			t.Fatal(err)
+		}
+		if item.deleted {
+			if _, err := harness.Pool.Exec(ctx, `UPDATE records SET deleted_at=$2,deleted_by_user_id=$3 WHERE record_id=$1`, item.record, fixedAt, actorID); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 
 	contribution := evidence.RecoveryStateContribution()
@@ -106,32 +124,36 @@ INSERT INTO evidence (
 	}
 	family := contribution.ObjectFamilies[0]
 	if family.ObjectFamilyID != "evidence.blobs" || family.StateClass != recoverystate.StateAuthoritative ||
-		family.BackupInclusion != recoverystate.InclusionRequired || family.RestoreAction != recoverystate.RestoreState {
+		family.BackupInclusion != recoverystate.InclusionRequired || family.RestoreAction != recoverystate.RestoreState || family.InventoryAlgorithmID == nil || *family.InventoryAlgorithmID != "evidence.snapshot_blob_inventory.v2" {
 		t.Fatalf("unexpected Evidence recovery object-family posture: %#v", family)
 	}
 
 	provider := evidence.NewRecoveryProvider(harness.Pool)
-	objects, err := provider.ListAvailableRecoveryObjects(ctx)
+	objects, err := provider.ListRequiredRecoveryObjects(ctx)
 	if err != nil {
 		t.Fatalf("list Evidence recovery objects: %v", err)
 	}
-	if len(objects) != 2 {
-		t.Fatalf("available Evidence recovery object count = %d, want 2: %#v", len(objects), objects)
+	ptr := func(value string) *string { return &value }
+	sizePtr := func(value int64) *int64 { return &value }
+	wantObjects := []recovery.EvidenceObjectState{
+		{ObjectBlobID: availableAttachedID, StorageKey: key(availableAttachedID), ByteSize: 11, ObservedSize: sizePtr(11), ExpectedSHA256Hex: ptr(digestA), ObservedSHA256Hex: ptr(digestA), BlobHash: ptr(digestA)},
+		{ObjectBlobID: availableUnattachedID, StorageKey: key(availableUnattachedID), ByteSize: 12, ObservedSize: sizePtr(12), ExpectedSHA256Hex: ptr(digestB), ObservedSHA256Hex: ptr(digestB)},
+		{ObjectBlobID: quarantinedAttachedID, StorageKey: key(quarantinedAttachedID), ByteSize: 15, ObservedSize: sizePtr(15), ExpectedSHA256Hex: ptr(digestC), ObservedSHA256Hex: ptr(digestC), BlobHash: ptr(digestC)},
+		{ObjectBlobID: quarantinedUnattachedID, StorageKey: key(quarantinedUnattachedID), ByteSize: 16, ObservedSize: sizePtr(16), ObservedSHA256Hex: ptr(digestD)},
 	}
-	if objects[0].ObjectBlobID != availableAttachedID || objects[0].StorageKey != "evidence/available-attached" ||
-		objects[1].ObjectBlobID != availableUnattachedID || objects[1].StorageKey != "evidence/available-unattached" {
-		t.Fatalf("available Evidence recovery objects are incomplete or unordered: %#v", objects)
+	if !reflect.DeepEqual(objects, wantObjects) {
+		t.Fatalf("required Evidence objects=%#v want=%#v", objects, wantObjects)
 	}
-	if objects[0].BlobHash == nil || *objects[0].BlobHash != digestA || objects[1].BlobHash != nil {
-		t.Fatalf("Evidence recovery attachment metadata = %#v, want attached hash then nil", objects)
-	}
-	index, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, provider)
+
+	index, err := recovery.RequiredBlobObjectIDsByStorageRef(ctx, provider)
 	if err != nil {
 		t.Fatalf("build Evidence recovery object index: %v", err)
 	}
 	wantIndex := map[string]uuid.UUID{
-		"evidence/available-attached":   availableAttachedID,
-		"evidence/available-unattached": availableUnattachedID,
+		key(availableAttachedID):     availableAttachedID,
+		key(availableUnattachedID):   availableUnattachedID,
+		key(quarantinedAttachedID):   quarantinedAttachedID,
+		key(quarantinedUnattachedID): quarantinedUnattachedID,
 	}
 	if len(index) != len(wantIndex) {
 		t.Fatalf("Evidence recovery object index = %#v, want %#v", index, wantIndex)
@@ -147,24 +169,79 @@ INSERT INTO evidence (
 		t.Fatalf("begin Evidence vNext inventory snapshot: %v", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	vNext := evidence.VNextRecoveryObjectInventory(evidenceInventoryObjectSource{})
+	objectSource := &evidenceInventoryObjectSource{}
+	vNext := evidence.VNextRecoveryObjectInventory(objectSource)
 	if vNext.OwnerID() != "module.evidence" || vNext.ObjectFamilyID() != "evidence.blobs" ||
-		vNext.InventoryAlgorithmID() != "evidence.snapshot_blob_inventory.v1" {
+		vNext.InventoryAlgorithmID() != "evidence.snapshot_blob_inventory.v2" {
 		t.Fatalf("unexpected Evidence vNext inventory identity: owner=%q family=%q algorithm=%q", vNext.OwnerID(), vNext.ObjectFamilyID(), vNext.InventoryAlgorithmID())
 	}
 	members, err := vNext.Inventory(ctx, evidenceInventorySnapshot{tx: tx})
 	if err != nil {
 		t.Fatalf("inventory Evidence vNext objects: %v", err)
 	}
-	if len(members) != 2 || members[0].LogicalObjectID != availableAttachedID.String() || members[1].LogicalObjectID != availableUnattachedID.String() {
-		t.Fatalf("Evidence vNext inventory members = %#v, want the two available blobs exactly once", members)
+	assertMembers := func(t testing.TB, members []recovery.VNextObjectMember) {
+		t.Helper()
+		if len(members) != 4 {
+			t.Fatalf("required inventory count=%d want4", len(members))
+		}
+		for i, want := range wantObjects {
+			got := members[i]
+			if got.LogicalObjectID != want.ObjectBlobID.String() || got.StorageKey != want.StorageKey || got.ContentType != "text/plain" || got.PlaintextBytes != want.ByteSize || got.PlaintextSHA256 != *want.ObservedSHA256Hex || got.Open == nil {
+				t.Fatalf("inventory[%d]=%#v want=%#v", i, got, want)
+			}
+		}
 	}
-	if members[0].StorageKey != "evidence/available-attached" || members[0].ContentType != "text/plain" || members[0].PlaintextBytes != 11 || members[0].PlaintextSHA256 != digestA {
-		t.Fatalf("unexpected attached Evidence vNext member: %#v", members[0])
+	assertMembers(t, members)
+	// Freeze the read snapshot, then corrupt a finalized row outside it. Both
+	// inventories reject fresh reads, while the original snapshot stays coherent.
+	for _, state := range []string{"available", "quarantined"} {
+		for _, change := range []struct {
+			name, field string
+			value       any
+		}{
+			{"missing observed size", "observed_size", nil}, {"mismatched observed size", "observed_size", int64(17)},
+			{"missing digest", "observed_sha256_hex", nil},
+			{"expected mismatch", "expected_sha256_hex", digestA},
+		} {
+			t.Run(state+"/"+change.name, func(t *testing.T) {
+				if _, err := harness.Pool.Exec(ctx, "UPDATE object_blobs SET upload_state=$2,"+change.field+"=$3 WHERE object_blob_id=$1", quarantinedUnattachedID, state, change.value); err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					if _, err := harness.Pool.Exec(ctx, `UPDATE object_blobs SET upload_state='quarantined',observed_size=16,observed_sha256_hex=$2,expected_sha256_hex=NULL WHERE object_blob_id=$1`, quarantinedUnattachedID, digestD); err != nil {
+						t.Error(err)
+					}
+				}()
+				actual, err := provider.ListRequiredRecoveryObjects(ctx)
+				if !errors.Is(err, recovery.ErrInvalidBackupArtifact) || actual != nil {
+					t.Fatalf("invalid required row produced partial inventory=%#v err=%v", actual, err)
+				}
+				fresh, err := harness.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer fresh.Rollback(ctx)
+				actualMembers, err := vNext.Inventory(ctx, evidenceInventorySnapshot{tx: fresh})
+				if !errors.Is(err, recovery.ErrInvalidBackupArtifact) || actualMembers != nil {
+					t.Fatalf("invalid required row produced snapshot members=%#v err=%v", actualMembers, err)
+				}
+				original, err := vNext.Inventory(ctx, evidenceInventorySnapshot{tx: tx})
+				if err != nil {
+					t.Fatal(err)
+				}
+				assertMembers(t, original)
+			})
+		}
 	}
-	if members[1].StorageKey != "evidence/available-unattached" || members[1].ContentType != "application/pdf" || members[1].PlaintextBytes != 12 || members[1].PlaintextSHA256 != digestB {
-		t.Fatalf("unexpected unattached Evidence vNext member: %#v", members[1])
+	if objectSource.reads != 0 || objectSource.stats != 0 {
+		t.Fatalf("inventory accessed bytes: reads=%d stats=%d", objectSource.reads, objectSource.stats)
 	}
+	var deleted bool
+	var state string
+	if err := harness.Pool.QueryRow(ctx, `SELECT r.deleted_at IS NOT NULL,b.upload_state FROM records r JOIN evidence e USING(record_id) JOIN object_blobs b ON b.object_blob_id=e.object_blob_id WHERE r.record_id=$1`, deletedEvidenceID).Scan(&deleted, &state); err != nil || !deleted || state != "quarantined" {
+		t.Fatalf("inventory changed retained state: deleted=%v blob=%s err=%v", deleted, state, err)
+	}
+
 }
 
 type evidenceInventorySnapshot struct {
@@ -183,12 +260,14 @@ func (snapshot evidenceInventorySnapshot) QueryRows(ctx context.Context, query s
 	return snapshot.tx.Query(ctx, sqlshape.Text(query), args...)
 }
 
-type evidenceInventoryObjectSource struct{}
+type evidenceInventoryObjectSource struct{ reads, stats int }
 
-func (evidenceInventoryObjectSource) OpenRecoveryObject(context.Context, string) (io.ReadCloser, error) {
+func (source *evidenceInventoryObjectSource) OpenRecoveryObject(context.Context, string) (io.ReadCloser, error) {
+	source.reads++
 	return nil, fmt.Errorf("object reads are outside the Evidence inventory fixture")
 }
 
-func (evidenceInventoryObjectSource) StatRecoveryObject(context.Context, string) (recovery.VNextObjectSourceInfo, error) {
+func (source *evidenceInventoryObjectSource) StatRecoveryObject(context.Context, string) (recovery.VNextObjectSourceInfo, error) {
+	source.stats++
 	return recovery.VNextObjectSourceInfo{}, fmt.Errorf("object stats are outside the Evidence inventory fixture")
 }

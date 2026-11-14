@@ -160,6 +160,13 @@ describe("Workbook presence", () => {
       { ...record("wrong-mode"), mode: "focused" },
       { ...record("wrong-field"), field_key: "summary" },
       { ...record("empty-row"), record_id: "" },
+      { ...record("field-without-row"), mode: "editing", field_key: "summary" },
+      {
+        ...record("field-empty-row"),
+        mode: "editing",
+        field_key: "summary",
+        record_id: "",
+      },
     ] as PresenceRecord[];
     expect(project(invalid).presentation.header.users).toEqual([]);
   });

@@ -1,6 +1,7 @@
 package evidence
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -188,6 +189,20 @@ func (s *service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer object.Close()
+	// Opening a stream does not establish that bytes can be read. Keep errors
+	// before the first byte inside the ordinary error envelope and leave the
+	// download handle available for retry. Buffering stays independent of size.
+	stream := bufio.NewReader(object)
+	if _, err := stream.Peek(1); err != nil && !(errors.Is(err, io.EOF) && handle.SizeBytes == 0) {
+		if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
+			writeAPIError(w, r, apiErr)
+		} else if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			writeAPIError(w, r, evidenceAccessUnavailable("evidence_inconsistent"))
+		} else {
+			writeAPIError(w, r, objectStoreUnavailableAPIError("endpoint_unreachable", true))
+		}
+		return
+	}
 	if handle.HandleKind == "download" {
 		if err := s.operations.ConsumeDownloadHandle(r.Context(), token, now); err != nil {
 			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusGone, Code: "handle_consumed", Details: map[string]any{}})
@@ -203,7 +218,7 @@ func (s *service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Digest", "sha-256="+*handle.SHA256)
 	}
 	w.WriteHeader(status)
-	_, _ = io.Copy(w, object)
+	_, _ = io.Copy(w, stream)
 }
 
 func parseByteRange(value string, size int64) (int64, int64, bool) {

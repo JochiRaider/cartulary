@@ -89,7 +89,8 @@ async function removeKeyboardSentinel(page: Page) {
   }, keyboardSentinelId);
 }
 
-export async function expectTabOrderIncludes(
+/** Reaches each requested target within the bound, in any order. */
+export async function expectTabReachability(
   page: Page,
   testIds: readonly (string | RegExp)[],
   maxTabs = 180,
@@ -113,7 +114,8 @@ export async function expectTabOrderIncludes(
   }
 }
 
-export async function expectNoFocusTrap(page: Page) {
+/** Checks the first two tab stops and one reverse step, not the full focus graph. */
+export async function expectInitialTabRoundTrip(page: Page) {
   await focusKeyboardSentinel(page);
   try {
     await page.keyboard.press("Tab");

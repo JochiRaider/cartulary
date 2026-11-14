@@ -60,11 +60,20 @@ test("every source variant rejects impossible channels, limitations and parent i
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-review-variants-"));
   try {
   const canonical = await importCanonical(importFixture(root).request);
+  // Independent expectation: validator policy must not choose which negative
+  // cases qualify its own source/channel boundary.
+  const expectedVariants = {
+    sealed_review: { required: ["original", "observations"], forbidden: ["expected", "actual", "diff", "trace"], observation: true },
+    live_unattested: { required: ["original", "observations"], forbidden: ["expected", "actual", "diff", "trace"], observation: true },
+    reference_image: { required: ["original"], forbidden: ["expected", "actual", "diff", "observations", "trace"], observation: false },
+    canonical_visual: { required: [], forbidden: ["original", "observations"], observation: false },
+  };
+  assert.deepEqual(sourceVariants, expectedVariants);
   const sha = "a".repeat(64), time = "2026-09-28T00:00:00.000Z";
   const ref = (name, media_type = "image/png") => ({ path: name, sha256: sha, bytes: 1, media_type });
   const binding = { owner_id: "fixture.owner", row_id: "fixture.row", scenario_id: "fixture.scenario", capture_id: "fixture.capture", fixture_ids: [] };
   const observed = { epoch: 0, started_at: time, finished_at: time, duration_ms: 0, viewport: { width: 1, height: 1 }, image_dimensions: { width: 1, height: 1 }, device_scale_factor: 1, visual_viewport_scale: 1, css_zoom: 1, theme: null, density: null, document_generation: 0, scope: { kind: "viewport" }, coordinate_transform: { origin_x: 0, origin_y: 0, scale_x: 1, scale_y: 1 } };
-  for (const [kind, rule] of Object.entries(sourceVariants)) {
+  for (const [kind, rule] of Object.entries(expectedVariants)) {
     const bundle = { schema_id: schemaID("bundle"), session_id: `uireview-${"a".repeat(32)}`, bundle_id: "bundle-1", classification: "private_diagnostic", tool_profile: toolProfile(), parents: [], source: { kind }, observation: rule.observation ? observed : null, binding: kind === "canonical_visual" ? binding : null, components: { original: null, expected: null, actual: null, diff: null, observations: null, trace: null }, derived: [], analysis: null, limitations: [] };
     if (kind === "reference_image") Object.assign(bundle.source, { import_ref: { input_path: "/private/reference.png", input_sha256: sha, metadata: null } });
     else Object.assign(bundle.source, { workspace_digest: sha, browser_version: "fixture-engine" });

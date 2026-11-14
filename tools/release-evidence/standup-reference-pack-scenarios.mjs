@@ -1,6 +1,7 @@
 // Exercises shipped entry points. SQL is test observation and explicit loss
 // injection only; no alternate admission, verification, or recovery executor.
 import assert from "node:assert/strict";
+import {assertPackageQualificationSource, packageDestinationProject} from "./package-qualification-project.mjs";
 import {windowsProbe} from "./package-platform.mjs";
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { chmodSync, copyFileSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
@@ -9,8 +10,7 @@ import { spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
 const [root, work, project, origin, artifacts] = process.argv.slice(2);
-assert.match(project, /^cartularymvpsmoke[0-9]+$/);
-assert.match(path.basename(work), /^cartulary-standup-package-smoke\.[a-zA-Z0-9]+$/);
+assertPackageQualificationSource(work, project);
 const checks = [];
 function completed(name) {
   checks.push(name);
@@ -236,8 +236,8 @@ await new Promise((resolve) => portServer.listen(0, "127.0.0.1", resolve));
 const destinationPort = portServer.address().port;
 await new Promise((resolve) => portServer.close(resolve));
 const destinationOrigin = `https://127.0.0.1:${destinationPort}`;
-writeFileSync(path.join(destinationWork, ".env"), readFileSync(path.join(work, ".env"), "utf8").replace(/^CARTULARY_MVP_COMPOSE_PROJECT_NAME=.*$/m, `CARTULARY_MVP_COMPOSE_PROJECT_NAME=${project}destination`).replace(/^CARTULARY_HTTP_PORT=.*$/m, `CARTULARY_HTTP_PORT=${destinationPort}`).replace(/^CARTULARY_PUBLIC_ORIGIN=.*$/m, `CARTULARY_PUBLIC_ORIGIN=${destinationOrigin}`));
-const destination = deployment(destinationWork, `${project}destination`, destinationOrigin);
+writeFileSync(path.join(destinationWork, ".env"), readFileSync(path.join(work, ".env"), "utf8").replace(/^CARTULARY_MVP_COMPOSE_PROJECT_NAME=.*$/m, `CARTULARY_MVP_COMPOSE_PROJECT_NAME=${packageDestinationProject(project)}`).replace(/^CARTULARY_HTTP_PORT=.*$/m, `CARTULARY_HTTP_PORT=${destinationPort}`).replace(/^CARTULARY_PUBLIC_ORIGIN=.*$/m, `CARTULARY_PUBLIC_ORIGIN=${destinationOrigin}`));
+const destination = deployment(destinationWork, packageDestinationProject(project), destinationOrigin);
 destination.operate("start"); await destination.ready(); await login(destination);
 const destinationBase = selection(destination);
 const exportJob = await source.post("/api/v1/incident-bundles/export", "export", { incident_id: incidentID, optional_sections: ["snapshots"], reference_pack_mode: "embedded" }, { status: 202 });
@@ -325,7 +325,7 @@ for(const name of [".env","config.toml","bootstrap-admin.json","restore-verifica
   chmodSync(path.join(recoveredWork,name),name===".env"?0o600:0o644);
 }
 mkdirSync(path.join(recoveredWork,"reference-pack-incoming"),{mode:0o755});
-const recovered=deployment(recoveredWork,`${project}destination`,destinationOrigin);
+const recovered=deployment(recoveredWork,packageDestinationProject(project),destinationOrigin);
 const retryID=randomUUID();
 const restoreArgs=["restore-bundle",path.join(transfers,"fresh"),backup.backup_set_id,"--operation-id",retryID];
 const restored=JSON.parse(recovered.operate(...restoreArgs));
@@ -335,7 +335,7 @@ assert.deepEqual(JSON.parse(recovered.sql(bindingSQL)),JSON.parse(binding));
 for (const rendered of renderedReleases) assert.deepEqual(retainedPDF(recovered, rendered.release_id), rendered);
 assert.equal(recovered.sql("SELECT root_version FROM reference_pack_repositories WHERE repository_id='package_smoke.repo'"),"2");
 assert.equal(recovered.sql("SELECT count(*) FROM backup_sets"),"0","restore fabricated backup freshness");
-const restoredExportHash=command("docker",["run","--rm","--label",`com.docker.compose.project=${project}destination`,"--entrypoint","sha256sum","-v",`${project}destination_cartulary-exports:/data:ro`,helperImage,`/data/${bundleRef}`]).split(" ")[0];
+const restoredExportHash=command("docker",["run","--rm","--label",`com.docker.compose.project=${packageDestinationProject(project)}`,"--entrypoint","sha256sum","-v",`${packageDestinationProject(project)}_cartulary-exports:/data:ro`,helperImage,`/data/${bundleRef}`]).split(" ")[0];
 assert.equal(restoredExportHash,exportHash);
 recovered.operate("start");await recovered.ready();
 assert.equal(recovered.sql("SELECT count(*) FROM backup_sets WHERE consistency_point_at > now()-interval '24 hours'"),"1");

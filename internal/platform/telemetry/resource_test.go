@@ -12,6 +12,30 @@ import (
 )
 
 func TestResourceIdentityClosedRegistry(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		profileIDs []string
+		digest     string
+		claims     string
+	}{
+		{"empty", nil, "e6d6317f1985f900f7cdc505d437bc0f3d706a5be7efc6b291303d997a81ebee", "base"},
+		{"single", []string{"import"}, "438eb82d605997436277a9318a6ce13f70a4966da8fbb22d2373b4de10890e87", "base,import"},
+		{"multiple", []string{"import", "snapshot_reporting"}, "5eadd0fb42151fe414a8c59ea58584ae9cbaea3e00d630f80b87738f9b72f178", "base,import,snapshot_reporting"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			resource, err := buildResourceIdentityFromConfig(validTelemetryBootstrapConfig(t), ResolvedClaimIdentity{
+				ProfileIDs: test.profileIDs,
+				SHA256:     test.digest,
+			})
+			if err != nil {
+				t.Fatalf("build resource with canonical claim identity: %v", err)
+			}
+			if got := attributesByKey(resource)["cartulary.profile.claims"]; got != test.claims {
+				t.Fatalf("profile claims = %q, want %q", got, test.claims)
+			}
+		})
+	}
+
 	cfg := validTelemetryBootstrapConfig(t)
 	cfg.Telemetry.Resource.DeploymentEnvironmentName = "test"
 	resource, err := buildResourceIdentityFromConfig(cfg, resolvedClaimIdentity(t,
@@ -142,6 +166,14 @@ func TestResourceIdentityRejectsUnboundOrNoncanonicalClaimIdentity(t *testing.T)
 			ProfileIDs: []string{"import"},
 			SHA256:     strings.Repeat("0", 64),
 		},
+		"missing final LF": {
+			ProfileIDs: []string{"import"},
+			SHA256:     "08b2faf65712ed4db0088056c13197d0910ebd81eedf06985d792cfdddd11f59",
+		},
+		"double final LF": {
+			ProfileIDs: []string{"import"},
+			SHA256:     "e6a6ed25e40445145336c2c35231056eceb8e13625cc40ead02765633c0c8b81",
+		},
 		"duplicate": resolvedClaimIdentity(t, "import", "import"),
 		"unsorted":  resolvedClaimIdentity(t, "snapshot_reporting", "import"),
 		"base":      resolvedClaimIdentity(t, "base"),
@@ -182,7 +214,7 @@ func resolvedClaimIdentity(t testing.TB, profileIDs ...string) ResolvedClaimIden
 	if err != nil {
 		t.Fatalf("encode resolved claim identity: %v", err)
 	}
-	digest := sha256.Sum256(canonicalBytes)
+	digest := sha256.Sum256(append(canonicalBytes, '\n'))
 	return ResolvedClaimIdentity{
 		ProfileIDs: append([]string(nil), profileIDs...),
 		SHA256:     hex.EncodeToString(digest[:]),

@@ -29,7 +29,7 @@ func TestIncidentClientTrustedTLSRevocation(t *testing.T) {
 		if err := wsjson.Read(context.Background(), conn, &hello); err != nil {
 			return
 		}
-		if hello.Type != "hello" {
+		if hello.Type != "hello" || !validClientEnvelope(t, hello, incidentID) {
 			_ = conn.Close(websocket.StatusPolicyViolation, "unexpected_message")
 			return
 		}
@@ -58,7 +58,7 @@ func TestIncidentClientTrustedTLSRevocation(t *testing.T) {
 		if err := wsjson.Read(context.Background(), conn, &trigger); err != nil {
 			return
 		}
-		if trigger.Type != "trigger_session_revoked" {
+		if trigger.Type != "trigger_session_revoked" || !validClientEnvelope(t, trigger, incidentID) {
 			_ = conn.Close(websocket.StatusPolicyViolation, "unexpected_message")
 			return
 		}
@@ -85,4 +85,15 @@ func TestIncidentClientTrustedTLSRevocation(t *testing.T) {
 	}
 
 	ExpectSessionRevoked(t, client, "test_reason")
+}
+
+func validClientEnvelope(t *testing.T, message platformws.Message, incidentID string) bool {
+	t.Helper()
+	stamp, err := time.Parse(time.RFC3339Nano, message.EmittedAt)
+	_, offset := stamp.Zone()
+	if message.IncidentID != incidentID || err != nil || offset != 0 || message.StreamSeq != nil {
+		t.Errorf("bound client emitted invalid envelope: %#v", message)
+		return false
+	}
+	return true
 }

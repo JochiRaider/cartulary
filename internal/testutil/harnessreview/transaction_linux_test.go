@@ -208,6 +208,14 @@ func testPublicationTransactions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		recoveredRuntime := p.runtime
+		t.Cleanup(func() {
+			// This case deliberately leaves conflicting publication authority.
+			// Its replacement runtime still owns handles until test settlement.
+			if err := recoveredRuntime.ReleaseHandles(); err != nil {
+				t.Error(err)
+			}
+		})
 		if _, err := p.runtime.BeginRecoveryAttempt(); err != nil {
 			t.Fatal(err)
 		}

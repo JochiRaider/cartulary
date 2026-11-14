@@ -21,7 +21,7 @@ func newAssessmentImportCreateFacade(
 	appender *revisions.Appender,
 	publications collaboration.RecordChangedAppender,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
-	subjects, err := assessmentassembly.NewSubjectValidator(pool, hostidentity.NewSourceFacts())
+	references, err := assessmentassembly.NewReferenceAdmission(pool, hostidentity.NewSourceFacts())
 	if err != nil {
 		return nil, fmt.Errorf("compose assessment import facade: %w", err)
 	}
@@ -41,7 +41,7 @@ func newAssessmentImportCreateFacade(
 		targetViewSchemaID,
 		facadeID,
 		assessments.ImportCreateDependencies{
-			Subjects:      subjects,
+			References:    references,
 			Assessors:     assessors,
 			Records:       records,
 			Revisions:     appender,

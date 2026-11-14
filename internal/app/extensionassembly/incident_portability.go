@@ -37,13 +37,20 @@ func IncidentPortabilityPolicies(catalog []extensions.PortabilityPolicy, claims 
 			ContractMajor: policy.ContractMajor, Mode: policy.Mode,
 			ParticipantID: policy.ParticipantID, ParticipantSHA256: policy.ParticipantSHA256,
 			ParticipantSchemaID: policy.ParticipantSchemaID,
-			MaximumInputBytes:   policy.MaximumInputBytes, MaximumOutputBytes: policy.MaximumOutputBytes,
+			Export:              portabilityOperationPolicy(policy.Export), Import: portabilityOperationPolicy(policy.Import),
 			AuthoritativeFamilyIDs: append([]string(nil), policy.AuthoritativeFamilyIDs...),
 			BlockingFamilyIDs:      append([]string(nil), policy.BlockingFamilyIDs...),
 		}
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].ProfileID < result[j].ProfileID })
 	return result
+}
+
+func portabilityOperationPolicy(policy extensions.PortabilityOperationPolicy) incidentbundles.PortabilityOperationPolicy {
+	return incidentbundles.PortabilityOperationPolicy{
+		OutputSchemaID: policy.OutputSchemaID, StateFamilyIDs: append([]string(nil), policy.StateFamilyIDs...),
+		MaximumInputBytes: policy.MaximumInputBytes, MaximumOutputBytes: policy.MaximumOutputBytes, MaximumItems: policy.MaximumItems,
+	}
 }
 
 // IncidentPortabilityStatePresence dispatches only admitted logical family
@@ -76,11 +83,11 @@ func (p *IncidentPortabilityStatePresence) AuthoritativeStatePresent(ctx context
 // coordinator's transaction or another owner's members.
 type IncidentPortabilityReads struct{}
 
-func (IncidentPortabilityReads) ForSnapshot(query incidentbundles.ExportSnapshotQuery, incidentID uuid.UUID, profileID string) (incidentbundles.ExportReadCapability, error) {
+func (IncidentPortabilityReads) ForSnapshot(query incidentbundles.ExportSnapshotQuery, incidentID uuid.UUID, profileID string, familyIDs []string) (incidentbundles.ExportReadCapability, error) {
 	if profileID != networkflow.ProfileID {
 		return nil, incidentbundles.ErrPortabilityUnavailable
 	}
-	return networkflow.NewPortabilityExportAccess(query, incidentID, incidentbundles.PortableSourceAttributions())
+	return networkflow.NewPortabilityExportAccess(query, incidentID, familyIDs, incidentbundles.PortableSourceAttributions())
 }
 func (IncidentPortabilityReads) ForImport(ctx context.Context, input incidentbundles.PortabilityImportContext, members incidentportability.MemberReader, profileID string) (incidentbundles.ImportDependencyAccess, error) {
 	if profileID != networkflow.ProfileID {

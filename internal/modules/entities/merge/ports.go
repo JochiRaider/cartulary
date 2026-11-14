@@ -18,17 +18,20 @@ import (
 )
 
 type entityStorePorts struct {
-	assessments   AssessmentEffectsPort
-	mentions      entityMentionPort
-	records       entityRecordPort
-	revisions     entityRevisionPort
-	links         LinkEffectsPort
-	projections   projectionports.MutationRows
-	timeline      TimelineEffectsPort
-	collaboration collaboration.RecordChangedAppender
+	assessments    AssessmentEffectsPort
+	mentions       entityMentionPort
+	records        entityRecordPort
+	revisions      entityRevisionPort
+	links          LinkEffectsPort
+	projections    projectionports.MutationRows
+	timeline       TimelineEffectsPort
+	collaboration  collaboration.RecordChangedAppender
+	referenceScope ReferenceScopePort
 }
 
 type entityRecordPort interface {
+	LoadTargetMeta(context.Context, uuid.UUID) (mergeTargetMeta, error)
+	LoadTargetMetaTx(context.Context, pgx.Tx, uuid.UUID) (mergeTargetMeta, error)
 	InsertTx(context.Context, pgx.Tx, entityRecordInsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
@@ -142,7 +145,7 @@ func newEntityStorePorts(
 	projectionRows projectionports.MutationRows,
 ) entityStorePorts {
 	return entityStorePorts{
-		records:     entityRecordAdapter{store: records.NewStore()},
+		records:     entityRecordAdapter{store: records.NewStore(pool)},
 		revisions:   entityRevisionAdapter{appender: appender},
 		projections: projectionRows,
 	}
@@ -150,6 +153,22 @@ func newEntityStorePorts(
 
 type entityRecordAdapter struct {
 	store *records.Store
+}
+
+func (a entityRecordAdapter) LoadTargetMeta(ctx context.Context, recordID uuid.UUID) (mergeTargetMeta, error) {
+	envelope, err := a.store.LoadEnvelope(ctx, recordID)
+	if err != nil {
+		return mergeTargetMeta{}, err
+	}
+	return mergeTargetMeta{RecordID: envelope.RecordID, IncidentID: envelope.IncidentID, RecordType: envelope.RecordType}, nil
+}
+
+func (a entityRecordAdapter) LoadTargetMetaTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (mergeTargetMeta, error) {
+	envelope, err := a.store.LoadEnvelopeTx(ctx, tx, recordID, false)
+	if err != nil {
+		return mergeTargetMeta{}, err
+	}
+	return mergeTargetMeta{RecordID: envelope.RecordID, IncidentID: envelope.IncidentID, RecordType: envelope.RecordType}, nil
 }
 
 func (a entityRecordAdapter) InsertTx(ctx context.Context, tx pgx.Tx, params entityRecordInsertParams) (uuid.UUID, error) {

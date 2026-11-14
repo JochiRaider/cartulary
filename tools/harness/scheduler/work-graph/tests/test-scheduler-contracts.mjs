@@ -17,6 +17,7 @@ async function assertDependencyClosureContract(context) {
   const profile = context.cacheRegistry.profiles.find((entry) => entry.profile_id === "test_rows");
   const goRow = context.catalog.rows.find((row) => row.runner === "go" && row.fixture_capability === "none");
   const goUnit = cacheableRowUnit(context, goRow);
+  assertGoImportClosureContract(context, profile, goRow, goUnit);
   const statefulRow = context.catalog.rows.find((row) => new Set(["go", "vitest"]).has(row.runner) &&
     (row.fixture_capability !== "none" || row.service_dependencies.length > 0));
   assert.ok(statefulRow, "the catalog must retain a stateful row cache boundary fixture");
@@ -172,9 +173,9 @@ function assertReleaseInventoryContract(context) {
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "docker-compose.dev.yml",
-    "tools/toolchain_pins.json",
-    "tools/release-evidence/generate-sbom-license-evidence.mjs",
-    "tools/schemas/cartulary.license_report.v2.schema.json",
+    "db",
+    "referencepacks",
+    "tools",
   ]) {
     assert.ok(profile.input_roots.includes(requiredInput), `${requiredInput} must invalidate release inventory`);
   }
@@ -197,6 +198,13 @@ function assertReleaseInventoryContract(context) {
     "docker-compose.dev.yml",
     "tools/release-evidence/generate-sbom-license-evidence.mjs",
     "tools/schemas/cartulary.license_report.v2.schema.json",
+    "tools/go_modules.json",
+    "tools/harness/test-catalog/go-modules.mjs",
+    "tools/reference-pack-modules/main.go",
+    "referencepacks/attack/go.mod",
+    "referencepacks/attack/go.sum",
+    "referencepacks/attack/command.go",
+    "db/migrations/source.go",
   ]) {
     assert.ok(baselineClosure.entries.some((entry) => entry.path === pathUnderTest), `${pathUnderTest} must occur in the release inventory dependency closure`);
     const changed = source.entries.map((entry) => entry.path === pathUnderTest ? changedDigest(entry, "9") : entry);
@@ -242,6 +250,56 @@ function changedDigest(entry, fill) {
 function cacheableRowUnit(context, row) {
   return context.compiler.compile({ kind: "rows", row_ids: [row.row_id] }).units.find((unit) => unit.current_run_evidence_outputs.includes(`rows/${row.row_id}.json`));
 }
+function assertGoImportClosureContract(context, profile, row, unit) {
+  const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-go-dependencies."));
+  const selected = row.selector.package.replace(/^\.\//u, "");
+  const dependency = "internal/cache-dependency";
+  const write = (relative, content) => {
+    mkdirSync(path.dirname(path.join(fixtureRoot, relative)), { recursive: true });
+    writeFileSync(path.join(fixtureRoot, relative), content);
+  };
+  const snapshot = (directory = fixtureRoot) => readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) return snapshot(file);
+    return [{ path: path.relative(fixtureRoot, file), kind: "file", mode: "0644",
+      byte_digest: `sha256:${createHash("sha256").update(readFileSync(file)).digest("hex")}` }];
+  });
+  const resolve = () => resolveCacheDependencyClosure({ root: fixtureRoot, entries: snapshot(), profile, unit,
+    resolverCache: new Map([["test-catalog", context.catalog]]) });
+  try {
+    write("go.mod", "module example.test/cache\n\ngo 1.27\n");
+    write(`${dependency}/value.go`, "package dependency\nconst Value = 1\n");
+    write("internal/unrelated/value.go", "package unrelated\nconst Value = 1\n");
+    const specifier = `example.test/cache/${dependency}`;
+    for (const declaration of [
+      `import "${specifier}"`,
+      `import renamed "${specifier}"`,
+      `import \`${specifier}\``,
+      `import . "${specifier}"`,
+      `import _ "${specifier.replace("cache-dependency", String.raw`\x63ache-dependency`)}"`,
+      `import ( /* ) "example.test/cache/missing" */ renamed "${specifier}" )`,
+      `// import "example.test/cache/missing"\nimport "${specifier}"`,
+    ]) {
+      write(`${selected}/fixture.go`, `package fixture\n${declaration}\n`);
+      write("internal/unrelated/value.go", "package unrelated\nconst Value = 1\n");
+      const before = resolve();
+      assert.equal(before.strategy, "go_packages", declaration);
+      assert.deepEqual(before.metadata.packages, [selected, dependency].sort(compareASCII), declaration);
+      assert.ok(before.entries.some(entry => entry.path === `${dependency}/value.go`));
+      write(`${dependency}/value.go`, "package dependency\nconst Value = 2\n");
+      assert.notEqual(resolve().digest, before.digest, "parsed transitive input must invalidate reuse");
+      write(`${dependency}/value.go`, "package dependency\nconst Value = 1\n");
+      write("internal/unrelated/value.go", "package unrelated\nconst Value = 2\n");
+      assert.equal(resolve().digest, before.digest, "unrelated package must not change proved narrow closure");
+    }
+    for (const declaration of ['import "unterminated', 'import "example.test/cache/missing"']) {
+      write(`${selected}/fixture.go`, `package fixture\n${declaration}\n`);
+      const fallback = resolve();
+      assert.equal(fallback.strategy, "broad_fallback", declaration);
+      assert.ok(fallback.entries.some(entry => entry.path === "internal/unrelated/value.go"));
+    }
+  } finally { rmSync(fixtureRoot, { recursive: true, force: true }); }
+}
 function assertTypeScriptDependencyClosureContract(context, profile, row, unit) {
   const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-contract-dependencies."));
   const selectedWorkspace = row.selector.file.split("/").slice(0, 2).join("/");
@@ -283,6 +341,37 @@ function assertTypeScriptDependencyClosureContract(context, profile, row, unit) 
     assert.ok(initial.entries.some((entry) => entry.path === `${selectedWorkspace}/package.json`));
     assert.ok(initial.entries.some((entry) => entry.path === importer), "transitive workspace must contribute executable source");
     assert.deepEqual([...initial.metadata.workspaces].sort(compareASCII), [selectedWorkspace, "packages/cache-fixture"].sort(compareASCII));
+    const originalSyntax = readFileSync(path.join(fixtureRoot, importer), "utf8");
+    const specifier = "../../../" + fixture;
+    for (const syntax of [
+      `import fixture from "${specifier.replace("contracts", String.raw`con\u0074racts`)}";`,
+      `const fixture = import(\`${specifier}\`);`,
+      `type Fixture = import("${specifier}");`,
+      `import fixture = require("${specifier}");`,
+      `const fixture = require.resolve("${specifier}");`,
+      `export { default } from "${specifier}";`,
+      `${originalSyntax}// import "../../../missing-fixture.json"`,
+    ]) {
+      write(importer, syntax);
+      const before = resolve();
+      assert.equal(before.strategy, "typescript_workspaces", syntax);
+      assert.ok(before.entries.some(entry => entry.path === fixture), syntax);
+      write(fixture, '{"version":2}\n');
+      assert.notEqual(resolve().digest, before.digest, "parsed contract input must invalidate reuse");
+      write(fixture, '{"version":1}\n');
+    }
+    for (const syntax of [
+      `const name = "${specifier}"; import(name);`,
+      `const name = "${specifier}"; require(name);`,
+      'import(`../../../contracts/${name}.json`);',
+      'import.meta.glob("../../../contracts/*.json");',
+      '/// <reference path="../../../outside.ts" />',
+      'import fixture from "unterminated',
+    ]) {
+      write(importer, syntax);
+      assert.equal(resolve().strategy, "broad_fallback", syntax);
+    }
+    write(importer, originalSyntax);
     const untracked = `${selectedWorkspace}/src/untracked-cache-input.fixture`;
     write(untracked, "untracked input\n");
     const added = resolve();

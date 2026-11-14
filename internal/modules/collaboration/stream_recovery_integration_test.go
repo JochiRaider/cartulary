@@ -305,6 +305,19 @@ $function$
 `); err != nil {
 			t.Fatalf("install requeue rollback function: %v", err)
 		}
+		t.Cleanup(func() {
+			for _, statement := range []string{
+				`DROP TRIGGER IF EXISTS cartulary_test_fail_requeue_intent_update ON collaboration_event_intents`,
+				`DROP FUNCTION IF EXISTS cartulary_test_fail_requeue_intent_update()`,
+			} {
+				cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				_, err := harness.DB.ExecContext(cleanupCtx, statement)
+				cancel()
+				if err != nil {
+					t.Errorf("retire recovery fault (%s): %v", statement, err)
+				}
+			}
+		})
 		if _, err := harness.DB.ExecContext(ctx, `
 CREATE TRIGGER cartulary_test_fail_requeue_intent_update
 BEFORE UPDATE ON collaboration_event_intents
@@ -312,10 +325,6 @@ FOR EACH ROW EXECUTE FUNCTION cartulary_test_fail_requeue_intent_update()
 `); err != nil {
 			t.Fatalf("install requeue rollback trigger: %v", err)
 		}
-		defer func() {
-			_, _ = harness.DB.ExecContext(context.Background(), `DROP TRIGGER IF EXISTS cartulary_test_fail_requeue_intent_update ON collaboration_event_intents`)
-			_, _ = harness.DB.ExecContext(context.Background(), `DROP FUNCTION IF EXISTS cartulary_test_fail_requeue_intent_update()`)
-		}()
 		if _, err := requeueCollaborationIncident(recovery, ctx, incidentID, clockNow.Add(37*time.Second)); requeueFailureKind(err) != collaboration.RequeueFailureTransaction {
 			t.Fatal("injected intent reset failure unexpectedly committed")
 		}
@@ -364,6 +373,19 @@ $function$
 `); err != nil {
 			t.Fatalf("install requeue journal rollback function: %v", err)
 		}
+		t.Cleanup(func() {
+			for _, statement := range []string{
+				`DROP TRIGGER IF EXISTS cartulary_test_fail_requeue_journal_insert ON deployment_admin_audit_events`,
+				`DROP FUNCTION IF EXISTS cartulary_test_fail_requeue_journal_insert()`,
+			} {
+				cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				_, err := harness.DB.ExecContext(cleanupCtx, statement)
+				cancel()
+				if err != nil {
+					t.Errorf("retire recovery fault (%s): %v", statement, err)
+				}
+			}
+		})
 		if _, err := harness.DB.ExecContext(ctx, `
 CREATE TRIGGER cartulary_test_fail_requeue_journal_insert
 BEFORE INSERT ON deployment_admin_audit_events
@@ -371,10 +393,6 @@ FOR EACH ROW EXECUTE FUNCTION cartulary_test_fail_requeue_journal_insert()
 `); err != nil {
 			t.Fatalf("install requeue journal rollback trigger: %v", err)
 		}
-		defer func() {
-			_, _ = harness.DB.ExecContext(context.Background(), `DROP TRIGGER IF EXISTS cartulary_test_fail_requeue_journal_insert ON deployment_admin_audit_events`)
-			_, _ = harness.DB.ExecContext(context.Background(), `DROP FUNCTION IF EXISTS cartulary_test_fail_requeue_journal_insert()`)
-		}()
 		if _, err := requeueCollaborationIncident(recovery, ctx, incidentID, clockNow.Add(39*time.Second)); requeueFailureKind(err) != collaboration.RequeueFailureTransaction {
 			t.Fatalf("injected journal failure result = %v", err)
 		}

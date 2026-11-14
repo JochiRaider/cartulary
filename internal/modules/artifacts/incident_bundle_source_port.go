@@ -6,7 +6,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 func NewIncidentBundleSourcePort() (sourceport.Port, error) {
@@ -14,40 +13,38 @@ func NewIncidentBundleSourcePort() (sourceport.Port, error) {
 	if err != nil {
 		return nil, err
 	}
+	binding := &artifactPreparationBinding{contractMajor: sourceport.ContractMajor}
 	descriptor := sourceport.Descriptor{
 		FamilyID: "artifacts", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.artifacts", OwnerRelationIDs: []string{"artifacts-and-optional-surfaces"},
 		Dependencies: []string{"indicators"},
 		Paths:        manifest.sourcePortPaths(),
 		InvariantIDs: []string{
+			"artifacts.source_identity_admitted", "artifacts.row_shape_exact",
 			"artifacts.envelope_type_scope", "artifacts.subtype_exact",
 			"artifacts.lifecycle_fields_legal", "artifacts.handoff_risk_target",
-			"artifacts.references_same_incident", "artifacts.source_identity_admitted",
+			"artifacts.handoff_risk_legal", "artifacts.references_same_incident",
+			"artifacts.attribution_exact", "artifacts.source_state_exact",
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: exportIncidentBundleFiles,
 		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareMembers(ctx, descriptor, bundle, importContext.BundleVersion)
+			return prepareArtifactImport(ctx, bundle, importContext, descriptor, manifest, binding)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			return importIncidentBundleFilesTx(ctx, tx, value.(*incidentportability.BoundMembers), importContext.ActorUserID, importContext.Attributions)
+			prepared, ok := value.(preparedArtifactImport)
+			if !ok || !prepared.matches(importContext, binding) || tx == nil {
+				return sourceport.ErrPreparedBinding
+			}
+			return prepared.apply(ctx, tx, importContext, descriptor)
 		},
-		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
-			var invalid bool
-			if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1 FROM artifacts artifact
-    LEFT JOIN records record ON record.record_id = artifact.record_id
-    WHERE artifact.incident_id = $1
-      AND (record.record_id IS NULL OR record.incident_id <> $1 OR record.record_type <> 'artifact')
-)`, importContext.IncidentID).Scan(&invalid); err != nil {
-				return err
+		Validate: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
+			prepared, ok := value.(preparedArtifactImport)
+			if !ok || !prepared.matches(importContext, binding) || tx == nil {
+				return sourceport.ErrPreparedBinding
 			}
-			if invalid {
-				return descriptor.DeclaredFailure("artifacts.envelope_type_scope")
-			}
-			return nil
+			return prepared.validate(ctx, tx, importContext, descriptor)
 		},
 	}), nil
 }

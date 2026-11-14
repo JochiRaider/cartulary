@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/observationhistory"
 )
 
 type indicatorRecord struct {
@@ -86,66 +86,8 @@ func scanIndicatorRecord(scanner interface{ Scan(dest ...any) error }) (indicato
 }
 
 func scanIndicatorObservationRecord(scanner interface{ Scan(dest ...any) error }) (IndicatorObservationRecord, error) {
-	var (
-		record              IndicatorObservationRecord
-		rawObservationID    pgtype.UUID
-		rawIncidentID       pgtype.UUID
-		rawSourceRecordID   pgtype.UUID
-		rawOriginKind       string
-		rawParsedType       pgtype.Text
-		rawNormalized       pgtype.Text
-		rawResolvedID       pgtype.UUID
-		rawCreatedBy        pgtype.UUID
-		rawResolvedBy       pgtype.UUID
-		rawResolvedAt       pgtype.Timestamptz
-		rawResolutionMethod pgtype.Text
-		rawDeletedAt        pgtype.Timestamptz
-		rawDeletedBy        pgtype.UUID
-	)
-	if err := scanner.Scan(
-		&rawObservationID,
-		&rawIncidentID,
-		&rawSourceRecordID,
-		&record.SourceFieldKey,
-		&rawOriginKind,
-		&record.OriginLocator,
-		&record.ObservedText,
-		&rawParsedType,
-		&rawNormalized,
-		&record.ResolutionStatus,
-		&rawResolvedID,
-		&record.RowVersion,
-		&rawCreatedBy,
-		&record.CreatedAt,
-		&rawResolvedBy,
-		&rawResolvedAt,
-		&rawResolutionMethod,
-		&rawDeletedAt,
-		&rawDeletedBy,
-	); err != nil {
-		return IndicatorObservationRecord{}, err
-	}
-	originKind, err := indicatororigin.Parse(rawOriginKind)
-	if err != nil {
-		return IndicatorObservationRecord{}, err
-	}
-	record.OriginKind = originKind.String()
-	if !rawObservationID.Valid || !rawIncidentID.Valid || !rawSourceRecordID.Valid || !rawCreatedBy.Valid {
-		return IndicatorObservationRecord{}, fmt.Errorf("scan indicator observation: required UUID is NULL")
-	}
-	record.ObservationID = uuid.UUID(rawObservationID.Bytes)
-	record.IncidentID = uuid.UUID(rawIncidentID.Bytes)
-	record.SourceRecordID = uuid.UUID(rawSourceRecordID.Bytes)
-	record.ParsedIndicatorType = textPointer(rawParsedType)
-	record.NormalizedCandidate = textPointer(rawNormalized)
-	record.ResolvedIndicatorRecordID = uuidPointerFromPG(rawResolvedID)
-	record.CreatedByUserID = uuid.UUID(rawCreatedBy.Bytes)
-	record.ResolvedByUserID = uuidPointerFromPG(rawResolvedBy)
-	record.ResolvedAt = timePointerFromPG(rawResolvedAt)
-	record.ResolutionMethod = textPointer(rawResolutionMethod)
-	record.DeletedAt = timePointerFromPG(rawDeletedAt)
-	record.DeletedByUserID = uuidPointerFromPG(rawDeletedBy)
-	return record, nil
+	value, err := observationhistory.Scan(scanner)
+	return IndicatorObservationRecord(value), err
 }
 
 func textPointer(value pgtype.Text) *string {

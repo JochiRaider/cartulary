@@ -16,6 +16,7 @@ func TestEvidenceCleanupDispatcherStartsAfterActivationRunsEveryFifteenMinutesAn
 	if err != nil {
 		t.Fatalf("compose cleanup dispatcher: %v", err)
 	}
+	registerDispatcherCleanup(t, dispatcher)
 	if dispatcher.identity() != cleanupDispatcherIdentity || dispatcher.interval != 15*time.Minute {
 		t.Fatalf("cleanup dispatcher identity/interval = %q/%s", dispatcher.identity(), dispatcher.interval)
 	}
@@ -68,6 +69,7 @@ func TestEvidenceCleanupDispatcherShutdownCancelsInFlightSweep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	registerDispatcherCleanup(t, dispatcher)
 	if err := dispatcher.Prepare(context.Background(), servingCleanupGate()); err != nil {
 		t.Fatal(err)
 	}
@@ -102,12 +104,24 @@ func TestEvidenceCleanupDispatcherRejectsIncompleteDependencies(t *testing.T) {
 		"observer": func() (*CleanupDispatcher, error) {
 			return newCleanupDispatcher(sweeper, dispatcherTestDeleter{}, nil, time.Now)
 		},
+		"typed-nil sweeper": func() (*CleanupDispatcher, error) {
+			return newCleanupDispatcher((*dispatcherTestSweeper)(nil), dispatcherTestDeleter{}, observer, time.Now)
+		},
+		"typed-nil deleter": func() (*CleanupDispatcher, error) {
+			return newCleanupDispatcher(sweeper, (*dispatcherTestDeleter)(nil), observer, time.Now)
+		},
+		"typed-nil observer": func() (*CleanupDispatcher, error) {
+			return newCleanupDispatcher(sweeper, dispatcherTestDeleter{}, (*dispatcherTestObserver)(nil), time.Now)
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := build(); err == nil {
 				t.Fatal("incomplete cleanup dispatcher dependencies were accepted")
 			}
 		})
+	}
+	if value, err := newCleanupDispatcher(sweeper, dispatcherTestDeleter{}, observer, nil); err != nil || value == nil || value.now == nil {
+		t.Fatal("valid cleanup dependencies with the default clock were rejected", err)
 	}
 }
 
@@ -126,7 +140,11 @@ func (sweeper *dispatcherTestSweeper) SweepFailedUnattachedBlobs(
 	sweeper.mu.Lock()
 	sweeper.count++
 	sweeper.mu.Unlock()
-	sweeper.calls <- struct{}{}
+	select {
+	case sweeper.calls <- struct{}{}:
+	case <-ctx.Done():
+		return cleanupSweepResult{}, ctx.Err()
+	}
 	if sweeper.run != nil {
 		return sweeper.run(ctx)
 	}
@@ -144,7 +162,12 @@ type dispatcherTestObserver struct {
 }
 
 func (observer *dispatcherTestObserver) ObserveCleanupSweep(_ context.Context, observation CleanupSweepObservation) {
-	observer.observations <- observation
+	// A failed assertion may stop draining notifications. Successful paths still
+	// require every observation, but teardown must not block on this test channel.
+	select {
+	case observer.observations <- observation:
+	default:
+	}
 }
 
 type dispatcherTestDeleter struct{}
@@ -161,3 +184,14 @@ func requireDispatcherCall(t testing.TB, calls <-chan struct{}, label string) {
 }
 
 func servingCleanupGate() <-chan struct{} { gate := make(chan struct{}); close(gate); return gate }
+
+func registerDispatcherCleanup(t testing.TB, dispatcher *CleanupDispatcher) {
+	t.Helper()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := dispatcher.Close(ctx); err != nil {
+			t.Errorf("settle cleanup dispatcher: %v", err)
+		}
+	})
+}

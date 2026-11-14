@@ -111,7 +111,7 @@ func validateRecordLinkCommand(linkType LinkType, provenance LinkProvenance, con
 }
 
 func validateActiveLinkEndpointsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID) error {
-	envelopes, err := records.NewStore().LoadEnvelopesTx(ctx, tx, []uuid.UUID{srcRecordID, dstRecordID}, false)
+	envelopes, err := records.NewStore().LoadEnvelopesForNoKeyUpdateTx(ctx, tx, []uuid.UUID{srcRecordID, dstRecordID})
 	if err != nil {
 		return fmt.Errorf("validate link endpoints: %w", err)
 	}
@@ -126,7 +126,7 @@ func activeIncidentEnvelope(envelope recordenvelope.Envelope, incidentID uuid.UU
 }
 
 func validateSupersedesEndpointsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, replacementRecordID uuid.UUID, supersededRecordID uuid.UUID) error {
-	envelopes, err := records.NewStore().LoadEnvelopesTx(ctx, tx, []uuid.UUID{replacementRecordID, supersededRecordID}, false)
+	envelopes, err := records.NewStore().LoadEnvelopesForNoKeyUpdateTx(ctx, tx, []uuid.UUID{replacementRecordID, supersededRecordID})
 	if err != nil {
 		return fmt.Errorf("validate supersedes endpoints: %w", err)
 	}

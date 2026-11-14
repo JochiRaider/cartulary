@@ -1,13 +1,14 @@
 package incidentbundles_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -43,25 +44,13 @@ func TestPortableFatalCompletionPreservesParent_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	release := make(chan struct{})
+	releaseCallback := sync.OnceFunc(func() { close(release) })
 	prepared := make(chan struct{})
 	done := make(chan error, 1)
-	snapshot := func() []int {
-		t.Helper()
-		values := []int{}
-		for _, table := range []string{"reference_pack_events", "reference_pack_portable_catalogs", "reference_pack_version_pins", "reference_pack_pins", "reference_pack_versions"} {
-			var n int
-			if err := f.Pool.QueryRow(context.Background(), "SELECT count(*) FROM "+table).Scan(&n); err != nil {
-				t.Fatal(err)
-			}
-			values = append(values, n)
-		}
-		var terminal int
-		if err := f.Pool.QueryRow(context.Background(), `SELECT count(*) FROM reference_pack_operations WHERE job_id=$1 AND terminal_at IS NOT NULL`, request.Execution.JobID()).Scan(&terminal); err != nil {
-			t.Fatal(err)
-		}
-		return append(values, terminal)
-	}
+	finished := make(chan struct{})
+	defer joinPortableFixture(t, cancel, finished, releaseCallback)
 	go func() {
+		defer close(finished)
 		done <- service.RunImportExecution(ctx, request.Execution, request.ExecutionStarted, func(run context.Context, scope *reference_data.IncidentReferenceExecution) error {
 			request.ExecutionScope = scope
 			if _, err := service.PrepareImport(run, request); err != nil {
@@ -84,11 +73,8 @@ func TestPortableFatalCompletionPreservesParent_Integration(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("no preparation")
 	}
-	before := snapshot()
-	var inputs int
-	if err := f.Pool.QueryRow(t.Context(), `SELECT count(*) FROM reference_pack_portable_selections WHERE operation_id IN (SELECT operation_id FROM reference_pack_operations WHERE job_id=$1) AND input_object_id IS NOT NULL`, request.Execution.JobID()).Scan(&inputs); err != nil || inputs == 0 {
-		t.Fatal("no frozen recovery inputs", inputs, err)
-	}
+	beforeState := snapshotPortableFatalState(t, f)
+	requirePortableRecoveryInput(t, f, request.Execution.JobID())
 	cancel()
 	select {
 	case <-fatal:
@@ -100,24 +86,114 @@ func TestPortableFatalCompletionPreservesParent_Integration(t *testing.T) {
 		t.Fatal("operation returned while cleanup active")
 	default:
 	}
-	close(release)
-	if err := <-done; !errors.Is(err, extensiondeadline.ErrGraceExhausted) {
+	releaseCallback()
+	if err := awaitPortableCompletion(t, done); !errors.Is(err, extensiondeadline.ErrGraceExhausted) {
 		t.Fatal("late cleanup replaced fatal", err)
 	}
-	if after := snapshot(); !reflect.DeepEqual(before, after) {
-		t.Fatal("fatal completion mutated parent-owned state", before, after)
-	}
+	requirePortableFatalState(t, f, beforeState)
+	requirePortableRecoveryInput(t, f, request.Execution.JobID())
 	job, err := f.Manager.Get(t.Context(), request.Execution.JobID())
 	if err != nil || job.Status != "running" {
 		t.Fatal("fatal completion terminated Job", job.Status, err)
 	}
-	var retained int
-	if err := f.Pool.QueryRow(t.Context(), `SELECT count(*) FROM reference_pack_portable_selections s JOIN reference_pack_objects o ON o.object_id=s.input_object_id WHERE s.operation_id IN (SELECT operation_id FROM reference_pack_operations WHERE job_id=$1) AND o.available`, request.Execution.JobID()).Scan(&retained); err != nil || retained != inputs {
-		t.Fatal("lost recovery inputs", retained, inputs, err)
-	}
 	entries, err := os.ReadDir(filepath.Join(f.Temporary, "reference-packs", "verification"))
 	if err != nil || len(entries) != 0 {
 		t.Fatal("retained scratch", len(entries), err)
+	}
+}
+
+// Each fixture owns an isolated database. Preserve whole rows so updating an
+// existing fact cannot hide behind unchanged table cardinality.
+func snapshotPortableFatalState(t testing.TB, f *referencetest.Portable) map[string]string {
+	t.Helper()
+	state := map[string]string{}
+	for _, table := range []string{
+		"reference_pack_events", "reference_pack_portable_catalogs", "reference_pack_version_pins",
+		"reference_pack_pins", "reference_pack_versions", "extension_job_commit_proofs",
+		"jobs", "incident_bundle_job_payloads", "route_idempotency",
+		"reference_pack_operations", "reference_pack_portable_selections",
+	} {
+		var rows string
+		if err := f.Pool.QueryRow(t.Context(), "SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY to_jsonb(s)::text),'[]'::jsonb)::text FROM "+table+" s").Scan(&rows); err != nil {
+			t.Fatal(err)
+		}
+		state[table] = rows
+	}
+	return state
+}
+
+func requirePortableRecoveryInput(t testing.TB, f *referencetest.Portable, jobID uuid.UUID) {
+	t.Helper()
+	rows, err := f.Pool.Query(t.Context(), `SELECT s.pack_key,s.pack_version,s.expected_container_sha256,s.expected_container_bytes,o.sha256,o.size_bytes,o.available,o.storage_ref FROM reference_pack_portable_selections s LEFT JOIN reference_pack_objects o ON o.object_id=s.input_object_id WHERE s.operation_id IN (SELECT operation_id FROM reference_pack_operations WHERE job_id=$1) AND s.input_object_id IS NOT NULL ORDER BY s.ordinal`, jobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	digest := sha256.Sum256(f.Pack.Container)
+	wantDigest := hex.EncodeToString(digest[:])
+	wantSize := int64(len(f.Pack.Container))
+	count := 0
+	for rows.Next() {
+		count++
+		var key, version, selectedDigest, objectDigest, raw string
+		var selectedSize, objectSize int64
+		var available bool
+		if err := rows.Scan(&key, &version, &selectedDigest, &selectedSize, &objectDigest, &objectSize, &available, &raw); err != nil {
+			t.Fatal(err)
+		}
+		if key != f.Pack.Key || version != f.Pack.Version || selectedDigest != wantDigest || objectDigest != wantDigest || selectedSize != wantSize || objectSize != wantSize || !available {
+			t.Fatal("recovery input identity, size, digest or availability differs from fixture")
+		}
+		ref, err := reference_data.ParseStorageRef(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		reader, size, err := f.Root.OpenPublished(t.Context(), ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, readErr := io.ReadAll(io.NewSectionReader(reader, 0, wantSize+1))
+		closeErr := reader.Close()
+		if readErr != nil || closeErr != nil || size != wantSize || !bytes.Equal(data, f.Pack.Container) {
+			t.Fatalf("recovery input bytes differ: size %d, read %v, close %v", size, readErr, closeErr)
+		}
+	}
+	if rows.Err() != nil || count != 1 {
+		t.Fatalf("retained recovery input count = %d, want 1: %v", count, rows.Err())
+	}
+}
+
+func requirePortableFatalState(t testing.TB, f *referencetest.Portable, before map[string]string) {
+	t.Helper()
+	for table, after := range snapshotPortableFatalState(t, f) {
+		if before[table] != after {
+			t.Fatalf("fatal completion changed durable %s rows", table)
+		}
+	}
+}
+
+// Release barriers and join before NewPortable tears down its database and roots.
+func joinPortableFixture(t testing.TB, cancel context.CancelFunc, finished <-chan struct{}, releases ...func()) {
+	t.Helper()
+	cancel()
+	for _, release := range releases {
+		release()
+	}
+	select {
+	case <-finished:
+	case <-time.After(10 * time.Second):
+		t.Error("portable fixture did not finish after cancellation and barrier release")
+	}
+}
+
+func awaitPortableCompletion(t testing.TB, done <-chan error) error {
+	t.Helper()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(10 * time.Second):
+		t.Fatal("portable operation did not complete after barrier release")
+		return nil
 	}
 }
 
@@ -161,8 +237,12 @@ func testPortableFatalDuringAbortLock(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	entered, release := make(chan struct{}), make(chan struct{})
+	releaseCallback := sync.OnceFunc(func() { close(release) })
 	done := make(chan error, 1)
+	finished := make(chan struct{})
+	defer joinPortableFixture(t, cancel, finished, releaseCallback)
 	go func() {
+		defer close(finished)
 		done <- service.RunImportExecution(ctx, request.Execution, request.ExecutionStarted, func(run context.Context, scope *reference_data.IncidentReferenceExecution) error {
 			request.ExecutionScope = scope
 			if _, err := service.PrepareImport(run, request); err != nil {
@@ -197,26 +277,23 @@ func testPortableFatalDuringAbortLock(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("abort lock not reached")
 	}
-	var events int
-	if err := f.Pool.QueryRow(t.Context(), `SELECT count(*) FROM reference_pack_events`).Scan(&events); err != nil {
-		t.Fatal(err)
-	}
+	beforeState := snapshotPortableFatalState(t, f)
+	requirePortableRecoveryInput(t, f, request.Execution.JobID())
 	cancel()
 	select {
 	case <-fatal:
 	case <-time.After(time.Second):
 		t.Error("abort wait escaped grace")
 	}
-	close(release)
-	if err := <-done; !errors.Is(err, extensiondeadline.ErrGraceExhausted) {
+	releaseCallback()
+	if err := awaitPortableCompletion(t, done); !errors.Is(err, extensiondeadline.ErrGraceExhausted) {
 		t.Fatal(err)
 	}
-	var terminal, afterEvents int
+	requirePortableFatalState(t, f, beforeState)
+	requirePortableRecoveryInput(t, f, request.Execution.JobID())
+	var terminal int
 	if err := f.Pool.QueryRow(t.Context(), `SELECT count(*) FROM reference_pack_operations WHERE job_id=$1 AND terminal_at IS NOT NULL`, request.Execution.JobID()).Scan(&terminal); err != nil || terminal != 0 {
 		t.Fatal("late abort terminated operation", terminal, err)
-	}
-	if err := f.Pool.QueryRow(t.Context(), `SELECT count(*) FROM reference_pack_events`).Scan(&afterEvents); err != nil || afterEvents != events {
-		t.Fatal("late abort published evidence", events, afterEvents, err)
 	}
 	job, err := f.Manager.Get(t.Context(), request.Execution.JobID())
 	if err != nil || job.Status != "running" {
@@ -250,8 +327,6 @@ func testPortableFatalAfterAbort(t *testing.T, phase string) {
 	resume := make(chan struct{})
 	releaseCallback := sync.OnceFunc(func() { close(release) })
 	resumeCallback := sync.OnceFunc(func() { close(resume) })
-	defer releaseCallback()
-	defer resumeCallback()
 	fatal := make(chan error, 1)
 	grace := 50 * time.Millisecond
 	if phase == "cooperative" {
@@ -299,7 +374,10 @@ func testPortableFatalAfterAbort(t *testing.T, phase string) {
 	defer cancel()
 	done := make(chan error, 1)
 	prepared := make(chan struct{})
+	finished := make(chan struct{})
+	defer joinPortableFixture(t, cancel, finished, releaseCallback, resumeCallback)
 	go func() {
+		defer close(finished)
 		done <- service.RunImportExecution(ctx, execution, request.ExecutionStarted, func(run context.Context, scope *reference_data.IncidentReferenceExecution) error {
 			request.ExecutionScope = scope
 			if _, err := service.PrepareImport(run, request); err != nil {
@@ -317,32 +395,8 @@ func testPortableFatalAfterAbort(t *testing.T, phase string) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("preparation stalled")
 	}
-	snapshot := func() []string {
-		t.Helper()
-		var values []string
-		for _, query := range []string{
-			`SELECT to_jsonb(j)::text FROM jobs j WHERE job_id=$1`,
-			`SELECT to_jsonb(p)::text FROM incident_bundle_job_payloads p WHERE job_id=$1`,
-			`SELECT response_json::text FROM route_idempotency WHERE client_txn_id='portable-fatal' AND actor_user_id=(SELECT submitted_by_user_id FROM jobs WHERE job_id=$1)`,
-			`SELECT coalesce(jsonb_agg(to_jsonb(o) ORDER BY operation_id),'[]')::text FROM reference_pack_operations o WHERE job_id=$1`,
-			`SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY ordinal),'[]')::text FROM reference_pack_portable_selections s WHERE operation_id IN (SELECT operation_id FROM reference_pack_operations WHERE job_id=$1)`,
-		} {
-			var value string
-			if err := f.Pool.QueryRow(t.Context(), query, execution.JobID()).Scan(&value); err != nil {
-				t.Fatal(err)
-			}
-			values = append(values, value)
-		}
-		for _, table := range []string{"reference_pack_events", "reference_pack_portable_catalogs", "reference_pack_version_pins", "reference_pack_pins", "reference_pack_versions", "extension_job_commit_proofs"} {
-			var value string
-			if err := f.Pool.QueryRow(t.Context(), "SELECT count(*)::text FROM "+table).Scan(&value); err != nil {
-				t.Fatal(err)
-			}
-			values = append(values, value)
-		}
-		return values
-	}
-	before := snapshot()
+	beforeState := snapshotPortableFatalState(t, f)
+	requirePortableRecoveryInput(t, f, execution.JobID())
 	resumeCallback()
 	var publication context.Context
 	select {
@@ -374,7 +428,7 @@ func testPortableFatalAfterAbort(t *testing.T, phase string) {
 	default:
 	}
 	releaseCallback()
-	err = <-done
+	err = awaitPortableCompletion(t, done)
 	if phase == "cooperative" {
 		if err != nil {
 			t.Fatal("cooperative terminal publication failed", err)
@@ -393,36 +447,8 @@ func testPortableFatalAfterAbort(t *testing.T, phase string) {
 	if !errors.Is(err, extensiondeadline.ErrGraceExhausted) {
 		t.Fatal("late completion replaced fatal", err)
 	}
-	if after := snapshot(); !reflect.DeepEqual(before, after) {
-		t.Fatal("fatal finalization changed durable parent/owner/receipt state", before, after)
-	}
-	rows, err := f.Pool.Query(t.Context(), `SELECT o.storage_ref FROM reference_pack_objects o JOIN reference_pack_portable_selections s ON s.input_object_id=o.object_id WHERE s.operation_id IN (SELECT operation_id FROM reference_pack_operations WHERE job_id=$1) AND o.available`, execution.JobID())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	retained := 0
-	for rows.Next() {
-		var raw string
-		if err := rows.Scan(&raw); err != nil {
-			t.Fatal(err)
-		}
-		ref, err := reference_data.ParseStorageRef(raw)
-		if err != nil {
-			t.Fatal(err)
-		}
-		reader, _, err := f.Root.OpenPublished(t.Context(), ref)
-		if err != nil {
-			t.Fatal("lost recovery bytes", err)
-		}
-		if err := reader.Close(); err != nil {
-			t.Fatal(err)
-		}
-		retained++
-	}
-	if rows.Err() != nil || retained == 0 {
-		t.Fatal("missing recovery inputs", retained, rows.Err())
-	}
+	requirePortableFatalState(t, f, beforeState)
+	requirePortableRecoveryInput(t, f, execution.JobID())
 }
 
 type portableMutationBarrier struct {

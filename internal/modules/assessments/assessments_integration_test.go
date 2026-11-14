@@ -1,8 +1,15 @@
 package assessments_test
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"net/http"
+	"reflect"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -31,8 +38,8 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 
 	hostID := uuid.New()
-	supportID := uuid.New()
-	supportHostID := uuid.New()
+	supportID := uuid.MustParse("10000000-0000-4000-8000-000000000001")
+	supportHostID := uuid.MustParse("f0000000-0000-4000-8000-000000000002")
 	entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment host", "assess-host", "", "")
 	entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, supportHostID, "Assessment support host", "assess-support-host", "", "")
 	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, supportID)
@@ -68,12 +75,26 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	if got := requireCellValue(t, cells, "assessment.rationale", "Confirmed from supporting event."); got != "Confirmed from supporting event." {
 		t.Fatalf("unexpected rationale normalization: %#v", got)
 	}
-	items := workbookscenariotest.CollectionItems(t, row, "assessment.support_refs")
-	if len(items) != 2 ||
-		items[0]["linked_record_id"] != supportHostID.String() ||
-		items[1]["linked_record_id"] != supportID.String() {
-		t.Fatalf("unexpected support refs: %#v", items)
+	wantSupport := map[string]any{
+		"kind": "collection_value_v1", "ordered": false,
+		"items": []any{
+			map[string]any{"item_ref": "record_ref:" + supportID.String(), "item_kind": "record_ref", "display_text": "timeline_event:" + supportID.String(), "linked_record_id": supportID.String()},
+			map[string]any{"item_ref": "record_ref:" + supportHostID.String(), "item_kind": "record_ref", "display_text": "host:" + supportHostID.String(), "linked_record_id": supportHostID.String()},
+		},
 	}
+	requireSupport := func(observation string, observedRow map[string]any) {
+		t.Helper()
+		value := observedRow["cells"].(map[string]any)["assessment.support_refs"].(map[string]any)["value"]
+		if !reflect.DeepEqual(value, wantSupport) {
+			t.Fatalf("%s support collection = %#v, want %#v", observation, value, wantSupport)
+		}
+	}
+	requireSupport("create", row)
+	queried := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), assessments.AssessmentsViewSchemaID, adminLogin)
+	if len(queried) != 1 || queried[0]["record_id"] != recordID.String() || queried[0]["row_version"] != row["row_version"] {
+		t.Fatalf("unexpected Assessment query identity/version: %#v", queried)
+	}
+	requireSupport("query", queried[0])
 
 	link := linktest.LookupActiveLink(t, harness.DB, incidentID, recordID, supportID, "supported_by")
 	if link.Provenance != "manual" || link.Confidence != nil {
@@ -98,6 +119,12 @@ SELECT COUNT(*)
 		t.Fatalf("assessment create publication intents = %d, want %d", got, intentsBeforeCreate+1)
 	}
 	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, data["change_set_id"].(string))
+	var committedAt time.Time
+	if err := harness.DB.QueryRowContext(t.Context(), `SELECT created_at FROM assessments WHERE record_id = $1`, recordID).Scan(&committedAt); err != nil {
+		t.Fatal(err)
+	}
+	requireCellValue(t, cells, "assessment.assessed_at", committedAt.UTC().Format(time.RFC3339Nano))
+	beforeReplay := loadAssessmentDurableState(t, harness, incidentID)
 
 	replayBody := map[string]any{
 		"client_txn_id":               "txn-assessments-create",
@@ -105,17 +132,26 @@ SELECT COUNT(*)
 		"assessment.subject_type":     "  host  ",
 		"assessment.assessment_state": " confirmed ",
 		"assessment.rationale":        "Confirmed from supporting event.",
+		"assessment.assessor":         adminUserID.String(),
+		"assessment.assessed_at":      committedAt.UTC().Format(time.RFC3339Nano),
+		"assessment.confidence_score": nil,
 		"assessment.support_refs": map[string]any{
 			"kind": "collection_actions_v1",
 			"actions": []map[string]any{
 				{"op": "add_record_ref", "linked_record_id": supportHostID.String()},
-				{"op": "add_record_ref", "linked_record_id": supportID.String()},
 				{"op": "add_record_ref", "linked_record_id": supportID.String()},
 			},
 		},
 	}
 	replay := postAssessment(t, harness, adminLogin, incidentID, replayBody)
 	replayData := httptestx.RequireSuccessData(t, replay, http.StatusOK)
+	requireSupport("replay", replayData["row"].(map[string]any))
+	if !reflect.DeepEqual(replayData, data) {
+		t.Fatalf("Assessment replay changed committed result: got %#v want %#v", replayData, data)
+	}
+	if afterReplay := loadAssessmentDurableState(t, harness, incidentID); afterReplay != beforeReplay {
+		t.Fatalf("normalized replay changed durable state: before=%#v after=%#v", beforeReplay, afterReplay)
+	}
 	if got := replayData["row"].(map[string]any)["record_id"]; got != recordID.String() {
 		t.Fatalf("expected idempotent replay of record %s, got %#v", recordID, replayData)
 	}
@@ -145,6 +181,240 @@ SELECT COUNT(*)
 	httptestx.RequireErrorEnvelope(t, postAssessment(t, harness, adminLogin, incidentID, invalid), http.StatusBadRequest, "invalid_mutation_payload")
 	if afterInvalid := loadAssessmentDurableState(t, harness, incidentID); afterInvalid != beforeInvalid {
 		t.Fatalf("invalid create changed durable state: before=%#v after=%#v", beforeInvalid, afterInvalid)
+	}
+
+	t.Run("explicit time is distinct from original default context", func(t *testing.T) {
+		body := validAssessmentBody("txn-explicit-assessment-time", hostID, "host", "confirmed")
+		body["assessment.assessed_at"] = "2026-04-24T12:00:00.123456789Z"
+		body["assessment.confidence_score"] = 0
+		created := httptestx.RequireSuccessData(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusCreated)
+		createdCells := created["row"].(map[string]any)["cells"].(map[string]any)
+		requireCellValue(t, createdCells, "assessment.assessed_at", "2026-04-24T12:00:00.123456Z")
+		before := loadAssessmentDurableState(t, harness, incidentID)
+		body["assessment.assessed_at"] = "2026-04-24T13:00:00.123456+01:00"
+		replayed := httptestx.RequireSuccessData(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusOK)
+		if !reflect.DeepEqual(replayed, created) {
+			t.Fatalf("persisted timestamp replay changed original result: %#v", replayed)
+		}
+		delete(body, "assessment.assessed_at")
+		httptestx.RequireErrorEnvelope(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusConflict, "client_txn_conflict")
+		body["assessment.assessed_at"] = "2026-04-24T12:00:00.123456Z"
+		body["assessment.confidence_score"] = nil
+		httptestx.RequireErrorEnvelope(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusConflict, "client_txn_conflict")
+		if after := loadAssessmentDurableState(t, harness, incidentID); after != before {
+			t.Fatalf("timestamp/default replay changed durable effects: %#v -> %#v", before, after)
+		}
+	})
+
+	t.Run("legacy receipt retains exact comparison without rewrite", func(t *testing.T) {
+		body := validAssessmentBody("txn-legacy-assessment-replay", hostID, "host", "confirmed")
+		created := httptestx.RequireSuccessData(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusCreated)
+		// Independently construct the historical admitted-request preimage. The
+		// fixture represents a receipt written before normalized comparison.
+		preimage, err := json.Marshal(map[string]any{
+			"client_txn_id":               "txn-legacy-assessment-replay",
+			"view_schema_id":              "cartulary.view.assessments.v1",
+			"assessment.subject_ref":      hostID.String(),
+			"assessment.subject_type":     "host",
+			"assessment.assessment_state": "confirmed",
+			"assessment.rationale":        "Valid rationale.",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		hash := sha256.Sum256(preimage)
+		scope := incidentID.String() + ":" + assessments.AssessmentsViewSchemaID
+		if _, err := harness.DB.ExecContext(t.Context(), `UPDATE route_idempotency
+SET request_hash = $1,
+    response_json = (response_json - 'default_assessed_at') || '{"schema_id":"cartulary.assessments.create_result.v1"}'::jsonb
+WHERE route_key = 'assessments.rows.create' AND actor_user_id = $2 AND scope_key = $3 AND client_txn_id = $4`, hash[:], adminUserID, scope, body["client_txn_id"]); err != nil {
+			t.Fatal(err)
+		}
+		readReceipt := func() ([]byte, []byte) {
+			t.Helper()
+			var storedHash, storedResponse []byte
+			if err := harness.DB.QueryRowContext(t.Context(), `SELECT request_hash, response_json FROM route_idempotency WHERE route_key = 'assessments.rows.create' AND actor_user_id = $1 AND scope_key = $2 AND client_txn_id = $3`, adminUserID, scope, body["client_txn_id"]).Scan(&storedHash, &storedResponse); err != nil {
+				t.Fatal(err)
+			}
+			return storedHash, storedResponse
+		}
+		beforeHash, beforeResponse := readReceipt()
+		before := loadAssessmentDurableState(t, harness, incidentID)
+		replayed := httptestx.RequireSuccessData(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusOK)
+		if !reflect.DeepEqual(replayed, created) {
+			t.Fatalf("legacy replay changed original result: %#v", replayed)
+		}
+		body["assessment.assessor"] = adminUserID.String()
+		httptestx.RequireErrorEnvelope(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusConflict, "client_txn_conflict")
+		afterHash, afterResponse := readReceipt()
+		if !bytes.Equal(beforeHash, afterHash) || !bytes.Equal(beforeResponse, afterResponse) {
+			t.Fatal("legacy replay rewrote its retained receipt")
+		}
+		if after := loadAssessmentDurableState(t, harness, incidentID); after != before {
+			t.Fatalf("legacy replay changed durable effects: %#v -> %#v", before, after)
+		}
+	})
+	for _, divergent := range []bool{false, true} {
+		name := "identical concurrent requests"
+		key := "txn-assessment-concurrent-identical"
+		if divergent {
+			name, key = "divergent concurrent requests", "txn-assessment-concurrent-divergent"
+		}
+		t.Run(name, func(t *testing.T) {
+			first := validAssessmentBody(key, hostID, "host", "confirmed")
+			second := validAssessmentBody(key, hostID, "host", "confirmed")
+			if divergent {
+				second["assessment.rationale"] = "Different concurrent rationale."
+			}
+			requireConcurrentAssessmentReceipt(t, harness, adminLogin, incidentID, first, second, divergent)
+		})
+	}
+	t.Run("current subject admission", func(t *testing.T) {
+		exerciseAssessmentSubjectAdmission(t, harness, adminLogin, incidentID, adminUserID)
+	})
+	t.Run("overlapping subject and support admission", func(t *testing.T) {
+		exerciseAssessmentReferenceOverlap(t, harness, adminLogin, incidentID, adminUserID)
+	})
+}
+
+func requireConcurrentAssessmentReceipt(t *testing.T, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, incidentID uuid.UUID, first, second map[string]any, divergent bool) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	requests := make([]*http.Request, 0, 2)
+	for _, body := range []map[string]any{first, second} {
+		encoded, err := json.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request, err := http.NewRequestWithContext(ctx, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+assessments.AssessmentsViewSchemaID+"/rows", bytes.NewReader(encoded))
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
+		request.AddCookie(login.Session)
+		request.AddCookie(login.CSRF)
+		requests = append(requests, request)
+	}
+	before := loadAssessmentDurableState(t, harness, incidentID)
+	barrier, err := harness.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		cleanup, stop := context.WithTimeout(context.Background(), 2*time.Second)
+		defer stop()
+		_ = barrier.Rollback(cleanup)
+	}()
+	if _, err := barrier.Exec(ctx, `LOCK TABLE assessments IN SHARE MODE`); err != nil {
+		t.Fatal(err)
+	}
+	pid := int32(barrier.Conn().PgConn().PID())
+	type outcome struct {
+		response *http.Response
+		err      error
+	}
+	results := make(chan outcome, 2)
+	settled := 0
+	defer func() {
+		cancel()
+		deadline := time.NewTimer(5 * time.Second)
+		defer deadline.Stop()
+		for settled < 2 {
+			select {
+			case result := <-results:
+				settled++
+				if result.response != nil {
+					_ = result.response.Body.Close()
+				}
+			case <-deadline.C:
+				t.Error("concurrent Assessment requests did not settle after cancellation")
+				return
+			}
+		}
+	}()
+	for _, request := range requests {
+		go func() { response, err := http.DefaultClient.Do(request); results <- outcome{response, err} }()
+	}
+	for {
+		var waiting int
+		if err := harness.Pool.QueryRow(ctx, `WITH RECURSIVE blocked(pid) AS (
+SELECT pid FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))
+UNION SELECT a.pid FROM pg_stat_activity a JOIN blocked b ON b.pid=ANY(pg_blocking_pids(a.pid))
+) SELECT count(DISTINCT pid) FROM blocked`, pid).Scan(&waiting); err != nil {
+			t.Fatal(err)
+		}
+		if waiting >= 2 {
+			break
+		}
+		select {
+		case early := <-results:
+			settled++
+			if early.response != nil {
+				_ = early.response.Body.Close()
+			}
+			t.Fatalf("Assessment request finished before database barrier: %v", early.err)
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	if err := barrier.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	responses := make([]*http.Response, 0, 2)
+	for settled < 2 {
+		select {
+		case result := <-results:
+			settled++
+			if result.response != nil {
+				defer result.response.Body.Close()
+			}
+			if result.err != nil {
+				t.Fatal(result.err)
+			}
+			responses = append(responses, result.response)
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		}
+	}
+	statuses := []int{responses[0].StatusCode, responses[1].StatusCode}
+	slices.Sort(statuses)
+	wantStatuses := []int{http.StatusOK, http.StatusCreated}
+	if divergent {
+		wantStatuses = []int{http.StatusCreated, http.StatusConflict}
+	}
+	if !reflect.DeepEqual(statuses, wantStatuses) {
+		t.Fatalf("concurrent status = %v, want %v", statuses, wantStatuses)
+	}
+	var committed map[string]any
+	for _, response := range responses {
+		if response.StatusCode == http.StatusConflict {
+			envelope := httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "client_txn_conflict")
+			if envelope["error"].(map[string]any)["details"].(map[string]any)["client_txn_id"] != first["client_txn_id"] {
+				t.Fatal("conflict lost scoped transaction identity")
+			}
+			continue
+		}
+		data := httptestx.RequireSuccessData(t, response, response.StatusCode)
+		if committed == nil {
+			committed = data
+		} else if !reflect.DeepEqual(data, committed) {
+			t.Fatal("concurrent replay changed original committed result")
+		}
+	}
+	want := before
+	want.records++
+	want.sourceRows++
+	want.projections++
+	want.changeSets++
+	want.mutations++
+	want.revisions++
+	want.idempotency++
+	want.publications++
+	if after := loadAssessmentDurableState(t, harness, incidentID); after != want {
+		t.Fatalf("concurrent effects = %#v, want %#v", after, want)
 	}
 }
 

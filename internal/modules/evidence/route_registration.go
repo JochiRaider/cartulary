@@ -85,13 +85,13 @@ func newService(env map[string]string, settings Settings, dependencies routeDepe
 	if dependencies.verification == nil {
 		return nil, fmt.Errorf("compose Evidence routes: background verification is required")
 	}
-	if dependencies.objectStore == nil {
+	if isNilCapability(dependencies.objectStore) {
 		return nil, fmt.Errorf("compose Evidence routes: object store is required")
 	}
 	if dependencies.now == nil {
 		return nil, fmt.Errorf("compose Evidence routes: clock is required")
 	}
-	if dependencies.operations == nil {
+	if isNilCapability(dependencies.operations) {
 		return nil, fmt.Errorf("compose Evidence routes: operations are required")
 	}
 	if dependencies.admission.incidents == nil || dependencies.admission.auth == nil {

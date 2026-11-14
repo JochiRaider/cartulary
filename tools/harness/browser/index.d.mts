@@ -1,4 +1,13 @@
 export const fixtureLifecycleAttachment: string;
+export function createGoBrowserFixtureProcess(options: {
+  packagePath: string;
+  args: string[];
+  cwd: string;
+  env?: NodeJS.ProcessEnv;
+  startupMs?: number;
+  cleanupMs?: number;
+  signalMs?: number;
+}): ReturnType<typeof createBrowserFixtureProcess>;
 export type BrowserFixtureFailure = {
   phase: "startup" | "body" | "cleanup";
   failure_class: "harness" | "product" | "interrupted";

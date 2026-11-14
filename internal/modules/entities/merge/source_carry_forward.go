@@ -109,9 +109,9 @@ func (s *Store) applyMergeCarryForwardTx(
 		if err != nil {
 			return err
 		}
-		if created {
+		if created != nil {
 			plan.IdentifierMutations = append(plan.IdentifierMutations, mergeIdentifierMutation{
-				After: buildMergePreservedIdentifierValueFromSeed(incidentID, survivorRecordID, entityType, candidate.Seed),
+				Value: *created,
 			})
 		}
 	}
@@ -134,7 +134,7 @@ func (s *Store) applyMergeCarryForwardTx(
 	plan.SuggestionAliasesCopiedCount += len(syncResult.Added)
 	plan.SuggestionAliasDuplicateNoop += syncResult.DuplicateNoopCount
 	for _, alias := range syncResult.Added {
-		plan.AliasMutations = append(plan.AliasMutations, mergeAliasMutation{After: alias.MutationValue()})
+		plan.AliasMutations = append(plan.AliasMutations, mergeAliasMutation{Value: alias})
 	}
 	return nil
 }
@@ -459,16 +459,4 @@ func countProvenanceOnlyIdentifiers(values []mergePreservedIdentifierRecord) int
 
 func mergeScopeKey(survivorRecordID uuid.UUID, loserRecordID uuid.UUID) string {
 	return survivorRecordID.String() + ":" + loserRecordID.String()
-}
-
-func buildMergePreservedIdentifierValueFromSeed(incidentID uuid.UUID, recordID uuid.UUID, entityType string, seed mergeIdentifierSeed) map[string]any {
-	return map[string]any{
-		"incident_id":      incidentID.String(),
-		"record_id":        recordID.String(),
-		"entity_type":      entityType,
-		"identifier_type":  seed.IdentifierType,
-		"raw_value":        seed.RawValue,
-		"normalized_value": seed.NormalizedValue,
-		"classification":   seed.Classification,
-	}
 }

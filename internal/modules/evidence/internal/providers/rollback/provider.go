@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/sourcevalue"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -18,54 +18,8 @@ var _ rollbackcontract.RowSourceProvider = provider{}
 func NewProvider() rollbackcontract.RowSourceProvider { return provider{} }
 
 func (provider) ValidateRollbackValue(value map[string]any) error {
-	source, ok := sourceForRollbackValue(value)
-	if !ok {
+	if _, ok := sourceForRollbackValue(value); !ok {
 		return rollbackcontract.ErrTargetNotReversible
-	}
-	if raw, present := source["lifecycle_state"]; present {
-		state, valid := raw.(string)
-		if !valid || !evidencepolicy.ValidEvidenceLifecycle(state) {
-			return rollbackcontract.ErrTargetNotReversible
-		}
-	}
-	if raw, present := source["upload_state"]; present {
-		state, valid := raw.(string)
-		if !valid || !evidencepolicy.ValidBlobUploadState(state) {
-			return rollbackcontract.ErrTargetNotReversible
-		}
-	}
-	for _, key := range []string{"collector_party_id", "source_party_id", "object_blob_id"} {
-		if _, _, err := nullableUUID(source, key); err != nil {
-			return rollbackcontract.ErrTargetNotReversible
-		}
-	}
-	objectBlobValue, objectBlobPresent, err := nullableUUID(source, "object_blob_id")
-	if err != nil {
-		return rollbackcontract.ErrTargetNotReversible
-	}
-	var objectBlobID *uuid.UUID
-	if objectBlobPresent && objectBlobValue != nil {
-		parsed, ok := objectBlobValue.(uuid.UUID)
-		if !ok {
-			return rollbackcontract.ErrTargetNotReversible
-		}
-		objectBlobID = &parsed
-	}
-	if raw, present := source["storage_ref"]; present && raw != nil {
-		storageRef, valid := raw.(string)
-		if !valid || !evidencepolicy.ServerManagedStorageRefMatchesAssociation(storageRef, objectBlobID) {
-			return rollbackcontract.ErrTargetNotReversible
-		}
-	}
-	if lifecycleRaw, present := source["lifecycle_state"]; present {
-		lifecycleState := lifecycleRaw.(string)
-		blobState := ""
-		if uploadRaw, uploadPresent := source["upload_state"]; uploadPresent && uploadRaw != nil {
-			blobState, _ = uploadRaw.(string)
-		}
-		if evidencepolicy.ViolatesEvidenceBlobBridge(lifecycleState, objectBlobID != nil, blobState) {
-			return rollbackcontract.ErrTargetNotReversible
-		}
 	}
 	return nil
 }
@@ -75,50 +29,51 @@ func (provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontra
 	if !ok {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	if err := (provider{}).ValidateRollbackValue(request.RetainedValue); err != nil {
-		return err
-	}
-	values := make([]any, 0, 24)
+	values := make([]any, 0, 13)
 	for _, key := range []string{
 		"title", "lifecycle_state", "requested_at", "received_at", "storage_ref", "blob_hash",
 		"collector_party_text", "collector_party_id", "source_party_text", "source_party_id",
-		"upload_state", "object_blob_id",
+		"upload_state", "object_blob_id", "owner_user_id",
 	} {
-		value, present := source[key]
-		if key == "collector_party_id" || key == "source_party_id" || key == "object_blob_id" {
+		value := source[key]
+		if key == "collector_party_id" || key == "source_party_id" || key == "object_blob_id" || key == "owner_user_id" {
 			parsed, _, err := nullableUUID(source, key)
 			if err != nil {
 				return rollbackcontract.ErrTargetNotReversible
 			}
 			value = parsed
 		}
-		values = append(values, present, value)
+		values = append(values, value)
 	}
 	_, err := tx.Exec(ctx, `
 UPDATE evidence
-   SET title = CASE WHEN $2 THEN $3::text ELSE title END,
-       lifecycle_state = CASE WHEN $4 THEN $5::text ELSE lifecycle_state END,
-       requested_at = CASE WHEN $6 THEN $7::timestamptz ELSE requested_at END,
-       received_at = CASE WHEN $8 THEN $9::timestamptz ELSE received_at END,
-       storage_ref = CASE WHEN $10 THEN $11::text ELSE storage_ref END,
-       blob_hash = CASE WHEN $12 THEN $13::text ELSE blob_hash END,
-       collector_party_text = CASE WHEN $14 THEN $15::text ELSE collector_party_text END,
-       collector_party_id = CASE WHEN $16 THEN $17::uuid ELSE collector_party_id END,
-       source_party_text = CASE WHEN $18 THEN $19::text ELSE source_party_text END,
-       source_party_id = CASE WHEN $20 THEN $21::uuid ELSE source_party_id END,
-       upload_state = CASE WHEN $22 THEN $23::text ELSE upload_state END,
-       object_blob_id = CASE WHEN $24 THEN $25::uuid ELSE object_blob_id END,
-       updated_at = $26
+   SET title = $2::text,
+       lifecycle_state = $3::text,
+       requested_at = $4::timestamptz,
+       received_at = $5::timestamptz,
+       storage_ref = $6::text,
+       blob_hash = $7::text,
+       collector_party_text = $8::text,
+       collector_party_id = $9::uuid,
+       source_party_text = $10::text,
+       source_party_id = $11::uuid,
+       upload_state = $12::text,
+       object_blob_id = $13::uuid,
+       owner_user_id = $14::uuid,
+       updated_at = $15
  WHERE record_id = $1
 `, append([]any{request.RecordID}, append(values, request.Now.UTC())...)...)
 	return err
 }
 
 func sourceForRollbackValue(value map[string]any) (map[string]any, bool) {
-	if source, ok := objectMap(value, "source"); ok {
-		return source, len(source) > 0
+	source, sourceOK := objectMap(value, "source")
+	record, recordOK := objectMap(value, "record")
+	if !sourceOK || !recordOK || len(value) != 3 || value["snapshot_schema_id"] != "cartulary.revisions.snapshot.evidence.v2" ||
+		sourcevalue.ValidateSnapshotSource(record, source) != nil {
+		return nil, false
 	}
-	return nil, false
+	return source, true
 }
 
 func objectMap(value map[string]any, key string) (map[string]any, bool) {
@@ -137,11 +92,14 @@ func nullableUUID(value map[string]any, key string) (any, bool, error) {
 	}
 	text, ok := raw.(string)
 	if !ok || strings.TrimSpace(text) == "" {
-		return nil, true, nil
+		return nil, true, rollbackcontract.ErrTargetNotReversible
 	}
 	parsed, err := uuid.Parse(text)
 	if err != nil {
 		return nil, true, err
+	}
+	if parsed == uuid.Nil {
+		return nil, true, rollbackcontract.ErrTargetNotReversible
 	}
 	return parsed, true, nil
 }

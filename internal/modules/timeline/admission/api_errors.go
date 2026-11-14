@@ -24,8 +24,11 @@ func ClassifyMutationAPIError(err error, context MutationAPIErrorContext) (*http
 	var sameFieldConflict *timeline.SameFieldConflictError
 	var rowConflict *timeline.RowVersionConflictError
 	var transitionErr *timeline.IllegalTransitionError
+	var invalidCollection *timeline.InvalidCollectionActionError
 
 	switch {
+	case errors.As(err, &invalidCollection):
+		return invalidMutationPayload(invalidCollection.FieldKey, "invalid_value"), true
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		return httpapi.ClientTxnConflictError(context.ClientTxnID), true
 	case errors.Is(err, timeline.ErrIncidentClosed):
@@ -40,6 +43,8 @@ func ClassifyMutationAPIError(err error, context MutationAPIErrorContext) (*http
 		return rowVersionConflictError(rowConflict.Details()), true
 	case errors.Is(err, timeline.ErrRowVersionConflict):
 		return rowVersionConflictError(map[string]any{}), true
+	case errors.Is(err, timeline.ErrProfileVersionExhausted):
+		return invalidMutationPayload("base_profile_version", "invalid_value"), true
 	case errors.As(err, &transitionErr):
 		return illegalTransitionError(context.IllegalTransitionReasonCode, transitionErr), true
 	case errors.Is(err, timeline.ErrIllegalTransition):

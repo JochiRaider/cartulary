@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -273,15 +274,24 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	if preparationErr == nil || rejected.DatabaseName != "" || !errors.As(preparationErr, &failed) {
 		t.Fatal("corrupt object population admitted a browser or lost cleanup evidence")
 	}
-	for _, result := range failed.cleanup {
-		expected := "not_acquired"
-		if result.ResourceClass == "database" || result.ResourceClass == "bucket" {
-			expected = "complete"
+	assertFailedCleanup := func(results []CleanupResult) {
+		t.Helper()
+		actual := make(map[string]string, len(results))
+		for _, result := range results {
+			if _, duplicate := actual[result.ResourceClass]; duplicate {
+				t.Fatal("failed clone cleanup repeats a resource class")
+			}
+			actual[result.ResourceClass] = result.Outcome
 		}
-		if result.Outcome != expected {
-			t.Fatalf("failed clone cleanup %s: %s", result.ResourceClass, result.Outcome)
+		want := map[string]string{
+			"bucket": "complete", "database": "complete",
+			"credential_copy": "not_acquired", "process": "not_acquired", "session": "not_acquired",
+		}
+		if !reflect.DeepEqual(actual, want) {
+			t.Fatalf("failed clone cleanup outcomes: got %v want %v", actual, want)
 		}
 	}
+	assertFailedCleanup(failed.cleanup)
 	if err := failedLeaseWithProfile(failedEnv, profile, "clone_failed", preparationErr); err != nil {
 		t.Fatal(err)
 	}
@@ -293,9 +303,10 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	if err := json.Unmarshal(raw, &failureArtifact); err != nil {
 		t.Fatal(err)
 	}
-	if failureArtifact.ObjectSnapshot != nil || failureArtifact.CreationState != "failed" || failureArtifact.CleanupResults[0].Outcome != "complete" {
+	if failureArtifact.ObjectSnapshot != nil || failureArtifact.CreationState != "failed" {
 		t.Fatal("failed admission evidence is misleading")
 	}
+	assertFailedCleanup(failureArtifact.CleanupResults)
 	leaseDirectory := filepath.Join(
 		env["CARTULARY_TEST_RESULTS_DIR"],
 		env["CARTULARY_TEST_RUN_ID"],

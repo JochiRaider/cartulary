@@ -1,6 +1,7 @@
 // Historical fixture creation is harness-only. Every restore and maintenance
 // action executes the immutable installed package against destroyed source state.
 import assert from "node:assert/strict";
+import {assertPackageQualificationSource, packageDestinationProject} from "./package-qualification-project.mjs";
 import {randomUUID} from "node:crypto";
 import {chmodSync,copyFileSync,mkdirSync,readFileSync,unlinkSync,writeFileSync} from "node:fs";
 import path from "node:path";
@@ -9,7 +10,7 @@ import {goOutput,pins} from "../harness/readiness/cryptographic-module.mjs";
 import {windowsProbe} from "./package-platform.mjs";
 
 const [work,project,origin,artifacts]=process.argv.slice(2);
-assert.match(project,/^cartularymvprecoverysmk[0-9]+$/);
+assertPackageQualificationSource(work,project);
 const command=(binary,args,options={})=>{
  const r=spawnSync(binary,args,{encoding:"utf8",timeout:300000,maxBuffer:16*1024*1024,...options});
  if(r.status!==0) {
@@ -30,7 +31,7 @@ assert.equal(fresh.result,"succeeded");
 operate(work,"stop");
 const stale=JSON.parse(compose(work,project,"run","--rm","--no-deps","--volume",`${helper}:/run/historical-input:ro`,"--volume",`${transfers}:/transfer-output`,"--entrypoint","/run/historical-input","recovery-operator"));
 assert.ok(Date.now()-Date.parse(stale.consistency_point_at)>39*24*3600000);
-const target=path.join(work,"destination"),targetProject=`${project}destination`;
+const target=path.join(work,"destination"),targetProject=packageDestinationProject(project);
 command(path.join(work,"release/assets/scripts/install.sh"),[target]);
 for(const name of ["config.toml","bootstrap-admin.json","restore-verification-target.toml","revisions-conflict-token-key-ring.json"]) {copyFileSync(path.join(work,name),path.join(target,name));chmodSync(path.join(target,name),0o644);}
 writeFileSync(path.join(target,".env"),readFileSync(path.join(work,".env"),"utf8").replace(/^CARTULARY_MVP_COMPOSE_PROJECT_NAME=.*$/m,`CARTULARY_MVP_COMPOSE_PROJECT_NAME=${targetProject}`));

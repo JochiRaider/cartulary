@@ -61,7 +61,7 @@ func AdmitCreate(viewSchemaID string, reader io.Reader) (CreateAdmission, *Admis
 			continue
 		}
 		if field.ConflictResolutionClass == "collection_review" {
-			payload, admissionErr := decodeArtifactCollectionActionPayload(fieldKey, value, fieldKey == "note.tags")
+			payload, admissionErr := decodeArtifactCollectionActionPayload(fieldKey, value)
 			if admissionErr != nil {
 				return CreateAdmission{}, admissionErr
 			}

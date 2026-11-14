@@ -253,7 +253,7 @@ func (b bundleBuilder) exportActors(ctx context.Context, q incidentportability.Q
 	var descriptorBytes int
 	admitDescriptor := func(descriptor portableActorDescriptor) error {
 		if _, exists := descriptors[descriptor.ActorID]; !exists {
-			encoded, err := incidentportability.CanonicalJSONString(map[string]any{"actor_id": descriptor.ActorID, "display_name": descriptor.DisplayName, "email_hint": descriptor.EmailHint})
+			encoded, err := incidentportability.CanonicalJSONString(map[string]any{"actor_id": descriptor.ActorID, "display_name": descriptor.DisplayName, "email_hint": descriptor.EmailHint, "provider_subject_hint": descriptor.ProviderSubjectHint})
 			if err != nil {
 				return err
 			}
@@ -296,7 +296,8 @@ SELECT u.id::text,
 	importedRows, err := q.Query(ctx, `
 SELECT source_actor_id,
        display_name,
-       email_hint
+       email_hint,
+       provider_subject_hint
   FROM incident_bundle_imported_actors
  WHERE incident_id = $1
    AND source_actor_id IN (SELECT unnest($2::text[]))
@@ -307,18 +308,20 @@ SELECT source_actor_id,
 	}
 	for importedRows.Next() {
 		var (
-			actorID     string
-			displayName sql.NullString
-			emailHint   sql.NullString
+			actorID             string
+			displayName         sql.NullString
+			emailHint           sql.NullString
+			providerSubjectHint sql.NullString
 		)
-		if err := importedRows.Scan(&actorID, &displayName, &emailHint); err != nil {
+		if err := importedRows.Scan(&actorID, &displayName, &emailHint, &providerSubjectHint); err != nil {
 			importedRows.Close()
 			return nil, err
 		}
 		if err := admitDescriptor(portableActorDescriptor{
-			ActorID:     actorID,
-			DisplayName: displayName.String,
-			EmailHint:   emailHint.String,
+			ActorID:             actorID,
+			DisplayName:         displayName.String,
+			EmailHint:           emailHint.String,
+			ProviderSubjectHint: providerSubjectHint.String,
 		}); err != nil {
 			importedRows.Close()
 			return nil, err
@@ -336,12 +339,12 @@ SELECT source_actor_id,
 		if !ok {
 			return nil, actorReferenceFailure()
 		}
-		row := map[string]any{"actor_id": descriptor.ActorID}
-		if descriptor.DisplayName != "" {
-			row["display_name"] = descriptor.DisplayName
-		}
+		row := map[string]any{"actor_id": descriptor.ActorID, "display_name": descriptor.DisplayName}
 		if descriptor.EmailHint != "" {
 			row["email_hint"] = descriptor.EmailHint
+		}
+		if descriptor.ProviderSubjectHint != "" {
+			row["provider_subject_hint"] = descriptor.ProviderSubjectHint
 		}
 		encoded, err := incidentportability.CanonicalJSONString(row)
 		if err != nil {
@@ -356,13 +359,14 @@ SELECT source_actor_id,
 }
 
 type portableActorDescriptor struct {
-	ActorID     string
-	DisplayName string
-	EmailHint   string
+	ActorID             string
+	DisplayName         string
+	EmailHint           string
+	ProviderSubjectHint string
 }
 
 func mergePortableActorDescriptor(descriptors map[string]portableActorDescriptor, descriptor portableActorDescriptor) error {
-	if _, err := uuid.Parse(descriptor.ActorID); err != nil {
+	if id, err := uuid.Parse(descriptor.ActorID); err != nil || id == uuid.Nil || id.String() != descriptor.ActorID {
 		return actorReferenceFailure()
 	}
 	if existing, duplicate := descriptors[descriptor.ActorID]; duplicate && existing != descriptor {
@@ -627,6 +631,7 @@ func verificationErrorFromDeclaredPort(port sourceport.Port, err error) error {
 func validateImportedActors(ctx context.Context, members incidentportability.MemberReader, incidentID uuid.UUID) (sourceport.ActorCatalog, error) {
 	descriptors := []sourceport.ActorDescriptor{}
 	var rosterBytes int64
+	var previousActorID string
 	err := incidentportability.WalkPath(ctx, members, "data/actors.ndjson", func(row map[string]any) error {
 		encoded, err := incidentportability.CanonicalJSONString(row)
 		if err != nil {
@@ -636,24 +641,15 @@ func validateImportedActors(ctx context.Context, members incidentportability.Mem
 		if rosterBytes > PortabilityParticipantByteLimit {
 			return actorReferenceFailure()
 		}
-		for key := range row {
-			switch key {
-			case "actor_id", "source_actor_id", "display_name", "email_hint", "provider_subject_hint":
-			default:
-				return &verificationError{ReasonCode: "source_family_invalid", SourceFamilyID: "actors", InvariantID: "actors.inert"}
-			}
+		descriptor, err := decodePortableActorDescriptor(row)
+		if err != nil {
+			return err
 		}
-		sourceActorID := strings.TrimSpace(incidentportability.StringFromAny(row["actor_id"]))
-		if sourceActorID == "" {
-			sourceActorID = strings.TrimSpace(incidentportability.StringFromAny(row["source_actor_id"]))
-		}
-		if _, err := uuid.Parse(sourceActorID); err != nil {
+		if descriptor.ActorID <= previousActorID {
 			return actorReferenceFailure()
 		}
-		displayName, _ := row["display_name"].(string)
-		emailHint, _ := row["email_hint"].(string)
-		providerSubjectHint, _ := row["provider_subject_hint"].(string)
-		descriptors = append(descriptors, sourceport.ActorDescriptor{SourceActorID: sourceActorID, DisplayName: displayName, EmailHint: emailHint, ProviderSubjectHint: providerSubjectHint})
+		previousActorID = descriptor.ActorID
+		descriptors = append(descriptors, sourceport.ActorDescriptor{SourceActorID: descriptor.ActorID, DisplayName: descriptor.DisplayName, EmailHint: descriptor.EmailHint, ProviderSubjectHint: descriptor.ProviderSubjectHint})
 		return nil
 	})
 	if err != nil {
@@ -699,16 +695,11 @@ func validateImportedActors(ctx context.Context, members incidentportability.Mem
 
 func (i importer) importActors(ctx context.Context, tx pgx.Tx, members incidentportability.MemberReader, incidentID uuid.UUID) error {
 	return incidentportability.WalkPath(ctx, members, "data/actors.ndjson", func(row map[string]any) error {
-		sourceActorID, _ := row["actor_id"].(string)
-		if strings.TrimSpace(sourceActorID) == "" {
-			sourceActorID, _ = row["source_actor_id"].(string)
+		descriptor, err := decodePortableActorDescriptor(row)
+		if err != nil {
+			return err
 		}
-		if strings.TrimSpace(sourceActorID) == "" {
-			return actorReferenceFailure()
-		}
-		displayName, _ := row["display_name"].(string)
-		emailHint, _ := row["email_hint"].(string)
-		tag, err := tx.Exec(ctx, `INSERT INTO incident_bundle_imported_actors (incident_id, source_actor_id, display_name, email_hint, local_user_id) VALUES ($1, $2, $3, $4, $5)`, incidentID, sourceActorID, nullableString(displayName), nullableString(emailHint), nil)
+		tag, err := tx.Exec(ctx, `INSERT INTO incident_bundle_imported_actors (incident_id, source_actor_id, display_name, email_hint, provider_subject_hint, local_user_id) VALUES ($1, $2, $3, $4, $5, $6)`, incidentID, descriptor.ActorID, descriptor.DisplayName, nullableString(descriptor.EmailHint), nullableString(descriptor.ProviderSubjectHint), nil)
 		if err != nil {
 			return err
 		}
@@ -717,6 +708,42 @@ func (i importer) importActors(ctx context.Context, tx pgx.Tx, members incidentp
 		}
 		return nil
 	})
+}
+
+func decodePortableActorDescriptor(row map[string]any) (portableActorDescriptor, error) {
+	for key := range row {
+		switch key {
+		case "actor_id", "display_name", "email_hint", "provider_subject_hint":
+		default:
+			return portableActorDescriptor{}, &verificationError{ReasonCode: "source_family_invalid", SourceFamilyID: "actors", InvariantID: "actors.inert"}
+		}
+	}
+	actorID, ok := row["actor_id"].(string)
+	id, err := uuid.Parse(actorID)
+	if !ok || err != nil || id == uuid.Nil || id.String() != actorID {
+		return portableActorDescriptor{}, actorReferenceFailure()
+	}
+	displayName, ok := row["display_name"].(string)
+	if !ok {
+		return portableActorDescriptor{}, actorReferenceFailure()
+	}
+	descriptor := portableActorDescriptor{ActorID: actorID, DisplayName: displayName}
+	for _, hint := range []struct {
+		key    string
+		target *string
+	}{
+		{"email_hint", &descriptor.EmailHint},
+		{"provider_subject_hint", &descriptor.ProviderSubjectHint},
+	} {
+		if value, present := row[hint.key]; present {
+			text, ok := value.(string)
+			if !ok || text == "" {
+				return portableActorDescriptor{}, actorReferenceFailure()
+			}
+			*hint.target = text
+		}
+	}
+	return descriptor, nil
 }
 
 func actorReferenceFailure() error {
@@ -728,7 +755,7 @@ func actorReferenceFailure() error {
 }
 
 func nullableString(value string) any {
-	if strings.TrimSpace(value) == "" {
+	if value == "" {
 		return nil
 	}
 	return value

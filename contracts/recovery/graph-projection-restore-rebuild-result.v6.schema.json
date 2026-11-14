@@ -144,8 +144,7 @@
       "uniqueItems": true,
       "items": {
         "$ref": "common.v1.schema.json#/$defs/identifier"
-      },
-      "minItems": 3
+      }
     },
     "rebuilt_views": {
       "type": "array",
@@ -182,5 +181,55 @@
         "$ref": "#/$defs/safe_message"
       }
     }
-  }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "status": {
+          "const": "succeeded"
+        },
+        "readiness_outcome": {
+          "const": "ready"
+        },
+        "cleared_table_ids": {
+          "const": [
+            "graph_projection_result_edges",
+            "graph_projection_result_vertices",
+            "graph_projection_results"
+          ]
+        },
+        "postcondition_sha256": {
+          "$ref": "common.v1.schema.json#/$defs/sha256"
+        },
+        "errors": {
+          "maxItems": 0
+        }
+      }
+    },
+    {
+      "properties": {
+        "status": {
+          "const": "failed"
+        },
+        "readiness_outcome": {
+          "const": "incomplete"
+        },
+        "cleared_table_ids": {
+          "const": []
+        },
+        "rebuilt_views": {
+          "maxItems": 0
+        },
+        "reconciled_nonterminal_job_count": {
+          "const": 0
+        },
+        "postcondition_sha256": {
+          "type": "null"
+        },
+        "errors": {
+          "minItems": 1
+        }
+      }
+    }
+  ]
 }

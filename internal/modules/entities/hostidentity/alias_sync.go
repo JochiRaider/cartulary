@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/aliashistory"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
@@ -21,6 +22,7 @@ func syncEntityAliasesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, r
 		}
 		aliasID := uuid.New()
 		var insertedID uuid.UUID
+		var createdAt time.Time
 		err := tx.QueryRow(ctx, `
 INSERT INTO entity_aliases (
 	entity_alias_id,
@@ -37,8 +39,8 @@ INSERT INTO entity_aliases (
 VALUES ($1, $2, $3, $4, $5::text, $5::citext, 'suggestion_only', $6, $7, NULL)
 ON CONFLICT (record_id, entity_type, normalized_text) WHERE deleted_at IS NULL
 DO NOTHING
-RETURNING entity_alias_id
-`, aliasID, incidentID, recordID, entityType, normalized, actorUserID, now.UTC()).Scan(&insertedID)
+RETURNING entity_alias_id, created_at
+`, aliasID, incidentID, recordID, entityType, normalized, actorUserID, now.UTC()).Scan(&insertedID, &createdAt)
 		if errors.Is(err, pgx.ErrNoRows) {
 			result.DuplicateNoopCount++
 			continue
@@ -46,14 +48,10 @@ RETURNING entity_alias_id
 		if err != nil {
 			return AliasSyncResult{}, fmt.Errorf("insert entity alias: %w", err)
 		}
-		result.Added = append(result.Added, AliasMutationValue{
-			EntityAliasID: insertedID,
-			IncidentID:    incidentID,
-			RecordID:      recordID,
-			EntityType:    entityType,
-			AliasText:     normalized,
-			CreatedByUser: actorUserID,
-			CreatedAt:     now.UTC(),
+		result.Added = append(result.Added, aliashistory.Value{
+			ID: insertedID, IncidentID: incidentID, RecordID: recordID, EntityType: entityType,
+			RawText: normalized, NormalizedText: normalized, Classification: "suggestion_only",
+			CreatedByUserID: actorUserID, CreatedAt: createdAt,
 		})
 	}
 	return result, nil
@@ -71,8 +69,8 @@ func applyEntityAliasActionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 			for _, added := range result.Added {
 				mutations = append(mutations, AliasAppliedMutation{
 					OperationKind: "create",
-					TargetID:      "entity_alias:" + added.EntityAliasID.String(),
-					AfterValue:    added.MutationValue(),
+					TargetID:      added.TargetID(),
+					AfterValue:    added.Map(),
 				})
 			}
 		case "remove_alias":
@@ -80,24 +78,25 @@ func applyEntityAliasActionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 			if err != nil {
 				return nil, ErrInvalidAliasReference
 			}
-			var value AliasMutationValue
-			var classification string
+			var value aliashistory.Value
 			err = tx.QueryRow(ctx, `
-SELECT entity_alias_id, incident_id, record_id, entity_type, normalized_text::text,
-       classification, created_by_user_id, created_at
+SELECT entity_alias_id, incident_id, record_id, entity_type, raw_text, normalized_text::text,
+       classification, created_by_user_id, created_at, deleted_at
   FROM entity_aliases
  WHERE entity_alias_id = $1
    AND deleted_at IS NULL
  FOR UPDATE
 `, aliasID).Scan(
-				&value.EntityAliasID,
+				&value.ID,
 				&value.IncidentID,
 				&value.RecordID,
 				&value.EntityType,
-				&value.AliasText,
-				&classification,
-				&value.CreatedByUser,
+				&value.RawText,
+				&value.NormalizedText,
+				&value.Classification,
+				&value.CreatedByUserID,
 				&value.CreatedAt,
+				&value.DeletedAt,
 			)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, ErrInvalidAliasReference
@@ -105,22 +104,21 @@ SELECT entity_alias_id, incident_id, record_id, entity_type, normalized_text::te
 			if err != nil {
 				return nil, err
 			}
-			if value.IncidentID != incidentID || value.RecordID != recordID || value.EntityType != entityType || classification != "suggestion_only" {
+			if value.IncidentID != incidentID || value.RecordID != recordID || value.EntityType != entityType || value.Classification != "suggestion_only" {
 				return nil, ErrInvalidAliasReference
 			}
-			before := value.MutationValue()
-			deletedAt := now.UTC()
-			if tag, err := tx.Exec(ctx, `UPDATE entity_aliases SET deleted_at = $2 WHERE entity_alias_id = $1 AND deleted_at IS NULL`, aliasID, deletedAt); err != nil {
+			before := value.Map()
+			if err := tx.QueryRow(ctx, `UPDATE entity_aliases SET deleted_at = $2 WHERE entity_alias_id = $1 AND deleted_at IS NULL RETURNING deleted_at`, aliasID, now.UTC()).Scan(&value.DeletedAt); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return nil, ErrInvalidAliasReference
+				}
 				return nil, err
-			} else if tag.RowsAffected() != 1 {
-				return nil, ErrInvalidAliasReference
 			}
-			value.DeletedAt = &deletedAt
 			mutations = append(mutations, AliasAppliedMutation{
 				OperationKind: "delete",
 				TargetID:      action.ItemRef,
 				BeforeValue:   before,
-				AfterValue:    value.MutationValue(),
+				AfterValue:    value.Map(),
 			})
 		default:
 			return nil, ErrInvalidAliasReference

@@ -1,14 +1,15 @@
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { inspectExecutableRepositoryPath, readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 
 // Authored module boundaries are explicit. Discovery never walks upward into
 // an arbitrary parent workspace or interprets a local-path replace directive.
 export function independentGoModules(root) {
-  if (!existsSync(path.join(root, "tools/go_modules.json"))) {
-    if (existsSync(path.join(root, "referencepacks"))) throw new Error("missing independent Go module registry");
+  if (!inspectExecutableRepositoryPath(root, "tools/go_modules.json")) {
+    if (inspectExecutableRepositoryPath(root, "referencepacks")) throw new Error("missing independent Go module registry");
     return [];
   }
-  const registry = JSON.parse(readFileSync(path.join(root, "tools/go_modules.json"), "utf8"));
+  const registry = readExecutableRepositoryJSON(root, "tools/go_modules.json");
   if (registry.schema_id !== "cartulary.go_modules.v1" || !Array.isArray(registry.modules)) throw new Error("invalid Go module registry");
   const seen = new Set();
   return registry.modules.map((entry) => {

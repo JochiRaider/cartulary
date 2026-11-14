@@ -3,6 +3,7 @@ package ownerfacade
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -75,7 +76,7 @@ func TestIndexImportFieldValuesRejectsInvalidStructure(t *testing.T) {
 	t.Parallel()
 	valid := ImportFieldValue{FieldKey: "indicator.display_value", NormalizedValue: NewTextImportScalar("value")}
 	indexed, err := IndexImportFieldValues([]ImportFieldValue{valid})
-	if err != nil || len(indexed) != 1 {
+	if err != nil || !reflect.DeepEqual(indexed, map[string]ImportScalarValue{"indicator.display_value": NewTextImportScalar("value")}) {
 		t.Fatalf("index valid field values = %#v, %v", indexed, err)
 	}
 	for name, fields := range map[string][]ImportFieldValue{

@@ -8,8 +8,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createRuntime } from "../runtime/session-client.mjs";
+import { stopOwnedProcess } from "../runtime/owned-process.mjs";
+import { workspaceLayout } from "../../workspace_layout.generated.mjs";
 
-const scenarios = ["allocation", "status", "second-open", "spawn", "spawn-sync", "tail-read", "read-and-cleanup", "cleanup-retry", "close", "parent-mode", "parent-symlink", "parent-owner", "file-mode", "file-symlink", "tail-limits", "component-length", "component-character", "snapshot-caller", "row-adapter", "registration-rejection", "registration-transport", "environment-signal", "environment-empty", "environment-identity", "environment-outcome"];
+const scenarios = ["capture-limits", "capture-release", "overflow-unresolved", "descendant-exit", "pre-cancelled", "cancel", "retired-options", "unresolved-settlement", "allocation", "status", "second-open", "spawn", "spawn-sync", "tail-read", "read-and-cleanup", "cleanup-retry", "close", "parent-mode", "parent-symlink", "parent-owner", "file-mode", "file-symlink", "tail-limits", "component-length", "component-character", "snapshot-caller", "row-adapter", "registration-rejection", "registration-transport", "environment-signal", "environment-empty", "environment-identity", "environment-outcome"];
 
 // Fault injection lives in isolated subprocesses; importing this case module is inert.
 export function assertPrivateChildCaptureBoundary() {
@@ -22,21 +24,7 @@ export function assertPrivateChildCaptureBoundary() {
 
 async function exercise(scenario) {
   const fixture = fs.mkdtempSync(path.join(tmpdir(), "cartulary-capture-contract-"));
-  const repoRoot = ["snapshot-caller", "row-adapter"].includes(scenario) ? path.resolve(import.meta.dirname, "../../..") : path.join(fixture, "repo");
-  const runRoot = path.join(fixture, "results", "capture-contract");
-  if (!["snapshot-caller", "row-adapter"].includes(scenario)) fs.mkdirSync(repoRoot, { mode: 0o700 });
-  fs.mkdirSync(runRoot, { recursive: true, mode: 0o700 });
-  const runtime = createRuntime({ repoRoot, runRoot, runID: "capture-contract", scratchRoot: path.join(fixture, "scratch") });
-  let wrapperRuntime;
-  const parent = runtime.privatePath("child-captures");
-  fs.writeFileSync(path.join(fixture, "protected"), "protected bytes", { mode: 0o600 });
-  const options = { repoRoot, runRoot, cwd: repoRoot, env: {
-    ...process.env,
-    CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]",
-    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
-    CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
-    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
-  } };
+  let runtime, wrapperRuntime, primaryFailure, captureRecovery, rejectedRegistrationProof;
   const originals = new Map();
   const originalSpawnSync = childProcess.spawnSync;
   const patch = (name, implementation) => {
@@ -56,98 +44,240 @@ async function exercise(scenario) {
   const originalStat = fs.lstatSync;
   let injected = false;
   let cleanupInjected = false;
-  if (scenario.startsWith("environment-")) childProcess.spawnSync = (command, args, settings) => {
-    if (args?.[0] === "session" && JSON.parse(settings.input).operation === "producer_environment") {
-      assert.equal(injected, false, "a failed transaction must never retry");
-      injected = true;
-      if (scenario === "environment-signal") return { status: null, signal: "SIGKILL", stdout: Buffer.from("private transport payload") };
-      if (scenario === "environment-empty") return { status: 11, signal: null, stdout: Buffer.alloc(0) };
-      const result = originalSpawnSync(command, args, settings);
-      if (scenario === "environment-outcome") return { ...result, status: 11 };
-      const reply = JSON.parse(result.stdout);
-      reply.request_id = 2;
-      return { ...result, stdout: Buffer.from(JSON.stringify(reply)) };
-    }
-    return originalSpawnSync(command, args, settings);
-  };
-  if (scenario.startsWith("registration-")) childProcess.spawnSync = (command, args, settings) => {
-    if (args?.[0] === "session" && !injected) {
-      const request = JSON.parse(settings.input);
-      if (request.operation === "record" && request.resource.state === "acquired") {
-        injected = true;
-        if (scenario === "registration-transport") return { status: null, signal: "SIGKILL", stdout: Buffer.alloc(0), error: Object.assign(new Error("private transport payload"), { code: "ETIMEDOUT" }) };
-        return { status: 11, stdout: Buffer.from(JSON.stringify({ schema_id: request.schema_id, request_id: 1, operation: "record", ok: false, result: null,
-          error: { reason: "io", errno: 13, process_id: 32101, proof_file: "environ" } })) };
-      }
-    }
-    return originalSpawnSync(command, args, settings);
-  };
-  patch("openSync", (file, flags, ...rest) => {
-    if (scenario === "second-open" && String(file).startsWith(parent) && path.basename(file) === "stderr" && flags & fs.constants.O_CREAT) {
-      injected = true;
-      throw Object.assign(new Error("injected second stream open with private path and payload"), { code: "private-payload-must-not-escape" });
-    }
-    const descriptor = originalOpen(file, flags, ...rest);
-    if (String(file).startsWith(`${parent}/`)) descriptors.set(descriptor, String(file));
-    return descriptor;
-  });
-  patch("closeSync", (descriptor) => {
-    if (scenario === "close" && descriptors.has(descriptor) && !injected) {
-      injected = true;
-      throw new Error("injected descriptor close");
-    }
-    originalClose(descriptor);
-    descriptors.delete(descriptor);
-  });
-  patch("readSync", (descriptor, ...args) => {
-    if (["tail-read", "read-and-cleanup"].includes(scenario) && descriptors.get(descriptor)?.endsWith("/stderr")) {
-      injected = true;
-      throw new Error("injected tail read");
-    }
-    return originalRead(descriptor, ...args);
-  });
-  patch("unlinkSync", (file) => {
-    if (["read-and-cleanup", "cleanup-retry"].includes(scenario) && String(file).startsWith(parent) && path.basename(file) === "stdout" && !cleanupInjected) {
-      cleanupInjected = true;
-      throw new Error("injected unlink");
-    }
-    return originalUnlink(file);
-  });
-  if (["component-length", "component-character"].includes(scenario)) patch("mkdtempSync", (prefix) => {
-    const directory = `${prefix}${scenario === "component-length" ? "x".repeat(128) : "unsafe name"}`;
-    fs.mkdirSync(directory, { mode: 0o700 });
-    return directory;
-  });
-  if (scenario === "parent-mode") {
-    fs.mkdirSync(parent, { mode: 0o755 });
-    // This negative fixture must remain unsafe under a restrictive caller mask.
-    fs.chmodSync(parent, 0o755);
-  }
-  if (scenario === "parent-symlink") fs.symlinkSync(repoRoot, parent);
-  if (scenario === "parent-owner") patch("lstatSync", (file, ...args) => {
-    const stat = originalStat(file, ...args);
-    if (file === parent) stat.uid = process.getuid() + 1;
-    return stat;
-  });
-  if (["file-mode", "file-symlink"].includes(scenario)) patch("lstatSync", (file, ...args) => {
-    if (String(file).startsWith(parent) && path.basename(file) === "stdout" && !injected) {
-      injected = true;
-      if (scenario === "file-mode") fs.chmodSync(file, 0o644);
-      else { originalUnlink(file); fs.symlinkSync(path.join(fixture, "protected"), file); }
-    }
-    return originalStat(file, ...args);
-  });
-  syncBuiltinESMExports();
   try {
+    const repoRoot = ["snapshot-caller", "row-adapter"].includes(scenario) ? path.resolve(import.meta.dirname, "../../..") : path.join(fixture, "repo");
+    const runRoot = path.join(fixture, "results", "capture-contract");
+    if (!["snapshot-caller", "row-adapter"].includes(scenario)) fs.mkdirSync(repoRoot, { mode: 0o700 });
+    fs.mkdirSync(runRoot, { recursive: true, mode: 0o700 });
+    runtime = createRuntime({ repoRoot, runRoot, runID: "capture-contract", scratchRoot: path.join(fixture, "scratch") });
+    const parent = runtime.privatePath("child-captures");
+    fs.writeFileSync(path.join(fixture, "protected"), "protected bytes", { mode: 0o600 });
+    const options = { repoRoot, runRoot, cwd: repoRoot, env: {
+      ...process.env,
+      CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]",
+      CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
+      CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
+      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
+    } };
+    if (scenario.startsWith("environment-")) childProcess.spawnSync = (command, args, settings) => {
+      if (args?.[0] === "session" && JSON.parse(settings.input).operation === "producer_environment") {
+        assert.equal(injected, false, "a failed transaction must never retry");
+        injected = true;
+        if (scenario === "environment-signal") return { status: null, signal: "SIGKILL", stdout: Buffer.from("private transport payload") };
+        if (scenario === "environment-empty") return { status: 11, signal: null, stdout: Buffer.alloc(0) };
+        const result = originalSpawnSync(command, args, settings);
+        if (scenario === "environment-outcome") return { ...result, status: 11 };
+        const reply = JSON.parse(result.stdout);
+        reply.request_id = 2;
+        return { ...result, stdout: Buffer.from(JSON.stringify(reply)) };
+      }
+      return originalSpawnSync(command, args, settings);
+    };
+    if (scenario.startsWith("registration-")) childProcess.spawnSync = (command, args, settings) => {
+      if (args?.[0] === "session" && !injected) {
+        const request = JSON.parse(settings.input);
+        if (request.operation === "record" && request.resource.state === "acquired") {
+          injected = true;
+          rejectedRegistrationProof = request.resource.target;
+          if (scenario === "registration-transport") return { status: null, signal: "SIGKILL", stdout: Buffer.alloc(0), error: Object.assign(new Error("private transport payload"), { code: "ETIMEDOUT" }) };
+          return { status: 11, stdout: Buffer.from(JSON.stringify({ schema_id: request.schema_id, request_id: 1, operation: "record", ok: false, result: null,
+            error: { reason: "io", errno: 13, process_id: 32101, proof_file: "environ" } })) };
+        }
+      }
+      return originalSpawnSync(command, args, settings);
+    };
+    patch("openSync", (file, flags, ...rest) => {
+      if (scenario === "second-open" && String(file).startsWith(parent) && path.basename(file) === "stderr" && flags & fs.constants.O_CREAT) {
+        injected = true;
+        throw Object.assign(new Error("injected second stream open with private path and payload"), { code: "private-payload-must-not-escape" });
+      }
+      const descriptor = originalOpen(file, flags, ...rest);
+      if (String(file).startsWith(`${parent}/`)) descriptors.set(descriptor, String(file));
+      return descriptor;
+    });
+    patch("closeSync", (descriptor) => {
+      if (scenario === "close" && descriptors.has(descriptor) && !injected) {
+        injected = true;
+        throw new Error("injected descriptor close");
+      }
+      originalClose(descriptor);
+      descriptors.delete(descriptor);
+    });
+    patch("readSync", (descriptor, ...args) => {
+      if (["tail-read", "read-and-cleanup"].includes(scenario) && descriptors.get(descriptor)?.endsWith("/stderr")) {
+        injected = true;
+        throw new Error("injected tail read");
+      }
+      return originalRead(descriptor, ...args);
+    });
+    patch("unlinkSync", (file) => {
+      if (["read-and-cleanup", "cleanup-retry", "capture-release"].includes(scenario) && String(file).startsWith(parent) && path.basename(file) === "stdout" && !cleanupInjected) {
+        cleanupInjected = true;
+        throw new Error("injected unlink");
+      }
+      return originalUnlink(file);
+    });
+    if (["component-length", "component-character"].includes(scenario)) patch("mkdtempSync", (prefix) => {
+      const directory = `${prefix}${scenario === "component-length" ? "x".repeat(128) : "unsafe name"}`;
+      fs.mkdirSync(directory, { mode: 0o700 });
+      return directory;
+    });
+    if (scenario === "parent-mode") {
+      fs.mkdirSync(parent, { mode: 0o755 });
+      // This negative fixture must remain unsafe under a restrictive caller mask.
+      fs.chmodSync(parent, 0o755);
+    }
+    if (scenario === "parent-symlink") fs.symlinkSync(repoRoot, parent);
+    if (scenario === "parent-owner") patch("lstatSync", (file, ...args) => {
+      const stat = originalStat(file, ...args);
+      if (file === parent) stat.uid = process.getuid() + 1;
+      return stat;
+    });
+    if (["file-mode", "file-symlink"].includes(scenario)) patch("lstatSync", (file, ...args) => {
+      if (String(file).startsWith(parent) && path.basename(file) === "stdout" && !injected) {
+        injected = true;
+        if (scenario === "file-mode") fs.chmodSync(file, 0o644);
+        else { originalUnlink(file); fs.symlinkSync(path.join(fixture, "protected"), file); }
+      }
+      return originalStat(file, ...args);
+    });
+    syncBuiltinESMExports();
     const { runPrivateCapturedProcess: capture } = await import("../runtime/private-child-process.mjs");
     const run = (source = 'process.stdout.write("output"); process.stderr.write("diagnostic");', extra = {}) =>
       capture(process.execPath, ["--eval", source], { ...options, dependencies: [], ...extra });
-    if (scenario === "allocation") {
+    if (scenario === "descendant-exit") {
+      const pidFile = path.join(fixture, "descendant");
+      const result = await capture("sh", ["-c", 'sleep 60 </dev/null >/dev/null 2>&1 & echo $! > "$1"; exit 17', "fixture", pidFile], { ...options, dependencies: [] });
+      assert.equal(result.status, 17);
+      assert.equal(result.signal, null);
+      const pid = Number(fs.readFileSync(pidFile, "utf8").trim());
+      try { assert.match(fs.readFileSync(`/proc/${pid}/stat`, "utf8").split(") ").at(-1), /^[ZX] /u); }
+      catch (error) { if (error.code !== "ENOENT") throw error; }
+      result.cleanup();
+    } else if (scenario === "pre-cancelled") {
+      const cancelled = new AbortController();
+      cancelled.abort(new Error("private cancellation payload"));
+      const marker = path.join(fixture, "unexpected-launch");
+      await assert.rejects(run(`require('node:fs').writeFileSync(${JSON.stringify(marker)},'launched')`, { signal: cancelled.signal }), error => {
+        assert.equal(error.failure_class, "interrupted");
+        assert.equal(error.failure_reason, "cancelled_or_interrupted");
+        assert.equal(error.processSettled, true);
+        assert.ok(!error.message.includes("private cancellation payload"));
+        return true;
+      });
+      assert.equal(fs.existsSync(marker), false);
+    } else if (scenario === "cancel") {
+      for (const external of [false, true]) {
+        const cancelled = new AbortController();
+        let proof;
+        childProcess.spawnSync = (command, args, settings) => {
+          const result = originalSpawnSync(command, args, settings);
+          if (args?.[0] === "session" && result.status === 0) {
+            const request = JSON.parse(settings.input);
+            if (request.operation === "record" && request.resource.state === "acquired" && request.resource.kind === "helper_process") {
+              proof = request.resource.target;
+              // Cancel at the actual successful publication boundary; no
+              // external child callback is needed to trigger this observation.
+              if (external) cancelled.abort();
+              else assert.equal(process.emit("SIGTERM"), true);
+            }
+          }
+          return result;
+        };
+        syncBuiltinESMExports();
+        const result = await run("setInterval(()=>{},1000)", external ? { signal: cancelled.signal } : {});
+        assert.equal(result.status, null);
+        assert.equal(result.signal, "SIGTERM");
+        assert.throws(() => fs.readFileSync(`/proc/${proof.pid}/stat`), { code: "ENOENT" });
+        result.cleanup();
+      }
+    } else if (scenario === "retired-options") {
+      for (const extra of [{ detached: false }, { detached: true }, { onSpawn() { assert.fail("retired callback called"); } }, { onReady() { assert.fail("retired callback called"); } }]) {
+        await assert.rejects(run(undefined, extra), error => error.failure_reason === "artifact_error" && error.processSettled === true);
+      }
+    } else if (["unresolved-settlement", "overflow-unresolved"].includes(scenario)) {
+      const binary = path.join(fixture, "controller");
+      const native = process.env.CARTULARY_HARNESS_RUNTIME_BIN || path.resolve(import.meta.dirname, "../../..", workspaceLayout.toolbin, "cartulary-harness");
+      const workspace = new URL("../workspace/child-process.mjs", import.meta.url).href;
+      fs.writeFileSync(binary, `#!${process.execPath}
+import {spawn,spawnSync} from ${JSON.stringify(workspace)};
+import {createInterface} from 'node:readline';import {writeSync} from 'node:fs';
+const args=process.argv.slice(2);
+if(args[0]!=="owned-command"){const result=spawnSync(${JSON.stringify(native)},args,{stdio:"inherit"});process.exit(result.status??12);}
+const child=spawn(${JSON.stringify(native)},args,{stdio:["pipe","inherit","inherit","pipe"]});
+process.stdin.pipe(child.stdin);child.stdin.on("error",()=>{});
+createInterface({input:child.stdio[3]}).on("line",line=>{let event=JSON.parse(line);if(event.event==="settled") event={...(event.capture_failure ? {capture_failure:event.capture_failure}:{}),event:"failed",cause:"cleanup",diagnostic:{schema_id:"cartulary.harness_cleanup_diagnostic.v4",stage:"process_signal",cause:"io",errno:13}};writeSync(3,JSON.stringify(event)+String.fromCharCode(10));});
+child.on("error",()=>process.exit(12));child.on("close",()=>process.exit(12));
+`, { mode: 0o700 });
+      const states = [];
+      childProcess.spawnSync = (command, args, settings) => {
+        const result = originalSpawnSync(command, args, settings);
+        if (args?.[0] === "session") {
+          const request = JSON.parse(settings.input);
+          if (request.operation === "record" && request.resource.kind === "helper_process") {
+            states.push(request.resource.state);
+            if (request.resource.state === "acquired" && result.status === 0) {
+              const proof = request.resource.target;
+              captureRecovery = async () => {
+                await stopOwnedProcess(proof, { environment: { ...options.env, ...runtime.producerEnvironment(),
+                  CARTULARY_HARNESS_RUNTIME_BIN: native, CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT: runRoot } });
+                runtime.record({ kind: "helper_process", target: proof, state: "released" });
+                captureRecovery = undefined;
+              };
+            }
+          }
+        }
+        return result;
+      };
+      syncBuiltinESMExports();
+      await assert.rejects(run(scenario === "overflow-unresolved" ? 'process.stdout.write("x".repeat(1025))' : undefined,
+        { captureLimitBytes: 1024, env: { ...options.env, CARTULARY_HARNESS_RUNTIME_BIN: binary } }), error => {
+        assert.equal(error.failure_reason, scenario === "overflow-unresolved" ? "artifact_error" : "cleanup_error");
+        assert.equal(error.processSettled, false);
+        if (scenario === "overflow-unresolved") {
+          assert.match(error.message, /output_failure=limit/u);
+          assert.equal(error.cleanupFailures[0].failure_reason, "cleanup_error");
+        }
+        return true;
+      });
+      assert.deepEqual(states, ["acquired"], "unresolved capture retired its process journal");
+      const [directory] = fs.readdirSync(parent);
+      assert.deepEqual(fs.readdirSync(path.join(parent, directory)).sort(), ["stderr", "stdout"]);
+      assert.equal(fs.readFileSync(path.join(parent, directory, "stdout"), "utf8"), scenario === "overflow-unresolved" ? "x".repeat(1024) : "output");
+      assert.equal(descriptors.size, 0, "parent duplicates leaked while private files remained owned");
+    } else if (["capture-limits", "capture-release"].includes(scenario)) {
+      if (scenario === "capture-limits") {
+        for (const captureLimitBytes of [0, -1, 1.5, Infinity, "1024", 256 * 1024 * 1024 + 1]) {
+          await assert.rejects(run(undefined, { captureLimitBytes }), error => error.failure_reason === "artifact_error" && error.processSettled === true);
+        }
+        const exact = await run('process.stdout.write("x".repeat(1024));process.stderr.write("y".repeat(1024))', { captureLimitBytes: 2048, tailBytes: 1024 });
+        assert.equal(exact.status, 0);
+        assert.equal(exact.stdout, "x".repeat(1024)); assert.equal(exact.stderr, "y".repeat(1024));
+        assert.equal(fs.statSync(exact.stdoutPath).size + fs.statSync(exact.stderrPath).size, 2048);
+        exact.cleanup(); exact.cleanup();
+      }
+      await assert.rejects(run('process.stdout.write("x".repeat(2049))', { captureLimitBytes: 2048 }), error => {
+        assert.equal(error.failure_reason, "artifact_error");
+        assert.equal(error.processSettled, true);
+        assert.match(error.message, /output_failure=limit/u);
+        if (scenario === "capture-release") {
+          assert.ok(cleanupInjected);
+          assert.match(error.message, /cleanup_error during release/u);
+          const [directory] = fs.readdirSync(parent);
+          assert.deepEqual(fs.readdirSync(path.join(parent, directory)), ["stdout"]);
+          assert.equal(fs.statSync(path.join(parent, directory, "stdout")).size, 2048);
+        }
+        return true;
+      });
+    } else if (scenario === "allocation") {
       const catalog = JSON.parse(fs.readFileSync(new URL("../../test_families/module.timeline.json", import.meta.url), "utf8"));
       const rows = catalog.rows.filter((row) => row.selector?.file === "apps/web/e2e/measurement/timeline-grid.spec.ts");
       assert.equal(rows.length, 4);
       const labels = rows.map((row) => row.row_id);
-      const results = await Promise.all([...labels, ...labels].map((label) => run("process.stdout.write(process.env.SEMANTIC_LABEL)", { env: { ...options.env, SEMANTIC_LABEL: label } })));
+      const settled = await Promise.allSettled([...labels, ...labels].map((label) => run("process.stdout.write(process.env.SEMANTIC_LABEL)", { env: { ...options.env, SEMANTIC_LABEL: label } })));
+      const failures = settled.filter((result) => result.status === "rejected").map((result) => result.reason);
+      if (failures.length) throw new AggregateError(failures, "capture fixture acquisition failed");
+      const results = settled.map((result) => result.value);
       assert.equal(new Set(results.map((result) => result.stdoutPath)).size, 8);
       for (const [index, result] of results.entries()) {
         assert.equal(result.stdout, labels[index % 4]);
@@ -283,6 +413,8 @@ async function exercise(scenario) {
         if (scenario === "spawn") assert.match(error.message, /stage=completion, code=ENOENT/u);
         if (scenario.startsWith("registration-")) {
           assert.ok(injected);
+          assert.ok(rejectedRegistrationProof);
+          assert.throws(() => fs.readFileSync(`/proc/${rejectedRegistrationProof.pid}/stat`), { code: "ENOENT" }, "failed runtime publication returned before native reaping");
           assert.ok(!error.message.includes("32101") && !error.message.includes("environ") && !error.message.includes("private transport payload"));
           assert.match(error.message, scenario === "registration-transport"
             ? /stage=process_registration, code=ETIMEDOUT, native=transport, errno=none/u
@@ -307,7 +439,7 @@ async function exercise(scenario) {
       if (["second-open", "tail-read", "read-and-cleanup", "close", "file-mode", "file-symlink"].includes(scenario)) assert.ok(injected);
     }
     assert.equal(descriptors.size, 0, "all acquired descriptors closed");
-    if (fs.existsSync(parent) && !["parent-symlink", "read-and-cleanup", "snapshot-caller", "row-adapter"].includes(scenario)) assert.deepEqual(fs.readdirSync(parent), []);
+    if (fs.existsSync(parent) && !["parent-symlink", "read-and-cleanup", "snapshot-caller", "row-adapter", "unresolved-settlement", "overflow-unresolved", "capture-release"].includes(scenario)) assert.deepEqual(fs.readdirSync(parent), []);
     if (scenario === "read-and-cleanup") {
       const [directory] = fs.readdirSync(parent);
       assert.deepEqual(fs.readdirSync(path.join(parent, directory)), ["stdout"], "only the failed release remains for suite cleanup");
@@ -315,12 +447,23 @@ async function exercise(scenario) {
     assert.equal(fs.readFileSync(path.join(fixture, "protected"), "utf8"), "protected bytes");
     assert.ok(fs.existsSync(runtime.root), "capture must not remove borrowed suite root");
     assert.deepEqual(fs.readdirSync(runRoot), [], "raw output and private paths are never retained");
-  } finally {
-    restore();
-    wrapperRuntime?.close();
-    runtime.close();
-    assert.ok(!fs.existsSync(runtime.root));
-    fs.rmSync(fixture, { recursive: true, force: true });
+  } catch (error) { primaryFailure = error; throw error; }
+  finally {
+    const failures = [];
+    try { restore(); } catch (error) { failures.push(error); }
+    try { await captureRecovery?.(); } catch (error) { failures.push(error); }
+    for (const descriptor of descriptors.keys()) {
+      try { originalClose(descriptor); } catch (error) { if (error.code !== "EBADF") failures.push(error); }
+    }
+    for (const owned of [wrapperRuntime, runtime]) {
+      if (!owned) continue;
+      try { owned.close(); assert.ok(!fs.existsSync(owned.root)); }
+      catch (error) { failures.push(error); }
+    }
+    if (!failures.length) {
+      try { fs.rmSync(fixture, { recursive: true, force: true }); } catch (error) { failures.push(error); }
+    }
+    if (failures.length) throw new AggregateError([...(primaryFailure ? [primaryFailure] : []), ...failures], "capture fixture cleanup failed");
   }
 }
 

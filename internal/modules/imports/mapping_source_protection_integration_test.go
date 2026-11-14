@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -42,27 +44,74 @@ func TestMappingApprovalProtectsPreparedSource_Integration(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer blocker.Close()
+				type result struct {
+					response *http.Response
+					err      error
+				}
+				var tx *sql.Tx
+				var requestCancel context.CancelFunc
+				var done chan struct{}
+				var outcome result
+				var gateHeld, gateInstalled bool
+				defer func() {
+					if requestCancel != nil {
+						requestCancel()
+					}
+					if tx != nil {
+						if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+							t.Error(err)
+						}
+					}
+					cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+					if gateHeld {
+						if _, err := blocker.ExecContext(cleanupCtx, `SELECT pg_advisory_unlock(179,301)`); err != nil {
+							t.Error(err)
+							_ = blocker.Raw(func(any) error { return driver.ErrBadConn })
+						}
+					}
+					cleanupCancel()
+					if err := blocker.Close(); err != nil && err != sql.ErrConnDone {
+						t.Error(err)
+					}
+					if done != nil {
+						joinCtx, joinCancel := context.WithTimeout(context.Background(), 5*time.Second)
+						select {
+						case <-done:
+							if outcome.response != nil {
+								_ = outcome.response.Body.Close()
+							}
+						case <-joinCtx.Done():
+							t.Error("mapping approval HTTP worker did not settle during cleanup")
+						}
+						joinCancel()
+					}
+					if gateInstalled {
+						dropCtx, dropCancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer dropCancel()
+						if _, err := h.DB.ExecContext(dropCtx, `DROP TRIGGER IF EXISTS mapping_source_protection_gate ON import_units; DROP FUNCTION IF EXISTS mapping_source_protection_gate()`); err != nil {
+							t.Error(err)
+						}
+					}
+				}()
 				var pid int
 				if err = blocker.QueryRowContext(ctx, `SELECT pg_backend_pid()`).Scan(&pid); err != nil {
 					t.Fatal(err)
 				}
-				tx, err := blocker.BeginTx(ctx, nil)
+				tx, err = blocker.BeginTx(ctx, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer tx.Rollback()
 				var ref string
 				if scenario == "held_through_persistence" {
+					gateHeld = true
 					if _, err = blocker.ExecContext(ctx, `SELECT pg_advisory_lock(179,301)`); err != nil {
 						t.Fatal(err)
 					}
-					defer blocker.ExecContext(context.Background(), `SELECT pg_advisory_unlock(179,301)`)
 					sql := fmt.Sprintf(`CREATE FUNCTION mapping_source_protection_gate() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.import_unit_id='%s'::uuid AND NEW.approved_mapping_json IS NOT NULL THEN PERFORM pg_advisory_xact_lock(179,301); END IF; RETURN NEW; END $$; CREATE TRIGGER mapping_source_protection_gate BEFORE UPDATE ON import_units FOR EACH ROW EXECUTE FUNCTION mapping_source_protection_gate()`, unit)
+					gateInstalled = true
 					if _, err = h.DB.ExecContext(ctx, sql); err != nil {
 						t.Fatal(err)
 					}
-					defer h.DB.ExecContext(context.Background(), `DROP TRIGGER mapping_source_protection_gate ON import_units; DROP FUNCTION mapping_source_protection_gate()`)
 				} else {
 					if err = tx.QueryRowContext(ctx, `SELECT source_stream_ref FROM import_source_streams WHERE import_unit_id::text=$1 FOR UPDATE`, unit).Scan(&ref); err != nil {
 						t.Fatal(err)
@@ -72,8 +121,8 @@ func TestMappingApprovalProtectsPreparedSource_Integration(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				requestCtx, requestCancel := context.WithCancel(ctx)
-				defer requestCancel()
+				var requestCtx context.Context
+				requestCtx, requestCancel = context.WithCancel(ctx)
 				request, err := http.NewRequestWithContext(requestCtx, http.MethodPut, h.Server.HTTP.URL+"/api/v1/import-sessions/"+session+"/units/"+unit+"/mapping", bytes.NewReader(raw))
 				if err != nil {
 					t.Fatal(err)
@@ -82,12 +131,11 @@ func TestMappingApprovalProtectsPreparedSource_Integration(t *testing.T) {
 				request.Header.Set(authn.CSRFHeaderName, login.CSRF.Value)
 				request.AddCookie(login.Session)
 				request.AddCookie(login.CSRF)
-				type result struct {
-					response *http.Response
-					err      error
-				}
-				done := make(chan result, 1)
-				go func() { r, e := http.DefaultClient.Do(request); done <- result{r, e} }()
+				done = make(chan struct{})
+				go func() {
+					outcome.response, outcome.err = http.DefaultClient.Do(request)
+					close(done)
+				}()
 				blocking := `SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND $1::integer=ANY(pg_blocking_pids(pid))`
 				if got := waitForSQLCount(t, h.DB, 10*time.Second, 1, blocking, pid); got != 1 {
 					t.Fatal("approval did not reach controlled lock boundary")
@@ -116,13 +164,13 @@ func TestMappingApprovalProtectsPreparedSource_Integration(t *testing.T) {
 					if _, err = blocker.ExecContext(ctx, `SELECT pg_advisory_unlock(179,301)`); err != nil {
 						t.Fatal(err)
 					}
+					gateHeld = false
 				}
 				if err = tx.Commit(); err != nil {
 					t.Fatal(err)
 				}
-				var outcome result
 				select {
-				case outcome = <-done:
+				case <-done:
 				case <-ctx.Done():
 					t.Fatal(ctx.Err())
 				}

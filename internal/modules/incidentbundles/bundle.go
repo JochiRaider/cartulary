@@ -18,6 +18,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 const (
@@ -192,7 +193,7 @@ func buildBundleArchive(ctx context.Context, input manifestInput, members *membe
 	if int64(len(encodedHeader))-4+boundaryBytes+1 > PortabilityParticipantByteLimit {
 		return bundleArchive{}, &verificationError{ReasonCode: "malformed_manifest"}
 	}
-	encoded, err := canonicalJSONString(manifest)
+	encoded, err := canonicaljson.MarshalExtension(manifest)
 	if err != nil {
 		return bundleArchive{}, err
 	}
@@ -243,7 +244,8 @@ func verifyBundle(ctx context.Context, members incidentportability.MemberReader)
 		manifest.BlobMode != blobModeFull {
 		return verifiedBundle{}, &verificationError{ReasonCode: "malformed_manifest"}
 	}
-	if !strings.HasPrefix(manifest.SourceChangeSetHighWatermark, sourceBoundaryTokenPrefix) {
+	boundaryDigest, hasBoundaryPrefix := strings.CutPrefix(manifest.SourceChangeSetHighWatermark, sourceBoundaryTokenPrefix)
+	if !hasBoundaryPrefix || len(boundaryDigest) != sha256.Size*2 || strings.Trim(boundaryDigest, "0123456789abcdef") != "" {
 		return verifiedBundle{}, &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	if err := validateManifestVocabularies(manifest); err != nil {
@@ -392,12 +394,19 @@ func validateClosedBundlePaths(files map[string]incidentportability.Member, requ
 		required[filePath] = struct{}{}
 	}
 	for filePath := range files {
-		if !strings.HasPrefix(filePath, "data/") {
+		if _, ok := required[filePath]; ok {
 			continue
 		}
-		if _, ok := required[filePath]; !ok {
-			return &verificationError{ReasonCode: "malformed_manifest"}
+		switch filePath {
+		case "manifest.json", "integrity/checksums.sha256", "integrity/signature.ed25519":
+			continue
 		}
+		if strings.HasPrefix(filePath, "blobs/sha256/") || strings.HasPrefix(filePath, "sources/sha256/") || strings.HasPrefix(filePath, "ext/") {
+			// Digest-addressed object/source identity and owner-specific
+			// inventories are checked after this closed-root admission.
+			continue
+		}
+		return &verificationError{ReasonCode: "malformed_manifest"}
 	}
 	return nil
 }
@@ -567,8 +576,8 @@ func parseChecksumInventory(content string) (map[string]string, error) {
 		if _, err := hex.DecodeString(parts[0]); err != nil {
 			return nil, err
 		}
-		if previous != "" && parts[1] < previous {
-			return nil, fmt.Errorf("checksum inventory not sorted")
+		if previous != "" && parts[1] <= previous {
+			return nil, fmt.Errorf("checksum inventory not strictly sorted")
 		}
 		previous = parts[1]
 		checksums[parts[1]] = parts[0]

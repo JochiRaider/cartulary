@@ -301,6 +301,233 @@
           ]
         }
       }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "target",
+        "state",
+        "run_id",
+        "lease_id"
+      ],
+      "properties": {
+        "kind": {
+          "const": "package_resource"
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "daemon_id",
+            "token",
+            "role"
+          ],
+          "properties": {
+            "daemon_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9:._-]{1,128}$"
+            },
+            "token": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            "role": {
+              "enum": [
+                "application",
+                "postgres",
+                "seaweedfs",
+                "build_tag"
+              ]
+            }
+          }
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "acquired",
+            "released"
+          ]
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "lease_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_files": {
+          "type": "array",
+          "maxItems": 512,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/resourceReference"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "target",
+        "state",
+        "run_id",
+        "lease_id"
+      ],
+      "properties": {
+        "kind": {
+          "const": "package_deployment"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "daemon_id",
+                "token",
+                "scope",
+                "family"
+              ],
+              "properties": {
+                "daemon_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9:._-]{1,128}$"
+                },
+                "token": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+                },
+                "scope": {
+                  "enum": [
+                    "source",
+                    "destination"
+                  ]
+                },
+                "family": {
+                  "enum": [
+                    "container",
+                    "volume",
+                    "network"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "daemon_id",
+                "token",
+                "scope",
+                "family",
+                "workspace",
+                "helper_image"
+              ],
+              "properties": {
+                "daemon_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9:._-]{1,128}$"
+                },
+                "token": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+                },
+                "scope": {
+                  "const": "shared"
+                },
+                "family": {
+                  "const": "workspace"
+                },
+                "workspace": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "helper_image": {
+                  "type": "string",
+                  "pattern": "^sha256:[a-f0-9]{64}$"
+                }
+              }
+            }
+          ]
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "acquired",
+            "released"
+          ]
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "lease_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 36,
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_files": {
+          "type": "array",
+          "maxItems": 512,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/resourceReference"
+              }
+            }
+          ]
+        }
+      }
     }
   ],
   "$defs": {

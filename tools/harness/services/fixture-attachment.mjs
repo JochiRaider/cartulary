@@ -22,7 +22,10 @@ export function fixtureAttachment(operation, environment = process.env) {
     try {
       atomicLocalFile(file,`${JSON.stringify({run_id:runID,runtime_lease_id:runtime.leaseID,session_file:posture.sessionFile,borrower:suite.borrower_proof})}\n`);
       return {environment:suite.environment,container_proof:proof};
-    } catch (error) { suite.close(); throw error; }
+    } catch (error) {
+      try { suite.close(); } catch (secondary) { (error.cleanupFailures ??= []).push(secondary); }
+      throw error;
+    }
   }
   if (operation === "detach") {
     const value = parseStrictJSON(readLocalFile(file,{maximum:1048576}).toString());

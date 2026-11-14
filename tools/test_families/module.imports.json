@@ -1656,6 +1656,44 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.imports.unit.owner_create_registry_contract",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.assessments",
+        "module.collaboration",
+        "module.entities",
+        "module.evidence",
+        "module.indicators",
+        "module.parties",
+        "module.revisions",
+        "module.tasksdecisions",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.imports.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/importassembly",
+        "tests": [
+          "TestOwnerCreateRegistryComposesEveryCurrentViewTarget",
+          "TestOwnerCreateRegistryConsumesNarrowEvidenceFacade",
+          "TestOwnerCreateRegistryRequiresCompositionDependencies"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.imports.unit.owner_facade_registry_complete_9318afa5dd",
       "owner_id": "module.imports",
       "family_id": "module.imports.unit",

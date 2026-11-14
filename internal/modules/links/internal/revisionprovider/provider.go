@@ -3,6 +3,7 @@ package revisionprovider
 import (
 	"context"
 	"errors"
+	"reflect"
 	"sort"
 	"time"
 
@@ -206,6 +207,13 @@ func (p Provider) DescribeTx(ctx context.Context, tx pgx.Tx, request rollbackcon
 		if err := validateRetainedEnvelopesTx(ctx, tx, target.IncidentID, descriptor.AffectedRecordIDs); err != nil {
 			return descriptor, err
 		}
+		current, err := p.loadRecordLinkValueTx(ctx, tx, parsed.RecordLinkID)
+		if err != nil {
+			return descriptor, err
+		}
+		if err := requireCompleteCurrentLink(current, target.AfterValue); err != nil {
+			return descriptor, err
+		}
 		return descriptor, nil
 	case "record_tag":
 		if target.OperationKind != "create" && target.OperationKind != "patch" && target.OperationKind != "delete" {
@@ -230,10 +238,41 @@ func (p Provider) DescribeTx(ctx context.Context, tx pgx.Tx, request rollbackcon
 		if err := validateRetainedEnvelopesTx(ctx, tx, target.IncidentID, descriptor.AffectedRecordIDs); err != nil {
 			return descriptor, err
 		}
+		current, err := p.loadRecordTagValueTx(ctx, tx, parsed.RecordTagID)
+		if err != nil {
+			return descriptor, err
+		}
+		if err := requireCompleteCurrentTag(current, target.AfterValue); err != nil {
+			return descriptor, err
+		}
 		return descriptor, nil
 	default:
 		return rollbackcontract.TargetDescriptor{}, ErrTargetNotReversible
 	}
+}
+
+func requireCompleteCurrentLink(current, after map[string]any) error {
+	currentValue, currentErr := valuecodec.DecodeRecordLinkMutationValue(current)
+	afterValue, afterErr := valuecodec.DecodeRecordLinkMutationValue(after)
+	if currentErr != nil || afterErr != nil {
+		return ErrTargetNotReversible
+	}
+	if !reflect.DeepEqual(currentValue, afterValue) {
+		return ErrStaleTarget
+	}
+	return nil
+}
+
+func requireCompleteCurrentTag(current, after map[string]any) error {
+	currentValue, currentErr := valuecodec.DecodeRecordTagMutationValue(current)
+	afterValue, afterErr := valuecodec.DecodeRecordTagMutationValue(after)
+	if currentErr != nil || afterErr != nil {
+		return ErrTargetNotReversible
+	}
+	if !reflect.DeepEqual(currentValue, afterValue) {
+		return ErrStaleTarget
+	}
+	return nil
 }
 
 // Rollback may restore relationships whose endpoints are retained but deleted.

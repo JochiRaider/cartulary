@@ -242,7 +242,7 @@ func TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit(t *testing.T) 
 		"email":"solo@example.test",
 		"role":"owner"
 	}`))
-	requireClosedVocabularyRejected(t, apiErr, "role", "invalid_role")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "role", "invalid_role")
 
 	_, apiErr = admitMembershipCreateJSON(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-no-invite",
@@ -276,26 +276,6 @@ func requireAPIError(t testing.TB, apiErr *httpapi.APIError, wantStatus int, wan
 		if got := apiErr.Details["reason_code"]; got != wantReasonCode {
 			t.Fatalf("unexpected reason_code detail: got %v want %s", got, wantReasonCode)
 		}
-	}
-}
-
-func requireClosedVocabularyRejected(t testing.TB, apiErr *httpapi.APIError, wantField string, wantReasonCode string) {
-	t.Helper()
-	if apiErr == nil {
-		t.Fatal("expected api error")
-		return
-	}
-	if apiErr.Code != "invalid_mutation_payload" && apiErr.Code != "invalid_view_query" {
-		t.Fatalf("unexpected closed-vocabulary rejection code: %q", apiErr.Code)
-	}
-	if apiErr.Details == nil {
-		t.Fatal("expected closed-vocabulary rejection details")
-	}
-	if apiErr.Details["field"] != wantField {
-		t.Fatalf("unexpected closed-vocabulary field: got %v want %q", apiErr.Details["field"], wantField)
-	}
-	if apiErr.Details["reason_code"] != wantReasonCode {
-		t.Fatalf("unexpected closed-vocabulary reason_code: got %v want %q", apiErr.Details["reason_code"], wantReasonCode)
 	}
 }
 

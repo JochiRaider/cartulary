@@ -41,7 +41,6 @@ type CreateIdempotencyKey struct {
 	ActorUserID uuid.UUID
 	ScopeKey    string
 	ClientTxnID string
-	RequestHash []byte
 }
 
 type CreateCommand struct {
@@ -62,7 +61,10 @@ type CreateResult struct {
 
 type CreateIdempotencyRecord struct {
 	RequestHash []byte
-	Result      CreateResult
+	// Nil identifies a legacy receipt. New receipts retain the original default
+	// independently of an explicitly supplied assessment time and returned row.
+	DefaultAssessedAt *time.Time
+	Result            CreateResult
 }
 
 type RecordEnvelopeCreate struct {
@@ -92,20 +94,30 @@ type SupportLinkMutation struct {
 }
 
 type CreateIdempotencyPort interface {
-	LookupCreate(context.Context, CreateIdempotencyKey) (CreateIdempotencyRecord, bool, error)
-	StoreCreateTx(context.Context, pgx.Tx, CreateIdempotencyKey, CreateResult) error
+	// AdmitCreateTx serializes the scoped identity before reading its receipt.
+	AdmitCreateTx(context.Context, pgx.Tx, CreateIdempotencyKey) (CreateIdempotencyRecord, bool, error)
+	StoreCreateTx(context.Context, pgx.Tx, CreateIdempotencyKey, CreateIdempotencyRecord) error
 }
 
-type SubjectValidator interface {
-	ValidateAssessmentSubjectTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID) (bool, error)
+type CreateReferences struct {
+	SubjectRef  uuid.UUID
+	SubjectType string
+	SupportRefs []uuid.UUID
+}
+
+// ReferenceAdmissionResult describes only facts protected through the caller's
+// transaction. An admission error must not return usable partial facts.
+type ReferenceAdmissionResult struct {
+	SubjectValid bool
+	SupportValid bool
+}
+
+type ReferenceAdmission interface {
+	AdmitAssessmentReferencesTx(context.Context, pgx.Tx, uuid.UUID, CreateReferences) (ReferenceAdmissionResult, error)
 }
 
 type AssessorValidator interface {
 	ValidateAssessmentAssessorTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
-}
-
-type SupportTargetValidator interface {
-	ValidateAssessmentSupportTargetsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) (bool, error)
 }
 
 type RecordEnvelopeCreator interface {
@@ -125,20 +137,18 @@ type AssessmentProjectionPort interface {
 }
 
 type FacadeDependencies struct {
-	Idempotency    CreateIdempotencyPort
-	Subjects       SubjectValidator
-	Assessors      AssessorValidator
-	SupportTargets SupportTargetValidator
-	Records        RecordEnvelopeCreator
-	SupportLinks   InitialSupportLinkApplier
-	Revisions      CreateRevisionAppender
-	Projections    AssessmentProjectionPort
+	Idempotency  CreateIdempotencyPort
+	References   ReferenceAdmission
+	Assessors    AssessorValidator
+	Records      RecordEnvelopeCreator
+	SupportLinks InitialSupportLinkApplier
+	Revisions    CreateRevisionAppender
+	Projections  AssessmentProjectionPort
 }
 
 type Facade struct {
 	pool         dbport.DB
 	idempotency  CreateIdempotencyPort
-	support      SupportTargetValidator
 	supportLinks InitialSupportLinkApplier
 	revisions    CreateRevisionAppender
 	creator      assessmentCreateService
@@ -150,12 +160,10 @@ func NewFacade(pool dbport.DB, dependencies FacadeDependencies) (*Facade, error)
 		return nil, errors.New("construct assessment facade: database is required")
 	case isNilDependency(dependencies.Idempotency):
 		return nil, errors.New("construct assessment facade: idempotency port is required")
-	case isNilDependency(dependencies.Subjects):
-		return nil, errors.New("construct assessment facade: subject validator is required")
+	case isNilDependency(dependencies.References):
+		return nil, errors.New("construct assessment facade: reference admission is required")
 	case isNilDependency(dependencies.Assessors):
 		return nil, errors.New("construct assessment facade: assessor validator is required")
-	case isNilDependency(dependencies.SupportTargets):
-		return nil, errors.New("construct assessment facade: support-target validator is required")
 	case isNilDependency(dependencies.Records):
 		return nil, errors.New("construct assessment facade: record-envelope creator is required")
 	case isNilDependency(dependencies.SupportLinks):
@@ -168,11 +176,10 @@ func NewFacade(pool dbport.DB, dependencies FacadeDependencies) (*Facade, error)
 	return &Facade{
 		pool:         pool,
 		idempotency:  dependencies.Idempotency,
-		support:      dependencies.SupportTargets,
 		supportLinks: dependencies.SupportLinks,
 		revisions:    dependencies.Revisions,
 		creator: newAssessmentCreateService(
-			dependencies.Subjects,
+			dependencies.References,
 			dependencies.Assessors,
 			dependencies.Records,
 			dependencies.Projections,
@@ -190,13 +197,27 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 	if err := f.creator.validateInput(command.Input); err != nil {
 		return CreateResult{}, err
 	}
+	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return CreateResult{}, fmt.Errorf("begin assessment create transaction: %w", err)
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+
 	key := createIdempotencyKey(command)
-	existing, found, err := f.idempotency.LookupCreate(ctx, key)
+	existing, found, err := f.idempotency.AdmitCreateTx(ctx, tx, key)
 	if err != nil {
 		return CreateResult{}, fmt.Errorf("query assessment create idempotency: %w", err)
 	}
 	if found {
-		if !bytes.Equal(existing.RequestHash, key.RequestHash) {
+		requestHash := legacyCreateRequestHash(command.Input)
+		if existing.DefaultAssessedAt != nil {
+			requestHash = createRequestHash(command.Input, command.ActorUserID, *existing.DefaultAssessedAt)
+		}
+		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return CreateResult{}, ErrClientTxnConflict
 		}
 		result := existing.Result
@@ -204,34 +225,18 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 		return result, nil
 	}
 
-	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return CreateResult{}, fmt.Errorf("begin assessment create transaction: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
 	input := command.Input
-	now := command.Now.UTC()
+	now := command.Now.UTC().Truncate(time.Microsecond)
 	create := assessmentCreateContext{
 		IncidentID:  command.IncidentID,
 		ActorUserID: command.ActorUserID,
 		Input:       input,
 		Now:         now,
 	}
-	if err := f.creator.validateSubjectTx(ctx, tx, create); err != nil {
+	if err := f.creator.admitReferencesTx(ctx, tx, create); err != nil {
 		return CreateResult{}, err
 	}
-
 	supportRefs := uniqueUUIDs(input.SupportRefs)
-	valid, err := f.support.ValidateAssessmentSupportTargetsTx(ctx, tx, command.IncidentID, supportRefs)
-	if err != nil {
-		return CreateResult{}, fmt.Errorf("validate assessment support targets: %w", err)
-	}
-	if !valid {
-		return CreateResult{}, &CreateValidationError{Field: "assessment.support_refs", ReasonCode: "invalid_value"}
-	}
 
 	assessorID, err := f.creator.resolveAssessorTx(ctx, tx, create)
 	if err != nil {
@@ -285,7 +290,12 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (CreateResul
 		ChangeSetID:  changeSetID,
 		RowVersion:   rowVersion,
 	}
-	if err := f.idempotency.StoreCreateTx(ctx, tx, key, result); err != nil {
+	receipt := CreateIdempotencyRecord{
+		RequestHash:       createRequestHash(input, command.ActorUserID, now),
+		DefaultAssessedAt: &now,
+		Result:            result,
+	}
+	if err := f.idempotency.StoreCreateTx(ctx, tx, key, receipt); err != nil {
 		if errors.Is(err, ErrClientTxnConflict) {
 			return CreateResult{}, ErrClientTxnConflict
 		}

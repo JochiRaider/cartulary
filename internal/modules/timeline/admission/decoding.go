@@ -364,11 +364,15 @@ func DecodeTimelineTimeConversionProfilePutRequest(reader io.Reader) (timeline.T
 	} else if err := json.Unmarshal(value, &request.BaseProfileVersion); err != nil || request.BaseProfileVersion < 1 {
 		return timeline.TimeConversionProfilePutRequest{}, invalidMutationPayload("base_profile_version", "invalid_value")
 	}
-	if value, ok := raw["enabled"]; !ok {
+	enabledValue, ok := raw["enabled"]
+	if !ok {
 		return timeline.TimeConversionProfilePutRequest{}, invalidMutationPayload("enabled", "missing_required_field")
-	} else if err := json.Unmarshal(value, &request.Enabled); err != nil {
+	}
+	var enabled *bool
+	if err := json.Unmarshal(enabledValue, &enabled); err != nil || enabled == nil {
 		return timeline.TimeConversionProfilePutRequest{}, invalidMutationPayload("enabled", "invalid_value")
 	}
+	request.Enabled = *enabled
 	offsetValue, ok := raw["local_offset_minutes"]
 	if !ok {
 		return timeline.TimeConversionProfilePutRequest{}, invalidMutationPayload("local_offset_minutes", "missing_required_field")
@@ -383,12 +387,22 @@ func DecodeTimelineTimeConversionProfilePutRequest(reader io.Reader) (timeline.T
 	if request.Enabled && request.LocalOffsetMinutes == nil {
 		return timeline.TimeConversionProfilePutRequest{}, invalidMutationPayload("local_offset_minutes", "missing_required_field")
 	}
-	var okLabel bool
-	if request.LocalLabel, okLabel = normalizeNullableLineField(raw, "local_label"); !okLabel {
-		return timeline.TimeConversionProfilePutRequest{}, invalidMutationPayload("local_label", "invalid_value")
-	}
-	if _, ok := raw["local_label"]; !ok {
+	labelValue, ok := raw["local_label"]
+	if !ok {
 		return timeline.TimeConversionProfilePutRequest{}, invalidMutationPayload("local_label", "missing_required_field")
+	}
+	if string(labelValue) != "null" {
+		var rawLabel string
+		if err := json.Unmarshal(labelValue, &rawLabel); err != nil {
+			return timeline.TimeConversionProfilePutRequest{}, invalidMutationPayload("local_label", "invalid_value")
+		}
+		label, valid := mutationpolicy.NormalizeProfileLabel(rawLabel)
+		if !valid {
+			return timeline.TimeConversionProfilePutRequest{}, invalidMutationPayload("local_label", "invalid_value")
+		}
+		if label != "" {
+			request.LocalLabel = &label
+		}
 	}
 	return request, nil
 }
@@ -828,29 +842,6 @@ func normalizeNullableTimelineVisibleTextValue(value json.RawMessage) (*string, 
 	return &rawValue, true
 }
 
-func normalizeNullableLineField(raw map[string]json.RawMessage, field string) (*string, bool) {
-	value, ok := raw[field]
-	if !ok {
-		return nil, true
-	}
-	return normalizeNullableLineValue(value)
-}
-
-func normalizeNullableLineValue(value json.RawMessage) (*string, bool) {
-	if string(value) == "null" {
-		return nil, true
-	}
-	var rawValue string
-	if err := json.Unmarshal(value, &rawValue); err != nil {
-		return nil, false
-	}
-	normalized, ok := normalizeLine(rawValue)
-	if !ok {
-		return nil, false
-	}
-	return &normalized, true
-}
-
 func normalizeNullableNoteField(raw map[string]json.RawMessage, field string) (*string, bool) {
 	value, ok := raw[field]
 	if !ok {
@@ -876,10 +867,6 @@ func normalizeNoteValue(value json.RawMessage) (string, bool) {
 		return "", false
 	}
 	return normalizeNote(rawValue)
-}
-
-func normalizeLine(raw string) (string, bool) {
-	return fieldnorm.NormalizeLine(raw)
 }
 
 func normalizeNote(raw string) (string, bool) {

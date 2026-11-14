@@ -1,7 +1,6 @@
 // Disposable package-test producer. Never imported by runtime code or shipped.
 import { createHash, createPrivateKey, createPublicKey, sign } from "node:crypto";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { canonicalJSONString } from "../harness/contract/semantic-json.mjs";
@@ -61,7 +60,7 @@ export function packageFixtures(repoRoot, destination) {
       members[`metadata/${role}.json`] = signed({ _type: role, spec_version: "1.0.35", version: metadataVersion, expires: expiry(days), meta: { [`${child}.json`]: { version: metadataVersion, length: value.length, hashes: { sha256: digest(value) } } } });
     }
     if (rotation) members["metadata/2.root.json"] = root(2);
-    const temporary = mkdtempSync(path.join(tmpdir(), "cartulary-pack-producer-"));
+    const temporary = mkdtempSync(path.join(destination, ".pack-producer-"));
     try {
       for (const [name, value] of Object.entries(members)) {
         mkdirSync(path.dirname(path.join(temporary, name)), { recursive: true });

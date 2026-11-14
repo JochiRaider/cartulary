@@ -137,6 +137,13 @@
       "validation": "harness.json_shape_check"
     },
     {
+      "schema_id": "cartulary.cryptographic_build_receipt.v1",
+      "path": "tools/schemas/cartulary.cryptographic_build_receipt.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "cryptographic build receipt producer",
+      "validation": "harness.json_shape_check"
+    },
+    {
       "schema_id": "cartulary.design_presentation.v2",
       "path": "tools/schemas/cartulary.design_presentation.v2.schema.json",
       "classification": "owner_input",
@@ -1194,6 +1201,7 @@
     {
       "schema_id": "cartulary.performance_fixture_runtime.v2",
       "path": "tools/schemas/cartulary.performance_fixture_runtime.v2.schema.json",
+      "foundation_runtime": true,
       "classification": "public_contract",
       "producer": "target performance evidence generation",
       "validation": "harness.json_shape_check"
@@ -1201,6 +1209,7 @@
     {
       "schema_id": "cartulary.performance_fixture_snapshot.v3",
       "path": "tools/schemas/cartulary.performance_fixture_snapshot.v3.schema.json",
+      "foundation_runtime": true,
       "classification": "public_contract",
       "producer": "target performance evidence generation",
       "validation": "harness.json_shape_check"
@@ -1222,6 +1231,7 @@
     {
       "schema_id": "cartulary.performance_fixture_snapshot_lease.v3",
       "path": "tools/schemas/cartulary.performance_fixture_snapshot_lease.v3.schema.json",
+      "foundation_runtime": true,
       "classification": "public_contract",
       "producer": "target performance evidence generation",
       "validation": "harness.json_shape_check"
@@ -1439,6 +1449,20 @@
       "validation": "harness.json_shape_check"
     },
     {
+      "schema_id": "cartulary.seaweedfs_release_gate_summary.v3",
+      "path": "tools/schemas/cartulary.seaweedfs_release_gate_summary.v3.schema.json",
+      "classification": "public_contract",
+      "producer": "current SeaweedFS release evidence",
+      "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.seaweedfs_s3_compatibility_report.v1",
+      "path": "tools/schemas/cartulary.seaweedfs_s3_compatibility_report.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "SeaweedFS compatibility probe",
+      "validation": "harness.json_shape_check"
+    },
+    {
       "schema_id": "cartulary.task_guide_summary.v6",
       "path": "tools/schemas/cartulary.task_guide_summary.v6.schema.json",
       "classification": "public_contract",
@@ -1585,6 +1609,14 @@
       "classification": "public_contract",
       "producer": "local service session manager",
       "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.test_services.local_session_borrower.v2",
+      "path": "tools/schemas/cartulary.test_services.local_session_borrower.v2.schema.json",
+      "classification": "public_contract",
+      "producer": "local service session borrower lifecycle",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.test_services.local_session_status.v1",

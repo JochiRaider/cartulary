@@ -236,11 +236,12 @@ func ValidatePresenceInput(input PresenceInput) error {
 	}
 	switch input.SheetRef["kind"] {
 	case "view_schema", "saved_view":
-		if input.SheetRef["id"] == "" || !sheetRefHasOnlyKeys(input.SheetRef, "kind", "id") {
+		if input.SheetRef["id"] == "" {
 			return fmt.Errorf("presence.sheet_ref is invalid")
 		}
 	case "extension_workspace":
-		if input.SheetRef["extension_profile_id"] == "" || input.SheetRef["workspace_key"] == "" || !sheetRefHasOnlyKeys(input.SheetRef, "kind", "extension_profile_id", "workspace_key") || input.RecordID != nil || input.FieldKey != nil {
+		_, hasID := input.SheetRef["id"]
+		if input.SheetRef["extension_profile_id"] == "" || input.SheetRef["workspace_key"] == "" || hasID || input.RecordID != nil || input.FieldKey != nil {
 			return fmt.Errorf("presence extension workspace is invalid")
 		}
 	default:
@@ -251,21 +252,11 @@ func ValidatePresenceInput(input PresenceInput) error {
 	default:
 		return fmt.Errorf("presence.mode is invalid")
 	}
-	if input.FieldKey != nil && input.Mode != "editing" {
-		return fmt.Errorf("presence.field_key requires editing mode")
+	if input.FieldKey != nil && (input.Mode != "editing" || input.RecordID == nil) {
+		return fmt.Errorf("presence.field_key requires a record anchor and editing mode")
+	}
+	if (input.RecordID != nil && *input.RecordID == "") || (input.FieldKey != nil && *input.FieldKey == "") {
+		return fmt.Errorf("presence anchors must be nonempty")
 	}
 	return nil
-}
-
-func sheetRefHasOnlyKeys(sheetRef map[string]string, keys ...string) bool {
-	allowed := make(map[string]struct{}, len(keys))
-	for _, key := range keys {
-		allowed[key] = struct{}{}
-	}
-	for key := range sheetRef {
-		if _, ok := allowed[key]; !ok {
-			return false
-		}
-	}
-	return true
 }

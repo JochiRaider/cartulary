@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions/historyvalue"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -78,6 +79,9 @@ type mentionActionRecord struct {
 	NormalizedText   string
 	ResolutionStatus string
 	RowVersion       int64
+	Ordinal          int32
+	CreatedByUserID  uuid.UUID
+	CreatedAt        time.Time
 	ResolvedRecordID *uuid.UUID
 	ResolvedByUserID *uuid.UUID
 	ResolvedAt       *time.Time
@@ -116,6 +120,9 @@ SELECT
     m.normalized_text,
     m.resolution_status,
     m.row_version,
+    m.ordinal,
+    m.created_by_user_id,
+    m.created_at,
     m.resolved_record_id,
     m.resolved_by_user_id,
     m.resolved_at,
@@ -141,7 +148,21 @@ SELECT
 	return MentionActionAccess{Role: record.Role}, nil
 }
 
+var errMentionPreparationChanged = errors.New("entities: Mention reference preparation changed")
+
 func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, mentionID uuid.UUID, request MentionActionRequest, requestHash []byte, requestID string, now time.Time) (MentionActionResult, error) {
+	for {
+		result, err := s.applyMentionActionAttempt(ctx, actor, mentionID, request, requestHash, requestID, now)
+		if !errors.Is(err, errMentionPreparationChanged) {
+			return result, err
+		}
+		if err := ctx.Err(); err != nil {
+			return MentionActionResult{}, err
+		}
+	}
+}
+
+func (s *Store) applyMentionActionAttempt(ctx context.Context, actor authn.UserRecord, mentionID uuid.UUID, request MentionActionRequest, requestHash []byte, requestID string, now time.Time) (MentionActionResult, error) {
 	scopeKey := mentionIdempotencyScope(mentionID)
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    mentionActionRouteKey,
@@ -174,7 +195,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		_ = tx.Rollback(ctx)
 	}()
 
-	mention, err := loadMentionActionRecordTx(ctx, tx, mentionID)
+	mention, err := s.prepareMentionActionRecordTx(ctx, tx, mentionID, nil, "", request.ResolvedRecordID)
 	if err != nil {
 		return MentionActionResult{}, err
 	}
@@ -204,7 +225,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 
 	var validatedTarget *mentionTargetRecord
 	if request.Action == "resolve_item" {
-		validatedTarget, err = validateMentionResolvedTargetTx(ctx, tx, actor.ID, mention.IncidentID, mention.EntityType, *request.ResolvedRecordID)
+		validatedTarget, err = s.validateMentionResolvedTargetTx(ctx, tx, actor.ID, mention.IncidentID, mention.EntityType, *request.ResolvedRecordID, mention.ResolvedRecordID)
 		if err != nil {
 			return MentionActionResult{}, err
 		}
@@ -344,7 +365,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 }
 
 func (s *Store) ApplyMentionLifecycleTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, sourceFieldKey string, mentionID uuid.UUID, action string, resolvedRecordID *uuid.UUID, now time.Time) ([]LinkMutation, error) {
-	mention, err := loadMentionActionRecordTx(ctx, tx, mentionID)
+	mention, err := s.prepareMentionActionRecordTx(ctx, tx, mentionID, &sourceRecordID, sourceFieldKey, resolvedRecordID)
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +378,7 @@ func (s *Store) ApplyMentionLifecycleTx(ctx context.Context, tx pgx.Tx, actor au
 		if resolvedRecordID == nil {
 			return nil, ErrInvalidMentionResolution
 		}
-		validatedTarget, err = validateMentionResolvedTargetTx(ctx, tx, actor.ID, mention.IncidentID, mention.EntityType, *resolvedRecordID)
+		validatedTarget, err = s.validateMentionResolvedTargetTx(ctx, tx, actor.ID, mention.IncidentID, mention.EntityType, *resolvedRecordID, mention.ResolvedRecordID)
 		if err != nil {
 			return nil, err
 		}
@@ -370,22 +391,11 @@ func (s *Store) ApplyMentionLifecycleTx(ctx context.Context, tx pgx.Tx, actor au
 }
 
 func (s *Store) applyMentionActionTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, mention mentionActionRecord, action string, target *mentionTargetRecord, resolutionMethod *string, now time.Time) (mentionMutationResult, error) {
-	linkType, ok := mentionLinkType(mention.SourceFieldKey)
-	toStatus, legalStatuses := mentionActionState(action)
-	guards := make([]string, 0, 2)
-	if !ok {
-		guards = append(guards, "source_field_not_supported")
+	toStatus, err := s.TransitionStatus(mention.SourceFieldKey, mention.ResolutionStatus, action)
+	if err != nil {
+		return mentionMutationResult{}, err
 	}
-	if !slices.Contains(legalStatuses, mention.ResolutionStatus) {
-		guards = append(guards, "from_status_not_allowed")
-	}
-	if len(guards) > 0 {
-		return mentionMutationResult{}, &MentionTransitionError{
-			FromStatus:     mention.ResolutionStatus,
-			ToStatus:       toStatus,
-			ViolatedGuards: guards,
-		}
-	}
+	linkType, _ := mentionLinkType(mention.SourceFieldKey)
 
 	before := mention
 	after := mention
@@ -401,7 +411,7 @@ func (s *Store) applyMentionActionTx(ctx context.Context, tx pgx.Tx, actorUserID
 		after.ResolvedRecordID = &targetID
 		resolvedBy := actorUserID
 		after.ResolvedByUserID = &resolvedBy
-		resolvedAt := now.UTC()
+		resolvedAt := now.UTC().Truncate(time.Microsecond)
 		after.ResolvedAt = &resolvedAt
 		after.ResolutionMethod = cloneStringPointer(resolutionMethod)
 	case "dismiss_item", "revert_to_unresolved":
@@ -556,8 +566,39 @@ func mentionEntityInvalidationSurface(entityType string) (string, string, bool) 
 	}
 }
 
-func loadMentionActionRecordTx(ctx context.Context, tx pgx.Tx, mentionID uuid.UUID) (mentionActionRecord, error) {
-	row := tx.QueryRow(ctx, `
+// Every caller protects the source and both ends of a resolution before taking
+// the owned Mention lock. An enclosing Timeline transaction already owns the
+// complete union, so these acquisitions retain its existing protection.
+func (s *Store) prepareMentionActionRecordTx(ctx context.Context, tx pgx.Tx, mentionID uuid.UUID, expectedSource *uuid.UUID, expectedField string, target *uuid.UUID) (mentionActionRecord, error) {
+	before, err := readMentionActionRecordTx(ctx, tx, mentionID, false)
+	if err != nil {
+		return mentionActionRecord{}, err
+	}
+	if expectedSource != nil && (before.SourceRecordID != *expectedSource || before.SourceFieldKey != expectedField) {
+		return mentionActionRecord{}, ErrInvalidMentionResolution
+	}
+	ids := []uuid.UUID{before.SourceRecordID}
+	if before.ResolvedRecordID != nil {
+		ids = append(ids, *before.ResolvedRecordID)
+	}
+	if target != nil {
+		ids = append(ids, *target)
+	}
+	if _, err := s.ports.records.LoadEnvelopesForNoKeyUpdateTx(ctx, tx, ids); err != nil {
+		return mentionActionRecord{}, err
+	}
+	current, err := readMentionActionRecordTx(ctx, tx, mentionID, true)
+	if err != nil {
+		return mentionActionRecord{}, err
+	}
+	if current.RowVersion != before.RowVersion || current.SourceRecordID != before.SourceRecordID {
+		return mentionActionRecord{}, errMentionPreparationChanged
+	}
+	return current, nil
+}
+
+func readMentionActionRecordTx(ctx context.Context, tx pgx.Tx, mentionID uuid.UUID, lock bool) (mentionActionRecord, error) {
+	query := `
 SELECT
     m.entity_mention_id,
     r.incident_id,
@@ -570,6 +611,9 @@ SELECT
     m.normalized_text,
     m.resolution_status,
     m.row_version,
+    m.ordinal,
+    m.created_by_user_id,
+    m.created_at,
     m.resolved_record_id,
     m.resolved_by_user_id,
     m.resolved_at,
@@ -579,8 +623,11 @@ SELECT
   FROM entity_mentions m
   JOIN records r ON r.record_id = m.source_record_id
  WHERE m.entity_mention_id = $1
- FOR UPDATE OF m, r
-`, mentionID)
+`
+	if lock {
+		query += " FOR UPDATE OF m"
+	}
+	row := tx.QueryRow(ctx, query, mentionID)
 	record, err := scanMentionActionRecord(row)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return mentionActionRecord{}, ErrEntityMentionNotFound
@@ -591,12 +638,25 @@ SELECT
 	return record, nil
 }
 
-func validateMentionResolvedTargetTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, entityType string, resolvedRecordID uuid.UUID) (*mentionTargetRecord, error) {
+func (s *Store) validateMentionResolvedTargetTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, entityType string, resolvedRecordID uuid.UUID, previousRecordID *uuid.UUID) (*mentionTargetRecord, error) {
+	ids := []uuid.UUID{resolvedRecordID}
+	if previousRecordID != nil {
+		ids = append(ids, *previousRecordID)
+	}
+	envelopes, err := s.ports.records.LoadEnvelopesForNoKeyUpdateTx(ctx, tx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("admit mention target envelopes: %w", err)
+	}
+	if _, ok := envelopes[resolvedRecordID]; !ok {
+		return nil, ErrResolvedRecordNotFound
+	}
+
 	rows, err := tx.Query(ctx, `
 SELECT entity_type, incident_id, record_id
   FROM (
         SELECT 'host'::text AS entity_type, h.incident_id, h.record_id
           FROM hosts h
+          JOIN records r ON r.record_id = h.record_id AND r.deleted_at IS NULL
           JOIN incident_memberships im
             ON im.incident_id = h.incident_id
            AND im.user_id = $1
@@ -605,6 +665,7 @@ SELECT entity_type, incident_id, record_id
         UNION ALL
         SELECT 'identity'::text AS entity_type, i.incident_id, i.record_id
           FROM identities i
+          JOIN records r ON r.record_id = i.record_id AND r.deleted_at IS NULL
           JOIN incident_memberships im
             ON im.incident_id = i.incident_id
            AND im.user_id = $1
@@ -666,6 +727,24 @@ func mentionLinkType(sourceFieldKey string) (string, bool) {
 	}
 }
 
+// TransitionStatus applies the source-owned lifecycle matrix without reading or
+// changing a Mention. Preview callers supply their simulated status.
+func (*Store) TransitionStatus(field, from, action string) (string, error) {
+	_, supported := mentionLinkType(field)
+	to, legal := mentionActionState(action)
+	guards := make([]string, 0, 2)
+	if !supported {
+		guards = append(guards, "source_field_not_supported")
+	}
+	if !slices.Contains(legal, from) {
+		guards = append(guards, "from_status_not_allowed")
+	}
+	if len(guards) > 0 {
+		return "", &MentionTransitionError{FromStatus: from, ToStatus: to, ViolatedGuards: guards}
+	}
+	return to, nil
+}
+
 func mentionActionState(action string) (string, []string) {
 	switch action {
 	case "resolve_item":
@@ -714,23 +793,16 @@ func buildMentionActionPayload(incidentID uuid.UUID, mention mentionActionRecord
 }
 
 func buildMentionMutationValue(mention mentionActionRecord) map[string]any {
-	return map[string]any{
-		"entity_mention_id":   mention.EntityMentionID.String(),
-		"incident_id":         mention.IncidentID.String(),
-		"source_record_id":    mention.SourceRecordID.String(),
-		"source_field_key":    mention.SourceFieldKey,
-		"entity_type":         mention.EntityType,
-		"origin_kind":         mention.OriginKind,
-		"origin_locator":      mention.OriginLocator,
-		"raw_text":            mention.RawText,
-		"normalized_text":     mention.NormalizedText,
-		"resolution_status":   mention.ResolutionStatus,
-		"row_version":         mention.RowVersion,
-		"resolved_record_id":  formatUUIDPointer(mention.ResolvedRecordID),
-		"resolved_by_user_id": formatUUIDPointer(mention.ResolvedByUserID),
-		"resolved_at":         formatTimestampPointer(mention.ResolvedAt),
-		"resolution_method":   derefString(mention.ResolutionMethod),
-	}
+	return (historyvalue.Value{
+		MentionID: mention.EntityMentionID, SourceRecordID: mention.SourceRecordID,
+		EntityType: mention.EntityType, SourceFieldKey: mention.SourceFieldKey,
+		OriginKind: mention.OriginKind, OriginLocator: mention.OriginLocator,
+		RawText: mention.RawText, NormalizedText: mention.NormalizedText,
+		ResolutionStatus: mention.ResolutionStatus, RowVersion: mention.RowVersion,
+		Ordinal: mention.Ordinal, CreatedByUserID: mention.CreatedByUserID, CreatedAt: mention.CreatedAt,
+		ResolvedRecordID: mention.ResolvedRecordID, ResolvedByUserID: mention.ResolvedByUserID,
+		ResolvedAt: mention.ResolvedAt, ResolutionMethod: mention.ResolutionMethod,
+	}).Map()
 }
 
 func mentionVersionID(mentionID uuid.UUID, rowVersion int64) string {
@@ -772,6 +844,9 @@ func scanMentionActionRecord(row pgx.Row) (mentionActionRecord, error) {
 		&record.NormalizedText,
 		&record.ResolutionStatus,
 		&record.RowVersion,
+		&record.Ordinal,
+		&record.CreatedByUserID,
+		&record.CreatedAt,
 		&resolvedRecordID,
 		&resolvedByUserID,
 		&resolvedAt,

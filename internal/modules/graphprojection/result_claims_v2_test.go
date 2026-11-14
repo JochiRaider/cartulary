@@ -66,6 +66,9 @@ func checkResultPresenceV2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(r.Vertices) != 2 || len(r.Edges) != 2 {
+		t.Fatalf("field-presence witnesses = %d vertices/%d edges, want 2/2", len(r.Vertices), len(r.Edges))
+	}
 	testMap := func(t *testing.T, values map[string]any) {
 		t.Helper()
 		original := values["always"]
@@ -103,6 +106,10 @@ func checkResultPresenceV2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(r.Vertices) != 4 || len(r.Edges) != 2 {
+		t.Fatalf("aggregate field witnesses = %d vertices/%d edges, want 4/2", len(r.Vertices), len(r.Edges))
+	}
+	requireReboundAdmissionV2(t, r, true)
 	for _, v := range r.Vertices {
 		if v.VertexFamily != "aggregated" {
 			continue
@@ -169,6 +176,10 @@ func checkObjectLabelsV2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(r.Vertices) != 4 || len(r.Edges) != 2 {
+		t.Fatalf("aggregate label witnesses = %d vertices/%d edges, want 4/2", len(r.Vertices), len(r.Edges))
+	}
+	requireReboundAdmissionV2(t, r, true)
 	for i := range r.SchemaRegistry.VertexKinds {
 		r.SchemaRegistry.VertexKinds[i].SourceLabelsPreserved = true
 	}

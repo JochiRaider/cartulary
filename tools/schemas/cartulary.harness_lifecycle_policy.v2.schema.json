@@ -665,7 +665,9 @@
         "object_store_proxy",
         "managed_suite",
         "borrowed_suite",
-        "resident_allocation"
+        "resident_allocation",
+        "package_resource",
+        "package_deployment"
       ],
       "properties": {
         "diagnostic_scope": {
@@ -709,6 +711,16 @@
           "maximum": 300000
         },
         "resident_allocation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "package_resource": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "package_deployment": {
           "type": "integer",
           "minimum": 1,
           "maximum": 300000

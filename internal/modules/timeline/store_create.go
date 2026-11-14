@@ -17,6 +17,7 @@ import (
 )
 
 type createRowOptions struct {
+	preparedAuto                   preparedAutoResolution
 	allowInteractiveAutoResolution bool
 }
 
@@ -64,6 +65,10 @@ func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 		_ = tx.Rollback(ctx)
 	}()
 	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
+		return MutationResult{}, err
+	}
+	options.preparedAuto, err = s.prepareCreateReferencesTx(ctx, tx, incidentID, request, options.allowInteractiveAutoResolution)
+	if err != nil {
 		return MutationResult{}, err
 	}
 	changeSetID := uuid.New()

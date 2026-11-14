@@ -33,7 +33,7 @@ func artifactHistoryProjector(catalog *sourcecatalog.Catalog) historycontract.Pr
 			if valueType == "enum" || valueType == "timestamp" {
 				valueType = "text"
 			}
-			fields = append(fields, historycontract.Field{Key: field.FieldKey, Member: field.Storage.Column, Type: valueType, Kind: "field"})
+			fields = append(fields, historycontract.Field{Key: field.FieldKey, Path: field.Storage.SnapshotPath(), Type: valueType, Kind: "field"})
 			prefix = strings.SplitN(field.FieldKey, ".", 2)[0]
 		}
 		// Lifecycle/assigned identifiers are source facts even when read-only in
@@ -46,12 +46,16 @@ func artifactHistoryProjector(catalog *sourcecatalog.Catalog) historycontract.Pr
 		}[prefix] {
 			duplicate := false
 			for _, field := range fields {
-				if field.Member == member {
+				if field.Key == prefix+"."+member {
 					duplicate = true
 				}
 			}
 			if !duplicate {
-				fields = append(fields, historycontract.Field{Key: prefix + "." + member, Member: member, Type: "text", Kind: "field"})
+				path := []string{member}
+				if prefix == "finding" || prefix == "investigative_query" || prefix == "forensic_keyword" {
+					path = []string{prefix, member}
+				}
+				fields = append(fields, historycontract.Field{Key: prefix + "." + member, Path: path, Type: "text", Kind: "field"})
 			}
 		}
 		return historycontract.Row(facts, fields)

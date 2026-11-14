@@ -36,6 +36,27 @@ class FakeWebSocket {
   }
 }
 
+function expectClientEnvelope(
+  raw: string | undefined,
+  incidentId: string,
+  emittedAt: string,
+) {
+  const message = JSON.parse(raw ?? "{}");
+  expect(Object.keys(message).sort()).toEqual([
+    "emitted_at",
+    "incident_id",
+    "payload",
+    "type",
+  ]);
+  expect(message).toMatchObject({
+    incident_id: incidentId,
+    emitted_at: emittedAt,
+  });
+  expect(message.payload).toBeTypeOf("object");
+  expect(message.payload).not.toBeNull();
+  expect(Array.isArray(message.payload)).toBe(false);
+}
+
 let serverEventOrdinal = 0;
 
 function serverMessage(message: Record<string, unknown>) {
@@ -107,6 +128,8 @@ describe("IncidentCollaborationSession", () => {
   });
 
   it("ignores duplicate stream sequences and refreshes on sequence gaps", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-13T12:00:00Z"));
     vi.stubGlobal("WebSocket", FakeWebSocket);
     const onEvent = vi.fn();
     const view = render(
@@ -209,8 +232,13 @@ describe("IncidentCollaborationSession", () => {
     });
     expect(JSON.parse(socket?.sent.at(-1) ?? "{}")).toEqual({
       type: "pong",
+      incident_id: "incident-1",
+      emitted_at: "2026-07-13T12:00:00.000Z",
       payload: {},
     });
+    for (const raw of socket?.sent ?? []) {
+      expectClientEnvelope(raw, "incident-1", "2026-07-13T12:00:00.000Z");
+    }
 
     view.rerender(
       <IncidentCollaborationSession
@@ -232,6 +260,11 @@ describe("IncidentCollaborationSession", () => {
       }
       nextSocket?.onopen?.();
     });
+    expectClientEnvelope(
+      nextSocket?.sent[0],
+      "incident-2",
+      "2026-07-13T12:00:00.000Z",
+    );
     expect(JSON.parse(nextSocket?.sent[0] ?? "{}")).toMatchObject({
       type: "hello",
       payload: { presence: { sheet_ref: { id: "timeline" } } },
@@ -240,6 +273,7 @@ describe("IncidentCollaborationSession", () => {
 
   it("builds hello and resume session messages from socket resume state", () => {
     vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-13T12:00:00Z"));
     vi.stubGlobal("WebSocket", FakeWebSocket);
     const onEvent = vi.fn();
     render(
@@ -312,6 +346,16 @@ describe("IncidentCollaborationSession", () => {
       }
       resumedSocket?.onopen?.();
     });
+    expectClientEnvelope(
+      socket?.sent[0],
+      "incident-1",
+      "2026-07-13T12:00:00.000Z",
+    );
+    expectClientEnvelope(
+      resumedSocket?.sent[0],
+      "incident-1",
+      "2026-07-13T12:00:01.000Z",
+    );
     expect(JSON.parse(resumedSocket?.sent[0] ?? "{}")).toMatchObject({
       type: "resume",
       payload: {

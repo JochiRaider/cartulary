@@ -50,9 +50,9 @@ func SeedTimelineRecordWithSourceText(
 	if err := execDB(db, sqlshape.Command(`
 INSERT INTO timeline_events (
     record_id, incident_id, activity_synopsis_text, raw_activity_text, capture_state,
-    created_by_user_id, updated_by_user_id
+    created_by_user_id, updated_by_user_id, reviewed_by_user_id, reviewed_at
 )
-VALUES ($1, $2, $3, $3, 'reviewed', $4, $4)
+VALUES ($1, $2, $3, $3, 'reviewed', $4, $4, $4, CURRENT_TIMESTAMP)
 `), recordID, incidentID, sourceText, actorUserID); err != nil {
 		t.Fatalf("seed timeline record: %v", err)
 	}

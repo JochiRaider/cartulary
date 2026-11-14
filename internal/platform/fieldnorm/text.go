@@ -46,11 +46,13 @@ func NormalizeLine(raw string) (string, bool) {
 }
 
 func NormalizeTagLabel(raw string) (string, string, bool) {
-	label, ok := NormalizeLine(raw)
-	if !ok {
-		return "", "", false
+	for _, r := range raw {
+		if r <= '\u001f' || (r >= '\u007f' && r <= '\u009f') {
+			return "", "", false
+		}
 	}
-	if countRunes(label) > 64 {
+	label := norm.NFC.String(strings.TrimFunc(raw, unicode.IsSpace))
+	if label == "" || countRunes(label) > 64 {
 		return "", "", false
 	}
 	return label, tagLabelCaseFolder.String(label), true

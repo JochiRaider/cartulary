@@ -96,6 +96,43 @@ func ValidateShape(input Input) error {
 	return nil
 }
 
+// ValidateStoredShape checks intrinsic retained representation without choosing
+// a registry or recomputing historical normalization and identity.
+func ValidateStoredShape(input Input, dedupeKey string) error {
+	if err := ValidateShape(input); err != nil {
+		return err
+	}
+	if input.NormalizedValue == nil || strings.TrimSpace(*input.NormalizedValue) == "" {
+		return invalid("normalized_value", "invalid_value")
+	}
+	if strings.TrimSpace(dedupeKey) == "" {
+		return invalid("dedupe_key", "invalid_value")
+	}
+	for _, field := range []struct {
+		name  string
+		value *string
+	}{
+		{"display_value", &input.DisplayValue}, {"normalized_value", input.NormalizedValue},
+		{"dedupe_key", &dedupeKey}, {"defanged_value", input.DefangedValue},
+		{"hash_algorithm", input.HashAlgorithm}, {"hash_value", input.HashValue}, {"stix_pattern", input.STIXPattern},
+	} {
+		if field.value != nil && (!utf8.ValidString(*field.value) || strings.ContainsRune(*field.value, '\x00')) {
+			return invalid(field.name, "invalid_value")
+		}
+	}
+	algorithm, hash, err := normalizeHashPair(input.HashAlgorithm, input.HashValue)
+	if err != nil {
+		return err
+	}
+	if algorithm != nil && (*algorithm != *input.HashAlgorithm || *hash != *input.HashValue) {
+		return invalid("hash_value", "invalid_value")
+	}
+	if isIPType(input.IndicatorType) && (input.ValueKind != "atomic" || input.DisplayValue != *input.NormalizedValue || algorithm != nil) {
+		return invalid("indicator_type", "invalid_value")
+	}
+	return nil
+}
+
 func Canonicalize(evaluate Evaluator, input Input) (Canonical, error) {
 	if err := ValidateShape(input); err != nil {
 		return Canonical{}, err

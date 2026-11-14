@@ -5,6 +5,42 @@ import (
 	"testing"
 )
 
+type qualifiedSQLSite struct {
+	site, kind, text string
+}
+
+// Call locations come from authored fixture text, independently of discovery.
+// A literal declaration containing the right SQL cannot substitute for its sink.
+func assertQualifiedSQLSites(t *testing.T, source string, got map[string][]SQLDeclaration, sites ...qualifiedSQLSite) {
+	t.Helper()
+	for _, site := range sites {
+		position := strings.Index(source, site.site)
+		if position < 0 || strings.Count(source, site.site) != 1 {
+			t.Fatalf("expected one fixture call %q", site.site)
+		}
+		line := strings.Count(source[:position], "\n") + 1
+		column := position - strings.LastIndex(source[:position], "\n")
+		matches := 0
+		for _, declaration := range got["p.go"] {
+			if declaration.Name != "Read" {
+				continue
+			}
+			for _, expression := range declaration.SQL {
+				if expression.Line != line || expression.Column != column {
+					continue
+				}
+				matches++
+				if expression.Kind != site.kind || expression.Text != site.text || expression.Disposition != "analyzed" || expression.Dynamic || len(expression.Unresolved) != 0 {
+					t.Errorf("unqualified call %q: %#v, want kind=%s text=%q", site.site, expression, site.kind, site.text)
+				}
+			}
+		}
+		if matches == 0 {
+			t.Errorf("call %q has no observation: %#v", site.site, got)
+		}
+	}
+}
+
 func TestAnalyzeSQL(t *testing.T) {
 	runSQLHelperReturnTests(t)
 	runSQLBranchStateTests(t)
@@ -59,21 +95,23 @@ func Read(tx pgx.Tx,input string){` + body + `}`})
 				t.Errorf("collection supplied stale SQL: %s %#v", body, got)
 			}
 		}
-		for _, body := range []string{
-			`defer func(){for _,table:=range []string{"artifacts"}{tx.Exec(ctx,"SELECT * FROM "+table)}}()`,
-			`tables:=[]string{"artifacts"};for _,table:=range tables{tx.Exec(ctx,"SELECT * FROM "+table)}`,
-			`tables:=[]string{input};defer func(){for _,value:=range tables{tx.Exec(ctx,"SELECT * FROM artifacts WHERE id=$1",value)}}()`,
+		for _, tc := range []struct{ body, text string }{
+			{`defer func(){for _,table:=range []string{"artifacts"}{tx.Exec(ctx,"SELECT * FROM "+table)}}()`, "SELECT * FROM artifacts"},
+			{`tables:=[]string{"artifacts"};for _,table:=range tables{tx.Exec(ctx,"SELECT * FROM "+table)}`, "SELECT * FROM artifacts"},
+			{`tables:=[]string{input};defer func(){for _,value:=range tables{tx.Exec(ctx,"SELECT * FROM artifacts WHERE id=$1",value)}}()`, "SELECT * FROM artifacts WHERE id=$1"},
 		} {
-			got, err := AnalyzeSQL(map[string]string{"p.go": `package p
+			source := `package p
 import "github.com/jackc/pgx/v5"
-func Read(tx pgx.Tx,input string){` + body + `}`})
+func Read(tx pgx.Tx,input string){` + tc.body + `}`
+			got, err := AnalyzeSQL(map[string]string{"p.go": source})
 			if err != nil {
 				t.Fatal(err)
 			}
+			assertQualifiedSQLSites(t, source, got, qualifiedSQLSite{"tx.Exec(", "execution", tc.text})
 			for _, d := range got["p.go"] {
 				for _, e := range d.SQL {
 					if len(e.Unresolved) > 0 {
-						t.Errorf("local or non-SQL collection rejected: %s %#v", body, got)
+						t.Errorf("local or non-SQL collection rejected: %s %#v", tc.body, got)
 					}
 				}
 			}
@@ -205,28 +243,33 @@ func Read(tx pgx.Tx,db *sql.DB,input string)(result string){` + body + `}`})
 				t.Errorf("unstable capture accepted: %s %#v", body, got)
 			}
 		}
-		for _, body := range []string{
-			`q:="SELECT * FROM artifacts";defer func(){tx.Exec(ctx,q)}()`,
-			`const q="SELECT * FROM artifacts";go func(){tx.Exec(ctx,q)}()`,
-			`q:="SELECT * FROM artifacts";f:=func(){tx.Exec(ctx,q)};consume(f)`,
-			`q:="SELECT * FROM artifacts";copy:=q;q=input;defer func(){tx.Exec(ctx,copy)}()`,
-			`q:="SELECT * FROM artifacts";{q:=input;consume(q)};defer func(){tx.Exec(ctx,q)}()`,
-			`q:=input;defer func(){q:="SELECT * FROM artifacts";tx.Exec(ctx,q)}();q=input`,
-			`q:="SELECT * FROM artifacts";defer func(){defer func(){tx.Exec(ctx,q)}()}()`,
-			`defer func(){tx.Exec(ctx,"SELECT * FROM artifacts WHERE id=$1",input)}();input="other"`,
-			`defer func(){stmt,_:=db.Prepare("SELECT * FROM artifacts");stmt.Exec()}()`,
-			`defer func(){var batch pgx.Batch;batch.Queue("SELECT * FROM artifacts");tx.SendBatch(ctx,&batch)}()`,
-			`q:=shape.Literal("SELECT * FROM artifacts");defer func(){tx.Exec(ctx,shape.Text(q))}()`,
+		for _, tc := range []struct {
+			body  string
+			sites []qualifiedSQLSite
+		}{
+			{`q:="SELECT * FROM artifacts";defer func(){tx.Exec(ctx,q)}()`, []qualifiedSQLSite{{"tx.Exec(", "execution", "SELECT * FROM artifacts"}}},
+			{`const q="SELECT * FROM artifacts";go func(){tx.Exec(ctx,q)}()`, []qualifiedSQLSite{{"tx.Exec(", "execution", "SELECT * FROM artifacts"}}},
+			{`q:="SELECT * FROM artifacts";f:=func(){tx.Exec(ctx,q)};consume(f)`, []qualifiedSQLSite{{"tx.Exec(", "execution", "SELECT * FROM artifacts"}}},
+			{`q:="SELECT * FROM artifacts";copy:=q;q=input;defer func(){tx.Exec(ctx,copy)}()`, []qualifiedSQLSite{{"tx.Exec(", "execution", "SELECT * FROM artifacts"}}},
+			{`q:="SELECT * FROM artifacts";{q:=input;consume(q)};defer func(){tx.Exec(ctx,q)}()`, []qualifiedSQLSite{{"tx.Exec(", "execution", "SELECT * FROM artifacts"}}},
+			{`q:=input;defer func(){q:="SELECT * FROM artifacts";tx.Exec(ctx,q)}();q=input`, []qualifiedSQLSite{{"tx.Exec(", "execution", "SELECT * FROM artifacts"}}},
+			{`q:="SELECT * FROM artifacts";defer func(){defer func(){tx.Exec(ctx,q)}()}()`, []qualifiedSQLSite{{"tx.Exec(", "execution", "SELECT * FROM artifacts"}}},
+			{`defer func(){tx.Exec(ctx,"SELECT * FROM artifacts WHERE id=$1",input)}();input="other"`, []qualifiedSQLSite{{"tx.Exec(", "execution", "SELECT * FROM artifacts WHERE id=$1"}}},
+			{`defer func(){stmt,_:=db.Prepare("SELECT * FROM artifacts");stmt.Exec()}()`, []qualifiedSQLSite{{"db.Prepare(", "execution", "SELECT * FROM artifacts"}, {"stmt.Exec(", "closed", ""}}},
+			{`defer func(){var batch pgx.Batch;batch.Queue("SELECT * FROM artifacts");tx.SendBatch(ctx,&batch)}()`, []qualifiedSQLSite{{"batch.Queue(", "execution", "SELECT * FROM artifacts"}, {"tx.SendBatch(", "closed", ""}}},
+			{`q:=shape.Literal("SELECT * FROM artifacts");defer func(){tx.Exec(ctx,shape.Text(q))}()`, []qualifiedSQLSite{{"tx.Exec(", "closed", ""}}},
 		} {
-			got, err := AnalyzeSQL(map[string]string{"p.go": `package p
+			source := `package p
 import("database/sql";"github.com/jackc/pgx/v5";shape "github.com/JochiRaider/cartulary/internal/platform/sqlshape")
-func Read(tx pgx.Tx,db *sql.DB,input string){` + body + `}`})
+func Read(tx pgx.Tx,db *sql.DB,input string){` + tc.body + `}`
+			got, err := AnalyzeSQL(map[string]string{"p.go": source})
 			if err != nil {
 				t.Fatal(err)
 			}
+			assertQualifiedSQLSites(t, source, got, tc.sites...)
 			for _, e := range got["p.go"][0].SQL {
 				if e.Disposition == "rejected" {
-					t.Errorf("stable capture rejected: %s %#v", body, got)
+					t.Errorf("stable capture rejected: %s %#v", tc.body, got)
 				}
 			}
 		}
@@ -255,13 +298,15 @@ import "github.com/jackc/pgx/v5"
 				t.Fatalf("unproven capture accepted: %#v", got)
 			}
 		}
-		got, err := AnalyzeSQL(map[string]string{"p.go": `package p
+		source := `package p
 import "github.com/jackc/pgx/v5"
 const q="SELECT * FROM artifacts"
-func Read(tx pgx.Tx,input string){defer func(){tx.Exec(ctx,q)}();value:="SELECT * FROM artifacts";defer tx.Exec(ctx,value);value=input}`})
+func Read(tx pgx.Tx,input string){defer func(){tx.Exec(ctx,q)}();value:="SELECT * FROM artifacts";defer tx.Exec(ctx,value);value=input}`
+		got, err := AnalyzeSQL(map[string]string{"p.go": source})
 		if err != nil {
 			t.Fatal(err)
 		}
+		assertQualifiedSQLSites(t, source, got, qualifiedSQLSite{"tx.Exec(ctx,q)", "execution", "SELECT * FROM artifacts"}, qualifiedSQLSite{"tx.Exec(ctx,value)", "execution", "SELECT * FROM artifacts"})
 		for _, d := range got["p.go"] {
 			for _, e := range d.SQL {
 				if len(e.Unresolved) > 0 {
@@ -389,9 +434,15 @@ func Read(callback Callback,store Store){` + body + `}`})
 			`var b strings.Builder; reset:=b.Reset; reset(); b.WriteString("ordinary text"); _=b.String()`,
 			`var b strings.Builder; b.WriteString(input); tx.Query(ctx,"SELECT * FROM records WHERE id=$1",b.String())`,
 		} {
-			got, err := AnalyzeSQL(map[string]string{"p.go": "package p\nimport (\"strings\";\"github.com/jackc/pgx/v5\")\nfunc Read(tx pgx.Tx,input string){" + body + "}"})
+			source := "package p\nimport (\"strings\";\"github.com/jackc/pgx/v5\")\nfunc Read(tx pgx.Tx,input string){" + body + "}"
+			got, err := AnalyzeSQL(map[string]string{"p.go": source})
 			if err != nil {
 				t.Fatal(err)
+			}
+			if strings.Contains(body, "tx.Query(") {
+				assertQualifiedSQLSites(t, source, got, qualifiedSQLSite{"tx.Query(", "execution", "SELECT * FROM records WHERE id=$1"})
+			} else if len(got["p.go"][0].SQL) != 0 {
+				t.Fatal("ordinary builder became SQL", got)
 			}
 			for _, expression := range got["p.go"][0].SQL {
 				if len(expression.Unresolved) > 0 {
@@ -700,6 +751,7 @@ import "github.com/jackc/pgx/v5"
 func TestSQLImportedDatabaseTypes(t *testing.T) {
 	t.Run("pinned native API inventory", assertNativeSQLInventory)
 	t.Run("native construction and controls", assertNativeSQLConstruction)
+	t.Run("bounded connection retirement", assertConnectionRetirement)
 	t.Run("native build variants", assertNativeBuildVariants)
 	t.Run("canonical signature identities", assertCanonicalSQLIdentities)
 	for _, body := range []string{`type Wrapper struct{*pgx.Conn};func Read(w Wrapper){w.Query(ctx,opaque())}`, `type Wrapper struct{*pgx.Conn};func Read(w Wrapper){w.Conn.Query(ctx,opaque())}`} {

@@ -14,7 +14,7 @@ type cleanupService struct {
 }
 
 func newCleanupService(pool dbport.DB) (*cleanupService, error) {
-	if pool == nil {
+	if isNilCapability(pool) {
 		return nil, errors.New("compose Evidence cleanup: Postgres is required")
 	}
 	return &cleanupService{pool: pool, blobLifecycle: blobLifecycleRepository{db: pool}}, nil

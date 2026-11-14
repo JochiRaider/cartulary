@@ -60,6 +60,103 @@ func TestServerRunnerWritesDiagnosticsAndReturnsFailure(t *testing.T) {
 	}
 }
 
+func TestServerRunnerRejectsInvalidConfigurationBeforeRuntime(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		overlays    map[string]string
+		goldenFile  string
+		wantPath    string
+		wantReason  string
+		wantMessage string
+		wantDetails map[string]any
+	}{
+		{
+			name:       "relative database root",
+			overlays:   configtest.Overlay("CARTULARY__ROOTS__DATABASE_STORAGE__PATH", "relative/postgres"),
+			goldenFile: "startup_path_not_absolute_database_storage_root.json",
+		},
+		{
+			name: "missing export root",
+			overlays: configtest.Overlay(
+				"CARTULARY__ROOTS__EXPORT_OUTPUTS__BINDING_KIND", "",
+				"CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH", "",
+			),
+			goldenFile: "startup_missing_export_outputs_root.json",
+		},
+		{
+			name: "invalid Network Flow resource limits",
+			overlays: configtest.Overlay(
+				"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED", "true",
+				"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH", "/etc/cartulary/network-flow-key-rings.json",
+				"CARTULARY__NETWORK_FLOW_ACTIVITY__RESOURCE_LIMITS", `{"max_active_tables_per_incident":2,"max_retained_tables_per_incident":1}`,
+			),
+			wantPath: "network_flow_activity.resource_limits.max_active_tables_per_incident", wantReason: "invalid_limit_relationship",
+		},
+		{
+			name: "inactive Enterprise Authentication settings",
+			overlays: configtest.Overlay(
+				"CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED", "false",
+				"CARTULARY__ENTERPRISE_AUTHENTICATION__PROVIDER_MANIFEST_PATH", "/do-not-read/provider.json",
+			),
+			wantPath: "enterprise_authentication.provider_manifest_path", wantReason: "extension_config_without_claim",
+		},
+		{
+			name: "unclaimed Network Flow key ring",
+			overlays: configtest.Overlay(
+				"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED", "false",
+				"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH", "relative/must-not-be-read.json",
+			),
+			wantPath: "network_flow_activity.key_ring_manifest_path", wantReason: "extension_config_without_claim",
+			wantMessage: "Extension configuration is present while the profile is inactive.",
+			wantDetails: map[string]any{"profile_id": "network_flow_activity", "config_path": "$.network_flow_activity.key_ring_manifest_path"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			var loadErr error
+			loads, builds := 0, 0
+			runner := newServerRunner(&stdout, &stderr)
+			runner.loadConfig = func() (configassembly.Loaded, error) {
+				loads++
+				loaded, err := loadRuntimeConfig(t, tc.overlays)
+				loadErr = err
+				return loaded, err
+			}
+			runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+				builds++
+				return serverRuntime{}, errors.New("unexpected runtime construction")
+			}
+			if code := runner.run(t.Context()); code != 2 || loads != 1 || builds != 0 {
+				t.Fatalf("configuration rejection: exit=%d loads=%d runtime builds=%d", code, loads, builds)
+			}
+			diagnostics, ok := loadErr.(*config.DiagnosticsError)
+			if !ok || diagnostics.Code != "invalid_deployment_config" {
+				t.Fatalf("configuration diagnostics = %v", loadErr)
+			}
+			if stdout.Len() != 0 || stderr.String() != diagnostics.JSON()+"\n" {
+				t.Fatalf("configuration diagnostic transport: stdout=%q stderr=%q", stdout.String(), stderr.String())
+			}
+			if tc.goldenFile != "" {
+				configtest.RequireDiagnosticsMatchGolden(t, loadErr, []string{"bootstrap", "diagnostics", tc.goldenFile})
+				return
+			}
+			if len(diagnostics.Diagnostics) != 1 {
+				t.Fatalf("expected one diagnostic, got %#v", diagnostics.Diagnostics)
+			}
+			finding := diagnostics.Diagnostics[0]
+			if finding.Path != tc.wantPath || finding.ReasonCode != tc.wantReason ||
+				(tc.wantMessage != "" && finding.Message != tc.wantMessage) {
+				t.Fatalf("unexpected configuration diagnostic: %#v", finding)
+			}
+			for key, want := range tc.wantDetails {
+				if finding.Details[key] != want {
+					t.Fatalf("diagnostic detail %q = %#v, want %#v", key, finding.Details[key], want)
+				}
+			}
+		})
+	}
+}
+
 func TestServerRunnerClosesRuntimeAndMapsServeFailure(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

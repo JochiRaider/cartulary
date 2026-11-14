@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import Ajv2020 from "ajv/dist/2020.js";
 import standaloneCode from "ajv/dist/standalone/index.js";
+import addFormats from "ajv-formats";
 import { compile } from "json-schema-to-typescript";
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -311,16 +312,12 @@ function collaborationDefinitions(wsIndex, expectedMessageTypes) {
     definitions[name] = {
       x_schema_id: schemaID,
       type: "object",
-      additionalProperties: serverOriginated,
+      additionalProperties: true,
       properties: {
         type: { const: type },
-        ...(serverOriginated
-          ? {
-              incident_id: { type: "string", minLength: 1 },
-              event_id: { type: "string", minLength: 1 },
-              emitted_at: { type: "string", format: "date-time" },
-            }
-          : {}),
+        incident_id: { type: "string", minLength: 1 },
+        emitted_at: { $ref: "#/$defs/TimestampUTC" },
+        ...(serverOriginated ? { event_id: { type: "string", minLength: 1 } } : {}),
         payload: requireObject(
           entry.payload_schema ?? { type: "object" },
           `collaboration ${type} payload_schema`,
@@ -331,11 +328,13 @@ function collaborationDefinitions(wsIndex, expectedMessageTypes) {
       },
       required: [
         "type",
-        ...(serverOriginated ? ["incident_id", "event_id", "emitted_at"] : []),
+        "incident_id",
+        "emitted_at",
+        ...(serverOriginated ? ["event_id"] : []),
         "payload",
         ...(entry.replayable === true ? ["stream_seq"] : []),
       ],
-      ...(serverOriginated && entry.replayable !== true
+      ...(entry.replayable !== true
         ? { not: { required: ["stream_seq"] } }
         : {}),
     };
@@ -615,7 +614,7 @@ function validatorSource(entries) {
     "uuid",
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
   );
-  ajv.addFormat("date-time", true);
+  addFormats(ajv, ["date-time"]);
   ajv.addFormat("email", /^[^@\s]+@[^@\s]+\.[^@\s]+$/u);
   ajv.addFormat("uri", /^[a-z][a-z0-9+.-]*:[^\s]+$/iu);
   ajv.addFormat("binary", true);
@@ -637,6 +636,7 @@ function validatorSource(entries) {
     }
   }
   const source = standaloneCode(ajv, exports)
+    .replaceAll('require("ajv-formats/dist/formats")', "cartularyFormats")
     .replace(
       /const (func\d+) = require\("ajv\/dist\/runtime\/ucs2length"\)\.default;/gu,
       "const $1 = cartularyUcs2Length;",
@@ -645,7 +645,7 @@ function validatorSource(entries) {
       /const (func\d+) = require\("ajv\/dist\/runtime\/equal"\)\.default;/gu,
       "const $1 = cartularyDeepEqual;",
     );
-  return `${generatedMarker}\n// @ts-nocheck\nimport cartularyDeepEqualRuntime from "ajv/dist/runtime/equal.js";\nimport cartularyUcs2LengthRuntime from "ajv/dist/runtime/ucs2length.js";\nconst cartularyDeepEqual = typeof cartularyDeepEqualRuntime === "function" ? cartularyDeepEqualRuntime : cartularyDeepEqualRuntime.default;\nconst cartularyUcs2Length = typeof cartularyUcs2LengthRuntime === "function" ? cartularyUcs2LengthRuntime : cartularyUcs2LengthRuntime.default;\n${source}\n`;
+  return `${generatedMarker}\n// @ts-nocheck\nimport cartularyFormats from "ajv-formats/dist/formats.js";\nimport cartularyDeepEqualRuntime from "ajv/dist/runtime/equal.js";\nimport cartularyUcs2LengthRuntime from "ajv/dist/runtime/ucs2length.js";\nconst cartularyDeepEqual = typeof cartularyDeepEqualRuntime === "function" ? cartularyDeepEqualRuntime : cartularyDeepEqualRuntime.default;\nconst cartularyUcs2Length = typeof cartularyUcs2LengthRuntime === "function" ? cartularyUcs2LengthRuntime : cartularyUcs2LengthRuntime.default;\n${source}\n`;
 }
 
 function generatedConstSource(exportName, value) {

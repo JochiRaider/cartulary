@@ -1063,6 +1063,34 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.auth.integration.current_account_contracts",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestCurrentAccountContracts_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.auth.integration.deployment_admin_binding_create_replay_divergent_85cb20830a",
       "owner_id": "module.auth",
       "family_id": "module.auth.integration",
@@ -1401,6 +1429,33 @@
         "postgres"
       ],
       "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.auth.store.enterprise_provider_reconciliation",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestEnterpriseProviderReconciliation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.auth.store.one_route_matrix_proves_logout_password_change_t_728b4fb4df",

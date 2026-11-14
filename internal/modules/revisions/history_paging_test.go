@@ -206,7 +206,7 @@ func TestHistoryBoundedProjectionAndCoalescing_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	repository := rollbackQueryRepository{store: &commandStore{targetSemantics: catalog}}
+	repository := rollbackQueryRepository{store: &commandStore{targetSemantics: catalog, importedAttributions: commandServiceTestAttributionResolver{}}}
 	_, err = repository.loadChangeSetRollbackPlanTx(ctx, tx, rollbackRecordEnvelope{IncidentID: record.IncidentID, RecordID: record.RecordID, RecordType: record.RecordType, RowVersion: record.RowVersion}, f.changeSetID.String())
 	if !errors.Is(err, ErrRollbackPreconditionFailed) {
 		t.Fatalf("expected ineligible fixture reversal, got %v", err)

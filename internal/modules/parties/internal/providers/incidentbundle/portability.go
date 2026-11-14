@@ -427,12 +427,7 @@ func nullablePartyPortableString(value any) (*string, bool) {
 }
 
 func partyKindAdmitted(value string) bool {
-	admitted, admissionErr := policy.AdmitStored("party.party_kind", &value)
-	if admissionErr != nil {
-		return false
-	}
-	stored, present := admitted.StoredValue()
-	return present && stored == value
+	return policy.IsStoredExact("party.party_kind", &value)
 }
 
 func partyPortableNormalizationExact(row partyPortableRow) bool {
@@ -449,18 +444,7 @@ func partyPortableNormalizationExact(row partyPortableRow) bool {
 		{key: "party.notes", value: row.Notes},
 	}
 	for _, field := range fields {
-		admitted, admissionErr := policy.AdmitStored(field.key, field.value)
-		if admissionErr != nil {
-			return false
-		}
-		stored, present := admitted.StoredValue()
-		if field.value == nil {
-			if present {
-				return false
-			}
-			continue
-		}
-		if !present || stored != *field.value {
+		if !policy.IsStoredExact(field.key, field.value) {
 			return false
 		}
 	}

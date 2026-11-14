@@ -3,6 +3,7 @@ package valuecodec
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,8 +52,13 @@ func OptionalDate(value *time.Time) any {
 // Collection returns the canonical collection_value_v1 shape. Nil and empty
 // item slices intentionally have the same non-null, empty-array representation.
 func Collection(ordered bool, items []map[string]any) map[string]any {
-	if items == nil {
-		items = []map[string]any{}
+	items = append([]map[string]any{}, items...)
+	if !ordered {
+		sort.SliceStable(items, func(i, j int) bool {
+			left, _ := items[i]["item_ref"].(string)
+			right, _ := items[j]["item_ref"].(string)
+			return left < right
+		})
 	}
 	return map[string]any{
 		"kind":    "collection_value_v1",

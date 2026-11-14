@@ -135,7 +135,7 @@ func newMutationFacade(
 	dependencies MutationDependencies,
 ) (*mutationFacade, error) {
 	switch {
-	case isNilMutationCapability(pool):
+	case isNilCapability(pool):
 		return nil, fmt.Errorf("compose Evidence workbook facade: Postgres is required")
 	case sourceMutations == nil:
 		return nil, fmt.Errorf("compose Evidence workbook facade: source mutations are required")

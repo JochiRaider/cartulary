@@ -78,6 +78,47 @@ func TestStartServerFinalizesEnvironmentFromInheritedListener(t *testing.T) {
 	server.WaitForReady(t)
 	server.RequireStatus(t, "/healthz", http.StatusOK)
 	server.RequireStatus(t, "/readyz", http.StatusOK)
+
+	t.Run("owned child ends with test scope", func(t *testing.T) {
+		var scoped *Server
+		// The outer fallback bounds a failed regression without satisfying the
+		// observation made immediately after the inner scope returns.
+		t.Cleanup(func() { scoped.Stop(t) })
+		t.Run("acquire", func(t *testing.T) {
+			scoped = StartServer(t, ServerOptions{})
+			scoped.WaitForReady(t)
+		})
+		if scoped == nil || !scoped.processExited() || scoped.group.alive() {
+			t.Fatal("owned server process survived its test scope")
+		}
+		scoped.RequireConnectionRefused(t, "/healthz")
+	})
+
+	t.Run("failed finalization releases listener", func(t *testing.T) {
+		var address string
+		const failure = "injected finalization failure"
+		func() {
+			defer func() {
+				if recovered := recover(); recovered != failure {
+					t.Fatalf("finalization failure got %v want %q", recovered, failure)
+				}
+			}()
+			StartServer(t, ServerOptions{FinalizeEnv: func(_ map[string]string, baseURL string) {
+				address = strings.TrimPrefix(baseURL, "https://")
+				panic(failure)
+			}})
+		}()
+		if address == "" {
+			t.Fatal("finalization did not receive the acquired listener")
+		}
+		listener, err := net.Listen("tcp", address)
+		if err != nil {
+			t.Fatalf("listener survived failed finalization: %v", err)
+		}
+		if err := listener.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 type stringAddress string

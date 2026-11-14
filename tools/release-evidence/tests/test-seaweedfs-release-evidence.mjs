@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
+import fs, { writeFileSync } from "node:fs";
+import childProcess from "node:child_process";
+import { syncBuiltinESMExports } from "node:module";
+import test from "node:test";
 import path from "node:path";
+import { createScratch } from "../../harness/test-support/scratch.mjs";
+import "./test-seaweedfs-artifacts.mjs";
 
 import {
   buildDependencyBoundary,
+  buildSeaweedfsReleaseReport,
   buildBackupIntegrityCoverage,
   buildOccurrenceInventoryFromEntries,
-  buildRedactionLeakageScan,
   buildReleaseManifestExposure,
-  buildReleaseGateSummary,
-  buildSeaweedFSCompatibilityEvidence,
   buildSbomLicenseClassification,
   buildStorageRefOwnerCoverage,
   buildThreatModelCoverage,
@@ -20,7 +22,106 @@ import {
   isDefaultExcluded,
   isTextBuffer,
   occurrenceTokens,
+  readRepositorySource,
+  repositorySourceFiles,
 } from "../seaweedfs-release-evidence.mjs";
+
+test("SeaweedFS producer assembly projects each boundary and cannot hide unqualified recovery", () => {
+  const context = { manifest: { run_id: "assembly-fixture", source_commit: "a".repeat(40),
+    source_digest: `sha256:${"a".repeat(64)}`, toolchain_digest: `sha256:${"b".repeat(64)}`, graph_digest: `sha256:${"c".repeat(64)}` }, target: "seaweedfs-release-gate" };
+  const source = {
+    occurrence: { result: "pass", occurrences: [] }, exposure: { result: "pass", findings: [] },
+    dependency: { result: "pass", sdk_dependency: { disallowed_imports: [] }, release_server_artifacts: [] },
+    policies: { threat: { result: "pass" }, storageRefOwner: { result: "pass" }, backupIntegrity: { result: "pass" } },
+  };
+  // Assembly consumes already-admitted snapshots; their actual file/shape
+  // admission is independently exercised by test-seaweedfs-artifacts.
+  const inventory = { sbom: { components: [] }, licenseReport: { entries: [] }, evidence_refs: ["inventory/sbom.json", "inventory/license.json"] };
+  const compatible = { unit: { status: "passed" }, report: { result: "pass" }, evidence_refs: ["current/unit.json", "current/compatibility.json"] };
+  const build = input => buildSeaweedfsReleaseReport(context, { source, inventory, compatible, ...input });
+  const report = build({});
+  assert.equal(report.status, "blocked");
+  assert.deepEqual(report.checks.filter(item => item.status !== "pass").map(item => [item.check_id, item.status]), [["recovery", "fail"]]);
+  assert.deepEqual(report.findings.map(item => item.code), ["current-recovery-unqualified"]);
+  const recovery = { row: { terminal_state: "passed" }, unit: { status: "passed" }, evidence_refs: ["current/recovery-unit.json", "current/recovery-row.json"] };
+  const qualified = build({ recovery });
+  assert.equal(qualified.status, "pass");
+  assert.deepEqual(qualified.checks.find(item => item.check_id === "recovery").evidence_refs, recovery.evidence_refs);
+  assert.ok(qualified.checks.find(item => item.check_id === "redaction").evidence_refs.includes("current/recovery-row.json"));
+  const recoveryLeak = build({ recovery: { ...recovery, row: { endpoint: "https://source.internal" } } });
+  assert.equal(recoveryLeak.status, "blocked");
+  assert.equal(recoveryLeak.checks.find(item => item.check_id === "redaction").status, "fail");
+  assert.doesNotMatch(JSON.stringify(recoveryLeak), /source\.internal/u);
+  const missing = build({ inventory: null, compatible: null });
+  assert.deepEqual(missing.checks.filter(item => item.status !== "pass").map(item => item.check_id), ["inventory_classification", "compatibility", "recovery"]);
+  const changed = structuredClone(source);
+  changed.exposure = { result: "fail", findings: [{ check_id: "runtime-seaweedfs-admin-api", path: "source/file.go", line: 1, column: 2, excerpt: "sensitive-fixture-value" }] };
+  changed.dependency.result = "fail";
+  changed.dependency.sdk_dependency.disallowed_imports.push({ path: "source/other.go", line: 3, column: 4 });
+  const rejected = build({ source: changed });
+  assert.deepEqual(rejected.findings.slice(0, 2), [
+    { check_id: "release_surface", code: "runtime-seaweedfs-admin-api", path: "source/file.go", line: 1, column: 2, json_path: null },
+    { check_id: "dependency_boundary", code: "sdk-import-boundary", path: "source/other.go", line: 3, column: 4, json_path: null },
+  ]);
+  assert.doesNotMatch(JSON.stringify(rejected), /sensitive-fixture-value/u);
+  const leaked = build({ compatible: { ...compatible, report: { diagnostic: "seaweedfs-secret" } } });
+  assert.equal(leaked.checks.find(item => item.check_id === "redaction").status, "fail");
+  assert.doesNotMatch(JSON.stringify(leaked), /seaweedfs-secret/u);
+});
+
+test("release source admission prunes human inputs before probes and rejects unsafe source objects", t => {
+  const root = createScratch(t, "cartulary-release-source-");
+  fs.mkdirSync(path.join(root, "source"));
+  writeFileSync(path.join(root, "source/accepted.go"), "package accepted\n");
+  fs.symlinkSync("accepted.go", path.join(root, "source/alias.go"));
+  fs.symlinkSync("source", path.join(root, "alias"));
+  const forbidden = ["human/private.go", "README", "nested/Readme.txt", "guide.MD", "nested/notes.MarkDown"];
+  const originals = { spawnSync: childProcess.spawnSync, lstatSync: fs.lstatSync, openSync: fs.openSync };
+  let enumerations = 0;
+  let listed = ["source/accepted.go", "source/deleted.go", ...forbidden];
+  let gitStatus = 0;
+  try {
+    childProcess.spawnSync = (command, args, options) => {
+      enumerations++;
+      assert.equal(command, "git");
+      assert.equal(options.cwd, root);
+      assert.deepEqual(args, ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", ".",
+        ":(top,exclude,literal)human", ":(exclude,icase)*.md", ":(exclude,icase)*.markdown",
+        ":(exclude,icase)README", ":(exclude,icase)README.*", ":(exclude,icase)**/README", ":(exclude,icase)**/README.*"]);
+      // Deliberately return excluded entries too: defensive lexical admission
+      // must protect probes even if enumeration supplies surplus paths.
+      return { status: gitStatus, stdout: listed.join("\0") + "\0" };
+    };
+    for (const name of ["lstatSync", "openSync"]) fs[name] = (file, ...args) => {
+      assert.ok(!forbidden.some(relative => String(file) === path.join(root, relative)));
+      assert.notEqual(String(file), path.join(root, "human"));
+      return originals[name](file, ...args);
+    };
+    syncBuiltinESMExports();
+    assert.deepEqual(repositorySourceFiles(root, ["human"]), ["source/accepted.go"]);
+    assert.equal(enumerations, 1);
+    for (const relative of forbidden) assert.throws(() => readRepositorySource(relative, root, ["human"]), /outside executable scope/u);
+    assert.equal(readRepositorySource("source/accepted.go", root, ["human"]).toString(), "package accepted\n");
+    listed = ["source/alias.go"];
+    assert.throws(() => repositorySourceFiles(root, ["human"]), /must be a regular file/u);
+    listed = ["alias/accepted.go"];
+    assert.throws(() => repositorySourceFiles(root, ["human"]), /ancestor is not a directory/u);
+    gitStatus = 1;
+    assert.throws(() => repositorySourceFiles(root, ["human"]), /cannot enumerate/u);
+  } finally {
+    childProcess.spawnSync = originals.spawnSync;
+    fs.lstatSync = originals.lstatSync; fs.openSync = originals.openSync;
+    syncBuiltinESMExports();
+  }
+  for (const relative of ["source/alias.go", "alias/accepted.go", "source", "../outside", "/absolute", "source/../accepted.go"]) {
+    assert.throws(() => readRepositorySource(relative, root, ["human"]), undefined, relative);
+  }
+  const bounded = path.join(root, "bounded.bin");
+  writeFileSync(bounded, ""); fs.truncateSync(bounded, 64 * 1024 * 1024);
+  assert.equal(readRepositorySource("bounded.bin", root, ["human"]).length, 64 * 1024 * 1024);
+  fs.truncateSync(bounded, 64 * 1024 * 1024 + 1);
+  assert.throws(() => readRepositorySource("bounded.bin", root, ["human"]), /byte limit/u);
+});
 
 const legacyStem = "min" + "io";
 const legacyTitle = "Min" + "IO";
@@ -213,185 +314,6 @@ const storageRefOwner = buildStorageRefOwnerCoverage({
 });
 assert.equal(storageRefOwner.result, "pass");
 
-function compatibilityReport(statusByCase = {}) {
-  return {
-    schema_id: "cartulary.seaweedfs_s3_compatibility_report.v1",
-    probe_id: "fixture",
-    object_store_backend: "seaweedfs_s3",
-    started_at: "2026-06-04T00:00:00Z",
-    completed_at: "2026-06-04T00:00:01Z",
-    result: Object.values(statusByCase).some((status) => status !== "pass") ? "fail" : "pass",
-    cases: Array.from({ length: 14 }, (_, index) => {
-      const caseID = `SWFS-COMP-${String(index + 1).padStart(3, "0")}`;
-      return {
-        case_id: caseID,
-        capability: "fixture",
-        status: statusByCase[caseID] ?? "pass",
-        reason_code: null,
-        evidence: { source: "fixture" },
-      };
-    }),
-    forbidden_skip_rows: [],
-  };
-}
-
-const currentResultsDir = ".cartulary/test-results";
-const currentRunID = "unit-current-run";
-const currentCompatibilityReportPath = `${currentResultsDir}/${currentRunID}/seaweedfs-compatibility/object-store-compatibility-report.json`;
-const passingCompatibilityUnitResult = {
-  schema_id: "cartulary.harness_unit_result.v1",
-  unit_id: "operation:harness.seaweedfs_compatibility",
-  status: "passed",
-};
-const compatibility = buildSeaweedFSCompatibilityEvidence({
-  repoCommitValue: "abc123",
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  reportPath: currentCompatibilityReportPath,
-  report: compatibilityReport(),
-  requireCurrentRun: true,
-  currentResultsDir,
-  currentRunId: currentRunID,
-  unitResult: passingCompatibilityUnitResult,
-});
-assert.equal(compatibility.result, "pass");
-
-const partialCompatibility = buildSeaweedFSCompatibilityEvidence({
-  repoCommitValue: "abc123",
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  reportPath: currentCompatibilityReportPath,
-  report: compatibilityReport({ "SWFS-COMP-007": "not_run" }),
-  requireCurrentRun: true,
-  currentResultsDir,
-  currentRunId: currentRunID,
-  unitResult: passingCompatibilityUnitResult,
-});
-assert.equal(partialCompatibility.result, "fail");
-assert.equal(
-  partialCompatibility.findings.some((finding) => finding.check_id === "compatibility-case-status"),
-  true,
-);
-
-const stableCompatibility = buildSeaweedFSCompatibilityEvidence({
-  repoCommitValue: "abc123",
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  reportPath: ".cartulary/release-artifacts/seaweedfs/object-store-compatibility-report.json",
-  report: compatibilityReport(),
-  requireCurrentRun: true,
-  currentResultsDir,
-  currentRunId: currentRunID,
-  unitResult: passingCompatibilityUnitResult,
-});
-assert.equal(stableCompatibility.result, "fail");
-assert.equal(
-  stableCompatibility.findings.some((finding) => finding.check_id === "compatibility-stable-report-source"),
-  true,
-);
-
-const servicesUpCompatibility = buildSeaweedFSCompatibilityEvidence({
-  repoCommitValue: "abc123",
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  reportPath:
-    ".cartulary/test-results/20260603T224410Z-p820796/services-up/object-store-compatibility-report.json",
-  report: compatibilityReport(),
-  requireCurrentRun: true,
-  currentResultsDir,
-  currentRunId: currentRunID,
-  unitResult: passingCompatibilityUnitResult,
-});
-assert.equal(servicesUpCompatibility.result, "fail");
-assert.equal(
-  servicesUpCompatibility.findings.some((finding) => finding.check_id === "compatibility-services-up-source"),
-  true,
-);
-
-const missingSummaryCompatibility = buildSeaweedFSCompatibilityEvidence({
-  repoCommitValue: "abc123",
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  reportPath:
-    ".cartulary/test-results/unit-current-run-missing-summary/seaweedfs-compatibility/object-store-compatibility-report.json",
-  report: compatibilityReport(),
-  requireCurrentRun: true,
-  currentResultsDir,
-  currentRunId: "unit-current-run-missing-summary",
-});
-assert.equal(missingSummaryCompatibility.result, "fail");
-assert.equal(
-  missingSummaryCompatibility.findings.some(
-    (finding) => finding.check_id === "compatibility-unit-result-present",
-  ),
-  true,
-);
-
-const failedSummaryCompatibility = buildSeaweedFSCompatibilityEvidence({
-  repoCommitValue: "abc123",
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  reportPath: currentCompatibilityReportPath,
-  report: compatibilityReport(),
-  requireCurrentRun: true,
-  currentResultsDir,
-  currentRunId: currentRunID,
-  unitResult: {
-    schema_id: "cartulary.harness_unit_result.v1",
-    unit_id: "operation:harness.seaweedfs_compatibility",
-    status: "failed",
-  },
-});
-assert.equal(failedSummaryCompatibility.result, "fail");
-assert.equal(
-  failedSummaryCompatibility.findings.some(
-    (finding) => finding.check_id === "compatibility-unit-result-status",
-  ),
-  true,
-);
-
-const skippedPrerequisiteCompatibility = buildSeaweedFSCompatibilityEvidence({
-  repoCommitValue: "abc123",
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  reportPath: currentCompatibilityReportPath,
-  report: compatibilityReport(),
-  requireCurrentRun: true,
-  currentResultsDir,
-  currentRunId: currentRunID,
-  unitResult: passingCompatibilityUnitResult,
-  prerequisitesSkipped: true,
-});
-assert.equal(skippedPrerequisiteCompatibility.result, "fail");
-assert.equal(
-  skippedPrerequisiteCompatibility.findings.some(
-    (finding) => finding.check_id === "compatibility-current-run-prerequisites",
-  ),
-  true,
-);
-
-const previousSkipPrerequisites = process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES;
-const previousGraphChild = process.env.CARTULARY_HARNESS_GRAPH_CHILD;
-try {
-  process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES = "1";
-  process.env.CARTULARY_HARNESS_GRAPH_CHILD = "1";
-  const graphOwnedPrerequisiteCompatibility = buildSeaweedFSCompatibilityEvidence({
-    repoCommitValue: "abc123",
-    generatedAt: "2026-06-04T00:00:00.000Z",
-    reportPath: currentCompatibilityReportPath,
-    report: compatibilityReport(),
-    requireCurrentRun: true,
-    currentResultsDir,
-    currentRunId: currentRunID,
-    unitResult: passingCompatibilityUnitResult,
-  });
-  assert.equal(graphOwnedPrerequisiteCompatibility.result, "pass");
-} finally {
-  if (previousSkipPrerequisites === undefined) {
-    delete process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES;
-  } else {
-    process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES = previousSkipPrerequisites;
-  }
-  if (previousGraphChild === undefined) {
-    delete process.env.CARTULARY_HARNESS_GRAPH_CHILD;
-  } else {
-    process.env.CARTULARY_HARNESS_GRAPH_CHILD = previousGraphChild;
-  }
-}
-
 const backupIntegrity = buildBackupIntegrityCoverage({
   repoCommitValue: "abc123",
   generatedAt: "2026-06-04T00:00:00.000Z",
@@ -404,138 +326,3 @@ assert.deepEqual(backupIntegrity.required_schema_ids, [
   "cartulary.object_store_backup_manifest.v2",
   "cartulary.object_store_backup_summary.v2",
 ]);
-
-const redactionMissingCurrent = buildRedactionLeakageScan({
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  repoCommitValue: "abc123",
-  selectedArtifactPaths: [".cartulary/release-artifacts/seaweedfs/fixture/backup-integrity-coverage.json"],
-  compatibilityReportPath: currentCompatibilityReportPath,
-});
-assert.equal(redactionMissingCurrent.result, "fail");
-assert.equal(
-  redactionMissingCurrent.scanned_artifacts.some(
-    (artifact) => artifact.path === currentCompatibilityReportPath,
-  ),
-  true,
-);
-
-const redactionFixtureDir = mkdtempSync(path.join(os.tmpdir(), "cartulary-redaction-fixture-"));
-try {
-  const rawPublicArtifact = path.join(redactionFixtureDir, "raw-public.json");
-  writeFileSync(rawPublicArtifact, JSON.stringify({ source_bucket: "fixture-bucket" }) + "\n");
-  const rawPublicScan = buildRedactionLeakageScan({
-    generatedAt: "2026-06-04T00:00:00.000Z",
-    repoCommitValue: "abc123",
-    selectedArtifactPaths: [rawPublicArtifact],
-  });
-  assert.equal(rawPublicScan.result, "fail");
-  assert.equal(
-    rawPublicScan.findings.some((finding) => finding.check_id === "public-raw-storage-field"),
-    true,
-  );
-} finally {
-  rmSync(redactionFixtureDir, { recursive: true, force: true });
-}
-
-const pathMap = {
-  "occurrence-inventory.json": ".cartulary/release-artifacts/seaweedfs/fixture/occurrence-inventory.json",
-  "release-manifest-exposure.json": ".cartulary/release-artifacts/seaweedfs/fixture/release-manifest-exposure.json",
-  "dependency-boundary.json": ".cartulary/release-artifacts/seaweedfs/fixture/dependency-boundary.json",
-  "sbom-license-classification.json": ".cartulary/release-artifacts/seaweedfs/fixture/sbom-license-classification.json",
-  "threat-model-coverage.json": ".cartulary/release-artifacts/seaweedfs/fixture/threat-model-coverage.json",
-  "storage-ref-owner-coverage.json": ".cartulary/release-artifacts/seaweedfs/fixture/storage-ref-owner-coverage.json",
-  "seaweedfs-compatibility-evidence.json": ".cartulary/release-artifacts/seaweedfs/fixture/seaweedfs-compatibility-evidence.json",
-  "backup-integrity-coverage.json": ".cartulary/release-artifacts/seaweedfs/fixture/backup-integrity-coverage.json",
-  "redaction-leakage-scan.json": ".cartulary/release-artifacts/seaweedfs/fixture/redaction-leakage-scan.json",
-  "release-gate-summary.json": ".cartulary/release-artifacts/seaweedfs/fixture/release-gate-summary.json",
-};
-
-function assertSwfsAc024SummaryInvariant(summary) {
-  const claim = summary.claims.find((entry) => entry.row === "SWFS-AC-024");
-  assert.ok(claim);
-  const claimable = claim.status === "claimable";
-  const noBlockingRows = summary.blocking_rows.length === 0;
-  const noBlockingChecks = summary.blocking_checks.length === 0;
-  const aggregatePasses =
-    summary.evidence_result === "pass" && summary.release_gate_result === "pass";
-  assert.equal(claimable, aggregatePasses && noBlockingRows && noBlockingChecks);
-}
-
-const passingSummary = buildReleaseGateSummary({
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  repoCommitValue: "abc123",
-  pathMap,
-  artifacts: {
-    occurrence: { result: "pass" },
-    exposure: { result: "pass" },
-    dependency: { result: "pass" },
-    sbomLicense: { result: "pass" },
-    threat: { result: "pass" },
-    storageRefOwner,
-    compatibility,
-    backupIntegrity,
-    redaction: { result: "pass" },
-  },
-});
-assert.equal(passingSummary.release_gate_result, "pass");
-assert.deepEqual(passingSummary.blocking_rows, []);
-assert.deepEqual(passingSummary.blocking_checks, []);
-assert.equal(passingSummary.claims.find((claim) => claim.row === "SWFS-AC-015")?.status, "claimable");
-assert.equal(passingSummary.claims.find((claim) => claim.row === "SWFS-AC-018")?.status, "claimable");
-assert.equal(passingSummary.claims.find((claim) => claim.row === "SWFS-AC-024")?.status, "claimable");
-assert.equal(
-  passingSummary.claims
-    .find((claim) => claim.row === "SWFS-AC-024")
-    ?.evidence_paths.includes(pathMap["redaction-leakage-scan.json"]),
-  true,
-);
-assertSwfsAc024SummaryInvariant(passingSummary);
-
-const redactionBlockedSummary = buildReleaseGateSummary({
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  repoCommitValue: "abc123",
-  pathMap,
-  artifacts: {
-    occurrence: { result: "pass" },
-    exposure: { result: "pass" },
-    dependency: { result: "pass" },
-    sbomLicense: { result: "pass" },
-    threat: { result: "pass" },
-    storageRefOwner,
-    compatibility,
-    backupIntegrity,
-    redaction: { result: "fail" },
-  },
-});
-assert.equal(redactionBlockedSummary.evidence_result, "fail");
-assert.equal(redactionBlockedSummary.release_gate_result, "blocked");
-assert.deepEqual(redactionBlockedSummary.blocking_rows, []);
-assert.equal(redactionBlockedSummary.blocking_checks.length, 1);
-assert.equal(redactionBlockedSummary.blocking_checks[0].check_id, "redaction-leakage-scan");
-assert.equal(redactionBlockedSummary.blocking_checks[0].result, "fail");
-assert.deepEqual(redactionBlockedSummary.blocking_checks[0].evidence_paths, [
-  pathMap["redaction-leakage-scan.json"],
-]);
-assert.equal(redactionBlockedSummary.claims.find((claim) => claim.row === "SWFS-AC-024")?.status, "blocked");
-assertSwfsAc024SummaryInvariant(redactionBlockedSummary);
-
-const blockedSummary = buildReleaseGateSummary({
-  generatedAt: "2026-06-04T00:00:00.000Z",
-  repoCommitValue: "abc123",
-  pathMap,
-  artifacts: {
-    occurrence: { result: "pass" },
-    exposure: { result: "pass" },
-    dependency: { result: "pass" },
-    sbomLicense: { result: "pass" },
-    threat: { result: "pass" },
-    storageRefOwner,
-    compatibility: partialCompatibility,
-    backupIntegrity: { result: "fail" },
-    redaction: { result: "pass" },
-  },
-});
-assert.equal(blockedSummary.release_gate_result, "blocked");
-assert.deepEqual(new Set(blockedSummary.blocking_rows), new Set(["SWFS-AC-015", "SWFS-AC-018"]));
-assert.deepEqual(blockedSummary.blocking_checks, []);
-assertSwfsAc024SummaryInvariant(blockedSummary);

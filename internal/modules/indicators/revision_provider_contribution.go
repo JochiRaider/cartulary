@@ -3,6 +3,7 @@ package indicators
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/deleterestore"
 	indicatorrollback "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/rollback"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/sourcevalue"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
@@ -12,13 +13,14 @@ func NewRevisionContribution(assignments reference_data.RegistryAssignments) rev
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerIndicators,
 		Records: []revisions.RecordProviderContribution{{
-			SourceOwnerModule:   revisions.SourceOwnerIndicators,
-			RecordType:          "indicator",
-			HistoryProjector:    projectRecordHistory,
-			SnapshotSchemaID:    "cartulary.revisions.snapshot.indicator.v1",
-			HistoryTargetKinds:  []string{"indicator"},
-			DeleteRestoreSource: deleterestore.NewSource(),
-			RowRollbackProvider: indicatorrollback.NewProvider(assignments),
+			SourceOwnerModule:      revisions.SourceOwnerIndicators,
+			RecordType:             "indicator",
+			HistoryProjector:       projectRecordHistory,
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.indicator.v1",
+			ValidateSnapshotSource: sourcevalue.ValidateSnapshotSource,
+			HistoryTargetKinds:     []string{"indicator"},
+			DeleteRestoreSource:    deleterestore.NewSource(),
+			RowRollbackProvider:    indicatorrollback.NewProvider(assignments),
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 				ContributionID: "indicators.indicators",
 				ViewSchemaIDs:  []string{ViewSchemaID},
@@ -28,14 +30,18 @@ func NewRevisionContribution(assignments reference_data.RegistryAssignments) rev
 			{
 				SourceOwnerModule: revisions.SourceOwnerIndicators,
 				TargetKind:        "indicator_observation",
+				HistoryValidator:  observationHistoryValidator{},
 				HistoryProjector:  projectObservationHistory,
+				HistoryReferences: indicatorHistoryReferences,
 				HistoryFacet:      revisions.NewFieldAssociationHistoryFacet([]string{"source_record_id", "resolved_indicator_record_id"}, revisions.HistorySingleEntry),
 				RollbackProvider:  childProvider,
 			},
 			{
 				SourceOwnerModule: revisions.SourceOwnerIndicators,
 				TargetKind:        "indicator_state_interval",
+				HistoryValidator:  intervalHistoryValidator{},
 				HistoryProjector:  projectIntervalHistory,
+				HistoryReferences: indicatorHistoryReferences,
 				HistoryFacet:      revisions.NewFieldAssociationHistoryFacet([]string{"indicator_record_id"}, revisions.HistorySingleEntry),
 				RollbackProvider:  childProvider,
 			},

@@ -68,6 +68,7 @@ func advanceRecordFixtureWithAudit(
 	if _, err := tx.ExecContext(ctx, `
 UPDATE records
    SET row_version = GREATEST(row_version, $2),
+       created_at = LEAST(created_at, COALESCE($3, created_at)),
        updated_at = COALESCE($3, updated_at),
        updated_by_user_id = COALESCE($4, updated_by_user_id)
  WHERE record_id = $1
@@ -102,6 +103,7 @@ func seedHistoryChangeSet(t testing.TB, db *sql.DB, seed historySeed) {
 		beforePayload := canonicalRowSnapshot(
 			seed.RecordID,
 			seed.IncidentID,
+			seed.ActorID,
 			"host",
 			"cartulary.revisions.snapshot.host.v1",
 			seed.RowVersion-1,
@@ -113,6 +115,7 @@ func seedHistoryChangeSet(t testing.TB, db *sql.DB, seed historySeed) {
 		afterPayload := canonicalRowSnapshot(
 			seed.RecordID,
 			seed.IncidentID,
+			seed.ActorID,
 			"host",
 			"cartulary.revisions.snapshot.host.v1",
 			seed.RowVersion,
@@ -145,8 +148,8 @@ ON CONFLICT (change_set_id) DO NOTHING
 func seedHistoryMutation(t testing.TB, db *sql.DB, seed historySeed) {
 	t.Helper()
 	seedChangeSet(t, db, seed)
-	beforePayload := canonicalRowSnapshot(seed.RecordID, seed.IncidentID, "host", "cartulary.revisions.snapshot.host.v1", 1, map[string]any{"display_name": "before-" + seed.Operation})
-	afterPayload := canonicalRowSnapshot(seed.RecordID, seed.IncidentID, "host", "cartulary.revisions.snapshot.host.v1", 2, map[string]any{"display_name": "after-" + seed.Operation})
+	beforePayload := canonicalRowSnapshot(seed.RecordID, seed.IncidentID, seed.ActorID, "host", "cartulary.revisions.snapshot.host.v1", 1, map[string]any{"display_name": "before-" + seed.Operation})
+	afterPayload := canonicalRowSnapshot(seed.RecordID, seed.IncidentID, seed.ActorID, "host", "cartulary.revisions.snapshot.host.v1", 2, map[string]any{"display_name": "after-" + seed.Operation})
 	if seed.TargetKind == "entity_alias" {
 		beforePayload = nil
 		afterPayload = map[string]any{"entity_alias_id": seed.RecordID.String(), "record_id": seed.RecordID.String(), "entity_type": "host", "raw_text": "retained-alias", "normalized_text": "retained-alias", "classification": "suggestion_only", "deleted_at": nil}
@@ -185,21 +188,21 @@ func jsonOrNil(t testing.TB, value any) any {
 	return string(payload)
 }
 
-func canonicalRowSnapshot(recordID uuid.UUID, incidentID uuid.UUID, recordType string, schemaID string, version int64, source map[string]any) map[string]any {
+func canonicalRowSnapshot(recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, recordType string, schemaID string, version int64, source map[string]any) map[string]any {
 	clonedSource := make(map[string]any, len(source)+3)
 	// These fixtures author complete canonical row facts, including nullable fields.
 	// They are not a reader for previously persisted or schema-less history.
 	fixtureFields := map[string]string{
-		"host":           "display_name hostname aad_device_id fqdn entity_origin host_state merged_into_record_id location os_platform business_owner criticality containment_status",
+		"host":           "display_name hostname aad_device_id fqdn entity_origin seed_entity_mention_id host_state merged_into_record_id location os_platform business_owner criticality containment_status",
 		"party":          "display_name party_kind organization_name role_title primary_email timezone_name external_ref notes",
 		"timeline_event": "date_entered_text analyst_text mitre_stage_text device_object_text ip_address_text activity_utc_text activity_local_text raw_activity_text activity_synopsis_text data_source_text activity_time_pair_state capture_state reviewed_at reviewed_by_user_id superseded_at superseded_by_user_id activity_utc_generated activity_local_generated",
-		"evidence":       "title lifecycle_state requested_at received_at storage_ref blob_hash collector_party_text collector_party_id source_party_text source_party_id upload_state",
+		"evidence":       "title lifecycle_state requested_at received_at storage_ref blob_hash collector_party_text collector_party_id source_party_text source_party_id upload_state object_blob_id owner_user_id",
 	}
 	for _, key := range strings.Fields(fixtureFields[recordType]) {
 		clonedSource[key] = nil
 	}
 	if recordType == "host" {
-		clonedSource["host_state"] = "active"
+		clonedSource["host_state"] = "canonical"
 		clonedSource["entity_origin"] = "entity_sheet"
 	}
 	if recordType == "timeline_event" {
@@ -213,14 +216,33 @@ func canonicalRowSnapshot(recordID uuid.UUID, incidentID uuid.UUID, recordType s
 	}
 	clonedSource["record_id"] = recordID.String()
 	clonedSource["incident_id"] = incidentID.String()
-	clonedSource["row_version"] = version
+	switch recordType {
+	case "host", "timeline_event":
+		clonedSource["row_version"] = version
+		clonedSource["created_by_user_id"] = actorID.String()
+		clonedSource["updated_by_user_id"] = actorID.String()
+	}
+	switch recordType {
+	case "host", "evidence":
+		clonedSource["created_at"] = "2000-01-01T00:00:00Z"
+		clonedSource["updated_at"] = "2000-01-01T00:00:00Z"
+	case "timeline_event":
+		clonedSource["recorded_at"] = "2000-01-01T00:00:00Z"
+		clonedSource["edited_at"] = "2000-01-01T00:00:00Z"
+	}
 	return map[string]any{
 		"snapshot_schema_id": schemaID,
 		"record": map[string]any{
-			"record_id":   recordID.String(),
-			"incident_id": incidentID.String(),
-			"record_type": recordType,
-			"row_version": version,
+			"record_id":          recordID.String(),
+			"incident_id":        incidentID.String(),
+			"record_type":        recordType,
+			"row_version":        version,
+			"created_at":         "2000-01-01T00:00:00Z",
+			"created_by_user_id": actorID.String(),
+			"updated_at":         "2000-01-01T00:00:00Z",
+			"updated_by_user_id": actorID.String(),
+			"deleted_at":         nil,
+			"deleted_by_user_id": nil,
 		},
 		"source": clonedSource,
 	}

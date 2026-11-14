@@ -8,13 +8,91 @@ import { browserReadiness, coreReadiness, goReadiness, nodeReadiness, publishFro
 import { createRuntime } from "../../runtime/session-client.mjs";
 import { recipeEnvironment } from "../review-recipes.mjs";
 import { reviewChild } from "../review-child.mjs";
+import { acquireProcess } from "../acquire-process.mjs";
 import { failureRecord, preparationFailure, failureFromRecord, ReviewFailure } from "../ui-review/failure.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
+import { resolveHarnessConfig } from "../../contract/harness-contract.mjs";
+import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 
 const scratch = () => mkdtempSync(path.join(os.tmpdir(), "cartulary-preparation-"));
 function write(root, file, value) { mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); writeFileSync(path.join(root, file), typeof value === "string" ? value : JSON.stringify(value)); }
 const context = { phase: "build", subject_id: "server_harness", condition: "child_failed", recovery_id: "build_server_harness" };
 const diagnosticModule = new URL("../../runtime/command-failure.mjs", import.meta.url).href;
+
+test("browser producer callers retire journals only after native settlement and retain cancellation precedence", async t => {
+  const root = scratch(), runID = path.basename(root);
+  const runtime = createRuntime({ repoRoot, runRoot: root, runID });
+  t.after(() => { runtime.close(); rmSync(root, { recursive: true, force: true }); });
+  const environment = { ...process.env, CARTULARY_TEST_RESULTS_DIR: path.dirname(root), CARTULARY_TEST_RUN_ID: runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID };
+  for (const kind of ["review", "acquisition"]) {
+    const invoke = (command, args, options) => kind === "review"
+      ? reviewChild({ root: repoRoot, command, args, environment, context, commandID: "cartulary.harness.command.build_server_harness.v1", ...options })
+      : acquireProcess(command, args, { cwd: repoRoot, environment, ...options });
+    let released = 0, reaped = 0, pid;
+    const register = child => { pid = child; return () => { assert.throws(() => readFileSync(`/proc/${pid}/stat`), { code: "ENOENT" }); released++; }; };
+    await invoke("sh", ["-c", "exit 0"], { onChildProcess: register, onReaped: () => { reaped++; } });
+    assert.equal(released, 1);
+    assert.equal(reaped, kind === "acquisition" ? 1 : 0);
+
+    const abort = new AbortController(), reason = new Error("test cancellation");
+    const childFile = path.join(root, `${kind}-descendant`);
+    const pending = invoke("sh", ["-c", 'sleep 60 </dev/null >/dev/null 2>&1 & echo $! > "$1"; wait', "fixture", childFile], {
+      signal: abort.signal, onChildProcess: register, onReaped: () => { reaped++; },
+    });
+    pending.catch(() => {});
+    t.after(async () => { abort.abort(); await pending.catch(() => {}); });
+    const deadline = Date.now() + 5000;
+    while (!existsSync(childFile)) {
+      if (Date.now() >= deadline) assert.fail("descendant fixture did not become ready");
+      await Promise.race([new Promise(resolve => setTimeout(resolve, 10)), pending]);
+    }
+    const descendant = Number(readFileSync(childFile, "utf8").trim());
+    abort.abort(reason);
+    await assert.rejects(pending, error => error === reason && !error.cleanupFailures);
+    assert.equal(released, 2);
+    assert.equal(reaped, kind === "acquisition" ? 2 : 0);
+    try { assert.match(readFileSync(`/proc/${descendant}/stat`, "utf8").split(") ").at(-1), /^[ZX] /u); }
+    catch (error) { if (error.code !== "ENOENT") throw error; }
+
+    const rejected = new Error("registration failed");
+    await assert.rejects(invoke("sleep", ["60"], { onChildProcess: child => { pid = child; throw rejected; } }), error => kind === "review" ? error.cause === rejected : error === rejected);
+    assert.throws(() => readFileSync(`/proc/${pid}/stat`), { code: "ENOENT" });
+    assert.equal(released, 2, "failed registration invented a release callback");
+    const preAborted = new AbortController(), preAbortReason = new Error("cancelled before acquisition");
+    preAborted.abort(preAbortReason);
+    let preAbortReaped = 0;
+    await assert.rejects(invoke("sleep", ["60"], { signal: preAborted.signal,
+      onChildProcess: () => assert.fail("pre-cancelled command launched"), onReaped: () => { preAbortReaped++; },
+    }), error => error === preAbortReason);
+    assert.equal(preAbortReaped, kind === "acquisition" ? 1 : 0, "pre-launch acquisition ticket retained without a process");
+    await assert.rejects(invoke("/cartulary-absent-executable", [], { onChildProcess: () => assert.fail("missing command registered") }),
+      error => kind === "review" ? error.failure_class === "config" && error.failure_reason === "configuration_error" : error.code === "ENOENT");
+  }
+});
+
+test("browser producer callers preserve unresolved process registrations", async t => {
+  const root = scratch(), runID = path.basename(root);
+  const runtime = createRuntime({ repoRoot, runRoot: root, runID });
+  t.after(() => { runtime.close(); rmSync(root, { recursive: true, force: true }); });
+  const binary = path.join(root, "controller");
+  const native = process.env.CARTULARY_HARNESS_RUNTIME_BIN || path.join(repoRoot, workspaceLayout.toolbin, "cartulary-harness");
+  const ready = { event: "ready", proof: { boot: "11111111-2222-3333-4444-555555555555", pid: 100, start: "1", group: true, pgid: 100, sid: 2 } };
+  const failure = { event: "failed", cause: "cleanup", diagnostic: { schema_id: "cartulary.harness_cleanup_diagnostic.v4", stage: "process_signal", cause: "io", errno: 13 } };
+  writeFileSync(binary, `#!${process.execPath}\nimport {writeSync} from 'node:fs';import {spawnSync} from ${JSON.stringify(new URL("../../workspace/child-process.mjs", import.meta.url).href)};
+if(process.argv[2]!=="owned-command"){const result=spawnSync(${JSON.stringify(native)},process.argv.slice(2),{stdio:"inherit"});process.exit(result.status??12);}
+process.stdin.resume();writeSync(3,${JSON.stringify(JSON.stringify(ready) + "\n" + JSON.stringify(failure) + "\n")});process.exit(12);\n`, { mode: 0o700 });
+  const environment = { ...process.env, CARTULARY_HARNESS_RUNTIME_BIN: binary, CARTULARY_TEST_RESULTS_DIR: path.dirname(root), CARTULARY_TEST_RUN_ID: runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID };
+  let released = 0, reaped = 0;
+  const onChildProcess = () => () => { released++; };
+  for (const call of [
+    () => reviewChild({ root: repoRoot, command: "unused", args: [], environment, context, onChildProcess }),
+    () => acquireProcess("unused", [], { cwd: repoRoot, environment, onChildProcess, onReaped: () => { reaped++; } }),
+  ]) await assert.rejects(call, error => error.failure_reason === "cleanup_error");
+  assert.equal(released, 0);
+  assert.equal(reaped, 0);
+});
 
 
 test("installation proof is independent of reuse caches and binds installed lock and workspace inputs", () => {
@@ -136,4 +214,19 @@ test("review preparation resolves the selected executable without an inherited G
     assert.equal(environment.GO, "/selected/go");
     assert.equal(Object.hasOwn(environment, "GOROOT"), false);
   }
+});
+
+test("review recipes isolate a machine parent without weakening public output admission", () => {
+  const parent = { ...process.env, CARTULARY_OUTPUT_MODE: "machine" };
+  for (const preparation_policy of ["installed_only", "ensure"]) {
+    for (const presentation of ["design", "review"]) {
+      const environment = recipeEnvironment(repoRoot, "/review/run", { runID: "fixture", root: "/private/runtime", leaseID: "fixture" },
+        { preparation_policy, presentation }, parent);
+      assert.equal(Object.hasOwn(environment, "CARTULARY_OUTPUT_MODE"), false);
+      assert.doesNotThrow(() => resolveHarnessConfig(environment.CARTULARY_TEST_TARGET, environment));
+      assert.throws(() => resolveHarnessConfig(environment.CARTULARY_TEST_TARGET, { ...environment, CARTULARY_OUTPUT_MODE: "machine" }),
+        /does not accept CARTULARY_OUTPUT_MODE=machine/u);
+    }
+  }
+  assert.equal(parent.CARTULARY_OUTPUT_MODE, "machine");
 });

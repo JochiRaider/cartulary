@@ -13,10 +13,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 )
 
@@ -301,8 +303,22 @@ func TestArchiveStream_Unit_BulkExceedsControlCeiling(t *testing.T) {
 	if err := stageBundleArchive(t.Context(), archive, stat.Size(), imported); err != nil {
 		t.Fatal(err)
 	}
-	if len(imported.Members()) != 1 || imported.Members()[0] != member || member.ByteSize != size || source.maximumRead > 32*1024 {
-		t.Fatal("bulk stream changed content or read an unbounded buffer")
+	// Independent SHA-256 of exactly 65 MiB of zero bytes.
+	wantMember := incidentportability.Member{Path: "blobs/bulk", ByteSize: size, SHA256: "25631f11bd18756ec0029380ec886af0c8824dc6b2706bbdb1d9451c7cf45f42"}
+	if member != wantMember || !slices.Equal(imported.Members(), []incidentportability.Member{wantMember}) {
+		t.Fatalf("original=%+v imported=%+v want=%+v", member, imported.Members(), wantMember)
+	}
+	reader, opened, err := imported.OpenMember(t.Context(), "blobs/bulk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	actualDigest := sha256.New()
+	if n, err := io.CopyBuffer(actualDigest, reader, make([]byte, 32<<10)); err != nil || n != size || opened != wantMember || hex.EncodeToString(actualDigest.Sum(nil)) != wantMember.SHA256 {
+		t.Fatalf("imported bytes=%d member=%+v digest=%x error=%v", n, opened, actualDigest.Sum(nil), err)
+	}
+	if source.maximumRead > 32*1024 {
+		t.Fatal("bulk stream read an unbounded buffer")
 	}
 	if _, err := readControlMember(t.Context(), imported, "blobs/bulk", PortabilityParticipantByteLimit); err == nil {
 		t.Fatal("bulk member admitted as control metadata")
@@ -311,7 +327,7 @@ func TestArchiveStream_Unit_BulkExceedsControlCeiling(t *testing.T) {
 
 func TestArchiveStream_Unit_AdmittedUploadDigest(t *testing.T) {
 	data := []byte("immutable admitted archive bytes")
-	digest := hashHex(data)
+	digest := fmt.Sprintf("%x", sha256.Sum256(data))
 	for _, tc := range []struct {
 		name   string
 		data   []byte

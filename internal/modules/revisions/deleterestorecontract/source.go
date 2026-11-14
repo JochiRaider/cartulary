@@ -1,8 +1,11 @@
 package deleterestorecontract
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,6 +50,7 @@ type DeleteRestoreSource interface {
 	UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) error
 	ViewSchemaID(context.Context, pgx.Tx, uuid.UUID) (string, error)
 	PrepareStateTransitionTx(context.Context, pgx.Tx, StateTransitionRequest) (StateTransitionPreparation, error)
+	ValidateStateTransitionTx(context.Context, pgx.Tx, StateTransitionRequest) (StateTransitionPreparation, error)
 }
 
 // EnvelopeMirrorSource is implemented only by sources that persist selected
@@ -63,7 +67,15 @@ func ScanSnapshot(row pgx.Row) (map[string]any, error) {
 		return nil, err
 	}
 	var snapshot map[string]any
-	if err := json.Unmarshal(raw, &snapshot); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&snapshot); err != nil {
+		return nil, err
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		if err == nil {
+			return nil, errors.New("snapshot has more than one JSON value")
+		}
 		return nil, err
 	}
 	return snapshot, nil

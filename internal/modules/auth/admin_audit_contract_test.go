@@ -88,6 +88,10 @@ func TestDeploymentAdministrativeAuditOpenAPIContract_Unit(t *testing.T) {
 		"schemas",
 	)
 	change := administrativeAuditOpenAPIObjectAt(t, schemas, "AdministrativeAuditChange")
+	meta := administrativeAuditOpenAPIObjectAt(t, schemas, "AdministrativeAuditEnvelope", "properties", "meta")
+	if meta["$ref"] != "#/components/schemas/PagedEnvelopeMeta" {
+		t.Fatalf("administrative-audit collection must require paging metadata: %#v", meta)
+	}
 	requireClosedAdministrativeAuditSchema(t, change, []string{"field_path", "value_state", "before", "after"})
 	resource := administrativeAuditOpenAPIObjectAt(t, schemas, "AdministrativeAuditResource")
 	requireClosedAdministrativeAuditSchema(t, resource, []string{

@@ -2,6 +2,9 @@ package indicators_test
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -64,6 +67,7 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 		t.Fatalf("server-derived observation provenance = %#v", observation)
 	}
 	requireSortedAffectedVersions(t, created["affected_records"].([]any), sourceID, indicatorID)
+	requireObservationSourceHistory(t, harness.DB, created["change_set_id"].(string), "create", observation["observation_id"].(string))
 
 	replayed := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, observationPath, createBody), http.StatusOK)["data"].(map[string]any)
 	if replayed["replayed"] != true || replayed["change_set_id"] != created["change_set_id"] {
@@ -87,6 +91,7 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	second := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, observationPath, secondBody), http.StatusCreated)["data"].(map[string]any)
 	secondObservation := second["observation"].(map[string]any)
 	secondID := appsupport.MustUUID(t, secondObservation["observation_id"].(string))
+	requireObservationSourceHistory(t, harness.DB, second["change_set_id"].(string), "create", secondID.String())
 
 	pageOne := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodGet, observationPath+"?limit=1", nil), http.StatusOK)
 	pageOneRows := pageOne["data"].(map[string]any)["observations"].([]any)
@@ -106,6 +111,7 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	if dismissed["observation"].(map[string]any)["resolution_status"] != "dismissed" {
 		t.Fatalf("dismissed observation = %#v", dismissed)
 	}
+	requireObservationSourceHistory(t, harness.DB, dismissed["change_set_id"].(string), "dismiss", secondID.String())
 	dismissReplay := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, dismissPath, dismissBody), http.StatusOK)["data"].(map[string]any)
 	if dismissReplay["replayed"] != true || dismissReplay["change_set_id"] != dismissed["change_set_id"] {
 		t.Fatalf("dismiss replay = %#v", dismissReplay)
@@ -123,6 +129,7 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	if restored["observation"].(map[string]any)["resolution_status"] != "unresolved" {
 		t.Fatalf("restored observation = %#v", restored)
 	}
+	requireObservationSourceHistory(t, harness.DB, restored["change_set_id"].(string), "restore", secondID.String())
 	restoreReplayBody := map[string]any{"client_txn_id": "txn-indicator-child-routes-restore", "base_row_version": 2}
 	restoreReplay := httptestx.RequireSuccessEnvelope(t, childRouteJSON(t, harness, login, http.MethodPost, restorePath, restoreReplayBody), http.StatusOK)["data"].(map[string]any)
 	if restoreReplay["replayed"] != true || restoreReplay["change_set_id"] != restored["change_set_id"] {
@@ -136,6 +143,7 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	if resolved["observation"].(map[string]any)["resolution_status"] != "resolved" {
 		t.Fatalf("resolved observation = %#v", resolved)
 	}
+	requireObservationSourceHistory(t, harness.DB, resolved["change_set_id"].(string), "resolve", secondID.String())
 	resolveReplayBody := map[string]any{
 		"client_txn_id": "txn-indicator-child-routes-resolve", "base_row_version": 3, "resolved_indicator_record_id": indicatorID.String(),
 	}
@@ -195,6 +203,50 @@ func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	if collaborationIntentCount != 8 {
 		t.Fatalf("Indicator child collaboration intents = %d", collaborationIntentCount)
 	}
+
+	for index, value := range []any{nil, "", " \t", "réviewed"} {
+		body := cloneMap(lifecycleBody)
+		body["client_txn_id"], body["base_row_version"] = fmt.Sprintf("txn-interval-text-%d", index), 4+index
+		body["rationale"], body["assessor"] = value, value
+		result := httptestx.RequireSuccessData(t, childRouteJSON(t, harness, login, http.MethodPost, lifecyclePath, body), http.StatusCreated)
+		interval := result["interval"].(map[string]any)
+		if interval["rationale"] != value || interval["assessor"] != value {
+			t.Fatalf("interval response changed text: %#v", interval)
+		}
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var exact bool
+		if err := harness.DB.QueryRow(`SELECT rationale IS NOT DISTINCT FROM $2::text AND assessor IS NOT DISTINCT FROM $2::text FROM indicator_state_intervals WHERE indicator_state_interval_id=$1`, interval["interval_id"], value).Scan(&exact); err != nil || !exact {
+			t.Fatalf("interval source text exact=%v err=%v", exact, err)
+		}
+		var count int
+		if err := harness.DB.QueryRow(`SELECT count(*),coalesce(bool_and(after_value->'rationale'=$2::jsonb AND after_value->'assessor'=$2::jsonb),false) FROM change_set_mutations WHERE change_set_id=$1 AND target_kind='indicator_state_interval'`, result["change_set_id"], encoded).Scan(&count, &exact); err != nil || count != 1 || !exact {
+			t.Fatalf("interval history text count=%d exact=%v err=%v", count, exact, err)
+		}
+		replay := httptestx.RequireSuccessData(t, childRouteJSON(t, harness, login, http.MethodPost, lifecyclePath, body), http.StatusOK)
+		if replay["replayed"] != true || replay["change_set_id"] != result["change_set_id"] || replay["interval"].(map[string]any)["rationale"] != value || replay["interval"].(map[string]any)["assessor"] != value {
+			t.Fatalf("interval text replay differs: %#v", replay)
+		}
+		listed := httptestx.RequireSuccessData(t, childRouteJSON(t, harness, login, http.MethodGet, lifecyclePath, nil), http.StatusOK)["intervals"].([]any)
+		found := 0
+		for _, raw := range listed {
+			item := raw.(map[string]any)
+			if item["interval_id"] == interval["interval_id"] {
+				found++
+				if item["rationale"] != value || item["assessor"] != value {
+					t.Fatalf("listed interval text changed: %#v", item)
+				}
+			}
+		}
+		if found != 1 || len(listed) != index+2 {
+			t.Fatalf("interval list found=%d size=%d", found, len(listed))
+		}
+		if got := collaborationsupport.CountIntentsForChangeSetSources(t, harness.DB, incidentID.String(), "indicators.lifecycle.append"); got != index+2 {
+			t.Fatalf("interval publication count=%d", got)
+		}
+	}
 }
 
 func childRouteJSON(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, method string, path string, body any) *http.Response {
@@ -229,4 +281,22 @@ func cloneMap(source map[string]any) map[string]any {
 		result[key] = value
 	}
 	return result
+}
+
+// Compare every persisted history member with its transactionally stored source;
+// the route assertions above independently establish state, provenance and effects.
+func requireObservationSourceHistory(t testing.TB, db *sql.DB, changeSet, operation, id string) {
+	t.Helper()
+	var count int
+	var exact bool
+	if err := db.QueryRow(`SELECT count(*),coalesce(bool_and(m.operation_kind=$3
+ AND (SELECT count(*) FROM jsonb_object_keys(m.after_value))=19
+ AND (m.after_value-'created_at'-'resolved_at'-'deleted_at')=(to_jsonb(o)-'created_at'-'resolved_at'-'deleted_at')
+ AND (m.after_value->>'created_at')::timestamptz=o.created_at
+ AND (m.after_value->>'resolved_at')::timestamptz IS NOT DISTINCT FROM o.resolved_at
+ AND (m.after_value->>'deleted_at')::timestamptz IS NOT DISTINCT FROM o.deleted_at),false)
+ FROM change_set_mutations m JOIN indicator_observations o ON o.indicator_observation_id=$2::uuid
+ WHERE m.change_set_id=$1 AND m.target_kind='indicator_observation' AND m.target_id=$2::text`, changeSet, id, operation).Scan(&count, &exact); err != nil || count != 1 || !exact {
+		t.Fatalf("complete source/history %s count=%d exact=%v error=%v", operation, count, exact, err)
+	}
 }

@@ -6,12 +6,12 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
-	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
 const assessmentsBundlePath = "data/compromise_assessments.ndjson"
 
 func NewSourcePort() sourceport.Port {
+	binding := &preparationBinding{contractMajor: sourceport.ContractMajor}
 	descriptor := sourceport.Descriptor{
 		FamilyID: "assessments", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.assessments", OwnerRelationIDs: []string{"assessment-source"},
@@ -22,44 +22,31 @@ func NewSourcePort() sourceport.Port {
 			StableIdentityInvariantID: "assessments.source_identity_admitted",
 		}},
 		InvariantIDs: []string{
-			"assessments.subject_type_scope",
-			"assessments.state_confidence_rationale_legal",
-			"assessments.timestamps_lifecycle_legal",
-			"assessments.source_identity_admitted",
+			"assessments.source_identity_admitted", "assessments.row_shape_exact",
+			"assessments.subject_type_scope", "assessments.state_confidence_rationale_legal",
+			"assessments.timestamps_lifecycle_legal", "assessments.attribution_exact",
+			"assessments.source_state_exact",
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor,
 		Export:     exportIncidentBundleFiles,
-		Prepare: func(ctx context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareMembers(ctx, descriptor, bundle, importContext.BundleVersion)
+		Prepare: func(ctx context.Context, bundle sourceport.Bundle, input sourceport.ImportContext) (any, error) {
+			return prepare(ctx, bundle, input, descriptor, binding)
 		},
-		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			return importIncidentBundleFilesTx(
-				ctx,
-				tx,
-				value.(*incidentportability.BoundMembers),
-				importContext.ActorUserID,
-				importContext.Attributions,
-			)
+		Apply: func(ctx context.Context, tx pgx.Tx, value any, input sourceport.ImportContext) error {
+			prepared, ok := value.(preparedImport)
+			if !ok || !prepared.matches(input, binding) || tx == nil {
+				return sourceport.ErrPreparedBinding
+			}
+			return prepared.apply(ctx, tx, input, descriptor)
 		},
-		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
-			var invalid bool
-			if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1 FROM assessments assessment
-    LEFT JOIN records record ON record.record_id = assessment.record_id
-    LEFT JOIN records subject ON subject.record_id = assessment.subject_record_id
-    WHERE assessment.incident_id = $1
-      AND (record.record_id IS NULL OR record.incident_id <> $1 OR record.record_type <> 'assessment'
-           OR subject.record_id IS NULL OR subject.incident_id <> $1 OR subject.record_type <> assessment.subject_type)
-)`, importContext.IncidentID).Scan(&invalid); err != nil {
-				return err
+		Validate: func(ctx context.Context, tx pgx.Tx, value any, input sourceport.ImportContext) error {
+			prepared, ok := value.(preparedImport)
+			if !ok || !prepared.matches(input, binding) || tx == nil {
+				return sourceport.ErrPreparedBinding
 			}
-			if invalid {
-				return descriptor.DeclaredFailure("assessments.subject_type_scope")
-			}
-			return nil
+			return prepared.validate(ctx, tx, input, descriptor)
 		},
 	})
 }

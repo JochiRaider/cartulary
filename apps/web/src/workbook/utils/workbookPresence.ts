@@ -63,6 +63,9 @@ export function isPresenceRecord(value: unknown): value is PresenceRecord {
     (!("field_key" in value) ||
       (typeof value.field_key === "string" &&
         value.field_key.length > 0 &&
+        "record_id" in value &&
+        typeof value.record_id === "string" &&
+        value.record_id.length > 0 &&
         value.mode === "editing")) &&
     (sheetRef.kind !== "extension_workspace" ||
       (!("record_id" in value) && !("field_key" in value)))

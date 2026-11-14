@@ -13,7 +13,7 @@ const poolPackage = pgxPackage + "/pgxpool"
 // Native admission is an exact type/method inventory. Argument indexes exclude
 // the receiver. No receiver variable name or method-name-only grant exists.
 type nativeSQLMethod struct {
-	kind     string // sql, copy, handle, prepared, batch, none, reject
+	kind     string // sql, copy, handle, prepared, batch, retire, none, reject
 	argument int
 	result   string
 }
@@ -82,12 +82,47 @@ func nativeSQLRegistry() map[string]map[string]nativeSQLMethod {
 	add("database/sql.DB", "Driver", "reject", -1, "")
 	add("database/sql.Conn", "BeginTx", "handle", -1, "database/sql.Tx")
 	add("database/sql.Conn", "PingContext Close", "none", -1, "")
-	add("database/sql.Conn", "Raw", "reject", -1, "")
+	add("database/sql.Conn", "Raw", "retire", -1, "")
 	add("database/sql.Tx", "Commit Rollback", "none", -1, "")
 	add("database/sql.Tx", "Stmt StmtContext", "reject", -1, "")
 	add("database/sql.Stmt", "Exec ExecContext Query QueryContext QueryRow QueryRowContext", "prepared", -1, "")
 	add("database/sql.Stmt", "Close", "none", -1, "")
 	return registry
+}
+
+// This callback cannot name the driver value or execute a statement. Keep the
+// admission structural; arbitrary callback inference would grant raw access.
+func (a *sqlAnalyzer) connectionRetirement(call *ast.CallExpr) bool {
+	if len(call.Args) != 1 || call.Ellipsis.IsValid() {
+		return false
+	}
+	callback, ok := unparenSQL(call.Args[0]).(*ast.FuncLit)
+	if !ok || callback.Type.Params.NumFields() != 1 || callback.Type.Results.NumFields() != 1 || len(callback.Body.List) != 1 {
+		return false
+	}
+	parameter := callback.Type.Params.List[0]
+	if len(parameter.Names) > 0 && parameter.Names[0].Name != "_" {
+		return false
+	}
+	result := callback.Type.Results.List[0]
+	if len(result.Names) != 0 {
+		return false
+	}
+	parameterType, parameterKnown := a.types.typeIdentity(a.typeRef(parameter.Type), map[string]bool{})
+	resultType, resultKnown := a.types.typeIdentity(a.typeRef(result.Type), map[string]bool{})
+	if !parameterKnown || (parameterType != "builtin.any" && parameterType != "interface{}") || !resultKnown || resultType != "builtin.error" {
+		return false
+	}
+	returned, ok := callback.Body.List[0].(*ast.ReturnStmt)
+	if !ok || len(returned.Results) != 1 {
+		return false
+	}
+	value, ok := unparenSQL(returned.Results[0]).(*ast.SelectorExpr)
+	if !ok || value.Sel.Name != "ErrBadConn" {
+		return false
+	}
+	importName, ok := value.X.(*ast.Ident)
+	return ok && a.imported(importName, "database/sql/driver")
 }
 
 func nativeTypeRef(key string) sqlTypeRef {

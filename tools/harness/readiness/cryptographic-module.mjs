@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { validateSchemaSync } from "../contract/index.mjs";
 
 export const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 export function pins(root = process.cwd()) {
@@ -30,6 +31,7 @@ export function buildReceipt(go, binary, env = process.env) {
     throw new Error("cryptographic executable metadata rejected");
   }
   const receipt = { schema_id: "cartulary.cryptographic_build_receipt.v1", ...module, binary_sha256: sha256(readFileSync(binary)), build_info: info };
+  validateSchemaSync(receipt.schema_id, receipt);
   writeFileSync(`${binary}.crypto.json`, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
   return receipt;
 }

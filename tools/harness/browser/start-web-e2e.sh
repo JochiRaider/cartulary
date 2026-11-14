@@ -52,7 +52,7 @@ PUBLIC_ORIGIN=""
 child_command=()
 SERVER_PGID=""
 VITE_PGID=""
-CHILD_PGID=""
+CHILD_HANDLE=""
 PORT_LEASE_DIRS=()
 cleanup_done=0
 SESSION_MODE="wrap"
@@ -708,7 +708,7 @@ stop_owned_process_group() {
     return "${status}"
   fi
 
-  stop_process_group "${group_id}" || status=$?
+  stop_browser_process_group "${group_id}" || status=$?
   wait_for_port_release "${port}" "${name}" || status=$?
   return "${status}"
 }
@@ -772,6 +772,7 @@ cleanup() {
 
   if [[ -n "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
     local acquisition_status=0
+    stop_owned_command "${CHILD_HANDLE:-}" || acquisition_status=$?
     retain_browser_process_diagnostics cleanup || acquisition_status=$?
     "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
       settle "${CARTULARY_BROWSER_ACQUISITION_FILE}" producer-active || acquisition_status=$?
@@ -791,8 +792,8 @@ cleanup() {
   step_start_time="$(step_now_utc)"
   step_start_ms="$(step_now_monotonic_ms)"
 
-  if [[ -n "${CHILD_PGID:-}" ]]; then
-    stop_process_group "${CHILD_PGID}" || cleanup_status=$?
+  if [[ -n "${CHILD_HANDLE:-}" ]]; then
+    stop_owned_command "${CHILD_HANDLE}" || cleanup_status=$?
   fi
   stop_owned_process_group "${VITE_PGID:-}" "${FRONTEND_PORT:-4173}" "frontend" || cleanup_status=$?
   stop_owned_process_group "${SERVER_PGID:-}" "${BACKEND_PORT:-8080}" "backend" || cleanup_status=$?
@@ -837,22 +838,6 @@ cleanup() {
   fi
 
   return "${cleanup_status}"
-}
-
-release_process_group_monitor() {
-  local group_id="$1"
-  local monitor_pid=""
-
-  if [[ -z "${group_id}" ]]; then
-    return 0
-  fi
-  monitor_pid="${CARTULARY_LIFECYCLE_GROUP_MONITORS[$group_id]:-}"
-  if [[ -z "${monitor_pid}" ]]; then
-    return 0
-  fi
-  kill "${monitor_pid}" >/dev/null 2>&1 || true
-  wait "${monitor_pid}" >/dev/null 2>&1 || true
-  unset "CARTULARY_LIFECYCLE_GROUP_MONITORS[$group_id]"
 }
 
 write_session_files() {
@@ -1035,6 +1020,7 @@ on_exit() {
   local cleanup_status=0
 
   trap - EXIT
+  trap '' INT TERM
   set +e
   if [[ "${status}" -ne 0 && -n "${STARTUP_DIAGNOSTIC_FILE}" && ! -f "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
     write_startup_diagnostics \
@@ -1165,13 +1151,13 @@ wait_for_http() {
     else
       return "$?"
     fi
-    if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
+    if [[ -n "${SERVER_PGID:-}" ]] && ! browser_process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
       echo "backend exited before ${name} readiness" >&2
       write_startup_diagnostics "fail" "backend_readiness" "infra" "service_start_error" "backend exited before ${name} readiness" || true
       cat "${SERVER_LOG}" >&2 || true
       return 1
     fi
-    if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
+    if [[ -n "${VITE_PGID:-}" ]] && ! browser_process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
       echo "frontend exited before ${name} readiness" >&2
       write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_start_error" "frontend exited before ${name} readiness" || true
       cat "${WEB_LOG}" >&2 || true
@@ -1282,7 +1268,7 @@ browser_wait_backend_ready() {
     else
       return "$?"
     fi
-    if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
+    if [[ -n "${SERVER_PGID:-}" ]] && ! browser_process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
       echo "backend exited before readiness" >&2
       write_startup_diagnostics \
         "fail" \
@@ -1294,7 +1280,7 @@ browser_wait_backend_ready() {
       return 1
     fi
     if port_owned_by_process_group "${BACKEND_PORT}" "${SERVER_PGID}" && identity_pid="$(probe_backend_identity 2>/dev/null)"; then
-      if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
+      if [[ -n "${SERVER_PGID:-}" ]] && ! browser_process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
         echo "backend exited immediately after readiness identity probe" >&2
         write_startup_diagnostics \
           "fail" \
@@ -1335,7 +1321,7 @@ browser_wait_frontend_ready() {
     if [[ -f "${WEB_LOG}" ]] && grep -Eq 'Port [0-9]+ is already in use' "${WEB_LOG}"; then
       failure_reason="resource_conflict"
       failure_message="frontend port ${FRONTEND_PORT} became unavailable before readiness"
-    elif [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
+    elif [[ -n "${VITE_PGID:-}" ]] && ! browser_process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
       failure_reason="service_start_error"
       failure_message="frontend exited before readiness"
     fi
@@ -1346,7 +1332,7 @@ browser_wait_frontend_ready() {
       return 1
     fi
     if port_owned_by_process_group "${FRONTEND_PORT}" "${VITE_PGID}" && curl --cacert "${CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE:?}" --tlsv1.3 -fsS "${PUBLIC_ORIGIN}" >/dev/null 2>&1; then
-      if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
+      if [[ -n "${VITE_PGID:-}" ]] && ! browser_process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
         echo "frontend exited immediately after readiness probe" >&2
         write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_start_error" "frontend exited immediately after readiness probe" || true
         cat "${WEB_LOG}" >&2 || true
@@ -1368,8 +1354,8 @@ start_browser_process_group() {
   local outvar="$1" log_file="$2" role="backend" group_id=""
   shift 2
   if [[ -z "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
-    start_process_group "${outvar}" "${log_file}" "$@"
-    return $?
+    echo "browser services require their journaled acquisition owner" >&2
+    return 12
   fi
   if [[ "${outvar}" == "VITE_PGID" ]]; then role="frontend"; fi
   group_id="$("${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" -- \
@@ -1398,7 +1384,7 @@ start_frontend_preview_ready() {
 }
 
 browser_verify_frontend_ready() {
-  if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
+  if [[ -n "${VITE_PGID:-}" ]] && ! browser_process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
     echo "frontend exited before backend-ready verification" >&2
     write_startup_diagnostics "fail" "frontend_readiness" "infra" "service_start_error" "frontend exited before backend-ready verification" || true
     cat "${WEB_LOG}" >&2 || true
@@ -1509,21 +1495,24 @@ start_backend_ready() {
   fi
 }
 
-wait_for_process_status() {
+browser_process_group_running() {
   local group_id="$1"
+  [[ -n "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]] || return 12
+  "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
+    running-service "${CARTULARY_BROWSER_ACQUISITION_FILE}" "${group_id}"
+}
 
-  if wait "${group_id}"; then
-    return 0
-  else
-    return $?
-  fi
+stop_browser_process_group() {
+  local group_id="${1:-}"
+  [[ -n "${group_id}" ]] || return 0
+  [[ -n "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]] || return 12
+  "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
+    settle-service "${CARTULARY_BROWSER_ACQUISITION_FILE}" "${group_id}"
 }
 
 supervise_stack() {
   local child_status=0
   local shutdown_status=0
-  local server_status=0
-  local vite_status=0
 
   while true; do
     if exit_for_requested_shutdown "browser e2e supervision"; then
@@ -1533,36 +1522,26 @@ supervise_stack() {
       return "${shutdown_status}"
     fi
 
-    if ! process_group_running "${SERVER_PGID}"; then
-      if wait_for_process_status "${SERVER_PGID}"; then
-        server_status=0
-      else
-        server_status=$?
-      fi
-      echo "backend exited unexpectedly during browser e2e supervision (status=${server_status})" >&2
+    if ! browser_process_group_running "${SERVER_PGID}"; then
+      echo "backend exited unexpectedly during browser e2e supervision" >&2
       cat "${SERVER_LOG}" >&2 || true
-      if [[ -n "${CHILD_PGID:-}" ]]; then
-        stop_process_group "${CHILD_PGID}" || true
+      if [[ -n "${CHILD_HANDLE:-}" ]]; then
+        stop_owned_command "${CHILD_HANDLE}" || true
       fi
       return 1
     fi
 
-    if ! process_group_running "${VITE_PGID}"; then
-      if wait_for_process_status "${VITE_PGID}"; then
-        vite_status=0
-      else
-        vite_status=$?
-      fi
-      echo "frontend exited unexpectedly during browser e2e supervision (status=${vite_status})" >&2
+    if ! browser_process_group_running "${VITE_PGID}"; then
+      echo "frontend exited unexpectedly during browser e2e supervision" >&2
       cat "${WEB_LOG}" >&2 || true
-      if [[ -n "${CHILD_PGID:-}" ]]; then
-        stop_process_group "${CHILD_PGID}" || true
+      if [[ -n "${CHILD_HANDLE:-}" ]]; then
+        stop_owned_command "${CHILD_HANDLE}" || true
       fi
       return 1
     fi
 
-    if [[ -n "${CHILD_PGID:-}" ]] && ! process_group_running "${CHILD_PGID}"; then
-      if wait_for_process_status "${CHILD_PGID}"; then
+    if [[ -n "${CHILD_HANDLE:-}" ]] && ! owned_command_running "${CHILD_HANDLE}"; then
+      if owned_command_result "${CHILD_HANDLE}"; then
         child_status=0
       else
         child_status=$?
@@ -1576,29 +1555,20 @@ supervise_stack() {
 
 stop_backend_for_reset() {
   local drain_timeout_ms="${CARTULARY_BROWSER_RESET_DRAIN_TIMEOUT_MS:-}"
-  local poll_count=""
-  if [[ -z "${SERVER_PGID}" ]] || ! process_group_running "${SERVER_PGID}"; then
-    echo "failure_class=harness reason=fixture_error browser reset backend is not running" >&2
-    return 1
+  if [[ -z "${SERVER_PGID}" || -z "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
+    echo "failure_class=harness reason=fixture_error browser reset backend lacks acquisition ownership" >&2
+    return 12
   fi
   if [[ ! "${drain_timeout_ms}" =~ ^[1-9][0-9]*$ ]]; then
     echo "failure_class=config reason=configuration_error browser reset drain deadline is invalid" >&2
     return 2
   fi
-  poll_count="$(((drain_timeout_ms + 199) / 200))"
-  kill -TERM -- "-${SERVER_PGID}" >/dev/null 2>&1 || true
-  for _ in $(seq 1 "${poll_count}"); do
-    if ! process_group_running "${SERVER_PGID}" && ! port_in_use "${BACKEND_PORT}"; then
-      if [[ -n "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
-        "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" -- "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
-          settle-service "${CARTULARY_BROWSER_ACQUISITION_FILE}" "${SERVER_PGID}" || return $?
-      fi
-      return 0
-    fi
-    sleep 0.2
-  done
-  echo "failure_class=timing reason=timeout_failure browser reset backend did not drain or release its listener" >&2
-  return 13
+  "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" -- "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
+    drain-service "${CARTULARY_BROWSER_ACQUISITION_FILE}" "${SERVER_PGID}" "${drain_timeout_ms}" || return $?
+  if port_in_use "${BACKEND_PORT}"; then
+    echo "failure_class=harness reason=fixture_error browser reset listener remained after owned process settlement" >&2
+    return 12
+  fi
 }
 
 next_backend_generation() {
@@ -1641,8 +1611,8 @@ EOF
 reset_backend_failure_cleanup() {
   local status=$?
   trap - EXIT
-  if [[ "${status}" -ne 0 && -n "${SERVER_PGID}" ]] && process_group_running "${SERVER_PGID}"; then
-    stop_process_group "${SERVER_PGID}" || true
+  if [[ "${status}" -ne 0 && -n "${SERVER_PGID}" ]] && browser_process_group_running "${SERVER_PGID}"; then
+    stop_browser_process_group "${SERVER_PGID}" || true
   fi
   if [[ "${status}" -ne 0 ]]; then retain_browser_process_diagnostics "failed-reset-${RESET_LABEL}" || true; fi
   exit "${status}"
@@ -1678,7 +1648,6 @@ reset_session_backend() {
   previous_server_pgid="${SERVER_PGID}"
   stop_backend_for_reset || return $?
   retain_browser_process_diagnostics "reset-${RESET_LABEL}" || return $?
-  release_process_group_monitor "${previous_server_pgid}"
   reclaim_port_lease_for_replacement "${BACKEND_PORT}" "${previous_server_pgid}"
   SERVER_PGID=""
   web_e2e_reset_database \
@@ -1699,7 +1668,6 @@ reset_session_backend() {
   "${node_bin}" "${SESSION_EVIDENCE_HELPER}" \
     backend-generation "${RESET_LABEL}" "${generation}" >/dev/null
   update_session_backend_lease "${generation}"
-  release_process_group_monitor "${SERVER_PGID}"
   trap - EXIT
 }
 
@@ -1753,14 +1721,12 @@ main() {
     publish_session_lease || return $?
     transfer_port_lease_for_port "${BACKEND_PORT}" "${SERVER_PGID}"
     transfer_port_lease_for_port "${FRONTEND_PORT}" "${VITE_PGID}"
-    release_process_group_monitor "${SERVER_PGID}"
-    release_process_group_monitor "${VITE_PGID}"
     trap - EXIT
     return 0
   fi
 
   if [[ "${#child_command[@]}" -gt 0 ]]; then
-    start_process_group CHILD_PGID "" "${child_command[@]}"
+    start_owned_command CHILD_HANDLE "" "${child_command[@]}"
   fi
 
   supervise_stack

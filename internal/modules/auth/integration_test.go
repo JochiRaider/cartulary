@@ -31,6 +31,8 @@ import (
 
 func TestLoginSessionLifecycle_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
+	assertConcurrentSessionLimit(t, runtime)
+	assertLocalLoginAuthorityAtAdmission(t, runtime)
 
 	t.Run("persists login inspection idle sliding and logout", func(t *testing.T) {
 		server, db := startServer(t, runtime, "authentication-i-1-01-lifecycle")
@@ -264,6 +266,9 @@ func TestSessionRevocationClosesAttachedSocket_Integration(t *testing.T) {
 
 func TestCredentialStateAndBootstrapFlows_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
+	assertBootstrapAdmission(t, runtime)
+	assertTOTPActivationAdmission(t, runtime)
+	assertTOTPBeginAdmission(t, runtime)
 
 	t.Run("first enrollment then password change revokes all sessions", func(t *testing.T) {
 		server, db := startServer(t, runtime, "authentication-i-1-04-first-enrollment")
@@ -398,19 +403,41 @@ SELECT COUNT(*)
 		revokedSession := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(login.Session))
 		httptestx.RequireErrorEnvelope(t, revokedSession, http.StatusUnauthorized, "session_required")
 
+		// An old-factor code may legitimately collide with one accepted new-factor
+		// code. Select a distinct instant before asserting credential replacement.
+		factorAt := time.Now().UTC()
+		oldCode := ""
+		for attempt := 0; attempt < 20; attempt++ {
+			candidate := flowtest.GenerateTOTPCodeAt(t, firstSecret, factorAt)
+			collides := false
+			for offset := -1; offset <= 1; offset++ {
+				if candidate == flowtest.GenerateTOTPCodeAt(t, replaceSecret, factorAt.Add(time.Duration(offset)*30*time.Second)) {
+					collides = true
+				}
+			}
+			if !collides {
+				oldCode = candidate
+				break
+			}
+			factorAt = factorAt.Add(30 * time.Second)
+		}
+		if oldCode == "" {
+			t.Fatal("could not construct distinct old/new factor fixture")
+		}
+		httptestx.SetClockFixed(t, server, factorAt)
 		oldFactorLogin := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 			"username": "replace-user@example.test",
 			"password": "ReplacePass123!",
 			"second_factor": map[string]any{
 				"kind": "totp",
 				"assertion": map[string]any{
-					"code": flowtest.GenerateTOTPCode(t, firstSecret),
+					"code": oldCode,
 				},
 			},
 		})
 		httptestx.RequireErrorEnvelope(t, oldFactorLogin, http.StatusUnauthorized, "invalid_second_factor")
 
-		_ = flowtest.LoginLocalUserWithSecondFactor(t, server.HTTP.Client(), server.HTTP.URL, "replace-user@example.test", "ReplacePass123!", flowtest.GenerateTOTPCode(t, replaceSecret))
+		_ = flowtest.LoginLocalUserWithSecondFactor(t, server.HTTP.Client(), server.HTTP.URL, "replace-user@example.test", "ReplacePass123!", flowtest.GenerateTOTPCodeAt(t, replaceSecret, factorAt))
 	})
 }
 
@@ -636,6 +663,8 @@ SELECT COUNT(*)
 			t.Fatalf("unexpected %s projection count: got %d want %d", actionCode, got, want)
 		}
 	}
+	assertConcurrentLastAdminGuard(t, runtime)
+
 }
 
 func TestAdminCredentialActions_Integration(t *testing.T) {
@@ -1356,6 +1385,7 @@ func TestUserCreateReplayReturnsOriginalCommittedResource_Integration(t *testing
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM users WHERE email = $1`, "create-replay-target@example.test"); got != 1 {
 		t.Fatalf("expected one created user row, got %d", got)
 	}
+	assertConcurrentLocalReceipts(t, runtime, "create")
 }
 
 func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
@@ -1399,6 +1429,7 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 	securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 	replayLogin := flowtest.LoginLocalUserWithSecondFactor(t, server.HTTP.Client(), server.HTTP.URL, "password-replay@example.test", "PasswordReplayChanged1!", flowtest.GenerateTOTPCode(t, "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA"))
+	beforeReplay := observeUserAdministration(t, db, userID, userID)
 	replayResp := httptestx.DoJSON(t, http.DefaultClient,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/auth/password/change",
@@ -1408,6 +1439,16 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 	)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 	requireJSONEquivalent(t, replayData, changeData)
+	if len(replayResp.Header.Values("Set-Cookie")) != 0 {
+		t.Fatal("committed replay must not mutate later-session cookies")
+	}
+	beforeReplay.requireUnchanged(t, observeUserAdministration(t, db, userID, userID))
+	inspection := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet,
+		server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(replayLogin.Session))
+	inspectionData := httptestx.RequireSuccessEnvelope(t, inspection, http.StatusOK)["data"].(map[string]any)
+	if inspectionData["user_id"] != userID {
+		t.Fatal("committed replay must preserve the later authenticated session")
+	}
 
 	divergentLogin := flowtest.LoginLocalUserWithSecondFactor(t, server.HTTP.Client(), server.HTTP.URL, "password-replay@example.test", "PasswordReplayChanged1!", flowtest.GenerateTOTPCode(t, "ZILKBF5BZGY567F262KQMFGNYPCBREN3OKX65SN4EMQ7ZDSSMBOA"))
 	divergentResp := httptestx.DoJSON(t, http.DefaultClient,
@@ -1432,6 +1473,7 @@ func TestPasswordChangeReplayAndStoredPayload_Integration(t *testing.T) {
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "auth.password.change", userID, "actor", "txn-password-change-replay"); got != 1 {
 		t.Fatalf("expected one auth.password.change route_idempotency row, got %d", got)
 	}
+	assertConcurrentLocalReceipts(t, runtime, "password-change")
 }
 
 func TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration(t *testing.T) {
@@ -1519,6 +1561,7 @@ func TestAdminPasswordResetReplayReturnsOriginalCommittedResource_Integration(t 
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "users.password.reset", adminID, scopeKey, "txn-admin-password-replay"); got != 1 {
 		t.Fatalf("expected one users.password.reset route_idempotency row, got %d", got)
 	}
+	assertConcurrentLocalReceipts(t, runtime, "password-reset")
 }
 
 func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
@@ -1643,6 +1686,8 @@ func TestAdminTOTPResetAndRevokeAllReplay_Integration(t *testing.T) {
 			t.Fatalf("expected one users.sessions.revoke_all route_idempotency row, got %d", got)
 		}
 	})
+	assertConcurrentLocalReceipts(t, runtime, "totp-reset")
+	assertConcurrentLocalReceipts(t, runtime, "revoke-all")
 }
 
 type sessionRow struct {

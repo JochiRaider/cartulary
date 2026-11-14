@@ -62,6 +62,51 @@ func observationFixture() (containerObservationProof, *observationFake) {
 	return proof, fake
 }
 func TestContainerObserverExactProofAndCounterSemantics(t *testing.T) {
+	for _, operation := range []string{"Read", "Write"} {
+		t.Run(operation+"_aggregation_bounds", func(t *testing.T) {
+			for _, tc := range []struct {
+				name   string
+				values []uint64
+				valid  bool
+			}{
+				{"exact_boundary", []uint64{9007199254740990, 1}, true},
+				{"one_over", []uint64{9007199254740991, 1}, false},
+				{"native_wrap", nil, false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					values := tc.values
+					if tc.name == "native_wrap" {
+						values = make([]uint64, 2049)
+						for i := range values {
+							values[i] = 9007199254740991
+						}
+					}
+					entries := make([]map[string]any, len(values))
+					for i, value := range values {
+						entries[i] = map[string]any{"op": operation, "value": value}
+					}
+					data, err := json.Marshal(map[string]any{"blkio_stats": map[string]any{"io_service_bytes_recursive": entries}})
+					if err != nil {
+						t.Fatal(err)
+					}
+					proof, fake := observationFixture()
+					fake.stats = func(context.Context, string) (io.ReadCloser, error) {
+						return io.NopCloser(strings.NewReader(string(data))), nil
+					}
+					result, err := observeContainer(t.Context(), fake, proof, proof.Lease.Resources[0])
+					if (err == nil) != tc.valid {
+						t.Fatalf("aggregate admission: valid=%t err=%v", tc.valid, err)
+					}
+					if tc.valid {
+						metric := result.Metrics["container_block_"+strings.ToLower(operation)+"_bytes"]
+						if metric.Availability != "available" || metric.Value == nil || *metric.Value != 9007199254740991 {
+							t.Fatal("exact aggregate boundary lost", metric)
+						}
+					}
+				})
+			}
+		})
+	}
 	proof, fake := observationFixture()
 	result, err := observeContainer(context.Background(), fake, proof, proof.Lease.Resources[0])
 	if err != nil {
@@ -184,15 +229,51 @@ func TestContainerObserverPrivateOwnershipAndBorrowerProof(t *testing.T) {
 	proof, _ = observationFixture()
 	proof.Ownership = "borrowed"
 	proof.BorrowerFile = filepath.Join(root, "borrower.json")
-	proof.BorrowerID = "borrower"
-	borrower := `{"schema_id":"cartulary.test_services.local_session_borrower.v1","session_id":"suite","borrower_id":"borrower","run_id":"run","pid":1,"process_start_proof":"1","created_at":"2026-10-09T00:00:00Z"}`
-	if err := os.WriteFile(proof.BorrowerFile, []byte(borrower), 0600); err != nil {
+	proof.BorrowerID = strings.Repeat("b", 32)
+	proof.Lease.SuiteID = strings.Repeat("a", 24)
+	for i := range proof.Lease.Resources {
+		proof.Lease.Resources[i].Labels[leaseproof.LabelSuiteID] = proof.Lease.SuiteID
+	}
+	identity, err := ProcessIdentity(os.Getpid())
+	if err != nil {
 		t.Fatal(err)
 	}
+	borrower := map[string]any{"schema_id": "cartulary.test_services.local_session_borrower.v2", "session_id": proof.Lease.SuiteID, "borrower_id": proof.BorrowerID, "owner_uid": os.Getuid(), "run_id": "run", "pid": os.Getpid(), "process_start_proof": "linux-proc-start:" + identity["start"].(string), "created_at": "2026-10-09T00:00:00Z"}
+	writeBorrower := func(value map[string]any) {
+		t.Helper()
+		raw, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(proof.BorrowerFile, raw, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeBorrower(borrower)
 	write(proof)
 	if got, err := readContainerObservationProofs(file, "run", "runtime"); err != nil || got.Services[0].Ownership != "borrowed" {
 		t.Fatal("borrower", err)
 	}
+	for _, mutate := range []func(map[string]any){
+		func(v map[string]any) { delete(v, "owner_uid") },
+		func(v map[string]any) { v["owner_uid"] = os.Getuid() + 1 },
+		func(v map[string]any) { v["schema_id"] = "cartulary.test_services.local_session_borrower.v1" },
+		func(v map[string]any) { v["process_start_proof"] = "linux-proc-start:0" },
+		func(v map[string]any) { v["pid"] = 0 },
+		func(v map[string]any) { v["run_id"] = "foreign" },
+		func(v map[string]any) { v["extra"] = true },
+	} {
+		changed := make(map[string]any, len(borrower))
+		for k, v := range borrower {
+			changed[k] = v
+		}
+		mutate(changed)
+		writeBorrower(changed)
+		if _, err := readContainerObservationProofs(file, "run", "runtime"); err == nil {
+			t.Fatal("invalid borrower authority accepted", changed)
+		}
+	}
+	writeBorrower(borrower)
 	if err := os.Remove(proof.BorrowerFile); err != nil {
 		t.Fatal(err)
 	}

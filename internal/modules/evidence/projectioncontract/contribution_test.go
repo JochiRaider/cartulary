@@ -1,31 +1,66 @@
 package projectioncontract
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
+)
 
 func TestNewContributionRequiresSource(t *testing.T) {
 	t.Parallel()
-	if _, err := NewContribution(nil); err == nil {
-		t.Fatal("source-less Evidence projection contribution unexpectedly constructed")
+	for _, source := range []SourceReader{nil, (*evidenceSourceStub)(nil)} {
+		got, err := NewContribution(source)
+		if err == nil || err.Error() != "evidence projection source is required" || got.Source() != nil {
+			t.Fatalf("nil source admitted: %#v, %v", got, err)
+		}
+	}
+	for _, source := range []SourceReader{&evidenceSourceStub{}, evidenceSourceStub{}} {
+		got, err := NewContribution(source)
+		if err != nil || got.Source() != source {
+			t.Fatalf("valid source not retained: %#v, %v", got, err)
+		}
 	}
 }
 
 func TestEvidenceProjectionContractOwnsSemanticSurface(t *testing.T) {
 	descriptor := Descriptor()
-	if descriptor.ProviderID != "evidence" ||
-		descriptor.SourceOwnerModule != "evidence" ||
-		descriptor.ProjectionStorageOwnerModule != "projections" ||
-		len(descriptor.ViewSchemaIDs) != 1 ||
-		descriptor.ViewSchemaIDs[0] != evidenceViewSchemaID ||
-		len(descriptor.FacadePackages) != 1 ||
-		descriptor.FacadePackages[0] != "internal/modules/evidence/projectioncontract" {
+	wantDescriptor := providercontract.ProviderDescriptor{
+		SchemaVersion: "projection_provider_descriptor.v3", Status: "active", ProviderID: "evidence",
+		SourceOwnerModule: "evidence", ProjectionStorageOwnerModule: "projections",
+		ViewSchemaIDs: []string{"cartulary.view.evidence.v1"}, SourceRecordTypes: []string{"evidence"},
+		SourceAuthorityModules: []string{"evidence", "links", "records"}, ProjectionTableIDs: []string{"evidence_grid_projection"},
+		Capabilities:   providercontract.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
+		RestoreRebuild: "required", FacadePackages: []string{"internal/modules/evidence/projectioncontract"}, RebuildAfter: []string{"artifact"},
+		CharacterizationRefs: []string{"internal/modules/evidence/projection_collaboration_integration_test.go", "internal/modules/projections/internal/runtime/query_test.go"},
+	}
+	if !reflect.DeepEqual(descriptor, wantDescriptor) {
 		t.Fatalf("unexpected Evidence descriptor: %#v", descriptor)
 	}
 	intent, err := SurfaceIntent()
 	if err != nil {
 		t.Fatalf("Evidence semantic intent: %v", err)
 	}
-	if intent.ViewSchemaID != evidenceViewSchemaID || len(intent.FieldKeys) == 0 {
-		t.Fatalf("incomplete Evidence semantic intent: %#v", intent)
+	wantIntent := providercontract.SurfaceIntent{
+		ViewSchemaID: "cartulary.view.evidence.v1",
+		FieldKeys: []string{
+			"evidence.blob_hash", "evidence.collector_party_id", "evidence.collector_party_text", "evidence.edited_at",
+			"evidence.lifecycle_state", "evidence.linked_record_count", "evidence.owner_user_id", "evidence.received_at", "evidence.requested_at",
+			"evidence.source_party_id", "evidence.source_party_text", "evidence.storage_ref", "evidence.title", "evidence.upload_state",
+		},
+	}
+	if !reflect.DeepEqual(intent, wantIntent) {
+		t.Fatalf("Evidence semantic intent drifted: %#v", intent)
+	}
+	contribution, err := NewContribution(evidenceSourceStub{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	contract := contribution.ProjectionContribution()
+	if contract.SourceOwnerModule() != "evidence" ||
+		!reflect.DeepEqual(contract.Descriptors(), []providercontract.ProviderDescriptor{wantDescriptor}) ||
+		!reflect.DeepEqual(contract.SurfaceIntents(), []providercontract.SurfaceIntent{wantIntent}) {
+		t.Fatal("runtime Evidence contribution differs from its independent declaration expectation")
 	}
 }
 

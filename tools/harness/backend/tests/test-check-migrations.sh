@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 cleanup_paths=()
 
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "${ROOT_DIR}/tools/harness/test-support/harness-scratch.sh"
+
 cleanup() {
   local path
   for path in "${cleanup_paths[@]}"; do
@@ -122,14 +125,14 @@ fs.writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
 NODE
 }
 
-history_valid_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migration-history-valid.XXXXXX")"
+history_valid_dir="$(cartulary_harness_mktemp_dir check-migration-history-valid.XXXXXX)"
 cleanup_paths+=("$history_valid_dir")
 make_history_repo "$history_valid_dir"
 run_history_check "$history_valid_dir"
 assert_equals "$(cat "${history_valid_dir}/history-status")" "0" "valid history status"
 assert_contains "$(cat "${history_valid_dir}/history-output.log")" "migration history check passed: 2 migrations" "valid history output"
 
-history_gap_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migration-history-gap.XXXXXX")"
+history_gap_dir="$(cartulary_harness_mktemp_dir check-migration-history-gap.XXXXXX)"
 cleanup_paths+=("$history_gap_dir")
 make_history_repo "$history_gap_dir"
 mv "${history_gap_dir}/db/migrations/00002_owner_repair.sql" "${history_gap_dir}/db/migrations/00003_owner_repair.sql"
@@ -137,7 +140,7 @@ run_history_check "$history_gap_dir"
 assert_equals "$(cat "${history_gap_dir}/history-status")" "1" "history gap status"
 assert_contains "$(cat "${history_gap_dir}/history-output.log")" "creates migration version gap" "history gap diagnostic"
 
-history_marker_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migration-history-marker.XXXXXX")"
+history_marker_dir="$(cartulary_harness_mktemp_dir check-migration-history-marker.XXXXXX)"
 cleanup_paths+=("$history_marker_dir")
 make_history_repo "$history_marker_dir"
 sed -i '/-- +goose Down/d' "${history_marker_dir}/db/migrations/00002_owner_repair.sql"
@@ -147,7 +150,7 @@ run_history_check "$history_marker_dir"
 assert_equals "$(cat "${history_marker_dir}/history-status")" "1" "history marker status"
 assert_contains "$(cat "${history_marker_dir}/history-output.log")" "must contain a '-- +goose Down' marker" "history marker diagnostic"
 
-history_hash_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migration-history-hash.XXXXXX")"
+history_hash_dir="$(cartulary_harness_mktemp_dir check-migration-history-hash.XXXXXX)"
 cleanup_paths+=("$history_hash_dir")
 make_history_repo "$history_hash_dir"
 set_history_entry "$history_hash_dir" 2 "sha256" "0000000000000000000000000000000000000000000000000000000000000000"
@@ -155,7 +158,7 @@ run_history_check "$history_hash_dir"
 assert_equals "$(cat "${history_hash_dir}/history-status")" "1" "history hash status"
 assert_contains "$(cat "${history_hash_dir}/history-output.log")" "hash drift" "history hash diagnostic"
 
-history_phase_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migration-history-phase.XXXXXX")"
+history_phase_dir="$(cartulary_harness_mktemp_dir check-migration-history-phase.XXXXXX)"
 cleanup_paths+=("$history_phase_dir")
 make_history_repo "$history_phase_dir" "00002_phase12_owner_repair.sql"
 set_history_entry "$history_phase_dir" 2 "historical_phase_shaped" "true"

@@ -87,13 +87,14 @@ func scanProjectionInput(scanner interface{ Scan(...any) error }) (evidenceproje
 		collectorPartyID   pgtype.UUID
 		sourcePartyText    pgtype.Text
 		sourcePartyID      pgtype.UUID
+		ownerUserID        pgtype.UUID
 		linkedRecordCount  int32
 	)
 	if err := scanner.Scan(
 		&input.RecordID, &input.IncidentID, &input.RowVersion, &title,
 		&input.LifecycleState, &requestedAt, &receivedAt, &storageRef,
 		&blobHash, &collectorPartyText, &collectorPartyID, &sourcePartyText,
-		&sourcePartyID, &input.UploadState, &linkedRecordCount, &input.EditedAt,
+		&sourcePartyID, &input.UploadState, &linkedRecordCount, &input.EditedAt, &ownerUserID,
 	); err != nil {
 		return evidenceprojection.ProjectionInput{}, err
 	}
@@ -106,6 +107,7 @@ func scanProjectionInput(scanner interface{ Scan(...any) error }) (evidenceproje
 	input.CollectorPartyID = evidenceUUIDPointer(collectorPartyID)
 	input.SourcePartyText = evidenceTextPointer(sourcePartyText)
 	input.SourcePartyID = evidenceUUIDPointer(sourcePartyID)
+	input.OwnerUserID = evidenceUUIDPointer(ownerUserID)
 	input.LinkedRecordCount = int(linkedRecordCount)
 	input.EditedAt = input.EditedAt.UTC()
 	return input, nil
@@ -156,7 +158,8 @@ SELECT
           FROM active_record_links_v1 rl
          WHERE rl.src_record_id = e.record_id OR rl.dst_record_id = e.record_id
     ),
-    e.updated_at
+    e.updated_at,
+    e.owner_user_id
   FROM evidence e
   JOIN records r
     ON r.incident_id = e.incident_id

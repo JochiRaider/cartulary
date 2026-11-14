@@ -2,9 +2,27 @@ import { spawn } from "node:child_process";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { randomUUID } from "node:crypto";
 import { StringDecoder } from "node:string_decoder";
-import { redactString, redactValue, validateSchemaSync } from "../contract/index.mjs";
+import { redactString, redactValue, resolveMachineStatePaths, validateSchemaSync } from "../contract/index.mjs";
+import { goRunnerBuildContext } from "../test-catalog/index.mjs";
 
 export { fixtureLifecycleAttachment } from "../contract/browser-fixture-diagnostic.mjs";
+
+// Go fixtures consume the same prepared machine state as their owning Make run.
+export function createGoBrowserFixtureProcess({ packagePath, args, cwd, env = process.env, ...options }) {
+  if (!env.GO) throw new Error("Browser Go fixture requires the selected GO executable");
+  const paths = resolveMachineStatePaths(env, { root: cwd });
+  return createBrowserFixtureProcess({
+    ...options, cwd, command: env.GO,
+    args: ["run", "-mod=readonly", "-buildvcs=false", packagePath, ...args],
+    env: {
+      ...env, ...goRunnerBuildContext(cwd).environment,
+      GOCACHE: paths.GO_CACHE_DIR.value,
+      GOMODCACHE: paths.GO_MOD_CACHE_DIR.value,
+      GOTMPDIR: paths.GO_TMP_DIR.value,
+      GOROOT: "", GOPROXY: "off",
+    },
+  });
+}
 
 // This owner retains private pipe data until close, not just process exit. Only
 // report() and its redacted error messages may cross into retained evidence.

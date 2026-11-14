@@ -114,7 +114,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := validatePatchReferencesTx(ctx, tx, f.catalog, f.linkStore, meta.IncidentID, request); err != nil {
+	if err := validatePatchReferencesTx(ctx, tx, f.referenceTargets, f.catalog, f.linkStore, meta.IncidentID, request); err != nil {
 		return MutationResult{}, err
 	}
 	changed, collectionMutations, err := f.applyPatchTx(ctx, tx, meta.IncidentID, command.RecordID, command.ActorUserID, request, command.Now.UTC())
@@ -219,6 +219,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 func validatePatchReferencesTx(
 	ctx context.Context,
 	tx pgx.Tx,
+	targets ReferenceTargetCapability,
 	catalog *sourcecatalog.Catalog,
 	linkStore LinkCapability,
 	incidentID uuid.UUID,
@@ -231,7 +232,7 @@ func validatePatchReferencesTx(
 			}
 		}
 		if change.Value != nil && change.Value.UUID != nil {
-			if err := validateDirectReferenceTx(ctx, tx, catalog, incidentID, change.FieldKey, *change.Value.UUID); err != nil {
+			if err := validateDirectReferenceTx(ctx, tx, targets, catalog, incidentID, change.FieldKey, *change.Value.UUID); err != nil {
 				return err
 			}
 		}

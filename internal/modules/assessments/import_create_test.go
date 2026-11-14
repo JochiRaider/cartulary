@@ -136,8 +136,10 @@ func TestAssessmentCreateInputFromImportRejectsUnsafeFieldKinds(t *testing.T) {
 
 func TestAssessmentCreateInputFromImportRejectsNullForEveryField(t *testing.T) {
 	t.Parallel()
-	for fieldKey := range assessmentImportFieldKinds {
-		fieldKey := fieldKey
+	for _, fieldKey := range []string{
+		"assessment.subject_ref", "assessment.subject_type", "assessment.assessment_state",
+		"assessment.confidence_score", "assessment.rationale", "assessment.assessor", "assessment.assessed_at",
+	} {
 		t.Run(fieldKey, func(t *testing.T) {
 			t.Parallel()
 			_, err := assessmentCreateInputFromImport(ownerfacade.ImportOwnerCreateRequest{

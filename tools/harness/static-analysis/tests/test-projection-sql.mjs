@@ -9,10 +9,38 @@ import { collectProjectionSources, evaluateProjectionSQL } from "../projection-s
 import { collectGeneratedSQLSources } from "../backend-module-boundary-check.mjs";
 import { inspect, repositoryPolicy } from "./backend-boundary-fixtures.mjs";
 
+const exampleProviderPackage = "internal/modules/example/provider";
+
+function providerFile(content, filename = "read.go") {
+  return { relative: `${exampleProviderPackage}/${filename}`, content };
+}
+
+// Each case still supplies its own table-owner map. Specialized grants below
+// remain explicit instead of inheriting a broader shared policy.
+function artifactProjection(parsed, owners) {
+  return evaluateProjectionSQL(parsed,
+    [{ provider_id: "artifact", source_authority_modules: ["artifacts"], projection_table_ids: [] }],
+    owners, { [exampleProviderPackage]: "artifact" }, {});
+}
+
+function backendSQL(files) {
+  // Preserve this consumer's independent source-to-AST adapter invocation.
+  return inspect(files, { sqlTableAccess: repositoryPolicy().sqlTableAccess });
+}
+
+function assertBothAllow(files, projection, message) {
+  assert.deepEqual(projection(files), [], message);
+  assert.deepEqual(backendSQL(files), [], message);
+}
+
+function assertBothUnresolved(files, projection, message) {
+  assert.ok(projection(files).some(value => value.includes("unresolved SQL construction")), message);
+  assert.ok(backendSQL(files).some(value => value.code === "sql_construction_unresolved"), message);
+}
+
 export function registerBoundariesTests() {
   const recoveredFiles=(body,expression='query(ctx,tx,input,flag)',result='(q string)')=>{
-    const pkg='internal/modules/example/provider';
-    return [{relative:`${pkg}/renamed.go`,content:`package p
+    return [providerFile(`package p
 import("context";"github.com/jackc/pgx/v5")
 const coverage="SELECT * FROM artifacts"
 func cleanup(){}
@@ -20,15 +48,13 @@ func consume(string){}
 func swallow(){recover()}
 func explode(){panic("stop")}
 func query(ctx context.Context,tx pgx.Tx,input string,flag bool)${result}{${body}}
-func wrapper(ctx context.Context,tx pgx.Tx,input string,flag bool)string{return query(ctx,tx,input,flag)}`},
-    {relative:`${pkg}/read.go`,content:`package p
+func wrapper(ctx context.Context,tx pgx.Tx,input string,flag bool)string{return query(ctx,tx,input,flag)}`,"renamed.go"),
+    providerFile(`package p
 import("context";"fmt";"github.com/jackc/pgx/v5";shape "github.com/JochiRaider/cartulary/internal/platform/sqlshape")
-func Read(ctx context.Context,tx pgx.Tx,input string,flag bool){tx.Exec(ctx,${expression})}`},
+func Read(ctx context.Context,tx pgx.Tx,input string,flag bool){tx.Exec(ctx,${expression})}`),
     {relative:'internal/platform/sqlshape/shape.go',content:'package sqlshape\ntype Fragment struct{}'}];
   };
-  const recoveredProjection=parsed=>evaluateProjectionSQL(parsed,[{provider_id:'artifact',source_authority_modules:['artifacts'],projection_table_ids:[]}],
-    new Map([['artifacts',['artifacts']],['users',['auth']],['host_grid_projection',['projections']]]),{'internal/modules/example/provider':'artifact'},{});
-  const recoveredBackend=files=>inspect(files,{sqlTableAccess:repositoryPolicy().sqlTableAccess});
+  const recoveredProjection=parsed=>artifactProjection(parsed,new Map([['artifacts',['artifacts']],['users',['auth']],['host_grid_projection',['projections']]]));
 
   test("deferred raw helper exits reject at execution and composition in both consumers",()=>{
     const bodies=[
@@ -64,7 +90,7 @@ func Read(ctx context.Context,tx pgx.Tx,input string,flag bool){tx.Exec(ctx,${ex
         assert.ok(site.unresolved.some(reason=>reason.includes(`helper query: deferred control flow is unsupported for raw helper inference at ${files[0].relative}:`)),JSON.stringify(site));
       }
       assert.ok(recoveredProjection(parsed).some(v=>v.includes('unresolved SQL construction')),body);
-      assert.ok(recoveredBackend(files).some(v=>v.code==='sql_construction_unresolved'),body);
+      assert.ok(backendSQL(files).some(v=>v.code==='sql_construction_unresolved'),body);
     }
   });
 
@@ -76,7 +102,7 @@ func Read(ctx context.Context,tx pgx.Tx,input string,flag bool){tx.Exec(ctx,${ex
     ]) {
       const files=recoveredFiles(body);
       assert.deepEqual(recoveredProjection(inspectGoSQL([files])),[],body);
-      assert.deepEqual(recoveredBackend(files),[],body);
+      assert.deepEqual(backendSQL(files),[],body);
     }
     const bound=recoveredFiles('defer swallow();if flag{panic("stop")};return input','"SELECT * FROM artifacts WHERE id=$1",query(ctx,tx,input,flag)');
     const cleanup=recoveredFiles('return "SELECT * FROM artifacts"').map(file=>({...file,content:file.content.replace('{tx.Exec(ctx,','{defer cleanup();tx.Exec(ctx,')}));
@@ -85,7 +111,7 @@ func Read(ctx context.Context,tx pgx.Tx,input string,flag bool){tx.Exec(ctx,${ex
         .replace('func wrapper(ctx context.Context,tx pgx.Tx,input string,flag bool)string','func wrapper(ctx context.Context,tx pgx.Tx,input string,flag bool)shape.Fragment')}));
     for(const files of [bound,cleanup,sealed]) {
       assert.deepEqual(recoveredProjection(inspectGoSQL([files])),[]);
-      assert.deepEqual(recoveredBackend(files),[]);
+      assert.deepEqual(backendSQL(files),[]);
     }
   });
 
@@ -95,7 +121,7 @@ func Read(ctx context.Context,tx pgx.Tx,input string,flag bool){tx.Exec(ctx,${ex
     const executions=parsed.get(files[0].relative).find(d=>d.name==='query').sql.filter(e=>e.kind==='execution' && e.text==='DELETE FROM host_grid_projection');
     assert.equal(executions.length,2);
     assert.notEqual(executions[0].column,executions[1].column);
-    const projection=recoveredProjection(parsed),backend=recoveredBackend(files);
+    const projection=recoveredProjection(parsed),backend=backendSQL(files);
     assert.ok(projection.some(v=>v.includes('unresolved SQL construction')));
     assert.ok(projection.some(v=>v.includes('host_grid_projection')));
     assert.ok(backend.some(v=>v.code==='sql_construction_unresolved'));
@@ -103,22 +129,19 @@ func Read(ctx context.Context,tx pgx.Tx,input string,flag bool){tx.Exec(ctx,${ex
   });
 
   test("sealed tuple helpers preserve construction checks without raw tuple inference",()=>{
-    const pkg='internal/modules/example/provider';
-    const files=[{relative:`${pkg}/read.go`,content:`package p
+    const files=[providerFile(`package p
 import("github.com/jackc/pgx/v5";shape "github.com/JochiRaider/cartulary/internal/platform/sqlshape")
 func query()(shape.Fragment,error){return shape.Literal("SELECT * FROM artifacts"),nil}
-func Read(tx pgx.Tx){q,err:=query();if err!=nil{return};tx.Exec(ctx,shape.Text(q))}`},
+func Read(tx pgx.Tx){q,err:=query();if err!=nil{return};tx.Exec(ctx,shape.Text(q))}`),
       {relative:'internal/platform/sqlshape/shape.go',content:'package sqlshape\ntype Fragment struct{}'},
     ];
-    assert.deepEqual(evaluateProjectionSQL(inspectGoSQL([files]),[{provider_id:'artifact',source_authority_modules:['artifacts'],projection_table_ids:[]}],new Map([['artifacts',['artifacts']]]),{[pkg]:'artifact'},{}),[]);
-    assert.deepEqual(inspect(files,{sqlTableAccess:repositoryPolicy().sqlTableAccess}),[]);
+    assert.deepEqual(artifactProjection(inspectGoSQL([files]),new Map([['artifacts',['artifacts']]])),[]);
+    assert.deepEqual(backendSQL(files),[]);
     const forbidden=files.map(f=>({...f,content:f.content.replace('SELECT * FROM artifacts','SELECT * FROM host_grid_projection')}));
-    assert.ok(inspect(forbidden,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_table_read_access'));
-    assert.ok(evaluateProjectionSQL(inspectGoSQL([forbidden]),[{provider_id:'artifact',source_authority_modules:['artifacts'],projection_table_ids:[]}],new Map([['host_grid_projection',['projections']]]),{[pkg]:'artifact'},{}).some(v=>v.includes('undeclared projection table')));
+    assert.ok(backendSQL(forbidden).some(v=>v.code==='sql_table_read_access'));
+    assert.ok(artifactProjection(inspectGoSQL([forbidden]),new Map([['host_grid_projection',['projections']]])).some(v=>v.includes('undeclared projection table')));
   });
   test("helper return completeness and result effects reach both SQL consumers",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     const owners=new Map([["artifacts",["artifacts"]],["users",["auth"]]]);
     const bodies=[
       'q=input;if flag{return "SELECT * FROM artifacts"};return',
@@ -135,48 +158,45 @@ func Read(tx pgx.Tx){q,err:=query();if err!=nil{return};tx.Exec(ctx,shape.Text(q
       'func(){q=input}()','go func(){q=input}()','writer:=func(){q=input};escape(writer)','mutate(&q)','pointer:=&q;defer mutate(pointer)']) {
       for(const exit of ['return "SELECT * FROM artifacts"','return q','return']) bodies.push(`q="SELECT * FROM artifacts";${effect};${exit}`);
     }
-    const files=(body,sink='tx.Exec(ctx,query(input,flag,ch))')=>[{relative:`${pkg}/read.go`,content:`package p
+    const files=(body,sink='tx.Exec(ctx,query(input,flag,ch))')=>[providerFile(`package p
 import("github.com/jackc/pgx/v5";shape "github.com/JochiRaider/cartulary/internal/platform/sqlshape")
 const coverage="SELECT * FROM artifacts"
 func query(input string,flag bool,ch <-chan bool)(q string){${body}}
-func Read(tx pgx.Tx,input string,flag bool,ch <-chan bool){${sink}}`}];
+func Read(tx pgx.Tx,input string,flag bool,ch <-chan bool){${sink}}`)];
     for(const body of bodies) for(const sink of ['tx.Exec(ctx,query(input,flag,ch))','tx.Exec(ctx,shape.Text(shape.Literal(query(input,flag,ch))))']) {
       const input=files(body,sink), parsed=inspectGoSQL([input]);
       const execution=parsed.get(input[0].relative).find(d=>d.name==='Read').sql;
       assert.ok(execution.some(e=>e.unresolved.length>0),body);
-      assert.ok(evaluateProjectionSQL(parsed,providers,owners,{[pkg]:"artifact"},{}).length>0,body);
-      assert.ok(inspect(input,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_construction_unresolved'),body);
+      assert.ok(artifactProjection(parsed,owners).length>0,body);
+      assert.ok(backendSQL(input).some(v=>v.code==='sql_construction_unresolved'),body);
     }
     for(const body of ['if flag{panic("stop")};return "SELECT * FROM artifacts"',
       'if flag{return "SELECT * FROM artifacts"};q="SELECT * FROM artifacts";return']) {
       const input=files(body);
-      assert.deepEqual(evaluateProjectionSQL(inspectGoSQL([input]),providers,owners,{[pkg]:"artifact"},{}),[],body);
-      assert.deepEqual(inspect(input,{sqlTableAccess:repositoryPolicy().sqlTableAccess}),[],body);
+      assert.deepEqual(artifactProjection(inspectGoSQL([input]),owners),[],body);
+      assert.deepEqual(backendSQL(input),[],body);
     }
     for(const alternative of ['SELECT * FROM users','DELETE FROM host_grid_projection']) {
       const input=files(`q=${JSON.stringify(alternative)};if flag{return "SELECT * FROM artifacts"};return`);
       const parsed=inspectGoSQL([input]);
       assert.ok(parsed.get(input[0].relative).find(d=>d.name==='Read').sql.some(e=>e.kind==='execution' && e.text===alternative));
-      assert.ok(evaluateProjectionSQL(parsed,providers,owners,{[pkg]:"artifact"},{}).length>0);
-      if(alternative.startsWith('DELETE')) assert.ok(inspect(input,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_table_write_access'));
+      assert.ok(artifactProjection(parsed,owners).length>0);
+      if(alternative.startsWith('DELETE')) assert.ok(backendSQL(input).some(v=>v.code==='sql_table_write_access'));
     }
   });
   test("ordinary branch and loop data remains SQL free in both consumers",()=>{
-    const pkg="internal/modules/example/provider";
-    const files=[{relative:`${pkg}/read.go`,content:`package p
+    const files=[providerFile(`package p
 import "errors"
 const coverage="SELECT * FROM artifacts"
 type A struct{ID string};type B struct{Count int};type Provider struct{Query bool}
 func Variant(input any){switch value:=input.(type){case A:if value.ID==""{return};case B:if value.Count==0{return}}}
 func Named(flag bool)(count int,err error){if flag{count=1;err=errors.New("data")};return count,err}
 func Runes(value string){for _,r:=range value{if r>='A' && r<='Z'{r+='a'-'A'};consume(r)}}
-func Providers(items []Provider){for _,provider:=range items{if !provider.Query{return}}}`}];
-    assert.deepEqual(evaluateProjectionSQL(inspectGoSQL([files]),[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}],new Map([["artifacts",["artifacts"]]]),{[pkg]:"artifact"},{}),[]);
-    assert.deepEqual(inspect(files,{sqlTableAccess:repositoryPolicy().sqlTableAccess}),[]);
+func Providers(items []Provider){for _,provider:=range items{if !provider.Query{return}}}`)];
+    assert.deepEqual(artifactProjection(inspectGoSQL([files]),new Map([["artifacts",["artifacts"]]])),[]);
+    assert.deepEqual(backendSQL(files),[]);
   });
   test("state joins retain declared ports and unresolved composition",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     for(const source of [
       `package p
 import("context";"github.com/jackc/pgx/v5")
@@ -188,19 +208,17 @@ func Read(r Runner,input string,flag bool){if flag{r=A{}}else{r=B{}};r.Apply(ctx
       `package p
 func Build(flag bool){q:="SELECT * FROM artifacts";for flag{q+=" UNION SELECT * FROM users"};_=q}`,
     ]) {
-      const files=[{relative:`${pkg}/read.go`,content:source}];
-      assert.ok(evaluateProjectionSQL(inspectGoSQL([files]),providers,new Map([["artifacts",["artifacts"]],["users",["auth"]]]),{[pkg]:"artifact"},{}).some(v=>v.includes('unresolved SQL construction')));
-      assert.ok(inspect(files,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_construction_unresolved'));
+      const files=[providerFile(source)];
+      assert.ok(artifactProjection(inspectGoSQL([files]),new Map([["artifacts",["artifacts"]],["users",["auth"]]])).some(v=>v.includes('unresolved SQL construction')));
+      assert.ok(backendSQL(files).some(v=>v.code==='sql_construction_unresolved'));
     }
   });
   test("loop carried values fail both policies at repeated execution",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     const owners=new Map([["artifacts",["artifacts"]]]);
-    const files=body=>[{relative:`${pkg}/read.go`,content:`package p
+    const files=body=>[providerFile(`package p
 import "github.com/jackc/pgx/v5"
 const coverage="SELECT * FROM artifacts"
-func Read(tx pgx.Tx,input string,flag bool){${body}}`}];
+func Read(tx pgx.Tx,input string,flag bool){${body}}`)];
     for(const body of [
       'q:="SELECT * FROM artifacts";for i:=0;i<2;i++{tx.Exec(ctx,q);q=input}',
       'q:="SELECT * FROM artifacts";for i:=0;i<2;q=input{tx.Exec(ctx,q);i++}',
@@ -212,25 +230,23 @@ func Read(tx pgx.Tx,input string,flag bool){${body}}`}];
       'tables:=[]string{"artifacts"};for flag{for _,table:=range tables{tx.Exec(ctx,"SELECT * FROM "+table)};tables=[]string{input}}',
     ]) {
       const source=files(body);
-      assert.ok(evaluateProjectionSQL(inspectGoSQL([source]),providers,owners,{[pkg]:"artifact"},{}).some(v=>v.includes('unresolved SQL construction')),body);
-      assert.ok(inspect(source,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_construction_unresolved'),body);
+      assert.ok(artifactProjection(inspectGoSQL([source]),owners).some(v=>v.includes('unresolved SQL construction')),body);
+      assert.ok(backendSQL(source).some(v=>v.code==='sql_construction_unresolved'),body);
     }
     for(const body of ['q:="SELECT * FROM artifacts";for flag{tx.Exec(ctx,q)}','for flag{q:="SELECT * FROM artifacts";tx.Exec(ctx,q);q=input}','for flag{tx.Exec(ctx,"SELECT * FROM artifacts WHERE id=$1",input);input="other"}']) {
       const source=files(body);
-      assert.deepEqual(evaluateProjectionSQL(inspectGoSQL([source]),providers,owners,{[pkg]:"artifact"},{}),[],body);
-      assert.deepEqual(inspect(source,{sqlTableAccess:repositoryPolicy().sqlTableAccess}),[],body);
+      assert.deepEqual(artifactProjection(inspectGoSQL([source]),owners),[],body);
+      assert.deepEqual(backendSQL(source),[],body);
     }
   });
   test("all assignment destinations invalidate stale SQL in both policies",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
-    const files=body=>[{relative:`${pkg}/read.go`,content:`package p
+    const files=body=>[providerFile(`package p
 import "github.com/jackc/pgx/v5"
 const coverage="SELECT * FROM artifacts"
 func pair(input string)(bool,string){return true,input}
 func triple(input string)(bool,bool,string){return true,true,input}
 func lists(input string)(bool,[]string){return true,[]string{input}}
-func Read(tx pgx.Tx,input string,flag bool){${body}}`}];
+func Read(tx pgx.Tx,input string,flag bool){${body}}`)];
     for(const body of [
       'q:="SELECT * FROM artifacts";_,q=pair(input);tx.Exec(ctx,q)',
       'q:="SELECT * FROM artifacts";ok,q:=pair(input);_=ok;tx.Exec(ctx,q)',
@@ -240,21 +256,19 @@ func Read(tx pgx.Tx,input string,flag bool){${body}}`}];
       'tables:=[]string{"artifacts"};_,tables=lists(input);for _,table:=range tables{tx.Exec(ctx,"SELECT * FROM "+table)}',
     ]) {
       const source=files(body);
-      assert.ok(evaluateProjectionSQL(inspectGoSQL([source]),providers,new Map([["artifacts",["artifacts"]]]),{[pkg]:"artifact"},{}).some(v=>v.includes('unresolved SQL construction')),body);
-      assert.ok(inspect(source,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_construction_unresolved'),body);
+      assert.ok(artifactProjection(inspectGoSQL([source]),new Map([["artifacts",["artifacts"]]])).some(v=>v.includes('unresolved SQL construction')),body);
+      assert.ok(backendSQL(source).some(v=>v.code==='sql_construction_unresolved'),body);
     }
     const safe=files('_,value:=pair(input);tx.Exec(ctx,"SELECT * FROM artifacts WHERE id=$1",value)');
-    assert.deepEqual(evaluateProjectionSQL(inspectGoSQL([safe]),providers,new Map([["artifacts",["artifacts"]]]),{[pkg]:"artifact"},{}),[]);
-    assert.deepEqual(inspect(safe,{sqlTableAccess:repositoryPolicy().sqlTableAccess}),[]);
+    assert.deepEqual(artifactProjection(inspectGoSQL([safe]),new Map([["artifacts",["artifacts"]]])),[]);
+    assert.deepEqual(backendSQL(safe),[]);
   });
   test("branch collection alternatives retain both policy decisions",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     const owners=new Map([["artifacts",["artifacts"]],["users",["auth"]],["host_grid_projection",["projections"]]]);
-    const files=body=>[{relative:`${pkg}/read.go`,content:`package p
+    const files=body=>[providerFile(`package p
 import "github.com/jackc/pgx/v5"
 const coverage="SELECT * FROM artifacts"
-func Read(tx pgx.Tx,input string,flag bool){${body}}`}];
+func Read(tx pgx.Tx,input string,flag bool){${body}}`)];
     for(const branch of [
       'if flag{tables=[]string{"forbidden"}}else{tables=[]string{"artifacts"}}',
       'if flag{tables=[]string{"artifacts"}}else{tables=[]string{"forbidden"}}',
@@ -265,55 +279,50 @@ func Read(tx pgx.Tx,input string,flag bool){${body}}`}];
     ]) {
       const body=`tables:=[]string{"artifacts"};${branch};for _,table:=range tables{tx.Exec(ctx,"SELECT * FROM "+table)}`;
       const projection=files(body.replaceAll('forbidden','users'));
-      assert.ok(evaluateProjectionSQL(inspectGoSQL([projection]),providers,owners,{[pkg]:"artifact"},{}).some(v=>v.includes('undeclared source authority auth')),branch);
+      assert.ok(artifactProjection(inspectGoSQL([projection]),owners).some(v=>v.includes('undeclared source authority auth')),branch);
       const backend=files(body.replaceAll('forbidden','host_grid_projection').replaceAll('SELECT * FROM','DELETE FROM'));
-      assert.ok(inspect(backend,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_table_write_access'),branch);
+      assert.ok(backendSQL(backend).some(v=>v.code==='sql_table_write_access'),branch);
       const allowed=files(body.replaceAll('forbidden','artifacts'));
-      assert.deepEqual(evaluateProjectionSQL(inspectGoSQL([allowed]),providers,owners,{[pkg]:"artifact"},{}),[],branch);
-      assert.deepEqual(inspect(allowed,{sqlTableAccess:repositoryPolicy().sqlTableAccess}),[],branch);
+      assert.deepEqual(artifactProjection(inspectGoSQL([allowed]),owners),[],branch);
+      assert.deepEqual(backendSQL(allowed),[],branch);
     }
   });
   test("unknown-state local constants never inherit package SQL authority",()=>{
-    const pkg="internal/modules/example/provider";
-    const files=[{relative:`${pkg}/read.go`,content:`package p
+    const files=[providerFile(`package p
 import "github.com/jackc/pgx/v5"
 const table="artifacts"
 const coverage="SELECT * FROM artifacts"
-func Read(tx pgx.Tx){label:{const table="users";tx.Query(ctx,"SELECT * FROM "+table)}}`}];
-    assert.ok(evaluateProjectionSQL(inspectGoSQL([files]),[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}],new Map([["artifacts",["artifacts"]],["users",["auth"]]]),{[pkg]:"artifact"},{}).length>0);
-    assert.ok(inspect(files,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_construction_unresolved'));
+func Read(tx pgx.Tx){label:{const table="users";tx.Query(ctx,"SELECT * FROM "+table)}}`)];
+    assert.ok(artifactProjection(inspectGoSQL([files]),new Map([["artifacts",["artifacts"]],["users",["auth"]]])).length>0);
+    assert.ok(backendSQL(files).some(v=>v.code==='sql_construction_unresolved'));
   });
 
   test("captured and escaped collection SQL fails both policies",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     for(const body of [
       'tables:=[]string{"artifacts"};defer func(){for _,table:=range tables{tx.Exec(ctx,"SELECT * FROM "+table)}}();tables=[]string{input}',
       'tables:=[]string{"artifacts"};other:=tables;other[0]=input;for _,table:=range tables{tx.Exec(ctx,"SELECT * FROM "+table)}',
       'tables:=[]string{input};f:=func(){tables=[]string{"artifacts"}};for _,table:=range tables{tx.Exec(ctx,"SELECT * FROM "+table)};_=f',
     ]) {
-      const files=[{relative:`${pkg}/read.go`,content:`package p
+      const files=[providerFile(`package p
 import "github.com/jackc/pgx/v5"
 const coverage="SELECT * FROM artifacts"
-func Read(tx pgx.Tx,input string){${body}}`}];
-      assert.ok(evaluateProjectionSQL(inspectGoSQL([files]),providers,new Map([["artifacts",["artifacts"]]]),{[pkg]:"artifact"},{}).some(v=>v.includes('unresolved SQL construction')),body);
-      assert.ok(inspect(files,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_construction_unresolved'),body);
+func Read(tx pgx.Tx,input string){${body}}`)];
+      assert.ok(artifactProjection(inspectGoSQL([files]),new Map([["artifacts",["artifacts"]]])).some(v=>v.includes('unresolved SQL construction')),body);
+      assert.ok(backendSQL(files).some(v=>v.code==='sql_construction_unresolved'),body);
     }
   });
 
   test("generic SQL function signatures reject in both policies",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     for(const source of [
       'type QueryFunc[T any] func(context.Context,string,...any)(T,error);func Read(query QueryFunc[pgx.Rows],input string){query(ctx,input)}',
       'func Read[F ~func(context.Context,string,...any)(pgx.Rows,error)](query F,input string){query(ctx,input)}',
     ]) {
-      const files=[{relative:`${pkg}/read.go`,content:`package p
+      const files=[providerFile(`package p
 import("context";"github.com/jackc/pgx/v5")
 const coverage="SELECT * FROM artifacts"
-${source}`}];
-      assert.ok(evaluateProjectionSQL(inspectGoSQL([files]),providers,new Map([["artifacts",["artifacts"]]]),{[pkg]:"artifact"},{}).some(v=>v.includes('unresolved SQL construction')));
-      assert.ok(inspect(files,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_construction_unresolved'));
+${source}`)];
+      assert.ok(artifactProjection(inspectGoSQL([files]),new Map([["artifacts",["artifacts"]]])).some(v=>v.includes('unresolved SQL construction')));
+      assert.ok(backendSQL(files).some(v=>v.code==='sql_construction_unresolved'));
     }
   });
 
@@ -325,21 +334,18 @@ package example
 import . "${pkg}"
 func Send(input string){buf,err:=(&Query{String:input}).Encode(nil);if err==nil {writer.Write(buf)}}`}];
         assert.throws(()=>inspectGoSQL([files]),/dot import .* is unsupported in SQL analysis/);
-        assert.throws(()=>inspect(files,{sqlTableAccess:repositoryPolicy().sqlTableAccess}),/dot import .* is unsupported in SQL analysis/);
+        assert.throws(()=>backendSQL(files),/dot import .* is unsupported in SQL analysis/);
       }
     }
   });
 
   test("closure capture stability is enforced by both consumers",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     const owners=new Map([["artifacts",["artifacts"]]]);
-    const files=body=>[{relative:`${pkg}/read.go`,content:`package p
+    const files=body=>[providerFile(`package p
 import("database/sql";"github.com/jackc/pgx/v5")
 const coverage="SELECT * FROM artifacts"
-func Read(tx pgx.Tx,db *sql.DB,input string){${body}}`}];
-    const projection=source=>evaluateProjectionSQL(inspectGoSQL([source]),providers,owners,{[pkg]:"artifact"},{});
-    const backend=source=>inspect(source,{sqlTableAccess:repositoryPolicy().sqlTableAccess});
+func Read(tx pgx.Tx,db *sql.DB,input string){${body}}`)];
+    const projection=source=>artifactProjection(inspectGoSQL([source]),owners);
     for(const body of [
       'q:="SELECT * FROM artifacts";defer func(){tx.Exec(ctx,q)}();q=input',
       'q:="SELECT * FROM artifacts";f:=func(){tx.Exec(ctx,q)};q=input;f()',
@@ -348,47 +354,43 @@ func Read(tx pgx.Tx,db *sql.DB,input string){${body}}`}];
       'q:="SELECT * FROM artifacts";p:=&q;tx.Exec(ctx,q);_=p',
       'stmt,_:=db.Prepare("SELECT * FROM artifacts");defer func(){stmt.Exec()}()',
       'var batch pgx.Batch;batch.Queue("SELECT * FROM artifacts");defer func(){tx.SendBatch(ctx,&batch)}()',
-    ]) {assert.ok(projection(files(body)).some(v=>v.includes('unresolved SQL construction')),body);assert.ok(backend(files(body)).some(v=>v.code==='sql_construction_unresolved'),body);}
+    ]) {assertBothUnresolved(files(body),projection,body);}
     for(const body of ['q:="SELECT * FROM artifacts";defer func(){tx.Exec(ctx,q)}()','q:="SELECT * FROM artifacts";copy:=q;q=input;defer func(){tx.Exec(ctx,copy)}()','defer func(){tx.Exec(ctx,"SELECT * FROM artifacts WHERE id=$1",input)}();input="other"']) {
-      assert.deepEqual(projection(files(body)),[],body);assert.deepEqual(backend(files(body)),[],body);
+      assertBothAllow(files(body),projection,body);
     }
   });
 
   test("SQL callable values reject in both policies regardless of alias spelling",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     const owners=new Map([["artifacts",["artifacts"]]]);
     for(const declaration of ['type QueryFunc=func(context.Context,string,...any)(pgx.Rows,error)','type QueryFunc func(context.Context,string,...any)(pgx.Rows,error)']) {
       for(const body of ['query:=store.Query;query(ctx,input)','callback(ctx,input)','store.Query(ctx,input)','items[0](ctx,input)','factory()(ctx,input)','consume(callback)']) {
-        const files=[{relative:`${pkg}/read.go`,content:`package p
+        const files=[providerFile(`package p
 import("context";"github.com/jackc/pgx/v5")
 ${declaration}
 type Store struct{Query QueryFunc}
 const coverage="SELECT * FROM artifacts"
 func factory()QueryFunc{return nil}
-func Read(store Store,callback QueryFunc,items []QueryFunc,input string){${body}}`}];
-        assert.ok(evaluateProjectionSQL(inspectGoSQL([files]),providers,owners,{[pkg]:"artifact"},{}).some(v=>v.includes('unresolved SQL construction')),body);
-        assert.ok(inspect(files,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_construction_unresolved'),body);
+func Read(store Store,callback QueryFunc,items []QueryFunc,input string){${body}}`)];
+        assert.ok(artifactProjection(inspectGoSQL([files]),owners).some(v=>v.includes('unresolved SQL construction')),body);
+        assert.ok(backendSQL(files).some(v=>v.code==='sql_construction_unresolved'),body);
       }
     }
   });
 
   test("query operands retain access decisions in both policies",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     const owners=new Map([["artifacts",["artifacts"]],["users",["auth"]],["host_grid_projection",["projections"]]]);
-    const files=sql=>[{relative:`${pkg}/read.go`,content:`package p
+    const files=sql=>[providerFile(`package p
 import "github.com/jackc/pgx/v5"
 const coverage="SELECT * FROM artifacts"
-func Read(tx pgx.Tx){tx.Query(ctx,${JSON.stringify(sql)})}`}];
-    const projection=sql=>evaluateProjectionSQL(inspectGoSQL([files(sql)]),providers,owners,{[pkg]:"artifact"},{});
+func Read(tx pgx.Tx){tx.Query(ctx,${JSON.stringify(sql)})}`)];
+    const projection=sql=>artifactProjection(inspectGoSQL([files(sql)]),owners);
     for(const sql of ['WITH unused AS (SELECT 1) TABLE users','SELECT * FROM artifacts UNION ALL TABLE users','TABLE artifacts INTERSECT TABLE users']) {
       assert.ok(projection(sql).some(v=>v.includes('undeclared source authority auth')),sql);
-      assert.ok(inspect(files(sql.replaceAll('users','host_grid_projection')),{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_table_read_access'),sql);
+      assert.ok(backendSQL(files(sql.replaceAll('users','host_grid_projection'))).some(v=>v.code==='sql_table_read_access'),sql);
     }
     for(const sql of ['WITH unused AS (SELECT 1) TABLE artifacts','WITH users AS (TABLE artifacts) TABLE users','SELECT 1 UNION ALL VALUES(2)']) {
       assert.deepEqual(projection(sql),[],sql);
-      assert.deepEqual(inspect(files(sql),{sqlTableAccess:repositoryPolicy().sqlTableAccess}),[],sql);
+      assert.deepEqual(backendSQL(files(sql)),[],sql);
     }
   });
   test("backend SQL: generated types participate and generated SQL retains policy",t=>{
@@ -410,62 +412,68 @@ func Read(tx Reader){tx.Query(ctx,input)}`}];
     assert.throws(()=>collectGeneratedSQLSources(f.root),/generated SQL source: linked source/);
   });
   test("native port result aliases preserve execution in both policies",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     const owners=new Map([["artifacts",["artifacts"]],["users",["auth"]],["host_grid_projection",["projections"]]]);
     for(const declaration of ['type Rows=pgx.Rows','type First=pgx.Rows;type Rows=First','type Rows=Missing']) for(const results of ['Rows,error','bool,Rows,error']) {
-      const files=sql=>[{relative:`${pkg}/read.go`,content:`package p
+      const files=sql=>[providerFile(`package p
 import("context";"github.com/jackc/pgx/v5")
 ${declaration};type Text=string;type Reader interface{Query(context.Context,Text,...any)(${results})}
 const coverage="SELECT * FROM artifacts"
-func Read(tx Reader,input string){tx.Query(ctx,${sql})}`}];
-      const projection=source=>evaluateProjectionSQL(inspectGoSQL([source]),providers,owners,{[pkg]:"artifact"},{});
-      const backend=source=>inspect(source,{sqlTableAccess:repositoryPolicy().sqlTableAccess});
-      assert.ok(projection(files('input')).some(v=>v.includes('unresolved SQL construction')));
-      assert.ok(backend(files('input')).some(v=>v.code==='sql_construction_unresolved'));
+func Read(tx Reader,input string){tx.Query(ctx,${sql})}`)];
+      const projection=source=>artifactProjection(inspectGoSQL([source]),owners);
+      assertBothUnresolved(files('input'),projection);
       if(!declaration.includes('Missing')) {
         assert.ok(projection(files('"SELECT * FROM users"')).some(v=>v.includes('undeclared source authority')));
-        assert.ok(backend(files('"DELETE FROM host_grid_projection"')).some(v=>v.code==='sql_table_write_access'));
-        assert.deepEqual(projection(files('"SELECT * FROM artifacts"')),[]);
-        assert.deepEqual(backend(files('"SELECT * FROM artifacts"')),[]);
+        assert.ok(backendSQL(files('"DELETE FROM host_grid_projection"')).some(v=>v.code==='sql_table_write_access'));
+        assertBothAllow(files('"SELECT * FROM artifacts"'),projection);
       }
     }
   });
   test("raw mutable SQL builders fail both policies without rejecting bound data",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     const owners=new Map([["artifacts",["artifacts"]],["host_grid_projection",["projections"]]]);
-    const files=body=>[{relative:`${pkg}/read.go`,content:`package p
+    const files=body=>[providerFile(`package p
 import("strings";"github.com/jackc/pgx/v5";shape "github.com/JochiRaider/cartulary/internal/platform/sqlshape")
 const coverage="SELECT * FROM artifacts"
-func Read(tx pgx.Tx,input string){${body}}`}];
-    const projection=source=>evaluateProjectionSQL(inspectGoSQL([source]),providers,owners,{[pkg]:"artifact"},{});
-    const backend=source=>inspect(source,{sqlTableAccess:repositoryPolicy().sqlTableAccess});
+func Read(tx pgx.Tx,input string){${body}}`)];
+    const projection=source=>artifactProjection(inspectGoSQL([source]),owners);
     for(const body of [
       'var b strings.Builder;b.WriteString("--");reset:=b.Reset;reset();b.WriteString("DELETE FROM host_grid_projection");tx.Exec(ctx,b.String())',
       'var b strings.Builder;b.WriteString("SELECT * FROM artifacts");tx.Query(ctx,b.String())',
       'var b strings.Builder;write:=b.WriteString;write(input);tx.Query(ctx,b.String())',
       'var b strings.Builder;b.WriteString(input);tx.Query(ctx,shape.Text(shape.Literal(b.String())))',
     ]) {
-      assert.ok(projection(files(body)).some(v=>v.includes("unresolved SQL construction")),body);
-      assert.ok(backend(files(body)).some(v=>v.code==="sql_construction_unresolved"),body);
+      assertBothUnresolved(files(body),projection,body);
     }
     for(const body of [
       'var b strings.Builder;reset:=b.Reset;reset();b.WriteString(input);tx.Query(ctx,"SELECT * FROM artifacts WHERE id=$1",b.String())',
       'var b shape.Builder;b.Write(shape.Literal("SELECT * FROM artifacts"));tx.Query(ctx,shape.Text(b.Fragment()))',
       'q:="SELECT * FROM artifacts";tx.Query(ctx,q)',
-    ]) { assert.deepEqual(projection(files(body)),[]); assert.deepEqual(backend(files(body)),[]); }
+    ]) { assertBothAllow(files(body),projection); }
   });
   test("native SQL: raw driver arguments fail both enforcement policies",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     const owners=new Map([["artifacts",["artifacts"]],["users",["auth"]]]);
+    const retirement=body=>[providerFile(`package p
+import("database/sql";d "database/sql/driver")
+const coverage="SELECT * FROM artifacts"
+func Read(conn *sql.Conn){${body}}`)];
+    const projection=files=>artifactProjection(inspectGoSQL([files]),owners);
+    assertBothAllow(retirement('conn.Raw(func(any) error{return d.ErrBadConn})'),projection);
+    for(const body of [
+      'conn.Raw(func(value any) error{return d.ErrBadConn})',
+      'conn.Raw(func(any) error{return nil})',
+      'conn.Raw(func(any) error{defer work();return d.ErrBadConn})',
+      'callback:=func(any) error{return d.ErrBadConn};conn.Raw(callback)',
+      'd:=struct{ErrBadConn error}{};conn.Raw(func(any) error{return d.ErrBadConn})',
+    ]) assertBothUnresolved(retirement(body),projection,body);
+    const nested=retirement('conn.Raw(func(any) error{conn.ExecContext(ctx,"DELETE FROM users");return d.ErrBadConn})');
+    assertBothUnresolved(nested,projection);
+    const observed=inspectGoSQL([nested]).get(nested[0].relative).find(entry=>entry.name==='Read').sql;
+    assert.ok(observed.some(entry=>entry.kind==='execution' && entry.text==='DELETE FROM users' && entry.disposition==='analyzed'));
     for(const [type,call] of [['*pgconn.PgConn','handle.ExecParams(ctx,opaque(),nil,nil,nil,nil)'],['*sql.DB','handle.Query(opaque())'],['*pgconn.PgConn','handle.ExecPrepared(ctx,"name",nil,nil,nil)'],['any','client:=proto.NewFrontend(reader,writer);client.Send(message)'],['any','message:=proto.Query{String:input}']]) {
-      const files=[{relative:`${pkg}/read.go`,content:`package p
+      const files=[providerFile(`package p
 import("database/sql";"github.com/jackc/pgx/v5/pgconn";proto "github.com/jackc/pgx/v5/pgproto3")
-func Read(handle ${type}){${call}}`}];
-      assert.ok(evaluateProjectionSQL(inspectGoSQL([files]),providers,owners,{[pkg]:"artifact"},{}).some(v=>v.includes('unresolved SQL construction')));
-      assert.ok(inspect(files,{sqlTableAccess:repositoryPolicy().sqlTableAccess}).some(v=>v.code==='sql_construction_unresolved'));
+func Read(handle ${type}){${call}}`)];
+      assert.ok(artifactProjection(inspectGoSQL([files]),owners).some(v=>v.includes('unresolved SQL construction')));
+      assert.ok(backendSQL(files).some(v=>v.code==='sql_construction_unresolved'));
     }
   });
   test("SQL quoted tokens distinguish ordinary and escape-string backslashes",()=>{
@@ -482,17 +490,15 @@ func Read(handle ${type}){${call}}`}];
     assert.doesNotThrow(()=>sqlStatements(prefix+`func Read(tx pgx.Tx){q:=shape.Literal("SELECT '%s /* */' FROM artifacts");_=q}`));
   });
   test("SQL discovery: field/index and nested execution cannot escape either policy",()=>{
-    const pkg="internal/modules/example/provider";
-    const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:[]}];
     const owners=new Map([["users",["auth"]],["artifacts",["artifacts"]]]);
     for(const body of ['s.q=shape.Literal("SELECT * FROM users")','items[0]=shape.Literal("SELECT * FROM users")','ok:=tx.QueryRow(ctx,unknown()).Scan(&n)==nil','switch tx.QueryRow(ctx,unknown()).Scan(&n){default:}']) {
-      const files=[{relative:`${pkg}/read.go`,content:`package p
+      const files=[providerFile(`package p
 import ("github.com/jackc/pgx/v5"; shape "github.com/JochiRaider/cartulary/internal/platform/sqlshape")
-func Read(tx pgx.Tx){${body}}`}];
-      assert.ok(evaluateProjectionSQL(inspectGoSQL([files]),providers,owners,{[pkg]:"artifact"},{}).length>0,body);
+func Read(tx pgx.Tx){${body}}`)];
+      assert.ok(artifactProjection(inspectGoSQL([files]),owners).length>0,body);
     }
     const rules=repositoryPolicy().sqlTableAccess.filter(rule=>rule.id.endsWith('-projection-storage-access'));
-    const files=[{relative:`${pkg}/write.go`,content:'package p\nimport shape "github.com/JochiRaider/cartulary/internal/platform/sqlshape"\nfunc Write(){s.q=shape.Command("DELETE FROM host_grid_projection")}'}];
+    const files=[providerFile('package p\nimport shape "github.com/JochiRaider/cartulary/internal/platform/sqlshape"\nfunc Write(){s.q=shape.Command("DELETE FROM host_grid_projection")}',"write.go")];
     assert.ok(inspect(files,{sqlTableAccess:rules}).some(v=>v.code==='sql_table_write_access'));
   });
   test("projection SQL: Timeline owner locks stay outside the read capability",()=>{
@@ -591,7 +597,7 @@ func Read(tx pgx.Tx){${body}}`}];
     const pkg="internal/modules/example/provider";
     const providers=[{provider_id:"artifact",source_authority_modules:["artifacts"],projection_table_ids:["artifact_grid_projection"]}];
     const owners=new Map([["artifacts",["artifacts"]],["users",["auth"]]]);
-    const inspect=(body)=>inspectGoSQL([[{relative:`${pkg}/constants.go`,content:'package p\nconst base = "SELECT record_id FROM artifacts"'},{relative:`${pkg}/split.go`,content:`package p\nimport "github.com/jackc/pgx/v5"\nfunc Read(tx pgx.Tx){${body}}` }]]);
+    const inspect=(body)=>inspectGoSQL([[providerFile('package p\nconst base = "SELECT record_id FROM artifacts"',"constants.go"),providerFile(`package p\nimport "github.com/jackc/pgx/v5"\nfunc Read(tx pgx.Tx){${body}}`,"split.go")]]);
     for (const [body,reason] of [
       ['q := (base) + " UNION SELECT user_id FROM users";tx.Query(ctx,q)','undeclared source authority auth'],
       ['q := base; q += " FOR UPDATE";tx.Query(ctx,q)','lock of authoritative source'],

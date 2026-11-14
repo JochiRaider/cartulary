@@ -66,7 +66,7 @@ func insertIndicatorObservationTx(ctx context.Context, tx pgx.Tx, evaluate ident
 		ResolvedAt:                resolvedAt,
 		ResolutionMethod:          resolutionMethod,
 	}
-	if err := tx.QueryRow(ctx, `
+	stored, err := scanIndicatorObservationRecord(tx.QueryRow(ctx, `
 INSERT INTO indicator_observations (
     incident_id,
     source_record_id,
@@ -86,11 +86,12 @@ INSERT INTO indicator_observations (
     resolution_method
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1, $11, $12, $13, $14, $15)
-RETURNING indicator_observation_id
-`, record.IncidentID, record.SourceRecordID, record.SourceFieldKey, record.OriginKind, record.OriginLocator, record.ObservedText, record.ParsedIndicatorType, record.NormalizedCandidate, record.ResolutionStatus, record.ResolvedIndicatorRecordID, record.CreatedByUserID, record.CreatedAt.UTC(), record.ResolvedByUserID, record.ResolvedAt, record.ResolutionMethod).Scan(&record.ObservationID); err != nil {
+RETURNING indicator_observation_id, incident_id, source_record_id, source_field_key, origin_kind, origin_locator, observed_text, parsed_indicator_type, normalized_candidate, resolution_status, resolved_indicator_record_id, row_version, created_by_user_id, created_at, resolved_by_user_id, resolved_at, resolution_method, deleted_at, deleted_by_user_id
+`, record.IncidentID, record.SourceRecordID, record.SourceFieldKey, record.OriginKind, record.OriginLocator, record.ObservedText, record.ParsedIndicatorType, record.NormalizedCandidate, record.ResolutionStatus, record.ResolvedIndicatorRecordID, record.CreatedByUserID, record.CreatedAt.UTC(), record.ResolvedByUserID, record.ResolvedAt, record.ResolutionMethod))
+	if err != nil {
 		return IndicatorObservationRecord{}, fmt.Errorf("insert indicator observation: %w", err)
 	}
-	return record, nil
+	return stored, nil
 }
 
 func loadIndicatorObservation(ctx context.Context, db interface {
@@ -133,26 +134,21 @@ SELECT
 	return record, nil
 }
 
-func updateIndicatorObservationTransitionTx(ctx context.Context, tx pgx.Tx, next IndicatorObservationRecord, expectedVersion int64) error {
-	tag, err := tx.Exec(ctx, `
+func updateIndicatorObservationTransitionTx(ctx context.Context, tx pgx.Tx, next IndicatorObservationRecord, expectedVersion int64) (IndicatorObservationRecord, error) {
+	stored, err := scanIndicatorObservationRecord(tx.QueryRow(ctx, `
 UPDATE indicator_observations
-   SET resolution_status = $2,
-       resolved_indicator_record_id = $3,
-       resolved_by_user_id = $4,
-       resolved_at = $5,
-       resolution_method = $6,
-       row_version = $7
- WHERE indicator_observation_id = $1
-   AND row_version = $8
-   AND deleted_at IS NULL
-`, next.ObservationID, next.ResolutionStatus, next.ResolvedIndicatorRecordID, next.ResolvedByUserID, next.ResolvedAt, next.ResolutionMethod, next.RowVersion, expectedVersion)
+ SET resolution_status=$2, resolved_indicator_record_id=$3, resolved_by_user_id=$4,
+ resolved_at=$5, resolution_method=$6, row_version=$7
+ WHERE indicator_observation_id=$1 AND row_version=$8 AND deleted_at IS NULL
+ RETURNING indicator_observation_id, incident_id, source_record_id, source_field_key, origin_kind, origin_locator, observed_text, parsed_indicator_type, normalized_candidate, resolution_status, resolved_indicator_record_id, row_version, created_by_user_id, created_at, resolved_by_user_id, resolved_at, resolution_method, deleted_at, deleted_by_user_id
+`, next.ObservationID, next.ResolutionStatus, next.ResolvedIndicatorRecordID, next.ResolvedByUserID, next.ResolvedAt, next.ResolutionMethod, next.RowVersion, expectedVersion))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return IndicatorObservationRecord{}, ErrRowVersionConflict
+	}
 	if err != nil {
-		return fmt.Errorf("update indicator observation transition: %w", err)
+		return IndicatorObservationRecord{}, fmt.Errorf("update indicator observation transition: %w", err)
 	}
-	if tag.RowsAffected() != 1 {
-		return ErrRowVersionConflict
-	}
-	return nil
+	return stored, nil
 }
 
 func listSourceRecordIndicatorObservations(ctx context.Context, db interface {

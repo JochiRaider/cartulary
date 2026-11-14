@@ -107,17 +107,7 @@
       "apps/web/public/assets/fonts/fonts.css"
     ]
   },
-  "executable_tooling_dependencies": [
-    {
-      "package_name": "@cyclonedx/cdxgen",
-      "owner_script": "tools/release-evidence/generate-sbom-license-evidence.mjs",
-      "command": [
-        "pnpm",
-        "exec",
-        "cdxgen"
-      ]
-    }
-  ],
+  "executable_tooling_dependencies": [],
   "static_policy": {
     "runtime_enabled": false,
     "per_file_suppression_growth": false

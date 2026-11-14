@@ -15,62 +15,53 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	linkvocabulary "github.com/JochiRaider/cartulary/internal/modules/links/vocabulary"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
 
-type subjectValidator struct {
+type referenceAdmission struct {
 	entities *hostidentity.SourceFacts
 	records  *records.Store
 }
 
-func NewSubjectValidator(
-	pool dbport.DB,
-	entities *hostidentity.SourceFacts,
-) (assessments.SubjectValidator, error) {
+func NewReferenceAdmission(pool dbport.DB, entities *hostidentity.SourceFacts) (assessments.ReferenceAdmission, error) {
 	if isNilDependency(pool) {
-		return nil, errors.New("compose assessment subject validator: database is required")
+		return nil, errors.New("compose assessment reference admission: database is required")
 	}
 	if isNilDependency(entities) {
-		return nil, errors.New("compose assessment subject validator: entity source facts are required")
+		return nil, errors.New("compose assessment reference admission: entity source facts are required")
 	}
-	return subjectValidator{
-		entities: entities,
-		records:  records.NewStore(pool),
-	}, nil
+	return referenceAdmission{entities: entities, records: records.NewStore(pool)}, nil
 }
 
-func (a subjectValidator) ValidateAssessmentSubjectTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	subjectType string,
-	recordID uuid.UUID,
-) (bool, error) {
-	envelope, err := a.records.LoadEnvelopeTx(ctx, tx, recordID, false)
-	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
-		return false, nil
+func (a referenceAdmission) AdmitAssessmentReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, refs assessments.CreateReferences) (assessments.ReferenceAdmissionResult, error) {
+	ids := make([]uuid.UUID, 0, 1+len(refs.SupportRefs))
+	ids = append(ids, refs.SubjectRef)
+	ids = append(ids, refs.SupportRefs...)
+	envelopes, err := a.records.LoadEnvelopesForNoKeyUpdateTx(ctx, tx, ids)
+	if err != nil {
+		return assessments.ReferenceAdmissionResult{}, err
+	}
+	subject, ok := envelopes[refs.SubjectRef]
+	if !ok || subject.IncidentID != incidentID || subject.RecordType != refs.SubjectType || subject.DeletedAt != nil {
+		return assessments.ReferenceAdmissionResult{}, nil
+	}
+	err = a.entities.ValidateResolvedTargetTx(ctx, tx, incidentID, refs.SubjectType, refs.SubjectRef)
+	if errors.Is(err, hostidentity.ErrHostIdentityRecordNotFound) {
+		return assessments.ReferenceAdmissionResult{}, nil
 	}
 	if err != nil {
-		return false, err
+		return assessments.ReferenceAdmissionResult{}, err
 	}
-	if envelope.IncidentID != incidentID ||
-		envelope.RecordType != subjectType ||
-		envelope.DeletedAt != nil {
-		return false, nil
+	result := assessments.ReferenceAdmissionResult{SubjectValid: true}
+	for _, id := range refs.SupportRefs {
+		envelope, ok := envelopes[id]
+		if !ok || envelope.IncidentID != incidentID || envelope.DeletedAt != nil {
+			return result, nil
+		}
 	}
-	err = a.entities.ValidateResolvedTargetTx(
-		ctx,
-		tx,
-		incidentID,
-		subjectType,
-		recordID,
-	)
-	if errors.Is(err, hostidentity.ErrHostIdentityRecordNotFound) {
-		return false, nil
-	}
-	return err == nil, err
+	result.SupportValid = true
+	return result, nil
 }
 
 type assessorValidator struct {
@@ -110,41 +101,6 @@ func (a assessorValidator) ValidateAssessmentAssessorTx(
 		return false, err
 	}
 	return user.IsActive, nil
-}
-
-type supportTargetValidator struct {
-	records *records.Store
-}
-
-func NewSupportTargetValidator(
-	pool dbport.DB,
-) (assessments.SupportTargetValidator, error) {
-	if isNilDependency(pool) {
-		return nil, errors.New("compose assessment support-target validator: database is required")
-	}
-	return supportTargetValidator{records: records.NewStore(pool)}, nil
-}
-
-func (a supportTargetValidator) ValidateAssessmentSupportTargetsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	recordIDs []uuid.UUID,
-) (bool, error) {
-	envelopes, err := a.records.LoadEnvelopesTx(ctx, tx, recordIDs, false)
-	if err != nil {
-		return false, err
-	}
-	if len(envelopes) != len(recordIDs) {
-		return false, nil
-	}
-	for _, recordID := range recordIDs {
-		envelope := envelopes[recordID]
-		if envelope.IncidentID != incidentID || envelope.DeletedAt != nil {
-			return false, nil
-		}
-	}
-	return true, nil
 }
 
 type recordEnvelopeCreator struct {

@@ -25,24 +25,24 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "harness.release.behavior.current_owner_evidence",
+      "row_id": "harness.release.behavior.inventory_contract",
       "owner_id": "harness.release",
       "family_id": "harness.release.behavior",
       "collaborator_ids": [],
       "verification_ids": [
-        "harness.release.verification.current_owner_evidence_only"
+        "harness.release.verification.inventory_contract"
       ],
       "runner": "shell",
       "selector": {
-        "operation_id": "harness.release_evidence_contract"
+        "operation_id": "harness.assurance_sbom_license_evidence"
       },
-      "evidence_class": "release",
+      "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "harness_contract",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "aggregate_placement": "release",
+      "aggregate_placement": "full",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
@@ -74,6 +74,29 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "harness.release.behavior.package_readiness_contract",
+      "owner_id": "harness.release",
+      "family_id": "harness.release.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.release.verification.current_owner_evidence_only",
+        "harness.release.verification.package_readiness_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_release_readiness_evidence"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.release.behavior.reference_pack_package",
       "owner_id": "harness.release",
       "family_id": "harness.release.behavior",
@@ -100,6 +123,28 @@
         "postgres"
       ],
       "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "harness.release.behavior.seaweedfs_evidence_contract",
+      "owner_id": "harness.release",
+      "family_id": "harness.release.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.release.verification.seaweedfs_evidence_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_seaweedfs_release_evidence"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.release.behavior.standup_package",

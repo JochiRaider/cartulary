@@ -136,6 +136,14 @@ func TestTimelineMutationAPIErrorClassifier_Unit(t *testing.T) {
 			details: map[string]any{"reason_code": "superseded_terminal"},
 		},
 		{
+			name:    "invalid collection action",
+			err:     &timeline.InvalidCollectionActionError{FieldKey: "timeline.tags"},
+			status:  http.StatusBadRequest,
+			code:    "invalid_mutation_payload",
+			message: "invalid mutation payload",
+			details: map[string]any{"field": "timeline.tags", "reason_code": "invalid_value"},
+		},
+		{
 			name:    "no effective change",
 			err:     timeline.ErrNoEffectiveChange,
 			context: MutationAPIErrorContext{NoEffectiveChangeField: "action_payload"},

@@ -16,7 +16,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/startupproof"
-	"golang.org/x/sys/unix"
 )
 
 type CommandResult struct {
@@ -80,74 +79,56 @@ func commandRunner(root string, runtime *harnesssession.Runtime, dependencies []
 		if ctx.Err() != nil {
 			return result, ctx.Err()
 		}
-		if err := cmd.Start(); err != nil {
-			return result, err
+		owner, startErr := harnesssession.StartOwnedCommand(cmd, runtime.RetireDetailProducers)
+		result.Started = cmd.Process != nil
+		if startErr != nil {
+			return result, startErr
 		}
-		result.Started = true
-		signal := func() { _ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
-		target, proofErr := harnesssession.CaptureProcess(cmd.Process.Pid)
-		if proofErr == nil {
-			proofErr = runtime.RecordDependentResource("helper_process", target, "acquired", dependencies)
-		}
+		target := owner.Proof()
+		registrationErr := runtime.RecordDependentResource("helper_process", target, "acquired", dependencies)
+		registered := registrationErr == nil
 		if startupWrite != nil {
 			startupRead.Close()
-			if proofErr == nil {
-				_, proofErr = startupWrite.Write([]byte{1})
+			if registrationErr == nil {
+				_, registrationErr = startupWrite.Write([]byte{1})
 			}
 		}
-		if proofErr != nil {
-			signal()
-		}
-		terminal := make(chan error, 1)
-		go func() {
-			for {
-				var info unix.Siginfo
-				err := unix.Waitid(unix.P_PID, cmd.Process.Pid, &info, unix.WEXITED|unix.WNOWAIT, nil)
-				if err == unix.EINTR {
-					continue
+		if registrationErr == nil {
+			select {
+			case <-owner.Exited():
+			case <-ctx.Done():
+				if startupWrite != nil {
+					// Startup owns partially acquired services. Closing its private
+					// control first permits the existing bounded rollback handshake.
+					startupWrite.Close()
+					timer := time.NewTimer(2 * time.Minute)
+					select {
+					case <-owner.Exited():
+					case <-timer.C:
+					}
+					timer.Stop()
 				}
-				terminal <- err
-				return
-			}
-		}()
-		var terminalErr error
-		select {
-		case terminalErr = <-terminal:
-		case <-ctx.Done():
-			if startupWrite == nil {
-				signal()
-				terminalErr = <-terminal
-			} else {
-				startupWrite.Close()
-				timer := time.NewTimer(2 * time.Minute)
-				select {
-				case terminalErr = <-terminal:
-				case <-timer.C:
-					signal()
-					terminalErr = <-terminal
-				}
-				timer.Stop()
 			}
 		}
-		// Keep the zombie leader reserved until group signaling has finished.
+		if startupWrite != nil {
+			startupWrite.Close()
+		}
 		settleCtx, settleCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		settleErr := harnesssession.StopProcess(settleCtx, target, 0)
-		if settleErr == nil {
-			settleErr = runtime.RetireDetailProducers(target)
-		}
+		_, settleErr := owner.Settle(settleCtx, 0)
 		settleCancel()
-		waitErr := cmd.Wait()
-		if cmd.ProcessState != nil {
-			result.Exit = cmd.ProcessState.ExitCode()
+		if settleErr != nil {
+			// The native owner retains the unreaped anchor. Output writers and
+			// journal dependencies remain owned until later recovery succeeds.
+			return result, errors.Join(registrationErr, ctx.Err(), CleanupFailure(settleErr))
 		}
-		result.Stdout = output.data
-		result.Stderr = diagnostic.data
-		releaseErr := error(nil)
-		if proofErr == nil && settleErr == nil {
-			releaseErr = runtime.RecordResource("helper_process", target, "released")
+		result.Exit = cmd.ProcessState.ExitCode()
+		result.Stdout, result.Stderr = output.data, diagnostic.data
+		var retireErr error
+		if registered {
+			retireErr = runtime.RecordResource("helper_process", target, "released")
 		}
-		if proofErr != nil || terminalErr != nil || releaseErr != nil || settleErr != nil {
-			return result, errors.Join(proofErr, terminalErr, CleanupFailure(errors.Join(settleErr, releaseErr)))
+		if registrationErr != nil || retireErr != nil {
+			return result, errors.Join(registrationErr, CleanupFailure(retireErr))
 		}
 		if ctx.Err() != nil {
 			return result, ctx.Err()
@@ -155,7 +136,7 @@ func commandRunner(root string, runtime *harnesssession.Runtime, dependencies []
 		if output.exceeded || diagnostic.exceeded {
 			return result, artifactFailure(errors.New("lifecycle output exceeds bound"))
 		}
-		if waitErr != nil {
+		if waitErr := owner.WaitError(); waitErr != nil {
 			return result, waitErr
 		}
 		return result, nil

@@ -82,6 +82,14 @@ func testPreparationDeadlines(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			t.Cleanup(func() {
+				if err := runtime.Close(); err != nil {
+					t.Error(err)
+				}
+				if err := runtime.ReleaseHandles(); err != nil {
+					t.Error(err)
+				}
+			})
 			executable, _ := os.Executable()
 			shim := filepath.Join(t.TempDir(), "node")
 			quoted := "'" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'"
@@ -109,22 +117,21 @@ func testPreparationDeadlines(t *testing.T) {
 					}
 					return context.WithTimeout(ctx, 100*time.Millisecond)
 				}}
+			t.Cleanup(func() {
+				d.environment = environment
+				if failures := d.Close(context.Background()); len(failures) > 0 {
+					t.Error("intentional termination became cleanup failure", failures)
+					for _, step := range d.cleanup {
+						if step.err != nil {
+							t.Logf("cleanup operation=%s type=%T unsafe=%t unresolved=%t deadline=%t", step.operation, step.err, errors.Is(step.err, harnesslocal.ErrUnsafe), errors.Is(step.err, harnesssession.ErrUnresolved), errors.Is(step.err, context.DeadlineExceeded))
+						}
+					}
+				}
+			})
 			_, err = d.Prepare(context.Background())
 			var classified *ReviewError
 			if !errors.As(err, &classified) || classified.Record.Code != "operation_expired" {
 				t.Error("initialization escaped native deadline", err)
-			}
-			d.environment = environment
-			if failures := d.Close(context.Background()); len(failures) > 0 {
-				t.Error("intentional termination became cleanup failure", failures)
-				for _, step := range d.cleanup {
-					if step.err != nil {
-						t.Logf("cleanup operation=%s type=%T unsafe=%t unresolved=%t deadline=%t", step.operation, step.err, errors.Is(step.err, harnesslocal.ErrUnsafe), errors.Is(step.err, harnesssession.ErrUnresolved), errors.Is(step.err, context.DeadlineExceeded))
-					}
-				}
-			}
-			if err := runtime.Close(); err != nil {
-				t.Error(err)
 			}
 		})
 	}
@@ -139,6 +146,14 @@ func testPreparationDeadlines(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			t.Cleanup(func() {
+				if err := runtime.Close(); err != nil {
+					t.Error(err)
+				}
+				if err := runtime.ReleaseHandles(); err != nil {
+					t.Error(err)
+				}
+			})
 			executable, _ := os.Executable()
 			shim := filepath.Join(t.TempDir(), "node")
 			quoted := "'" + strings.ReplaceAll(executable, "'", "'\"'\"'") + "'"
@@ -161,9 +176,6 @@ func testPreparationDeadlines(t *testing.T) {
 				<-a.done
 				if errs := (harnessfixtures.ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: environment}).Recover(context.Background()); errs != nil {
 					t.Error(errs)
-				}
-				if err := runtime.Close(); err != nil {
-					t.Error(err)
 				}
 			})
 			if operation == "initialize_write_deadline" {

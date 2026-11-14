@@ -11,19 +11,20 @@ import (
 )
 
 type MutationFacade struct {
-	pool           dbport.DB
-	idempotency    IdempotencyCapability
-	keepSaved      conflicttokens.IdempotencyPort
-	incidentAccess IncidentStateCapability
-	recordStore    RecordEnvelopeCapability
-	linkStore      LinkCapability
-	linkFacts      LinkFactsCapability
-	projectionRows taskdecisionprojection.MutationRows
-	revisions      RevisionCapability
-	conflictTokens conflicttokens.ConflictTokenCodec
-	conflictFields conflicttokens.FieldResolver
-	publications   collaboration.RecordChangedAppender
-	catalog        *sourcecatalog.Catalog
+	pool             dbport.DB
+	idempotency      IdempotencyCapability
+	keepSaved        conflicttokens.IdempotencyPort
+	incidentAccess   IncidentStateCapability
+	recordStore      RecordEnvelopeCapability
+	referenceTargets ReferenceTargetCapability
+	linkStore        LinkCapability
+	linkFacts        LinkFactsCapability
+	projectionRows   taskdecisionprojection.MutationRows
+	revisions        RevisionCapability
+	conflictTokens   conflicttokens.ConflictTokenCodec
+	conflictFields   conflicttokens.FieldResolver
+	publications     collaboration.RecordChangedAppender
+	catalog          *sourcecatalog.Catalog
 }
 
 func NewMutationContribution(
@@ -42,18 +43,19 @@ func NewMutationContribution(
 		return nil, fmt.Errorf("compose Tasks/Decisions source catalog: %w", err)
 	}
 	return &MutationFacade{
-		pool:           pool,
-		idempotency:    dependencies.Idempotency,
-		keepSaved:      dependencies.KeepSavedIdempotency,
-		incidentAccess: dependencies.IncidentState,
-		recordStore:    dependencies.RecordEnvelopes,
-		linkStore:      dependencies.Links,
-		linkFacts:      dependencies.LinkFacts,
-		projectionRows: dependencies.Projections,
-		revisions:      dependencies.Revisions,
-		conflictTokens: conflictTokens,
-		conflictFields: dependencies.ConflictFields,
-		publications:   dependencies.Collaboration,
-		catalog:        catalog,
+		pool:             pool,
+		idempotency:      dependencies.Idempotency,
+		keepSaved:        dependencies.KeepSavedIdempotency,
+		incidentAccess:   dependencies.IncidentState,
+		recordStore:      dependencies.RecordEnvelopes,
+		referenceTargets: dependencies.ReferenceTargets,
+		linkStore:        dependencies.Links,
+		linkFacts:        dependencies.LinkFacts,
+		projectionRows:   dependencies.Projections,
+		revisions:        dependencies.Revisions,
+		conflictTokens:   conflictTokens,
+		conflictFields:   dependencies.ConflictFields,
+		publications:     dependencies.Collaboration,
+		catalog:          catalog,
 	}, nil
 }

@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -39,6 +40,23 @@ func installCurrentWriteWitness(t testing.TB, db *sql.DB, family, scenario strin
 	}
 	body := "PERFORM nextval('current_owner_write_attempts');"
 	var blocker *sql.Conn
+	release := func() {
+		if blocker == nil {
+			return
+		}
+		conn := blocker
+		blocker = nil
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, err := conn.ExecContext(ctx, `SELECT pg_advisory_unlock(177,299)`); err != nil {
+			t.Error(err)
+			_ = conn.Raw(func(any) error { return driver.ErrBadConn })
+		}
+		if err := conn.Close(); err != nil && err != sql.ErrConnDone {
+			t.Error(err)
+		}
+	}
+	t.Cleanup(release)
 	if scenario == "precommit_cancel" {
 		var err error
 		blocker, err = db.Conn(t.Context())
@@ -52,18 +70,7 @@ func installCurrentWriteWitness(t testing.TB, db *sql.DB, family, scenario strin
 	}
 	currentExec(t, db, `CREATE SEQUENCE current_owner_write_attempts; GRANT USAGE,SELECT ON SEQUENCE current_owner_write_attempts TO cartulary_runtime`)
 	currentExec(t, db, `CREATE FUNCTION current_owner_write_witness() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN `+body+` RETURN NEW; END $$; CREATE TRIGGER current_owner_write_witness BEFORE INSERT ON `+table+` FOR EACH ROW EXECUTE FUNCTION current_owner_write_witness()`)
-	return func() {
-		if blocker != nil {
-			_, err := blocker.ExecContext(context.Background(), `SELECT pg_advisory_unlock(177,299)`)
-			if err != nil {
-				t.Error(err)
-			}
-			if err := blocker.Close(); err != nil {
-				t.Error(err)
-			}
-			blocker = nil
-		}
-	}
+	return release
 }
 
 func installCurrentCommitFault(t testing.TB, db *sql.DB, scenario string) {
@@ -100,12 +107,13 @@ func recoverCurrentCommitFault(t testing.TB, db *sql.DB, runtime *appsupport.Run
 	return runtime.StartServer(t, options)
 }
 
-func cancelCurrentBlockedUnit(t testing.TB, db *sql.DB, first *appsupport.ServerHarness, ids currentImportIDs) {
+func cancelCurrentBlockedUnit(t testing.TB, db *sql.DB, first *appsupport.ServerHarness, ids currentImportIDs, login authcookietest.AuthCookies) {
 	t.Helper()
 	if got := waitForSQLCount(t, db, 20*time.Second, 1, `SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND classid=177 AND objid=299 AND NOT granted`); got != 1 {
 		t.Fatal("current worker did not reach uncommitted owner write")
 	}
-	login := flowtest.LoginLocalUser(t, http.DefaultClient, first.Server.HTTP.URL, "current-import@example.test", "Current-import-test-42!", nil)
+	// A fresh login takes the actor's exclusive row lock, which conflicts with
+	// the staged owner's reference. Use the session admitted before the gate.
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, first.Server.HTTP.URL+"/api/v1/jobs/"+ids.job+"/cancel", bytes.NewBufferString(`{"client_txn_id":"txn-current-cancel"}`))

@@ -1,20 +1,11 @@
-import { existsSync, lstatSync, readFileSync } from "node:fs";
-import path from "node:path";
-import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
+import { parseStrictJSON, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
 import { readCanonicalUnitEvents, reduceCanonicalUnitIntervals, notLaunchedUnitIDs } from "../evidence-accounting/index.mjs";
 
 function safeID(value) { return value.replaceAll(/[^A-Za-z0-9_.+-]+/gu, "-"); }
 
 export function readBrowserUnitResult(base, unitID) {
-  const file = path.join(base, "unit-results", `${safeID(unitID)}.json`);
-  if (!existsSync(file)) {
-    throw new Error(`browser target unit result is missing: ${unitID}`);
-  }
-  const stat = lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 1024 * 1024) {
-    throw new Error(`browser target unit result exceeds its bounded JSON contract: ${file}`);
-  }
-  const result = parseStrictJSON(readFileSync(file, "utf8"));
+  const bytes = readRetainedArtifactBytes(base, `unit-results/${safeID(unitID)}.json`, 1024 * 1024);
+  const result = parseStrictJSON(bytes.toString("utf8"));
   validateSchemaSync("cartulary.harness_unit_result.v1", result);
   if (result.unit_id !== unitID) {
     throw new Error(`browser target unit result identity mismatch: ${unitID}`);

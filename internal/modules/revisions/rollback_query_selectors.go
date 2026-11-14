@@ -196,7 +196,7 @@ SELECT change_set_id, after_json
 	if err != nil {
 		return rollbackPlan{}, err
 	}
-	if err := r.store.appender.snapshotCaptures.validatePersisted(record.RecordID, record.RecordType, snapshot); err != nil {
+	if err := r.store.appender.snapshotCaptures.validatePersisted(record.IncidentID, record.RecordID, record.RecordType, snapshot); err != nil {
 		return rollbackPlan{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
 	targetKind, err := r.store.targetSemantics.defaultRowTargetKind(record.RecordType)

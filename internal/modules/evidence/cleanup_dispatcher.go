@@ -49,13 +49,13 @@ func newCleanupDispatcher(
 	observer CleanupObserver,
 	now func() time.Time,
 ) (*CleanupDispatcher, error) {
-	if sweeper == nil {
+	if isNilCapability(sweeper) {
 		return nil, errors.New("compose Evidence cleanup dispatcher: sweeper is required")
 	}
-	if deleter == nil {
+	if isNilCapability(deleter) {
 		return nil, errors.New("compose Evidence cleanup dispatcher: object deleter is required")
 	}
-	if observer == nil {
+	if isNilCapability(observer) {
 		return nil, errors.New("compose Evidence cleanup dispatcher: observer is required")
 	}
 	if now == nil {
@@ -80,7 +80,7 @@ func (d *CleanupDispatcher) Prepare(parent context.Context, serving <-chan struc
 	if serving == nil {
 		return errors.New("evidence cleanup serving gate is required")
 	}
-	if d == nil || d.sweeper == nil || d.deleter == nil || d.observer == nil || d.interval <= 0 {
+	if d == nil || isNilCapability(d.sweeper) || isNilCapability(d.deleter) || isNilCapability(d.observer) || d.interval <= 0 {
 		return errors.New("evidence cleanup dispatcher is not configured")
 	}
 	if parent == nil {
@@ -121,7 +121,7 @@ func (d *CleanupDispatcher) Close(ctx context.Context) error {
 }
 
 func (d *CleanupDispatcher) runOnce(ctx context.Context) (cleanupSweepResult, error) {
-	if d == nil || d.sweeper == nil || d.deleter == nil || d.observer == nil {
+	if d == nil || isNilCapability(d.sweeper) || isNilCapability(d.deleter) || isNilCapability(d.observer) {
 		return cleanupSweepResult{}, errors.New("evidence cleanup dispatcher is not configured")
 	}
 	d.runMu.Lock()

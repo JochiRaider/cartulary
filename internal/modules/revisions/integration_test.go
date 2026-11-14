@@ -73,15 +73,21 @@ func TestHistoryProjectionDependencies_Integration(t *testing.T) {
 
 func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-01-delete-restore", TestRouteMode: httptestx.TestRouteModeDisabled})
+	// Keep mutations after database-created rows and within the session idle window.
+	var clockBase time.Time
+	if err := harness.DB.QueryRow(`SELECT clock_timestamp() + interval '5 minutes'`).Scan(&clockBase); err != nil {
+		t.Fatal(err)
+	}
 	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I701")
+
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
 	indicatorID := seedIndicatorRecord(t, harness.DB, incidentID, actorID)
 	socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), "cartulary.view.hosts.v1", login.Session.Value)
 	defer socket.Close(1000, "test_complete")
 
-	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 0, 0, 0, time.UTC))
+	httptestx.SetClockFixed(t, harness.Server, clockBase)
 	deletePayload := httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, recordID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-i-7-01-delete-host"}), http.StatusOK)["data"].(map[string]any)
 	requireDeleteRestoreRecordChange(t, incidentwstest.RequireRecordChangedEvent(t, socket, recordID, 2), recordID, 2, "remove", "cartulary.view.hosts.v1")
 	deleteChangeSetID := deletePayload["change_set_id"].(string)
@@ -105,7 +111,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 		t.Fatalf("latest history item must be soft_delete, got %#v", historyAfterDelete[0])
 	}
 
-	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 1, 0, 0, time.UTC))
+	httptestx.SetClockFixed(t, harness.Server, clockBase.Add(1*time.Minute))
 	restorePayload := httptestx.RequireSuccessEnvelope(t, restoreRecord(t, harness, login, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-i-7-01-restore-host"}), http.StatusOK)["data"].(map[string]any)
 	requireDeleteRestoreRecordChange(t, incidentwstest.RequireRecordChangedEvent(t, socket, recordID, 3), recordID, 3, "invalidate", "cartulary.view.hosts.v1")
 	restoreChangeSetID := restorePayload["change_set_id"].(string)
@@ -126,9 +132,9 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	rollbackRecordID := uuid.New()
 	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, rollbackRecordID, "Rollback Host", "rollback-host", "", "")
 	rollbackTargetChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000701")
-	seedRollbackHostPatch(t, harness.DB, incidentID, rollbackRecordID, actorID, rollbackTargetChangeSet, time.Date(2026, 5, 10, 13, 2, 0, 0, time.UTC), "rollback before", "rollback after")
+	seedRollbackHostPatch(t, harness.DB, incidentID, rollbackRecordID, actorID, rollbackTargetChangeSet, clockBase.Add(2*time.Minute), "rollback before", "rollback after")
 	rollbackRef := stringField(t, historyItems(getHistory(t, harness.Server.HTTP.URL, login, rollbackRecordID, ""))[0], "history_entry_ref")
-	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 3, 0, 0, time.UTC))
+	httptestx.SetClockFixed(t, harness.Server, clockBase.Add(3*time.Minute))
 	beforeHistoryRefRows := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_history_entry_refs WHERE record_id = $1`, rollbackRecordID)
 	rollbackPayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, rollbackRecordID, map[string]any{
 		"base_row_version": 2,
@@ -158,7 +164,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 
 	linkSrc, linkDst, linkID := seedRollbackRecordLinkCreate(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000702"))
 	linkRollbackRef := historyEntryRefForTarget(t, harness, login, linkSrc, "record_link", linkID.String())
-	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 4, 0, 0, time.UTC))
+	httptestx.SetClockFixed(t, harness.Server, clockBase.Add(4*time.Minute))
 	linkRollbackPayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, linkSrc, map[string]any{
 		"base_row_version": 1,
 		"client_txn_id":    "txn-i-7-01-rollback-link",
@@ -182,7 +188,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	wholeLeft, wholeRight := seedRollbackHostPair(t, harness.DB, incidentID, actorID, "Integration Whole Left", "Integration Whole Right")
 	wholeChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000704")
 	seedRollbackTwoHostChangeSet(t, harness.DB, incidentID, actorID, wholeChangeSetID, wholeLeft, wholeRight)
-	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 5, 0, 0, time.UTC))
+	httptestx.SetClockFixed(t, harness.Server, clockBase.Add(5*time.Minute))
 	wholeRollbackPayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, wholeLeft, map[string]any{
 		"base_row_version": 2,
 		"client_txn_id":    "txn-i-7-01-rollback-whole-change-set",
@@ -213,7 +219,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreID, "Integration row restore seed", "integration-row-restore", "", "")
 	seedHostProjection(t, harness.DB, incidentID, rowRestoreID)
 	rowRestoreTargetChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000705")
-	seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreID, actorID, rowRestoreTargetChangeSetID, time.Date(2026, 5, 10, 13, 5, 30, 0, time.UTC), "integration row before", "integration row snapshot")
+	seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreID, actorID, rowRestoreTargetChangeSetID, clockBase.Add(5*time.Minute+30*time.Second), "integration row before", "integration row snapshot")
 	advanceRecordFixtureWithAudit(t, harness.DB, rowRestoreID, 3, nil, &actorID)
 	mustExec(t, harness.DB, `UPDATE hosts SET display_name = 'integration row current', row_version = 3, updated_by_user_id = $2 WHERE record_id = $1`, rowRestoreID, actorID)
 	seedHostProjection(t, harness.DB, incidentID, rowRestoreID)
@@ -221,7 +227,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	rowRestoreTagID := seedRecordTag(t, harness.DB, incidentID, rowRestoreID, actorID)
 	beforeRowRestoreLinks := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NULL`, rowRestoreLinkID)
 	beforeRowRestoreTags := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id = $1 AND deleted_at IS NULL`, rowRestoreTagID)
-	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 5, 45, 0, time.UTC))
+	httptestx.SetClockFixed(t, harness.Server, clockBase.Add(5*time.Minute+45*time.Second))
 	rowRestorePayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, rowRestoreID, map[string]any{
 		"base_row_version": 3,
 		"client_txn_id":    "txn-i-7-01-row-restore",
@@ -254,7 +260,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 
 	attachedCreateSrc, attachedCreateEvidence, attachedCreateLink := seedRollbackAttachedEvidenceLinkCreate(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000706"))
 	attachedCreateRef := historyEntryRefForTarget(t, harness, login, attachedCreateSrc, "record_link", attachedCreateLink.String())
-	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 6, 0, 0, time.UTC))
+	httptestx.SetClockFixed(t, harness.Server, clockBase.Add(6*time.Minute))
 	attachedCreatePayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, attachedCreateSrc, map[string]any{
 		"base_row_version": 1,
 		"client_txn_id":    "txn-i-7-01-rollback-attached-evidence-create",
@@ -291,7 +297,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 
 	attachedDeleteSrc, attachedDeleteEvidence, attachedDeleteLink := seedRollbackAttachedEvidenceLinkDelete(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000707"))
 	attachedDeleteRef := historyEntryRefForTarget(t, harness, login, attachedDeleteSrc, "record_link", attachedDeleteLink.String())
-	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 7, 0, 0, time.UTC))
+	httptestx.SetClockFixed(t, harness.Server, clockBase.Add(7*time.Minute))
 	attachedDeletePayload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, attachedDeleteSrc, map[string]any{
 		"base_row_version": 1,
 		"client_txn_id":    "txn-i-7-01-rollback-attached-evidence-delete",
@@ -437,6 +443,11 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 
 func TestMergeChangeSetRollback_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-i-7-05-merge-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
+	var mergeAt time.Time
+	if err := harness.DB.QueryRow(`SELECT clock_timestamp() + interval '5 minutes'`).Scan(&mergeAt); err != nil {
+		t.Fatal(err)
+	}
+	rollbackAt := mergeAt.Add(time.Minute)
 	login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-history_revision-i-7-05-incident",
@@ -467,7 +478,7 @@ func TestMergeChangeSetRollback_Integration(t *testing.T) {
 	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, survivorTag, survivor, "duplicate-merge-tag")
 	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, loserTag, loser, "duplicate-merge-tag")
 	linktest.SeedRecordTag(t, harness.DB, incidentID, actorID, uniqueLoserTag, loser, "unique-merge-tag")
-	mergeFixtureCreatedAt := time.Date(2026, 5, 10, 18, 0, 0, 0, time.UTC)
+	mergeFixtureCreatedAt := mergeAt.Add(-time.Minute)
 	if _, err := harness.DB.Exec(`UPDATE record_links SET decided_at = $1::timestamptz + interval '1 minute', created_at = $1 WHERE record_link_id IN ($2, $3)`, mergeFixtureCreatedAt, linkID, outgoingLinkID); err != nil {
 		t.Fatalf("normalize merge link fixture timestamps: %v", err)
 	}
@@ -482,15 +493,19 @@ func TestMergeChangeSetRollback_Integration(t *testing.T) {
 	assessmenttest.SeedAssessment(t, harness.DB, incidentID, actorID, assessment, loser, "host", "suspected")
 	seedHostProjection(t, harness.DB, incidentID, survivor)
 	seedHostProjection(t, harness.DB, incidentID, loser)
-	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 18, 30, 0, 0, time.UTC))
+	httptestx.SetClockFixed(t, harness.Server, mergeAt)
 
-	mergeData := httptestx.RequireSuccessEnvelope(t, mergeRecords(t, harness, login, survivor, map[string]any{
+	mergeResponse := mergeRecords(t, harness, login, survivor, map[string]any{
 		"loser_record_id":           loser.String(),
 		"survivor_base_row_version": 1,
 		"loser_base_row_version":    1,
 		"client_txn_id":             "txn-history_revision-i-7-05-merge-hosts",
 		"reason":                    "merge rollback fixture",
-	}), http.StatusOK)["data"].(map[string]any)
+	})
+	if mergeResponse.StatusCode != http.StatusOK {
+		t.Fatalf("merge status=%d body=%#v", mergeResponse.StatusCode, httptestx.ReadJSONBody(t, mergeResponse))
+	}
+	mergeData := httptestx.RequireSuccessEnvelope(t, mergeResponse, http.StatusOK)["data"].(map[string]any)
 	mergeChangeSetID := mergeData["change_set_id"].(string)
 	if countRows(t, harness.DB, `
 SELECT COUNT(*)
@@ -552,15 +567,57 @@ SELECT COUNT(*)
 		t.Fatalf("merge did not preserve loser fqdn for survivor")
 	}
 
-	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 19, 0, 0, 0, time.UTC))
+	var preservedID uuid.UUID
+	if err := harness.DB.QueryRow(`SELECT entity_preserved_identifier_id FROM entity_preserved_identifiers WHERE record_id=$1 AND identifier_type='fqdn' AND normalized_value='loser.example.test' AND deleted_at IS NULL`, survivor).Scan(&preservedID); err != nil {
+		t.Fatal(err)
+	}
+	requirePreservedIdentifierHistory(t, harness.DB, mergeChangeSetID, preservedID, incidentID, survivor, actorID, mergeAt, rollbackAt, false)
+	var aliasID uuid.UUID
+	if err := harness.DB.QueryRow(`SELECT entity_alias_id FROM entity_aliases WHERE record_id=$1 AND raw_text='Loser Alias' AND deleted_at IS NULL`, survivor).Scan(&aliasID); err != nil {
+		t.Fatal(err)
+	}
+	aliasActive := expectedAliasHistory(aliasID, incidentID, survivor, actorID, "host", "Loser Alias", mergeAt)
+	requireAliasHistory(t, harness.DB, mergeChangeSetID, "create", aliasID, nil, aliasActive)
+
+	httptestx.SetClockFixed(t, harness.Server, rollbackAt)
 	rollbackBody := map[string]any{
 		"base_row_version": 2,
 		"client_txn_id":    "txn-history_revision-i-7-05-rollback-merge",
 		"target":           map[string]any{"kind": "change_set", "change_set_id": mergeChangeSetID},
 	}
+	driftOwner := uuid.New()
+	entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, driftOwner, "Currentness Owner", "currentness-owner", "", "")
+	requireNonRowCurrentness(t, harness.DB, incidentID, survivor, aliasID, "entity_aliases", "entity_alias_id", map[string]map[string]any{
+		"text":     {"raw_text": "Changed Alias", "normalized_text": "Changed Alias"},
+		"owner":    {"record_id": driftOwner.String()},
+		"creation": {"created_at": mergeAt.Add(-time.Second).UTC().Format(time.RFC3339Nano)},
+	}, func() *http.Response { return rollbackRecord(t, harness, login, survivor, rollbackBody) })
+	requireNonRowCurrentness(t, harness.DB, incidentID, survivor, preservedID, "entity_preserved_identifiers", "entity_preserved_identifier_id", map[string]map[string]any{
+		"raw":            {"raw_value": "LOSER.EXAMPLE.TEST"},
+		"value":          {"raw_value": "changed.example.test", "normalized_value": "changed.example.test"},
+		"classification": {"classification": "suggestion_only"},
+		"creation":       {"created_at": mergeAt.Add(-time.Second).UTC().Format(time.RFC3339Nano)},
+	}, func() *http.Response { return rollbackRecord(t, harness, login, survivor, rollbackBody) })
+	requireNonRowCurrentness(t, harness.DB, incidentID, survivor, outgoingLinkID, "record_links", "record_link_id", map[string]map[string]any{
+		"endpoint": {"dst_record_id": driftOwner.String()},
+	}, func() *http.Response { return rollbackRecord(t, harness, login, survivor, rollbackBody) })
+	requireNonRowCurrentness(t, harness.DB, incidentID, survivor, uniqueLoserTag, "record_tags", "record_tag_id", map[string]map[string]any{
+		"record":   {"record_id": driftOwner.String()},
+		"name":     {"tag_name": "changed-current-tag", "normalized_tag_name": "changed-current-tag"},
+		"creation": {"created_at": uniqueTagCreatedAt.Add(-time.Second).UTC().Format(time.RFC3339Nano)},
+		"update":   {"updated_at": mergeAt.Add(time.Second).UTC().Format(time.RFC3339Nano)},
+	}, func() *http.Response { return rollbackRecord(t, harness, login, survivor, rollbackBody) })
+	requireNonRowCurrentness(t, harness.DB, incidentID, survivor, loserTag, "record_tags", "record_tag_id", map[string]map[string]any{
+		"deletion_clock": {"deleted_at": mergeAt.Add(time.Second).UTC().Format(time.RFC3339Nano), "updated_at": mergeAt.Add(time.Second).UTC().Format(time.RFC3339Nano)},
+	}, func() *http.Response { return rollbackRecord(t, harness, login, survivor, rollbackBody) })
 	rollbackData := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, survivor, rollbackBody), http.StatusOK)["data"].(map[string]any)
 	requireAffectedRecords(t, rollbackData, survivor, loser, timeline, outgoingTarget, assessment)
 	rollbackChangeSetID := rollbackData["rollback_change_set_id"].(string)
+	requirePreservedIdentifierHistory(t, harness.DB, rollbackChangeSetID, preservedID, incidentID, survivor, actorID, mergeAt, rollbackAt, true)
+	aliasDeleted := expectedAliasHistory(aliasID, incidentID, survivor, actorID, "host", "Loser Alias", mergeAt)
+	aliasDeleted["deleted_at"] = rollbackAt.UTC().Format(time.RFC3339Nano)
+	requireAliasHistory(t, harness.DB, rollbackChangeSetID, "rollback", aliasID, aliasActive, aliasDeleted)
+
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND client_txn_id = 'txn-history_revision-i-7-05-rollback-merge'`, rollbackChangeSetID) != 1 {
 		t.Fatalf("merge rollback did not append rollback change_set")
 	}

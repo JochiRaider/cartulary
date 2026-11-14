@@ -10,7 +10,10 @@ import {
   parseServerTiming,
   percentile95,
 } from "../../measurement/timingSupport";
-import { reconcileSuiteAdminTotpState } from "../auth/suiteAdmin";
+import {
+  generateTotpCode,
+  reconcileSuiteAdminTotpState,
+} from "../auth/suiteAdmin";
 import { verifyOwnedHarnessRuntime } from "./readiness";
 
 function clearHarnessTokenEnv() {
@@ -31,6 +34,13 @@ afterEach(() => {
 
 describe("reconcileSuiteAdminTotpState", () => {
   it("reuses the stored suite-admin secret when it still authenticates", async () => {
+    // RFC 6238 SHA256 at 59 seconds, projected to the adopted six digits.
+    expect(
+      generateTotpCode(
+        "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA",
+        59_000,
+      ),
+    ).toBe("119246");
     const client = {
       loginLocal: vi.fn(async () => ({ kind: "success" as const })),
       provisionTotpFromBootstrap: vi.fn(async () => "unused"),
@@ -39,11 +49,6 @@ describe("reconcileSuiteAdminTotpState", () => {
     const secret = await reconcileSuiteAdminTotpState(
       client,
       "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
-      {
-        externalServerMode: true,
-        sharedStateDir: "/tmp/cartulary-shared",
-        stateFilePath: "/tmp/cartulary-shared/admin-totp.txt",
-      },
     );
 
     expect(secret).toBe("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA");
@@ -64,11 +69,7 @@ describe("reconcileSuiteAdminTotpState", () => {
       ),
     };
 
-    const secret = await reconcileSuiteAdminTotpState(client, null, {
-      externalServerMode: true,
-      sharedStateDir: "/tmp/cartulary-shared",
-      stateFilePath: "/tmp/cartulary-shared/admin-totp.txt",
-    });
+    const secret = await reconcileSuiteAdminTotpState(client, null);
 
     expect(secret).toBe("RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA");
     expect(client.provisionTotpFromBootstrap).toHaveBeenCalledWith(
@@ -87,20 +88,12 @@ describe("reconcileSuiteAdminTotpState", () => {
       provisionTotpFromBootstrap: vi.fn(async () => "unused"),
     };
 
-    await expect(
-      reconcileSuiteAdminTotpState(client, null, {
-        externalServerMode: true,
-        sharedStateDir: "/tmp/cartulary-shared",
-        stateFilePath: "/tmp/cartulary-shared/admin-totp.txt",
-      }),
-    ).rejects.toThrow(
+    await expect(reconcileSuiteAdminTotpState(client, null)).rejects.toThrow(
       "suite admin MFA is already active but harness authentication state is unavailable",
     );
-    const error = await reconcileSuiteAdminTotpState(client, null, {
-      externalServerMode: true,
-      sharedStateDir: "/tmp/cartulary-shared",
-      stateFilePath: "/tmp/cartulary-shared/admin-totp.txt",
-    }).catch((caught: unknown) => caught);
+    const error = await reconcileSuiteAdminTotpState(client, null).catch(
+      (caught: unknown) => caught,
+    );
     const message = error instanceof Error ? error.message : String(error);
     expect(message).not.toContain("/tmp/cartulary-shared");
     expect(message).not.toContain("CARTULARY_PLAYWRIGHT_STATE_DIR");
@@ -108,11 +101,13 @@ describe("reconcileSuiteAdminTotpState", () => {
 });
 
 describe("verifyOwnedHarnessRuntime", () => {
-  it("skips the identity probe when the owned-stack token file is not configured", async () => {
+  it("rejects missing owned-stack credentials before the identity probe", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await verifyOwnedHarnessRuntime();
+    await expect(verifyOwnedHarnessRuntime()).rejects.toThrow(
+      "test-control token is not configured",
+    );
 
     expect(fetchMock).not.toHaveBeenCalled();
   });

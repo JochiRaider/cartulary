@@ -875,7 +875,7 @@ func verifyRestoredBlobRowsDetailed(ctx context.Context, provider EvidenceRecove
 	if provider == nil {
 		return "", 0, fmt.Errorf("%w: Evidence recovery provider is required", ErrInvalidBackupArtifact)
 	}
-	objects, err := provider.ListAvailableRecoveryObjects(ctx)
+	objects, err := provider.ListRequiredRecoveryObjects(ctx)
 	if err != nil {
 		return "", 0, fmt.Errorf("list restored Evidence objects: %w", err)
 	}

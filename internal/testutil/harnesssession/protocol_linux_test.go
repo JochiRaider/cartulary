@@ -100,6 +100,22 @@ func TestSessionProtocol(t *testing.T) {
 		if unix.Kill(os.Getpid(), 0) != nil {
 			t.Fatal("rejected proof affected the live process")
 		}
+		request, _ = json.Marshal(map[string]any{"proof": proof, "timeout_ms": 100})
+		output.Reset()
+		if code := ProcessMain([]string{"drain"}, bytes.NewReader(request), &output); code != 12 || DecodeCleanupDiagnostic(output.Bytes()) == nil {
+			t.Fatal("drain accepted mismatched identity", code)
+		}
+		for _, timeout := range []int{0, -1, 86400001} {
+			request, _ = json.Marshal(map[string]any{"proof": proof, "timeout_ms": timeout})
+			output.Reset()
+			if code := ProcessMain([]string{"drain"}, bytes.NewReader(request), &output); code != 11 || output.Len() != 0 {
+				t.Fatal("invalid drain deadline reached process control", code)
+			}
+		}
+		request, _ = json.Marshal(map[string]any{"proof": proof, "grace_ms": 0, "kill_ms": 1})
+		if code := ProcessMain([]string{"drain"}, bytes.NewReader(request), &output); code != 11 {
+			t.Fatal("force protocol accepted as drain", code)
+		}
 		for _, input := range [][]byte{
 			bytes.Repeat([]byte(" "), 4097),
 			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v2","stage":"process_identity","cause":"unresolved","errno":0}`),

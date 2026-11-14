@@ -8,9 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 )
 
 type entityPortableEnvelope struct {
@@ -211,19 +212,21 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL, $10, $11, $12, $13, $14, $15, 
 }
 
 func loadEntityPortableEnvelope(ctx context.Context, tx pgx.Tx, incidentID, recordID uuid.UUID) (entityPortableEnvelope, bool, error) {
-	var envelope entityPortableEnvelope
-	var deletedAt pgtype.Timestamptz
-	err := tx.QueryRow(ctx, `SELECT record_id, incident_id, record_type, row_version, created_at, updated_at, created_by_user_id, updated_by_user_id, deleted_at FROM records WHERE incident_id = $1 AND record_id = $2`, incidentID, recordID).Scan(&envelope.recordID, &envelope.incidentID, &envelope.recordType, &envelope.rowVersion, &envelope.createdAt, &envelope.updatedAt, &envelope.createdByUserID, &envelope.updatedByUserID, &deletedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return envelope, false, nil
+	envelope, err := records.NewStore().LoadEnvelopeTx(ctx, tx, recordID, false)
+	if errors.Is(err, enveloperead.ErrEnvelopeNotFound) {
+		return entityPortableEnvelope{}, false, nil
 	}
 	if err != nil {
-		return envelope, false, err
+		return entityPortableEnvelope{}, false, err
 	}
-	if deletedAt.Valid {
-		envelope.deletedAt = &deletedAt.Time
+	if envelope.IncidentID != incidentID {
+		return entityPortableEnvelope{}, false, nil
 	}
-	return envelope, true, nil
+	return entityPortableEnvelope{
+		recordID: envelope.RecordID, incidentID: envelope.IncidentID, recordType: envelope.RecordType,
+		rowVersion: envelope.RowVersion, createdAt: envelope.CreatedAt, updatedAt: envelope.UpdatedAt,
+		createdByUserID: envelope.CreatedByUserID, updatedByUserID: envelope.UpdatedByUserID, deletedAt: envelope.DeletedAt,
+	}, true, nil
 }
 
 func hostMatchesPortableEnvelope(row portableHostRow, envelope entityPortableEnvelope) bool {

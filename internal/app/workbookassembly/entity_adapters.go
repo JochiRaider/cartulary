@@ -312,6 +312,25 @@ func entityMutationFailure(err error, clientTxnID string) (*workbook.MutationFai
 	if errors.As(err, &admissionFailure) {
 		return entityAdmissionFailure(admissionFailure), true
 	}
+	var sameConflict *hostidentity.SameFieldConflictError
+	if errors.As(err, &sameConflict) {
+		conflict := sameConflict.Conflict
+		failure, conversionErr := workbook.SameFieldConflictFailure(workbook.SameFieldConflictInput{
+			ConflictToken: conflict.ConflictToken, RecordID: conflict.RecordID,
+			FieldKey:                conflict.FieldKey,
+			ConflictResolutionClass: workbook.SameFieldConflictClass(conflict.ConflictResolutionClass),
+			BaseRowVersion:          conflict.BaseRowVersion, CurrentRowVersion: conflict.CurrentRowVersion,
+			ClientValue: conflict.ClientValue, ServerValue: conflict.ServerValue,
+			BaseValue: workbook.OptionalConflictValue{
+				Present: conflict.BaseValue.Present, Value: conflict.BaseValue.Value,
+			},
+			ServerUpdatedBy: conflict.ServerUpdatedBy, ServerUpdatedAt: conflict.ServerUpdatedAt,
+			SuggestedMergedValue: workbook.OptionalConflictValue{
+				Present: conflict.SuggestedMergedValue.Present, Value: conflict.SuggestedMergedValue.Value,
+			},
+		})
+		return failure, conversionErr == nil
+	}
 	var rowConflict *hostidentity.RowVersionConflictError
 	if errors.As(err, &rowConflict) {
 		return workbook.RowVersionConflictFailure(

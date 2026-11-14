@@ -2,7 +2,6 @@ package revisions_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/historytest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -27,7 +27,7 @@ func TestHistorySourceFamilyPaging_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	check := func(t *testing.T, recordType string, snapshot map[string]any, kind string, facts map[string]any) {
+	check := func(t *testing.T, recordType string, snapshot map[string]any, kind string) {
 		t.Helper()
 		record := uuid.New()
 		envelopetest.SeedRecordEnvelope(t, harness.DB, incident, actor, record, recordType)
@@ -49,11 +49,11 @@ func TestHistorySourceFamilyPaging_Integration(t *testing.T) {
 			// The first row-family event is revision-only; the second uses the source's
 			// row mutation projector. Non-row families have two complete collection events.
 			if snapshot == nil || i == 2 {
-				target := record.String()
-				if kind == "record_tag" {
-					target = fmt.Sprintf("record_tag:%s:%s", record, record)
+				mutation := revisions.StoredMutation{TargetKind: kind, TargetID: record.String(), OperationKind: "create", AfterValue: snapshot}
+				if snapshot == nil {
+					mutation = historytest.NonRowMutation(kind, record.String(), incident.String(), actor.String(), uuid.NewString())
 				}
-				mustExec(t, harness.DB, `INSERT INTO change_set_mutations(change_set_id,sequence_no,target_kind,target_id,operation_kind,before_value,after_value,history_record_ids,history_entry_record_ids) VALUES($1,1,$2,$3,'create',NULL,$4,ARRAY[$5::uuid],'{}')`, cs, kind, target, encode(facts), record)
+				mustExec(t, harness.DB, `INSERT INTO change_set_mutations(change_set_id,sequence_no,target_kind,target_id,operation_kind,before_value,after_value,history_record_ids,history_entry_record_ids) VALUES($1,1,$2,$3,$4,$5,$6,ARRAY[$7::uuid],'{}')`, cs, mutation.TargetKind, mutation.TargetID, mutation.OperationKind, encode(mutation.BeforeValue), encode(mutation.AfterValue), record)
 			}
 		}
 		full := historyItems(getHistory(t, harness.Server.HTTP.URL, login, record, "?limit=100"))
@@ -83,14 +83,14 @@ func TestHistorySourceFamilyPaging_Integration(t *testing.T) {
 			for _, variant := range historytest.Variants(record.RecordType) {
 				t.Run(record.RecordType+variant, func(t *testing.T) {
 					snapshot := historytest.Snapshot(record.RecordType, record.SnapshotSchemaID, variant)
-					check(t, record.RecordType, snapshot, "record", snapshot)
+					check(t, record.RecordType, snapshot, "record")
 				})
 				count++
 			}
 		}
 		for _, target := range owner.NonRowTargets {
 			t.Run(target.TargetKind, func(t *testing.T) {
-				check(t, "host", nil, target.TargetKind, historytest.NonRowFacts(target.TargetKind))
+				check(t, "host", nil, target.TargetKind)
 			})
 			count++
 		}

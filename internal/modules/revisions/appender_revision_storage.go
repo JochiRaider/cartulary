@@ -80,6 +80,9 @@ type appendRecordRevisionValuesParams struct {
 }
 
 func appendRecordRevisionValuesTx(ctx context.Context, tx pgx.Tx, params appendRecordRevisionValuesParams) (int64, error) {
+	if !revisionSnapshotPairMatches(params.BeforeValue, params.AfterValue, params.RowVersion) {
+		return 0, fmt.Errorf("%w: record %s revision version %d disagrees with captured pair", ErrInvalidRecordSnapshot, params.RecordID, params.RowVersion)
+	}
 	var revisionID int64
 	if err := tx.QueryRow(ctx, `
 INSERT INTO record_revisions (

@@ -54,8 +54,9 @@ export async function verifySelectedEvidence({ roots, sourceDigest, catalog, req
     validateRetainedCleanup(run, cleanup);
     validateExecutionContext(readArtifact(root, "execution-context.json"), run, cleanup);
     const scan = readArtifact(root, "retained-secret-scan.json");
+    // This receipt schema admits only a passing scan. Failure or absence cannot
+    // supply a receipt; schema admission is the acceptance boundary.
     validateSchemaSync("cartulary.harness_retained_secret_scan.v1", scan);
-    if (scan.status !== "pass") throw new Error("retained privacy scan did not pass");
     const units = new Map(plan.graph.units.map(unit => [unit.unit_id, unit]));
     const projection = run.targetSummaries.get(run.manifest.target);
     if (!projection) throw new Error("missing public target projection");

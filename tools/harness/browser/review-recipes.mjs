@@ -8,7 +8,7 @@ import { operationDefinition, operationExecutionDigest, readOperationOwner } fro
 import { reviewChild } from "./review-child.mjs";
 import { seedDesignReview } from "./design-review-seed.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
-import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
+import { ownedProcess } from "../runtime/owned-process.mjs";
 import { execFileSync } from "../workspace/child-process.mjs";
 
 const preparationBuilds = Object.freeze([
@@ -21,6 +21,9 @@ export function recipeEnvironment(root, runRoot, runtime, input, environment = p
   const base = { ...environment };
   // A Go test parent may export its own toolchain root. Resolve from GO instead.
   delete base.GOROOT;
+  // This private recipe has its own output contract. A machine-readable parent
+  // graph must not impose its presentation mode on interactive review adapters.
+  delete base.CARTULARY_OUTPUT_MODE;
   const topology = JSON.parse(readFileSync(path.join(root, "tools/execution_topology_manifest.json")));
   for (const binary of topology.runtime_binaries) base[binary.output_make_variable] = path.resolve(root, base[binary.output_make_variable] || binary.default_output_path);
   for (const name of Object.keys(base)) if (/^(?:MAKEFLAGS|MAKEOVERRIDES|MFLAGS|REVIEW_PROFILE|UI_|OTEL_|CARTULARY_(?:MAKE_|TEST_|WEB_E2E_|BROWSER_|HARNESS_|PGTEST_|S3_)|CARTULARY__)/u.test(name)) delete base[name];
@@ -43,7 +46,7 @@ export function recipeEnvironment(root, runRoot, runtime, input, environment = p
 }
 function processRegistration(runtime, pid, dependencies) {
   const proof = ownedProcess(pid); runtime.record({ kind: "helper_process", target: proof, depends_on: dependencies });
-  return async () => { await stopOwnedProcess(proof); runtime.record({ kind: "helper_process", target: proof, state: "released" }); };
+  return () => { runtime.record({ kind: "helper_process", target: proof, state: "released" }); };
 }
 export async function buildReviewProducer({ target, root, environment, input, runtime, signal }) {
   const recipe = preparationBuilds.find(([name]) => name === target);

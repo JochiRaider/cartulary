@@ -676,21 +676,63 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 	if duplicateMember == nil || duplicateMember.Details["reason_code"] != "duplicate_object_member" {
 		t.Fatalf("duplicate JSON members must fail before normalization, got %#v", duplicateMember)
 	}
-	emptyReason, apiErr := DecodeReleaseActionRequest(strings.NewReader(`{"client_txn_id":"txn","reason":""}`))
-	if apiErr != nil {
-		t.Fatalf("empty reason should normalize, got %v", apiErr)
-	}
-	nullReason, apiErr := DecodeReleaseActionRequest(strings.NewReader(`{"client_txn_id":"txn","reason":null}`))
-	if apiErr != nil {
-		t.Fatalf("null reason should normalize, got %v", apiErr)
-	}
-	omittedReason, apiErr := DecodeReleaseActionRequest(strings.NewReader(`{"client_txn_id":"txn"}`))
-	if apiErr != nil {
-		t.Fatalf("omitted reason should normalize, got %v", apiErr)
-	}
-	if string(emptyReason.Normalized) != string(nullReason.Normalized) || string(emptyReason.Normalized) != string(omittedReason.Normalized) {
-		t.Fatalf("omitted, null, and empty reasons must compare equal: empty=%s null=%s omitted=%s", emptyReason.Normalized, nullReason.Normalized, omittedReason.Normalized)
-	}
+	t.Run("release action reasons", func(t *testing.T) {
+		for _, tc := range []struct {
+			name    string
+			reason  any
+			omit    bool
+			want    string
+			invalid bool
+		}{
+			{name: "omitted", omit: true},
+			{name: "null"},
+			{name: "empty", reason: ""},
+			{name: "normalized empty", reason: "\u2003\r\n\t "},
+			{name: "NFC and line endings", reason: "\u2003Cafe\u0301\r\nline\rtwo\t  spaces \u2003", want: "Café\nline\ntwo\t  spaces"},
+			{name: "format character", reason: "a\u200db", want: "a\u200db"},
+			{name: "normalized scalar maximum", reason: " " + strings.Repeat("e\u0301", 4096) + " ", want: strings.Repeat("é", 4096)},
+			{name: "scalar overflow", reason: strings.Repeat("é", 4097), invalid: true},
+			{name: "C0 control", reason: "a\x00b", invalid: true},
+			{name: "DEL control", reason: "a\x7fb", invalid: true},
+			{name: "C1 control", reason: "a\u0085b", invalid: true},
+			{name: "wrong type", reason: false, invalid: true},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				body := map[string]any{"client_txn_id": "txn"}
+				if !tc.omit {
+					body["reason"] = tc.reason
+				}
+				raw, err := json.Marshal(body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				got, apiErr := DecodeReleaseActionRequest(bytes.NewReader(raw))
+				if tc.invalid {
+					if apiErr == nil || apiErr.Status != 400 || apiErr.Code != "invalid_release_request" || apiErr.Details["field"] != "reason" || apiErr.Details["reason_code"] != "invalid_value" {
+						t.Fatalf("invalid reason error = %#v", apiErr)
+					}
+					return
+				}
+				if apiErr != nil {
+					t.Fatal(apiErr)
+				}
+				var wantReason *string
+				if tc.want != "" {
+					wantReason = &tc.want
+				}
+				if got.ClientTxnID != "txn" || (got.Reason == nil) != (wantReason == nil) || (got.Reason != nil && *got.Reason != tc.want) {
+					t.Fatal("decoded action does not preserve the independently expected normalized reason")
+				}
+				wantNormalized, err := json.Marshal(map[string]any{"client_txn_id": "txn", "reason": wantReason})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(got.Normalized, wantNormalized) {
+					t.Fatal("idempotency input differs from the independently expected normalized action")
+				}
+			})
+		}
+	})
 	partitioned, apiErr := DecodeCreateReleaseRequest(strings.NewReader(`{
 		"snapshot_id":"00000000-0000-0000-0000-000000000001",
 		"client_txn_id":"txn-release",
@@ -753,7 +795,7 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 	if withTuple.CompositionID == nil || withTuple.CompositionVersion == nil || withTuple.CompositionSHA256 == nil {
 		t.Fatalf("composition tuple not decoded: %#v", withTuple)
 	}
-	if *withTuple.CompositionVersion != "v2" || *withTuple.CompositionSHA256 != strings.Repeat("b", 64) {
+	if withTuple.CompositionID.String() != "00000000-0000-0000-0000-000000000002" || *withTuple.CompositionVersion != "v2" || *withTuple.CompositionSHA256 != strings.Repeat("b", 64) {
 		t.Fatalf("composition tuple not decoded: %#v", withTuple)
 	}
 	_, partialComposition := DecodeCreateReleaseRequest(strings.NewReader(`{
@@ -994,6 +1036,8 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 		model        ExportModel
 		graphResults []resolvedGraphResult
 		want         string
+		wantFailure  string
+		wantStage    string
 	}{
 		{
 			name: "invalid redaction profile",
@@ -1007,7 +1051,7 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 			want:     "redaction_profile_invalid",
 		},
 		{
-			name: "post redaction validation",
+			name: "unsupported external curated narrative",
 			request: func() CreateReleaseRequest {
 				req := baseRequest
 				req.RedactionProfileID = ExternalRedactionProfileID
@@ -1027,7 +1071,7 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 			want: "invalid_scalar_value",
 		},
 		{
-			name: "template render failure",
+			name: "unsupported template output kind",
 			request: func() CreateReleaseRequest {
 				req := baseRequest
 				req.OutputKind = "html"
@@ -1035,9 +1079,11 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 				req.RedactionProfileID = ExternalRedactionProfileID
 				return req
 			}(),
-			contract: contract,
-			model:    baseModel,
-			want:     "invalid_scalar_value",
+			contract:    contract,
+			model:       baseModel,
+			want:        "invalid_scalar_value",
+			wantFailure: "bundle_manifest_invalid",
+			wantStage:   "bundle_manifest",
 		},
 		{
 			name:    "undeclared template binding",
@@ -1203,6 +1249,12 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 			}
 			if err == nil || reasonCode != tc.want {
 				t.Fatalf("render reason = %q, err=%v want %q", reasonCode, err, tc.want)
+			}
+			if tc.wantFailure != "" {
+				var failure *renderValidationError
+				if !errors.As(err, &failure) || failure.FailureCode != tc.wantFailure || failure.Stage != tc.wantStage {
+					t.Fatalf("render rejection = %#v; want %s at %s", failure, tc.wantFailure, tc.wantStage)
+				}
 			}
 		})
 	}

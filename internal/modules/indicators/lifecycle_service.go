@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -157,7 +158,7 @@ func normalizeLifecycleAppendParams(params *IndicatorLifecycleAppendParams) erro
 }
 
 func validOptionalLifecycleText(value *string) bool {
-	return value == nil || (*value != "" && !strings.ContainsRune(*value, 0))
+	return value == nil || (utf8.ValidString(*value) && !strings.ContainsRune(*value, 0))
 }
 
 func (s *Application) ListIndicatorLifecycleIntervals(ctx context.Context, indicatorID uuid.UUID, afterValidFrom *time.Time, afterID *uuid.UUID, limit int) ([]IndicatorLifecycleIntervalRecord, error) {

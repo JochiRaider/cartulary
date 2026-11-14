@@ -26,7 +26,23 @@ func NewIncidentBundleBlobPortability(store objectstore.TypedStore, staging stag
 	if nilIncidentBundleStore(store) || staging == nil {
 		return nil, errors.New("compose Evidence Incident Bundle blob portability: typed object store is required")
 	}
-	return incidentbundleprovider.NewBlobPortability(store, staging), nil
+	return &incidentBundleBlobPortability{
+		IncidentBundleBlobPortability: incidentbundleprovider.NewBlobPortability(store, staging),
+		metadataFailure:               incidentBundleSourceDescriptor().DeclaredFailure("evidence.byte_size_digest_agree"),
+	}, nil
+}
+
+type incidentBundleBlobPortability struct {
+	IncidentBundleBlobPortability
+	metadataFailure error
+}
+
+func (p *incidentBundleBlobPortability) ExportBlobFiles(ctx context.Context, queryer incidentportability.Queryer, incidentID uuid.UUID, members incidentportability.MemberWriter) error {
+	err := p.IncidentBundleBlobPortability.ExportBlobFiles(ctx, queryer, incidentID, members)
+	if errors.Is(err, incidentbundleprovider.ErrBlobMetadata) {
+		return p.metadataFailure
+	}
+	return err
 }
 
 func nilIncidentBundleStore(store objectstore.TypedStore) bool {

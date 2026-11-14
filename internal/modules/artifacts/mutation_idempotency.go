@@ -159,9 +159,45 @@ func cloneStoredMutationPayload(stored StoredMutationPayload) StoredMutationPayl
 	stored.ChangeSetID = cloneUUIDPointer(stored.ChangeSetID)
 	stored.ContextualLink = cloneContextualLink(stored.ContextualLink)
 	if stored.Row != nil {
-		stored.Row = cloneMap(stored.Row)
+		stored.Row = cloneStoredMutationValue(stored.Row).(map[string]any)
 	}
 	return stored
+}
+
+// Stored rows contain JSON objects and arrays, including typed collection-item
+// slices before serialization. Preserve scalar types while isolating containers.
+func cloneStoredMutationValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		if typed == nil {
+			return typed
+		}
+		cloned := make(map[string]any, len(typed))
+		for key, item := range typed {
+			cloned[key] = cloneStoredMutationValue(item)
+		}
+		return cloned
+	case []any:
+		if typed == nil {
+			return typed
+		}
+		cloned := make([]any, len(typed))
+		for index, item := range typed {
+			cloned[index] = cloneStoredMutationValue(item)
+		}
+		return cloned
+	case []map[string]any:
+		if typed == nil {
+			return typed
+		}
+		cloned := make([]map[string]any, len(typed))
+		for index, item := range typed {
+			cloned[index] = cloneStoredMutationValue(item).(map[string]any)
+		}
+		return cloned
+	default:
+		return value
+	}
 }
 
 func sameContextualSource(link *ContextualLink, source *uuid.UUID) bool {

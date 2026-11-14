@@ -3,12 +3,17 @@ package incidentbundles_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -39,13 +44,24 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	partyResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, source.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.parties.v1/rows", map[string]any{
 		"client_txn_id": "artifact-party", "party.display_name": "Historical subject", "party.party_kind": "person", "party.organization_name": "Example", "party.primary_email": "source@example.test",
 	}, httptestx.WithCookies(admin.Session, admin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRF.Value))
-	httptestx.RequireSuccessEnvelope(t, partyResponse, http.StatusCreated)
-	var retainedSourceKeys int
-	if err := source.DB.QueryRow(`SELECT count(*) FROM record_revisions rev CROSS JOIN LATERAL jsonb_object_keys(rev.after_json->'source') member WHERE rev.record_id IN (SELECT record_id FROM records WHERE incident_id=$1 AND record_type='party')`, incidentID).Scan(&retainedSourceKeys); err != nil {
+	partyData := httptestx.RequireSuccessEnvelope(t, partyResponse, http.StatusCreated)["data"].(map[string]any)
+	partyID := partyData["row"].(map[string]any)["record_id"].(string)
+	var retainedSourceJSON []byte
+	if err := source.DB.QueryRow(`SELECT jsonb_agg(rev.after_json->'source' ORDER BY rev.revision_id) FROM record_revisions rev JOIN records r ON r.record_id=rev.record_id WHERE r.incident_id=$1 AND r.record_type='party'`, incidentID).Scan(&retainedSourceJSON); err != nil {
 		t.Fatal(err)
 	}
-	if retainedSourceKeys != 10 {
-		t.Fatal("Party history must contain only source-owned facts")
+	var retainedSources []map[string]any
+	if err := json.Unmarshal(retainedSourceJSON, &retainedSources); err != nil {
+		t.Fatal(err)
+	}
+	wantSources := []map[string]any{{
+		"record_id": partyID, "incident_id": incidentID,
+		"display_name": "Historical subject", "party_kind": "person",
+		"organization_name": "Example", "primary_email": "source@example.test",
+		"role_title": nil, "timezone_name": nil, "external_ref": nil, "notes": nil,
+	}}
+	if !reflect.DeepEqual(retainedSources, wantSources) {
+		t.Fatalf("retained Party source facts = %#v, want %#v", retainedSources, wantSources)
 	}
 	jobResource := func(route string, body map[string]any) string {
 		t.Helper()
@@ -93,32 +109,55 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 		}
 	}
 	const catalogPath = "ext/snapshots/catalog.json"
-	var catalog struct {
-		Snapshots []struct {
-			ID   string `json:"snapshot_id"`
-			Path string `json:"source_capture_path"`
-		} `json:"snapshots"`
-		Releases []struct {
-			ID string `json:"release_id"`
-		} `json:"releases"`
+	capturePath := "ext/snapshots/" + snapshot + "/source-capture.json"
+	manifestPath := "ext/snapshots/releases/" + release + "/manifest.json"
+	objectDigest := func(schema, name string) string {
+		t.Helper()
+		data, exists := files[name]
+		if !exists || len(data) == 0 {
+			t.Fatalf("missing transported control object %s", name)
+		}
+		digest := sha256.Sum256(append([]byte(schema+"\n"), data...))
+		return hex.EncodeToString(digest[:])
 	}
-	if err := json.Unmarshal(files[catalogPath], &catalog); err != nil {
+	wantCatalog := map[string]any{
+		"schema_id": "cartulary.reporting_portable_artifacts.v3", "incident_id": incidentID,
+		"snapshots": []map[string]any{{
+			"snapshot_id": snapshot, "source_capture_path": capturePath,
+			"source_capture_sha256": objectDigest("cartulary.reporting_snapshot_capture.v1", capturePath),
+		}},
+		"releases": []map[string]any{{
+			"release_id": release, "snapshot_id": snapshot, "manifest_path": manifestPath,
+			"manifest_sha256": objectDigest("cartulary.render_bundle_manifest.v3", manifestPath),
+		}},
+	}
+	wantCatalogBytes, err := json.Marshal(wantCatalog)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Snapshots) != 1 || catalog.Snapshots[0].ID != snapshot || len(catalog.Releases) != 1 || catalog.Releases[0].ID != release {
-		t.Fatal("incomplete artifact catalog", catalog)
-	}
-	if bytes.Contains(files[catalogPath], []byte("omitted_files")) || !bytes.Contains(files[catalogPath], []byte("cartulary.reporting_portable_artifacts.v3")) {
-		t.Fatal("retired catalog structure exported")
+	if !bytes.Equal(files[catalogPath], wantCatalogBytes) {
+		t.Fatalf("artifact catalog = %s, want %s", files[catalogPath], wantCatalogBytes)
 	}
 	for name, data := range files {
 		if strings.HasPrefix(name, "ext/snapshots/releases/") && (strings.Contains(name, "internal/") || bytes.Contains(data, []byte("sensitive_reveal_map"))) {
 			t.Fatal("sensitive adjunct entered portable release evidence")
 		}
 	}
-	modelPath := catalog.Snapshots[0].Path
-	if !bytes.Contains(files[modelPath], []byte("analysis")) || bytes.Contains(files[modelPath], []byte("containment")) {
-		t.Fatal("snapshot was rematerialized from live state")
+	modelPath := capturePath
+	var capture map[string]any
+	if err := json.Unmarshal(files[modelPath], &capture); err != nil {
+		t.Fatal(err)
+	}
+	if capture["schema_id"] != "cartulary.reporting_snapshot_capture.v1" || capture["snapshot_id"] != snapshot || capture["incident_id"] != incidentID {
+		t.Fatalf("snapshot capture identity mismatch: %#v", capture)
+	}
+	wantCapturedIncident := map[string]any{
+		"id": incidentID, "title": "Original immutable title", "description": nil,
+		"status": "active", "severity": nil, "tlp": nil,
+		"current_phase": "analysis", "version": float64(1),
+	}
+	if !reflect.DeepEqual(capture["incident"], wantCapturedIncident) {
+		t.Fatalf("captured incident = %#v, want %#v", capture["incident"], wantCapturedIncident)
 	}
 	sensitivePath := "ext/snapshots/releases/" + release + "/files/" + "internal/reveal-map.json"
 	if _, present := files[sensitivePath]; present {
@@ -160,12 +199,17 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 		t.Fatal("source artifacts fabricated native reporting state")
 	}
 	exported := zipMemberMap(t, export(target, destination, "artifact-reexport", true))
-	for name, data := range files {
-		if strings.HasPrefix(name, "ext/snapshots/") || name == "data/reference_pack_refs.json" {
-			if !bytes.Equal(data, exported[name]) {
-				t.Fatal("historical source bytes changed", name)
+	historicalMembers := func(members map[string][]byte) map[string][]byte {
+		selected := map[string][]byte{}
+		for name, data := range members {
+			if strings.HasPrefix(name, "ext/snapshots/") || name == "data/reference_pack_refs.json" {
+				selected[name] = data
 			}
 		}
+		return selected
+	}
+	if !reflect.DeepEqual(historicalMembers(exported), historicalMembers(files)) {
+		t.Fatal("historical re-export member inventory or bytes changed")
 	}
 	referenceCatalog := reportingArtifactCatalogFixture{files["data/reference_pack_refs.json"]}
 	if err := reporting.ValidateRetainedArtifacts(t.Context(), target.Pool, referenceCatalog); err != nil {
@@ -189,14 +233,17 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	}
 	// Stored bytes remain immutable even to an application role with UPDATE
 	// privileges accidentally added later. This failed statement is isolated.
-	tx, err := target.Pool.Begin(t.Context())
+	tx, err := target.DB.BeginTx(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = tx.Exec(t.Context(), `UPDATE reporting_imported_artifact_files SET size_bytes=size_bytes WHERE incident_id=$1`, incidentID)
-	_ = tx.Rollback(t.Context())
-	if err == nil {
-		t.Fatal("retained artifact update was allowed")
+	_, err = tx.ExecContext(t.Context(), `UPDATE reporting_imported_artifact_files SET size_bytes=size_bytes WHERE incident_id=$1`, incidentID)
+	if rollbackErr := tx.Rollback(); rollbackErr != nil {
+		t.Fatal("rollback immutable artifact probe", rollbackErr)
+	}
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "55000" {
+		t.Fatalf("retained artifact update error = %v, want immutability rejection (55000)", err)
 	}
 }
 

@@ -14,14 +14,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 )
 
-func classifyMissingMergeTargetTx(ctx context.Context, tx pgx.Tx, survivorRecordID uuid.UUID, loserRecordID uuid.UUID) error {
-	if _, err := loadMergeTargetMetaTx(ctx, tx, survivorRecordID); err != nil {
+func (s *Store) classifyMissingMergeTargetTx(ctx context.Context, tx pgx.Tx, survivorRecordID uuid.UUID, loserRecordID uuid.UUID) error {
+	if _, err := s.loadMergeTargetMetaTx(ctx, tx, survivorRecordID); err != nil {
 		if errors.Is(err, ErrMergeTargetNotFound) {
 			return ErrMergeTargetNotFound
 		}
 		return err
 	}
-	if _, err := loadMergeTargetMetaTx(ctx, tx, loserRecordID); err != nil {
+	if _, err := s.loadMergeTargetMetaTx(ctx, tx, loserRecordID); err != nil {
 		if errors.Is(err, ErrMergeTargetNotFound) {
 			return ErrMergeTargetNotFound
 		}
@@ -32,14 +32,14 @@ func classifyMissingMergeTargetTx(ctx context.Context, tx pgx.Tx, survivorRecord
 
 func (s *Store) planMergeProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, now time.Time) ([]uuid.UUID, error) {
 	recordIDs := []uuid.UUID{survivorRecordID, loserRecordID}
-	survivorMeta, err := loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
+	survivorMeta, err := s.loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
 	if err != nil {
 		if errors.Is(err, ErrMergeTargetNotFound) {
 			return nil, ErrMergeTargetNotFound
 		}
 		return nil, err
 	}
-	loserMeta, err := loadMergeTargetMetaTx(ctx, tx, loserRecordID)
+	loserMeta, err := s.loadMergeTargetMetaTx(ctx, tx, loserRecordID)
 	if err != nil {
 		if errors.Is(err, ErrMergeTargetNotFound) {
 			return nil, ErrMergeTargetNotFound
@@ -64,7 +64,24 @@ func (s *Store) planMergeProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, su
 	if err != nil {
 		return nil, err
 	}
-	return append(recordIDs, assessmentRecordIDs...), nil
+	recordIDs = append(recordIDs, assessmentRecordIDs...)
+	dependents, err := s.ports.referenceScope.DependentsTx(ctx, tx, survivorMeta.IncidentID, append([]uuid.UUID(nil), recordIDs...))
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range dependents {
+		if id == uuid.Nil {
+			return nil, fmt.Errorf("merge reference dependency has no record identity")
+		}
+		meta, err := s.loadMergeTargetMetaTx(ctx, tx, id)
+		if err != nil {
+			return nil, err
+		}
+		if meta.IncidentID != survivorMeta.IncidentID {
+			return nil, fmt.Errorf("merge reference dependency crosses incident boundary")
+		}
+	}
+	return sortedUUIDSet(uuidSet(append(recordIDs, dependents...))), nil
 }
 
 func uuidSet(recordIDs []uuid.UUID) map[uuid.UUID]struct{} {
@@ -112,16 +129,10 @@ func sortedUUIDSet(recordIDs map[uuid.UUID]struct{}) []uuid.UUID {
 	return result
 }
 
-func loadMergeTargetMetaTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (mergeTargetMeta, error) {
-	row := tx.QueryRow(ctx, `
-SELECT incident_id, record_type
-  FROM records
- WHERE record_id = $1
-`, recordID)
-	var meta mergeTargetMeta
-	meta.RecordID = recordID
-	if err := row.Scan(&meta.IncidentID, &meta.RecordType); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+func (s *Store) loadMergeTargetMetaTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (mergeTargetMeta, error) {
+	meta, err := s.ports.records.LoadTargetMetaTx(ctx, tx, recordID)
+	if err != nil {
+		if errors.Is(err, errEntityRecordEnvelopeNotFound) {
 			return mergeTargetMeta{}, ErrMergeTargetNotFound
 		}
 		return mergeTargetMeta{}, fmt.Errorf("load merge target meta: %w", err)

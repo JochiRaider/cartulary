@@ -80,6 +80,8 @@ func (tx *associationObservedTx) Rollback(ctx context.Context) error {
 }
 
 func TestNoteAssociationResource(t *testing.T) {
+	t.Run("contextual source deletion admission", exerciseContextualNoteSourceLock)
+	t.Run("contextual writers share source", exerciseContextualNoteWriterOverlap)
 	ctx := context.Background()
 	h := appsupport.StartStore(t, "note-association-resource")
 	actor := authstoretest.SeedActor(t, h.DB, authstoretest.ActorAttributes{Email: "note-association@example.test", DisplayName: "Notes owner"})
@@ -186,6 +188,7 @@ func TestNoteAssociationResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() { _ = evidenceTx.Rollback(ctx) }()
 	if err := appsupport.EvidenceProjectionRows(h.DB).RefreshEvidenceTx(ctx, evidenceTx, evidence); err != nil {
 		t.Fatal(err)
 	}
@@ -243,6 +246,7 @@ func TestNoteAssociationResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() { _ = projectionTx.Rollback(ctx) }()
 	if err := appsupport.ArtifactProjectionRows(h.DB).RefreshArtifactTx(ctx, projectionTx, note.RecordID); err != nil {
 		t.Fatal(err)
 	}
@@ -301,4 +305,80 @@ func TestNoteAssociationResource(t *testing.T) {
 	if _, err := o.List(ctx, artifacts.NoteAssociationRead{ActorUserID: actor.ID, IncidentID: incident.ID, NoteID: note.RecordID, Kind: artifacts.NoteAssociationSource, Limit: 1}); !admission.IsDenied(err, admission.DenialNotVisible) {
 		t.Fatalf("revoked page read: %v", err)
 	}
+	t.Run("paging counts only eligible counterparts", func(t *testing.T) {
+		pagingIncident := appsupport.CreateIncidentInStore(t, h.DB, actor, "association-paging", "IR-NOTE-PAGING", "Paging")
+		createArtifact := func(view, txn string, fields map[string]any) uuid.UUID {
+			t.Helper()
+			created, err := f.Create(ctx, artifacts.CreateCommand{ActorUserID: actor.ID, IncidentID: pagingIncident.ID, Admission: mustArtifactCreateAdmission(t, view, txn, fields, nil), RequestID: txn, Now: now})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return created.RecordID
+		}
+		current := createArtifact(artifacts.NotesViewSchemaID, "paging-note", artifactTextValues("note.title", "Paging note"))
+		related := createArtifact(artifacts.NotesViewSchemaID, "paging-related", artifactTextValues("note.title", "Related note"))
+		lesson := createArtifact(artifacts.LessonViewSchemaID, "paging-lesson", artifactTextValues("lesson.summary", "Wrong subtype"))
+		type linkFixture struct {
+			recordID uuid.UUID
+			linkID   uuid.UUID
+			stamp    time.Time
+			deleted  bool
+		}
+		fixtures := []linkFixture{{recordID: related}, {recordID: lesson}}
+		for _, entry := range []struct {
+			kind    string
+			deleted bool
+		}{{"task_request", false}, {"identity", false}, {"host", true}, {"host", false}, {"task_request", false}, {"host", true}} {
+			fixtures = append(fixtures, linkFixture{recordID: seedLinkedNoteSource(t, h, pagingIncident.ID, actor.ID, entry.kind, now), deleted: entry.deleted})
+		}
+		for index := range fixtures {
+			fixture := &fixtures[index]
+			fixture.stamp = now.Truncate(time.Microsecond).Add(time.Duration(index) * time.Minute)
+			tx, err := h.DB.BeginTx(ctx, pgx.TxOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = tx.Rollback(ctx) }()
+			linked, err := links.NewStore().UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{IncidentID: pagingIncident.ID, SrcRecordID: fixture.recordID, DstRecordID: current, LinkType: links.LinkTypeReferencesArtifact, Provenance: links.LinkProvenanceManual, OwnerUserID: actor.ID, Now: fixture.stamp})
+			if err != nil {
+				t.Fatal(err)
+			}
+			fixture.linkID = linked.RecordLinkID
+			if fixture.deleted {
+				if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at=$2,deleted_by_user_id=$3 WHERE record_id=$1`, fixture.recordID, now, actor.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := tx.Commit(ctx); err != nil {
+				t.Fatal(err)
+			}
+		}
+		read := artifacts.NoteAssociationRead{ActorUserID: actor.ID, IncidentID: pagingIncident.ID, NoteID: current, Kind: artifacts.NoteAssociationSource, Limit: 1}
+		for index, want := range []linkFixture{fixtures[5], fixtures[3]} {
+			page, err := o.List(ctx, read)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if page.NoteID != current || page.RowVersion != 1 || len(page.Items) != 1 || page.Items[0].CounterpartID != want.recordID || page.Items[0].Direction != "incoming" || page.HasMore != (index == 0) || page.LastID != want.linkID || !page.LastTime.Equal(want.stamp) {
+				t.Fatalf("eligible page %d: %#v, want counterpart %s and position %s", index, page, want.recordID, want.linkID)
+			}
+			stamp := page.LastTime
+			read.BeforeTime, read.BeforeID = &stamp, page.LastID
+		}
+		read.BeforeTime, read.BeforeID, read.Kind = nil, uuid.Nil, artifacts.NoteAssociationRelatedNote
+		page, err := o.List(ctx, read)
+		if err != nil || len(page.Items) != 1 || page.Items[0].CounterpartID != related || page.HasMore || page.LastID != fixtures[0].linkID {
+			t.Fatalf("related Note subtype page: %#v, %v", page, err)
+		}
+		for _, index := range []int{3, 5} {
+			if _, err := h.DB.Exec(ctx, `UPDATE records SET deleted_at=$2,deleted_by_user_id=$3 WHERE record_id=$1`, fixtures[index].recordID, now, actor.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+		read.Kind = artifacts.NoteAssociationSource
+		page, err = o.List(ctx, read)
+		if err != nil || len(page.Items) != 0 || page.HasMore || page.LastID != uuid.Nil || !page.LastTime.IsZero() {
+			t.Fatalf("all-excluded page must be empty and terminal: %#v, %v", page, err)
+		}
+	})
 }

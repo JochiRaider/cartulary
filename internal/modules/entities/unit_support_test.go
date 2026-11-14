@@ -66,6 +66,7 @@ func newEntityTestStore(t testing.TB, pool dbport.DB) *hostidentity.Store {
 		t.Fatalf("compose Projections: %v", err)
 	}
 	store, err := hostidentity.NewStore(hostidentity.StoreDependencies{
+		ConflictTokens: conflicttest.NewCodec("entity-store"), ConflictFields: revisionComposition.Runtime.ConflictFieldResolver(),
 		Postgres:               pool,
 		Revisions:              revisionComposition.Runtime.Appender(),
 		ProjectionMutationRows: projection.EntityMutationRows(),

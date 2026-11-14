@@ -26,20 +26,22 @@ type mergeCollaborationStub struct {
 	collaboration.RecordChangedAppender
 }
 type mergeAssessmentEffectsStub struct{ AssessmentEffectsPort }
+type mergeReferenceScopeStub struct{ ReferenceScopePort }
 
 func TestMergeStoreCompositionRequiresCompleteDependencies_Unit(t *testing.T) {
 	mentionStore := &noopMentionStore{}
 	valid := func() StoreDependencies {
 		return StoreDependencies{
-			Postgres:      mergeStorePostgresStub{},
-			Revisions:     &revisions.Appender{},
-			HostIdentity:  hostidentity.NewMergeCapability(),
-			Assessments:   mergeAssessmentEffectsStub{},
-			Mentions:      mentionStore,
-			Links:         noopLinkEffects{},
-			Timeline:      mergeTimelineEffectsStub{},
-			Projections:   mergeProjectionWriterStub{},
-			Collaboration: mergeCollaborationStub{},
+			Postgres:       mergeStorePostgresStub{},
+			Revisions:      &revisions.Appender{},
+			HostIdentity:   hostidentity.NewMergeCapability(),
+			Assessments:    mergeAssessmentEffectsStub{},
+			Mentions:       mentionStore,
+			Links:          noopLinkEffects{},
+			Timeline:       mergeTimelineEffectsStub{},
+			Projections:    mergeProjectionWriterStub{},
+			Collaboration:  mergeCollaborationStub{},
+			ReferenceScope: mergeReferenceScopeStub{},
 		}
 	}
 	tests := []struct {
@@ -65,6 +67,8 @@ func TestMergeStoreCompositionRequiresCompleteDependencies_Unit(t *testing.T) {
 		{name: "typed-nil Timeline", dependency: "Timeline", mutate: func(dependencies *StoreDependencies) { dependencies.Timeline = (*mergeTimelineEffectsStub)(nil) }},
 		{name: "missing Projections", dependency: "Projections", mutate: func(dependencies *StoreDependencies) { dependencies.Projections = nil }},
 		{name: "typed-nil Projections", dependency: "Projections", mutate: func(dependencies *StoreDependencies) { dependencies.Projections = (*mergeProjectionWriterStub)(nil) }},
+		{name: "missing ReferenceScope", dependency: "ReferenceScope", mutate: func(dependencies *StoreDependencies) { dependencies.ReferenceScope = nil }},
+		{name: "typed-nil ReferenceScope", dependency: "ReferenceScope", mutate: func(dependencies *StoreDependencies) { dependencies.ReferenceScope = (*mergeReferenceScopeStub)(nil) }},
 		{name: "missing Collaboration", dependency: "Collaboration", mutate: func(dependencies *StoreDependencies) { dependencies.Collaboration = nil }},
 		{name: "typed-nil Collaboration", dependency: "Collaboration", mutate: func(dependencies *StoreDependencies) { dependencies.Collaboration = (*mergeCollaborationStub)(nil) }},
 	}

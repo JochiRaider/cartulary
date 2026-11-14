@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
@@ -71,7 +72,11 @@ func TestRuntimeProducerInterop(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer rt.Close()
+		t.Cleanup(func() {
+			if err := rt.Close(); err != nil {
+				t.Errorf("close producer fixture runtime: %v", err)
+			}
+		})
 		env := map[string]string{}
 		for _, entry := range os.Environ() {
 			k, v, ok := strings.Cut(entry, "=")
@@ -122,10 +127,7 @@ func TestRuntimeProducerInterop(t *testing.T) {
 		u := engineUnit("test:cancel", 1)
 		u.TimeoutMS = 10000
 		u.Command = command{Executable: node, Args: []string{"tools/harness/tests/command-failure-fixture.mjs", "cooperative", ready}, Environment: map[string]string{}}
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		done := make(chan unitResult, 1)
-		go func() { done <- p.Execute(ctx, executionRequest{Unit: u}) }()
+		cancel, done := startRuntimeProcessFixture(t, &p, executionRequest{Unit: u})
 		deadline := time.After(5 * time.Second)
 		tick := time.NewTicker(5 * time.Millisecond)
 		defer tick.Stop()
@@ -134,13 +136,20 @@ func TestRuntimeProducerInterop(t *testing.T) {
 				break
 			}
 			select {
+			case r := <-done:
+				t.Fatalf("child exited before installing handlers: %+v", r)
 			case <-deadline:
 				t.Fatal("child did not install handlers")
 			case <-tick.C:
 			}
 		}
 		cancel()
-		r := <-done
+		var r unitResult
+		select {
+		case r = <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatal("producer fixture did not settle after cancellation")
+		}
 		if r.Failure == nil || r.Failure.Reason != "cancelled_or_interrupted" || r.Status != "cancelled" {
 			t.Fatal(r)
 		}
@@ -155,29 +164,47 @@ func TestRuntimeProducerInterop(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer rt.Close()
+		t.Cleanup(func() {
+			if _, err := os.Stat(rt.Root); os.IsNotExist(err) {
+				return
+			}
+			// Assertion failures still settle exact journal ownership after the
+			// process fixture's later-registered cancellation/join cleanup.
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			owner := harnessfixtures.ProductionOptions{Root: root, RunRoot: run, Runtime: rt}
+			if err := owner.Recover(ctx); err != nil {
+				t.Errorf("recover producer fixture: %v", err)
+			}
+			if err := rt.Close(); err != nil {
+				t.Errorf("close producer fixture runtime: %v", err)
+			}
+		})
 		ready := filepath.Join(scratch, "ready")
-		registered := filepath.Join(scratch, "registered")
+		payloadReady := filepath.Join(scratch, "payload-ready")
 		env := rt.Environment()
 		env["NODE_BIN"], env["PATH"] = node, "/usr/bin:/bin"
-		env["CAPTURE_READY"], env["CAPTURE_RUN"] = ready, run
-		env["CAPTURE_REGISTERED"] = registered
+		env["CAPTURE_READY"], env["CAPTURE_PAYLOAD_READY"], env["CAPTURE_RUN"] = ready, payloadReady, run
 		p := processRunner{Root: root, Environment: env, KillGrace: time.Second}
 		u := engineUnit("test:capture-cancel", 1)
 		u.TimeoutMS = 10000
 		u.Command = command{Executable: node, Args: []string{"--input-type=module", "--eval", `
-import {runPrivateCapturedProcess} from './tools/harness/runtime/private-child-process.mjs';
 import {writeFileSync} from 'node:fs';
+import {runPrivateCapturedProcess} from './tools/harness/runtime/private-child-process.mjs';
+import {createLaunchContext} from './tools/harness/runtime/launch-context.mjs';
 process.on('SIGTERM', () => {});
+const launch = createLaunchContext({repoRoot: process.cwd(), environment: process.env});
+const observedLaunch = {...launch, spawned(pid) {
+  launch.spawned(pid);
+  // The current onReady callback completes synchronous journal registration
+  // before this microtask can publish readiness to the cancelling parent.
+  queueMicrotask(() => writeFileSync(process.env.CAPTURE_READY, String(pid)));
+}};
 await runPrivateCapturedProcess(process.execPath, ['--input-type=module', '--eval',
-  "import {writeFileSync} from 'node:fs'; process.stdout.write('private cancellation output'); writeFileSync(process.env.CAPTURE_READY, String(process.pid)); setInterval(() => {}, 1000);"],
-  {repoRoot: process.cwd(), runRoot: process.env.CAPTURE_RUN, cwd: process.cwd(), env: process.env, dependencies: [],
-   onSpawn() { writeFileSync(process.env.CAPTURE_REGISTERED, 'registered'); }});
+  "import {writeFileSync} from 'node:fs'; process.stdout.write('private cancellation output'); writeFileSync(process.env.CAPTURE_PAYLOAD_READY, String(process.pid)); setInterval(() => {}, 1000);"],
+  {repoRoot: process.cwd(), runRoot: process.env.CAPTURE_RUN, cwd: process.cwd(), env: process.env, dependencies: [], launch: observedLaunch});
 `}, Environment: map[string]string{}}
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		done := make(chan unitResult, 1)
-		go func() { done <- p.Execute(ctx, executionRequest{Unit: u}) }()
+		cancel, done := startRuntimeProcessFixture(t, &p, executionRequest{Unit: u})
 		deadline := time.After(5 * time.Second)
 		tick := time.NewTicker(5 * time.Millisecond)
 		defer tick.Stop()
@@ -186,21 +213,34 @@ await runPrivateCapturedProcess(process.execPath, ['--input-type=module', '--eva
 			if data, err := os.ReadFile(ready); err == nil {
 				pid, _ = strconv.Atoi(string(data))
 			}
-			// Payload readiness alone can precede ownership registration. This
-			// case cancels only after the capture owner has installed handlers.
-			if data, err := os.ReadFile(registered); err == nil && string(data) == "registered" && pid > 0 {
+			payload, err := os.ReadFile(payloadReady)
+			payloadPID, _ := strconv.Atoi(string(payload))
+			if pid > 0 && err == nil && payloadPID == pid {
+				resources, err := rt.Resources(16)
+				if err != nil || len(resources) != 1 || resources[0].Kind != "helper_process" {
+					t.Fatal("capture was not registered", resources, err)
+				}
+				var proof harnesssession.ProcessProof
+				if json.Unmarshal(resources[0].Target, &proof) != nil || proof.PID != pid {
+					t.Fatal("registered identity differs from ready payload")
+				}
 				break
 			}
 			select {
 			case r := <-done:
 				t.Fatalf("capture exited before cancellation: %+v %s", r, r.Stderr)
 			case <-deadline:
-				t.Fatal("captured child and registered owner did not become ready")
+				t.Fatal("registered captured child did not become ready")
 			case <-tick.C:
 			}
 		}
 		cancel()
-		r := <-done
+		var r unitResult
+		select {
+		case r = <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatal("producer fixture did not settle after cancellation")
+		}
 		if r.Failure == nil || r.Failure.Reason != "cancelled_or_interrupted" || len(r.Stdout) != 0 || len(r.Stderr) != 0 {
 			t.Fatalf("private output escaped or cancellation lost: %+v", r)
 		}

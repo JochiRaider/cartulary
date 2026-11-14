@@ -1891,8 +1891,12 @@ semantic input digest; canonical output contains no generation timestamp,
 absolute repository path, commit identity, run-root path, command transcript,
 or current-run evidence reference. The current license wrapper identity is
 `cartulary.license_report.v2`; superseded wrappers are rejected without an
-alias, translator, dual reader, or dual writer. CycloneDX validation remains a
-required consumer check. Raw scanner captures, copied license-text trees, and
+alias, translator, dual reader, or dual writer. The canonical SBOM uses CycloneDX
+JSON 1.7; validation remains a required consumer check. Validators MUST reject
+missing, non-string or unsupported `specVersion` values before schema lookup.
+Only the fixed schema for version `1.7` is admitted; input values MUST NOT form
+schema paths. No older-version compatibility reader is supported. Raw scanner
+captures, copied license-text trees, and
 Markdown diagnostics are temporary producer work, not canonical or retained
 release inventory.
 
@@ -2451,7 +2455,7 @@ The current `frontend-fallow-static` profile MUST build an effective Fallow conf
 
 A human Markdown summary MUST be rendered from the existing global dead-code result without another scan or any Markdown input.
 
-Fallow reachability MUST represent durable owner patterns, not per-file suppression growth. Current owner patterns are Vitest entrypoints and setup files selected by `apps/web/vite.config.ts`, Playwright spec entrypoints and explicit global setup/teardown, task-surface and harness-check backing scripts declared by `tools/task_surface_owner.json`, Vite public asset URLs under the declared public root, and executable tooling dependencies invoked by owner scripts such as `pnpm exec cdxgen`. A missing owner-declared file, missing public asset reference, invalid owner input, or missing executable dependency declaration MUST fail `frontend-fallow-static` as `configuration_error`. Configuration integrity remains blocking `source-check` work in local `check`; report execution belongs to CI/release or explicit selection.
+Fallow reachability MUST represent durable owner patterns, not per-file suppression growth. Owner patterns include Vitest entrypoints and setup files selected by `apps/web/vite.config.ts`, Playwright spec entrypoints and explicit global setup/teardown, task-surface and harness-check backing scripts declared by `tools/task_surface_owner.json`, Vite public asset URLs under the declared public root, and executable tooling dependencies invoked by their owner scripts. A missing owner-declared file, missing public asset reference, invalid owner input, or missing executable dependency declaration MUST fail `frontend-fallow-static` as `configuration_error`. Configuration integrity remains blocking `source-check` work in local `check`; report execution belongs to CI/release or explicit selection.
 
 The bounded web policy MUST reject normalized `unused_files`, `unused_exports`,
 and `unused_types` findings under `apps/web`, including E2E support, as
@@ -3100,6 +3104,34 @@ content-derived SBOM/license inventory. Installation MUST require no source
 checkout, Go, Node or pnpm. Installation configuration, secrets and mutable state
 are outside the immutable payload. Package checksums prove byte identity, not
 publisher authentication; trusted delivery remains an operator responsibility.
+
+Package receipt consumers MUST acquire a bounded, stable, no-link regular-file
+snapshot, decode strict UTF-8 JSON and validate the current closed schema before
+interpreting fields. Package JSON evidence is limited to16MiB per input. A receipt's
+archive name MUST equal its manifest digest plus `.tar`; its image entries MUST be
+exactly application, postgres and seaweedfs in that order. Comparing two equally
+malformed receipts does not establish identity. Current package production, inspection
+and live readiness MUST require an explicit run ID and matching current run manifest;
+manual fallback identities and historical input selection are unsupported. Producer
+and inspection receipts MUST be published atomically as immutable mode-0600 files in
+owned mode-0700 retained directories. Publication failure MUST preserve any prior
+complete receipt. Public distributable payloads have their separately declared modes.
+
+Package archives and individual payload files MUST be bounded to64GiB. Archive
+acquisition MUST stream stable, owned, single-link regular files through no-follow
+anchored directories and reject group/other-writable input. Complete archives MUST
+publish atomically without replacement under their manifest-derived names; an existing
+winner is reusable only after equal byte-digest verification. New archives are0600
+inside an owned0700 cache. Only the exact existing owned0755 cache leaf MAY be tightened
+to0700 through its open descriptor; linked, unowned or other-permission directories
+MUST be rejected, and ancestors MUST NOT be changed. Existing safe0644 archive files
+remain readable. This cache policy does not alter distributable payload modes.
+
+Extraction MUST consume an owned private snapshot whose complete streamed bytes match
+the admitted receipt before any archive tool executes. Reopening the original cache
+pathname after hashing is insufficient. Snapshot workspaces MUST be unique0700
+directories, snapshot files0600, and cleanup MUST run after success and failure.
+Cleanup failure MUST fail the operation without replacing an existing primary failure.
 
 The three package smoke targets MUST consume the same produced package within a
 release run. Standalone invocations use that producer contract. Smoke consumers
@@ -9608,6 +9640,59 @@ Immediate cleanup after parent death is not guaranteed. The conformance guarante
 - detached reaper scheduling is optional unless the command declares it;
 - if a detached reaper is scheduled, it writes `reaper-scheduled.json` with lease ID, started-at timestamp, target resources, and timeout.
 
+Private physical cleanup dispatch MUST re-admit its exact active resource identity
+through the native journal before provider actions. A matching run/lease envelope
+alone is not proof of registration. The lookup is bounded and nonmutating; missing,
+released, forged, corrupt or linked records reject without provider effects. It returns
+the admitted current record, never invented absence or permission to discover resources.
+
+Package production MUST register each temporary external resource independently in
+the existing private runtime journal before its external effect. The closed
+`package_resource` proof binds the exact Docker daemon identity, a freshly minted UUID
+token and one role from `application`, `postgres`, `seaweedfs`, `build_tag`; its envelope
+binds the run and runtime lease. Package-owned names and labels derive from these fields,
+never caller-supplied commands or arbitrary resource locators. Admission MUST establish
+that all minted names are initially absent before reserving them. Container cleanup MUST
+match the exact name, token, run and lease labels before removing its exact ID. The build
+tag is only the allocation's reserved temporary tag; immutable application tags and
+borrowed images MUST survive. A daemon mismatch, malformed or ambiguous observation,
+failed removal or remaining resource fails cleanup. Absence is success only after a
+successful exact lookup on the bound daemon. Each role has its own30-second cleanup
+attempt under the existing native owner, so a failed or stalled role cannot skip other
+independent resources. Release is recorded only after verified absence. Pending proof
+covers partial acquisition and lost create/build replies; no global name or age sweep
+is permitted. Mutable producer, inspection and snapshot workspaces belong to existing
+runtime-owned private detail, which is purged under the established producer-settlement
+rules. Final immutable archives and caller extraction destinations remain outside that
+transient ownership.
+
+
+Disposable package qualification MUST reserve fresh source and destination Compose
+namespaces under a minted UUID allocation before external effects. Successful initial
+observations must establish absence of project-labelled resources, colliding project
+names and the workspace-repair helper. The closed `package_deployment` journal proof
+binds daemon identity, allocation token, scope and resource family. Containers, volumes
+and networks are independent records for each deployment; containers explicitly depend
+on their volume/network and shared workspace records. Native recovery and ordinary
+closure follow those dependencies, attempt independent siblings, and preserve unsafe
+parents. Cleanup inspects exact returned identities and project labels before removal
+and proves absence afterward. Listings are bounded to128 resources; each family uses a
+120-second native cleanup budget, consistent with managed deployment cleanup. Unknown,
+malformed, ambiguous, foreign-daemon or ownership observations cannot authorize removal.
+
+The shared workspace proof also binds its immutable helper-image ID and the exact
+ordinary private allocation path admitted by the native runtime. No arbitrary caller
+path is cleanup authority. Workspaces and extraction staging remain disposable private
+detail; original package archives/images and operator installations remain borrowed.
+When container-created ownership requires repair, the workspace owner MUST reserve and
+own its exact repair helper before creation, verify its allocation/run/lease labels,
+and retire it even after lost command replies or interrupted repair. Only that admitted
+workspace may be repaired. Workspace absence does not prove helper absence. Release
+requires verified absence of both helper and workspace; unresolved proof remains for
+later exact recovery without a global name/age sweep. These rules supplement producer
+settlement and independently safe detail purge; they do not permit blanket retention of
+containing proof directories or deletion of an active unrelated resource.
+
 
 ### 13.6 UI review cleanup
 
@@ -9772,6 +9857,24 @@ digest, compiler settings and effective mode. Stale cache entries MUST NOT
 silently supply ordinary, differently pinned or disabled-mode application binaries.
 Build receipts and package results include actual binary hashes and resolved
 build/module identities; caller-provided labels are not substitutes.
+
+The current `cartulary.cryptographic_build_receipt.v1` is a closed typed artifact.
+It contains schema_id, toolchain, selector, service_version, archive_sha256,
+binary_sha256 and build_info. Digests are lowercase SHA-256 hex. build_info preserves
+GoVersion, Path, Main and Settings, with optional Deps; module records contain Path
+and optional Version, Sum and a single replacement-module record. Setting records
+contain Key and optional Value, preserving Go's omission of empty values. Unknown
+fields are rejected at every level. Module lists and settings are bounded to16384
+entries, text fields to4096 bytes/characters by their schema, and acquisition remains
+within the package JSON bound. A producer validates this shape before publishing;
+harness package producers and qualification readers validate it before interpreting or
+copying the admitted snapshot. Installed verification treats cryptographic receipts as
+opaque manifest-bound assets and MUST verify their exact bytes, membership and modes;
+it MUST NOT maintain a second partial cryptographic-receipt parser. Semantic receipt
+admission and actual binary/module qualification remain with the build and qualification
+owners; installed byte integrity does not establish cryptographic qualification. Shape
+admission supplements actual pinned toolchain/archive and executable selector checks;
+it does not establish certification or authorize a different cryptographic profile.
 
 Existing package, Reference Pack and operational Recovery smokes MUST cover the
 three shipped binaries, positive fresh initialization, incompatible binary/state
@@ -10050,12 +10153,56 @@ Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-056
 
 SeaweedFS strict release evidence MUST derive its redaction scan input set from
 the current release-evidence run, the current `seaweedfs-compatibility` report,
-and the current backend-process backup/restore row evidence. Strict release
-targets MUST run `test-slice SUITE=backend-process` and `seaweedfs-compatibility` as current-run
-prerequisites. Stable copies, historical delivery-shaped paths, newest-run
+and the current backend-process backup/restore row evidence. The SeaweedFS release
+gate MUST declare current-invocation prerequisites for
+`seaweedfs-compatibility` and the canonical operator process row covering backup
+creation, latest inspection, latest restore, latest restore verification and due
+restore verification. The authored graph selects that exact row rather than the
+unrelated complete backend-process portfolio. Each command retains its Core-owned
+result, progress, privacy and durable-effect assertions. The gate consumes the actual
+canonical passing row and unit results; it MUST NOT create extra copies of private
+backup files merely for this check. Those retained public results join the redaction
+input set. They establish execution of the selected assertions, not universal recovery
+conformance. The reader MUST bind the retained execution graph to the current manifest,
+require the row unit in the gate's dependency closure, match its semantic digest and
+declared outputs, and reject nonpassing, incomplete or prior-invocation row results.
+A terminal whole-run summary is not required before the gate itself has finished. Stable copies, historical delivery-shaped paths, newest-run
 fallback evidence, retained `services-up` reports, and retired source-migration
 evidence MUST NOT satisfy the gate. Missing selected child artifacts are
 blocking findings and MUST NOT be replaced with fallback evidence.
+
+SeaweedFS release evidence is a current-invocation diagnostic projection, not a
+second release publication channel. Its sole retained report is
+`<run-root>/<target>/artifacts/release-gate-summary.json`, using
+`cartulary.seaweedfs_release_gate_summary.v3`. The producer MUST require an
+explicit current run identity and the graph-owned `seaweedfs-release-gate` target.
+No alternate evidence-only operation or report target is supported. It MUST NOT invent a manual run identity, publish stable copies,
+accept arbitrary input/output directories, or translate preceding report formats.
+The report binds the current run manifest's source identity. It is atomically
+published as mode `0600` within owned mode-`0700` directories; publication failure
+cannot leave an accepted replacement. Historical artifacts remain historical.
+
+The projection MUST distinguish source-policy checks, contract-inventory checks,
+and executed compatibility/recovery evidence. Declaring a threat control active,
+registering a schema, or finding a source token is not execution evidence for that
+control. Earlier `SWFS-AC-*` claim labels and references to absent owner sections
+MUST NOT supply current acceptance authority. The current report retains explicit
+check identities, outcomes, current evidence references and bounded structured
+findings; occurrence locations and classifications remain reviewable. It MUST NOT
+retain source excerpts, arbitrary child diagnostic text, raw storage values or
+unknown input fields. A gate passes only when every required check has qualified
+passing evidence; missing or unqualified execution evidence is blocking.
+
+External JSON evidence MUST be acquired through bounded, stable, no-link regular
+file reads and strict JSON decoding before closed-schema admission. The current
+compatibility report keeps its existing v1 producer shape, including all fourteen
+distinct case identities, typed outcomes and the explicit forbidden-skip list;
+its canonical unit result must be complete and passing. Wrong, missing, duplicate,
+unknown, malformed or conflicting fields MUST fail admission. Selected compatibility
+and recovery inputs must belong to the explicit current run. Repository source reads
+remain limited to admitted executable inputs and at most64MiB per file; individual
+machine evidence inputs and the retained SeaweedFS report are limited to16MiB.
+These bounds are engineering acquisition limits, not performance acceptance gates.
 
 **TH-HARNESS-REQ-675**
 The current profile contains no legacy-source object-storage transition product
@@ -11129,6 +11276,17 @@ explicit SQL/relation argument positions. Unqualified pipeline, named prepared
 execution, statement-description execution, textual low-level COPY and raw
 protocol access MUST fail explicitly. Pinned native API changes MUST require
 an admission review; same-named application methods confer no SQL capability.
+
+Connection retirement has one bounded exception to raw-driver rejection. A direct
+call to the resolved `database/sql.Conn.Raw` method MAY be admitted only with one
+inline function literal whose sole parameter is unnamed or blank and has the
+identity `any` or the empty interface, whose sole result is unnamed `error`, and
+whose entire body is one return of the imported `database/sql/driver.ErrBadConn`.
+Type and import aliases MUST resolve by declaration identity. This form receives
+an explicit closed, non-SQL disposition; it exposes no driver value or callback
+execution capability. Other Raw callbacks, callback variables, extracted methods,
+extra statements or defers, alternate returns and shadowed imports MUST remain
+rejected. Independent child discovery MUST continue through rejected callbacks.
 
 Closed SQL constructors MUST share lexical admission with source inspection.
 Comments outside quoted data are forbidden in closed templates. Formatting holes

@@ -34,12 +34,12 @@ func NewIncidentBundleSourcePort(
 			}
 			return applyPreparedRevisionsImportTx(ctx, tx, prepared, importContext, validation)
 		},
-		Validate: func(ctx context.Context, tx pgx.Tx, value any, _ sourceport.ImportContext) error {
+		Validate: func(ctx context.Context, tx pgx.Tx, value any, input sourceport.ImportContext) error {
 			prepared, ok := value.(preparedRevisionsImport)
 			if !ok {
 				return sourceport.ErrPreparedBinding
 			}
-			return validatePreparedRevisionsImportTx(ctx, tx, prepared, validation)
+			return validatePreparedRevisionsImportTx(ctx, tx, prepared, validation, input.Attributions)
 		},
 	})
 	if err := port.ValidateSourcePortContract(); err != nil {
@@ -54,12 +54,12 @@ func revisionsIncidentBundleDescriptor() sourceport.Descriptor {
 		OwnerID: "module.revisions", OwnerRelationIDs: []string{"record-revisions"},
 		Dependencies: []string{"links_tags"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/change_sets.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_sets.row.v1", Versions: []int{8}, StableIdentity: []string{"change_set_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
+			{LogicalPath: "data/change_sets.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_sets.row.v3", Versions: []int{8}, StableIdentity: []string{"change_set_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
 			{LogicalPath: "data/change_set_mutations.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_set_mutations.row.v1", Versions: []int{8}, StableIdentity: []string{"change_set_id", "sequence_no"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
 			{LogicalPath: "data/record_revisions.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.record_revisions.row.v1", Versions: []int{8}, StableIdentity: []string{"revision_id"}, StableIdentityInvariantID: "revisions.source_identity_admitted"},
 		},
 		InvariantIDs: []string{
-			"revisions.references_complete", "revisions.actor_references_complete",
+			"revisions.references_complete", "revisions.source_state_exact", "revisions.actor_references_complete",
 			"revisions.mutation_sequence_contiguous", "revisions.record_version_unique",
 			"revisions.history_reconstruction", "revisions.sequence_repair_after_validation",
 			"revisions.source_identity_admitted",

@@ -92,12 +92,14 @@ func testMigrationIssuanceAdmission(t *testing.T) {
 						return false, errors.New("unexpected acquisition")
 					}
 					h := &Harness{binding: bindFixture(inputs), operations: &ops}
+					rejected := false
 					func() {
 						defer func() {
 							if r := recover(); r != nil {
 								if _, ok := r.(capturedPreparationFailure); !ok {
 									panic(r)
 								}
+								rejected = true
 							}
 						}()
 						if targeted {
@@ -106,6 +108,9 @@ func testMigrationIssuanceAdmission(t *testing.T) {
 							h.MigrationDatabaseT(preparationFailureProbe{t})
 						}
 					}()
+					if !rejected {
+						t.Error("undeclared migration did not reject preparation")
+					}
 					if acquisitions != 0 {
 						t.Error("undeclared migration acquired a database")
 					}

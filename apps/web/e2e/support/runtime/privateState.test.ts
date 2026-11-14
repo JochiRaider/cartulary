@@ -11,12 +11,11 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-
+import { atomicLocalFile } from "../../../../../tools/harness/runtime/secure-local-files.mjs";
 import {
   parseWorkerAdminManifest,
   workerAdminManifestSchemaID,
 } from "../auth/workerAdmin";
-import { atomicWritePrivateFile } from "./privateState";
 
 const roots: string[] = [];
 
@@ -49,16 +48,23 @@ function manifest(overrides: Record<string, unknown> = {}) {
 
 describe("atomic private harness state", () => {
   it("publishes complete old-or-new contents with owner-only permissions", () => {
-    const { file } = scratchFile();
+    const { file, root } = scratchFile();
     writeFileSync(file, "old\n", { encoding: "utf8", mode: 0o600 });
 
-    atomicWritePrivateFile(file, "new\n", {
-      beforeRename: (temporaryPath) => {
-        expect(readFileSync(file, "utf8")).toBe("old\n");
-        expect(readFileSync(temporaryPath, "utf8")).toBe("new\n");
-        expect(statSync(temporaryPath).mode & 0o777).toBe(0o600);
-      },
-    });
+    function* contents() {
+      yield "new\n";
+      expect(readFileSync(file, "utf8")).toBe("old\n");
+      const temporary = readdirSync(root).find((name) =>
+        name.startsWith(".publishing-"),
+      );
+      expect(temporary).toBeDefined();
+      if (temporary === undefined)
+        throw new Error("missing temporary publication");
+      const temporaryPath = join(root, temporary);
+      expect(readFileSync(temporaryPath, "utf8")).toBe("new\n");
+      expect(statSync(temporaryPath).mode & 0o777).toBe(0o600);
+    }
+    atomicLocalFile(file, contents(), { replace: true });
 
     expect(readFileSync(file, "utf8")).toBe("new\n");
     expect(statSync(file).mode & 0o777).toBe(0o600);
@@ -68,12 +74,12 @@ describe("atomic private harness state", () => {
     const { file, root } = scratchFile();
     writeFileSync(file, "old\n", { encoding: "utf8", mode: 0o600 });
 
+    function* failedContents() {
+      yield "new\n";
+      throw new Error("synthetic publication failure");
+    }
     expect(() =>
-      atomicWritePrivateFile(file, "new\n", {
-        beforeRename: () => {
-          throw new Error("synthetic publication failure");
-        },
-      }),
+      atomicLocalFile(file, failedContents(), { replace: true }),
     ).toThrow("synthetic publication failure");
 
     expect(readFileSync(file, "utf8")).toBe("old\n");
@@ -93,6 +99,30 @@ describe("atomic private harness state", () => {
       parseWorkerAdminManifest(
         JSON.stringify({
           ...manifest(),
+          worker_admins: [{ ...manifest().worker_admins[0], password: 42 }],
+        }),
+      ),
+    ).toThrow(/password must be a non-empty string/);
+
+    for (const { contents, reason, secrets } of [
+      {
+        contents: `${JSON.stringify(manifest())} trailing`,
+        reason: /invalid JSON/,
+        secrets: ["PrivateWorker0Pass!"],
+      },
+      {
+        contents: JSON.stringify({
+          ...manifest(),
+          worker_admins: [
+            { ...manifest().worker_admins[0], parallel_index: -1 },
+          ],
+        }),
+        reason: /parallel_index must be a non-negative integer/,
+        secrets: ["PrivateWorker0Pass!"],
+      },
+      {
+        contents: JSON.stringify({
+          ...manifest(),
           worker_admins: [
             manifest().worker_admins[0],
             {
@@ -102,21 +132,22 @@ describe("atomic private harness state", () => {
             },
           ],
         }),
-      ),
-    ).toThrow(/duplicate user_id/);
-    let validationError: unknown;
-    try {
-      parseWorkerAdminManifest(
-        JSON.stringify({
-          ...manifest(),
-          worker_admins: [{ ...manifest().worker_admins[0], password: 42 }],
-        }),
-      );
-    } catch (error) {
-      validationError = error;
+        reason: /duplicate user_id/,
+        secrets: ["PrivateWorker0Pass!", "DoNotExposeThisPassword!"],
+      },
+    ]) {
+      let validationError: unknown;
+      try {
+        parseWorkerAdminManifest(contents);
+      } catch (error) {
+        validationError = error;
+      }
+      expect(validationError).toBeInstanceOf(Error);
+      expect(String(validationError)).toMatch(reason);
+      for (const secret of secrets) {
+        expect(contents).toContain(secret);
+        expect(String(validationError)).not.toContain(secret);
+      }
     }
-    expect(validationError).toBeInstanceOf(Error);
-    expect(String(validationError)).not.toContain("PrivateWorker0Pass!");
-    expect(String(validationError)).not.toContain("DoNotExposeThisPassword!");
   });
 });

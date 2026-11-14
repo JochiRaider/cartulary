@@ -23,6 +23,64 @@ import (
 
 // entity-resolution / REQ-01-196..REQ-01-227, REQ-02-039..REQ-02-044 / AC-188..AC-190, AC-221..AC-225.
 func TestResolveRoute_Integration(t *testing.T) {
+	t.Run("current protected target admission", exerciseMentionTargetAdmission)
+	for _, entityType := range []string{"host", "identity"} {
+		t.Run("deleted "+entityType+" target is concealed without mutation", func(t *testing.T) {
+			harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity-resolve-deleted-" + entityType, TestRouteMode: httptestx.TestRouteModeDisabled})
+			login, actorID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+			incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
+				"client_txn_id": "txn-deleted-target-incident",
+				"incident_key":  "IR-DELETED-TARGET",
+				"title":         "Deleted mention target admission",
+			})
+			incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+			timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, timelinetest.RecordID)
+			targetID, mentionID, fieldKey := entitytest.CanonicalHostRecordID, entitytest.HostMentionID, timelinetest.FieldHostRefs
+			if entityType == "host" {
+				entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, targetID, "Target", "target", "", "")
+			} else {
+				targetID, mentionID, fieldKey = entitytest.CanonicalIdentityRecordID, entitytest.IdentityMentionID, timelinetest.FieldIdentityRefs
+				entitytest.SeedIdentityRecord(t, harness.DB, incidentID, actorID, targetID, "Target", "target@example.test", "target@example.test", "TARGET")
+			}
+			entitytest.SeedMention(t, harness.DB, actorID, mentionID, timelinetest.RecordID, fieldKey, entityType, "Target", "unresolved", nil, nil)
+			if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, targetID, actorID); err != nil {
+				t.Fatal(err)
+			}
+			before := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
+			beforeMention := entitytest.LookupMention(t, harness.DB, mentionID)
+			request := entitytest.MentionResolveRoutePayload(1, "txn-deleted-target-resolve", "resolve_item", &targetID, nil)
+			do := func() *http.Response {
+				return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost,
+					harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+mentionID.String()+"/resolve", request,
+					httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
+			}
+			httptestx.RequireErrorEnvelope(t, do(), http.StatusNotFound, "resolved_record_not_found")
+			if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != before {
+				t.Fatalf("deleted target rejection changed source/history/publication: %+v -> %+v", before, got)
+			}
+			if got := entitytest.LookupMention(t, harness.DB, mentionID); !reflect.DeepEqual(got, beforeMention) {
+				t.Fatalf("deleted target rejection changed mention: %#v -> %#v", beforeMention, got)
+			}
+			if got := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM record_links WHERE incident_id = $1`, incidentID); got != 0 {
+				t.Fatalf("deleted target rejection left %d links", got)
+			}
+			if got := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM route_idempotency WHERE scope_key = $1`, mentionID.String()); got != 0 {
+				t.Fatalf("deleted target rejection left %d mention receipts", got)
+			}
+			// The identical request is valid after restoration; rejection must not
+			// consume its transaction identity or fail for an unrelated fixture defect.
+			if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET deleted_at = NULL, deleted_by_user_id = NULL WHERE record_id = $1`, targetID); err != nil {
+				t.Fatal(err)
+			}
+			httptestx.RequireSuccessData(t, do(), http.StatusOK)
+			resolved := entitytest.LookupMention(t, harness.DB, mentionID)
+			entitytest.RequireMentionStatus(t, resolved, entitytest.MentionStatusResolved)
+			if resolved.ResolvedRecordID == nil || *resolved.ResolvedRecordID != targetID || resolved.RowVersion != 2 {
+				t.Fatalf("restored target did not resolve exactly once: %#v", resolved)
+			}
+		})
+	}
+
 	t.Run("resolve_item uses authoritative route replay and history conformance", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-01-resolve-conformance", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminUserID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
@@ -73,6 +131,8 @@ func TestResolveRoute_Integration(t *testing.T) {
 		entitytest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
 		entitytest.SeedMention(t, harness.DB, adminUserID, entitytest.HostMentionID, timelinetest.RecordID, timelinetest.FieldHostRefs, "host", "WS-023", "unresolved", nil, nil)
 
+		setMentionHistoryCreationFixture(t, harness.DB, entitytest.HostMentionID)
+
 		socket := incidentwstest.ConnectViewSocket(t, harness.Server, incidentID.String(), viewtest.TimelineViewSchemaID, adminLogin.Session.Value)
 		defer socket.Close(1000, "test_complete")
 
@@ -92,6 +152,10 @@ func TestResolveRoute_Integration(t *testing.T) {
 			t.Fatalf("expected source record row_version=2 after resolve_item, got %#v", data)
 		}
 		revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, data["change_set_id"].(string))
+		resolvedAt := mentionHistoryResolutionClock(t, harness.DB, entitytest.HostMentionID)
+		requireRetainedMentionPair(t, harness.DB, data["change_set_id"].(string), entitytest.HostMentionID,
+			expectedMentionHistory(entitytest.HostMentionID, timelinetest.RecordID, adminUserID, "entities-test-support", "ws-023", "unresolved", 1, nil, nil),
+			expectedMentionHistory(entitytest.HostMentionID, timelinetest.RecordID, adminUserID, "entities-test-support", "ws-023", "resolved", 2, &entitytest.CanonicalHostRecordID, &resolvedAt))
 
 		mention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
 		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusResolved)

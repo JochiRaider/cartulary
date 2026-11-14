@@ -182,6 +182,39 @@ func (s *Store) LoadEnvelopeForShareTx(ctx context.Context, tx pgx.Tx, recordID 
 	return enveloperead.ScanRow(tx.QueryRow(ctx, envelopeSelectSQL(false)+" FOR SHARE", recordID))
 }
 
+// LoadEnvelopeForShareNowaitTx retains the same shared envelope lock without
+// waiting; callers keep the PostgreSQL contention cause for their own mapping.
+func (s *Store) LoadEnvelopeForShareNowaitTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (enveloperead.Envelope, error) {
+	return enveloperead.ScanRow(tx.QueryRow(ctx, envelopeSelectSQL(false)+" FOR SHARE NOWAIT", recordID))
+}
+
+// LoadEnvelopeForNoKeyUpdateTx admits an envelope writer without changing keys
+// or requiring a later shared-lock upgrade for relationship projection.
+func (s *Store) LoadEnvelopeForNoKeyUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (enveloperead.Envelope, error) {
+	return enveloperead.ScanRow(tx.QueryRow(ctx, envelopeSelectSQL(false)+" FOR NO KEY UPDATE", recordID))
+}
+
+// LoadEnvelopeForNoKeyUpdateNowaitTx preserves the contention cause for the
+// caller's destructive-operation mapping and does not own its transaction.
+func (s *Store) LoadEnvelopeForNoKeyUpdateNowaitTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (enveloperead.Envelope, error) {
+	return enveloperead.ScanRow(tx.QueryRow(ctx, envelopeSelectSQL(false)+" FOR NO KEY UPDATE NOWAIT", recordID))
+}
+
+// LoadEnvelopesForNoKeyUpdateTx serializes endpoint writers in canonical record
+// order without changing the supplied identity slice or transaction lifetime.
+// The lock also permits later projection refresh without a shared-lock upgrade.
+func (s *Store) LoadEnvelopesForNoKeyUpdateTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]enveloperead.Envelope, error) {
+	if len(recordIDs) == 0 {
+		return map[uuid.UUID]enveloperead.Envelope{}, nil
+	}
+	rows, err := tx.Query(ctx, enveloperead.SelectSQL+" WHERE record_id = ANY($1::uuid[]) ORDER BY record_id FOR NO KEY UPDATE", recordIDs)
+	if err != nil {
+		return nil, fmt.Errorf("lock record envelope writers: %w", err)
+	}
+	defer rows.Close()
+	return enveloperead.Collect(rows, len(recordIDs))
+}
+
 func (s *Store) LoadEnvelopesTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID, lock bool) (map[uuid.UUID]enveloperead.Envelope, error) {
 	if len(recordIDs) == 0 {
 		return map[uuid.UUID]enveloperead.Envelope{}, nil

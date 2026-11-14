@@ -9,7 +9,10 @@ import type { WorkbookPresenceDraft } from "../../collaboration/workbookCollabor
 import type { WorkbookActiveSurfacePort } from "../../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../../lifecycle/workbookInvalidation";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { acceptWorkbookRowObservation } from "../../query/acceptWorkbookRowObservation";
 import { useWorkbookBrowsingRegistry } from "../../query/WorkbookQueryBrowsingContext";
+import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
+import { workbookRowIsAdmissible } from "../../query/workbookRowObservation";
 import type { TimelineRowStoreCommands } from "../models/timelineControllerPorts";
 import {
   applyViewRowPatch,
@@ -62,6 +65,7 @@ export function useTimelineCollaborationBindings({
   beginRowsLoad,
   clearCommittedRows,
   collaborationProjection,
+  readScope,
   refreshRows,
   resolveClientTxn,
   rowsRef,
@@ -72,6 +76,7 @@ export function useTimelineCollaborationBindings({
   readonly clearCommittedRows: () => void;
   readonly beginRowsLoad: () => unknown;
   readonly collaborationProjection: TimelineCollaborationProjection;
+  readonly readScope: WorkbookViewQueryPort["readScope"];
   readonly refreshRows: (options?: {
     readonly requireAcceptance?: boolean;
   }) => Promise<void>;
@@ -128,12 +133,18 @@ export function useTimelineCollaborationBindings({
       admission.acceptRecordVersion(patch.record_id, patch.row_version);
 
       let patched = false;
+      const scope = readScope?.() ?? null;
       const nextRows = rowsRef.current.map((row) => {
         if (row.recordId !== patch.record_id || row.rawRow === null) {
           return row;
         }
         patched = true;
-        const committed = rowFromApi(applyViewRowPatch(row.rawRow, patch));
+        const raw = applyViewRowPatch(row.rawRow, patch);
+        const committed = rowFromApi(
+          workbookRowIsAdmissible(row.rawRow, patch.record_id, scope)
+            ? acceptWorkbookRowObservation(raw, scope)
+            : raw,
+        );
         const accepted = admission.acceptCommittedRow(committed);
         return {
           ...accepted.row,
@@ -162,7 +173,7 @@ export function useTimelineCollaborationBindings({
         ? { kind: "refresh_required" }
         : { kind: "applied" };
     },
-    [admission, browsing, replaceRows, rowsRef],
+    [admission, browsing, readScope, replaceRows, rowsRef],
   );
 
   const activeSurface = useMemo<WorkbookActiveSurfacePort>(

@@ -2,6 +2,7 @@ package rollback
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
 	"strings"
@@ -107,6 +108,9 @@ SELECT EXISTS (
 		if key == "subject_record_id" || key == "assessor_user_id" {
 			value, _, _ = requiredUUID(source, key)
 		}
+		if key == "confidence_score" && present && value != nil {
+			value, _ = numericInt(value) // ValidateRollbackValue admitted the score above.
+		}
 		values = append(values, present, value)
 	}
 	_, err := tx.Exec(ctx, `
@@ -161,6 +165,9 @@ func numericInt(value any) (int, bool) {
 		return typed, true
 	case int64:
 		return int(typed), true
+	case json.Number:
+		parsed, err := typed.Int64()
+		return int(parsed), err == nil && int64(int(parsed)) == parsed
 	case float64:
 		return int(typed), math.Trunc(typed) == typed
 	default:

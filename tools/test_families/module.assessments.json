@@ -338,22 +338,22 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "module.assessments.frontend.the_workbook_assessment_payload_builder_maps_ban_0e5d9eb77a",
+      "row_id": "module.assessments.incident_portability.admission",
       "owner_id": "module.assessments",
-      "family_id": "module.assessments.frontend",
+      "family_id": "module.assessments.incident_portability",
       "collaborator_ids": [
-        "web.workbook"
+        "module.incidentbundles",
+        "module.records"
       ],
       "verification_ids": [
-        "module.assessments.verification.behavior_contract"
+        "module.assessments.verification.incident_portability"
       ],
-      "runner": "vitest",
+      "runner": "go",
       "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
-        "titles": [
-          "maps band-first assessment create payloads without submitting the derived band"
-        ],
-        "project_id": "browser-unit"
+        "package": "./internal/modules/assessments",
+        "tests": [
+          "TestAssessmentIncidentBundleAdmission_Unit"
+        ]
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -361,9 +361,39 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "aggregate_placement": "fast",
+      "aggregate_placement": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.assessments.incident_portability.transaction",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.incident_portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments",
+        "tests": [
+          "TestAssessmentIncidentBundleTransaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.assessments.store.assessment_assessor_membership_contract_743da311fe",
@@ -664,36 +694,6 @@
         "postgres"
       ],
       "postgres_isolation": "exclusive"
-    },
-    {
-      "row_id": "module.assessments.store.import_binding_identity_characterization",
-      "owner_id": "module.assessments",
-      "family_id": "module.assessments.store",
-      "collaborator_ids": [
-        "module.imports"
-      ],
-      "verification_ids": [
-        "module.assessments.verification.behavior_contract",
-        "module.assessments.verification.incident_portability"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/app/importassembly",
-        "tests": [
-          "TestOwnerCreateRegistryComposesEveryCurrentViewTarget",
-          "TestOwnerCreateRegistryConsumesNarrowEvidenceFacade",
-          "TestOwnerCreateRegistryRequiresCompositionDependencies"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "fast",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.store.managed_service_assertions_for_compromise_assess_98ae87986a",

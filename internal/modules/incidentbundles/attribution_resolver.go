@@ -2,6 +2,7 @@ package incidentbundles
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -16,6 +17,49 @@ func ImportedAttributionResolver() revisions.ImportedAttributionResolver {
 }
 
 type importedAttributionResolver struct{}
+
+func (importedAttributionResolver) ResolveImportedHistoryActorsTx(ctx context.Context, tx pgx.Tx, incidentID, changeSetID uuid.UUID, sourceActorIDs []string) (map[string]string, error) {
+	var localUserID uuid.UUID
+	err := tx.QueryRow(ctx, `
+SELECT local_user_id
+  FROM incident_bundle_imported_attributions
+ WHERE incident_id=$1 AND source_table='change_sets'
+   AND source_column='actor_user_id' AND source_row_id=$2
+`, incidentID, changeSetID.String()).Scan(&localUserID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `
+SELECT source_actor_id
+  FROM incident_bundle_imported_actors
+ WHERE incident_id=$1 AND source_actor_id=ANY($2::text[])
+ ORDER BY source_actor_id
+`, incidentID, sourceActorIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[string]string, len(sourceActorIDs))
+	for rows.Next() {
+		var actorID string
+		if err := rows.Scan(&actorID); err != nil {
+			return nil, err
+		}
+		result[actorID] = localUserID.String()
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for _, actorID := range sourceActorIDs {
+		if _, ok := result[actorID]; !ok {
+			return nil, errors.New("incident bundle historical actor is unavailable")
+		}
+	}
+	return result, nil
+}
 
 type portableAttributionResolver struct{}
 

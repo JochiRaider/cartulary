@@ -9,12 +9,31 @@ import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 import test from "node:test";
 import { renderLayout, validateLayout } from "../../workspace/layout.mjs";
+import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
+import { createRuntime } from "../../runtime/session-client.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const fixtureEnvironment = (overrides = {}) => ({ PATH: process.env.PATH, HOME: process.env.HOME, LC_ALL: "C", GIT_OPTIONAL_LOCKS: "0", ...overrides });
 function fixture(t) {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-cleanup-"));
-  t.after(() => {
+  const processes = [];
+  let runtime, control, runRoot;
+  const processEnvironment = () => ({ ...process.env, ...runtime.producerEnvironment(), CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT: runRoot });
+  const stop = (proof) => stopOwnedProcess(proof, { environment: processEnvironment() });
+  t.after(async () => {
+    const failures = [];
+    for (const entry of [...processes].reverse()) {
+      try {
+        if (entry.proof) await stop(entry.proof);
+        else if (entry.child && !entry.isClosed) entry.child.kill("SIGKILL");
+        if (entry.closed) await entry.closed;
+        if (entry.error) throw entry.error;
+        if (entry.resource) runtime.record({ ...entry.resource, state: "released" });
+      } catch (error) { failures.push(error); }
+    }
+    if (failures.length) throw new AggregateError(failures, "workspace fixture process cleanup failed");
+    runtime?.close();
+    if (control) rmSync(control, { recursive: true, force: true });
     const repair = (directory) => { if (!existsSync(directory) || lstatSync(directory).isSymbolicLink()) return; chmodSync(directory, 0o700); for (const item of readdirSync(directory, { withFileTypes: true })) if (item.isDirectory()) repair(path.join(directory, item.name)); };
     repair(root); rmSync(root, { recursive: true, force: true });
   });
@@ -26,7 +45,36 @@ function fixture(t) {
   writeFileSync(path.join(root, "source"), "source\n"); git("add", "source"); git("-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "fixture");
   const write = (file, content = "fixture") => { mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); writeFileSync(path.join(root, file), content); };
   const run = (args, env = {}) => spawnSync("make", ["--no-print-directory", ...args], { cwd: root, encoding: "utf8", timeout: 15000, env: fixtureEnvironment(env) });
-  return { root, git, write, run };
+  const prepareRuntime = () => {
+    if (runtime) return;
+    // Cleanup-under-test cannot delete its test owner's journal. Keep control
+    // state outside the disposable worktree and bind orphan authority there.
+    control = mkdtempSync(path.join(os.tmpdir(), "cartulary-cleanup-owner-"));
+    runRoot = path.join(control, "run"); mkdirSync(runRoot, { mode: 0o700 });
+    runtime = createRuntime({ repoRoot: repo, runRoot, runID: "run", scratchRoot: path.join(control, "private") });
+  };
+  const record = (entry) => {
+    const resource = { kind: "helper_process", target: entry.proof, state: "acquired", run_id: runtime.runID, lease_id: runtime.leaseID, depends_on: [], recovery_files: [] };
+    runtime.record(resource);
+    entry.resource = resource;
+  };
+  const own = (pid) => {
+    prepareRuntime();
+    const proof = ownedProcess(pid);
+    const entry = { proof }; processes.push(entry); record(entry);
+    return proof;
+  };
+  const start = (command, args, options) => {
+    prepareRuntime();
+    const child = spawn(command, args, { ...options, detached: true });
+    const entry = { child, isClosed: false };
+    processes.push(entry);
+    child.once("error", (error) => { entry.error = error; });
+    entry.closed = new Promise((resolve) => child.once("close", () => { entry.isClosed = true; resolve(); }));
+    if (child.pid) { entry.proof = ownedProcess(child.pid); record(entry); }
+    return child;
+  };
+  return { root, git, write, run, start, own, stop };
 }
 function snapshot(root) {
   const records = [];
@@ -197,20 +245,17 @@ sleep 30 &
 descendant=$!
 printf '%s %s %s\\n' "$PPID" "$$" "$descendant" > barrier
 wait "$descendant"`);
-      const child = spawn("make", ["--no-print-directory", "clean"], { cwd: f.root, env: fixtureEnvironment(environment), stdio: ["ignore", "pipe", "pipe"] });
+      const child = f.start("make", ["--no-print-directory", "clean"], { cwd: f.root, env: fixtureEnvironment(environment), stdio: ["ignore", "pipe", "pipe"] });
       let stdout = "", stderr = "", identities = [];
       child.stdout.on("data", (chunk) => { stdout += chunk; });
       child.stderr.on("data", (chunk) => { stderr += chunk; });
       const exited = once(child, "exit");
-      t.after(() => {
-        child.kill("SIGKILL");
-        for (const pid of identities) { try { process.kill(pid, "SIGKILL"); } catch {} }
-      });
       const barrier = path.join(f.root, "barrier");
       for (let attempt = 0; !existsSync(barrier) && attempt < 500; attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
       assert.ok(existsSync(barrier), `${command} did not reach the cancellation barrier: ${stderr}`);
       identities = readFileSync(barrier, "utf8").trim().split(" ").map(Number);
       assert.equal(identities.length, 3);
+      f.own(identities[1]); // The utility starts a separate session and owns its sleeper.
       process.kill(identities[0], signal);
       const [code] = await exited;
       assert.notEqual(code, 0);
@@ -225,7 +270,6 @@ wait "$descendant"`);
         assert.equal(existsSync(`/proc/${pid}/fd/8`), false, `${pid} retained admission`);
         if (existsSync(`/proc/${pid}/status`)) assert.match(readFileSync(`/proc/${pid}/status`, "utf8"), /^State:\s+Z/mu);
       }
-      identities = [];
       // Prove the settled children no longer hold admission without deleting.
       success(f.run(["clean", "CARTULARY_CLEANUP_DRY_RUN=1"]));
     }
@@ -334,8 +378,8 @@ async function ready(child) {
 test("shared admission excludes cleanup, recurses, and survives a parent exit", async (t) => {
   const f = fixture(t); f.write("tmp/scratch");
   // A child retains the same kernel lock when its launching shell exits.
-  const child = spawn("bash", ["tools/harness/workspace/admission.sh", "run", "--", "bash", "tools/harness/workspace/admission.sh", "run", "--", "bash", "-c", "echo ready; read -r done"], { cwd: f.root, stdio: ["pipe", "pipe", "pipe"] });
-  t.after(() => child.kill()); await ready(child);
+  const child = f.start("bash", ["tools/harness/workspace/admission.sh", "run", "--", "bash", "tools/harness/workspace/admission.sh", "run", "--", "bash", "-c", "echo ready; read -r done"], { cwd: f.root, stdio: ["pipe", "pipe", "pipe"] });
+  await ready(child);
   const before = snapshot(f.root);
   rejected(f.run(["clean", "CARTULARY_CLEANUP_DRY_RUN=1"]), "resource_conflict"); assert.deepEqual(snapshot(f.root), before);
   rejected(f.run(["clean"]), "resource_conflict");
@@ -346,13 +390,13 @@ test("shared admission excludes cleanup, recurses, and survives a parent exit", 
 
 test("managed Node descendants retain admission after parent death", async (t) => {
   const f = fixture(t); f.write("tmp/scratch");
-  const program = 'import {spawn} from "./tools/harness/workspace/child-process.mjs"; const child=spawn("sleep",["30"],{stdio:"ignore",detached:true}); child.unref(); console.log(`ready ${child.pid}`); setInterval(()=>{},1000);';
-  const parent = spawn("bash", ["tools/harness/workspace/admission.sh", "run", "--", process.execPath, "--input-type=module", "-e", program], { cwd: f.root, stdio: ["ignore", "pipe", "pipe"] });
+  const program = 'import {spawn} from "./tools/harness/workspace/child-process.mjs"; const child=spawn("sleep",["30"],{stdio:"ignore",detached:true}); child.unref(); process.on("SIGTERM",()=>{ if(child.exitCode!==null || child.signalCode!==null) process.exit(0); child.once("close",()=>process.exit(0)); child.kill("SIGKILL"); }); console.log(`ready ${child.pid}`); setInterval(()=>{},1000);';
+  const parent = f.start("bash", ["tools/harness/workspace/admission.sh", "run", "--", process.execPath, "--input-type=module", "-e", program], { cwd: f.root, stdio: ["ignore", "pipe", "pipe"] });
   const output = await ready(parent), descendant = Number(output.match(/ready (\d+)/u)[1]);
-  t.after(() => { parent.kill("SIGKILL"); try { process.kill(descendant, "SIGKILL"); } catch {} });
+  const descendantProof = f.own(descendant);
   const exited = once(parent, "exit"); parent.kill("SIGKILL"); await exited;
   rejected(f.run(["clean"]), "resource_conflict");
-  process.kill(descendant, "SIGKILL");
+  await f.stop(descendantProof);
   for (let attempt = 0; existsSync(`/proc/${descendant}/fd/9`) && attempt < 100; attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
   success(f.run(["clean"]));
 });
@@ -361,10 +405,10 @@ test("Make prerequisite work and concurrent cleanup participate in admission", a
   const f = fixture(t);
   const makefile = readFileSync(path.join(f.root, "Makefile"), "utf8");
   f.write("Makefile", `${makefile}\nifeq ($(workspace_admitted),yes)\n.PHONY: admission-fixture\nadmission-fixture: tmp/prepared\ntmp/prepared:\n\t@mkdir -p tmp; echo ready; while ! test -e release; do sleep 0.05; done; touch tmp/prepared\nendif\n`);
-  const builder = spawn("make", ["--no-print-directory", "admission-fixture"], { cwd: f.root, stdio: ["ignore", "pipe", "pipe"] }); t.after(() => builder.kill()); await ready(builder);
+  const builder = f.start("make", ["--no-print-directory", "admission-fixture"], { cwd: f.root, stdio: ["ignore", "pipe", "pipe"] }); await ready(builder);
   rejected(f.run(["clean"]), "resource_conflict");
   const exited = once(builder, "exit"); f.write("release"); await exited;
-  const holder = spawn("bash", ["-c", 'exec 8<.git/cartulary-workspace.lock; flock -n -x 8; echo ready; read -r done'], { cwd: f.root, stdio: ["pipe", "pipe", "pipe"] }); t.after(() => holder.kill()); await ready(holder);
+  const holder = f.start("bash", ["-c", 'exec 8<.git/cartulary-workspace.lock; flock -n -x 8; echo ready; read -r done'], { cwd: f.root, stdio: ["pipe", "pipe", "pipe"] }); await ready(holder);
   rejected(f.run(["clean"]), "resource_conflict");
   const denied = spawnSync("bash", ["tools/harness/workspace/admission.sh", "run", "--", "true"], { cwd: f.root, encoding: "utf8" }); rejected(denied, "resource_conflict");
   const released = once(holder, "exit"); holder.stdin.end("done\n"); await released; success(f.run(["clean"]));

@@ -21,6 +21,7 @@ import (
 
 func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
+	assertEnterpriseCompletionAdmission(t, runtime, "oidc")
 	server, db := startEnterpriseServer(t, runtime, "extension_profile-enterprise-oidc")
 	defer db.Close()
 
@@ -228,9 +229,14 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 	requireErrorReason(t, mismatchResp, http.StatusConflict, "enterprise_auth_transaction_rejected", "provider_mismatch")
 	requireNoSessionCookie(t, mismatchResp)
 
+	issuedAt := time.Now().UTC().Truncate(time.Microsecond)
+	httptestx.SetClockFixed(t, server, issuedAt)
 	expiredBegin := beginEnterpriseAuth(t, server, "corp-oidc")
+	if !expiredBegin.expiresAt.After(issuedAt) || expiredBegin.expiresAt.After(issuedAt.Add(10*time.Minute)) {
+		t.Fatal("enterprise transaction expiry must be positive and no later than ten minutes after creation")
+	}
 	expiredURL := parseEnterpriseRedirect(t, expiredBegin.redirectURL)
-	httptestx.AdvanceClock(t, server, authn.EnterpriseAuthTransactionTTL+time.Second)
+	httptestx.SetClockFixed(t, server, expiredBegin.expiresAt)
 	expiredResp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, oidcCallbackURL(server, "corp-oidc", expiredURL.Query().Get("state"), expiredURL.Query().Get("nonce"), "valid-code", "Subject-Exact-001"), nil, httptestx.WithCookies(expiredBegin.cookie))
 	requireErrorReason(t, expiredResp, http.StatusConflict, "enterprise_auth_transaction_rejected", "expired")
 	requireNoSessionCookie(t, expiredResp)
@@ -264,6 +270,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 
 func TestEnterpriseSAMLACS_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
+	assertEnterpriseCompletionAdmission(t, runtime, "saml")
 	server, db := startEnterpriseServer(t, runtime, "extension_profile-enterprise-saml")
 	defer db.Close()
 
@@ -455,9 +462,14 @@ func TestEnterpriseSAMLACS_Integration(t *testing.T) {
 	requireErrorReason(t, providerMismatchResp, http.StatusConflict, "enterprise_auth_transaction_rejected", "provider_mismatch")
 	requireNoSessionCookie(t, providerMismatchResp)
 
+	issuedAt := time.Now().UTC().Truncate(time.Microsecond)
+	httptestx.SetClockFixed(t, server, issuedAt)
 	expiredBegin := beginEnterpriseAuth(t, server, "corp-saml")
+	if !expiredBegin.expiresAt.After(issuedAt) || expiredBegin.expiresAt.After(issuedAt.Add(10*time.Minute)) {
+		t.Fatal("enterprise transaction expiry must be positive and no later than ten minutes after creation")
+	}
 	expiredURL := parseEnterpriseRedirect(t, expiredBegin.redirectURL)
-	httptestx.AdvanceClock(t, server, authn.EnterpriseAuthTransactionTTL+time.Second)
+	httptestx.SetClockFixed(t, server, expiredBegin.expiresAt)
 	expiredACS := doForm(t, server.HTTP.URL+"/api/v1/auth/saml/corp-saml/acs", url.Values{
 		"RelayState":   []string{expiredURL.Query().Get("RelayState")},
 		"SAMLResponse": []string{assertion},
@@ -606,7 +618,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubject",
 	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
-	httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)
+	requireJSONEquivalent(t, httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"], createData)
 
 	nullReasonReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": 1,
@@ -615,7 +627,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"provider_subject":  "BindingSubject",
 		"reason":            nil,
 	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
-	httptestx.RequireSuccessEnvelope(t, nullReasonReplay, http.StatusOK)
+	requireJSONEquivalent(t, httptestx.RequireSuccessEnvelope(t, nullReasonReplay, http.StatusOK)["data"], createData)
 
 	normalizedEmptyReasonReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": 1,
@@ -624,7 +636,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"provider_subject":  "BindingSubject",
 		"reason":            " \t ",
 	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
-	httptestx.RequireSuccessEnvelope(t, normalizedEmptyReasonReplay, http.StatusOK)
+	requireJSONEquivalent(t, httptestx.RequireSuccessEnvelope(t, normalizedEmptyReasonReplay, http.StatusOK)["data"], createData)
 
 	divergentReplay := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": 1,
@@ -766,7 +778,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		"client_txn_id":     "txn-retire-binding",
 		"reason":            "retire provider",
 	}, httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
-	httptestx.RequireSuccessEnvelope(t, retireReplay, http.StatusOK)
+	requireJSONEquivalent(t, httptestx.RequireSuccessEnvelope(t, retireReplay, http.StatusOK)["data"], retireData)
 
 	retireAlreadyInactive := httptestx.DoJSON(t, http.DefaultClient, http.MethodDelete, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings/"+newAuthBindingID, map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
@@ -788,22 +800,77 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 		t.Fatalf("local login must remain available after retire: %#v", postRetireSessionData)
 	}
 
+	// Replay remains the original committed result even after binding retirement
+	// and a new local login. It must not revoke that newly established session.
+	type bindingReplayState struct {
+		administration userAdministrationObservation
+		bindings       string
+	}
+	observeReplayState := func(t testing.TB) bindingReplayState {
+		t.Helper()
+		var bindings string
+		if err := db.QueryRowContext(context.Background(), `SELECT coalesce(jsonb_agg(to_jsonb(b) ORDER BY id),'[]')::text FROM enterprise_auth_bindings b WHERE user_id::text=$1`, targetID).Scan(&bindings); err != nil {
+			t.Fatal("observe binding replay state", err)
+		}
+		return bindingReplayState{observeUserAdministration(t, db, targetID, adminID), bindings}
+	}
+	beforeLateReplays := observeReplayState(t)
+	for _, replay := range []struct {
+		name, method, path string
+		body               map[string]any
+		original           map[string]any
+	}{
+		{"create", http.MethodPost, "/auth-bindings", map[string]any{
+			"base_user_version": 1, "client_txn_id": "txn-create-binding",
+			"provider_key": "corp-bind", "provider_subject": "BindingSubject",
+		}, createData},
+		{"no-op rotate", http.MethodPost, "/auth-bindings/" + authBindingID + "/rotate", map[string]any{
+			"base_user_version": initialTargetVersion, "client_txn_id": "txn-rotate-same-subject",
+			"new_provider_subject": "BindingSubject", "reason": "same subject no-op",
+		}, sameSubjectData},
+		{"rotate", http.MethodPost, "/auth-bindings/" + authBindingID + "/rotate", map[string]any{
+			"base_user_version": initialTargetVersion, "client_txn_id": "txn-rotate-binding",
+			"new_provider_subject": "BindingSubjectRotated", "reason": "admin rotation",
+		}, rotateData},
+		{"retire", http.MethodDelete, "/auth-bindings/" + newAuthBindingID, map[string]any{
+			"base_user_version": retireBaseVersion, "client_txn_id": "txn-retire-binding",
+			"reason": "retire provider",
+		}, retireData},
+	} {
+		t.Run("late original-result replay/"+replay.name, func(t *testing.T) {
+			response := httptestx.DoJSON(t, http.DefaultClient, replay.method, server.HTTP.URL+"/api/v1/users/"+targetID+replay.path, replay.body,
+				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value))
+			requireJSONEquivalent(t, httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"], replay.original)
+			if observeReplayState(t) != beforeLateReplays {
+				t.Fatal("binding replay repeated durable or session effects")
+			}
+			sessionResponse := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(postRetireLocalLogin.Session))
+			data := httptestx.RequireSuccessEnvelope(t, sessionResponse, http.StatusOK)["data"].(map[string]any)
+			if data["user_id"] != targetID || data["provider_type"] != "local" {
+				t.Fatal("binding replay changed the new local session identity")
+			}
+		})
+	}
+
 	secretKeys := enterpriseForbiddenSecretKeys()
 	createIDem := lookupRouteIdempotency(t, db, "users.auth_bindings.create", adminID, targetID, "txn-create-binding")
 	if createIDem.StatusCode != http.StatusCreated {
 		t.Fatalf("unexpected create idempotency status: %#v", createIDem)
 	}
 	securityassert.RequireSecretSafePayload(t, createIDem.Response, secretKeys)
+	requireJSONEquivalent(t, createIDem.Response, createData)
 	rotateIDem := lookupRouteIdempotency(t, db, "users.auth_bindings.rotate", adminID, authBindingID, "txn-rotate-binding")
 	if rotateIDem.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected rotate idempotency status: %#v", rotateIDem)
 	}
 	securityassert.RequireSecretSafePayload(t, rotateIDem.Response, secretKeys)
+	requireJSONEquivalent(t, rotateIDem.Response, rotateData)
 	retireIDem := lookupRouteIdempotency(t, db, "users.auth_bindings.retire", adminID, newAuthBindingID, "txn-retire-binding")
 	if retireIDem.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected retire idempotency status: %#v", retireIDem)
 	}
 	securityassert.RequireSecretSafePayload(t, retireIDem.Response, secretKeys)
+	requireJSONEquivalent(t, retireIDem.Response, retireData)
 
 	events := lookupUserAuditEvents(t, db, targetID)
 	createEvent := requireAuditEventBySource(t, events, "users.auth_bindings.create")
@@ -859,6 +926,7 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 			t.Fatalf("expected one audit event for %s, got %d", source, got)
 		}
 	}
+	assertConcurrentBindingReceipts(t, runtime)
 }
 
 type enterpriseProviderSeed struct {
@@ -872,6 +940,7 @@ type enterpriseProviderSeed struct {
 }
 
 type enterpriseBeginResult struct {
+	expiresAt   time.Time
 	cookie      *http.Cookie
 	redirectURL string
 }
@@ -913,7 +982,13 @@ func beginEnterpriseAuthWithBody(t testing.TB, server *httptestx.Server, provide
 	t.Helper()
 	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/"+providerKey+"/begin", body)
 	responseBody := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+	expiresText, _ := responseBody["data"].(map[string]any)["expires_at"].(string)
+	expiresAt, err := time.Parse(time.RFC3339Nano, expiresText)
+	if err != nil {
+		t.Fatal("enterprise begin returned an invalid expiry timestamp")
+	}
 	return enterpriseBeginResult{
+		expiresAt:   expiresAt,
 		cookie:      requireEnterpriseAuthCookie(t, resp.Cookies()),
 		redirectURL: responseBody["data"].(map[string]any)["redirect_url"].(string),
 	}

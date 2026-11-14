@@ -51,6 +51,7 @@ function handle(repository, runRoot, identity, environment, owned, admissionToke
     settleDiagnosticScope: (scope) => call("settle_diagnostic_scope", { scope }),
     registerSecret: (value) => call("register", { values: [String(value ?? "")], environment: {} }),
     registerEnvironment: (values) => call("register", { values: [], environment: values }),
+    inspectResource: resource => call("inspect_resource", { resource }),
     record: ({ kind, target, state = "acquired", recovery_files, depends_on }) => call("record", { ...(admissionToken() ? { admission_token: admissionToken() } : {}), resource: { kind, target, state, ...(depends_on ? { depends_on } : {}), ...(recovery_files ? { recovery_files } : {}), run_id: runID, lease_id: leaseID } }),
     close: () => { if (closed) return; if (owned) call("close"); closed = true; },
   });

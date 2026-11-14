@@ -2,8 +2,11 @@ package hostidentity
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/preservedhistory"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -41,6 +44,17 @@ func (*MergeCapability) LoadIdentityTx(ctx context.Context, tx pgx.Tx, recordID 
 	return loadIdentityByRecordIDTx(ctx, tx, recordID)
 }
 
+// MergeIdentifierClaimPreparation binds the discovered claim set to the two
+// source identities. Consumers cannot replace or extend its protected tuples.
+type MergeIdentifierClaimPreparation struct {
+	incidentID uuid.UUID
+	entityType string
+	survivorID uuid.UUID
+	loserID    uuid.UUID
+	tuples     []normalizedIdentifierTuple
+	Conflict   *ActiveIdentifierTransitionConflict
+}
+
 func (*MergeCapability) PrepareIdentifierClaimsTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -48,7 +62,7 @@ func (*MergeCapability) PrepareIdentifierClaimsTx(
 	entityType string,
 	survivorRecordID uuid.UUID,
 	loserRecordID uuid.UUID,
-) (*ActiveIdentifierTransitionConflict, error) {
+) (*MergeIdentifierClaimPreparation, error) {
 	survivorTuples, err := recordIdentifierTuplesTx(ctx, tx, incidentID, entityType, survivorRecordID)
 	if err != nil {
 		return nil, err
@@ -61,6 +75,7 @@ func (*MergeCapability) PrepareIdentifierClaimsTx(
 	if err := lockIdentifierTuplesTx(ctx, tx, incidentID, entityType, tuples); err != nil {
 		return nil, err
 	}
+	prepared := &MergeIdentifierClaimPreparation{incidentID: incidentID, entityType: entityType, survivorID: survivorRecordID, loserID: loserRecordID, tuples: tuples}
 	for _, tuple := range tuples {
 		var claimedRecordID uuid.UUID
 		err := tx.QueryRow(ctx, `
@@ -78,14 +93,32 @@ SELECT record_id
 			return nil, err
 		}
 		if claimedRecordID != survivorRecordID && claimedRecordID != loserRecordID {
-			return &ActiveIdentifierTransitionConflict{
+			prepared.Conflict = &ActiveIdentifierTransitionConflict{
 				IdentifierClass:  tuple.IdentifierType,
 				NormalizedValue:  tuple.NormalizedValue,
 				BlockingRecordID: claimedRecordID,
-			}, nil
+			}
+			return prepared, nil
 		}
 	}
-	return nil, nil
+	return prepared, nil
+}
+
+// RevalidateIdentifierClaimsTx only reads. The caller already holds both source
+// envelopes and typed rows; acquiring new claims here would reverse lock order.
+func (*MergeCapability) RevalidateIdentifierClaimsTx(ctx context.Context, tx pgx.Tx, prepared *MergeIdentifierClaimPreparation) (bool, error) {
+	if prepared == nil {
+		return false, fmt.Errorf("missing Merge identifier claim preparation")
+	}
+	survivor, err := recordIdentifierTuplesTx(ctx, tx, prepared.incidentID, prepared.entityType, prepared.survivorID)
+	if err != nil {
+		return false, err
+	}
+	loser, err := recordIdentifierTuplesTx(ctx, tx, prepared.incidentID, prepared.entityType, prepared.loserID)
+	if err != nil {
+		return false, err
+	}
+	return slices.Equal(prepared.tuples, mergeNormalizedIdentifierTuples(survivor, loser)), nil
 }
 
 func (*MergeCapability) UpdateHostTx(ctx context.Context, tx pgx.Tx, record HostRecord) error {
@@ -107,12 +140,19 @@ func (*MergeCapability) SyncPreservedIdentifierTx(
 	classification string,
 	actorUserID uuid.UUID,
 	now time.Time,
-) (bool, error) {
-	return syncPreservedIdentifiersTx(ctx, tx, incidentID, recordID, entityType, []identifierSeed{{
+) (*preservedhistory.Value, error) {
+	values, err := syncPreservedIdentifiersTx(ctx, tx, incidentID, recordID, entityType, []identifierSeed{{
 		IdentifierType: identifierType,
 		RawValue:       rawValue,
 		Classification: classification,
 	}}, actorUserID, now)
+	if err != nil {
+		return nil, err
+	}
+	if len(values) == 0 {
+		return nil, nil
+	}
+	return &values[0], nil
 }
 
 func (*MergeCapability) SyncAliasesTx(

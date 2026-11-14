@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/google/uuid"
+
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -40,6 +42,28 @@ func (catalog *TargetSemanticsCatalog) DescribeValues(targetKind string, targetI
 		BeforeValue:   beforeObject,
 		AfterValue:    afterObject,
 	})
+}
+
+func (catalog *TargetSemanticsCatalog) historyRecordReferences(mutation portableChangeSetMutation, incidentID uuid.UUID) ([]HistoryRecordReference, error) {
+	entry, ok := catalog.targetEntry(mutation.TargetKind)
+	if !ok {
+		return nil, ErrMissingTargetSemantics
+	}
+	if entry.historyReferences == nil {
+		return nil, ErrMissingTargetSemantics
+	}
+	// Non-object sides still fail full history admission. Valid object references
+	// must be resolved before lower-priority shape or transition checks.
+	before, _ := mutation.BeforeValue.(map[string]any)
+	after, _ := mutation.AfterValue.(map[string]any)
+	references, err := entry.historyReferences(StoredMutation{
+		TargetKind: mutation.TargetKind, TargetID: mutation.TargetID, OperationKind: mutation.OperationKind,
+		BeforeValue: before, AfterValue: after,
+	}, incidentID)
+	if err != nil {
+		return nil, ErrInvalidTargetSemantics
+	}
+	return references, nil
 }
 
 func historyMutationObject(value any) (map[string]any, error) {
@@ -85,6 +109,17 @@ func (catalog *TargetSemanticsCatalog) targetKinds() []string {
 		result = append(result, targetKind)
 	}
 	sort.Strings(result)
+	return result
+}
+
+// rowTargetKinds resolves all admitted spellings for one physical row family.
+func (catalog *TargetSemanticsCatalog) rowTargetKinds(recordType string) []string {
+	var result []string
+	for _, kind := range catalog.targetKinds() {
+		if _, err := catalog.rowProvider(kind, recordType); err == nil {
+			result = append(result, kind)
+		}
+	}
 	return result
 }
 

@@ -1303,43 +1303,6 @@
       "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.evidence.browser.verify_attach_flow_uses_generated_protocol_types_7a778c9178",
-      "owner_id": "module.evidence",
-      "family_id": "module.evidence.browser",
-      "collaborator_ids": [
-        "harness.browser",
-        "web.application"
-      ],
-      "verification_ids": [
-        "module.evidence.verification.behavior_contract"
-      ],
-      "runner": "playwright",
-      "selector": {
-        "file": "apps/web/e2e/evidence-integration.spec.ts",
-        "project_id": "chromium",
-        "stage": "webserver_backed",
-        "scenario_ids": [
-          "scenario_28278e6a7554"
-        ],
-        "titles": [
-          "Verify attach flow uses generated protocol types, public error envelopes, and stable evidence selectors without raw object URLs or paths."
-        ]
-      },
-      "evidence_class": "browser",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_ordinary",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "browser_stack",
-      "aggregate_placement": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "browser_state_scope": "test_owned",
-      "postgres_isolation": "exclusive"
-    },
-    {
       "row_id": "module.evidence.browser_stateful.incident_access_revocation",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.browser_stateful",
@@ -1933,6 +1896,40 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.evidence.integration.accountable_owner_lifecycle",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "module.auth",
+        "module.collaboration",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceAccountableOwner_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.evidence.integration.attach_route_validation_authorization_route_owne_7567e19cd9",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.integration",
@@ -2254,6 +2251,132 @@
         "postgres"
       ],
       "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.evidence.integration.party_reference_concurrency",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "module.parties",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidencePartyReferenceConcurrency_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.evidence.integration.portable_blob_transaction",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidencePortableBlobTransaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.evidence.integration.portable_custody_transaction",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidencePortableCustodyTransaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.evidence.integration.portable_record_transaction",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidencePortableRecordTransaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.evidence.integration.preview_and_download_handle_issuance_accepts_onl_84f55ae52b",
@@ -3096,6 +3219,93 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.evidence.unit.portable_blob_admission",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidencePortableBlobAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.evidence.unit.portable_custody_admission",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidencePortableCustodyAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.evidence.unit.portable_record_admission",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidencePortableRecordAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.evidence.unit.provider_contribution_closure_f247686138",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.unit",
@@ -3124,6 +3334,33 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.evidence.unit.recovery_blob_metadata",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence/internal/policy",
+        "tests": [
+          "TestRecoveryBlobMetadata"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },

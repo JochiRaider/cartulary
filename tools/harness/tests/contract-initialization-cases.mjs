@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -63,7 +63,8 @@ export function assertImportAndFailureIsolation(context) {
     assert.equal(probe.status, 0, probe.stderr);
     assert.equal(probe.stdout, "", "support imports must not register or run tests");
 
-    const policyPath = path.join(directory, "invalid-policy.json");
+    const policyPath = path.join(directory, "tools/postgres_fixture_policy_registry.json");
+    mkdirSync(path.dirname(policyPath), { recursive: true });
     writeFileSync(policyPath, JSON.stringify({ schema_id: "invalid" }));
     const child = spawnSync(process.execPath, ["--test-reporter=tap", "--input-type=module", "--eval", `
       import test from "node:test";
@@ -71,10 +72,10 @@ export function assertImportAndFailureIsolation(context) {
       import { createContractTestContext } from ${JSON.stringify(contextURL)};
       import { validatePostgresFixturePolicy } from ${JSON.stringify(policyURL)};
       const root = process.argv[1];
-      const policyPath = process.argv[2];
+      const fixtureRoot = process.argv[2];
       test("invalid_policy", () => {
         const context = createContractTestContext(root, {
-          catalogMetadata: () => validatePostgresFixturePolicy(root, [], { policyPath }),
+          catalogMetadata: () => validatePostgresFixturePolicy(fixtureRoot, []),
         });
         void context.catalogMetadata;
       });
@@ -89,7 +90,7 @@ export function assertImportAndFailureIsolation(context) {
         assert.deepEqual(first.topology, { fresh: true });
         assert.notEqual(first.topology, second.topology);
       });
-    `, context.root, policyPath], { encoding: "utf8", timeout: 60_000, env: childEnvironment });
+    `, context.root, directory], { encoding: "utf8", timeout: 60_000, env: childEnvironment });
     const output = child.stdout + child.stderr;
     assert.equal(child.status, 1, output);
     assert.match(output, /(?:^|\n)not ok[^\n]*invalid_policy/u);

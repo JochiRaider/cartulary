@@ -48,10 +48,10 @@ describe("visual presentation declarations", () => {
         assertVisualPresentation(declaration, declaration),
       ).not.toThrow();
     }
-    try {
+    expect(() => {
       assertVisualPresentation(workbook, { density_id: "", theme_id: "" });
-    } catch (error) {
-      expect(error).toMatchObject({ name: "CartularyVisualCaptureError" });
-    }
+    }).toThrowError(
+      expect.objectContaining({ name: "CartularyVisualCaptureError" }),
+    );
   });
 });

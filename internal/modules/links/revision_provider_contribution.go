@@ -4,9 +4,22 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/revisionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/links/internal/valuecodec"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/google/uuid"
 )
 
 type historyValidator struct{}
+
+func historyRecordReferences(mutation revisions.StoredMutation, _ uuid.UUID) ([]revisions.HistoryRecordReference, error) {
+	owned, err := valuecodec.HistoryRecordReferences(mutation.TargetKind, mutation.BeforeValue, mutation.AfterValue)
+	if err != nil {
+		return nil, err
+	}
+	references := make([]revisions.HistoryRecordReference, 0, len(owned))
+	for _, reference := range owned {
+		references = append(references, revisions.HistoryRecordReference{IncidentID: reference.IncidentID, RecordID: reference.RecordID})
+	}
+	return references, nil
+}
 
 func (historyValidator) ValidateHistoryMutation(mutation revisions.StoredMutation) error {
 	return valuecodec.ValidateHistoryMutation(
@@ -30,6 +43,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 				HistoryProjector:  projectLinkHistory,
 				HistoryFacet:      revisions.NewFieldAssociationHistoryFacet([]string{"src_record_id", "dst_record_id"}, revisions.HistorySingleEntry),
 				HistoryValidator:  validator,
+				HistoryReferences: historyRecordReferences,
 				RollbackProvider:  provider,
 			},
 			{
@@ -38,6 +52,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 				HistoryProjector:  projectTagHistory,
 				HistoryFacet:      revisions.NewFieldAssociationHistoryFacet([]string{"record_id"}, revisions.HistorySingleEntry),
 				HistoryValidator:  validator,
+				HistoryReferences: historyRecordReferences,
 				RollbackProvider:  provider,
 			},
 		},

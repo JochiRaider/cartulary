@@ -186,10 +186,12 @@ export const httpOperationBindings = {
     "path_parameters": [],
     "query_parameters": [],
     "success_statuses": [
+      200,
       201
     ],
     "response_schema_id": "cartulary.core_http.SafeUserEnvelope.v1",
     "response_schemas_by_status": {
+      "200": "cartulary.core_http.SafeUserEnvelope.v1",
       "201": "cartulary.core_http.SafeUserEnvelope.v1"
     },
     "response_validation_policy_id": "closed_schema"
@@ -202,10 +204,12 @@ export const httpOperationBindings = {
     ],
     "query_parameters": [],
     "success_statuses": [
+      200,
       201
     ],
     "response_schema_id": "cartulary.core_http.SafeUserEnvelope.v1",
     "response_schemas_by_status": {
+      "200": "cartulary.core_http.SafeUserEnvelope.v1",
       "201": "cartulary.core_http.SafeUserEnvelope.v1"
     },
     "response_validation_policy_id": "closed_schema"
@@ -2189,8 +2193,8 @@ const statusResponseValidators: Partial<Record<HTTPOperationID, Readonly<Record<
   "changeCurrentPassword": {200: validators.validateCartularyCoreHttpPasswordChangeEnvelopeV1},
   "closeIncident": {200: validators.validateCartularyCoreHttpIncidentEnvelopeV1},
   "completeTOTPEnrollment": {200: validators.validateCartularyCoreHttpTOTPCompleteEnvelopeV1},
-  "createDeploymentUser": {201: validators.validateCartularyCoreHttpSafeUserEnvelopeV1},
-  "createEnterpriseAuthBinding": {201: validators.validateCartularyCoreHttpSafeUserEnvelopeV1},
+  "createDeploymentUser": {200: validators.validateCartularyCoreHttpSafeUserEnvelopeV1, 201: validators.validateCartularyCoreHttpSafeUserEnvelopeV1},
+  "createEnterpriseAuthBinding": {200: validators.validateCartularyCoreHttpSafeUserEnvelopeV1, 201: validators.validateCartularyCoreHttpSafeUserEnvelopeV1},
   "createImportSession": {202: validators.validateCartularyCoreHttpJobEnvelopeV1},
   "createImportUnitRegion": {201: validators.validateCartularyCoreHttpImportUnitEnvelopeV1},
   "createIncident": {200: validators.validateCartularyCoreHttpIncidentEnvelopeV1, 201: validators.validateCartularyCoreHttpIncidentEnvelopeV1},

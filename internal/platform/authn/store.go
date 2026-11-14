@@ -19,6 +19,7 @@ import (
 )
 
 var ErrNotFound = errors.New("authn: not found")
+var ErrLoginAuthorityChanged = errors.New("authn: login authority changed")
 var ErrClientTxnConflict = errors.New("authn: client transaction conflict")
 var ErrSubjectMismatch = errors.New("authn: subject mismatch")
 var ErrPendingExpired = errors.New("authn: pending enrollment expired")
@@ -279,10 +280,13 @@ type EnterpriseAuthBindingSummary struct {
 }
 
 type EnterpriseAuthCompletionResult struct {
-	User          UserRecord
-	Binding       EnterpriseAuthBindingSummary
-	ReturnTo      string
-	TransactionID uuid.UUID
+	ReturnTo       string
+	RevokedSession *SessionRecord
+}
+
+type EnterpriseAuthSessionInput struct {
+	TokenFingerprint []byte
+	RequestID        string
 }
 
 type EnterpriseAuthBindingResult struct {
@@ -444,22 +448,41 @@ SELECT s.id, s.user_id, s.authenticated_at, s.last_qualifying_activity_at, s.idl
 }
 
 func (s *Store) CreateSessionWithConcurrency(ctx context.Context, user UserRecord, fingerprint []byte, timing SessionTiming, requestID string) (SessionRecord, *SessionRecord, error) {
-	return s.createSessionWithConcurrency(ctx, user, fingerprint, timing, requestID, "local", nil)
-}
-
-func (s *Store) CreateSessionWithProviderConcurrency(ctx context.Context, user UserRecord, fingerprint []byte, timing SessionTiming, requestID string, providerType string, authBindingID *uuid.UUID) (SessionRecord, *SessionRecord, error) {
-	return s.createSessionWithConcurrency(ctx, user, fingerprint, timing, requestID, providerType, authBindingID)
-}
-
-func (s *Store) createSessionWithConcurrency(ctx context.Context, user UserRecord, fingerprint []byte, timing SessionTiming, requestID string, providerType string, authBindingID *uuid.UUID) (SessionRecord, *SessionRecord, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return SessionRecord{}, nil, fmt.Errorf("begin session transaction: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanupCtx)
 	}()
 
+	// A stable user lock serializes admission even when no sessions exist.
+	// Read Committed gives the following query a fresh snapshot after a wait,
+	// and user-first ordering agrees with credential/session revocation.
+	current, err := fetchUserForUpdate(ctx, tx, user.ID)
+	if err != nil {
+		return SessionRecord{}, nil, fmt.Errorf("lock session user: %w", err)
+	}
+	if !current.IsActive || current.Email != user.Email || current.PasswordHash != user.PasswordHash ||
+		(current.MFARequired && (!user.MFARequired || current.TOTPEnrolledAt == nil || user.TOTPEnrolledAt == nil ||
+			len(current.TOTPSecretEnvelope) == 0 || !bytes.Equal(current.TOTPSecretEnvelope, user.TOTPSecretEnvelope))) {
+		return SessionRecord{}, nil, ErrLoginAuthorityChanged
+	}
+	created, revoked, err := createSessionTx(ctx, tx, current, fingerprint, timing, requestID, "local", nil)
+	if err != nil {
+		return SessionRecord{}, nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return SessionRecord{}, nil, fmt.Errorf("commit session transaction: %w", err)
+	}
+	return created, revoked, nil
+}
+
+// Callers hold the user lock and validate current local or enterprise authority
+// before sharing this session-cap, audit and insertion boundary.
+func createSessionTx(ctx context.Context, tx pgx.Tx, user UserRecord, fingerprint []byte, timing SessionTiming, requestID string, providerType string, authBindingID *uuid.UUID) (SessionRecord, *SessionRecord, error) {
 	rows, err := tx.Query(ctx, `
 SELECT id, user_id, authenticated_at, last_qualifying_activity_at, idle_expires_at, absolute_expires_at,
        session_expires_at, revoked_at, revoke_reason_code, created_at, updated_at, provider_type, auth_binding_id
@@ -588,9 +611,6 @@ RETURNING id, user_id, authenticated_at, last_qualifying_activity_at, idle_expir
 		return SessionRecord{}, nil, fmt.Errorf("update user last_login_at: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return SessionRecord{}, nil, fmt.Errorf("commit session transaction: %w", err)
-	}
 	return created, revoked, nil
 }
 
@@ -690,14 +710,25 @@ SELECT id, user_id, authenticated_at, last_qualifying_activity_at, idle_expires_
 	return records, nil
 }
 
-func (s *Store) IssueBootstrapToken(ctx context.Context, userID uuid.UUID, fingerprint []byte, now time.Time) (BootstrapTokenRecord, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+func (s *Store) IssueBootstrapToken(ctx context.Context, user UserRecord, fingerprint []byte, now time.Time) (BootstrapTokenRecord, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return BootstrapTokenRecord{}, fmt.Errorf("begin bootstrap token transaction: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanupCtx)
 	}()
+
+	current, err := fetchUserForUpdate(ctx, tx, user.ID)
+	if err != nil {
+		return BootstrapTokenRecord{}, fmt.Errorf("lock bootstrap user: %w", err)
+	}
+	if !current.IsActive || current.Email != user.Email || current.PasswordHash != user.PasswordHash ||
+		!current.MFARequired || (current.TOTPEnrolledAt != nil && len(current.TOTPSecretEnvelope) > 0) {
+		return BootstrapTokenRecord{}, ErrLoginAuthorityChanged
+	}
 
 	if _, err := tx.Exec(ctx, `
 UPDATE bootstrap_tokens
@@ -706,7 +737,7 @@ UPDATE bootstrap_tokens
    AND consumed_at IS NULL
    AND superseded_at IS NULL
    AND expires_at > $2
-`, userID, now.UTC()); err != nil {
+`, user.ID, now.UTC()); err != nil {
 		return BootstrapTokenRecord{}, fmt.Errorf("supersede bootstrap tokens: %w", err)
 	}
 
@@ -715,7 +746,7 @@ UPDATE bootstrap_tokens
 INSERT INTO bootstrap_tokens (user_id, token_fingerprint, issued_at, expires_at)
 VALUES ($1, $2, $3, $4)
 RETURNING id, user_id, issued_at, expires_at, consumed_at, superseded_at
-`, userID, fingerprint, now.UTC(), now.UTC().Add(BootstrapTokenTTL)).Scan(
+`, user.ID, fingerprint, now.UTC(), now.UTC().Add(BootstrapTokenTTL)).Scan(
 		&token.ID,
 		&token.UserID,
 		&token.IssuedAt,
@@ -812,25 +843,26 @@ SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap
 	return &record, nil
 }
 
-func (s *Store) BeginTOTPEnrollment(
-	ctx context.Context,
-	enrollmentID uuid.UUID,
-	userID uuid.UUID,
-	authScopeKind string,
-	sessionID *uuid.UUID,
-	bootstrapTokenID *uuid.UUID,
-	clientTxnID string,
-	secretEnvelope []byte,
-	replacesActive bool,
-	now time.Time,
-) (PendingTOTPEnrollmentRecord, bool, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+func (s *Store) BeginTOTPEnrollment(ctx context.Context, input TOTPBeginInput, now time.Time) (PendingTOTPEnrollmentRecord, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
-		return PendingTOTPEnrollmentRecord{}, false, fmt.Errorf("begin totp enrollment transaction: %w", err)
+		return PendingTOTPEnrollmentRecord{}, fmt.Errorf("begin totp enrollment transaction: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanupCtx)
 	}()
+
+	user, err := fetchUserForUpdate(ctx, tx, input.User.ID)
+	if err != nil {
+		return PendingTOTPEnrollmentRecord{}, fmt.Errorf("lock TOTP begin user: %w", err)
+	}
+	if err := validateTOTPAuthScopeTx(ctx, tx, user, input.AuthScopeKind, input.SessionID, input.BootstrapTokenID, now); err != nil {
+		return PendingTOTPEnrollmentRecord{}, err
+	}
+	userID, authScopeKind := user.ID, input.AuthScopeKind
+	sessionID, bootstrapTokenID, clientTxnID := input.SessionID, input.BootstrapTokenID, input.ClientTxnID
 
 	row := tx.QueryRow(ctx, `
 SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
@@ -846,24 +878,36 @@ SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
-		return PendingTOTPEnrollmentRecord{}, false, fmt.Errorf("query current pending totp enrollment: %w", err)
+		return PendingTOTPEnrollmentRecord{}, fmt.Errorf("query current pending totp enrollment: %w", err)
 	default:
 		if !current.ExpiresAt.After(now.UTC()) {
 			if _, err := tx.Exec(ctx, `DELETE FROM pending_totp_enrollments WHERE id = $1`, current.ID); err != nil {
-				return PendingTOTPEnrollmentRecord{}, false, fmt.Errorf("clear expired pending totp enrollment: %w", err)
+				return PendingTOTPEnrollmentRecord{}, fmt.Errorf("clear expired pending totp enrollment: %w", err)
 			}
 		} else if current.AuthScopeKind == authScopeKind &&
 			current.ClientTxnID == clientTxnID &&
 			uuidPointersEqual(current.AuthScopeSessionID, sessionID) &&
 			uuidPointersEqual(current.AuthScopeBootstrapTokenID, bootstrapTokenID) {
 			if err := tx.Commit(ctx); err != nil {
-				return PendingTOTPEnrollmentRecord{}, false, fmt.Errorf("commit replayed totp enrollment transaction: %w", err)
+				return PendingTOTPEnrollmentRecord{}, fmt.Errorf("commit replayed totp enrollment transaction: %w", err)
 			}
-			return current, true, nil
+			return current, nil
 		} else {
-			return PendingTOTPEnrollmentRecord{}, false, ErrClientTxnConflict
+			return PendingTOTPEnrollmentRecord{}, ErrClientTxnConflict
 		}
 	}
+
+	if input.Creation == nil {
+		return PendingTOTPEnrollmentRecord{}, ErrClientTxnConflict
+	}
+	replacesActive := user.TOTPEnrolledAt != nil && len(user.TOTPSecretEnvelope) > 0
+	if (user.TOTPEnrolledAt == nil) != (input.User.TOTPEnrolledAt == nil) || !bytes.Equal(user.TOTPSecretEnvelope, input.User.TOTPSecretEnvelope) || (authScopeKind == "bootstrap_token" && replacesActive) {
+		return PendingTOTPEnrollmentRecord{}, ErrTOTPAuthorityChanged
+	}
+	if replacesActive && user.PasswordHash != input.User.PasswordHash {
+		return PendingTOTPEnrollmentRecord{}, ErrPasswordAuthorityChanged
+	}
+	enrollmentID, secretEnvelope := input.Creation.ID, input.Creation.SecretEnvelope
 
 	var created PendingTOTPEnrollmentRecord
 	if err := tx.QueryRow(ctx, `
@@ -888,9 +932,9 @@ RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootst
 		&created.ConsumedAt,
 	); err != nil {
 		if IsUniqueViolation(err) {
-			return PendingTOTPEnrollmentRecord{}, false, ErrClientTxnConflict
+			return PendingTOTPEnrollmentRecord{}, ErrClientTxnConflict
 		}
-		return PendingTOTPEnrollmentRecord{}, false, fmt.Errorf("insert pending totp enrollment: %w", err)
+		return PendingTOTPEnrollmentRecord{}, fmt.Errorf("insert pending totp enrollment: %w", err)
 	}
 
 	if err := appendAdministrativeProjectionTx(ctx, tx, administrativeProjection{
@@ -913,13 +957,13 @@ RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootst
 			administrativeaudit.Redacted("totp_secret"),
 		},
 	}); err != nil {
-		return PendingTOTPEnrollmentRecord{}, false, fmt.Errorf("append totp enrollment begun audit: %w", err)
+		return PendingTOTPEnrollmentRecord{}, fmt.Errorf("append totp enrollment begun audit: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return PendingTOTPEnrollmentRecord{}, false, fmt.Errorf("commit totp enrollment transaction: %w", err)
+		return PendingTOTPEnrollmentRecord{}, fmt.Errorf("commit totp enrollment transaction: %w", err)
 	}
-	return created, false, nil
+	return created, nil
 }
 
 func (s *Store) ActivateTOTPEnrollment(
@@ -933,13 +977,24 @@ func (s *Store) ActivateTOTPEnrollment(
 	activeEnvelope []byte,
 	now time.Time,
 ) (TOTPCompleteResult, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return TOTPCompleteResult{}, fmt.Errorf("begin totp complete transaction: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanupCtx)
 	}()
+
+	current, err := fetchUserForUpdate(ctx, tx, user.ID)
+	if err != nil {
+		return TOTPCompleteResult{}, fmt.Errorf("lock TOTP activation user: %w", err)
+	}
+	if err := validateTOTPAuthScopeTx(ctx, tx, current, authScopeKind, sessionID, bootstrapTokenID, now); err != nil {
+		return TOTPCompleteResult{}, err
+	}
+	user = current
 
 	row := tx.QueryRow(ctx, `
 SELECT id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootstrap_token_id, client_txn_id,
@@ -1157,7 +1212,20 @@ func (s *Store) PatchAccountProfile(
 	now time.Time,
 ) (AccountProfilePatchResult, error) {
 	key := ActorOnlyRouteIdempotencyKey("account.profile.patch", actor.ID, clientTxnID)
-	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return AccountProfilePatchResult{}, err
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+	if err := LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return AccountProfilePatchResult{}, err
+	}
+
+	if existing, err := GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return AccountProfilePatchResult{}, ErrClientTxnConflict
 		}
@@ -1165,14 +1233,6 @@ func (s *Store) PatchAccountProfile(
 	} else if !errors.Is(err, ErrNotFound) {
 		return AccountProfilePatchResult{}, err
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return AccountProfilePatchResult{}, err
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	current, err := fetchUserForUpdate(ctx, tx, actor.ID)
 	if err != nil {
@@ -1293,7 +1353,20 @@ func (s *Store) PutAccountPreferences(
 	now time.Time,
 ) (AccountPreferencesPutResult, error) {
 	key := ActorOnlyRouteIdempotencyKey("account.preferences.put", actor.ID, clientTxnID)
-	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return AccountPreferencesPutResult{}, err
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+	if err := LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return AccountPreferencesPutResult{}, err
+	}
+
+	if existing, err := GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return AccountPreferencesPutResult{}, ErrClientTxnConflict
 		}
@@ -1301,14 +1374,6 @@ func (s *Store) PutAccountPreferences(
 	} else if !errors.Is(err, ErrNotFound) {
 		return AccountPreferencesPutResult{}, err
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return AccountPreferencesPutResult{}, err
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	if _, err := tx.Exec(ctx, `
 INSERT INTO account_preferences (user_id, density_mode, preferences_version, created_at, updated_at)
@@ -1403,7 +1468,20 @@ func (s *Store) ChangePassword(
 	now time.Time,
 ) (PasswordChangeResult, error) {
 	key := ActorOnlyRouteIdempotencyKey("auth.password.change", user.ID, clientTxnID)
-	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return PasswordChangeResult{}, fmt.Errorf("begin password-change transaction: %w", err)
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+
+	if err := LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return PasswordChangeResult{}, err
+	}
+	if existing, err := GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return PasswordChangeResult{}, ErrClientTxnConflict
 		}
@@ -1414,14 +1492,6 @@ func (s *Store) ChangePassword(
 	} else if !errors.Is(err, ErrNotFound) {
 		return PasswordChangeResult{}, fmt.Errorf("query password-change idempotency: %w", err)
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return PasswordChangeResult{}, fmt.Errorf("begin password-change transaction: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	changedAt := now.UTC()
 	var effectiveChangedAt time.Time
@@ -1584,7 +1654,20 @@ func (s *Store) CreateUser(
 	now time.Time,
 ) (UserCreateResult, error) {
 	key := ActorOnlyRouteIdempotencyKey("users.create", actor.ID, clientTxnID)
-	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return UserCreateResult{}, err
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+
+	if err := LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return UserCreateResult{}, err
+	}
+	if existing, err := GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return UserCreateResult{}, ErrClientTxnConflict
 		}
@@ -1596,14 +1679,6 @@ func (s *Store) CreateUser(
 	} else if !errors.Is(err, ErrNotFound) {
 		return UserCreateResult{}, err
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return UserCreateResult{}, err
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	var created UserRecord
 	if err := tx.QueryRow(ctx, `
@@ -1694,13 +1769,24 @@ func (s *Store) UpdateUser(
 	requestID string,
 	now time.Time,
 ) (UserRecord, []uuid.UUID, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return UserRecord{}, nil, err
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
 	}()
+
+	// Serialize decisions that can remove an active administrator before taking
+	// target locks. The two-int Auth namespace is disjoint from route receipts'
+	// one-int lock identities. Read Committed sees the preceding removal.
+	if (isActive != nil && !*isActive) || (isDeploymentAdmin != nil && !*isDeploymentAdmin) {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1, $2)`, int32(0x41555448), int32(1)); err != nil {
+			return UserRecord{}, nil, fmt.Errorf("admit administrator removal: %w", err)
+		}
+	}
 
 	target, err := fetchUserForUpdate(ctx, tx, targetUserID)
 	if err != nil {
@@ -1731,8 +1817,14 @@ func (s *Store) UpdateUser(
 		nextIsDeploymentAdmin = *isDeploymentAdmin
 	}
 
-	if target.IsDeploymentAdmin && target.IsActive && !(nextIsDeploymentAdmin && nextIsActive) && countActiveAdminsTx(ctx, tx) <= 1 {
-		return UserRecord{}, nil, ErrLastDeploymentAdmin
+	if target.IsDeploymentAdmin && target.IsActive && !(nextIsDeploymentAdmin && nextIsActive) {
+		count, err := countActiveAdminsTx(ctx, tx)
+		if err != nil {
+			return UserRecord{}, nil, fmt.Errorf("count active administrators: %w", err)
+		}
+		if count <= 1 {
+			return UserRecord{}, nil, ErrLastDeploymentAdmin
+		}
 	}
 
 	var updated UserRecord
@@ -1840,7 +1932,20 @@ func (s *Store) AdminResetPassword(
 		ScopeKey:    targetUserID.String(),
 		ClientTxnID: clientTxnID,
 	}
-	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return AdminPasswordResetResult{}, err
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+
+	if err := LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return AdminPasswordResetResult{}, err
+	}
+	if existing, err := GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return AdminPasswordResetResult{}, ErrClientTxnConflict
 		}
@@ -1851,14 +1956,6 @@ func (s *Store) AdminResetPassword(
 	} else if !errors.Is(err, ErrNotFound) {
 		return AdminPasswordResetResult{}, err
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return AdminPasswordResetResult{}, err
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	target, err := fetchUserForUpdate(ctx, tx, targetUserID)
 	if err != nil {
@@ -1997,7 +2094,20 @@ func (s *Store) AdminResetTOTP(
 		ScopeKey:    targetUserID.String(),
 		ClientTxnID: clientTxnID,
 	}
-	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return AdminTOTPResetResult{}, err
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+
+	if err := LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return AdminTOTPResetResult{}, err
+	}
+	if existing, err := GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return AdminTOTPResetResult{}, ErrClientTxnConflict
 		}
@@ -2008,14 +2118,6 @@ func (s *Store) AdminResetTOTP(
 	} else if !errors.Is(err, ErrNotFound) {
 		return AdminTOTPResetResult{}, err
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return AdminTOTPResetResult{}, err
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	target, err := fetchUserForUpdate(ctx, tx, targetUserID)
 	if err != nil {
@@ -2140,7 +2242,20 @@ func (s *Store) AdminRevokeAllSessions(
 		ScopeKey:    targetUserID.String(),
 		ClientTxnID: clientTxnID,
 	}
-	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return AdminRevokeAllResult{}, err
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+
+	if err := LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return AdminRevokeAllResult{}, err
+	}
+	if existing, err := GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return AdminRevokeAllResult{}, ErrClientTxnConflict
 		}
@@ -2151,14 +2266,6 @@ func (s *Store) AdminRevokeAllSessions(
 	} else if !errors.Is(err, ErrNotFound) {
 		return AdminRevokeAllResult{}, err
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return AdminRevokeAllResult{}, err
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	revokedAt := now.UTC()
 	revoked, err := revokeAllSessionsTx(ctx, tx, targetUserID, revokedAt)
@@ -2299,15 +2406,15 @@ SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_re
 	return user, err
 }
 
-func countActiveAdminsTx(ctx context.Context, tx pgx.Tx) int {
+func countActiveAdminsTx(ctx context.Context, tx pgx.Tx) (int, error) {
 	var count int
-	_ = tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 SELECT COUNT(*)
   FROM users
  WHERE is_deployment_admin = true
    AND is_active = true
 `).Scan(&count)
-	return count
+	return count, err
 }
 
 func revokeAllSessionsTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, revokedAt time.Time) ([]uuid.UUID, error) {

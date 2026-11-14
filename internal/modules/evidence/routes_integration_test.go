@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -29,21 +30,40 @@ func TestEvidenceOpenAPIIncludesRouteFamily(t *testing.T) {
 		t.Fatalf("read openapi contract: %v", err)
 	}
 	var document struct {
-		Paths map[string]any `json:"paths"`
+		Paths      map[string]map[string]json.RawMessage `json:"paths"`
+		Components struct {
+			Schemas map[string]struct {
+				Properties map[string]map[string]any `json:"properties"`
+				Required   []string                  `json:"required"`
+			} `json:"schemas"`
+		} `json:"components"`
 	}
 	if err := json.Unmarshal(data, &document); err != nil {
 		t.Fatalf("decode openapi contract: %v", err)
 	}
-	for _, path := range []string{
-		"/api/v1/object-blobs",
-		"/api/v1/object-blobs/{object_blob_id}/verify",
-		"/api/v1/evidence-records/{record_id}/attach-blob",
-		"/api/v1/evidence-records/{record_id}/preview-handle",
-		"/api/v1/evidence-records/{record_id}/download-handle",
-		"/api/v1/evidence-handles/{handle_token}",
+	create := document.Components.Schemas["EvidenceCreateRequest"]
+	wantOwner := map[string]any{"type": []any{"string", "null"}, "format": "uuid"}
+	if !reflect.DeepEqual(create.Properties["evidence.owner_user_id"], wantOwner) || !reflect.DeepEqual(create.Required, []string{"client_txn_id"}) {
+		t.Fatalf("Evidence owner create schema=%#v required=%#v", create.Properties["evidence.owner_user_id"], create.Required)
+	}
+	for _, route := range []struct{ path, method, operation string }{
+		{"/api/v1/object-blobs", "post", "createObjectBlobSlot"},
+		{"/api/v1/object-uploads/{upload_token}", "put", "uploadObjectBlobContent"},
+		{"/api/v1/object-blobs/{object_blob_id}/verify", "post", "verifyObjectBlob"},
+		{"/api/v1/incidents/{incident_id}/evidence-metadata", "post", "queryEvidenceMetadata"},
+		{"/api/v1/evidence-records/{record_id}/attach-blob", "post", "attachBlobToEvidenceRecord"},
+		{"/api/v1/evidence-records/{record_id}/preview-handle", "post", "issueEvidencePreviewHandle"},
+		{"/api/v1/evidence-records/{record_id}/download-handle", "post", "issueEvidenceDownloadHandle"},
+		{"/api/v1/evidence-handles/{handle_token}", "get", "redeemEvidenceHandle"},
 	} {
-		if _, ok := document.Paths[path]; !ok {
-			t.Fatalf("missing evidence OpenAPI path %s", path)
+		var operation struct {
+			OperationID string `json:"operationId"`
+		}
+		if err := json.Unmarshal(document.Paths[route.path][route.method], &operation); err != nil {
+			t.Fatalf("decode Evidence OpenAPI %s %s: %v", route.method, route.path, err)
+		}
+		if operation.OperationID != route.operation {
+			t.Fatalf("Evidence OpenAPI %s %s = %q, want %q", route.method, route.path, operation.OperationID, route.operation)
 		}
 	}
 }

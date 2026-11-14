@@ -2,6 +2,8 @@
 # Sourced only by test-web-e2e-lifecycle.sh inside a native fixture owner.
 # shellcheck disable=SC2154,SC2153
 # Build one complete session artifact chain with live process proofs.
+set -E
+trap 'status=$?; printf "artifact fixture failed at line %s (status %s)\n" "$LINENO" "$status" >&2' ERR
 results_root="${CARTULARY_TEST_RESULTS_DIR:?}"
 run_id="${CARTULARY_TEST_RUN_ID:?}"
 suite_id="suite-test"
@@ -30,12 +32,14 @@ printf '{"database_name":"ct_web_test","bucket":"ct-web-test"}\n' >"$runtime_roo
 printf 'backend\n' >"$private_session_root/logs/server.log"
 printf 'frontend\n' >"$private_session_root/logs/web.log"
 
-setsid sleep 120 &
-backend_pid=$!
-cleanup_pids+=("$backend_pid")
-setsid sleep 120 &
-frontend_pid=$!
-cleanup_pids+=("$frontend_pid")
+backend_handle=""
+start_owned_command backend_handle "" sleep 120
+cleanup_groups+=("$backend_handle")
+backend_pid="$(owned_command_pid "$backend_handle")"
+frontend_handle=""
+start_owned_command frontend_handle "" sleep 120
+cleanup_groups+=("$frontend_handle")
+frontend_pid="$(owned_command_pid "$frontend_handle")"
 
 export CARTULARY_TEST_RESULTS_DIR="$results_root"
 export CARTULARY_TEST_RUN_ID="$run_id"

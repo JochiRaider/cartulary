@@ -333,6 +333,9 @@
         },
         "production_only": {
           "type": "boolean"
+        },
+        "import_capabilities": {
+          "$ref": "#/$defs/importCapabilities"
         }
       }
     },
@@ -420,6 +423,9 @@
         },
         "allowed_importers": {
           "$ref": "#/$defs/stringArray"
+        },
+        "import_capabilities": {
+          "$ref": "#/$defs/importCapabilities"
         }
       }
     },
@@ -736,6 +742,31 @@
         },
         "production_only": {
           "type": "boolean"
+        }
+      }
+    },
+    "importCapabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "import",
+          "production_packages",
+          "test_packages"
+        ],
+        "properties": {
+          "import": {
+            "type": "string",
+            "minLength": 1
+          },
+          "production_packages": {
+            "$ref": "#/$defs/stringArray"
+          },
+          "test_packages": {
+            "$ref": "#/$defs/stringArray"
+          }
         }
       }
     }

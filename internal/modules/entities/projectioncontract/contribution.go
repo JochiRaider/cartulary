@@ -3,6 +3,7 @@ package projectioncontract
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -75,7 +76,7 @@ type Contribution struct {
 }
 
 func NewContribution(source SourceReader) (Contribution, error) {
-	if source == nil {
+	if nilSource(source) {
 		return Contribution{}, fmt.Errorf("entities projection source is required")
 	}
 	contract, err := providercontract.NewContribution(
@@ -87,6 +88,19 @@ func NewContribution(source SourceReader) (Contribution, error) {
 		return Contribution{}, err
 	}
 	return Contribution{contract: contract, source: source}, nil
+}
+
+func nilSource(source SourceReader) bool {
+	if source == nil {
+		return true
+	}
+	value := reflect.ValueOf(source)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func (contribution Contribution) ProjectionContribution() providercontract.Contribution {

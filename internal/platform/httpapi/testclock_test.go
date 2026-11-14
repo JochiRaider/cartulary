@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -171,31 +172,40 @@ func TestRegisterTestClockRoutesResetClearsClock(t *testing.T) {
 	clock, server := startTestClockRouteServer(t)
 	defer server.Close()
 
-	clock.SetFixed(time.Date(2035, time.January, 1, 0, 0, 0, 0, time.UTC))
-	before := time.Now().UTC().Add(-100 * time.Millisecond)
-	body := postClockReset(t, server.URL, map[string]any{}, http.StatusOK)
-	after := time.Now().UTC().Add(100 * time.Millisecond)
-	data := body["data"].(map[string]any)
+	for _, tc := range []struct{ name, body string }{
+		{"no body", ""},
+		{"empty object", "{}"},
+		{"object with whitespace", " \n{}\t"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			clock.SetFixed(time.Date(2035, time.January, 1, 0, 0, 0, 0, time.UTC))
+			before := time.Now().UTC().Add(-100 * time.Millisecond)
+			body := postClockResetRaw(t, server.URL, tc.body, http.StatusOK)
+			after := time.Now().UTC().Add(100 * time.Millisecond)
+			data := body["data"].(map[string]any)
 
-	if got := data["schema_id"]; got != testClockControlSchemaID {
-		t.Fatalf("unexpected schema_id: got %v", got)
+			if got := data["schema_id"]; got != testClockControlSchemaID {
+				t.Fatalf("unexpected schema_id: got %v", got)
+			}
+			if got := data["mode"]; got != testClockModeWall {
+				t.Fatalf("unexpected clock mode: got %v", got)
+			}
+			if _, ok := data["fixed_now"]; ok {
+				t.Fatalf("reset response must omit fixed_now: %#v", data)
+			}
+			gotNow, err := time.Parse(time.RFC3339Nano, data["now"].(string))
+			if err != nil {
+				t.Fatalf("parse response now: %v", err)
+			}
+			if gotNow.Before(before) || gotNow.After(after) {
+				t.Fatalf("Reset response now outside wall-clock window: got %s want between %s and %s", gotNow, before, after)
+			}
+			if got := clock.Snapshot(); got.Mode != testClockModeWall || got.OffsetSeconds != 0 || got.FixedNow != nil {
+				t.Fatalf("reset route should clear fixed/offset state: %#v", got)
+			}
+		})
 	}
-	if got := data["mode"]; got != testClockModeWall {
-		t.Fatalf("unexpected clock mode: got %v", got)
-	}
-	if _, ok := data["fixed_now"]; ok {
-		t.Fatalf("reset response must omit fixed_now: %#v", data)
-	}
-	gotNow, err := time.Parse(time.RFC3339Nano, data["now"].(string))
-	if err != nil {
-		t.Fatalf("parse response now: %v", err)
-	}
-	if gotNow.Before(before) || gotNow.After(after) {
-		t.Fatalf("Reset response now outside wall-clock window: got %s want between %s and %s", gotNow, before, after)
-	}
-	if got := clock.Snapshot(); got.Mode != testClockModeWall || got.OffsetSeconds != 0 || got.FixedNow != nil {
-		t.Fatalf("reset route should clear fixed/offset state: %#v", got)
-	}
+
 }
 
 func TestRegisterTestClockRoutesStateReportsWithoutMutation(t *testing.T) {
@@ -242,37 +252,70 @@ func TestRegisterTestClockRoutesParsesRFC3339NanoFixedNow(t *testing.T) {
 }
 
 func TestRegisterTestClockRoutesRejectsInvalidPayloads(t *testing.T) {
-	_, server := startTestClockRouteServer(t)
+	clock, server := startTestClockRouteServer(t)
 	defer server.Close()
-
-	for _, tc := range []struct {
-		name string
-		body string
-	}{
-		{name: "neither command", body: `{}`},
-		{name: "multiple commands", body: `{"offset_seconds":0,"fixed_now":"2026-05-03T17:58:59Z"}`},
-		{name: "unknown field", body: `{"offset_seconds":0,"unexpected":true}`},
-		{name: "invalid fixed_now", body: `{"fixed_now":"not-a-time"}`},
-		{name: "trailing json", body: `{"offset_seconds":0} {}`},
+	fixed := time.Date(2035, time.January, 1, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct{ name, body string }{
+		{"neither command", `{}`},
+		{"multiple commands", `{"offset_seconds":0,"fixed_now":"2026-05-03T17:58:59Z"}`},
+		{"null second command", `{"offset_seconds":0,"fixed_now":null}`},
+		{"null first command", `{"offset_seconds":null,"fixed_now":"2026-05-03T17:58:59Z"}`},
+		{"null offset", `{"offset_seconds":null}`},
+		{"null fixed", `{"fixed_now":null}`},
+		{"unknown field", `{"offset_seconds":0,"unexpected":true}`},
+		{"unknown case", `{"Offset_Seconds":0}`},
+		{"duplicate member", `{"offset_seconds":1,"offset_seconds":0}`},
+		{"invalid fixed_now", `{"fixed_now":"not-a-time"}`},
+		{"invalid type", `{"offset_seconds":"0"}`},
+		{"null", `null`},
+		{"array", `[]`},
+		{"scalar", `true`},
+		{"empty", ``},
+		{"malformed", `{`},
+		{"trailing json", `{"offset_seconds":0} {}`},
+		{"oversize", `{"offset_seconds":0}` + strings.Repeat(" ", 1<<20)},
+		{"hidden trailing json", `{"offset_seconds":0}` + strings.Repeat(" ", 1<<20) + `{}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			clock.SetFixed(fixed)
 			body := postClockSetRaw(t, server.URL, tc.body, http.StatusBadRequest)
 			errorPayload := body["error"].(map[string]any)
 			if got := errorPayload["code"]; got != "invalid_mutation_payload" {
 				t.Fatalf("unexpected error code: got %v", got)
+			}
+			if got := clock.Snapshot(); got.Mode != testClockModeFixed || got.FixedNow == nil || !got.Now.Equal(fixed) || !got.FixedNow.Equal(fixed) || got.OffsetSeconds != 0 {
+				t.Fatalf("invalid set mutated clock: %#v", got)
 			}
 		})
 	}
 }
 
 func TestRegisterTestClockRoutesRejectsInvalidResetPayloads(t *testing.T) {
-	_, server := startTestClockRouteServer(t)
+	clock, server := startTestClockRouteServer(t)
 	defer server.Close()
-
-	body := postClockResetRaw(t, server.URL, `{"unexpected":true}`, http.StatusBadRequest)
-	errorPayload := body["error"].(map[string]any)
-	if got := errorPayload["code"]; got != "invalid_mutation_payload" {
-		t.Fatalf("unexpected error code: got %v", got)
+	fixed := time.Date(2035, time.January, 1, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct{ name, body string }{
+		{"unknown member", `{"unexpected":true}`},
+		{"null", `null`},
+		{"array", `[]`},
+		{"scalar", `true`},
+		{"whitespace only", " \n\t"},
+		{"malformed", `{`},
+		{"trailing json", `{} {}`},
+		{"oversize", `{}` + strings.Repeat(" ", 1<<20)},
+		{"hidden trailing json", `{}` + strings.Repeat(" ", 1<<20) + `{}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			clock.SetFixed(fixed)
+			body := postClockResetRaw(t, server.URL, tc.body, http.StatusBadRequest)
+			errorPayload := body["error"].(map[string]any)
+			if got := errorPayload["code"]; got != "invalid_mutation_payload" {
+				t.Fatalf("unexpected error code: got %v", got)
+			}
+			if got := clock.Snapshot(); got.Mode != testClockModeFixed || got.FixedNow == nil || !got.Now.Equal(fixed) || !got.FixedNow.Equal(fixed) || got.OffsetSeconds != 0 {
+				t.Fatalf("invalid reset mutated clock: %#v", got)
+			}
+		})
 	}
 }
 
@@ -338,16 +381,6 @@ func postClockSetRawWithToken(t testing.TB, baseURL string, payload string, toke
 		t.Fatalf("decode clock set response: %v", err)
 	}
 	return body
-}
-
-func postClockReset(t testing.TB, baseURL string, payload any, wantStatus int) map[string]any {
-	t.Helper()
-
-	requestBody, err := json.Marshal(payload)
-	if err != nil {
-		t.Fatalf("marshal clock reset payload: %v", err)
-	}
-	return postClockResetRaw(t, baseURL, string(requestBody), wantStatus)
 }
 
 func postClockResetRaw(t testing.TB, baseURL string, payload string, wantStatus int) map[string]any {

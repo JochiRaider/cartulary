@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/tasksdecisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
@@ -44,7 +45,7 @@ func CurrentProviderContributions(assignments reference_data.RegistryAssignments
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: compose Artifacts contribution: %w", err)
 	}
-	tasksDecisionsContribution, err := tasksdecisions.NewRevisionContribution()
+	tasksDecisionsContribution, err := tasksdecisions.NewRevisionContribution(tasksdecisionassembly.NewLinkFactsCapability(), tasksdecisionassembly.NewFieldReferenceReader(), tasksdecisionassembly.NewSupersessionReader(), tasksdecisionassembly.NewReferenceTargetCapability())
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: compose Tasks/Decisions contribution: %w", err)
 	}
@@ -74,7 +75,7 @@ func Build(contributions ...revisions.ProviderContribution) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: build conflict field resolver catalog: %w", err)
 	}
-	snapshotCaptures, err := revisions.NewRecordSnapshotCaptureCatalog(copied)
+	snapshotCaptures, err := revisions.NewRecordSnapshotCaptureCatalog(copied, records.ValidateSnapshotEnvelope)
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: build snapshot capture catalog: %w", err)
 	}

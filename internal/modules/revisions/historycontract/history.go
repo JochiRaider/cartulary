@@ -63,8 +63,10 @@ type Facts struct {
 type Projector func(Facts) ([]Unit, error)
 
 type Field struct {
-	Key      string
-	Member   string
+	Key    string
+	Member string
+	// Path selects nested owner source; use either Member or Path, never both.
+	Path     []string
 	Type     string
 	Kind     string
 	Required bool
@@ -99,7 +101,7 @@ func Changes(before, after map[string]any, fields []Field, includeUnchanged bool
 	changes := []Change{}
 	seen := map[string]bool{}
 	for _, field := range fields {
-		if field.Key == "" || field.Member == "" || seen[field.Key] {
+		if field.Key == "" || !validFieldPath(field) || seen[field.Key] {
 			return nil, ErrInvalidFacts
 		}
 		seen[field.Key] = true
@@ -123,8 +125,42 @@ func Changes(before, after map[string]any, fields []Field, includeUnchanged bool
 	return changes, nil
 }
 
+func validFieldPath(field Field) bool {
+	if len(field.Path) == 0 {
+		return field.Member != ""
+	}
+	if field.Member != "" {
+		return false
+	}
+	for _, member := range field.Path {
+		if member == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func fieldMember(object map[string]any, field Field) (any, bool) {
+	if len(field.Path) == 0 {
+		value, present := object[field.Member]
+		return value, present
+	}
+	var value any = object
+	for _, member := range field.Path {
+		current, ok := value.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		value, ok = current[member]
+		if !ok {
+			return nil, false
+		}
+	}
+	return value, true
+}
+
 func fieldValue(object map[string]any, field Field) (Value, error) {
-	raw, present := object[field.Member]
+	raw, present := fieldMember(object, field)
 	if object != nil && field.Required && (!present || raw == nil) {
 		return Value{}, fmt.Errorf("%w: required %s", ErrInvalidFacts, field.Key)
 	}
@@ -212,7 +248,7 @@ func Row(facts Facts, fields []Field) ([]Unit, error) {
 			continue
 		}
 		for _, field := range fields {
-			if _, present := source[field.Member]; !present {
+			if _, present := fieldMember(source, field); !present {
 				return nil, fmt.Errorf("%w: missing canonical field %s", ErrInvalidFacts, field.Key)
 			}
 		}

@@ -4,8 +4,6 @@ import (
 	"errors"
 	"slices"
 	"testing"
-
-	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func testSourceStateManifestRejectsMalformedRelations(t *testing.T) {
@@ -97,30 +95,9 @@ func testSourceStateManifestRejectsMalformedRelations(t *testing.T) {
 			},
 		},
 		{
-			name: "empty required import columns",
+			name: "unassigned source table",
 			mutate: func(relations []sourceStateRelation) []sourceStateRelation {
-				relations[0].requiredImportColumns = nil
-				return relations
-			},
-		},
-		{
-			name: "unsafe required import column",
-			mutate: func(relations []sourceStateRelation) []sourceStateRelation {
-				relations[0].requiredImportColumns = []string{"record_id", "incident-id"}
-				return relations
-			},
-		},
-		{
-			name: "duplicate required import column",
-			mutate: func(relations []sourceStateRelation) []sourceStateRelation {
-				relations[0].requiredImportColumns = []string{"record_id", "record_id"}
-				return relations
-			},
-		},
-		{
-			name: "stable identity not required",
-			mutate: func(relations []sourceStateRelation) []sourceStateRelation {
-				relations[0].requiredImportColumns = []string{"incident_id"}
+				relations[0].tableName = "unassigned_source"
 				return relations
 			},
 		},
@@ -181,25 +158,6 @@ func testSourceStateManifestDerivesExactRecoveryAndPortabilityState(t *testing.T
 		}
 	}
 
-	wantRequiredColumns := [][]string{
-		{"record_id", "incident_id"},
-		{"record_id", "incident_id"},
-		{"record_id", "incident_id"},
-		{"record_id", "incident_id"},
-		{"risk_ref_id", "handoff_record_id"},
-	}
-	importSpecifications := manifest.importSpecifications()
-	for index, specification := range importSpecifications {
-		wantTable := wantTables[index]
-		wantInsertSQL := `INSERT INTO "` + wantTable + `" SELECT * FROM jsonb_populate_record(NULL::"` + wantTable + `", $1::jsonb)`
-		if specification.LogicalBundlePath != wantPaths[index].logicalPath ||
-			specification.AttributionTable != wantTable ||
-			!slices.Equal(specification.StableIdentity, []string{wantPaths[index].stableIdentity}) ||
-			!slices.Equal(specification.RequiredColumns, wantRequiredColumns[index]) ||
-			sqlshape.CommandText(specification.InsertSQL) != wantInsertSQL {
-			t.Fatalf("import specification %d = %#v", index, specification)
-		}
-	}
 }
 
 func testSourceStateManifestOwnsDefensiveRelationCopies(t *testing.T) {
@@ -210,24 +168,16 @@ func testSourceStateManifestOwnsDefensiveRelationCopies(t *testing.T) {
 	}
 	input[0].supportedVersions[0] = 99
 	input[0].stableIdentity[0] = "mutated_identity"
-	input[0].requiredImportColumns[0] = "mutated_column"
 	if manifest.relations[0].supportedVersions[0] != 8 ||
-		manifest.relations[0].stableIdentity[0] != "record_id" ||
-		manifest.relations[0].requiredImportColumns[0] != "record_id" {
+		manifest.relations[0].stableIdentity[0] != "record_id" {
 		t.Fatalf("manifest retained caller-owned slices: %#v", manifest.relations[0])
 	}
 
 	paths := manifest.sourcePortPaths()
 	paths[0].Versions[0] = 99
 	paths[0].StableIdentity[0] = "mutated_identity"
-	imports := manifest.importSpecifications()
-	imports[0].StableIdentity[0] = "mutated_identity"
-	imports[0].RequiredColumns[0] = "mutated_column"
 	if got := manifest.sourcePortPaths()[0]; got.Versions[0] != 8 || got.StableIdentity[0] != "record_id" {
 		t.Fatalf("source-port projection exposed manifest slices: %#v", got)
-	}
-	if got := manifest.importSpecifications()[0]; got.StableIdentity[0] != "record_id" || got.RequiredColumns[0] != "record_id" {
-		t.Fatalf("import projection exposed manifest slices: %#v", got)
 	}
 }
 

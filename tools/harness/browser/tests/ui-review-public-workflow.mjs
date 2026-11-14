@@ -21,15 +21,21 @@ const cleanEnvironment = () => {
 };
 function make(args, env) {
   const child = spawn("make", ["--silent", ...args], { cwd: repoRoot, env, stdio: ["ignore", "pipe", "pipe"] });
-  let output = "", error = "";
+  let output = "", error = "", spawnError, closed = false;
   child.stdout.on("data", (part) => { output += part; }); child.stderr.on("data", (part) => { error += part; });
-  return { child, output: () => output, ended: new Promise((resolve, reject) => { child.once("error", reject); child.once("close", (code) => resolve({ code, output, error })); }) };
+  child.once("error", (failure) => { spawnError = failure; });
+  const ended = new Promise((resolve, reject) => child.once("close", (code) => {
+    closed = true;
+    if (spawnError) reject(spawnError); else resolve({ code, output, error });
+  }));
+  ended.catch(() => {});
+  return { child, output: () => output, closed: () => closed, ended };
 }
 export async function publicWorkflow({ seeded = false, profile = "default", resultsRoot, runID = "workflow", interrupt = false } = {}) {
   assert.ok(["default", "network_flow_claimed"].includes(profile));
   const privateRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-public-workflow-"));
   const env = { ...cleanEnvironment(), PLAYWRIGHT_MCP_CONFIG: "/no-ambient-cli-config", PWTEST_CLI_GLOBAL_CONFIG: "/no-ambient-global-config", PLAYWRIGHT_CLI_SESSION: "unowned-session", CARTULARY_READINESS_CACHE_DIR: path.join(privateRoot, "readiness-cache"), CARTULARY_BUILD_CACHE_DIR: path.join(privateRoot, "build-cache") }, privateRefs = [], manifests = [], sentinel = `review-private-sentinel-${runID}`;
-  let server, running, locator, requestIndex = 0, preserveFailure = false;
+  let server, running, locator, primary, requestIndex = 0, preserveFailure = false, needsStop = false;
   const invoke = async (command, value, extra = []) => {
     let inputs = [];
     if (value) { const file = path.join(privateRoot, `request-${++requestIndex}.json`); writeFileSync(file, JSON.stringify(value), { mode: 0o600 }); inputs = [`UI_REQUEST=${file}`]; }
@@ -55,10 +61,12 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
   const start = async (mode, extra = [], id = runID) => {
     running = make(["ui-review", ...(mode === "seeded" ? [] : [`UI_MODE=${mode}`]), ...extra], { ...env, CARTULARY_TEST_RESULTS_DIR: resultsRoot ?? privateRoot, CARTULARY_TEST_RUN_ID: id, ...(mode === "artifacts" ? { PLAYWRIGHT_BROWSERS_PATH: path.join(privateRoot, "absent-browsers"), DOCKER_HOST: "unix:///no-docker", PATH: "/usr/bin:/bin" } : {}), OTEL_EXPORTER_OTLP_ENDPOINT: "http://127.0.0.1:1/private-telemetry" });
     locator = path.join(resultsRoot ?? privateRoot, id, "ui-review/session.json");
+    needsStop = true;
     for (let attempt = 0; attempt < 3000 && !running.output().includes("UI review ready"); attempt++) {
-      if (running.child.exitCode !== null) break; await pause(100);
+      if (running.closed()) break; await pause(100);
     }
     if (!running.output().includes("UI review ready")) {
+      if (!running.closed()) throw new Error("review startup readiness deadline exceeded");
       await running.ended;
       const terminalFile = path.join(path.dirname(locator), "terminal.json");
       if (existsSync(terminalFile)) {
@@ -93,11 +101,13 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
       assert.equal(receipt.cleanup, "complete");
       assert.equal(existsSync(record.runtime.root), false);
       assert.deepEqual((await inspect()).receipt, result.receipt);
+      needsStop = false;
       return { run_root: path.dirname(path.dirname(locator)), terminal_sha256: result.receipt.sha256, terminal_outcome: "failed" };
     }
     const result = await invoke("ui-review-stop"), ended = await running.ended;
     assert.equal(ended.code, 0); assert.deepEqual((await invoke("ui-review-stop")).receipt, result.receipt); assert.equal((await invoke("ui-review-status")).state, "closed");
     running = null;
+    needsStop = false;
     return { run_root: path.dirname(path.dirname(locator)), terminal_sha256: result.receipt.sha256, terminal_outcome: "closed" };
   };
   try {
@@ -159,9 +169,35 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
     const inspect = (root) => { for (const entry of readdirSync(root, { withFileTypes: true })) { const file = path.join(root, entry.name); if (entry.isDirectory()) inspect(file); else { assert.ok(["session.json", "receipt.json", "terminal.json"].includes(entry.name)); const text = readFileSync(file, "utf8"); for (const secret of [sentinel, privateRoot, "private-telemetry", "private_refs"]) assert.ok(!text.includes(secret)); } } };
     inspect(browserResult.run_root); inspect(artifactResult.run_root);
     return { browser: browserResult, artifacts: artifactResult, private_cleanup: "complete", retained_projection: "structural_only" };
+  } catch (error) {
+    primary = error; preserveFailure = true; throw error;
   } finally {
-    if (running) { try { await invoke("ui-review-stop"); } catch { running.child.kill("SIGTERM"); } await running.ended; }
-    if (server) await new Promise((resolve) => server.close(resolve));
-    if (!preserveFailure) rmSync(privateRoot, { recursive: true, force: true });
+    const outcomes = await Promise.allSettled([
+      (async () => {
+        const failures = [];
+        if (needsStop) {
+          try { await invoke("ui-review-stop"); }
+          catch (error) {
+            failures.push(error);
+            if (running && !running.closed()) running.child.kill("SIGTERM");
+          }
+        }
+        try { await running?.ended; } catch (error) { failures.push(error); }
+        if (failures.length) throw new AggregateError(failures, "review session cleanup failed");
+      })(),
+      new Promise((resolve, reject) => {
+        server?.closeAllConnections();
+        if (!server?.listening) { resolve(); return; }
+        server.close(error => error ? reject(error) : resolve());
+      }),
+    ]);
+    const failures = outcomes.filter(result => result.status === "rejected").map(result => result.reason);
+    if (!preserveFailure && !failures.length) {
+      try { rmSync(privateRoot, { recursive: true, force: true }); } catch (error) { failures.push(error); }
+    }
+    if (failures.length) {
+      if (primary) (primary.cleanupFailures ??= []).push(...failures);
+      else throw new AggregateError(failures, "public review fixture cleanup failed");
+    }
   }
 }

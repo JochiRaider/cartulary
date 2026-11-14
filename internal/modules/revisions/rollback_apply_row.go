@@ -39,7 +39,7 @@ func (a rollbackTransactionalApplier) applyRowRestorePlanTx(ctx context.Context,
 	if err != nil {
 		return rollbackApplyResult{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
-	if err := a.restoreRollbackSourceTx(ctx, tx, targetKind, record.RecordType, record.RecordID, actor.UUID(), now, nextRowVersion, plan.RestoreSnapshot); err != nil {
+	if err := a.restoreRollbackSourceTx(ctx, tx, targetKind, record.RecordType, record.RecordID, record.IncidentID, plan.Target.ChangeSetID, actor.UUID(), now, nextRowVersion, plan.RestoreSnapshot); err != nil {
 		return rollbackApplyResult{}, err
 	}
 	if err := a.publication.refreshProjectionsTx(ctx, tx, record.IncidentID, plan.ProjectionRecords); err != nil {
@@ -136,7 +136,7 @@ func (a rollbackTransactionalApplier) applyRowBackedRollbackMutationTx(ctx conte
 	if !ok {
 		return uuid.UUID{}, nil, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
-	if err := a.restoreRollbackSourceTx(ctx, tx, target.TargetKind, recordType, targetRecordID, actor.UUID(), now, nextRowVersion, target.BeforeValue); err != nil {
+	if err := a.restoreRollbackSourceTx(ctx, tx, target.TargetKind, recordType, targetRecordID, targetRecord.IncidentID, target.ChangeSetID, actor.UUID(), now, nextRowVersion, target.BeforeValue); err != nil {
 		return uuid.UUID{}, nil, err
 	}
 	afterSnapshot, err := a.publication.captureRecordSnapshotTx(ctx, tx, targetRecordID)
@@ -196,7 +196,7 @@ func (a rollbackTransactionalApplier) applyRowBackedRollbackTx(ctx context.Conte
 	if err != nil {
 		return RollbackRecordChange{}, adaptEnvelopeError(err)
 	}
-	if err := a.restoreRollbackSourceTx(ctx, tx, target.TargetKind, recordType, targetRecordID, actor.UUID(), now, nextRowVersion, target.BeforeValue); err != nil {
+	if err := a.restoreRollbackSourceTx(ctx, tx, target.TargetKind, recordType, targetRecordID, targetRecord.IncidentID, target.ChangeSetID, actor.UUID(), now, nextRowVersion, target.BeforeValue); err != nil {
 		return RollbackRecordChange{}, err
 	}
 	if err := a.publication.refreshProjectionsTx(ctx, tx, targetRecord.IncidentID, plan.ProjectionRecords); err != nil {
@@ -257,7 +257,7 @@ func (a rollbackTransactionalApplier) applyRowBackedRollbackTx(ctx context.Conte
 	}, nil
 }
 
-func (a rollbackTransactionalApplier) restoreRollbackSourceTx(ctx context.Context, tx pgx.Tx, targetKind string, recordType string, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, rowVersion int64, retainedValue map[string]any) error {
+func (a rollbackTransactionalApplier) restoreRollbackSourceTx(ctx context.Context, tx pgx.Tx, targetKind string, recordType string, recordID, incidentID, changeSetID uuid.UUID, actorUserID uuid.UUID, now time.Time, rowVersion int64, retainedValue map[string]any) error {
 	provider, err := a.targetSemantics.rowProvider(targetKind, recordType)
 	if err != nil {
 		return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
@@ -265,11 +265,15 @@ func (a rollbackTransactionalApplier) restoreRollbackSourceTx(ctx context.Contex
 	if err := provider.ValidateRollbackValue(retainedValue); err != nil {
 		return adaptRowRollbackProviderError(err)
 	}
+	values, err := a.runtimeHistoryValuesTx(ctx, tx, incidentID, changeSetID, retainedValue)
+	if err != nil {
+		return err
+	}
 	return adaptRowRollbackProviderError(provider.RestoreTx(ctx, tx, rollbackcontract.RestoreRequest{
 		RecordID:       recordID,
 		ActorUserID:    actorUserID,
 		Now:            now.UTC(),
 		NextRowVersion: rowVersion,
-		RetainedValue:  retainedValue,
+		RetainedValue:  values[0],
 	}))
 }

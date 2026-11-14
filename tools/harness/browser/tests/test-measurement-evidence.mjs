@@ -64,6 +64,15 @@ test("Evidence inspector observation and retained proof reject extra private fie
 test("retained measurement admission binds provenance cleanup and current generation", async (t) => {
     const { measurementEvidenceRoot, fixtureProfile, finalizedPath, collectWrittenSummary, persist, collectFinalized } = measurementContext(t);
     assert.equal(collectFinalized().length, 1);
+    for (const leaseOverrides of [
+        { predicate_id: "perf.timeline_summary_focus_edit.v1" },
+        { builder_unit_id: `fixture_snapshot:network_flow_claimed:${fixtureProfile.fixture_profile_id}:${"b".repeat(64)}` },
+    ]) {
+        assert.throws(() => collectFinalized({ leaseOverrides }), /provenance is inconsistent/u,
+            "digest-valid lease evidence must belong to the measured predicate and referenced builder");
+    }
+    assert.throws(() => collectFinalized({ leaseOverrides: { creation_state: "failed" } }), /creation_state must be equal to constant/u,
+        "failed clone creation cannot qualify through contradictory successful cleanup fields");
     assert.throws(() => collectFinalized({
         observationOverrides: {
             failure_reason: "setup failed",

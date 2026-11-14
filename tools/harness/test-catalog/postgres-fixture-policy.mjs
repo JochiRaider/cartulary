@@ -1,8 +1,8 @@
 import { assertPostgresIsolation } from "./service-dependencies.mjs";
-import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
+import { validateSchemaSync } from "../contract/index.mjs";
+import { readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 
 const schemaID = "cartulary.postgres_fixture_policy_registry.v6";
 
@@ -17,12 +17,10 @@ function assertSortedUnique(values, label) {
   }
 }
 
-export function validatePostgresFixturePolicy(root, rows, options = {}) {
-  const policyPath = path.resolve(
-    root,
-    options.policyPath ?? "tools/postgres_fixture_policy_registry.json",
-  );
-  const registry = parseStrictJSON(readFileSync(policyPath, "utf8"), policyPath);
+export function validatePostgresFixturePolicy(root, rows) {
+  const relative = "tools/postgres_fixture_policy_registry.json";
+  const policyPath = path.resolve(root, relative);
+  const registry = readExecutableRepositoryJSON(root, relative);
   validateSchemaSync(schemaID, registry);
   assertSortedUnique(registry.capability_policies.map(({ capability }) => capability),
     `${policyPath}.capability_policies`);

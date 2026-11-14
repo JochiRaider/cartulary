@@ -40,8 +40,9 @@ require_command "$NODE"
 docker info >/dev/null 2>&1 || fail "docker daemon is not available"
 docker compose version >/dev/null 2>&1 || fail "docker compose plugin is not available"
 
-work_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-standup-recovery-smoke.XXXXXX")"
-project="cartularymvprecoverysmk$(date +%s)$$"
+work_dir="${CARTULARY_PACKAGE_WORK_DIR:?native package allocation required}"
+project="${CARTULARY_PACKAGE_SOURCE_PROJECT:?native package allocation required}"
+artifact_dir="${CARTULARY_PACKAGE_ARTIFACT_DIR:?native package allocation required}"
 port="$(pick_port)" || fail "no free loopback port found for operational recovery smoke"
 public_origin="https://127.0.0.1:${port}"
 compose_file="$work_dir/docker-compose.yml"
@@ -52,18 +53,11 @@ route_json="$work_dir/public-route-absence.json"
 summary_json="$work_dir/standup-operational-recovery-summary.json"
 ready_body="$work_dir/readyz.json"
 
-results_root="${CARTULARY_TEST_RESULTS_DIR:-${ROOT_DIR}/.cartulary/test-results}"
-run_id="${CARTULARY_TEST_RUN_ID:-standup-operational-recovery-smoke-manual}"
-artifact_dir="${results_root}/${run_id}/standup-operational-recovery-smoke/artifacts"
-mkdir -p "$artifact_dir"
-
 compose() {
   docker compose --project-name "$project" --env-file "$work_dir/.env" -f "$compose_file" "$@"
 }
 
-# shellcheck source=tools/release-evidence/package-smoke-cleanup.sh
-source "$ROOT_DIR/tools/release-evidence/package-smoke-cleanup.sh"
-cleanup() {
+publish_artifacts() {
   local status=$?
   trap - EXIT INT TERM
   set +e
@@ -71,15 +65,9 @@ cleanup() {
   for artifact in "$capture_json" "$latest_json" "$restore_verify_json" "$route_json" "$summary_json"; do
     if [[ -f "$artifact" ]] && ! cp "$artifact" "$artifact_dir/"; then status=1; fi
   done
-  local helper_image="${package_postgres_image:-}"
-  if [[ -z "$helper_image" ]] && rmdir -- "$work_dir"; then
-    printf '{"cleanup":"passed","empty_preinstallation_workspace":true}\n' >"$artifact_dir/workspace-cleanup.json"
-  elif [[ -z "$helper_image" ]] || ! cleanup_package_workspace "$project" "$work_dir" "$helper_image" "$artifact_dir/workspace-cleanup.json"; then status=1; fi
-  if ! cleanup_package_resources "${project}destination" "" "$artifact_dir/destination-cleanup.json"; then status=1; fi
-  if ! cleanup_package_resources "$project" "" "$artifact_dir/cleanup.json"; then status=1; fi
   exit "$status"
 }
-trap cleanup EXIT
+trap publish_artifacts EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 

@@ -2,7 +2,7 @@ import { publishRendererFixture } from "./renderer-evidence-fixture.mjs";
 import assert from "node:assert/strict";
 import process from "node:process";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, linkSync, renameSync, symlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -174,6 +174,32 @@ test("Playwright row adapter classifies missing and ambiguous selectors as accou
   );
 });
 
+test("Playwright row adapter rejects missing and retried native results without hiding product failure", () => {
+  for (const [aggregateStatus, results, expected] of [
+    ["expected", [], ["infrastructure_failed", 11, "harness", "scheduler_accounting_error"]],
+    ["unexpected", [], ["infrastructure_failed", 11, "harness", "scheduler_accounting_error"]],
+    ["expected", [{ status: "passed", duration: 3 }, { status: "passed", duration: 5 }], ["infrastructure_failed", 11, "harness", "scheduler_accounting_error"]],
+    ["expected", [{ status: "failed", duration: 3 }, { status: "passed", duration: 5 }], ["failed", 10, "product", "test_assertion_failure"]],
+    ["unexpected", [{ status: "passed", duration: 3 }, { status: "failed", duration: 5 }], ["failed", 10, "product", "test_assertion_failure"]],
+    ["expected", [{ status: "timedOut", duration: 3 }, { status: "passed", duration: 5 }], ["failed", 10, "product", "test_assertion_failure"]],
+    ["expected", [{ status: "passed", duration: 3, retry: 1 }], ["infrastructure_failed", 11, "harness", "scheduler_accounting_error"]],
+    ["unexpected", [{ status: "failed", duration: 3, retry: 1 }], ["failed", 10, "product", "test_assertion_failure"]],
+  ]) {
+    const native = spec("native observation", "passed");
+    native.tests[0].status = aggregateStatus;
+    native.tests[0].results = results;
+    const result = adapt(row("harness.browser.unit.observation", "native observation"), report(native));
+    assert.deepEqual([result.terminal_state, result.exit_code, result.failure_class, result.failure_reason], expected);
+    if (results.length === 2) assert.equal(result.duration_ms, 8);
+  }
+  for (const statuses of [["failed", "passed"], ["passed", "failed"]]) {
+    const result = adapt(row("harness.browser.unit.observation", "native observation"),
+      report(...statuses.map(status => spec("native observation", status))));
+    assert.deepEqual([result.terminal_state, result.exit_code, result.failure_class, result.failure_reason],
+      ["failed", 10, "product", "test_assertion_failure"]);
+  }
+});
+
 test("Playwright row adapter applies primary-failure precedence within a row", () => {
   const mixed = adapt(
     row(
@@ -219,9 +245,63 @@ test("Playwright group exit uses canonical product-first failure precedence", ()
   );
 });
 
-test("browser fixture process retains redacted late diagnostics and preserves cleanup classification", async () => {
-  const { createBrowserFixtureProcess, fixtureLifecycleAttachment } = await import("../index.mjs");
-  const fixture = createBrowserFixtureProcess({
+async function ownedFixtureProcess(t, options) {
+  const { createBrowserFixtureProcess } = await import("../index.mjs");
+  const fixture = createBrowserFixtureProcess(options);
+  t.after(async () => {
+    // The test body owns expected failure classification; this hook owns lifetime
+    // even when an earlier readiness or assertion failure bypasses that body.
+    let failure;
+    try { await fixture.stop(); } catch (error) { failure = error; }
+    assert.equal(fixture.report().process.closed, true, failure?.message ?? "fixture process did not close");
+  });
+  return fixture;
+}
+
+test("browser Go fixture binds prepared machine state and selected executable before startup", async (t) => {
+  const { createGoBrowserFixtureProcess } = await import("../index.mjs");
+  const scratch = mkdtempSync(path.join(os.tmpdir(), "cartulary-browser-go-"));
+  t.after(() => rmSync(scratch, { recursive: true, force: true }));
+  const executable = path.join(scratch, "selected-go");
+  const keys = ["GOCACHE", "GOMODCACHE", "GOTMPDIR", "GOROOT", "GOTOOLCHAIN", "GOFLAGS", "GOENV", "GOWORK", "GOEXPERIMENT", "GOOS", "GOARCH", "GOAMD64", "CGO_ENABLED", "GO111MODULE", "GOPROXY", "GOFIPS140"];
+  writeFileSync(executable, `#!${process.execPath}
+process.stdout.write(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(),
+  environment: Object.fromEntries(${JSON.stringify(keys)}.map(key => [key, process.env[key]])) }) + '\\n');
+process.stdin.resume();
+process.stdin.on('end', () => process.stderr.write(JSON.stringify({
+  schema_id: 'cartulary.browser_fixture_event.v3', attempt_id: process.argv.at(-1),
+  stage: 'fixture', phase: 'terminal', outcome: 'succeeded', elapsed_ms: 1, deadline_ms: 0, message: ''
+}) + '\\n'));
+`, { mode: 0o700 });
+  const cwd = path.resolve(import.meta.dirname, "../../../..");
+  const machine = path.join(scratch, "machine");
+  const env = { ...process.env, GO: executable, CARTULARY_MACHINE_CACHE_DIR: machine,
+    GO_CACHE_DIR: path.join(machine, "build"), GO_MOD_CACHE_DIR: path.join(machine, "modules"), GO_TMP_DIR: path.join(machine, "temporary"),
+    GOCACHE: "/wrong/build", GOMODCACHE: "/wrong/modules", GOTMPDIR: "/wrong/temporary", GOROOT: "/wrong/toolchain",
+    GOFLAGS: "-tags=private", GOENV: "/wrong/env", GOWORK: "/wrong/work", GOEXPERIMENT: "jsonv2", GOTOOLCHAIN: "auto",
+    GOOS: "windows", GOARCH: "arm64", GOAMD64: "v4", CGO_ENABLED: "1", GO111MODULE: "off", GOPROXY: "https://invalid.example", GOFIPS140: "preserved-crypto-policy" };
+  assert.throws(() => createGoBrowserFixtureProcess({ packagePath: "./tools/recoverybrowserrestore", args: [], cwd, env: { ...env, GO: "" } }), /selected GO executable/);
+  const fixture = createGoBrowserFixtureProcess({ packagePath: "./tools/recoverybrowserrestore", args: ["--runtime-root", "/private/runtime"], cwd, env });
+  try {
+    const ready = await fixture.ready;
+    assert.equal(ready.cwd, cwd);
+    assert.match(ready.args.at(-1), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u);
+    assert.deepEqual(ready.args, ["run", "-mod=readonly", "-buildvcs=false", "./tools/recoverybrowserrestore", "--runtime-root", "/private/runtime", "--cleanup-budget-ms", "30000", "--attempt-id", ready.args.at(-1)]);
+    const pins = JSON.parse(readFileSync(path.join(cwd, "tools/toolchain_pins.json"), "utf8"));
+    assert.deepEqual(ready.environment, {
+      GOCACHE: path.join(machine, "build"), GOMODCACHE: path.join(machine, "modules"), GOTMPDIR: path.join(machine, "temporary"), GOROOT: "",
+      GOTOOLCHAIN: `go${pins.go_version}`, GOFLAGS: "", GOENV: "off", GOWORK: "off", GOEXPERIMENT: "", GOOS: "linux", GOARCH: "amd64", GOAMD64: "v1",
+      CGO_ENABLED: "0", GO111MODULE: "on", GOPROXY: "off", GOFIPS140: "preserved-crypto-policy",
+    });
+  } finally {
+    await fixture.stop();
+  }
+  assert.deepEqual(fixture.report().process, { exit_code: 0, signal: null, closed: true, forced: false });
+});
+
+test("browser fixture process retains redacted late diagnostics and preserves cleanup classification", async (t) => {
+  const { fixtureLifecycleAttachment } = await import("../index.mjs");
+  const fixture = await ownedFixtureProcess(t, {
     command: process.execPath,
     args: ["-e", `
       const attempt = process.argv.at(-1);
@@ -274,9 +354,8 @@ test("browser fixture process retains redacted late diagnostics and preserves cl
   assert.equal(adapt(row("harness.browser.unit.fixture_cleanup", "cleanup"), report(broken)).failure_class, "artifact");
 });
 
-test("browser fixture forced retirement remains a failure even when SIGTERM exits successfully", async () => {
-  const { createBrowserFixtureProcess } = await import("../index.mjs");
-  const fixture = createBrowserFixtureProcess({
+test("browser fixture forced retirement remains a failure even when SIGTERM exits successfully", async (t) => {
+  const fixture = await ownedFixtureProcess(t, {
     command: process.execPath,
     args: ["-e", `process.on('SIGTERM', () => process.exit(0)); process.stdout.write('{}\\n'); setInterval(() => {}, 1000);`, "--"],
     cleanupMs: 20, signalMs: 1000,
@@ -287,9 +366,8 @@ test("browser fixture forced retirement remains a failure even when SIGTERM exit
   assert.equal(fixture.report().process.closed, true);
 });
 
-test("browser fixture stderr truncation cannot expose a multiline credential suffix", async () => {
-  const { createBrowserFixtureProcess } = await import("../index.mjs");
-  const fixture = createBrowserFixtureProcess({ command: process.execPath,
+test("browser fixture stderr truncation cannot expose a multiline credential suffix", async (t) => {
+  const fixture = await ownedFixtureProcess(t, { command: process.execPath,
     env: { ...process.env, FIXTURE_PASSWORD: `${"private-head-".repeat(900)}\nprivate-tail-value` },
     args: ["-e", `
       process.stdout.write('{}\\n'); process.stdin.resume();
@@ -306,9 +384,8 @@ test("browser fixture stderr truncation cannot expose a multiline credential suf
   assert.match(fixture.report().stderr, /safe/);
 });
 
-test("browser fixture startup failure and absent terminal evidence fail with redacted diagnostics", async () => {
-  const { createBrowserFixtureProcess } = await import("../index.mjs");
-  const startup = createBrowserFixtureProcess({
+test("browser fixture startup failure and absent terminal evidence fail with redacted diagnostics", async (t) => {
+  const startup = await ownedFixtureProcess(t, {
     command: process.execPath,
     args: ["-e", `process.stderr.write(process.env.FIXTURE_PASSWORD + ': startup failed\\n'); process.exitCode = 1;`, "--"],
     env: { ...process.env, FIXTURE_PASSWORD: "startup-private-value" },
@@ -322,7 +399,7 @@ test("browser fixture startup failure and absent terminal evidence fail with red
     return true;
   });
   await assert.rejects(startup.stop(), /startup failed/);
-  const incomplete = createBrowserFixtureProcess({ command: process.execPath,
+  const incomplete = await ownedFixtureProcess(t, { command: process.execPath,
     args: ["-e", `process.stdout.write('{}\\n'); process.stdin.resume();`, "--"] });
   await incomplete.ready;
   await assert.rejects(incomplete.stop(), /Missing terminal fixture evidence/);
@@ -349,6 +426,9 @@ test("browser fixture retirement rejects an unanchored surviving group", async (
     // the deliberately unavailable production group anchor.
     if (descendantPID) process.kill(descendantPID, "SIGKILL");
     await fixture.stop().catch(() => {});
+    const deadline = performance.now() + 5000;
+    while (!fixture.report().process.closed && performance.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(fixture.report().process.closed, true, "test-owned descendant pipes did not close");
   }
 });
 
@@ -366,6 +446,8 @@ test("browser target finalization preserves typed row failures and cleanup prece
       ["artifact", [{ failure_class: "artifact", failure_reason: "artifact_error", exit_code: 11 }], 11],
       ["infra", [{ failure_class: "infra", failure_reason: "service_start_error", exit_code: 3 }], 3],
       ["group_cleanup", [null], 12],
+      ...["group", "unit"].flatMap(boundary => ["hardlink", "ancestor_alias", "duplicate_key"].map(mode =>
+        [`${boundary}_${mode}`, [cleanup], 11])),
     ]) {
       const groups = failures.map((failure, index) => {
         const groupID = `group-${index}`;
@@ -402,6 +484,23 @@ test("browser target finalization preserves typed row failures and cleanup prece
         writeFileSync(path.join(unitDirectory, `${outcome.unit_id.replaceAll(/[^A-Za-z0-9_.+-]+/gu, "-")}.json`), JSON.stringify(outcome), { mode: 0o600 });
         return groupID;
       });
+      let injected;
+      if (/^(group|unit)_(hardlink|ancestor_alias|duplicate_key)$/u.test(id)) {
+        const unitFile = path.join(scratch, id, "unit-results", "browser_group-probe-group-0.json");
+        const groupFile = path.join(scratch, id, target, "browser-groups", "group-0", "browser-group-result.json");
+        injected = id.startsWith("group_") ? groupFile : unitFile;
+        if (id.endsWith("hardlink")) linkSync(injected, `${injected}.alias`);
+        if (id.endsWith("ancestor_alias")) {
+          const parent = path.dirname(injected);
+          renameSync(parent, `${parent}.real`);
+          symlinkSync(`${parent}.real`, parent, "dir");
+        }
+        if (id.endsWith("duplicate_key")) {
+          const value = JSON.parse(readFileSync(injected, "utf8"));
+          writeFileSync(injected, JSON.stringify(value).replace("{", `{"schema_id":${JSON.stringify(value.schema_id)},`));
+        }
+      }
+      const injectedBytes = injected ? readFileSync(injected) : null;
       const finalizerEnv = { ...process.env, CARTULARY_TEST_RESULTS_DIR: scratch, CARTULARY_TEST_RUN_ID: id };
       delete finalizerEnv.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
       delete finalizerEnv.CARTULARY_HARNESS_UNIT_EVENT_PREFIX;
@@ -411,6 +510,10 @@ test("browser target finalization preserves typed row failures and cleanup prece
         cwd: root, encoding: "utf8", env: finalizerEnv,
       });
       assert.equal(result.status, expected, `${id}: ${result.stderr}`);
+      if (injected) {
+        assert.deepEqual(readFileSync(injected), injectedBytes, "rejection changed injected evidence");
+        assert.equal(existsSync(path.join(scratch, id, target, "browser-target-result.json")), false);
+      }
     }
   } finally { rmSync(scratch, { recursive: true, force: true }); }
 });
@@ -525,6 +628,7 @@ test("public Playwright reporter replaces large checkpoints after cross-file tes
     assert.ok(checkpointBytes.length < playwrightReportMaximumBytes);
     const checkpoint = JSON.parse(checkpointBytes.toString("utf8"));
     assert.deepEqual(checkpoint.errors, []);
+    assert.deepEqual(checkpoint.suites.map(suite => suite.suites[0].suites[0].specs[0].tests[0].results[0].retry), [0, 0]);
     assert.deepEqual(adaptPlaywrightReport(rows, checkpoint, 0, null, selection).map((row) => row.terminal_state), ["passed", "passed"]);
     for (const row of rows) assert.equal(JSON.parse(readFileSync(path.join(scratch, "rows", `${row.row_id}.json`), "utf8")).terminal_state, "passed");
   } finally { rmSync(scratch, { recursive: true, force: true }); }
@@ -539,7 +643,8 @@ test("public Playwright checkpoints survive interruption and worker/global teard
   const testModule = pathToFileURL(path.join(packages.playwrightPath, "test.mjs")).href;
   for (const mode of ["SIGTERM", "SIGKILL", "test_cleanup", "worker_cleanup", "global_cleanup"]) {
     const scratch = mkdtempSync(path.join(os.tmpdir(), "cartulary-playwright-settlement-"));
-    let child;
+    let child, finished, timer;
+    let closed = false;
     try {
       const testDir = path.join(scratch, "apps/web/e2e"); mkdirSync(testDir, { recursive: true });
       const rows = ["first", "second"].map((title) => ({ row_id: `harness.browser.unit.${title}`, selector: {
@@ -564,7 +669,9 @@ test("public Playwright checkpoints survive interruption and worker/global teard
       writeFileSync(config, `export default ${JSON.stringify({ testDir, projects: [{ name: "chromium" }], retries: 0, workers: 1, maxFailures: 1, globalTeardown: teardown, reporter: [[reporterFile]] })};`);
       child = spawn(process.execPath, [path.join(packages.playwrightPath, "cli.js"), "test", "--config", config], { cwd: scratch, detached: true, stdio: ["ignore", "pipe", "pipe"] });
       let output = ""; child.stdout.on("data", (data) => { output += data; }); child.stderr.on("data", (data) => { output += data; });
-      const finished = once(child, "close");
+      finished = once(child, "close").then(result => { closed = true; return result; });
+      finished.catch(() => {});
+      timer = setTimeout(() => { if (!closed && child.pid) { try { process.kill(-child.pid, "SIGKILL"); } catch {} } }, 20000);
       if (mode.startsWith("SIG")) {
         const deadline = Date.now() + 15000;
         while ((!existsSync(marker) || !existsSync(path.join(scratch, "rows", `${rows[0].row_id}.json`))) && child.exitCode === null && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 25));
@@ -572,7 +679,6 @@ test("public Playwright checkpoints survive interruption and worker/global teard
         // Both coordinator and worker are test-owned members of this group.
         process.kill(-child.pid, mode);
       }
-      const timer = setTimeout(() => { try { process.kill(-child.pid, "SIGKILL"); } catch {} }, 20000);
       const [status, signal] = await finished; clearTimeout(timer);
       const report = JSON.parse(readFileSync(checkpointFile, "utf8"));
       const results = adaptPlaywrightReport(rows, report, status, signal, selection);
@@ -588,7 +694,9 @@ test("public Playwright checkpoints survive interruption and worker/global teard
         assert.equal(JSON.parse(readFileSync(path.join(scratch, "rows", `${rows[0].row_id}.json`))).terminal_state, "passed");
       }
     } finally {
-      if (child?.pid) { try { process.kill(-child.pid, "SIGKILL"); } catch {} }
+      clearTimeout(timer);
+      if (!closed && child?.pid) { try { process.kill(-child.pid, "SIGKILL"); } catch {} }
+      await finished?.catch(() => {});
       rmSync(scratch, { recursive: true, force: true });
     }
   }

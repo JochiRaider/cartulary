@@ -99,6 +99,10 @@ func TestOpenAPIIncidentMembershipAuditOperationIsCompleteAndExact_Unit(t *testi
 	}
 
 	schemas := openAPIObjectAt(t, openAPIObjectAt(t, document, "components"), "schemas")
+	meta := openAPIObjectAt(t, schemas, "AdministrativeAuditEnvelope", "properties", "meta")
+	if meta["$ref"] != "#/components/schemas/PagedEnvelopeMeta" {
+		t.Fatalf("membership audit collection must require paging metadata: %#v", meta)
+	}
 	dataSchema := openAPIObjectAt(t, schemas, "AdministrativeAuditData")
 	if dataSchema["type"] != "object" || dataSchema["additionalProperties"] != false {
 		t.Fatalf("administrative audit data must be closed: %#v", dataSchema)

@@ -107,16 +107,6 @@ func BuildAccountPreferencesResource(record authn.AccountPreferencesRecord) map[
 	}
 }
 
-func WouldLeaveNoActiveDeploymentAdmins(currentIsAdmin bool, currentIsActive bool, activeAdminCount int, nextIsAdmin bool, nextIsActive bool) bool {
-	if !(currentIsAdmin && currentIsActive) {
-		return false
-	}
-	if nextIsAdmin && nextIsActive {
-		return false
-	}
-	return activeAdminCount <= 1
-}
-
 func DecodeUserCreateRequest(reader io.Reader) (UserCreateRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	recoverycontract "github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 )
@@ -20,7 +21,7 @@ func New(db dbport.DB) recoverycontract.EvidenceRecoveryProvider {
 	return &provider{db: db}
 }
 
-func (provider *provider) ListAvailableRecoveryObjects(ctx context.Context) ([]recoverycontract.EvidenceObjectState, error) {
+func (provider *provider) ListRequiredRecoveryObjects(ctx context.Context) ([]recoverycontract.EvidenceObjectState, error) {
 	if provider == nil || nilDatabase(provider.db) {
 		return nil, fmt.Errorf("evidence recovery provider requires database")
 	}
@@ -35,11 +36,11 @@ SELECT b.object_blob_id,
   FROM object_blobs b
   LEFT JOIN evidence e
     ON e.object_blob_id = b.object_blob_id
- WHERE b.upload_state = 'available'
+ WHERE b.upload_state IN ('available', 'quarantined')
  ORDER BY b.storage_key ASC, b.object_blob_id ASC
 `)
 	if err != nil {
-		return nil, fmt.Errorf("list available Evidence recovery objects: %w", err)
+		return nil, fmt.Errorf("list required Evidence recovery objects: %w", err)
 	}
 	defer rows.Close()
 
@@ -61,7 +62,10 @@ SELECT b.object_blob_id,
 			&observedSHA,
 			&blobHash,
 		); err != nil {
-			return nil, fmt.Errorf("scan available Evidence recovery object: %w", err)
+			return nil, fmt.Errorf("scan required Evidence recovery object: %w", err)
+		}
+		if !policy.ValidRecoveryBlobMetadata(byteSize, int64Pointer(observedSize), stringPointer(observedSHA), stringPointer(expectedSHA)) {
+			return nil, fmt.Errorf("%w: invalid finalized Evidence object metadata", recoverycontract.ErrInvalidBackupArtifact)
 		}
 		objects = append(objects, recoverycontract.EvidenceObjectState{
 			ObjectBlobID:      objectBlobID,
@@ -74,7 +78,7 @@ SELECT b.object_blob_id,
 		})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate available Evidence recovery objects: %w", err)
+		return nil, fmt.Errorf("iterate required Evidence recovery objects: %w", err)
 	}
 	return objects, nil
 }

@@ -189,28 +189,28 @@ type quarantineBlobResult struct {
 }
 
 func newBlobLifecycleService(dependencies blobLifecycleDependencies) (*blobLifecycleService, error) {
-	if dependencies.Postgres == nil {
+	if isNilCapability(dependencies.Postgres) {
 		return nil, errors.New("compose Evidence blob lifecycle: Postgres is required")
 	}
-	if isNilMutationCapability(dependencies.Revisions) {
+	if isNilCapability(dependencies.Revisions) {
 		return nil, errors.New("compose Evidence blob lifecycle: Revisions is required")
 	}
-	if dependencies.Projections == nil {
+	if isNilCapability(dependencies.Projections) {
 		return nil, errors.New("compose Evidence blob lifecycle: Projections is required")
 	}
-	if dependencies.SupportEffects == nil {
+	if isNilCapability(dependencies.SupportEffects) {
 		return nil, errors.New("compose Evidence blob lifecycle: support projection effects are required")
 	}
-	if dependencies.Collaboration == nil {
+	if isNilCapability(dependencies.Collaboration) {
 		return nil, errors.New("compose Evidence blob lifecycle: Collaboration is required")
 	}
-	if isNilMutationCapability(dependencies.IncidentState) {
+	if isNilCapability(dependencies.IncidentState) {
 		return nil, errors.New("compose Evidence blob lifecycle: incident state is required")
 	}
-	if isNilMutationCapability(dependencies.RecordEnvelopes) {
+	if isNilCapability(dependencies.RecordEnvelopes) {
 		return nil, errors.New("compose Evidence blob lifecycle: record envelopes are required")
 	}
-	if isNilMutationCapability(dependencies.Idempotency) {
+	if isNilCapability(dependencies.Idempotency) {
 		return nil, errors.New("compose Evidence blob lifecycle: lifecycle idempotency is required")
 	}
 	return &blobLifecycleService{

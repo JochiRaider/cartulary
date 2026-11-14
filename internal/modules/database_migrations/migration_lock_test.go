@@ -37,6 +37,13 @@ func (locker *recordingSessionLocker) SessionUnlock(ctx context.Context, conn *s
 }
 
 func TestValidatingSessionLockerReleasesAfterPreflightFailure(t *testing.T) {
+	var absent *recordingSessionLocker
+	invalid := &validatingSessionLocker{delegate: absent, validate: func(context.Context, *sql.Conn) error {
+		t.Fatal("unusable lock admitted validation")
+		return nil
+	}}
+	requireMigrationFailureReason(t, invalid.SessionLock(t.Context(), &sql.Conn{}), reasonMigrationLockAcquisitionFailed)
+	requireMigrationFailureReason(t, invalid.SessionUnlock(t.Context(), &sql.Conn{}), reasonSchemaMigrationCleanupFailed)
 	delegate := &recordingSessionLocker{}
 	primary := newMigrationFailure(reasonHistoricalMigrationLineage, nil)
 	conn := &sql.Conn{}
@@ -80,6 +87,7 @@ func TestValidatingSessionLockerRecoversPanicAndReleases(t *testing.T) {
 }
 
 func TestValidatingSessionLockerBoundsDetachedUnlock(t *testing.T) {
+	assertMigrationSessionRetirement(t)
 	delegate := &recordingSessionLocker{unlockWait: true}
 	locker := &validatingSessionLocker{
 		delegate:      delegate,
@@ -91,7 +99,8 @@ func TestValidatingSessionLockerBoundsDetachedUnlock(t *testing.T) {
 	cancel()
 
 	started := time.Now()
-	err := locker.SessionUnlock(canceled, &sql.Conn{})
+	_, conn, _ := migrationSessionFixture(t)
+	err := locker.SessionUnlock(canceled, conn)
 	elapsed := time.Since(started)
 	requireMigrationFailureReason(t, err, reasonSchemaMigrationCleanupFailed)
 	if elapsed < 10*time.Millisecond || elapsed > time.Second {

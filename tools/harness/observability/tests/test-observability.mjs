@@ -25,34 +25,7 @@ function event(seq, monotonicMs, kind, unitID, status, extra = {}) {
   };
 }
 
-function executionIntervals(events) {
-  const starts = new Map();
-  const intervals = [];
-  for (const entry of events) {
-    if (entry.event === "started") starts.set(entry.unit_id, entry.monotonic_ms);
-    if (["completed", "failed", "cancelled"].includes(entry.event)) {
-      const start = starts.get(entry.unit_id);
-      if (start !== undefined) intervals.push([start, entry.monotonic_ms]);
-    }
-  }
-  return intervals.sort((left, right) => left[0] - right[0]);
-}
-
-function intervalUnionMs(intervals) {
-  let total = 0;
-  let current = null;
-  for (const interval of intervals) {
-    if (!current) current = [...interval];
-    else if (interval[0] <= current[1]) current[1] = Math.max(current[1], interval[1]);
-    else {
-      total += current[1] - current[0];
-      current = [...interval];
-    }
-  }
-  return total + (current ? current[1] - current[0] : 0);
-}
-
-test("canonical unit events are the sole current execution timing authority", () => {
+test("canonical event schemas admit representative execution records and reject invalid sequence types", () => {
   const events = [
     event(1, 0, "queued", "a", "pending"),
     event(2, 5, "started", "a", "running"),
@@ -61,11 +34,10 @@ test("canonical unit events are the sole current execution timing authority", ()
     event(5, 25, "completed", "b", "passed", { output_digest: `sha256:${"b".repeat(64)}` }),
   ];
   for (const entry of events) validateSchemaSync(entry.schema_id, entry);
-  assert.deepEqual(events.map((entry) => entry.seq), [1, 2, 3, 4, 5]);
-  assert.equal(intervalUnionMs(executionIntervals(events)), 20);
+  for (const seq of [0, "1"]) assert.throws(() => validateSchemaSync(events[0].schema_id, { ...events[0], seq }));
 });
 
-test("cache and fixture accounting remain explicit canonical events", () => {
+test("canonical event schemas admit cache and fixture records and reject invalid lease types", () => {
   const events = [
     event(1, 0, "cache_miss", "row:a", "pending", { cache_profile_id: "go.test", cache_reason: "not_found" }),
     event(2, 1, "fixture_acquired", "row:a", "running", { fixture_lease_id: "lease:a" }),
@@ -73,11 +45,10 @@ test("cache and fixture accounting remain explicit canonical events", () => {
     event(4, 11, "completed", "row:a", "passed"),
   ];
   for (const entry of events) validateSchemaSync(entry.schema_id, entry);
-  assert.equal(events.filter((entry) => entry.event === "fixture_acquired").length, 1);
-  assert.equal(events.filter((entry) => entry.event === "fixture_released").length, 1);
+  for (const entry of events.filter(entry => entry.fixture_lease_id)) assert.throws(() => validateSchemaSync(entry.schema_id, { ...entry, fixture_lease_id: 1 }));
 });
 
-test("canonical run summaries close roster and retained artifact references", () => {
+test("canonical summary schema admits a representative record and rejects negative counts", () => {
   const summary = {
     schema_id: "cartulary.harness_run_summary.v1",
     run_id: "contract-run",
@@ -104,7 +75,7 @@ test("canonical run summaries close roster and retained artifact references", ()
     artifact_refs: ["run-manifest.json", "unit-events.ndjson", "target-summaries/check.json"],
   };
   validateSchemaSync(summary.schema_id, summary);
-  assert.equal(Object.values(summary.unit_counts).slice(1).reduce((sum, count) => sum + count, 0), summary.unit_counts.total);
+  assert.throws(() => validateSchemaSync(summary.schema_id, { ...summary, unit_counts: { ...summary.unit_counts, total: -1 } }));
 });
 
 test("retired phase timing authorities are absent from current public recipes", () => {

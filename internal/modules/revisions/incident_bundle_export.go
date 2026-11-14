@@ -48,7 +48,7 @@ func exportPortableChangeSets(ctx context.Context, input sourceport.ExportContex
 func exportPortableChangeSetPage(ctx context.Context, exportContext sourceport.ExportContext, after *uuid.UUID, output io.Writer) (*uuid.UUID, error) {
 	rows, err := exportContext.Query.Query(ctx, `
 SELECT change_set_id, incident_id, actor_user_id, source, reason,
-       client_txn_id, request_id, created_at
+       client_txn_id, request_id, created_at, actor_import_contexts, history_order
   FROM change_sets
  WHERE incident_id = $1 AND ($2::uuid IS NULL OR change_set_id > $2)
  ORDER BY change_set_id
@@ -64,6 +64,7 @@ SELECT change_set_id, incident_id, actor_user_id, source, reason,
 	for rows.Next() {
 		var row portableChangeSet
 		var reason, clientTxnID, requestID pgtype.Text
+		var contexts []byte
 		if err := rows.Scan(
 			&row.ChangeSetID,
 			&row.IncidentID,
@@ -73,12 +74,18 @@ SELECT change_set_id, incident_id, actor_user_id, source, reason,
 			&clientTxnID,
 			&requestID,
 			&row.CreatedAt,
+			&contexts,
+			&row.HistoryOrder,
 		); err != nil {
 			return nil, err
 		}
-		if row.ChangeSetID == uuid.Nil || row.IncidentID != exportContext.IncidentID ||
+		if row.HistoryOrder <= 0 || row.ChangeSetID == uuid.Nil || row.IncidentID != exportContext.IncidentID ||
 			row.RuntimeActorID == uuid.Nil || !validRequiredPortableString(row.Source) {
 			return nil, errors.New("revisions export change set is invalid")
+		}
+		row.ActorImportContexts, err = decodeRevisionActorContexts(contexts)
+		if err != nil {
+			return nil, err
 		}
 		row.Reason = textPointer(reason)
 		row.ClientTxnID = textPointer(clientTxnID)
@@ -110,19 +117,28 @@ SELECT change_set_id, incident_id, actor_user_id, source, reason,
 	}
 	rows.Close()
 	for _, row := range changeSets {
+		for _, step := range row.ActorImportContexts {
+			if exportContext.Actors != nil {
+				if err := exportContext.Actors.RecordActorReference(step.ActorID); err != nil {
+					return nil, err
+				}
+			}
+		}
 		actorID, err := incidentportability.ExportActorID(exportContext.Actors, portableActors[row.ChangeSetID.String()], row.RuntimeActorID)
 		if err != nil {
 			return nil, err
 		}
 		err = incidentportability.WriteNDJSONRecord(output, map[string]any{
-			"change_set_id": row.ChangeSetID.String(),
-			"incident_id":   row.IncidentID.String(),
-			"actor_user_id": actorID,
-			"source":        row.Source,
-			"reason":        nullableStringValue(row.Reason),
-			"client_txn_id": nullableStringValue(row.ClientTxnID),
-			"request_id":    nullableStringValue(row.RequestID),
-			"created_at":    row.CreatedAt.UTC().Format(time.RFC3339Nano),
+			"actor_import_contexts": revisionActorContextValues(row.ActorImportContexts),
+			"history_order":         row.HistoryOrder,
+			"change_set_id":         row.ChangeSetID.String(),
+			"incident_id":           row.IncidentID.String(),
+			"actor_user_id":         actorID,
+			"source":                row.Source,
+			"reason":                nullableStringValue(row.Reason),
+			"client_txn_id":         nullableStringValue(row.ClientTxnID),
+			"request_id":            nullableStringValue(row.RequestID),
+			"created_at":            row.CreatedAt.UTC().Format(time.RFC3339Nano),
 		})
 		if err != nil {
 			return nil, err

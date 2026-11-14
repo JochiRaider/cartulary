@@ -13,6 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/aliashistory"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/preservedhistory"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -114,13 +116,11 @@ type mergeIdentifierInsert struct {
 }
 
 type mergeIdentifierMutation struct {
-	Before map[string]any
-	After  map[string]any
+	Value preservedhistory.Value
 }
 
 type mergeAliasMutation struct {
-	Before map[string]any
-	After  map[string]any
+	Value aliashistory.Value
 }
 
 type mergeCarryPlan struct {
@@ -157,19 +157,14 @@ type mergeCounts struct {
 }
 
 func (s *Store) GetMergeRouteIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
-	row := s.pool.QueryRow(ctx, `
-SELECT incident_id
-  FROM records
- WHERE record_id = $1
-`, recordID)
-	var incidentID uuid.UUID
-	if err := row.Scan(&incidentID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	meta, err := s.ports.records.LoadTargetMeta(ctx, recordID)
+	if err != nil {
+		if errors.Is(err, errEntityRecordEnvelopeNotFound) {
 			return uuid.UUID{}, ErrMergeTargetNotFound
 		}
 		return uuid.UUID{}, fmt.Errorf("get merge route incident: %w", err)
 	}
-	return incidentID, nil
+	return meta.IncidentID, nil
 }
 
 func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivorRecordID uuid.UUID, request MergeRequest, requestHash []byte, requestID string, now time.Time) (MergeResult, error) {
@@ -209,13 +204,14 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	if err != nil {
 		return MergeResult{}, err
 	}
-	preLockSurvivorMeta, survivorMetaErr := loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
-	preLockLoserMeta, loserMetaErr := loadMergeTargetMetaTx(ctx, tx, request.LoserRecordID)
+	preLockSurvivorMeta, survivorMetaErr := s.loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
+	preLockLoserMeta, loserMetaErr := s.loadMergeTargetMetaTx(ctx, tx, request.LoserRecordID)
+	var preparedClaims *hostidentity.MergeIdentifierClaimPreparation
 	if survivorMetaErr == nil && loserMetaErr == nil &&
 		preLockSurvivorMeta.IncidentID == preLockLoserMeta.IncidentID &&
 		preLockSurvivorMeta.RecordType == preLockLoserMeta.RecordType &&
 		(preLockSurvivorMeta.RecordType == "host" || preLockSurvivorMeta.RecordType == "identity") {
-		conflict, prepareErr := s.hostIdentity.PrepareIdentifierClaimsTx(
+		prepared, prepareErr := s.hostIdentity.PrepareIdentifierClaimsTx(
 			ctx,
 			tx,
 			preLockSurvivorMeta.IncidentID,
@@ -226,9 +222,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		if prepareErr != nil {
 			return MergeResult{}, prepareErr
 		}
-		if conflict != nil {
-			return MergeResult{}, mergeIdentifierConflict(preLockSurvivorMeta.RecordType, conflict)
-		}
+		preparedClaims = prepared
 	}
 	if err := s.ports.revisions.LockDestructiveOperationRecordsNowaitTx(ctx, tx, protectedRecordIDs); err != nil {
 		var locked *entityRecordLockedError
@@ -236,7 +230,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, &MergeRecordLockedError{RecordID: locked.RecordID}
 		}
 		if errors.Is(err, errEntityRecordEnvelopeNotFound) {
-			return MergeResult{}, classifyMissingMergeTargetTx(ctx, tx, survivorRecordID, request.LoserRecordID)
+			return MergeResult{}, s.classifyMissingMergeTargetTx(ctx, tx, survivorRecordID, request.LoserRecordID)
 		}
 		return MergeResult{}, err
 	}
@@ -249,14 +243,14 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		return MergeResult{}, &MergePreconditionError{ReasonCode: "protected_set_changed"}
 	}
 
-	survivorMeta, err := loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
+	survivorMeta, err := s.loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
 	if errors.Is(err, ErrMergeTargetNotFound) {
 		return MergeResult{}, ErrMergeTargetNotFound
 	}
 	if err != nil {
 		return MergeResult{}, err
 	}
-	loserMeta, err := loadMergeTargetMetaTx(ctx, tx, request.LoserRecordID)
+	loserMeta, err := s.loadMergeTargetMetaTx(ctx, tx, request.LoserRecordID)
 	if err != nil {
 		if errors.Is(err, ErrMergeTargetNotFound) {
 			return MergeResult{}, ErrMergeTargetNotFound
@@ -356,6 +350,18 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		}
 	default:
 		return MergeResult{}, &MergePreconditionError{ReasonCode: "unsupported_record_type"}
+	}
+	// Claim protection precedes envelope locking, but semantic disclosure must
+	// follow destructive-lock and current source/version admission.
+	claimsUnchanged, err := s.hostIdentity.RevalidateIdentifierClaimsTx(ctx, tx, preparedClaims)
+	if err != nil {
+		return MergeResult{}, err
+	}
+	if !claimsUnchanged {
+		return MergeResult{}, &MergePreconditionError{ReasonCode: "protected_set_changed"}
+	}
+	if preparedClaims.Conflict != nil {
+		return MergeResult{}, mergeIdentifierConflict(survivorMeta.RecordType, preparedClaims.Conflict)
 	}
 	beforeSurvivorHost := cloneMergeHostRecord(survivorHost)
 	beforeLoserHost := cloneMergeHostRecord(loserHost)

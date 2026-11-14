@@ -264,6 +264,76 @@ func assertNativeSQLInventory(t *testing.T) {
 	}
 }
 
+func assertConnectionRetirement(t *testing.T) {
+	const prefix = `package p
+import("database/sql"; d "database/sql/driver")
+type Connection = sql.Conn
+type Value = any
+type Failure = error
+`
+	for _, callback := range []string{
+		`func(any) error { return d.ErrBadConn }`,
+		`func(_ any) error { return (d.ErrBadConn) }`,
+		`func(interface{}) error { return d.ErrBadConn }`,
+		`func(_ Value) Failure { return d.ErrBadConn }`,
+	} {
+		source := prefix + `func Read(conn *Connection){conn.Raw(` + callback + `)}`
+		got, err := AnalyzeSQL(map[string]string{"p.go": source})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertQualifiedSQLSites(t, source, got, qualifiedSQLSite{"conn.Raw(", "closed", ""})
+		for _, declaration := range got["p.go"] {
+			for _, expression := range declaration.SQL {
+				if len(expression.Unresolved) != 0 {
+					t.Fatalf("retirement rejected: %s: %#v", callback, expression)
+				}
+			}
+		}
+	}
+	for _, body := range []string{
+		`conn.Raw(func(any) error { return nil })`,
+		`conn.Raw(func(value any) error { return d.ErrBadConn })`,
+		`conn.Raw(func(any) (err error) { return d.ErrBadConn })`,
+		`conn.Raw(func(any) error { defer work(); return d.ErrBadConn })`,
+		`conn.Raw(func(any) error { work(); return d.ErrBadConn })`,
+		`conn.Raw(func(any) error { return wrapped(d.ErrBadConn) })`,
+		`conn.Raw(func(any) error { return d.ErrSkip })`,
+		`conn.Raw(func(any) error { return })`,
+		`conn.Raw(func(any) {})`,
+		`conn.Raw(func() error { return d.ErrBadConn })`,
+		`conn.Raw(func(a, b any) error { return d.ErrBadConn })`,
+		`conn.Raw(func(string) error { return d.ErrBadConn })`,
+		`conn.Raw(func(any) string { return d.ErrBadConn })`,
+		`callback:=func(any) error { return d.ErrBadConn }; conn.Raw(callback)`,
+		`raw:=conn.Raw; raw(func(any) error { return d.ErrBadConn })`,
+		`(*sql.Conn).Raw(conn,func(any) error { return d.ErrBadConn })`,
+		`d:=struct{ErrBadConn error}{}; conn.Raw(func(any) error { return d.ErrBadConn })`,
+		`type any string; conn.Raw(func(any) error { return d.ErrBadConn })`,
+		`type error string; conn.Raw(func(any) error { return d.ErrBadConn })`,
+	} {
+		got, err := AnalyzeSQL(map[string]string{"p.go": prefix + `func Read(conn *sql.Conn){` + body + `}`})
+		if err != nil {
+			t.Fatal(err)
+		}
+		rejected := false
+		for _, declaration := range got["p.go"] {
+			for _, expression := range declaration.SQL {
+				rejected = rejected || len(expression.Unresolved) > 0
+			}
+		}
+		if !rejected {
+			t.Fatalf("raw access admitted: %s", body)
+		}
+	}
+	source := prefix + `func Read(conn *sql.Conn){conn.Raw(func(any) error { conn.ExecContext(ctx,"DELETE FROM users"); return d.ErrBadConn })}`
+	got, err := AnalyzeSQL(map[string]string{"p.go": source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertQualifiedSQLSites(t, source, got, qualifiedSQLSite{"conn.ExecContext(", "execution", "DELETE FROM users"})
+}
+
 func assertNativeSQLConstruction(t *testing.T) {
 	// Independent driver-surface matrix: a wrong argument index must fail the
 	// concrete-query case as well as reject the unresolved-query case.
@@ -357,19 +427,24 @@ func assertNativeSQLConstruction(t *testing.T) {
 		}
 	}
 
-	for _, body := range []string{
-		`stmt,_:=handle.Prepare("SELECT * FROM users");stmt.Query("data")`,
-		`var batch pgx.Batch;batch.Queue("SELECT * FROM users");pool.SendBatch(ctx,&batch)`,
-		`batch:=&pgx.Batch{};batch.Queue("SELECT * FROM users");pool.SendBatch(ctx,batch)`,
-		`var batch pgconn.Batch;batch.ExecParams("SELECT * FROM users",nil,nil,nil,nil);conn.ExecBatch(ctx,&batch)`,
+	for _, tc := range []struct {
+		body  string
+		sites []qualifiedSQLSite
+	}{
+		{`stmt,_:=handle.Prepare("SELECT * FROM users");stmt.Query("data")`, []qualifiedSQLSite{{"handle.Prepare(", "execution", "SELECT * FROM users"}, {"stmt.Query(", "closed", ""}}},
+		{`var batch pgx.Batch;batch.Queue("SELECT * FROM users");pool.SendBatch(ctx,&batch)`, []qualifiedSQLSite{{"batch.Queue(", "execution", "SELECT * FROM users"}, {"pool.SendBatch(", "closed", ""}}},
+		{`batch:=&pgx.Batch{};batch.Queue("SELECT * FROM users");pool.SendBatch(ctx,batch)`, []qualifiedSQLSite{{"batch.Queue(", "execution", "SELECT * FROM users"}, {"pool.SendBatch(", "closed", ""}}},
+		{`var batch pgconn.Batch;batch.ExecParams("SELECT * FROM users",nil,nil,nil,nil);conn.ExecBatch(ctx,&batch)`, []qualifiedSQLSite{{"batch.ExecParams(", "execution", "SELECT * FROM users"}, {"conn.ExecBatch(", "closed", ""}}},
 	} {
-		got, err := AnalyzeSQL(map[string]string{"p.go": nativeFixtureImports + `func Read(handle *sql.DB,pool *pgxpool.Pool,conn *pgconn.PgConn){` + body + `}`})
+		source := nativeFixtureImports + `func Read(handle *sql.DB,pool *pgxpool.Pool,conn *pgconn.PgConn){` + tc.body + `}`
+		got, err := AnalyzeSQL(map[string]string{"p.go": source})
 		if err != nil {
 			t.Fatal(err)
 		}
+		assertQualifiedSQLSites(t, source, got, tc.sites...)
 		for _, e := range got["p.go"][0].SQL {
 			if len(e.Unresolved) > 0 {
-				t.Errorf("qualified handle rejected %s: %#v", body, e)
+				t.Errorf("qualified handle rejected %s: %#v", tc.body, e)
 			}
 		}
 	}

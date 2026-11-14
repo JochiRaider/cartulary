@@ -16,10 +16,6 @@ import {
 import type { OwnedBrowserScope } from "../runtime/cleanup";
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
-import {
-  isExternalServerHarnessMode,
-  usesSharedPlaywrightState,
-} from "../runtime/harnessState";
 import { waitForAPIReady } from "../runtime/readiness";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
 import {
@@ -32,6 +28,7 @@ import {
   requireCookie,
 } from "./browserSession";
 import { createDeploymentUser } from "./deploymentUsers";
+import { withOwnedRequestContext } from "./requestLifetime";
 import type { StorageState } from "./storageState";
 import {
   authHeadersForStorageState,
@@ -47,15 +44,11 @@ import {
 } from "./suiteAdmin";
 import {
   buildWorkerAdminBlueprints,
-  clearWorkerAdminCleanupMarkers,
-  ensureWorkerAdminCleanupMarkerDirectory,
-  loadWorkerAdminManifest,
   loadWorkerAdminManifestIfPresent,
   type WorkerAdminBlueprint,
   type WorkerAdminEntry,
   type WorkerAdminManifest,
   workerAdminManifestSchemaID,
-  workerAdminNeedsJanitor,
   writeWorkerAdminManifest,
 } from "./workerAdmin";
 
@@ -108,73 +101,39 @@ type WorkerAdminControlPlane = {
 };
 
 export async function prepareWorkerAdminSuite(workerCount: number) {
-  ensureWorkerAdminCleanupMarkerDirectory();
-  const sharedExternalHarness =
-    isExternalServerHarnessMode() && usesSharedPlaywrightState();
-
   const controlPlane = await loginBootstrapControlPlaneContext();
-  try {
-    const existingManifest = loadWorkerAdminManifestIfPresent();
-    const manifestWorkerCount =
-      sharedExternalHarness && existingManifest !== null
-        ? Math.max(
-            workerCount,
-            ...existingManifest.worker_admins.map(
-              (entry) => entry.parallel_index + 1,
-            ),
-          )
-        : workerCount;
-    if (existingManifest !== null && !sharedExternalHarness) {
-      await janitorStaleWorkerAdmins(controlPlane.request, existingManifest);
-    }
-    if (!sharedExternalHarness) {
-      clearWorkerAdminCleanupMarkers();
-      ensureWorkerAdminCleanupMarkerDirectory();
-    }
-    writeWorkerAdminManifest(
-      await reconcileWorkerAdminManifest(
-        controlPlaneClient(controlPlane.request),
-        buildWorkerAdminBlueprints(manifestWorkerCount),
-        existingManifest,
-        {
-          trustExistingManifestPasswords:
-            sharedExternalHarness && existingManifest !== null,
-        },
-      ),
-    );
-  } finally {
-    await logoutAndVerify(
-      controlPlane.request,
-      controlPlane.storageState,
-      "bootstrap control-plane provisioning",
-    );
-    await controlPlane.request.dispose();
-  }
-}
-
-export async function cleanupWorkerAdminSuite() {
-  try {
-    const manifest = loadWorkerAdminManifest();
-    const controlPlane = await loginBootstrapControlPlaneContext();
-    try {
-      await janitorStaleWorkerAdmins(controlPlane.request, manifest);
-    } finally {
-      await logoutAndVerify(
-        controlPlane.request,
-        controlPlane.storageState,
-        "bootstrap control-plane janitor",
+  await withOwnedRequestContext(
+    controlPlane.request,
+    async () => {
+      const existingManifest = loadWorkerAdminManifestIfPresent();
+      const manifestWorkerCount =
+        existingManifest !== null
+          ? Math.max(
+              workerCount,
+              ...existingManifest.worker_admins.map(
+                (entry) => entry.parallel_index + 1,
+              ),
+            )
+          : workerCount;
+      writeWorkerAdminManifest(
+        await reconcileWorkerAdminManifest(
+          controlPlaneClient(controlPlane.request),
+          buildWorkerAdminBlueprints(manifestWorkerCount),
+          existingManifest,
+          {
+            trustExistingManifestPasswords: existingManifest !== null,
+          },
+        ),
       );
-      await controlPlane.request.dispose();
-    }
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.startsWith("missing worker admin manifest")
-    ) {
-      return;
-    }
-    throw error;
-  }
+    },
+    async (context) => {
+      await logoutAndVerify(
+        context,
+        controlPlane.storageState,
+        "bootstrap control-plane provisioning",
+      );
+    },
+  );
 }
 
 export async function loginBootstrapControlPlaneContext() {
@@ -183,33 +142,34 @@ export async function loginBootstrapControlPlaneContext() {
     throw new Error("missing suite admin TOTP state; global setup did not run");
   }
 
-  const anonymousRequests = await request.newContext({ baseURL: apiBase });
-  try {
-    await waitForAPIReady(anonymousRequests);
-    const loginResponse = await loginLocalAPIContext(anonymousRequests, {
-      email: bootstrapEmail,
-      password: bootstrapPassword,
-      secondFactorCode: generateTotpCode(secretBase32),
-    });
-    if (!loginResponse.ok) {
-      throw new Error(
-        `bootstrap control-plane login failed with HTTP ${loginResponse.status}`,
+  const storageState = await withOwnedRequestContext(
+    await request.newContext({ baseURL: apiBase }),
+    async (anonymousRequests) => {
+      await waitForAPIReady(anonymousRequests);
+      const loginResponse = await loginLocalAPIContext(anonymousRequests, {
+        email: bootstrapEmail,
+        password: bootstrapPassword,
+        secondFactorCode: generateTotpCode(secretBase32),
+      });
+      if (!loginResponse.ok) {
+        throw new Error(
+          `bootstrap control-plane login failed with HTTP ${loginResponse.status}`,
+        );
+      }
+      return storageStateFromCookieValues(
+        requireCookie(loginResponse.response, sessionCookieName),
+        requireCookie(loginResponse.response, csrfCookieName),
       );
-    }
-    const storageState = storageStateFromCookieValues(
-      requireCookie(loginResponse.response, sessionCookieName),
-      requireCookie(loginResponse.response, csrfCookieName),
-    );
-    return {
-      request: await request.newContext({
-        baseURL: apiBase,
-        extraHTTPHeaders: authHeadersForStorageState(storageState),
-      }),
-      storageState,
-    } satisfies AuthenticatedRequestContext;
-  } finally {
-    await anonymousRequests.dispose();
-  }
+    },
+  );
+  // The predecessor must settle before a new owned context can transfer.
+  return {
+    request: await request.newContext({
+      baseURL: apiBase,
+      extraHTTPHeaders: authHeadersForStorageState(storageState),
+    }),
+    storageState,
+  } satisfies AuthenticatedRequestContext;
 }
 
 export async function loginFixtureActorContext<
@@ -221,7 +181,7 @@ export async function loginFixtureActorContext<
           request.newContext({ baseURL: apiBase }),
         )
       : await request.newContext({ baseURL: apiBase });
-    try {
+    const authenticate = async (anonymousRequests: APIRequestContext) => {
       await waitForAPIReady(anonymousRequests);
       const loginResponse = await loginLocalAPIContext(anonymousRequests, {
         email: entry.email,
@@ -240,9 +200,10 @@ export async function loginFixtureActorContext<
         ...entry,
         storageState,
       } satisfies T & { storageState: StorageState };
-    } finally {
-      if (!scope) await anonymousRequests.dispose();
-    }
+    };
+    return scope
+      ? authenticate(anonymousRequests)
+      : withOwnedRequestContext(anonymousRequests, authenticate);
   };
   return scope
     ? scope.acquireSession(
@@ -388,28 +349,46 @@ async function resetUserPassword(
   return response.payload.data;
 }
 
-async function listUsers(authRequests: JsonRequestContextLike) {
-  const response = await publicHttpOperation({
-    operationID: "listDeploymentUsers",
-    request: authRequests,
-  });
-  if (!response.ok) {
-    throw new Error(`list users failed with HTTP ${response.status}`);
+export async function listUsers(
+  authRequests: JsonRequestContextLike,
+  search?: string,
+) {
+  const users: SafeUserResource[] = [];
+  const seenCursors = new Set<string>();
+  let query: { limit?: number; search?: string; cursor_token?: string } = {
+    limit: 100,
+    ...(search === undefined ? {} : { search }),
+  };
+  for (;;) {
+    const response = await publicHttpOperation({
+      operationID: "listDeploymentUsers",
+      request: authRequests,
+      query,
+    });
+    if (!response.ok) {
+      throw new Error(`list users failed with HTTP ${response.status}`);
+    }
+    const paging = response.payload.meta.paging;
+    if (!paging) throw new Error("list users response is missing paging");
+    users.push(...response.payload.data.users);
+    if (!paging.has_more) {
+      if (paging.next_cursor !== null)
+        throw new Error("list users terminal page has a cursor");
+      return users;
+    }
+    const cursor = paging.next_cursor;
+    if (!cursor || seenCursors.has(cursor))
+      throw new Error("list users continuation did not advance");
+    seenCursors.add(cursor);
+    query = { cursor_token: cursor };
   }
-  return response.payload.data.users;
 }
 
 export async function findProvisionedUser(
   request: JsonRequestContextLike,
   email: string,
 ): Promise<string> {
-  const response = await publicHttpOperation({
-    operationID: "listDeploymentUsers",
-    request,
-    query: { search: email, limit: 100 },
-  });
-  if (!response.ok) throw new Error("Provisioned actor lookup failed");
-  const matches = response.payload.data.users.filter(
+  const matches = (await listUsers(request, email)).filter(
     (user) => user.email === email,
   );
   if (matches.length !== 1 || !matches[0])
@@ -477,9 +456,7 @@ export async function verifySessionUnauthorized(
   label: string,
   transport?: APIRequestContext,
 ) {
-  const authRequests =
-    transport ?? (await request.newContext({ baseURL: apiBase }));
-  try {
+  const verify = async (authRequests: APIRequestContext) => {
     const sessionResponse = await authRequests.get(
       `${apiBase}/api/v1/auth/session`,
       {
@@ -499,9 +476,13 @@ export async function verifySessionUnauthorized(
         `expected session_required after revocation for ${label}, got a different error code`,
       );
     }
-  } finally {
-    if (!transport) await authRequests.dispose();
-  }
+  };
+  return transport
+    ? verify(transport)
+    : withOwnedRequestContext(
+        await request.newContext({ baseURL: apiBase }),
+        verify,
+      );
 }
 
 export async function logoutAndVerify(
@@ -624,39 +605,22 @@ function patchBodyForWorkerAdmin(
   return Object.keys(patchBody).length === 1 ? null : patchBody;
 }
 
-async function janitorStaleWorkerAdmins(
-  controlPlane: APIRequestContext,
-  manifest: WorkerAdminManifest,
-) {
-  const staleEntries = manifest.worker_admins.filter((entry) =>
-    workerAdminNeedsJanitor(entry.parallel_index),
-  );
-  for (const entry of staleEntries) {
-    await revokeAllSessions(
-      controlPlane,
-      entry.user_id,
-      `playwright global janitor worker=${entry.parallel_index}`,
-    );
-  }
-}
-
 function controlPlaneClient(
   authRequests: APIRequestContext,
 ): WorkerAdminControlPlane {
   return {
-    canLogin: async (email, password) => {
-      const anonymousRequests = await request.newContext({ baseURL: apiBase });
-      try {
-        await waitForAPIReady(anonymousRequests);
-        const response = await loginLocalAPIContext(anonymousRequests, {
-          email,
-          password,
-        });
-        return response.ok;
-      } finally {
-        await anonymousRequests.dispose();
-      }
-    },
+    canLogin: async (email, password) =>
+      withOwnedRequestContext(
+        await request.newContext({ baseURL: apiBase }),
+        async (anonymousRequests) => {
+          await waitForAPIReady(anonymousRequests);
+          const response = await loginLocalAPIContext(anonymousRequests, {
+            email,
+            password,
+          });
+          return response.ok;
+        },
+      ),
     createUser: async (blueprint) =>
       createDeploymentUser(authRequests, {
         email: blueprint.email,

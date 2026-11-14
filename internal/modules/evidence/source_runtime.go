@@ -27,7 +27,7 @@ type SourceRuntimeDependencies struct {
 }
 
 func NewSourceRuntime(dependencies SourceRuntimeDependencies) (*SourceRuntime, error) {
-	if isNilMutationCapability(dependencies.Postgres) || dependencies.ConflictTokens == nil || dependencies.Revisions == nil || isNilMutationCapability(dependencies.Collaboration) {
+	if isNilCapability(dependencies.Postgres) || dependencies.ConflictTokens == nil || dependencies.Revisions == nil || isNilCapability(dependencies.Collaboration) {
 		return nil, fmt.Errorf("compose Evidence source runtime: source dependencies are required")
 	}
 	if err := dependencies.Mutation.validate(); err != nil {

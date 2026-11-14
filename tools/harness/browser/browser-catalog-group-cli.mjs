@@ -26,7 +26,6 @@ import {
 import { groupRowsByPerformanceFixture } from "../performance-fixture/index.mjs";
 import { publishCommandFailure, reportCommandFailure } from "../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
-import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
 import { loadTestCatalog, resolvePlaywrightSelection } from "../test-catalog/index.mjs";
 import { resolveBrowserBatchPartition } from "./browser-batch-manifest.mjs";
@@ -273,10 +272,11 @@ async function main() {
   const selection = resolvePlaywrightSelection(root, rows);
   const invocation = commandForGroup(rows, selection, group, artifactRoot);
   const rendererLease = readRendererAttachment(process.env);
-  let captureProof, captureStop, signalCleanupError, interruptedSignal;
+  let interruptedSignal;
+  const cancellation = new AbortController();
   const onSignal = (signal) => {
     interruptedSignal ??= signal;
-    if (captureProof) captureStop ??= stopOwnedProcess(captureProof).catch((error) => { signalCleanupError = error; });
+    cancellation.abort();
   };
   const onInterrupt = () => onSignal("SIGINT");
   const onTerminate = () => onSignal("SIGTERM");
@@ -291,8 +291,7 @@ async function main() {
     child = await runPrivateCapturedProcess(invocation.command, invocation.args, {
       producer: "playwright", dependencies: JSON.parse(process.env.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES),
       cwd: root,
-      detached: true,
-      onSpawn: (process) => { captureProof = ownedProcess(process.pid); if (interruptedSignal) onSignal(interruptedSignal); },
+      signal: cancellation.signal,
       env: {
         ...process.env,
         ...rendererLease.environment,
@@ -314,11 +313,8 @@ async function main() {
     primaryError = error;
     throw error;
   } finally {
-    await captureStop;
-    cleanupError ??= signalCleanupError;
     try {
-      if (captureProof) await stopOwnedProcess(captureProof);
-      removePlaywrightWorkingTraces(path.join(artifactRoot, "playwright-output"));
+      if (child || primaryError?.processSettled) removePlaywrightWorkingTraces(path.join(artifactRoot, "playwright-output"));
     } catch (error) { cleanupError ??= error; }
     for (const release of [() => child?.cleanup()]) {
       try { release(); }

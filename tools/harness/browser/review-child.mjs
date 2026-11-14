@@ -1,49 +1,34 @@
-import { spawn } from "../workspace/child-process.mjs";
 import { createLaunchContext } from "../runtime/launch-context.mjs";
 import { CommandFailure, createCommandFailureContext } from "../runtime/command-failure.mjs";
+import { runOwnedCommand } from "../runtime/owned-command.mjs";
 
 // Parent-owned cancellation and exact private diagnostic identity survive Make.
 // Child output never participates in classification.
 export async function reviewChild({ root, command, args, environment, signal, output = "ignore", onChildProcess = () => () => {}, commandID, context }) {
   const launch = createLaunchContext({ repoRoot: root, environment, unitID: `review:${context.subject_id}`, commandID, producer: "browser_review" });
   if (signal?.aborted) { launch.settle("cancelled"); signal.throwIfAborted(); }
-  const diagnostic = launch.identity.command_id ? createCommandFailureContext({ repoRoot: root, environment, launch }) : null;
-  let primary;
+  let diagnostic, primary, outcome, release = () => {};
   try {
-    await new Promise((resolve, reject) => {
-      const child = spawn(command, args, { cwd: root, env: { ...environment, ...launch.environment, ...diagnostic?.environment }, stdio: output, detached: false });
-      if (child.pid) launch.spawned(child.pid);
-      let release = () => {}, spawnError;
-      const terminate = () => { try { process.kill(child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") spawnError ??= error; } };
-      const kill = () => { try { process.kill(child.pid, "SIGKILL"); } catch (error) { if (error.code !== "ESRCH") spawnError ??= error; } };
-      const stop = terminate;
-      try { if (child.pid) release = onChildProcess(child.pid); }
-      catch (error) { spawnError = error; kill(); }
-      signal?.addEventListener("abort", stop, { once: true });
-      if (signal?.aborted) stop();
-      child.once("error", (error) => { spawnError ??= error; });
-      child.once("close", async (status) => {
-        signal?.removeEventListener("abort", stop);
-        const ownerFailure = diagnostic?.read();
-        let failure;
-        if (signal?.aborted) failure = signal.reason;
-        else if (ownerFailure) failure = new CommandFailure("classified preparation child failure", status === 0 ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" } : ownerFailure);
-        else if (spawnError || status !== 0) failure = new CommandFailure("unclassified preparation child failure", { failure_class: spawnError?.code === "ENOENT" ? "config" : "unknown", failure_reason: spawnError?.code === "ENOENT" ? "configuration_error" : "unknown_failure" }, { cause: spawnError });
-        try { await release(); }
-        catch (error) { failure ??= new CommandFailure("preparation release failed", { failure_class: "harness", failure_reason: "cleanup_error" }); (failure.cleanupFailures ??= []).push(error); }
-        launch.settle(signal?.aborted ? "cancelled" : spawnError && !child.pid ? "spawn_failed" : failure ? "failed" : "passed");
-        if (failure) reject(failure); else resolve();
-      });
-    });
-  } catch (error) {
-    primary = error;
-    for (const [key, value] of Object.entries(context ?? {})) error[key] ??= value;
-    throw error;
-  } finally {
-    try { diagnostic?.close(); }
-    catch (error) {
-      if (primary) (primary.cleanupFailures ??= []).push(error);
-      else throw new CommandFailure("diagnostic cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error", ...context }, { cause: error });
+    diagnostic = launch.identity.command_id ? createCommandFailureContext({ repoRoot: root, environment, launch }) : null;
+    outcome = await runOwnedCommand(command, args, { cwd: root, environment: { ...environment, ...launch.environment, ...diagnostic?.environment }, signal, output,
+      onReady: proof => { launch.spawned(proof.pid); release = onChildProcess(proof.pid); } });
+    const ownerFailure = diagnostic?.read();
+    if (signal?.aborted) primary = signal.reason;
+    else if (ownerFailure) primary = new CommandFailure("classified preparation child failure", outcome.code === 0 ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" } : ownerFailure);
+    else if (outcome.error || outcome.code !== 0) primary = new CommandFailure("unclassified preparation child failure", outcome.error?.failure_class ? outcome.error : { failure_class: outcome.error?.code === "ENOENT" ? "config" : "unknown", failure_reason: outcome.error?.code === "ENOENT" ? "configuration_error" : "unknown_failure" }, { cause: outcome.error });
+    if ((signal?.aborted || ownerFailure) && outcome.error && primary !== outcome.error) (primary.cleanupFailures ??= []).push(outcome.error);
+  } catch (error) { primary ??= error; }
+  finally {
+    // The callback retires registration only after the native owner has settled
+    // descendants and reaped the workload. It has no physical cleanup authority.
+    for (const cleanup of [...(outcome?.settled ? [release] : []), () => diagnostic?.close()]) {
+      try { await cleanup(); }
+      catch (error) { primary ??= new CommandFailure("preparation release failed", { failure_class: "harness", failure_reason: "cleanup_error" }); (primary.cleanupFailures ??= []).push(error); }
     }
+    launch.settle(signal?.aborted ? "cancelled" : !outcome?.started ? "spawn_failed" : primary ? "failed" : "passed");
+  }
+  if (primary) {
+    for (const [key, value] of Object.entries(context ?? {})) primary[key] ??= value;
+    throw primary;
   }
 }

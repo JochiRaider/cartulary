@@ -407,40 +407,83 @@ func assertAssessmentValidationBlocksConcurrentMutation(
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	rollback := func(tx pgx.Tx) {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cleanupCancel()
+		if err := tx.Rollback(cleanupCtx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			t.Errorf("clean up assessor lock transaction: %v", err)
+		}
+	}
 	validationTx, err := harness.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatalf("begin assessor validation transaction: %v", err)
 	}
-	valid, err := validator.ValidateAssessmentAssessorTx(
-		ctx,
-		validationTx,
-		harness.incidentID,
-		userID,
-	)
+	defer rollback(validationTx)
+	valid, err := validator.ValidateAssessmentAssessorTx(ctx, validationTx, harness.incidentID, userID)
 	if err != nil || !valid {
-		_ = validationTx.Rollback(ctx)
 		t.Fatalf("lock valid assessment assessor: valid=%v err=%v", valid, err)
+	}
+	var validationPID int32
+	if err := validationTx.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&validationPID); err != nil {
+		t.Fatalf("identify assessor validation transaction: %v", err)
+	}
+	mutationTx, err := harness.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin competing assessor mutation: %v", err)
+	}
+	defer rollback(mutationTx)
+	var mutationPID int32
+	if err := mutationTx.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&mutationPID); err != nil {
+		t.Fatalf("identify competing assessor mutation: %v", err)
 	}
 	done := make(chan error, 1)
 	go func() {
-		_, mutationErr := harness.db.Exec(ctx, mutationSQL, mutationArgs...)
+		_, mutationErr := mutationTx.Exec(ctx, mutationSQL, mutationArgs...)
 		done <- mutationErr
 	}()
-	select {
-	case mutationErr := <-done:
-		_ = validationTx.Rollback(ctx)
-		t.Fatalf("concurrent membership/user mutation bypassed validation lock: %v", mutationErr)
-	case <-time.After(100 * time.Millisecond):
+	settled := false
+	defer func() {
+		cancel()
+		if !settled {
+			select {
+			case <-done:
+			case <-time.After(2 * time.Second):
+				t.Error("competing assessor mutation did not settle after cancellation")
+			}
+		}
+	}()
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		var blocked bool
+		if err := harness.db.QueryRow(ctx, `SELECT $1::integer = ANY(pg_blocking_pids($2::integer))`, validationPID, mutationPID).Scan(&blocked); err != nil {
+			t.Fatalf("observe assessor validation blocker: %v", err)
+		}
+		if blocked {
+			break
+		}
+		select {
+		case mutationErr := <-done:
+			settled = true
+			t.Fatalf("concurrent membership/user mutation bypassed validation lock: %v", mutationErr)
+		case <-ctx.Done():
+			t.Fatalf("competing mutation never waited on validation transaction: %v", ctx.Err())
+		case <-ticker.C:
+		}
 	}
-	if err := validationTx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+	if err := validationTx.Rollback(ctx); err != nil {
 		t.Fatalf("release assessor validation locks: %v", err)
 	}
 	select {
 	case mutationErr := <-done:
+		settled = true
 		if mutationErr != nil {
 			t.Fatalf("concurrent membership/user mutation after release: %v", mutationErr)
 		}
 	case <-ctx.Done():
 		t.Fatalf("concurrent membership/user mutation remained blocked: %v", ctx.Err())
+	}
+	if err := mutationTx.Commit(ctx); err != nil {
+		t.Fatalf("commit concurrent membership/user mutation: %v", err)
 	}
 }

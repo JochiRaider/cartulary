@@ -137,6 +137,7 @@ SELECT status_code, response_json
 		harness.DB,
 		job["job_id"].(string),
 		"incident_portability.export",
+		summary,
 	)
 	descriptorRoute := refs[0].(map[string]any)["route"].(string)
 	resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, httptestx.WithCookies(admin.Session))
@@ -395,6 +396,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	})
 	recordID := row["row"].(map[string]any)["record_id"].(string)
 	seededState := seedIncidentBundlePortableState(t, sourceHarness, incidentID, recordID, sourceAdminID.String())
+	deletedTagID, deletedTagChangeSet := seedPortableDeletedTagHistory(t, sourceHarness, incidentID, seededState.HistoryHostRecordID, sourceAdminID)
 	sourceViewerID := flowtest.SeedActor(t, sourceHarness.DB, flowtest.ActorAttributes{Email: "extension_profile-import-source-viewer@example.test", DisplayName: "Enterprise integration Import Source Viewer"}).ID.String()
 	scenariotest.CreateMembership(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source-viewer",
@@ -487,11 +489,12 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if ref["kind"] != "incident" || ref["id"] != incidentID {
 		t.Fatalf("import summary must reference imported incident: %#v", ref)
 	}
-	requireIncidentPortabilityProof(
+	importCommitID := requireIncidentPortabilityProof(
 		t,
 		targetHarness.DB,
 		importJob["job_id"].(string),
 		"incident_portability.import",
+		summary,
 	)
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incidentID, "change_set count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM record_revisions rr JOIN records r ON r.record_id = rr.record_id WHERE r.incident_id = $1`, incidentID, "revision count")
@@ -594,6 +597,23 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	) {
 		t.Fatal("re-export changed portable Records source attribution or envelope fields")
 	}
+	for _, exported := range [][]byte{bundleBytes, reexportedBundle} {
+		rows := decodeNDJSONRows(t, zipMemberBytes(t, exported, "data/evidence_records.ndjson"))
+		if len(rows) != 1 || rows[0]["record_id"] != seededState.EvidenceRecordID || rows[0]["owner_user_id"] != sourceAdminID.String() {
+			t.Fatalf("portable Evidence assignment=%#v", rows)
+		}
+	}
+	for _, table := range []string{"evidence", "evidence_grid_projection"} {
+		if got := stringScalar(t, targetHarness.DB, "SELECT owner_user_id::text FROM "+table+" WHERE record_id=$1", seededState.EvidenceRecordID); got != targetAdminID.String() {
+			t.Fatalf("%s runtime owner=%q", table, got)
+		}
+	}
+	if countRows(t, targetHarness.DB, `SELECT count(*) FROM incident_bundle_imported_attributions WHERE incident_id=$1 AND source_table='evidence' AND source_column='owner_user_id' AND source_actor_id=$2 AND local_user_id=$3`, incidentID, sourceAdminID.String(), targetAdminID.String()) != 1 {
+		t.Fatal("Evidence owner historical attribution missing")
+	}
+	if countRows(t, targetHarness.DB, `SELECT count(*) FROM users WHERE id=$1`, sourceAdminID.String()) != 0 {
+		t.Fatal("portable Evidence owner created a source user")
+	}
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM record_tags WHERE incident_id = $1 AND record_id = $2 AND normalized_tag_name = 'extensionprofile portability'`, incidentID, recordID) != 1 {
 		t.Fatalf("import must preserve record tag attachments")
 	}
@@ -672,7 +692,24 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 		t.Fatalf("imported reversible rollback failed: status=%d body=%#v", reversibleRollback.StatusCode, httptestx.ReadJSONBody(t, reversibleRollback))
 	}
 	rollbackData := httptestx.RequireSuccessEnvelope(t, reversibleRollback, http.StatusOK)["data"].(map[string]any)
-	if rollbackData["rollback_change_set_id"] == "" || rollbackData["row_version"] != float64(3) {
+	rollbackChangeSetID, rollbackIDIsString := rollbackData["rollback_change_set_id"].(string)
+	parsedRollbackID, rollbackIDErr := uuid.Parse(rollbackChangeSetID)
+	if !rollbackIDIsString || rollbackIDErr != nil || parsedRollbackID == uuid.Nil || parsedRollbackID.String() != rollbackChangeSetID {
+		t.Fatalf("rollback change-set identity must be a canonical nonzero UUID: %#v", rollbackData)
+	}
+	committedRollbackID := stringScalar(t, targetHarness.DB, `
+SELECT cs.change_set_id::text
+  FROM change_sets cs
+  JOIN record_revisions rr ON rr.change_set_id = cs.change_set_id
+ WHERE rr.record_id = $1 AND rr.row_version = 3
+   AND cs.incident_id = $2 AND cs.actor_user_id = $3
+   AND cs.source = 'rollback'
+   AND cs.client_txn_id = 'txn-imported-reversible-rollback'
+`, seededState.HistoryHostRecordID, incidentID, targetAdminID.String())
+	if rollbackChangeSetID != committedRollbackID {
+		t.Fatalf("rollback receipt change set=%q committed=%q", rollbackChangeSetID, committedRollbackID)
+	}
+	if rollbackData["row_version"] != float64(3) {
 		t.Fatalf("imported reversible rollback returned unexpected payload: %#v", rollbackData)
 	}
 	if got := stringScalar(t, targetHarness.DB, `SELECT display_name FROM hosts WHERE record_id = $1`, seededState.HistoryHostRecordID); got != "portable host before" {
@@ -687,6 +724,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if afterReplay := snapshotImportFinalizationSideEffects(t, targetHarness.DB, incidentID, targetAdminID.String()); !afterReplay.equal(finalization) {
 		t.Fatalf("terminal import replay duplicated finalization side effects: before=%#v after=%#v", finalization, afterReplay)
 	}
+	exerciseImportedInverseActors(t, targetHarness, targetAdmin, targetAdminID, sourceAdminID, incidentID, seededState.HistoryHostRecordID, deletedTagID, deletedTagChangeSet, seededState.NonReversibleChangeSetID, rollbackChangeSetID)
 	duplicateResponse := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"duplicate-incident-fresh-attempt"}`, bundleBytes, "duplicate.zip")
 	duplicate := httptestx.RequireSuccessEnvelope(t, duplicateResponse, http.StatusAccepted)["data"].(map[string]any)
 	duplicateTerminal := waitFailedJob(t, targetHarness.Server, targetAdmin, duplicate["job_id"].(string))
@@ -724,5 +762,8 @@ UPDATE jobs SET submitted_at = now() - interval '8 days',
 	if err != nil || !bytes.Equal(retainedBytes, seededState.BlobBytes) {
 		t.Fatal("expiry changed imported object bytes")
 	}
-	requireIncidentPortabilityProof(t, targetHarness.DB, importJob["job_id"].(string), "incident_portability.import")
+	if retainedCommitID := requireIncidentPortabilityProof(t, targetHarness.DB, importJob["job_id"].(string), "incident_portability.import", summary); retainedCommitID != importCommitID {
+		t.Fatalf("Job expiry changed commit proof identity: got=%q want=%q", retainedCommitID, importCommitID)
+	}
+	exerciseMutatedImportedHistoryRoundTrip(t, runtime, targetHarness, targetAdmin, incidentID, seededState.HistoryHostRecordID)
 }

@@ -31,7 +31,7 @@ func TestModuleSettingsProjection_Unit(t *testing.T) {
 				MaxCSVSourceBytes: 21, MaxXLSXSourceBytes: 22, MaxRows: 23, MaxColumns: 24, MaxCells: 25,
 			},
 			Archives:        config.ArchiveLimits{DefaultMaxExtractedBytes: 31, MaxCompressionRatio: 32, MaxMembers: 33},
-			ReferencePacks:  config.ReferencePackLimits{MaxExtractedBytes: 41},
+			ReferencePacks:  config.ReferencePackLimits{MaxExtractedBytes: 41, MaxContainerBytes: 42, MaxVerificationSeconds: 43},
 			IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: 51},
 			Previews:        config.PreviewLimits{MaxPreviewablePayloadBytes: 61, MaxTextInlineBytes: 62},
 		},
@@ -72,7 +72,7 @@ func TestModuleSettingsProjection_Unit(t *testing.T) {
 		Archives: reference_data.ArchiveLimits{
 			DefaultMaxExtractedBytes: 31, MaxCompressionRatio: 32, MaxMembers: 33,
 		},
-		ReferencePacks: reference_data.ReferenceLimits{MaxExtractedBytes: 41},
+		ReferencePacks: reference_data.ReferenceLimits{MaxExtractedBytes: 41, MaxContainerBytes: 42, MaxVerificationSeconds: 43},
 	}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("reference-data limits = %#v, want %#v", got, want)
 	}

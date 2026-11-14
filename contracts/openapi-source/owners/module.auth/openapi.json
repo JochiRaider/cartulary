@@ -1000,6 +1000,9 @@
           }
         },
         "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
           "201": {
             "$ref": "#/components/responses/AuthSafeUserCreatedResponse"
           },
@@ -1311,6 +1314,9 @@
         "x-cartulary-availability": "enterprise_authentication",
         "summary": "Create an enterprise auth binding for an existing deployment-local user.",
         "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
+          },
           "201": {
             "$ref": "#/components/responses/AuthSafeUserCreatedResponse"
           },
@@ -2262,7 +2268,7 @@
             "$ref": "#/components/schemas/SafeUserListData"
           },
           "meta": {
-            "$ref": "#/components/schemas/EnvelopeMeta"
+            "$ref": "#/components/schemas/PagedEnvelopeMeta"
           }
         },
         "required": [

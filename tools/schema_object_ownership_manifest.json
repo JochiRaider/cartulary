@@ -1973,6 +1973,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.change-sets.change-sets-actor-import-contexts-array-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.change_sets.change_sets_actor_import_contexts_array_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 57,
+      "migration_file": "00057_revision_actor_import_contexts.sql",
+      "dependency_object_ids": [
+        "table.public.change-sets"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.change-sets.change-sets-actor-user-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.change_sets.change_sets_actor_user_id_fkey",
@@ -1990,6 +2009,44 @@
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.change-sets.change-sets-history-order-positive-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.change_sets.change_sets_history_order_positive_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 58,
+      "migration_file": "00058_revision_history_order.sql",
+      "dependency_object_ids": [
+        "table.public.change-sets"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.change-sets.change-sets-incident-history-order-key",
+      "object_kind": "constraint",
+      "qualified_name": "public.change_sets.change_sets_incident_history_order_key",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 58,
+      "migration_file": "00058_revision_history_order.sql",
+      "dependency_object_ids": [
+        "table.public.change-sets"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
       "approval": null
     },
     {
@@ -5282,6 +5339,26 @@
       "dependency_object_ids": [
         "table.public.evidence",
         "table.public.object-blobs"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence.evidence-owner-user-id-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence.evidence_owner_user_id_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 53,
+      "migration_file": "00053_evidence_accountable_owner.sql",
+      "dependency_object_ids": [
+        "table.public.evidence",
+        "table.public.users"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
@@ -11254,25 +11331,6 @@
       "approval": null
     },
     {
-      "object_id": "constraint.public.indicator-state-intervals.indicator-state-intervals-required-text-ck",
-      "object_kind": "constraint",
-      "qualified_name": "public.indicator_state_intervals.indicator_state_intervals_required_text_ck",
-      "management_class": "cartulary_authored",
-      "source_owner": "indicators",
-      "migration_version": 12,
-      "migration_file": "00012_indicators.sql",
-      "dependency_object_ids": [
-        "table.public.indicator-state-intervals"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
       "object_id": "constraint.public.indicator-state-intervals.indicator-state-intervals-row-version-ck",
       "object_kind": "constraint",
       "qualified_name": "public.indicator_state_intervals.indicator_state_intervals_row_version_ck",
@@ -11603,8 +11661,8 @@
       "qualified_name": "public.indicators.indicators_required_text_ck",
       "management_class": "cartulary_authored",
       "source_owner": "indicators",
-      "migration_version": 12,
-      "migration_file": "00012_indicators.sql",
+      "migration_version": 55,
+      "migration_file": "00055_indicator_optional_presentation.sql",
       "dependency_object_ids": [
         "table.public.indicators"
       ],
@@ -21532,6 +21590,64 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.revision-history-orders.revision-history-orders-incident-id-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.revision_history_orders.revision_history_orders_incident_id_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 58,
+      "migration_file": "00058_revision_history_order.sql",
+      "dependency_object_ids": [
+        "table.public.incidents",
+        "table.public.revision-history-orders"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.revision-history-orders.revision-history-orders-pkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.revision_history_orders.revision_history_orders_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 58,
+      "migration_file": "00058_revision_history_order.sql",
+      "dependency_object_ids": [
+        "table.public.revision-history-orders"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.revision-history-orders.revision-history-orders-positive-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.revision_history_orders.revision_history_orders_positive_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 58,
+      "migration_file": "00058_revision_history_order.sql",
+      "dependency_object_ids": [
+        "table.public.revision-history-orders"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.route-idempotency.route-idempotency-actor-user-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.route_idempotency.route_idempotency_actor_user_id_fkey",
@@ -24102,6 +24218,26 @@
       "approval": null
     },
     {
+      "object_id": "index.public.change-sets-incident-history-order-key",
+      "object_kind": "index",
+      "qualified_name": "public.change_sets_incident_history_order_key",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 58,
+      "migration_file": "00058_revision_history_order.sql",
+      "dependency_object_ids": [
+        "constraint.public.change-sets.change-sets-incident-history-order-key",
+        "table.public.change-sets"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.change-sets-incident-lookup-idx",
       "object_kind": "index",
       "qualified_name": "public.change_sets_incident_lookup_idx",
@@ -26211,6 +26347,25 @@
       "approval": null
     },
     {
+      "object_id": "index.public.evidence-owner-user-id-fk-idx",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_owner_user_id_fk_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 53,
+      "migration_file": "00053_evidence_accountable_owner.sql",
+      "dependency_object_ids": [
+        "table.public.evidence"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.evidence-pkey",
       "object_kind": "index",
       "qualified_name": "public.evidence_pkey",
@@ -26708,8 +26863,8 @@
       "qualified_name": "public.handoff_risk_refs_active_text_idx",
       "management_class": "cartulary_authored",
       "source_owner": "artifacts",
-      "migration_version": 16,
-      "migration_file": "00016_artifacts.sql",
+      "migration_version": 52,
+      "migration_file": "00052_handoff_risk_canonical_identity.sql",
       "dependency_object_ids": [
         "table.public.handoff-risk-refs"
       ],
@@ -32566,6 +32721,26 @@
       "approval": null
     },
     {
+      "object_id": "index.public.revision-history-orders-pkey",
+      "object_kind": "index",
+      "qualified_name": "public.revision_history_orders_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 58,
+      "migration_file": "00058_revision_history_order.sql",
+      "dependency_object_ids": [
+        "constraint.public.revision-history-orders.revision-history-orders-pkey",
+        "table.public.revision-history-orders"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.route-idempotency-actor-lookup-idx",
       "object_kind": "index",
       "qualified_name": "public.route_idempotency_actor_lookup_idx",
@@ -35650,6 +35825,23 @@
       "approval": null
     },
     {
+      "object_id": "routine.public.revisions-assign-history-order-v1",
+      "object_kind": "routine",
+      "qualified_name": "public.revisions_assign_history_order_v1",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 58,
+      "migration_file": "00058_revision_history_order.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "routine.public.revisions-incident-bundle-sequence-begin-v1",
       "object_kind": "routine",
       "qualified_name": "public.revisions_incident_bundle_sequence_begin_v1",
@@ -38302,6 +38494,23 @@
       "approval": null
     },
     {
+      "object_id": "table.public.revision-history-orders",
+      "object_kind": "table",
+      "qualified_name": "public.revision_history_orders",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 58,
+      "migration_file": "00058_revision_history_order.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "table_read_write",
+      "recovery_access_class": "table_restore",
+      "extension_profile_id": null,
+      "recovery_classification": "authoritative_required",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "table.public.route-idempotency",
       "object_kind": "table",
       "qualified_name": "public.route_idempotency",
@@ -38553,6 +38762,25 @@
       "migration_file": "00046_portable_attribution_mutations.sql",
       "dependency_object_ids": [
         "table.public.assessments"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.change-sets.change-sets-assign-history-order",
+      "object_kind": "trigger",
+      "qualified_name": "public.change_sets.change_sets_assign_history_order",
+      "management_class": "cartulary_authored",
+      "source_owner": "revisions",
+      "migration_version": 58,
+      "migration_file": "00058_revision_history_order.sql",
+      "dependency_object_ids": [
+        "table.public.change-sets"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",

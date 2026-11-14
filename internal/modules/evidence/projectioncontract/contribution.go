@@ -3,6 +3,7 @@ package projectioncontract
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"slices"
 	"time"
 
@@ -29,6 +30,7 @@ type ProjectionInput struct {
 	CollectorPartyID   *uuid.UUID
 	SourcePartyText    *string
 	SourcePartyID      *uuid.UUID
+	OwnerUserID        *uuid.UUID
 	UploadState        string
 	LinkedRecordCount  int
 	EditedAt           time.Time
@@ -52,6 +54,7 @@ func ViewRow(input ProjectionInput) map[string]any {
 			"evidence.collector_party_id":   viewCell(uuidValue(input.CollectorPartyID)),
 			"evidence.source_party_text":    viewCell(stringValue(input.SourcePartyText)),
 			"evidence.source_party_id":      viewCell(uuidValue(input.SourcePartyID)),
+			"evidence.owner_user_id":        viewCell(uuidValue(input.OwnerUserID)),
 			"evidence.upload_state":         viewCell(input.UploadState),
 			"evidence.linked_record_count":  viewCell(int32(input.LinkedRecordCount)),
 			"evidence.edited_at":            viewCell(input.EditedAt.UTC().Format(time.RFC3339Nano)),
@@ -100,7 +103,7 @@ type Contribution struct {
 }
 
 func NewContribution(source SourceReader) (Contribution, error) {
-	if source == nil {
+	if nilSource(source) {
 		return Contribution{}, fmt.Errorf("evidence projection source is required")
 	}
 	intent, err := SurfaceIntent()
@@ -116,6 +119,19 @@ func NewContribution(source SourceReader) (Contribution, error) {
 		return Contribution{}, err
 	}
 	return Contribution{contract: contract, source: source}, nil
+}
+
+func nilSource(source SourceReader) bool {
+	if source == nil {
+		return true
+	}
+	value := reflect.ValueOf(source)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func (contribution Contribution) ProjectionContribution() providercontract.Contribution {

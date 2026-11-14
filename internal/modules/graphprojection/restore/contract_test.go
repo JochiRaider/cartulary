@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	contractrecovery "github.com/JochiRaider/cartulary/internal/gen/contractrecovery"
 	. "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
@@ -207,9 +208,94 @@ func TestGraphRestoreResultContractClosesStatesAndSafeErrors(t *testing.T) {
 	if err := failed.Validate(); err != nil {
 		t.Fatalf("valid failed/incomplete result rejected: %v", err)
 	}
+	t.Run("runtime and schema close the same states", func(t *testing.T) {
+		schema := restoreResultSchema(t)
+		rebuiltViews := []RestoreRebuiltView{{
+			SourceRegistrationID: "source", CandidateID: "candidate", GraphViewID: "view",
+			SemanticQuerySchemaID: "cartulary.network_flow.graph_semantic_query.v3",
+			ProjectionResultID:    "gpres_" + strings.Repeat("d", 64), SourceSnapshotID: "snapshot", ProjectionVersion: "v2",
+			NormalizedConfigurationSHA256: strings.Repeat("e", 64), NormalizedSourceSHA256: strings.Repeat("f", 64),
+			CanonicalOutputSHA256: strings.Repeat("a", 64),
+		}}
+		for _, test := range []struct {
+			name   string
+			base   RestoreRebuildResult
+			mutate func(*RestoreRebuildResult)
+			valid  bool
+		}{
+			{"success without jobs", result, nil, true},
+			{"success with reconciled jobs", result, func(r *RestoreRebuildResult) { r.ReconciledNonterminalJobCount = 2 }, true},
+			{"failure without committed facts", failed, nil, true},
+			{"success incomplete", result, func(r *RestoreRebuildResult) { r.ReadinessOutcome = RestoreReadinessIncomplete }, false},
+			{"failure ready", failed, func(r *RestoreRebuildResult) { r.ReadinessOutcome = RestoreReadinessReady }, false},
+			{"unknown status", result, func(r *RestoreRebuildResult) { r.Status = "unknown" }, false},
+			{"success without proof", result, func(r *RestoreRebuildResult) { r.PostconditionSHA256 = nil }, false},
+			{"success with errors", result, func(r *RestoreRebuildResult) { r.Errors = failed.Errors }, false},
+			{"success without cleared tables", result, func(r *RestoreRebuildResult) { r.ClearedTableIDs = []string{} }, false},
+			{"success with reordered tables", result, func(r *RestoreRebuildResult) {
+				r.ClearedTableIDs = []string{"graph_projection_results", "graph_projection_result_vertices", "graph_projection_result_edges"}
+			}, false},
+			{"failure with cleared tables", failed, func(r *RestoreRebuildResult) { r.ClearedTableIDs = result.ClearedTableIDs }, false},
+			{"success with rebuilt view", result, func(r *RestoreRebuildResult) { r.RebuiltViews = rebuiltViews }, true},
+			{"failure with rebuilt view", failed, func(r *RestoreRebuildResult) { r.RebuiltViews = rebuiltViews }, false},
+			{"failure with reconciled jobs", failed, func(r *RestoreRebuildResult) { r.ReconciledNonterminalJobCount = 1 }, false},
+			{"failure with proof", failed, func(r *RestoreRebuildResult) { r.PostconditionSHA256 = result.PostconditionSHA256 }, false},
+			{"failure without errors", failed, func(r *RestoreRebuildResult) { r.Errors = []RestoreSafeMessage{} }, false},
+			{"failure with unknown error", failed, func(r *RestoreRebuildResult) { r.Errors = []RestoreSafeMessage{{Code: "unknown"}} }, false},
+			{"negative job count", result, func(r *RestoreRebuildResult) { r.ReconciledNonterminalJobCount = -1 }, false},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				candidate := test.base
+				if test.mutate != nil {
+					test.mutate(&candidate)
+				}
+				if err := candidate.Validate(); (err == nil) != test.valid {
+					t.Fatalf("runtime valid=%v, want %v: %v", err == nil, test.valid, err)
+				}
+				if candidate.ReadinessSatisfied() != (test.valid && candidate.Status == RestoreStatusSucceeded) {
+					t.Fatal("readiness does not match admitted successful state")
+				}
+				body, err := json.Marshal(candidate)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var value any
+				if err := json.Unmarshal(body, &value); err != nil {
+					t.Fatal(err)
+				}
+				if err := schema.Validate(value); (err == nil) != test.valid {
+					t.Fatalf("schema valid=%v, want %v: %v", err == nil, test.valid, err)
+				}
+			})
+		}
+	})
 	secret := "postgres://operator:SECRET_PASSWORD@database/restore"
 	err := NewRestoreError(RestoreErrorPublicationFailed)
 	if strings.Contains(err.Error(), secret) || err.Error() != "graphprojection restore failed: restore_publication_failed" {
 		t.Fatalf("restore error is not closed and safe: %q", err)
 	}
+}
+
+func restoreResultSchema(t testing.TB) *jsonschema.Schema {
+	t.Helper()
+	compiler := jsonschema.NewCompiler()
+	compiler.UseLoader(jsonschema.SchemeURLLoader{})
+	for _, artifact := range contractrecovery.Artifacts {
+		if artifact.Path != "contracts/recovery/common.v1.schema.json" && artifact.Path != "contracts/recovery/graph-projection-restore-rebuild-result.v6.schema.json" {
+			continue
+		}
+		var document any
+		if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
+			t.Fatal(err)
+		}
+		location := "https://recovery.invalid/" + strings.TrimPrefix(artifact.Path, "contracts/recovery/")
+		if err := compiler.AddResource(location, document); err != nil {
+			t.Fatal(err)
+		}
+	}
+	schema, err := compiler.Compile("https://recovery.invalid/graph-projection-restore-rebuild-result.v6.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return schema
 }

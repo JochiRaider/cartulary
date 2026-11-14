@@ -122,8 +122,8 @@ var SourceCatalog = []SourceSurface{
 	},
 	{ViewSchemaID: "cartulary.view.notes.v1", ArtifactType: "note",
 		DirectFields: []DirectField{
-			{FieldKey: "note.body", Table: "artifacts", Column: "body", View: ViewFieldFacts{ReadKind: "text", WriteKind: "direct_value", Writable: true, CreateWritable: false, Clearable: false, ReferenceContractID: ""}},
-			{FieldKey: "note.title", Table: "artifacts", Column: "title", View: ViewFieldFacts{ReadKind: "text", WriteKind: "direct_value", Writable: true, CreateWritable: false, Clearable: false, ReferenceContractID: ""}},
+			{FieldKey: "note.body", Table: "artifacts", Column: "body", View: ViewFieldFacts{ReadKind: "text", WriteKind: "direct_value", Writable: true, CreateWritable: false, Clearable: true, ReferenceContractID: ""}},
+			{FieldKey: "note.title", Table: "artifacts", Column: "title", View: ViewFieldFacts{ReadKind: "text", WriteKind: "direct_value", Writable: true, CreateWritable: false, Clearable: true, ReferenceContractID: ""}},
 		},
 		CollectionFields: []CollectionField{
 			{FieldKey: "note.tags", CollectionFamily: "record_tag", AllowedOperations: []string{"add_tag", "remove_tag"}, LinkType: "", ExpectedTargetRecordType: "", View: ViewFieldFacts{ReadKind: "collection", WriteKind: "action_payload", Writable: true, CreateWritable: false, Clearable: false, ReferenceContractID: ""}},

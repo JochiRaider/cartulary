@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"sort"
@@ -74,16 +75,32 @@ type ExportContext struct {
 type Bundle = incidentportability.MemberReader
 
 type Prepared struct {
-	bindingKey string
-	value      any
+	value    any
+	port     *Adapter
+	instance *adapterInstance
+	binding  preparedBinding
+	actors   ActorCatalog
 }
 
-func NewPrepared(portKey string, operationID string, value any) Prepared {
-	return Prepared{bindingKey: portKey + "\x00" + operationID, value: value}
+type preparedBinding struct {
+	major       int
+	operationID string
+	incidentID  uuid.UUID
+	actorID     uuid.UUID
+	version     int
 }
 
-func (p Prepared) ValueFor(portKey string, operationID string) (any, error) {
-	if portKey == "" || operationID == "" || p.bindingKey != portKey+"\x00"+operationID {
+func sourceBinding(major int, input ImportContext) preparedBinding {
+	return preparedBinding{major: major, operationID: input.OperationID, incidentID: input.IncidentID, actorID: input.ActorUserID, version: input.BundleVersion}
+}
+
+func newPrepared(port *Adapter, input ImportContext, value any) Prepared {
+	return Prepared{value: value, port: port, instance: port.instance, binding: sourceBinding(port.descriptor.ContractMajor, input), actors: input.Actors}
+}
+
+func (p Prepared) valueFor(port *Adapter, input ImportContext) (any, error) {
+	if port == nil || p.port != port || p.instance == nil || p.instance != port.instance || p.binding != sourceBinding(port.descriptor.ContractMajor, input) ||
+		!maps.Equal(p.actors.bySourceActorID, input.Actors.bySourceActorID) {
 		return nil, ErrPreparedBinding
 	}
 	return p.value, nil

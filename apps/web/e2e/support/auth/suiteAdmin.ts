@@ -1,29 +1,25 @@
 import { createHmac } from "node:crypto";
-import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import {
   type APIRequestContext,
   expect,
   type Page,
   request,
 } from "@playwright/test";
+import {
+  readBrowserState,
+  writeBrowserState,
+} from "../../../../../tools/harness/browser/private-state.mjs";
 import { browserScopeFor } from "../runtime/cleanup";
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
-import {
-  isExternalServerHarnessMode,
-  resolvePlaywrightStateFile,
-  sharedPlaywrightStateDir,
-} from "../runtime/harnessState";
-import { atomicWritePrivateFile } from "../runtime/privateState";
 import { waitForAPIReady } from "../runtime/readiness";
 import { loginLocalAPIContext } from "./browserSession";
+import { withOwnedRequestContext } from "./requestLifetime";
 
 export const bootstrapEmail = "dev-admin@example.test";
 export const bootstrapPassword = "DevBootstrap1!";
 
-const suiteAdminTotpStatePath = resolvePlaywrightStateFile(
-  "cartulary-playwright-admin-totp.txt",
-);
+const suiteAdminTotpStateFile = "cartulary-playwright-admin-totp.txt";
 
 type LocalLoginResult =
   | { kind: "success" }
@@ -39,24 +35,18 @@ type SuiteAdminAuthClient = {
   provisionTotpFromBootstrap: (bootstrapToken: string) => Promise<string>;
 };
 
-type SuiteAdminStateContext = {
-  externalServerMode: boolean;
-  sharedStateDir: string | null;
-  stateFilePath: string;
-};
-
 export async function prepareSuiteAdminState() {
-  const authRequests = await request.newContext({ baseURL: apiBase });
-  try {
-    await waitForAPIReady(authRequests);
-    const secretBase32 = await reconcileSuiteAdminTotpState(
-      suiteAdminAuthClient(authRequests),
-      loadSuiteAdminTotpSecret(),
-    );
-    writeSuiteAdminTotpSecret(secretBase32);
-  } finally {
-    await authRequests.dispose();
-  }
+  await withOwnedRequestContext(
+    await request.newContext({ baseURL: apiBase }),
+    async (authRequests) => {
+      await waitForAPIReady(authRequests);
+      const secretBase32 = await reconcileSuiteAdminTotpState(
+        suiteAdminAuthClient(authRequests),
+        loadSuiteAdminTotpSecret(),
+      );
+      writeSuiteAdminTotpSecret(secretBase32);
+    },
+  );
 }
 
 export async function enrollTotpViaBootstrap(
@@ -71,9 +61,9 @@ export async function enrollTotpViaBootstrap(
   return provisionUserTotp(authRequests, email, password);
 }
 
-export function generateTotpCode(secretBase32: string) {
+export function generateTotpCode(secretBase32: string, at = Date.now()) {
   const secret = decodeBase32(secretBase32);
-  const counter = Math.floor(Date.now() / 1000 / 30);
+  const counter = Math.floor(at / 1000 / 30);
   const counterBuffer = Buffer.alloc(8);
   counterBuffer.writeBigUInt64BE(BigInt(counter));
   const digest = createHmac("sha256", secret).update(counterBuffer).digest();
@@ -101,18 +91,9 @@ export function generateTotpCode(secretBase32: string) {
   return String(code % 1_000_000).padStart(6, "0");
 }
 
-function currentSuiteAdminStateContext(): SuiteAdminStateContext {
-  return {
-    externalServerMode: isExternalServerHarnessMode(),
-    sharedStateDir: sharedPlaywrightStateDir(),
-    stateFilePath: suiteAdminTotpStatePath,
-  };
-}
-
 export async function reconcileSuiteAdminTotpState(
   client: SuiteAdminAuthClient,
   storedSecretBase32: string | null,
-  context: SuiteAdminStateContext = currentSuiteAdminStateContext(),
 ) {
   const normalizedStoredSecret = storedSecretBase32?.trim() ?? "";
   if (normalizedStoredSecret !== "") {
@@ -123,15 +104,10 @@ export async function reconcileSuiteAdminTotpState(
       return normalizedStoredSecret;
     }
     if (loginWithStoredSecret.code === "mfa_setup_required") {
-      return provisionSuiteAdminTotp(
-        client,
-        loginWithStoredSecret.details,
-        context,
-      );
+      return provisionSuiteAdminTotp(client, loginWithStoredSecret.details);
     }
     throw suiteAdminStateError(
       `stored suite admin TOTP state no longer matches the current backend state (login code ${loginWithStoredSecret.code})`,
-      context,
     );
   }
 
@@ -142,16 +118,11 @@ export async function reconcileSuiteAdminTotpState(
     );
   }
   if (loginWithoutSecondFactor.code === "mfa_setup_required") {
-    return provisionSuiteAdminTotp(
-      client,
-      loginWithoutSecondFactor.details,
-      context,
-    );
+    return provisionSuiteAdminTotp(client, loginWithoutSecondFactor.details);
   }
   if (loginWithoutSecondFactor.code === "mfa_required") {
     throw suiteAdminStateError(
       "suite admin MFA is already active but harness authentication state is unavailable",
-      context,
     );
   }
   throw new Error(
@@ -160,21 +131,12 @@ export async function reconcileSuiteAdminTotpState(
 }
 
 export function loadSuiteAdminTotpSecret() {
-  if (!existsSync(suiteAdminTotpStatePath)) {
-    return null;
-  }
-  const secret = readFileSync(suiteAdminTotpStatePath, "utf8").trim();
+  const secret = readBrowserState(suiteAdminTotpStateFile)?.trim() ?? "";
   return secret === "" ? null : secret;
 }
 
 function writeSuiteAdminTotpSecret(secretBase32: string) {
-  atomicWritePrivateFile(suiteAdminTotpStatePath, `${secretBase32}\n`);
-}
-
-export function clearSuiteAdminTotpSecret() {
-  if (existsSync(suiteAdminTotpStatePath)) {
-    unlinkSync(suiteAdminTotpStatePath);
-  }
+  writeBrowserState(suiteAdminTotpStateFile, `${secretBase32}\n`);
 }
 
 async function provisionUserTotp(
@@ -201,7 +163,7 @@ async function provisionUserTotp(
   }
   return provisionTotpFromBootstrap(
     authRequests,
-    requireBootstrapToken(loginResult.details, currentSuiteAdminStateContext()),
+    requireBootstrapToken(loginResult.details),
   );
 }
 
@@ -258,11 +220,8 @@ function toErrorDetails(value: unknown) {
 async function provisionSuiteAdminTotp(
   client: SuiteAdminAuthClient,
   details: Record<string, unknown>,
-  context: SuiteAdminStateContext,
 ) {
-  return client.provisionTotpFromBootstrap(
-    requireBootstrapToken(details, context),
-  );
+  return client.provisionTotpFromBootstrap(requireBootstrapToken(details));
 }
 
 async function provisionTotpFromBootstrap(
@@ -293,28 +252,20 @@ async function provisionTotpFromBootstrap(
   return secretBase32;
 }
 
-function requireBootstrapToken(
-  details: Record<string, unknown>,
-  context: SuiteAdminStateContext,
-) {
+function requireBootstrapToken(details: Record<string, unknown>) {
   const bootstrapToken = details.bootstrap_token;
   if (typeof bootstrapToken === "string" && bootstrapToken.trim() !== "") {
     return bootstrapToken;
   }
   throw suiteAdminStateError(
     "suite admin login did not return the required enrollment credential",
-    context,
   );
 }
 
-function suiteAdminStateError(
-  message: string,
-  context: SuiteAdminStateContext,
-) {
-  const ownership = context.externalServerMode
-    ? "The reused external-server stack owns this state for its full lifetime."
-    : "The harness expected to provision this state during Playwright global setup.";
-  return new Error(`${message}. ${ownership}`);
+function suiteAdminStateError(message: string) {
+  return new Error(
+    `${message}. The acquired browser stack owns this state for its full lifetime.`,
+  );
 }
 
 function decodeBase32(input: string) {

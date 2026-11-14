@@ -31,17 +31,18 @@ func (w *contributedTargetWitness) ApplyInverseTx(_ context.Context, tx pgx.Tx, 
 	return rollbackcontract.ApplyInverseResult{AffectedRecordIDs: []uuid.UUID{w.recordID}, BeforeValue: request.Target.AfterValue, AfterValue: request.Target.BeforeValue}, nil
 }
 func TestGenericRollbackDispatchUsesContributedTarget_Unit(t *testing.T) {
+	exerciseRuntimeHistoryActors(t)
 	const kind = "future_relationship"
 	id, incident, actor := uuid.New(), uuid.New(), uuid.New()
 	witness := &contributedTargetWitness{recordID: id}
-	catalog, err := compileTargetSemanticsCatalog([]targetSemanticsRequirement{{TargetKind: kind, SourceOwnerID: "links", DispatchClass: rollbackcontract.DispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistorySingleEntry}}, []ProviderContribution{{SourceOwnerModule: SourceOwnerLinks, NonRowTargets: []NonRowProviderContribution{{SourceOwnerModule: SourceOwnerLinks, TargetKind: kind, HistoryProjector: catalogTestHistoryProjector, HistoryFacet: NewFieldAssociationHistoryFacet([]string{"record_id"}, HistorySingleEntry), RollbackProvider: witness}}}})
+	catalog, err := compileTargetSemanticsCatalog([]targetSemanticsRequirement{{TargetKind: kind, SourceOwnerID: "links", DispatchClass: rollbackcontract.DispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistorySingleEntry}}, []ProviderContribution{{SourceOwnerModule: SourceOwnerLinks, NonRowTargets: []NonRowProviderContribution{{SourceOwnerModule: SourceOwnerLinks, TargetKind: kind, HistoryProjector: catalogTestHistoryProjector, HistoryReferences: catalogTestHistoryReferences, HistoryFacet: NewFieldAssociationHistoryFacet([]string{"record_id"}, HistorySingleEntry), RollbackProvider: witness}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	target := rollbackMutationTarget{TargetKind: kind, TargetID: "future-relationship:1", ChangeSetID: uuid.New(), SequenceNo: 7, OperationKind: "patch", BeforeValue: map[string]any{"record_id": id.String(), "value": "before"}, AfterValue: map[string]any{"record_id": id.String(), "value": "after"}}
 	tx := &commandObservedTx{}
 	now := time.Now().UTC()
-	result, err := (rollbackTransactionalApplier{commandStore: &commandStore{targetSemantics: catalog}}).executeNonRowInverseTx(context.Background(), tx, NewActorID(actor), incident, target, now)
+	result, err := (rollbackTransactionalApplier{commandStore: &commandStore{targetSemantics: catalog, importedAttributions: commandServiceTestAttributionResolver{}}}).executeNonRowInverseTx(context.Background(), tx, NewActorID(actor), incident, target, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +52,7 @@ func TestGenericRollbackDispatchUsesContributedTarget_Unit(t *testing.T) {
 	if !reflect.DeepEqual(result.AfterValue, target.BeforeValue) || !reflect.DeepEqual(result.AffectedRecordIDs, []uuid.UUID{id}) {
 		t.Fatalf("provider result lost: %#v", result)
 	}
-	if _, err := (rollbackTransactionalApplier{commandStore: &commandStore{targetSemantics: catalog}}).executeNonRowInverseTx(context.Background(), tx, NewActorID(actor), incident, rollbackMutationTarget{TargetKind: "unregistered"}, now); err == nil {
+	if _, err := (rollbackTransactionalApplier{commandStore: &commandStore{targetSemantics: catalog, importedAttributions: commandServiceTestAttributionResolver{}}}).executeNonRowInverseTx(context.Background(), tx, NewActorID(actor), incident, rollbackMutationTarget{TargetKind: "unregistered"}, now); err == nil {
 		t.Fatal("unregistered kind accepted")
 	}
 }

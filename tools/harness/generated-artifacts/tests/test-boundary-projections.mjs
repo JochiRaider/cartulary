@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createContractTestContext } from "../../tests/contract-test-context.mjs";
-import { assertPublicTimezoneProjection } from "./test-json-shapes.mjs";
+import { registerJSONShapeTests } from "./test-json-shapes.mjs";
 import { catalogDDLSource } from "../../../database-migrations/catalog-ddl-source.mjs";
 import { collectForeignKeyCoverage, requireForeignKeyCoverage } from "../../../database-migrations/foreign-key-coverage.mjs";
 import { validateSchemaObjectOwnershipManifestShape } from "../database-contract-drift/schema-object-ownership.mjs";
@@ -14,6 +14,7 @@ function readJSON(relative) {
   return JSON.parse(readFileSync(path.join(root, relative), "utf8"));
 }
 export function registerBoundariesTests() {
+  registerJSONShapeTests();
   test("migration_fk_coverage: derived key prefixes and exact manifest claims", () => {
     const table = `CREATE TABLE public.child (a int, b int, c int,
       CONSTRAINT child_fk FOREIGN KEY(a,b) REFERENCES public.parent(a,b));`;
@@ -118,9 +119,6 @@ export function registerBoundariesTests() {
     }
     assert.equal(catalogDDLSource("-- end of file"), "              ");
     assert.equal(catalogDDLSource("SELECT $1, name$tag$ FROM public.real"), "SELECT $1, name$tag$ FROM public.real");
-  });
-  test("public_timezone_projection_boundary: packaged timezone projection excludes backend-only artifacts", async () => {
-    assertPublicTimezoneProjection();
   });
   test("schema_attachment_uniqueness: active schema attachments are unique", async () => {
     {

@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
 import {
   chmodSync,
-  copyFileSync,
   existsSync,
   lstatSync,
   mkdtempSync,
@@ -11,19 +9,26 @@ import {
   readFileSync,
   renameSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import crypto from "node:crypto";
-import os from "node:os";
+import { licenseEvidence } from "./license-inputs.mjs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   canonicalJSONString,
+  parseStrictJSON,
+  publicExitCodeForFailure,
   semanticJSONDigest,
   validateSchemaSync,
 } from "../harness/contract/index.mjs";
+import { independentGoModules, validateIndependentGoModule } from "../harness/test-catalog/go-modules.mjs";
+import { borrowRuntime } from "../harness/runtime/session-client.mjs";
+import { runPrivateCapturedProcess } from "../harness/runtime/private-child-process.mjs";
+import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateTree } from "../harness/runtime/secure-local-files.mjs";
+import { CommandFailure, reportCommandFailure } from "../harness/runtime/command-failure.mjs";
+import { enforcePrivateProcessUmask } from "../harness/runtime/private-process.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../..");
@@ -49,13 +54,12 @@ function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function writeCanonicalJSON(file, value) {
-  writeFileSync(file, `${canonicalJSONString(value)}\n`, { mode: 0o644 });
-  chmodSync(file, 0o644);
+function writePrivateJSON(file, value) {
+  atomicLocalFile(file, `${canonicalJSONString(value)}\n`);
 }
 
 function ensureDir(dir) {
-  mkdirSync(dir, { recursive: true });
+  privateDirectory(dir);
 }
 
 function ensureSafeDirectory(directory) {
@@ -97,7 +101,8 @@ function publishCanonicalPair(outputs) {
         path.dirname(destination),
         `.cartulary-release-stage-${path.basename(destination)}-${transactionID}`,
       );
-      writeCanonicalJSON(stage, value);
+      writeFileSync(stage, `${canonicalJSONString(value)}\n`, { flag: "wx", mode: 0o644 });
+      chmodSync(stage, 0o644);
       staged.push({ destination, stage });
     }
     for (const entry of staged) {
@@ -126,68 +131,31 @@ function publishCanonicalPair(outputs) {
   }
 }
 
-function sha256File(file) {
-  return crypto.createHash("sha256").update(readFileSync(file)).digest("hex");
-}
-
-function sha256Digest(file) {
-  return `sha256:${sha256File(file)}`;
-}
-
-function shellQuote(value) {
-  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) {
-    return value;
-  }
-  return `'${value.replaceAll("'", "'\"'\"'")}'`;
-}
-
-function commandText(command, args) {
-  return [command, ...args].map(shellQuote).join(" ");
-}
-
-function rawName(label) {
-  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "command";
-}
-
-function runCommand(ctx, label, command, args, options = {}) {
-  const cwd = options.cwd ?? repoRoot;
-  const stdoutFile = path.join(ctx.rawDir, `${rawName(label)}.stdout`);
-  const stderrFile = path.join(ctx.rawDir, `${rawName(label)}.stderr`);
-  const startedAt = new Date().toISOString();
-  const result = spawnSync(command, args, {
-    cwd,
-    env: { ...process.env, ...(options.env ?? {}) },
-    encoding: "utf8",
-    maxBuffer: 256 * 1024 * 1024,
+export async function runInventoryCommand(ctx, label, command, args, options = {}) {
+  const result = await runPrivateCapturedProcess(command, args, {
+    repoRoot, runRoot: ctx.runRoot, cwd: options.cwd ?? repoRoot,
+    env: { ...ctx.environment, ...(options.env ?? {}) }, dependencies: [], signal: options.signal,
   });
-  const stdout = result.stdout ?? "";
-  const stderr = result.stderr ?? "";
-  writeFileSync(stdoutFile, stdout);
-  writeFileSync(stderrFile, stderr);
-  const endedAt = new Date().toISOString();
-  const record = {
-    label,
-    command: commandText(command, args),
-    cwd: rel(cwd),
-    started_at: startedAt,
-    ended_at: endedAt,
-    exit_code: result.status,
-    stdout: rel(stdoutFile),
-    stderr: rel(stderrFile),
-  };
-  ctx.commands.push(record);
-  if (result.error) {
-    record.error = result.error.message;
+  let primary;
+  try {
+    if (result.signal) throw new CommandFailure(`${label} interrupted`, { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" });
+    if (result.status !== 0) {
+      const diagnostic = result.stderr.trim().split(/\r?\n/u).slice(-8).join(" | ").slice(-4096);
+      throw new CommandFailure(`${label} failed with exit code ${result.status}${diagnostic ? `: ${diagnostic}` : ""}`,
+        { failure_class: "harness", failure_reason: "tool_diagnostic_failure" });
+    }
+    // The capture's stdout property is a diagnostic tail, never a complete scanner stream.
+    const stdout = new TextDecoder("utf-8", { fatal: true }).decode(readLocalFile(result.stdoutPath, { maximum: 256 * 1024 * 1024 }));
+    return { stdout };
+  } catch (error) { primary = error; throw error; }
+  finally {
+    try { result.cleanup(); }
+    catch (error) { if (!primary) throw error; (primary.cleanupFailures ??= []).push(error); }
   }
-  if ((options.required ?? true) && result.status !== 0) {
-    const diagnostic = stderr.trim().split(/\r?\n/u).slice(-8).join(" | ");
-    throw new Error(`${label} failed with exit code ${result.status}${diagnostic ? `: ${diagnostic}` : ""}`);
-  }
-  return { ...record, stdout, stderr };
 }
 
-function runOutput(ctx, label, command, args, options = {}) {
-  const result = runCommand(ctx, label, command, args, options);
+async function runOutput(ctx, label, command, args, options = {}) {
+  const result = await runInventoryCommand(ctx, label, command, args, options);
   return result.stdout.trim();
 }
 
@@ -195,6 +163,7 @@ function goReadOnlyEnv() {
   return Object.fromEntries(
     Object.entries({
       GOFLAGS: "-mod=readonly",
+      GOWORK: "off",
       GOCACHE: process.env.GO_CACHE_DIR,
       GOMODCACHE: process.env.GO_MOD_CACHE_DIR,
       GOTMPDIR: process.env.GO_TMP_DIR,
@@ -202,11 +171,11 @@ function goReadOnlyEnv() {
   );
 }
 
-function goDownloadModuleDir(ctx) {
-  const dir = path.join(ctx.rawDir, "go-download-module");
+function goDownloadModuleDir(ctx, root, directory) {
+  const dir = path.join(ctx.workspace, "go-download-modules", directory === "." ? "application" : directory);
   ensureDir(dir);
-  copyFileSync(path.join(repoRoot, "go.mod"), path.join(dir, "go.mod"));
-  copyFileSync(path.join(repoRoot, "go.sum"), path.join(dir, "go.sum"));
+  atomicLocalFile(path.join(dir, "go.mod"), readFileSync(path.join(root, directory, "go.mod")));
+  atomicLocalFile(path.join(dir, "go.sum"), readFileSync(path.join(root, directory, "go.sum")));
   return dir;
 }
 
@@ -218,6 +187,13 @@ function parseJSONStream(text) {
   let escaped = false;
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
+    if (start === -1) {
+      if (/[\t\n\r ]/u.test(char)) continue;
+      if (char !== "{") throw scannerOutputFailure("JSON stream", index);
+      start = index;
+      depth = 1;
+      continue;
+    }
     if (inString) {
       if (escaped) {
         escaped = false;
@@ -233,83 +209,26 @@ function parseJSONStream(text) {
       continue;
     }
     if (char === "{") {
-      if (depth === 0) {
-        start = index;
-      }
       depth += 1;
       continue;
     }
     if (char === "}") {
       depth -= 1;
       if (depth === 0 && start >= 0) {
-        objects.push(JSON.parse(text.slice(start, index + 1)));
+        try { objects.push(parseStrictJSON(text.slice(start, index + 1))); }
+        catch { throw scannerOutputFailure("JSON stream", start); }
         start = -1;
       }
     }
   }
+  if (start !== -1) throw scannerOutputFailure("JSON stream", start);
   return objects;
 }
 
-function normalizePackageName(value) {
-  return value.replace(/^@/, "").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unnamed";
-}
-
-export function deterministicLicenseFilename(ecosystem, name, version) {
-  const safeVersion = normalizePackageName(version || "unversioned");
-  return `${normalizePackageName(ecosystem)}__${normalizePackageName(name)}__${safeVersion}__LICENSE.txt`;
-}
-
-function findLicenseFiles(dir) {
-  if (!dir || !existsSync(dir)) {
-    return [];
-  }
-  const candidates = [];
-  for (const name of readdirSync(dir)) {
-    if (!/^(license|licence|copying|notice)([._-].*)?$/i.test(name)) {
-      continue;
-    }
-    if (/\.(?:md|markdown|mdown|mkd)$/i.test(name)) {
-      continue;
-    }
-    const full = path.join(dir, name);
-    if (!statSync(full).isFile()) {
-      continue;
-    }
-    candidates.push(full);
-  }
-  return candidates.sort(compareASCII);
-}
-
-function copyLicenseEvidence(ctx, dependency, sourceDir, rawLicenseMetadata) {
-  const licenseFiles = findLicenseFiles(sourceDir);
-  const issues = [];
-  let evidenceDigest = null;
-  let evidenceSource = null;
-  if (licenseFiles.length > 0) {
-    const out = path.join(
-      ctx.licensesDir,
-      deterministicLicenseFilename(dependency.ecosystem, dependency.name, dependency.version),
-    );
-    const chunks = [];
-    for (const file of licenseFiles) {
-      chunks.push(`===== ${rel(file)} =====\n${readFileSync(file, "utf8").trimEnd()}\n`);
-    }
-    writeFileSync(out, `${chunks.join("\n")}\n`);
-    evidenceDigest = sha256Digest(out);
-    evidenceSource = "package-distributed license file";
-  } else if (rawLicenseMetadata) {
-    evidenceSource = "package metadata license field";
-    issues.push("license_text_missing");
-  } else {
-    evidenceSource = "missing";
-    issues.push("license_text_missing");
-    issues.push("license_metadata_missing");
-  }
-  return {
-    evidenceDigest,
-    evidenceSource,
-    issues,
-  };
+function scannerOutputFailure(format, offset) {
+  return new CommandFailure(`invalid inventory ${format} at offset ${offset}`, {
+    failure_class: "harness", failure_reason: "tool_diagnostic_failure",
+  });
 }
 
 function licenseReviewFlags(licenseExpression, rawLicenseMetadata) {
@@ -574,14 +493,15 @@ function parseNpmLicenseOutput(text) {
 
 function parseGoModuleGraph(text) {
   const edges = [];
-  for (const line of text.split(/\r?\n/)) {
-    if (!line.trim()) {
-      continue;
+  let offset = 0;
+  for (const raw of text.split("\n")) {
+    const line = raw.replace(/\r$/u, "");
+    if (!/^[\t ]*$/u.test(line)) {
+      const edge = /^[\t ]*([^\s\x00-\x1f\x7f]+)[\t ]+([^\s\x00-\x1f\x7f]+)[\t ]*$/u.exec(line);
+      if (!edge) throw scannerOutputFailure("Go module graph", offset);
+      edges.push([edge[1], edge[2]]);
     }
-    const [from, to] = line.trim().split(/\s+/);
-    if (from && to) {
-      edges.push([from, to]);
-    }
+    offset += raw.length + 1;
   }
   return edges;
 }
@@ -597,14 +517,14 @@ function parseGoModuleSet(text) {
   return modules;
 }
 
-function goTestDependencyListArgs() {
+function goTestDependencyListArgs(patterns = goTestPackagePatterns) {
   return [
     "list",
     "-deps",
     "-test",
     "-f",
     "{{if and (not .Standard) .Module}}{{.Module.Path}}@{{.Module.Version}}{{end}}",
-    ...goTestPackagePatterns,
+    ...patterns,
   ];
 }
 
@@ -694,18 +614,7 @@ function dependencyGraphToCycloneDx(dependencies) {
     }));
 }
 
-function artifactRows(files) {
-  return files
-    .filter((file) => existsSync(file))
-    .map((file) => ({
-      path: rel(file),
-      sha256: sha256File(file),
-      bytes: statSync(file).size,
-    }))
-    .sort((a, b) => compareASCII(a.path, b.path));
-}
-
-function loadFontEvidence(ctx) {
+function loadFontEvidence() {
   const manifestFile = path.join(repoRoot, "apps", "web", "public", "assets", "fonts", "FONT_MANIFEST.json");
   if (!existsSync(manifestFile)) {
     return { manifestFile, manifest: null, records: new Map(), licenseEntries: [] };
@@ -717,14 +626,7 @@ function loadFontEvidence(ctx) {
     const version = family.version_or_ref ?? "unversioned";
     const ref = bomRef("font", family.family, version);
     const fontDir = path.join(repoRoot, "apps", "web", "public", "assets", "fonts", family.directory);
-    const licenseFile =
-      readdirSync(fontDir)
-        .filter((name) => /^(?:OFL|LICENSE)(?:\.[^.]+)?$/iu.test(name))
-        .sort()[0] ?? null;
-    const licenseEvidencePath = path.join(ctx.licensesDir, deterministicLicenseFilename("font", family.family, version));
-    if (licenseFile) {
-      copyFileSync(path.join(fontDir, licenseFile), licenseEvidencePath);
-    }
+    const license = licenseEvidence(fontDir, { metadata: family.license, kind: "font" });
     const record = {
       ref,
       ecosystem: "font",
@@ -751,9 +653,9 @@ function loadFontEvidence(ctx) {
       transitive: false,
       license_expression: family.license,
       raw_license_metadata: family.license,
-      evidence_source: licenseFile ? "vendored font license file" : "missing",
-      evidence_digest: licenseFile ? sha256Digest(licenseEvidencePath) : null,
-      issue_flags: licenseFile ? [] : ["license_text_missing"],
+      evidence_source: license.evidenceDigest ? "vendored font license file" : "missing",
+      evidence_digest: license.evidenceDigest,
+      issue_flags: license.evidenceDigest ? [] : ["license_text_missing"],
       review_flags: licenseReviewFlags(family.license, family.license),
       font_files: family.files ?? [],
     });
@@ -774,31 +676,49 @@ function buildToolsMetadata(ctx) {
   if (ctx.toolVersions.go) {
     tools.push({ type: "application", name: "go", version: ctx.toolVersions.go });
   }
-  if (ctx.toolVersions.cdxgen) {
-    tools.push({ type: "application", name: "@cyclonedx/cdxgen", version: ctx.toolVersions.cdxgen });
-  }
-  if (ctx.toolVersions.cyclonedxGomod) {
-    tools.push({ type: "application", name: "cyclonedx-gomod", version: ctx.toolVersions.cyclonedxGomod });
-  }
-  if (ctx.toolVersions.syft) {
-    tools.push({ type: "application", name: "syft", version: ctx.toolVersions.syft });
-  }
   return tools;
 }
 
-function collectGoEvidence(ctx) {
+export async function collectGoEvidence(ctx, root = repoRoot) {
+  const independent = independentGoModules(root).sort((a, b) => compareASCII(a.root, b.root));
+  for (const module of independent) validateIndependentGoModule(root, module.root);
+  const selections = [
+    { directory: ".", patterns: goTestPackagePatterns },
+    ...independent.map(module => ({ directory: module.root, patterns: ["./..."] })),
+  ];
   const go = ctx.config.go;
-  const goVersion = runOutput(ctx, "go version", go, ["version"], { env: goReadOnlyEnv() });
+  const goVersion = await runOutput(ctx, "go version", go, ["version"], { cwd: root, env: goReadOnlyEnv() });
   ctx.toolVersions.go = goVersion;
-  const download = runCommand(ctx, "go mod download json all", go, ["mod", "download", "-json", "all"], {
-    cwd: goDownloadModuleDir(ctx),
-    env: goReadOnlyEnv(),
-  });
-  const goList = runCommand(ctx, "go list modules json", go, ["list", "-m", "-json", "all"], {
-    env: goReadOnlyEnv(),
-  });
-  const goGraph = runCommand(ctx, "go mod graph", go, ["mod", "graph"], { env: goReadOnlyEnv() });
-  const runtime = runCommand(ctx, "go list runtime deps", go, [
+  const downloads = new Map(), modules = new Map(), testSet = new Set(), edges = new Set(), mainPaths = new Set();
+  for (const [ordinal, selection] of selections.entries()) {
+    const { directory, patterns } = selection;
+    const options = { cwd: path.join(root, directory), env: goReadOnlyEnv() };
+    const label = `go module ${ordinal} ${directory}`;
+    const download = await runInventoryCommand(ctx, `${label} download`, go, ["mod", "download", "-json", "all"], {
+      ...options, cwd: goDownloadModuleDir(ctx, root, directory),
+    });
+    const listed = await runInventoryCommand(ctx, `${label} modules`, go, ["list", "-m", "-json", "all"], options);
+    const graph = await runInventoryCommand(ctx, `${label} graph`, go, ["mod", "graph"], options);
+    const test = await runInventoryCommand(ctx, `${label} test deps`, go, goTestDependencyListArgs(patterns), options);
+    const moduleTestSet = parseGoModuleSet(test.stdout);
+    for (const entry of parseJSONStream(download.stdout)) downloads.set(`${entry.Path}@${entry.Version}`, entry);
+    for (const entry of parseJSONStream(listed.stdout)) {
+      if (entry.Main) { mainPaths.add(entry.Path); continue; }
+      const key = `${entry.Path}@${entry.Version}`, previous = modules.get(key);
+      const inventoryEvidence = new Set(previous?.inventoryEvidence ?? []);
+      for (const item of [path.posix.join(directory, "go.mod"), path.posix.join(directory, "go.sum"),
+        `go -C ${directory} list -m -json all`, `go -C ${directory} mod graph`]) inventoryEvidence.add(item);
+      if (moduleTestSet.has(key)) inventoryEvidence.add(`go -C ${directory} list -deps -test ${patterns.join(" ")}`);
+      modules.set(key, {
+        ...entry,
+        Indirect: entry.Indirect === true && (previous === undefined || previous.Indirect === true),
+        inventoryEvidence: [...inventoryEvidence].sort(compareASCII),
+      });
+    }
+    for (const key of moduleTestSet) testSet.add(key);
+    for (const edge of parseGoModuleGraph(graph.stdout)) edges.add(JSON.stringify(edge));
+  }
+  const runtime = await runInventoryCommand(ctx, "go list runtime deps", go, [
     "list",
     "-deps",
     "-f",
@@ -806,30 +726,29 @@ function collectGoEvidence(ctx) {
     "./cmd/server",
     "./cmd/migrate",
     "./cmd/operator",
-  ], { env: goReadOnlyEnv() });
-  const test = runCommand(
-    ctx,
-    "go list test deps",
-    go,
-    goTestDependencyListArgs(),
-    { env: goReadOnlyEnv() },
-  );
-
-  const downloads = new Map(parseJSONStream(download.stdout).map((entry) => [`${entry.Path}@${entry.Version}`, entry]));
-  const modules = parseJSONStream(goList.stdout);
+  ], { cwd: root, env: goReadOnlyEnv() });
   const runtimeSet = parseGoModuleSet(runtime.stdout);
-  const testSet = parseGoModuleSet(test.stdout);
-  const graphEdges = parseGoModuleGraph(goGraph.stdout);
-  return { modules, downloads, runtimeSet, testSet, graphEdges };
+  const graphEdges = [...edges].sort(compareASCII).map(edge => JSON.parse(edge));
+  return { modules: [...modules.entries()].sort(([a], [b]) => compareASCII(a, b)).map(([, value]) => value),
+    downloads, runtimeSet, testSet, graphEdges, mainPaths };
 }
 
-function collectNodeEvidence(ctx, packageManifests) {
+export function goInventoryDependencies(evidence, records) {
+  const dependencies = new Map();
+  for (const [from, to] of evidence.graphEdges) {
+    const fromRef = evidence.mainPaths.has(from) ? "cartulary:go-backend" : bomRef("go", from.slice(0, from.lastIndexOf("@")), from.slice(from.lastIndexOf("@") + 1));
+    const toRef = bomRef("go", to.slice(0, to.lastIndexOf("@")), to.slice(to.lastIndexOf("@") + 1));
+    if ((fromRef !== "cartulary:go-backend" && !records.has(fromRef)) || !records.has(toRef)) continue;
+    if (!dependencies.has(fromRef)) dependencies.set(fromRef, new Set());
+    dependencies.get(fromRef).add(toRef);
+  }
+  return dependencies;
+}
+
+async function collectNodeEvidence(ctx, packageManifests) {
   const pnpm = ctx.config.pnpm;
-  const cdxgenVersion = runOutput(ctx, "cdxgen version", pnpm, ["exec", "cdxgen", "--version"], { required: false });
-  const versionMatch = cdxgenVersion.match(/CycloneDX Generator\s+([^\s]+)/);
-  ctx.toolVersions.cdxgen = versionMatch?.[1] ?? cdxgenVersion.split(/\s+/).find(Boolean) ?? "";
-  const list = runCommand(ctx, "pnpm list recursive json", pnpm, ["list", "--recursive", "--depth", "Infinity", "--json"]);
-  const licenses = runCommand(ctx, "pnpm licenses recursive json long", pnpm, [
+  const list = await runInventoryCommand(ctx, "pnpm list recursive json", pnpm, ["list", "--recursive", "--depth", "Infinity", "--json"]);
+  const licenses = await runInventoryCommand(ctx, "pnpm licenses recursive json long", pnpm, [
     "licenses",
     "list",
     "--recursive",
@@ -842,79 +761,63 @@ function collectNodeEvidence(ctx, packageManifests) {
   return { directIndex, projects, licenseIndex };
 }
 
-function collectContainerEvidence(ctx) {
+function collectContainerEvidence() {
   const images = parseContainerImages();
-  if (ctx.config.syft && existsSync(ctx.config.syft)) {
-    const version = runOutput(ctx, "syft version", ctx.config.syft, ["version"], { required: false });
-    ctx.toolVersions.syft = version.split(/\r?\n/).find((line) => line.includes("Version:"))?.replace(/^.*Version:\s*/, "") ?? version;
-  }
   return { images };
 }
 
-function main() {
-  const releaseDir = path.resolve(process.env.RELEASE_ARTIFACT_DIR ?? path.join(repoRoot, ".cartulary", "release-artifacts"));
-  const canonicalSbom = path.resolve(process.env.SBOM_ARTIFACT ?? path.join(releaseDir, "sbom.cyclonedx.json"));
-  const canonicalLicenseReport = path.resolve(
-    process.env.LICENSE_REPORT_ARTIFACT ?? path.join(releaseDir, "license-report.json"),
-  );
-  if (
-    canonicalSbom !== path.join(releaseDir, "sbom.cyclonedx.json") ||
-    canonicalLicenseReport !== path.join(releaseDir, "license-report.json")
-  ) {
-    throw new Error("release inventory artifacts must use the canonical paired paths beneath RELEASE_ARTIFACT_DIR");
+export async function withInventoryWorkspace(work, environment = process.env) {
+  const runID = environment.CARTULARY_TEST_RUN_ID;
+  if (!/^[A-Za-z0-9_.-]+$/u.test(runID ?? "")) throw new Error("release inventory requires Make run identity");
+  const runRoot = path.resolve(repoRoot, environment.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results", runID);
+  let runtime;
+  try { runtime = borrowRuntime({ repoRoot, runRoot, environment }); }
+  catch (error) {
+    throw new CommandFailure("release inventory requires a bound private runtime", { failure_class: "artifact", failure_reason: "artifact_error" }, { cause: error });
   }
-  const outputDir = mkdtempSync(path.join(os.tmpdir(), "cartulary-release-inventory-"));
-  const rawDir = path.join(outputDir, "raw");
-  const licensesDir = path.join(outputDir, "licenses");
-  ensureDir(rawDir);
-  ensureDir(licensesDir);
-
-  const ctx = {
-    outputDir,
-    rawDir,
-    licensesDir,
-    commands: [],
-    toolVersions: {},
-    config: {
-      go: process.env.GO || "go",
-      pnpm: process.env.PNPM || "pnpm",
-      node: process.env.NODE_BIN || process.execPath,
-      cyclonedxGomod: process.env.CYCLONEDX_GOMOD_BIN || "cyclonedx-gomod",
-      syft: process.env.SYFT_BIN || "syft",
-    },
-  };
-
+  let workspace, primary;
   try {
+    workspace = mkdtempSync(runtime.producerPath("release-inventory-"));
+    privateDirectory(workspace);
+    return await work({ workspace, runRoot,
+      environment: { ...environment, ...runtime.producerEnvironment() }, toolVersions: {},
+      config: { go: environment.GO || "go", pnpm: environment.PNPM || "pnpm", node: environment.NODE_BIN || process.execPath },
+    });
+  } catch (error) { primary = error; throw error; }
+  finally {
+    const failures = [];
+    if (workspace && primary?.processSettled !== false) {
+      try { removePrivateTree(workspace); } catch (error) { failures.push(error); }
+    }
+    try { runtime.close(); } catch (error) { failures.push(error); }
+    if (failures.length) {
+      if (primary) (primary.cleanupFailures ??= []).push(...failures);
+      else throw new CommandFailure("release inventory workspace cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error" }, { cause: new AggregateError(failures) });
+    }
+  }
+}
+
+async function produceInventory(ctx, canonicalSbom, canonicalLicenseReport) {
+  const outputDir = ctx.workspace;
   const packageManifests = readPackageManifests();
   const containerRecords = new Map();
   const licenseReport = [];
 
-  const nodeVersion = runOutput(ctx, "node version", ctx.config.node, ["--version"], { required: false });
-  const pnpmVersion = runOutput(ctx, "pnpm version", ctx.config.pnpm, ["--version"], { required: false });
+  const nodeVersion = await runOutput(ctx, "node version", ctx.config.node, ["--version"]);
+  const pnpmVersion = await runOutput(ctx, "pnpm version", ctx.config.pnpm, ["--version"]);
   ctx.toolVersions.node = nodeVersion;
   ctx.toolVersions.pnpm = pnpmVersion;
-  const gomodVersion = runOutput(ctx, "cyclonedx gomod version", ctx.config.cyclonedxGomod, ["version"], {
-    required: false,
-  });
-  ctx.toolVersions.cyclonedxGomod = gomodVersion.match(/Version:\s*(\S+)/)?.[1] ?? gomodVersion.split(/\s+/).find(Boolean) ?? "";
+  const goEvidence = await collectGoEvidence(ctx);
+  const nodeEvidence = await collectNodeEvidence(ctx, packageManifests);
+  const containerEvidence = collectContainerEvidence();
+  const fontEvidence = loadFontEvidence();
 
-  const goEvidence = collectGoEvidence(ctx);
-  const nodeEvidence = collectNodeEvidence(ctx, packageManifests);
-  const containerEvidence = collectContainerEvidence(ctx);
-  const fontEvidence = loadFontEvidence(ctx);
-
-  const rootLicense = path.join(repoRoot, "LICENSE");
-  const firstPartyLicenseOut = path.join(licensesDir, deterministicLicenseFilename("first-party", "cartulary", "0.0.0"));
-  copyFileSync(rootLicense, firstPartyLicenseOut);
-  const firstPartyLicenseDigest = sha256Digest(firstPartyLicenseOut);
+  const firstPartyLicenseDigest = licenseEvidence(repoRoot, { kind: "first_party" }).evidenceDigest;
+  if (!firstPartyLicenseDigest) throw new Error("first-party license input missing");
 
   const goRecords = new Map();
-  const goDependencies = new Map();
   const goDownloadByKey = goEvidence.downloads;
   for (const module of goEvidence.modules) {
-    if (module.Main) {
-      continue;
-    }
     const key = `${module.Path}@${module.Version}`;
     const direct = module.Indirect !== true;
     const classification = goEvidence.runtimeSet.has(key)
@@ -937,19 +840,12 @@ function main() {
       transitive: !direct,
       optional: false,
       path: sourceDir,
-      evidence: [
-        "go.mod",
-        "go.sum",
-        "go list -m -json all",
+      evidence: [...module.inventoryEvidence,
         goEvidence.runtimeSet.has(key) ? "go list -deps ./cmd/server ./cmd/migrate ./cmd/operator" : null,
-        goEvidence.testSet.has(key)
-          ? `go list -deps -test ${goTestPackagePatterns.join(" ")}`
-          : null,
-        "go mod graph",
-      ].filter(Boolean),
+      ].filter(Boolean).sort(compareASCII),
     };
     goRecords.set(ref, record);
-    const evidence = copyLicenseEvidence(ctx, record, sourceDir, null);
+    const evidence = licenseEvidence(sourceDir);
     const issues = [...evidence.issues];
     const licenseEntry = {
       package: module.Path,
@@ -968,16 +864,7 @@ function main() {
     licenseReport.push(licenseEntry);
   }
 
-  for (const [from, to] of goEvidence.graphEdges) {
-    const fromRef = from.startsWith(firstPartyGoModule) ? "cartulary:go-module" : bomRef("go", from.slice(0, from.lastIndexOf("@")), from.slice(from.lastIndexOf("@") + 1));
-    const toRef = bomRef("go", to.slice(0, to.lastIndexOf("@")), to.slice(to.lastIndexOf("@") + 1));
-    if (!goDependencies.has(fromRef)) {
-      goDependencies.set(fromRef, new Set());
-    }
-    if (goRecords.has(toRef)) {
-      goDependencies.get(fromRef).add(toRef);
-    }
-  }
+  const goDependencies = goInventoryDependencies(goEvidence, goRecords);
 
   const { components: nodeRecords, dependencies: nodeDependencies } = flattenPnpmProjects(
     nodeEvidence.projects,
@@ -1001,7 +888,7 @@ function main() {
         issues: [],
       };
     } else {
-      evidence = copyLicenseEvidence(ctx, record, record.path, rawLicenseMetadata);
+      evidence = licenseEvidence(record.path, { metadata: rawLicenseMetadata });
     }
     const issues = [...evidence.issues];
     if (!licenseExpression) {
@@ -1151,46 +1038,58 @@ function main() {
     entries: licenseReport,
   };
   validateSchemaSync(licenseReportDocument.schema_id, licenseReportDocument);
-  writeCanonicalJSON(sbomGo, goBom);
-  writeCanonicalJSON(sbomNode, nodeBom);
-  writeCanonicalJSON(sbomCombined, combinedBom);
-  writeCanonicalJSON(licenseReportPath, licenseReportDocument);
+  writePrivateJSON(sbomGo, goBom);
+  writePrivateJSON(sbomNode, nodeBom);
+  writePrivateJSON(sbomCombined, combinedBom);
+  writePrivateJSON(licenseReportPath, licenseReportDocument);
 
   const validator = path.join(repoRoot, "tools", "release-evidence", "validate-release-sbom.mjs");
-  runCommand(ctx, "validate combined sbom", ctx.config.node, [validator, sbomCombined]);
-  runCommand(ctx, "validate go sbom", ctx.config.node, [validator, sbomGo]);
-  runCommand(ctx, "validate node sbom", ctx.config.node, [validator, sbomNode]);
+  await runInventoryCommand(ctx, "validate combined sbom", ctx.config.node, [validator, sbomCombined]);
+  await runInventoryCommand(ctx, "validate go sbom", ctx.config.node, [validator, sbomGo]);
+  await runInventoryCommand(ctx, "validate node sbom", ctx.config.node, [validator, sbomNode]);
   publishCanonicalPair([
     { destination: canonicalLicenseReport, value: licenseReportDocument },
     { destination: canonicalSbom, value: combinedBom },
   ]);
-  runCommand(ctx, "validate canonical sbom", ctx.config.node, [validator, canonicalSbom]);
+  await runInventoryCommand(ctx, "validate canonical sbom", ctx.config.node, [validator, canonicalSbom]);
 
   console.log(`Release inventory semantic input: ${semanticInputDigest}`);
   console.log(`Canonical SBOM: ${rel(canonicalSbom)}`);
   console.log(`Canonical license report: ${rel(canonicalLicenseReport)}`);
-  } finally {
-    rmSync(outputDir, { recursive: true, force: true });
+}
+
+async function main() {
+  const releaseDir = path.resolve(process.env.RELEASE_ARTIFACT_DIR ?? path.join(repoRoot, ".cartulary", "release-artifacts"));
+  const canonicalSbom = path.resolve(process.env.SBOM_ARTIFACT ?? path.join(releaseDir, "sbom.cyclonedx.json"));
+  const canonicalLicenseReport = path.resolve(
+    process.env.LICENSE_REPORT_ARTIFACT ?? path.join(releaseDir, "license-report.json"),
+  );
+  if (
+    canonicalSbom !== path.join(releaseDir, "sbom.cyclonedx.json") ||
+    canonicalLicenseReport !== path.join(releaseDir, "license-report.json")
+  ) {
+    throw new Error("release inventory artifacts must use the canonical paired paths beneath RELEASE_ARTIFACT_DIR");
   }
+  await withInventoryWorkspace(ctx => produceInventory(ctx, canonicalSbom, canonicalLicenseReport));
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    main();
+    enforcePrivateProcessUmask();
+    await main();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`SBOM/license evidence generation failed: ${message}`);
-    process.exit(1);
+    if (error.cleanupFailures?.length) console.error(`Inventory cleanup also failed (${error.cleanupFailures.length} failures)`);
+    const failure = reportCommandFailure(repoRoot, error, { failure_class: "artifact", failure_reason: "artifact_error" });
+    process.exitCode = publicExitCodeForFailure(failure);
   }
 }
 
 export {
-  artifactRows,
-  findLicenseFiles,
   goTestDependencyListArgs,
   licenseReviewFlags,
   makeCycloneDxBom,
-  normalizePackageName,
   parseGoModuleGraph,
   parseJSONStream,
 };

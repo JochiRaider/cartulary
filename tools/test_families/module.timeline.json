@@ -5218,6 +5218,37 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.timeline.integration.clipboard_provenance_rejection",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestTimelineClipboardProvenanceRejection_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.timeline.integration.create_patch_mark_reviewed_supersede_query_and_w_90276912d7",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.integration",
@@ -5309,6 +5340,190 @@
         "fixtures/ir-incident/v1",
         "fixtures/network-flow-orientation/v1"
       ]
+    },
+    {
+      "row_id": "module.timeline.integration.portable_event_transaction",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestTimelinePortableEventTransaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.timeline.integration.portable_profile_transaction",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestTimelinePortableProfileTransaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.timeline.integration.portable_provenance_transaction",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestTimelinePortableProvenanceTransaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.timeline.integration.profile_first_write_concurrency",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [
+        "module.incidents"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestTimelineTimeProfileFirstWriteConcurrency_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.timeline.integration.provenance_capacity_concurrency",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [
+        "module.imports",
+        "module.incidentbundles",
+        "module.records",
+        "module.tabularingest"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestTimelineProvenanceCapacityConcurrency_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.timeline.integration.provenance_writer",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.integration",
+      "collaborator_ids": [
+        "module.imports",
+        "module.incidentbundles",
+        "module.records",
+        "module.tabularingest"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestTimelineProvenanceWriter_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.integration.real_http_create_patch_review_supersede_replay_m_37e5c78ca1",
@@ -6610,6 +6825,93 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.timeline.unit.portable_event_admission",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestTimelinePortableEventAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.timeline.unit.portable_profile_admission",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestTimelinePortableProfileAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.timeline.unit.portable_provenance_admission",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [
+        "module.imports",
+        "module.incidentbundles",
+        "module.records",
+        "module.tabularingest"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestTimelinePortableProvenanceAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "module.timeline.unit.restore_workbook_probe_matches_canonical_fixture_4fbe5d13e2",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.unit",
@@ -6624,6 +6926,33 @@
         "package": "./internal/modules/timeline",
         "tests": [
           "TestRestoreWorkbookProbeRegistrationMatchesCanonicalFixture"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.timeline.unit.time_profile_admission",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract",
+        "module.timeline.verification.policy_contract",
+        "module.timeline.verification.presentation_bytes"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline/admission",
+        "tests": [
+          "TestTimeProfileAdmission_Unit"
         ]
       },
       "evidence_class": "unit",

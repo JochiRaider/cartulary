@@ -13,17 +13,12 @@ function frontendFixture(t) {
     const runtimes = [];
     const publications = [];
     t.after(async () => {
-        try {
-            const stopped = await Promise.allSettled(publications.map(publication => publication.stop()));
-            const errors = stopped.filter(result => result.status === "rejected").map(result => result.reason);
-            if (errors.length)
-                throw new AggregateError(errors, "publication test cleanup failed");
-        }
-        finally {
-            for (const runtime of runtimes)
-                runtime.close();
-            rmSync(scratch, { recursive: true, force: true });
-        }
+        const stopped = await Promise.allSettled(publications.map(async publication => publication.stop()));
+        const closed = await Promise.allSettled(runtimes.map(async runtime => runtime.close()));
+        const errors = [...stopped, ...closed].filter(result => result.status === "rejected").map(result => result.reason);
+        if (errors.length)
+            throw new AggregateError(errors, "publication test cleanup failed; private recovery proof retained");
+        rmSync(scratch, { recursive: true, force: true });
     });
     const profile = { id: "production", producer_report_key: "build-web", producer_operation: "harness.build_web", entries: ["index.html"] };
     function fixture(runID, version) {

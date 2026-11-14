@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
@@ -14,16 +15,14 @@ func VNextRecoveryObjectInventory(
 	return recovery.NewVNextObjectInventoryProvider(
 		"module.evidence",
 		"evidence.blobs",
-		"evidence.snapshot_blob_inventory.v1",
+		"evidence.snapshot_blob_inventory.v2",
 		func(ctx context.Context, snapshot recovery.VNextSnapshot) ([]recovery.VNextObjectMember, error) {
 			rows, err := snapshot.QueryRows(ctx, sqlshape.Literal(`
 SELECT object_blob_id::text, storage_key,
        COALESCE(observed_content_type, content_type_hint, 'application/octet-stream'),
-       observed_size, observed_sha256_hex
+       byte_size, observed_size, observed_sha256_hex, expected_sha256_hex
   FROM object_blobs
- WHERE upload_state = 'available'
-   AND observed_size IS NOT NULL
-   AND observed_sha256_hex IS NOT NULL
+ WHERE upload_state IN ('available', 'quarantined')
  ORDER BY object_blob_id ASC
 `))
 			if err != nil {
@@ -32,13 +31,18 @@ SELECT object_blob_id::text, storage_key,
 			defer rows.Close()
 			var members []recovery.VNextObjectMember
 			for rows.Next() {
-				var logicalID, storageKey, contentType, digest string
+				var logicalID, storageKey, contentType string
+				var digest, expected *string
+				var observed *int64
 				var size int64
-				if err := rows.Scan(&logicalID, &storageKey, &contentType, &size, &digest); err != nil {
+				if err := rows.Scan(&logicalID, &storageKey, &contentType, &size, &observed, &digest, &expected); err != nil {
 					return nil, fmt.Errorf("scan Evidence recovery object: %w", err)
 				}
+				if !policy.ValidRecoveryBlobMetadata(size, observed, digest, expected) {
+					return nil, fmt.Errorf("%w: invalid finalized Evidence object metadata", recovery.ErrInvalidBackupArtifact)
+				}
 				members = append(members, recovery.VNextStoredObjectMember(
-					source, logicalID, storageKey, contentType, size, digest,
+					source, logicalID, storageKey, contentType, size, *digest,
 				))
 			}
 			if err := rows.Err(); err != nil {

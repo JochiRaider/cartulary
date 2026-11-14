@@ -22,6 +22,7 @@ import (
 	extensionsrecovery "github.com/JochiRaider/cartulary/internal/modules/extensions/recoverycontribution"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -53,8 +54,14 @@ func TestExtensionRecoveryInventorySnapshot_Integration(t *testing.T) {
 	provider := extensionsrecovery.VNextRecoveryObjectInventory(source)
 	repository := NewVNextSnapshotRepository(recoveryDB)
 	err := repository.WithinRepeatableReadReadOnly(ctx, func(snapshot recovery.VNextSnapshot, control recovery.TargetControl) error {
-		for query, want := range map[string]string{"SHOW transaction_isolation": "repeatable read", "SHOW transaction_read_only": "on"} {
-			rows, err := snapshot.QueryRows(ctx, query)
+		for _, setting := range []struct {
+			query sqlshape.Fragment
+			want  string
+		}{
+			{sqlshape.Literal("SHOW transaction_isolation"), "repeatable read"},
+			{sqlshape.Literal("SHOW transaction_read_only"), "on"},
+		} {
+			rows, err := snapshot.QueryRows(ctx, setting.query)
 			if err != nil {
 				return err
 			}
@@ -68,8 +75,8 @@ func TestExtensionRecoveryInventorySnapshot_Integration(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if got != want {
-				t.Fatalf("%s = %q, want %q", query, got, want)
+			if got != setting.want {
+				t.Fatalf("%s = %q, want %q", sqlshape.Text(setting.query), got, setting.want)
 			}
 		}
 		first, err := provider.Inventory(ctx, snapshot)

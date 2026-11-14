@@ -211,24 +211,22 @@ ON CONFLICT (provider_key) DO UPDATE
 		}
 	}
 
-	if len(manifestKeys) < len(existing) {
-		omitted := make([]string, 0)
-		for providerKey := range existing {
-			if _, ok := manifestKeys[providerKey]; !ok {
-				omitted = append(omitted, providerKey)
-			}
+	omitted := make([]string, 0)
+	for providerKey := range existing {
+		if _, ok := manifestKeys[providerKey]; !ok {
+			omitted = append(omitted, providerKey)
 		}
-		sort.Strings(omitted)
-		for _, providerKey := range omitted {
-			if _, err := tx.Exec(ctx, `
+	}
+	sort.Strings(omitted)
+	for _, providerKey := range omitted {
+		if _, err := tx.Exec(ctx, `
 UPDATE enterprise_auth_providers
    SET is_enabled = false,
        is_interactive = false,
        updated_at = $2
  WHERE provider_key = $1
 `, providerKey, now.UTC()); err != nil {
-				return fmt.Errorf("disable omitted enterprise auth provider %q: %w", providerKey, err)
-			}
+			return fmt.Errorf("disable omitted enterprise auth provider %q: %w", providerKey, err)
 		}
 	}
 
@@ -351,14 +349,17 @@ func (s *Store) CompleteOIDCEnterpriseAuthTransaction(
 	browserBindingHash []byte,
 	nonce *string,
 	providerSubject string,
+	sessionInput EnterpriseAuthSessionInput,
 	now time.Time,
 ) (EnterpriseAuthCompletionResult, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return EnterpriseAuthCompletionResult{}, fmt.Errorf("begin enterprise auth completion: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanupCtx)
 	}()
 
 	provider, err := fetchEnterpriseAuthProviderByKeyTx(ctx, tx, providerKey)
@@ -386,7 +387,7 @@ func (s *Store) CompleteOIDCEnterpriseAuthTransaction(
 		return EnterpriseAuthCompletionResult{}, ErrSubjectMismatch
 	}
 
-	return completeEnterpriseAuthTransaction(ctx, tx, transaction, provider.ID, providerSubject, now)
+	return completeEnterpriseAuthTransaction(ctx, tx, transaction, provider.ID, providerSubject, sessionInput, now)
 }
 
 func (s *Store) StageSAMLEnterpriseAuthTransaction(
@@ -453,14 +454,17 @@ func (s *Store) CompleteSAMLEnterpriseAuthTransaction(
 	providerKey string,
 	completionHash []byte,
 	browserBindingHash []byte,
+	sessionInput EnterpriseAuthSessionInput,
 	now time.Time,
 ) (EnterpriseAuthCompletionResult, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return EnterpriseAuthCompletionResult{}, fmt.Errorf("begin enterprise auth SAML completion: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanupCtx)
 	}()
 
 	provider, err := fetchEnterpriseAuthProviderByKeyTx(ctx, tx, providerKey)
@@ -488,7 +492,7 @@ func (s *Store) CompleteSAMLEnterpriseAuthTransaction(
 		return EnterpriseAuthCompletionResult{}, ErrEnterpriseTransactionCompletionMismatch
 	}
 
-	return completeEnterpriseAuthTransaction(ctx, tx, transaction, provider.ID, *transaction.SAMLSubject, now)
+	return completeEnterpriseAuthTransaction(ctx, tx, transaction, provider.ID, *transaction.SAMLSubject, sessionInput, now)
 }
 
 func validateEnterpriseTransactionForProvider(provider EnterpriseAuthProviderRecord, transaction EnterpriseAuthTransactionRecord, providerType string, now time.Time) error {
@@ -504,7 +508,7 @@ func validateEnterpriseTransactionForProvider(provider EnterpriseAuthProviderRec
 	return nil
 }
 
-func completeEnterpriseAuthTransaction(ctx context.Context, tx pgx.Tx, transaction EnterpriseAuthTransactionRecord, providerID uuid.UUID, providerSubject string, now time.Time) (EnterpriseAuthCompletionResult, error) {
+func completeEnterpriseAuthTransaction(ctx context.Context, tx pgx.Tx, transaction EnterpriseAuthTransactionRecord, providerID uuid.UUID, providerSubject string, sessionInput EnterpriseAuthSessionInput, now time.Time) (EnterpriseAuthCompletionResult, error) {
 	binding, err := fetchActiveEnterpriseBindingBySubjectTx(ctx, tx, providerID, providerSubject)
 	if err != nil {
 		return EnterpriseAuthCompletionResult{}, err
@@ -516,6 +520,13 @@ func completeEnterpriseAuthTransaction(ctx context.Context, tx pgx.Tx, transacti
 	if !user.IsActive {
 		return EnterpriseAuthCompletionResult{}, ErrEnterpriseIdentityInactiveUser
 	}
+	currentBinding, err := fetchEnterpriseBindingForUpdateTx(ctx, tx, user.ID, binding.ID)
+	if err != nil {
+		return EnterpriseAuthCompletionResult{}, err
+	}
+	if currentBinding.RetiredAt.Valid || currentBinding.ProviderID != providerID || currentBinding.ProviderSubject != providerSubject {
+		return EnterpriseAuthCompletionResult{}, ErrEnterpriseIdentityNoLinkedUser
+	}
 
 	completedAt := now.UTC()
 	if _, err := tx.Exec(ctx, `
@@ -525,32 +536,22 @@ UPDATE enterprise_auth_transactions
 `, transaction.ID, completedAt); err != nil {
 		return EnterpriseAuthCompletionResult{}, fmt.Errorf("consume enterprise auth transaction: %w", err)
 	}
-	if err := tx.QueryRow(ctx, `
+	if _, err := tx.Exec(ctx, `
 UPDATE enterprise_auth_bindings
    SET last_auth_at = $2
  WHERE id = $1
-RETURNING id, user_id, provider_key, provider_type, provider_subject, created_at, last_auth_at
-`, binding.ID, completedAt).Scan(
-		&binding.ID,
-		&binding.UserID,
-		&binding.ProviderKey,
-		&binding.ProviderType,
-		&binding.ProviderSubject,
-		&binding.CreatedAt,
-		&binding.LastAuthAt,
-	); err != nil {
+`, binding.ID, completedAt); err != nil {
 		return EnterpriseAuthCompletionResult{}, fmt.Errorf("update enterprise binding last_auth_at: %w", err)
 	}
 
+	_, revoked, err := createSessionTx(ctx, tx, user, sessionInput.TokenFingerprint, NewSessionTiming(now), sessionInput.RequestID, currentBinding.ProviderType, &binding.ID)
+	if err != nil {
+		return EnterpriseAuthCompletionResult{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return EnterpriseAuthCompletionResult{}, fmt.Errorf("commit enterprise auth completion: %w", err)
 	}
-	return EnterpriseAuthCompletionResult{
-		User:          user,
-		Binding:       binding,
-		ReturnTo:      transaction.ReturnTo,
-		TransactionID: transaction.ID,
-	}, nil
+	return EnterpriseAuthCompletionResult{ReturnTo: transaction.ReturnTo, RevokedSession: revoked}, nil
 }
 
 func (s *Store) ListEnterpriseAuthBindingSummaries(ctx context.Context, userID uuid.UUID) ([]EnterpriseAuthBindingSummary, error) {
@@ -576,7 +577,19 @@ func (s *Store) CreateEnterpriseAuthBinding(
 		ScopeKey:    targetUserID.String(),
 		ClientTxnID: clientTxnID,
 	}
-	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return EnterpriseAuthBindingResult{}, err
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+	if err := LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return EnterpriseAuthBindingResult{}, err
+	}
+	if existing, err := GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return EnterpriseAuthBindingResult{}, ErrClientTxnConflict
 		}
@@ -584,14 +597,6 @@ func (s *Store) CreateEnterpriseAuthBinding(
 	} else if !errors.Is(err, ErrNotFound) {
 		return EnterpriseAuthBindingResult{}, err
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return EnterpriseAuthBindingResult{}, err
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	target, err := fetchUserForUpdate(ctx, tx, targetUserID)
 	if err != nil {
@@ -695,7 +700,19 @@ func (s *Store) RotateEnterpriseAuthBinding(
 		ScopeKey:    authBindingID.String(),
 		ClientTxnID: clientTxnID,
 	}
-	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return EnterpriseAuthBindingResult{}, err
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+	if err := LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return EnterpriseAuthBindingResult{}, err
+	}
+	if existing, err := GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return EnterpriseAuthBindingResult{}, ErrClientTxnConflict
 		}
@@ -703,14 +720,6 @@ func (s *Store) RotateEnterpriseAuthBinding(
 	} else if !errors.Is(err, ErrNotFound) {
 		return EnterpriseAuthBindingResult{}, err
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return EnterpriseAuthBindingResult{}, err
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	target, err := fetchUserForUpdate(ctx, tx, targetUserID)
 	if err != nil {
@@ -856,7 +865,19 @@ func (s *Store) RetireEnterpriseAuthBinding(
 		ScopeKey:    authBindingID.String(),
 		ClientTxnID: clientTxnID,
 	}
-	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return EnterpriseAuthBindingResult{}, err
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+	if err := LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return EnterpriseAuthBindingResult{}, err
+	}
+	if existing, err := GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return EnterpriseAuthBindingResult{}, ErrClientTxnConflict
 		}
@@ -864,14 +885,6 @@ func (s *Store) RetireEnterpriseAuthBinding(
 	} else if !errors.Is(err, ErrNotFound) {
 		return EnterpriseAuthBindingResult{}, err
 	}
-
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return EnterpriseAuthBindingResult{}, err
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
 
 	target, err := fetchUserForUpdate(ctx, tx, targetUserID)
 	if err != nil {
@@ -1076,6 +1089,7 @@ SELECT id, provider_key, provider_type, display_name, is_enabled, is_interactive
        saml_sp_entity_id, saml_subject_source, created_at, updated_at
   FROM enterprise_auth_providers
  WHERE provider_key = $1
+ FOR SHARE
 `, providerKey))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return EnterpriseAuthProviderRecord{}, ErrAuthProviderNotFound

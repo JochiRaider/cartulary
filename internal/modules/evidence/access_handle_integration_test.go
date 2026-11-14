@@ -4,11 +4,15 @@ package evidence_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"github.com/google/uuid"
+	"io"
 	"net/http"
+	"sync/atomic"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -317,7 +321,14 @@ func TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons(t *testing.
 }
 
 func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T) {
-	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-download-handle-no-byte-failure", TestRouteMode: httptestx.TestRouteModeDisabled})
+	runtime := appsupport.StartRuntime(t)
+	base, err := objectstore.NewFilesystemStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = base.Close() })
+	store := &firstReadFailureStore{FilesystemStore: base}
+	harness := runtime.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-download-handle-no-byte-failure", ObjectStore: store, TestRouteMode: httptestx.TestRouteModeDisabled})
 	login, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-entity_linking-download-no-byte-incident",
@@ -343,10 +354,108 @@ func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T)
 	if err := harness.ObjectStore.PutObject(context.Background(), originalStorageKey, bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
 		t.Fatalf("restore blob object: %v", err)
 	}
+	for _, fault := range []struct {
+		name, code, reason string
+		err                error
+		status             int
+		retryable          bool
+	}{
+		{"unavailable", "object_store_unavailable", "endpoint_unreachable", &objectstore.AdapterError{Code: objectstore.ErrorCodeUnavailable, Reason: objectstore.ReasonEndpointUnreachable, Message: originalStorageKey}, http.StatusServiceUnavailable, true},
+		{"access rejected", "object_store_access_rejected", "capability_missing", &objectstore.AdapterError{Code: objectstore.ErrorCodeAccessRejected, Reason: objectstore.ReasonCapabilityMissing, Message: originalStorageKey}, http.StatusServiceUnavailable, false},
+		{"premature EOF", "evidence_access_unavailable", "evidence_inconsistent", io.EOF, http.StatusConflict, false},
+		{"untyped read failure", "object_store_unavailable", "endpoint_unreachable", errors.New(originalStorageKey), http.StatusServiceUnavailable, true},
+	} {
+		t.Run(fault.name, func(t *testing.T) {
+			failure := &firstReadFailure{err: fault.err}
+			store.failure.Store(failure)
+			response := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.Session))
+			body := httptestx.RequireErrorEnvelope(t, response, fault.status, fault.code)
+			httptestx.RequireErrorDetail(t, body, "reason_code", fault.reason)
+			if body["error"].(map[string]any)["retryable"] != fault.retryable {
+				t.Fatal("incorrect retry policy", body)
+			}
+			requireNoPublicEvidenceLeak(t, "first read failure", body, []string{originalStorageKey})
+			if !failure.closed.Load() {
+				t.Fatal("failed stored reader was not closed")
+			}
+		})
+	}
 	downloadBody := redeemHandle(t, downloadURL, login)
 	if string(downloadBody) != string(payload) {
 		t.Fatalf("download body mismatch after no-byte failure: got %q", string(downloadBody))
 	}
 	second := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, downloadURL, nil, httptestx.WithCookies(login.Session))
 	httptestx.RequireErrorEnvelope(t, second, http.StatusGone, "handle_consumed")
+
+	for _, kind := range []string{"download-handle", "preview-handle"} {
+		t.Run(kind+" range", func(t *testing.T) {
+			issued := issueEvidenceHandle(t, harness, login, recordID, kind)
+			url := harness.Server.HTTP.URL + issued["href"].(string)
+			failure := &firstReadFailure{err: io.ErrUnexpectedEOF}
+			store.failure.Store(failure)
+			request := httptestx.NewJSONRequest(t, http.MethodGet, url, nil)
+			request.Header.Set("Range", "bytes=2-5")
+			httptestx.WithCookies(login.Session)(request)
+			response := httptestx.Do(t, http.DefaultClient, request)
+			requireEvidenceAccessUnavailableReason(t, response, "evidence_inconsistent")
+			if !failure.closed.Load() || response.Header.Get("Content-Range") != "" {
+				t.Fatal("failed range retained a reader or committed range headers")
+			}
+			response = httptestx.Do(t, http.DefaultClient, request.Clone(t.Context()))
+			body := httptestx.ReadResponseBody(t, response, http.StatusPartialContent)
+			if !bytes.Equal(body, payload[2:6]) || response.Header.Get("Content-Range") != "bytes 2-5/19" {
+				t.Fatalf("range result: %q %q", body, response.Header.Get("Content-Range"))
+			}
+			if kind == "download-handle" {
+				httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, url, nil, httptestx.WithCookies(login.Session)), http.StatusGone, "handle_consumed")
+			} else if !bytes.Equal(redeemHandle(t, url, login), payload) {
+				t.Fatal("preview was consumed or lost bytes")
+			}
+		})
+	}
+
+	t.Run("empty download remains a successful single use", func(t *testing.T) {
+		emptyID := uuid.New()
+		seedEvidenceRecord(t, harness, incidentID, adminID, emptyID)
+		attachUploadedBlob(t, harness, login, incidentID, emptyID, nil, "empty-blob", "empty-attach")
+		issued := issueEvidenceHandle(t, harness, login, emptyID, "download-handle")
+		url := harness.Server.HTTP.URL + issued["href"].(string)
+		if body := redeemHandle(t, url, login); len(body) != 0 {
+			t.Fatalf("empty download contained %q", body)
+		}
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, url, nil, httptestx.WithCookies(login.Session)), http.StatusGone, "handle_consumed")
+	})
+}
+
+type firstReadFailureStore struct {
+	*objectstore.FilesystemStore
+	failure atomic.Pointer[firstReadFailure]
+}
+
+type firstReadFailure struct {
+	err    error
+	closed atomic.Bool
+}
+
+func (s *firstReadFailureStore) Get(ctx context.Context, request objectstore.GetObjectRequest) (io.ReadCloser, objectstore.ObjectInfo, error) {
+	reader, info, err := s.FilesystemStore.Get(ctx, request)
+	if err != nil {
+		return reader, info, err
+	}
+	if failure := s.failure.Swap(nil); failure != nil {
+		return &firstReadFailureReader{ReadCloser: reader, failure: failure}, info, nil
+	}
+	return reader, info, nil
+}
+
+type firstReadFailureReader struct {
+	io.ReadCloser
+	failure *firstReadFailure
+}
+
+func (r *firstReadFailureReader) Read([]byte) (int, error) { return 0, r.failure.err }
+func (r *firstReadFailureReader) Close() error {
+	err := r.ReadCloser.Close()
+	r.failure.closed.Store(true)
+	return err
 }

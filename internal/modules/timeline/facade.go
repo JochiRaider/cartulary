@@ -61,7 +61,7 @@ func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPaste
 	if err := requireRequestFingerprint(command.RequestHash); err != nil {
 		return BatchMutationResult{}, err
 	}
-	return f.store.applyOwnerBatchV1(ctx, command.Actor, command.IncidentID, ownerBatchApplyV1{
+	result, err := f.store.applyOwnerBatchV1(ctx, command.Actor, command.IncidentID, ownerBatchApplyV1{
 		ClientTxnID: command.ClientTxnID,
 		Operation:   OwnerBatchOperationClipboardPasteV1,
 		Targets:     command.Targets,
@@ -80,6 +80,10 @@ func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPaste
 		RequestID:   command.RequestID,
 		Now:         command.Now,
 	})
+	if errors.Is(err, ErrInvalidProvenance) {
+		return BatchMutationResult{}, fmt.Errorf("%w: %w", tabularingest.ErrInvalidClipboard, err)
+	}
+	return result, err
 }
 
 func (f *Facade) ApplyClearCells(ctx context.Context, command ClearCellsCommand) (BatchMutationResult, error) {

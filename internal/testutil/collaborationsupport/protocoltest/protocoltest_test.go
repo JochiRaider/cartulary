@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 )
 
 func TestObservedRecordEvent(t *testing.T) {
@@ -59,12 +61,17 @@ func TestObservedRecordEvent(t *testing.T) {
 			}
 		})
 	}
-	message.IncidentID = ""
-	if _, err := RecordChangeFromSequencedMessage(message); err == nil {
+	missingIncident := message
+	missingIncident.IncidentID = ""
+	if _, err := RecordChangeFromSequencedMessage(missingIncident); err == nil {
 		t.Fatal("missing envelope identity accepted")
 	}
-	message.Type = "job_progress"
-	if _, err := RecordChangeFromSequencedMessage(message); err == nil {
-		t.Fatal("wrong event family accepted")
+	job := SequencedMessage(t, "job_progress", incident, "observed-job", 18, now,
+		NewIncidentJobProgressPayload("job", incident, protocol.JobStatusRunning, protocol.JobProgress{}, now))
+	if err := protocol.ValidateSequencedReplayableMessage(job); err != nil {
+		t.Fatalf("wrong-family fixture must otherwise be valid: %v", err)
+	}
+	if _, err := RecordChangeFromSequencedMessage(job); err == nil || err.Error() != `message type "job_progress" is not record_changed` {
+		t.Fatalf("wrong event family rejection = %v", err)
 	}
 }

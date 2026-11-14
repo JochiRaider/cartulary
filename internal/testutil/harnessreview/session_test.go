@@ -82,10 +82,10 @@ func readySession(t *testing.T, d *testDriver, p *testPublisher) *Session {
 	s.lockTimeout = 20 * time.Millisecond
 	s.operationTimeout = time.Second
 	s.drainTimeout = time.Second
+	t.Cleanup(func() { s.Stop(nil); awaitSession(t, s) })
 	if err := s.Prepare(); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { s.Stop(nil); awaitSession(t, s) })
 	return s
 }
 func awaitSession(t *testing.T, s *Session) {

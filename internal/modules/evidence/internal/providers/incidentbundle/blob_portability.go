@@ -2,8 +2,10 @@ package incidentbundle
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -18,6 +20,8 @@ type blobPortability struct {
 	staging stagedobjects.ResourceAllocator
 }
 
+var ErrBlobMetadata = errors.New("finalized blob metadata does not describe exported bytes")
+
 func NewBlobPortability(store objectstore.TypedStore, staging stagedobjects.ResourceAllocator) *blobPortability {
 	return &blobPortability{store: store, staging: staging}
 }
@@ -29,11 +33,10 @@ func (portability *blobPortability) ExportBlobFiles(
 	members incidentportability.MemberWriter,
 ) error {
 	rows, err := queryer.Query(ctx, `
-SELECT storage_key, observed_sha256_hex
+SELECT storage_key, observed_sha256_hex, byte_size, observed_size, expected_sha256_hex
   FROM object_blobs
  WHERE incident_id = $1
-   AND upload_state = 'available'
-   AND observed_sha256_hex IS NOT NULL
+   AND upload_state IN ('available', 'quarantined')
  ORDER BY observed_sha256_hex
 `, incidentID)
 	if err != nil {
@@ -41,13 +44,28 @@ SELECT storage_key, observed_sha256_hex
 	}
 	defer rows.Close()
 	previousDigest := ""
+	var previousSize int64
 	for rows.Next() {
 		var storageKey string
-		var sha string
-		if err := rows.Scan(&storageKey, &sha); err != nil {
+		var observedDigest, expectedDigest *string
+		var size int64
+		var observedSize *int64
+		if err := rows.Scan(&storageKey, &observedDigest, &size, &observedSize, &expectedDigest); err != nil {
 			return err
 		}
+		if observedDigest == nil || len(*observedDigest) != 64 || strings.ToLower(*observedDigest) != *observedDigest ||
+			size < 0 || observedSize == nil || *observedSize != size ||
+			(expectedDigest != nil && *expectedDigest != *observedDigest) {
+			return ErrBlobMetadata
+		}
+		sha := *observedDigest
+		if _, err := hex.DecodeString(sha); err != nil {
+			return ErrBlobMetadata
+		}
 		if sha == previousDigest {
+			if size != previousSize {
+				return ErrBlobMetadata
+			}
 			continue
 		}
 		reader, _, err := portability.store.Get(ctx, objectstore.GetObjectRequest{
@@ -68,7 +86,11 @@ SELECT storage_key, observed_sha256_hex
 		if member.SHA256 != sha {
 			return &incidentportability.VerificationFailure{ReasonCode: "blob_hash_mismatch"}
 		}
+		if member.ByteSize != size {
+			return ErrBlobMetadata
+		}
 		previousDigest = sha
+		previousSize = member.ByteSize
 	}
 	return rows.Err()
 }
@@ -103,11 +125,8 @@ func (portability *blobPortability) RewriteAndStageObjectBlobs(
 			}
 			row["storage_key"] = storageKey
 			state, _ := row["upload_state"].(string)
-			if state == "available" {
+			if state == "available" || state == "quarantined" {
 				sha, _ := row["observed_sha256_hex"].(string)
-				if sha == "" {
-					sha, _ = row["expected_sha256_hex"].(string)
-				}
 				bound, err := incidentportability.BindMembers(members, []string{"blobs/sha256/" + sha})
 				if err != nil {
 					return &incidentportability.VerificationFailure{ReasonCode: "missing_required_blob"}

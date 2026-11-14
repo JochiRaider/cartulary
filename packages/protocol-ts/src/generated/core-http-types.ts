@@ -47,6 +47,14 @@ export type JobScope = {
 };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "PagedEnvelopeMeta".
+ */
+export type PagedEnvelopeMeta = EnvelopeMeta & {
+  paging: PagingMeta;
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ApprovedImportMapping".
  */
 export type ApprovedImportMapping = {
@@ -111,14 +119,6 @@ export type SheetRef = ViewSchemaSheetRef | SavedViewSheetRef | ExtensionWorkspa
  * via the `definition` "DisableReferencePackVersionSuccessBody".
  */
 export type DisableReferencePackVersionSuccessBody = ReferencePackActionEnvelope | JobEnvelope;
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "PagedEnvelopeMeta".
- */
-export type PagedEnvelopeMeta = EnvelopeMeta & {
-  paging: PagingMeta;
-  [k: string]: unknown;
-};
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "EvidenceAttachBlobData".
@@ -567,7 +567,7 @@ export interface JobResourceRef {
  */
 export interface AdministrativeAuditEnvelope {
   data: AdministrativeAuditData;
-  meta: EnvelopeMeta;
+  meta: PagedEnvelopeMeta;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -1032,6 +1032,7 @@ export interface EvidenceCreateRequest {
   "evidence.collector_party_text"?: string;
   "evidence.initial_object_blob_id"?: string;
   "evidence.lifecycle_state"?: "requested" | "pending_receipt" | "received" | "available" | "quarantined" | "released";
+  "evidence.owner_user_id"?: string | null;
   "evidence.received_at"?: string | null;
   "evidence.requested_at"?: string | null;
   "evidence.source_party_id"?: string | null;
@@ -3036,7 +3037,7 @@ export interface EnterpriseAuthBindingResource {
  */
 export interface SafeUserListEnvelope {
   data: SafeUserListData;
-  meta: EnvelopeMeta;
+  meta: PagedEnvelopeMeta;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

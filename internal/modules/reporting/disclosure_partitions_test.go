@@ -125,7 +125,40 @@ func testInternalProfileRequestDefault(t *testing.T) {
 		request, apiErr := DecodeCreateReleaseRequest(bytes.NewReader(raw))
 		return request, apiErr == nil
 	}
-	for _, scope := range []string{"", ReleaseScopeInternalDraft, ReleaseScopeInternalReview} {
+	for _, scope := range []string{"", "internal_draft", "internal_review"} {
+		wantScope := scope
+		if wantScope == "" {
+			wantScope = "internal_draft"
+		}
+		options := map[string]any{
+			"schema_id":   "cartulary.reporting_render_request_options.v1",
+			"source_only": false, "pdf": true, "svg": false, "png": false,
+			"pptx": false, "rendered_diagrams": true,
+		}
+		wantOptions, err := json.Marshal(options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantNormalized, err := json.Marshal(map[string]any{
+			"snapshot_id": fixtureSnapshotID, "client_txn_id": "default-profile",
+			"template_id": "cartulary.report.default", "template_version": "4",
+			"redaction_profile_id": "cartulary.redaction.internal", "redaction_profile_version": "5",
+			"output_kind": "slidev", "release_scope": wantScope,
+			"recipient_partition_refs": []string{}, "graph_projection_refs": []any{},
+			"output_options": options,
+			"composition_id": nil, "composition_version": nil, "composition_sha256": nil,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := CreateReleaseRequest{
+			SnapshotID: mustTestUUID(fixtureSnapshotID), ClientTxnID: "default-profile",
+			TemplateID: "cartulary.report.default", TemplateVersion: "4",
+			RedactionProfileID: "cartulary.redaction.internal", RedactionProfileVersion: "5",
+			OutputKind: "slidev", ReleaseScope: wantScope,
+			RecipientPartitionRefs: []string{}, GraphProjectionRefs: json.RawMessage(`[]`),
+			OutputOptions: wantOptions, Normalized: wantNormalized,
+		}
 		delete(base, "redaction_profile_id")
 		delete(base, "redaction_profile_version")
 		delete(base, "release_scope")
@@ -140,6 +173,14 @@ func testInternalProfileRequestDefault(t *testing.T) {
 		explicit, ok := decode(base)
 		if !ok || !bytes.Equal(implicit.Normalized, explicit.Normalized) {
 			t.Fatal("explicit and defaulted requests differ")
+		}
+		for _, decoded := range []struct {
+			name    string
+			request CreateReleaseRequest
+		}{{"implicit", implicit}, {"explicit", explicit}} {
+			if !reflect.DeepEqual(decoded.request, want) {
+				t.Fatalf("%s profile with scope %q: decoded=%#v normalized=%s; want=%#v normalized=%s", decoded.name, scope, decoded.request, decoded.request.Normalized, want, wantNormalized)
+			}
 		}
 	}
 	for _, scope := range []string{ReleaseScopeInternalDraft, ReleaseScopeExternal} {

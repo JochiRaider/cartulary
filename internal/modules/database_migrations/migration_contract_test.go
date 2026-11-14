@@ -22,6 +22,7 @@ func TestSourceConstructionRejectsInvalidCatalogs(t *testing.T) {
 		boundary  string
 	}{
 		{name: "nil filesystem", root: "migrations", lineageID: "lineage", boundary: "boundary"},
+		{name: "typed nil filesystem", fsys: (*fstest.MapFS)(nil), root: "migrations", lineageID: "lineage", boundary: "boundary"},
 		{name: "empty root", fsys: valid, lineageID: "lineage", boundary: "boundary"},
 		{name: "absolute root", fsys: valid, root: "/migrations", lineageID: "lineage", boundary: "boundary"},
 		{name: "escaping root", fsys: valid, root: "../migrations", lineageID: "lineage", boundary: "boundary"},
@@ -119,6 +120,11 @@ func requireMigrationFailureReason(t testing.TB, err error, want string) {
 }
 
 func TestSchemaReadinessRejectsInvalidSourceAndNilPool(t *testing.T) {
+	for _, reader := range []LedgerReader{nil, (*pgxpool.Pool)(nil)} {
+		if err := RequireApplicationCryptoFormat(context.Background(), reader); !errors.Is(err, ErrIncompatibleCryptoState) {
+			t.Fatalf("unusable crypto reader = %v", err)
+		}
+	}
 	requireMigrationFailureReason(t, EnsureSchemaReady(context.Background(), nil, nil), reasonMigrationSourceInvalid)
 	requireMigrationFailureReason(t, EnsureSchemaReady(context.Background(), nil, &Source{}), reasonMigrationSourceInvalid)
 	source, err := buildSource(

@@ -25,7 +25,7 @@ export class PlaywrightCohortCollector {
     const matches = this.selection.filter((entry) => entry.file === file && entry.project_id === project &&
       JSON.stringify(entry.title_path) === JSON.stringify(titles));
     const spec = { file, title: test.title, tests: [{ projectName: project, results: [{
-      status: result.status, duration: result.duration,
+      status: result.status, duration: result.duration, retry: result.retry,
       errors: result.errors,
       attachments: result.attachments.map((attachment) => ({ ...attachment,
         ...(attachment.body ? { body: attachment.body.toString("base64") } : {}),

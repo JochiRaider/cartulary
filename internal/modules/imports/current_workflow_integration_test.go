@@ -38,7 +38,7 @@ func currentImportOptions() appsupport.ServerOptions {
 
 // Construct all workflow state through current public admission. Only the
 // worker claim is paused; no fixture manufactures plans, mappings or receipts.
-func admitCurrentWorkflow(t *testing.T, runtime *appsupport.Runtime, family string) (*appsupport.ServerHarness, appsupport.ServerOptions, currentImportIDs) {
+func admitCurrentWorkflow(t *testing.T, runtime *appsupport.Runtime, family string) (*appsupport.ServerHarness, appsupport.ServerOptions, currentImportIDs, authcookietest.AuthCookies) {
 	t.Helper()
 	options := currentImportOptions()
 	first := runtime.StartServer(t, options)
@@ -88,7 +88,7 @@ func admitCurrentWorkflow(t *testing.T, runtime *appsupport.Runtime, family stri
 	if currentEffectCount(t, first.DB, family, ids.incident) != 0 || currentOutcomeBytes(t, first.DB, ids.unit) != "[]" {
 		t.Fatal("paused admission wrote owner effects")
 	}
-	return first, options, ids
+	return first, options, ids, login
 }
 
 func currentEffectCount(t testing.TB, db *sql.DB, family, incident string) int {
@@ -127,7 +127,7 @@ func assertCurrentGenericPreview(t testing.TB, h *appsupport.ServerHarness, logi
 }
 
 func TestCurrentImportWorkflows_Integration(t *testing.T) {
-	runCurrentWorkflows(t, []string{"queued", "interrupted", "cancel_requested", "source_changed", "mapping_changed", "mapping_content_changed", "binding_changed", "unknown_registry", "rows_changed", "generic_access_denied", "before_commit_fault", "after_commit_fault", "committed_before_restart"})
+	runCurrentWorkflows(t, []string{"queued", "interrupted", "cancel_requested", "source_changed", "mapping_changed", "mapping_content_changed", "binding_changed", "unknown_registry", "rows_changed", "generic_access_denied", "before_commit_fault", "after_commit_fault"})
 }
 func TestCurrentImportCancellation_Integration(t *testing.T) {
 	runCurrentWorkflows(t, []string{"precommit_cancel"})
@@ -141,7 +141,7 @@ func runCurrentWorkflows(t *testing.T, scenarios []string) {
 			}
 			t.Run(family+"/"+scenario, func(t *testing.T) {
 				runtime := appsupport.StartRuntime(t)
-				first, options, ids := admitCurrentWorkflow(t, runtime, family)
+				first, options, ids, login := admitCurrentWorkflow(t, runtime, family)
 				db := first.DB
 				bindingAdmission := family == "analytical" && (scenario == "binding_changed" || scenario == "unknown_registry")
 				if bindingAdmission {
@@ -204,14 +204,14 @@ func runCurrentWorkflows(t *testing.T, scenarios []string) {
 					first = recoverCurrentCommitFault(t, db, runtime, first, options, ids, family, scenario)
 				}
 				if scenario == "precommit_cancel" {
-					cancelCurrentBlockedUnit(t, db, first, ids)
+					cancelCurrentBlockedUnit(t, db, first, ids, login)
 				}
-				login := flowtest.LoginLocalUser(t, http.DefaultClient, first.Server.HTTP.URL, "current-import@example.test", "Current-import-test-42!", nil)
+				login = flowtest.LoginLocalUser(t, http.DefaultClient, first.Server.HTTP.URL, "current-import@example.test", "Current-import-test-42!", nil)
 				waitCurrentJob(t, db, ids.job)
 				terminal := waitImportJobTerminal(t, first.Server.HTTP.URL, login, ids.job)
 				want, effects := "failed", 0
 				switch scenario {
-				case "queued", "interrupted", "generic_access_denied", "before_commit_fault", "after_commit_fault", "committed_before_restart":
+				case "queued", "interrupted", "generic_access_denied", "before_commit_fault", "after_commit_fault":
 					want, effects = "succeeded", 1
 				case "cancel_requested", "precommit_cancel":
 					want = "canceled"

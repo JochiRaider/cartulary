@@ -14,12 +14,13 @@ const root = path.resolve(import.meta.dirname, "../../..");
 export function registerFrontendProducerLifecycleTests() {
   test("frontend artifact rejects duplicate publication", (t) => {
     const scratch = mkdtempSync(path.join(os.tmpdir(), "frontend-producer-lifecycle-"));
+    let runtime;
+    t.after(() => { runtime?.close(); rmSync(scratch, { recursive: true, force: true }); });
     const runRoot = path.join(scratch, "run");
     mkdirSync(runRoot, { mode: 0o700 });
     writeFileSync(path.join(runRoot, "run-manifest.json"), JSON.stringify({ source_digest: `sha256:${"1".repeat(64)}`, toolchain_digest: `sha256:${"2".repeat(64)}` }), { mode: 0o600 });
-    const runtime = createRuntime({ repoRoot: root, runRoot, runID: "run", scratchRoot: path.join(scratch, "private") });
+    runtime = createRuntime({ repoRoot: root, runRoot, runID: "run", scratchRoot: path.join(scratch, "private") });
     const profile = { id: "production", producer_report_key: "build-web", producer_operation: "harness.build_web", entries: ["index.html"] };
-    t.after(() => { runtime.close(); rmSync(scratch, { recursive: true, force: true }); });
     {
       for (const name of ["first", "second"]) {
         const staging = runtime.privatePath(name);
@@ -47,14 +48,35 @@ export function registerFrontendProducerLifecycleTests() {
     }
     function worker(f, id = "production", mode = "producer", boundary = "", publication = "") {
       const child = fork(path.join(root, "tools/harness/tests/frontend-producer-fixture.mjs"), [mode, id, boundary, publication], { env: { ...process.env, ...f.environment }, stdio: ["ignore", "ignore", "pipe", "ipc", "pipe"] });
-      children.push({ child, closed: once(child, "close") });
-      return { child, first: once(child, "message"), closed: once(child, "exit") };
+      let spawnError;
+      child.once("error", (error) => { spawnError = error; });
+      const settled = new Promise((resolve) => child.once("close", () => resolve(spawnError)));
+      children.push({ child, settled });
+      const first = once(child, "message"), closed = once(child, "exit");
+      // Observe rejection from acquisition onward, including when another
+      // producer fails before this child's awaited assertion is reached.
+      void first.catch(() => {});
+      void closed.catch(() => {});
+      return { child, first, closed };
     }
     t.after(async () => {
-      for (const { child } of children) if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-      await Promise.all(children.map(({ closed }) => closed));
-      for (const runtime of runtimes) runtime.close();
-      rmSync(processRoot, { recursive: true, force: true });
+      const failures = [];
+      for (const { child } of children) {
+        try {
+          if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        } catch (error) { failures.push(error); }
+      }
+      for (const error of await Promise.all(children.map(({ settled }) => settled))) {
+        if (error) failures.push(error);
+      }
+      let runtimesSettled = true;
+      for (const runtime of runtimes) {
+        try { runtime.close(); } catch (error) { runtimesSettled = false; failures.push(error); }
+      }
+      if (runtimesSettled) {
+        try { rmSync(processRoot, { recursive: true, force: true }); } catch (error) { failures.push(error); }
+      }
+      if (failures.length) throw new AggregateError(failures, "frontend producer fixture cleanup failed");
     });
     {
       const f = fixture("race");

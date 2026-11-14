@@ -9,14 +9,22 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/referencefacts"
+	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 )
 
-type TaskRequestProvider struct{}
+type TaskRequestProvider struct {
+	fieldReferences  linkfacts.FieldReferenceReader
+	referenceTargets referencefacts.Capability
+}
 
 var _ rollbackcontract.RowSourceProvider = TaskRequestProvider{}
 
-func NewTaskRequestProvider() TaskRequestProvider { return TaskRequestProvider{} }
+func NewTaskRequestProvider(reader linkfacts.FieldReferenceReader, targets referencefacts.Capability) TaskRequestProvider {
+	return TaskRequestProvider{fieldReferences: reader, referenceTargets: targets}
+}
 
 func (TaskRequestProvider) ValidateRollbackValue(value map[string]any) error {
 	source, ok := taskSourceForRollbackValue(value)
@@ -35,7 +43,7 @@ type taskLifecycle struct {
 	ownerUserID   *uuid.UUID
 }
 
-func (TaskRequestProvider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
+func (p TaskRequestProvider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
 	source, ok := taskSourceForRollbackValue(request.RetainedValue)
 	if !ok || !validTaskSource(source) {
 		return rollbackcontract.ErrTargetNotReversible
@@ -72,8 +80,24 @@ SELECT incident_id, created_at, status, NULLIF(blocked_reason, ''), completed_at
 	if !validTaskLifecycle(lifecycle) {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	if err := validateTaskReferencesTx(ctx, tx, lifecycle.incidentID, source); err != nil {
+	if err := validateTaskReferencesTx(ctx, tx, p.referenceTargets, lifecycle.incidentID, source); err != nil {
 		return err
+	}
+	decision, present, err := nullableUUID(source, "decision_record_id")
+	if err != nil {
+		return rollbackcontract.ErrTargetNotReversible
+	}
+	if present {
+		if p.fieldReferences == nil {
+			return rollbackcontract.ErrTargetNotReversible
+		}
+		valid, err := tasksource.TaskDecisionFieldLinkValidTx(ctx, tx, p.fieldReferences, request.RecordID, decision, lifecycle.incidentID)
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return rollbackcontract.ErrTargetNotReversible
+		}
 	}
 	values, err := typedValues(source, []fieldSpec{
 		{"title", fieldText}, {"status", fieldText}, {"owner_user_id", fieldUUID}, {"priority", fieldText},
@@ -138,13 +162,9 @@ func validTaskLifecycle(state taskLifecycle) bool {
 	}) == nil
 }
 
-func validateTaskReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, source map[string]any) error {
-	for _, reference := range []struct {
-		key        string
-		recordType string
-	}{
-		{key: "requester_party_id", recordType: "party"},
-		{key: "decision_record_id", recordType: "decision"},
+func validateTaskReferencesTx(ctx context.Context, tx pgx.Tx, targets referencefacts.Capability, incidentID uuid.UUID, source map[string]any) error {
+	for _, reference := range []struct{ key, recordType string }{
+		{"requester_party_id", "party"}, {"decision_record_id", "decision"},
 	} {
 		value, present, err := nullableUUID(source, reference.key)
 		if err != nil {
@@ -153,11 +173,11 @@ func validateTaskReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UU
 		if !present || value == nil {
 			continue
 		}
-		var exists bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM records WHERE incident_id = $1 AND record_id = $2 AND record_type = $3)`, incidentID, *value, reference.recordType).Scan(&exists); err != nil {
+		valid, err := tasksource.LockReferenceTargetTx(ctx, tx, targets, incidentID, *value, reference.recordType, false)
+		if err != nil {
 			return err
 		}
-		if !exists {
+		if !valid {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 	}

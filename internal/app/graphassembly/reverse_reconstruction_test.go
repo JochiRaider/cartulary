@@ -114,7 +114,7 @@ func checkReverseReconstruction(t *testing.T, db dbport.DB) {
 				!reflect.DeepEqual(completed.Vertices, m.Before.Vertices) || !reflect.DeepEqual(completed.Edges, m.Before.Edges) {
 				t.Fatalf("label cutover changed unexpected bytes: %#v", completed.Binding)
 			}
-			if err := m.Before.Validate(ctx); !m.ReadableBefore && !errors.Is(err, graphprojection.ErrResultV2Invalid) {
+			if err := m.Before.Validate(ctx); (err == nil) != m.ReadableBefore || err != nil && !errors.Is(err, graphprojection.ErrResultV2Invalid) {
 				t.Fatalf("historic label admission: %v", err)
 			}
 		})

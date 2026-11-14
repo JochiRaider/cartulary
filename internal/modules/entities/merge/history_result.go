@@ -1,9 +1,7 @@
 package merge
 
 import (
-	"encoding/base64"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -13,10 +11,9 @@ func identifierMutationsToMergeMutations(records []mergeIdentifierMutation) []me
 	for _, record := range records {
 		result = append(result, mergeMutation{
 			TargetKind:    "entity_preserved_identifier",
-			TargetID:      identifierMutationTargetID(record.Before, record.After),
+			TargetID:      record.Value.TargetID(),
 			OperationKind: "create",
-			BeforeValue:   record.Before,
-			AfterValue:    record.After,
+			AfterValue:    record.Value.Map(),
 		})
 	}
 	return result
@@ -27,61 +24,12 @@ func aliasMutationsToMergeMutations(records []mergeAliasMutation) []mergeMutatio
 	for _, record := range records {
 		result = append(result, mergeMutation{
 			TargetKind:    "entity_alias",
-			TargetID:      aliasMutationTargetID(record.Before, record.After),
+			TargetID:      record.Value.TargetID(),
 			OperationKind: "create",
-			BeforeValue:   record.Before,
-			AfterValue:    record.After,
+			AfterValue:    record.Value.Map(),
 		})
 	}
 	return result
-}
-
-func identifierMutationTargetID(before map[string]any, after map[string]any) string {
-	value := after
-	if value == nil {
-		value = before
-	}
-	if value == nil {
-		return ""
-	}
-	return strings.Join([]string{
-		"entity_preserved_identifier",
-		targetIDComponent(stringMapValue(value, "record_id")),
-		targetIDComponent(stringMapValue(value, "entity_type")),
-		targetIDComponent(stringMapValue(value, "identifier_type")),
-		targetIDComponent(stringMapValue(value, "normalized_value")),
-		targetIDComponent(stringMapValue(value, "classification")),
-	}, ":")
-}
-
-func aliasMutationTargetID(before map[string]any, after map[string]any) string {
-	value := after
-	if value == nil {
-		value = before
-	}
-	if value == nil {
-		return ""
-	}
-	if aliasID := stringMapValue(value, "entity_alias_id"); aliasID != "" {
-		return "entity_alias:" + aliasID
-	}
-	return strings.Join([]string{
-		"entity_alias",
-		targetIDComponent(stringMapValue(value, "record_id")),
-		targetIDComponent(stringMapValue(value, "entity_type")),
-		targetIDComponent(stringMapValue(value, "normalized_text")),
-	}, ":")
-}
-
-func stringMapValue(values map[string]any, key string) string {
-	if value, ok := values[key].(string); ok {
-		return value
-	}
-	return ""
-}
-
-func targetIDComponent(value string) string {
-	return base64.RawURLEncoding.EncodeToString([]byte(value))
 }
 
 func scanMergeAliasRecord(scanner interface{ Scan(dest ...any) error }) (mergeAliasRecord, error) {

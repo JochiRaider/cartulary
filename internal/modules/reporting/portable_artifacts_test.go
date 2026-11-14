@@ -12,6 +12,18 @@ import (
 )
 
 func TestPortableArtifactCatalogClosure(t *testing.T) {
+	t.Run("defensive byte guard", func(t *testing.T) {
+		// Closed catalog shapes and cardinalities cannot reach this byte ceiling.
+		// Exercise the parser guard separately from catalog shape validation.
+		for _, tc := range []struct {
+			size int
+			want bool
+		}{{0, false}, {1, true}, {16777215, true}, {16777216, true}, {16777217, false}} {
+			if got := admittedPortableCatalogSize(tc.size); got != tc.want {
+				t.Fatalf("catalog size %d admission = %v, want %v", tc.size, got, tc.want)
+			}
+		}
+	})
 	incident := uuid.MustParse("40000000-0000-0000-0000-000000000001")
 	snapshot := "40000000-0000-0000-0000-000000000002"
 	release := "40000000-0000-0000-0000-000000000003"
@@ -83,11 +95,11 @@ func TestPortableArtifactCatalogClosure(t *testing.T) {
 	}
 	t.Run("reachable cardinality boundaries", func(t *testing.T) {
 		full := emptyPortableCatalog(incident)
-		for n := 1; n <= portableSnapshotLimit; n++ {
+		for n := 1; n <= 1024; n++ {
 			id := fmt.Sprintf("40000000-0000-0001-0000-%012d", n)
 			full.Snapshots = append(full.Snapshots, portableSnapshot{id, portableCapturePath(id), strings.Repeat("a", 64)})
 		}
-		for n := 1; n <= portableReleaseLimit; n++ {
+		for n := 1; n <= 4096; n++ {
 			id := fmt.Sprintf("40000000-0000-0002-0000-%012d", n)
 			full.Releases = append(full.Releases, portableRelease{id, full.Snapshots[0].SnapshotID, portableManifestPath(id), strings.Repeat("b", 64)})
 		}
@@ -99,9 +111,11 @@ func TestPortableArtifactCatalogClosure(t *testing.T) {
 			overflow := full
 			switch which {
 			case "snapshot":
-				overflow.Snapshots = append(append([]portableSnapshot{}, full.Snapshots...), full.Snapshots[0])
+				id := "40000000-0000-0001-0000-000000001025"
+				overflow.Snapshots = append(append([]portableSnapshot{}, full.Snapshots...), portableSnapshot{id, portableCapturePath(id), strings.Repeat("a", 64)})
 			case "release":
-				overflow.Releases = append(append([]portableRelease{}, full.Releases...), full.Releases[0])
+				id := "40000000-0000-0002-0000-000000004097"
+				overflow.Releases = append(append([]portableRelease{}, full.Releases...), portableRelease{id, full.Snapshots[0].SnapshotID, portableManifestPath(id), strings.Repeat("b", 64)})
 			}
 			raw, _ := canonicaljson.Marshal(overflow)
 			if _, err := decodePortableCatalog(raw, incident); err == nil {

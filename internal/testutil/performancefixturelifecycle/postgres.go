@@ -234,51 +234,72 @@ func CleanupSuite(ctx context.Context, env map[string]string) error {
 	prefix := "cartulary.performance-fixture:" + suiteservices.ShortHash(suiteID, 16) + ":"
 	rows, err := admin.QueryContext(ctx, `SELECT datname, shobj_description(oid, 'pg_database') FROM pg_database WHERE shobj_description(oid, 'pg_database') LIKE $1 ORDER BY datname LIMIT 9`, prefix+"%")
 	if err != nil {
-		_ = admin.Close()
+		return errors.Join(err, admin.Close())
+	}
+	owned, inventoryErr := readOwnedTemplates(rows)
+	if err := errors.Join(inventoryErr, admin.Close()); err != nil {
 		return err
 	}
-	type ownedTemplate struct{ name, owner string }
-	var owned []ownedTemplate
+	return retireOwnedTemplates(ctx, suiteID, owned, []string{suiteRuntimeRoot, cloneRuntimeRoot}, func(ctx context.Context, name string) error {
+		if err := withSharedCatalogMutation(ctx, adminDSN, name, func(mutationAdmin *sql.Conn) error {
+			_, err := mutationAdmin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE false`, name))
+			return err
+		}); err != nil {
+			return err
+		}
+		return dropProvenDatabase(ctx, adminDSN, name)
+	}, os.RemoveAll)
+}
+
+type ownedTemplate struct{ name, owner string }
+
+type templateRows interface {
+	Next() bool
+	Scan(...any) error
+	Err() error
+	Close() error
+}
+
+func readOwnedTemplates(rows templateRows) (owned []ownedTemplate, resultErr error) {
+	defer func() { resultErr = errors.Join(resultErr, rows.Err(), rows.Close()) }()
 	for rows.Next() {
 		var candidate ownedTemplate
 		if err := rows.Scan(&candidate.name, &candidate.owner); err != nil {
-			_ = rows.Close()
-			_ = admin.Close()
-			return err
+			return nil, err
 		}
 		owned = append(owned, candidate)
 	}
-	if err := rows.Close(); err != nil {
-		_ = admin.Close()
-		return err
-	}
+	return owned, nil
+}
+
+func retireOwnedTemplates(ctx context.Context, suiteID string, owned []ownedTemplate, roots []string, retire func(context.Context, string) error, removeRoot func(string) error) error {
 	if len(owned) > 8 {
-		_ = admin.Close()
 		return errors.New("performance fixture suite cleanup exceeded its bounded template scope")
 	}
+	prefix := "cartulary.performance-fixture:" + suiteservices.ShortHash(suiteID, 16) + ":"
 	wantNamePrefix := "ct_pfs_" + suiteservices.ShortHash(suiteID, 8) + "_"
+	seen := make(map[string]bool, len(owned))
+	// Admit the complete inventory before granting any destructive authority.
 	for _, candidate := range owned {
-		key := strings.TrimPrefix(candidate.owner, prefix)
-		if !lowerHexDigest(key) || candidate.name != wantNamePrefix+key[:12] {
-			_ = admin.Close()
+		key, scoped := strings.CutPrefix(candidate.owner, prefix)
+		if !scoped || !lowerHexDigest(key) || candidate.name != wantNamePrefix+key[:12] || seen[candidate.name] {
 			return errors.New("performance fixture suite cleanup rejected an unowned template")
 		}
-		if err := withSharedCatalogMutation(ctx, adminDSN, candidate.name, func(mutationAdmin *sql.Conn) error {
-			_, err := mutationAdmin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE false`, candidate.name))
-			return err
-		}); err != nil {
-			_ = admin.Close()
-			return err
-		}
-		if err := dropProvenDatabase(ctx, adminDSN, candidate.name); err != nil {
-			_ = admin.Close()
-			return err
-		}
+		seen[candidate.name] = true
 	}
-	if err := admin.Close(); err != nil {
-		return err
+	var retirementErr error
+	for _, candidate := range owned {
+		retirementErr = errors.Join(retirementErr, retire(ctx, candidate.name))
 	}
-	return errors.Join(os.RemoveAll(suiteRuntimeRoot), os.RemoveAll(cloneRuntimeRoot))
+	if retirementErr != nil {
+		// Unresolved resources still need their private recovery proof.
+		return retirementErr
+	}
+	var removalErr error
+	for _, root := range roots {
+		removalErr = errors.Join(removalErr, removeRoot(root))
+	}
+	return removalErr
 }
 
 func withSharedCatalogMutation(

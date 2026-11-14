@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -18,15 +19,69 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
 func TestExplicitEntityMerge_Unit(t *testing.T) {
+	t.Run("envelope discovery preserves scope before typed source admission", func(t *testing.T) {
+		h := appsupport.StartStore(t, "merge-envelope-discovery")
+		actor := authstoretest.SeedActor(t, h.DB, authstoretest.ActorAttributes{Email: "merge-envelope@example.test", DisplayName: "Envelope discovery"})
+		incident := appsupport.CreateIncidentInStore(t, h.DB, actor, "merge-envelope-incident", "IR-MERGE-ENVELOPE", "Merge envelope discovery")
+		left, right, missing := uuid.New(), uuid.New(), uuid.New()
+		// No Timeline typed rows: route scope and unsupported-type admission belong
+		// to the current envelope, independently of subtype presence.
+		envelopetest.SeedRecordEnvelope(t, h.DB, incident.ID, actor.ID, left, "timeline_event")
+		envelopetest.SeedRecordEnvelope(t, h.DB, incident.ID, actor.ID, right, "timeline_event")
+		store := newEntityTestTimelineBundle(t, h.DB).EntityMergeStore
+		for _, id := range []uuid.UUID{left, right} {
+			got, err := store.GetMergeRouteIncident(t.Context(), id)
+			if err != nil || got != incident.ID {
+				t.Fatalf("known envelope incident=%s error=%v", got, err)
+			}
+		}
+		if got, err := store.GetMergeRouteIncident(t.Context(), missing); !errors.Is(err, merge.ErrMergeTargetNotFound) || got != uuid.Nil {
+			t.Fatalf("missing envelope incident=%s error=%v", got, err)
+		}
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		if got, err := store.GetMergeRouteIncident(ctx, left); !errors.Is(err, context.Canceled) || got != uuid.Nil {
+			t.Fatalf("canceled lookup incident=%s error=%v", got, err)
+		}
+		for _, loser := range []uuid.UUID{right, missing} {
+			_, err := store.MergeEntity(t.Context(), actor, left, merge.MergeRequest{LoserRecordID: loser, SurvivorBaseRowVersion: 1, LoserBaseRowVersion: 1, ClientTxnID: "merge-envelope-" + loser.String()}, []byte(loser.String()), "merge-envelope-request", time.Now().UTC())
+			if loser == missing {
+				if !errors.Is(err, merge.ErrMergeTargetNotFound) {
+					t.Fatalf("missing target error=%v", err)
+				}
+			} else {
+				var rejected *merge.MergePreconditionError
+				if !errors.As(err, &rejected) || rejected.ReasonCode != "unsupported_record_type" || len(rejected.Details) != 1 || rejected.Details["record_type"] != "timeline_event" {
+					t.Fatalf("envelope type admission=%#v", err)
+				}
+			}
+		}
+		var untouched bool
+		if err := h.DB.QueryRow(t.Context(), `SELECT
+ (SELECT count(*) FROM records WHERE record_id=ANY($1::uuid[]) AND row_version=1)=2
+ AND NOT EXISTS(SELECT 1 FROM record_revisions WHERE record_id=ANY($1::uuid[]))
+ AND NOT EXISTS(SELECT 1 FROM change_sets WHERE incident_id=$2 AND source='entities.records.merge')
+ AND NOT EXISTS(SELECT 1 FROM route_idempotency WHERE client_txn_id LIKE 'merge-envelope-%' AND route_key='entities.records.merge')`, []uuid.UUID{left, right}, incident.ID).Scan(&untouched); err != nil {
+			t.Fatal(err)
+		}
+		if !untouched {
+			t.Fatal("envelope discovery/rejection mutated retained state")
+		}
+	})
 	t.Run("secondary promotion follows owner normalized scalar order", assertEntityMergeScalarOrdering)
 	t.Run("host merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-06-host")
+		var mergeAt time.Time
+		if err := harness.DB.QueryRow(context.Background(), `SELECT clock_timestamp() + interval '5 minutes'`).Scan(&mergeAt); err != nil {
+			t.Fatal(err)
+		}
 		store := newEntityTestStore(t, harness.DB)
 		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u406@example.test", DisplayName: "U406"})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-incident", "IR-U406", "Record relationships entity-storage")
@@ -43,7 +98,7 @@ func TestExplicitEntityMerge_Unit(t *testing.T) {
 		linktest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, outgoingLinkID, entitytest.DuplicateHostRecordID, outgoingTargetID, "references_record", "manual", nil)
 		linktest.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, linktest.TagIDSurvivor, entitytest.CanonicalHostRecordID, "critical-host")
 		linktest.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, linktest.TagIDLoser, entitytest.DuplicateHostRecordID, "critical-host")
-		mergeFixtureCreatedAt := entitytest.BaseTime.Add(-time.Minute)
+		mergeFixtureCreatedAt := mergeAt.Add(-time.Minute)
 		if _, err := harness.DB.Exec(context.Background(), `
 UPDATE record_links
    SET decided_at = $1,
@@ -68,7 +123,7 @@ UPDATE record_tags
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
 			ClientTxnID:            "txn-entity_linking-u-4-06-merge",
-		}, []byte("txn-entity_linking-u-4-06-merge"), "req-merge", entitytest.BaseTime)
+		}, []byte("txn-entity_linking-u-4-06-merge"), "req-merge", mergeAt)
 		if err != nil {
 			t.Fatalf("merge entity: %v", err)
 		}
@@ -128,7 +183,7 @@ SELECT COUNT(*)
 			Values: map[string]string{
 				"host.fqdn": "ws-023.corp.example.test",
 			},
-		}, []byte("txn-entity_linking-u-4-06-reuse"), "req-reuse", entitytest.BaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-reuse"), "req-reuse", mergeAt.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge exact-match reuse: %v", err)
 		}
@@ -139,6 +194,10 @@ SELECT COUNT(*)
 
 	t.Run("identity merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-06-identity")
+		var mergeAt time.Time
+		if err := harness.DB.QueryRow(context.Background(), `SELECT clock_timestamp() + interval '5 minutes'`).Scan(&mergeAt); err != nil {
+			t.Fatal(err)
+		}
 		store := newEntityTestStore(t, harness.DB)
 		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u406-identity@example.test", DisplayName: "U406 Identity"})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-incident", "IR-U406-I", "Record relationships entity-storage identity")
@@ -149,7 +208,7 @@ SELECT COUNT(*)
 		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.RecordID)
 		entitytest.SeedResolvedMention(t, harness.DB, actor.ID, entitytest.IdentityMentionID, timelinetest.RecordID, entitytest.DuplicateIdentityRecordID, timelinetest.FieldIdentityRefs, "identity", "Case Owner")
 		linktest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, linktest.DuplicateLinkID, timelinetest.RecordID, entitytest.DuplicateIdentityRecordID, "observed_as_identity", "manual", nil)
-		mergeFixtureCreatedAt := entitytest.BaseTime.Add(-time.Minute)
+		mergeFixtureCreatedAt := mergeAt.Add(-time.Minute)
 		if _, err := harness.DB.Exec(context.Background(), `
 UPDATE record_links
    SET decided_at = $1,
@@ -166,7 +225,7 @@ UPDATE record_links
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
 			ClientTxnID:            "txn-entity_linking-u-4-06-identity-merge",
-		}, []byte("txn-entity_linking-u-4-06-identity-merge"), "req-identity-merge", entitytest.BaseTime)
+		}, []byte("txn-entity_linking-u-4-06-identity-merge"), "req-identity-merge", mergeAt)
 		if err != nil {
 			t.Fatalf("merge identity: %v", err)
 		}
@@ -207,7 +266,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			Values: map[string]string{
 				"identity.email": "alex.analyst@example.test",
 			},
-		}, []byte("txn-entity_linking-u-4-06-identity-reuse"), "req-identity-reuse", entitytest.BaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-identity-reuse"), "req-identity-reuse", mergeAt.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge identity exact-match reuse: %v", err)
 		}
@@ -218,6 +277,10 @@ SELECT identity_state, merged_into_record_id::text, row_version
 
 	t.Run("host merge exposes carried secondary reusable identifiers", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-06-host-reusable-row")
+		var mergeAt time.Time
+		if err := harness.DB.QueryRow(context.Background(), `SELECT clock_timestamp() + interval '5 minutes'`).Scan(&mergeAt); err != nil {
+			t.Fatal(err)
+		}
 		store := newEntityTestStore(t, harness.DB)
 		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u406-host-reusable@example.test", DisplayName: "U406 Host Reusable"})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-host-reusable-incident", "IR-U406-HR", "Record relationships entity-storage host reusable rows")
@@ -232,7 +295,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
 			ClientTxnID:            "txn-entity_linking-u-4-06-host-reusable-merge",
-		}, []byte("txn-entity_linking-u-4-06-host-reusable-merge"), "req-host-reusable-merge", entitytest.BaseTime); err != nil {
+		}, []byte("txn-entity_linking-u-4-06-host-reusable-merge"), "req-host-reusable-merge", mergeAt); err != nil {
 			t.Fatalf("merge host reusable identifiers: %v", err)
 		}
 
@@ -249,7 +312,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			Values: map[string]string{
 				"host.fqdn": "legacy-ws-023.example.test",
 			},
-		}, []byte("txn-entity_linking-u-4-06-host-reusable-create"), "req-host-reusable-create", entitytest.BaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-host-reusable-create"), "req-host-reusable-create", mergeAt.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge host reusable exact match: %v", err)
 		}
@@ -262,6 +325,10 @@ SELECT identity_state, merged_into_record_id::text, row_version
 
 	t.Run("identity merge exposes carried secondary reusable identifiers", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-06-identity-reusable-row")
+		var mergeAt time.Time
+		if err := harness.DB.QueryRow(context.Background(), `SELECT clock_timestamp() + interval '5 minutes'`).Scan(&mergeAt); err != nil {
+			t.Fatal(err)
+		}
 		store := newEntityTestStore(t, harness.DB)
 		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u406-identity-reusable@example.test", DisplayName: "U406 Identity Reusable"})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-reusable-incident", "IR-U406-IR", "Record relationships entity-storage identity reusable rows")
@@ -276,7 +343,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			SurvivorBaseRowVersion: 1,
 			LoserBaseRowVersion:    1,
 			ClientTxnID:            "txn-entity_linking-u-4-06-identity-reusable-merge",
-		}, []byte("txn-entity_linking-u-4-06-identity-reusable-merge"), "req-identity-reusable-merge", entitytest.BaseTime); err != nil {
+		}, []byte("txn-entity_linking-u-4-06-identity-reusable-merge"), "req-identity-reusable-merge", mergeAt); err != nil {
 			t.Fatalf("merge identity reusable identifiers: %v", err)
 		}
 
@@ -293,7 +360,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 			Values: map[string]string{
 				"identity.email": "alex.legacy@example.test",
 			},
-		}, []byte("txn-entity_linking-u-4-06-identity-reusable-create"), "req-identity-reusable-create", entitytest.BaseTime.Add(time.Minute))
+		}, []byte("txn-entity_linking-u-4-06-identity-reusable-create"), "req-identity-reusable-create", mergeAt.Add(time.Minute))
 		if err != nil {
 			t.Fatalf("post-merge identity reusable exact match: %v", err)
 		}
@@ -323,6 +390,10 @@ func assertEntityMergeScalarOrdering(t *testing.T) {
 	for _, entityType := range []string{"host", "identity"} {
 		t.Run(entityType, func(t *testing.T) {
 			harness := appsupport.StartStore(t, "entity-merge-unicode-order-"+entityType)
+			var mergeAt time.Time
+			if err := harness.DB.QueryRow(context.Background(), `SELECT clock_timestamp() + interval '5 minutes'`).Scan(&mergeAt); err != nil {
+				t.Fatal(err)
+			}
 			actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "merge-order@example.test", DisplayName: "Merge Order"})
 			incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-order-incident", "IR-ORDER", "Merge ordering")
 			survivorID, loserID := uuid.New(), uuid.New()
@@ -363,7 +434,7 @@ INSERT INTO entity_preserved_identifiers (
 			}
 			if _, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
 				LoserRecordID: loserID, SurvivorBaseRowVersion: 1, LoserBaseRowVersion: 1, ClientTxnID: "txn-unicode-order",
-			}, []byte("txn-unicode-order"), "req-unicode-order", entitytest.BaseTime); err != nil {
+			}, []byte("txn-unicode-order"), "req-unicode-order", mergeAt); err != nil {
 				t.Fatal(err)
 			}
 			var promoted string

@@ -27,8 +27,16 @@ type recordChangedViewPayload struct {
 
 func validateRecordChangedPayload(data json.RawMessage) error {
 	var payload recordChangedPayload
-	if err := json.Unmarshal(data, &payload); err != nil {
+	var views []json.RawMessage
+	if err := decodeKnownPayloadFields(data, payloadField{"record_id", &payload.RecordID}, payloadField{"row_version", &payload.RowVersion}, payloadField{"change_set_id", &payload.ChangeSetID}, payloadField{"client_txn_id", &payload.ClientTxnID}, payloadField{"actor_user_id", &payload.ActorUserID}, payloadField{"changed_field_keys", &payload.ChangedFieldKeys}, payloadField{"affected_views", &views}); err != nil {
 		return errors.New("record_changed payload is invalid")
+	}
+	for _, raw := range views {
+		var view recordChangedViewPayload
+		if err := decodeKnownPayloadFields(raw, payloadField{"view_schema_id", &view.ViewSchemaID}, payloadField{"change_kind", &view.ChangeKind}, payloadField{"patch_cells", &view.PatchCells}); err != nil {
+			return err
+		}
+		payload.AffectedViews = append(payload.AffectedViews, view)
 	}
 	recordID, recordErr := uuid.Parse(payload.RecordID)
 	changeSetID, changeSetErr := uuid.Parse(payload.ChangeSetID)
@@ -54,9 +62,8 @@ func validateRecordChangedPayload(data json.RawMessage) error {
 			return errors.New("record_changed affected view is invalid")
 		}
 		if view.ChangeKind == "patch" {
-			var patch map[string]any
-			if len(view.PatchCells) == 0 || json.Unmarshal(view.PatchCells, &patch) != nil || patch == nil {
-				return errors.New("record_changed affected view patch is invalid")
+			if err := validateRecordPatch(view.PatchCells, payload); err != nil {
+				return err
 			}
 		} else if len(view.PatchCells) != 0 {
 			return errors.New("record_changed affected view patch is not admitted")
@@ -69,6 +76,37 @@ func validateRecordChangedPayload(data json.RawMessage) error {
 	for index := 1; index < len(viewSchemaIDs); index++ {
 		if viewSchemaIDs[index-1] == viewSchemaIDs[index] {
 			return errors.New("record_changed affected views must be unique")
+		}
+	}
+	return nil
+}
+
+func validateRecordPatch(raw json.RawMessage, payload recordChangedPayload) error {
+	var recordID string
+	var version int64
+	var cells, groups map[string]json.RawMessage
+	if err := decodeKnownPayloadFields(raw, payloadField{"record_id", &recordID}, payloadField{"row_version", &version}, payloadField{"cells", &cells}, payloadField{"group_values", &groups}); err != nil {
+		return err
+	}
+	if recordID != payload.RecordID || version != payload.RowVersion {
+		return errors.New("record_changed patch identity differs from its event")
+	}
+	for _, fields := range []map[string]json.RawMessage{cells, groups} {
+		for key := range fields {
+			if _, found := slices.BinarySearch(payload.ChangedFieldKeys, key); !found {
+				return errors.New("record_changed patch contains an unchanged field")
+			}
+		}
+	}
+	for _, raw := range groups {
+		var scalar any
+		if err := json.Unmarshal(raw, &scalar); err != nil {
+			return errors.New("record_changed grouping scalar is invalid")
+		}
+		switch scalar.(type) {
+		case nil, bool, string, float64:
+		default:
+			return errors.New("record_changed grouping value must be scalar")
 		}
 	}
 	return nil

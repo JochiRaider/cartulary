@@ -30,6 +30,9 @@ func TestConcurrentIncidentReceiptsAndMembershipReplay_Integration(t *testing.T)
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
+	t.Run("mutation clocks follow locked admission", func(t *testing.T) {
+		testIncidentMutationClocksAfterAdmission(t, pool)
+	})
 	application, err := incidents.NewApplication(incidents.ApplicationDependencies{Postgres: pool, PreferenceBootstrap: workbookstartuppostgres.NewWriter(), Now: time.Now})
 	if err != nil {
 		t.Fatal(err)

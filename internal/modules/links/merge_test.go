@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
+	"maps"
 	"testing"
 	"time"
 
@@ -77,6 +77,66 @@ SELECT
 	if activeA != 1 || activeB != 1 || activeNull != 1 || loserActive != 0 {
 		t.Fatalf("post-merge active counts = fieldA:%d fieldB:%d loser:%d, want 1/1/0", activeA, activeB, loserActive)
 	}
+	originals := make(map[string]map[string]any)
+	deleted := make(map[string]bool)
+	for i, fixture := range []struct {
+		src, dst   uuid.UUID
+		field      any
+		tombstoned bool
+	}{
+		{survivor, target, "fixture.links.field_a", false},
+		{loser, target, "fixture.links.field_a", true},
+		{loser, target, "fixture.links.field_b", true},
+		{survivor, target, nil, false},
+		{loser, target, nil, true},
+		{loser, survivor, nil, true},
+	} {
+		id := fmt.Sprintf("00000000-0000-0000-0000-%012d", 101+i)
+		value := map[string]any{"record_link_id": id, "incident_id": incident.ID.String(), "src_record_id": fixture.src.String(), "dst_record_id": fixture.dst.String(), "link_type": "references_record", "field_key": fixture.field, "provenance": "manual", "confidence": nil, "owner_user_id": actor.ID.String(), "created_by_user_id": actor.ID.String(), "decided_at": now.Format(time.RFC3339Nano), "created_at": now.Format(time.RFC3339Nano), "deleted_at": nil, "deleted_by_user_id": nil}
+		originals[id], deleted[id] = value, fixture.tombstoned
+		stored := maps.Clone(value)
+		if fixture.tombstoned {
+			stored["deleted_at"], stored["deleted_by_user_id"] = now.Add(time.Minute).Format(time.RFC3339Nano), actor.ID.String()
+		}
+		requireMergeStoredLink(t, tx, stored)
+	}
+	seenDeletes, creates := make(map[string]bool), 0
+	for _, mutation := range result.Mutations() {
+		if mutation.TargetKind() != "record_link" {
+			t.Fatalf("unexpected target kind %s", mutation.TargetKind())
+		}
+		switch mutation.OperationKind() {
+		case "delete":
+			id := mutation.TargetID()
+			if !deleted[id] || seenDeletes[id] {
+				t.Fatalf("unexpected/repeated deletion %s", id)
+			}
+			seenDeletes[id] = true
+			requireMergeLinkValue(t, mutationMap(t, mutation.BeforeValue()), originals[id])
+			after := maps.Clone(originals[id])
+			after["deleted_at"], after["deleted_by_user_id"] = now.Add(time.Minute).Format(time.RFC3339Nano), actor.ID.String()
+			requireMergeLinkValue(t, mutationMap(t, mutation.AfterValue()), after)
+		case "create":
+			creates++
+			id, err := uuid.Parse(mutation.TargetID())
+			if err != nil || id == uuid.Nil || id.String() != mutation.TargetID() || originals[mutation.TargetID()] != nil || mutation.BeforeValue() != nil {
+				t.Fatalf("replacement has no fresh identity: %#v", mutation)
+			}
+			after := maps.Clone(originals["00000000-0000-0000-0000-000000000103"])
+			after["record_link_id"], after["src_record_id"] = id.String(), survivor.String()
+			requireMergeLinkValue(t, mutationMap(t, mutation.AfterValue()), after)
+			requireMergeStoredLink(t, tx, after)
+		default:
+			t.Fatalf("unexpected operation %s", mutation.OperationKind())
+		}
+	}
+	if len(seenDeletes) != 4 || creates != 1 {
+		t.Fatalf("physical effects deletes=%v creates=%d", seenDeletes, creates)
+	}
+	var physicalRows int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM record_links WHERE incident_id=$1`, incident.ID).Scan(&physicalRows); err != nil || physicalRows != 7 {
+		t.Fatalf("physical rows=%d error=%v", physicalRows, err)
+	}
 	if err := tx.Rollback(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -148,36 +208,22 @@ SELECT
 					t.Fatalf("unexpected merge result: %#v", result)
 				}
 				before, after := mutationMap(t, mutations[0].BeforeValue()), mutationMap(t, mutations[1].AfterValue())
-				for _, key := range []string{"field_key", "provenance", "confidence", "owner_user_id", "created_by_user_id", "decided_at", "created_at"} {
-					if !reflect.DeepEqual(before[key], after[key]) {
-						t.Errorf("merge changed retained %s: %v -> %v", key, before[key], after[key])
-					}
+				wantBefore := maps.Clone(row)
+				wantBefore["owner_user_id"], wantBefore["created_by_user_id"] = creator.ID.String(), actor.ID.String()
+				wantBefore["created_at"], wantBefore["decided_at"] = now.Format(time.RFC3339Nano), now.Add(time.Hour).Format(time.RFC3339Nano)
+				newID, err := uuid.Parse(mutations[1].TargetID())
+				if err != nil || newID == uuid.Nil || newID == linkID || newID.String() != mutations[1].TargetID() || mutations[0].TargetKind() != "record_link" || mutations[1].TargetKind() != "record_link" || mutations[0].TargetID() != linkID.String() || mutations[0].OperationKind() != "delete" || mutations[1].OperationKind() != "create" || mutations[1].BeforeValue() != nil {
+					t.Fatal("repoint did not retain separate delete/create identities")
 				}
-				if after["dst_record_id"] != survivor.String() {
-					t.Fatal("merge did not repoint endpoint")
-				}
-				var persisted []byte
-				if err := tx.QueryRow(ctx, `SELECT to_jsonb(l) FROM record_links l WHERE record_link_id=$1`, after["record_link_id"]).Scan(&persisted); err != nil {
-					t.Fatal(err)
-				}
-				var stored map[string]any
-				if err := json.Unmarshal(persisted, &stored); err != nil {
-					t.Fatal(err)
-				}
-				for _, key := range []string{"owner_user_id", "created_by_user_id", "provenance", "confidence", "field_key"} {
-					want, _ := json.Marshal(after[key])
-					got, _ := json.Marshal(stored[key])
-					if string(want) != string(got) {
-						t.Fatalf("persisted %s differs: %s != %s", key, got, want)
-					}
-				}
-				for _, key := range []string{"decided_at", "created_at"} {
-					got, err := time.Parse(time.RFC3339Nano, stored[key].(string))
-					want, wantErr := time.Parse(time.RFC3339Nano, after[key].(string))
-					if err != nil || wantErr != nil || !got.Equal(want) {
-						t.Fatalf("persisted %s differs", key)
-					}
-				}
+				wantDeleted := maps.Clone(wantBefore)
+				wantDeleted["deleted_at"], wantDeleted["deleted_by_user_id"] = now.Add(2*time.Hour).Format(time.RFC3339Nano), actor.ID.String()
+				wantAfter := maps.Clone(wantBefore)
+				wantAfter["record_link_id"], wantAfter["dst_record_id"] = newID.String(), survivor.String()
+				requireMergeLinkValue(t, before, wantBefore)
+				requireMergeLinkValue(t, mutationMap(t, mutations[0].AfterValue()), wantDeleted)
+				requireMergeLinkValue(t, after, wantAfter)
+				requireMergeStoredLink(t, tx, wantDeleted)
+				requireMergeStoredLink(t, tx, wantAfter)
 				provider := links.RevisionProviderContribution().NonRowTargets[0]
 				for i := len(mutations) - 1; i >= 0; i-- {
 					mutation := mutations[i]
@@ -188,10 +234,13 @@ SELECT
 					if err != nil {
 						t.Fatal(err)
 					}
-					if i == 0 && !reflect.DeepEqual(before, result.AfterValue) {
-						t.Fatalf("inverse lost original source: %#v", result.AfterValue)
+					if i == 0 {
+						requireMergeLinkValue(t, result.AfterValue, wantBefore)
 					}
 				}
+				requireMergeStoredLink(t, tx, wantBefore)
+				wantAfter["deleted_at"], wantAfter["deleted_by_user_id"] = now.Add(3*time.Hour).Format(time.RFC3339Nano), actor.ID.String()
+				requireMergeStoredLink(t, tx, wantAfter)
 			})
 		}
 	}
@@ -221,4 +270,42 @@ SELECT
 			}
 		})
 	}
+}
+
+func requireMergeLinkValue(t testing.TB, got, want map[string]any) {
+	t.Helper()
+	gotJSON, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantJSON, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(gotJSON) != string(wantJSON) {
+		t.Fatalf("Link value=%s want=%s", gotJSON, wantJSON)
+	}
+}
+
+func requireMergeStoredLink(t testing.TB, tx pgx.Tx, want map[string]any) {
+	t.Helper()
+	var encoded []byte
+	if err := tx.QueryRow(t.Context(), `SELECT to_jsonb(l) FROM record_links l WHERE record_link_id=$1`, want["record_link_id"]).Scan(&encoded); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(encoded, &got); err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"created_at", "decided_at", "deleted_at"} {
+		if got[field] == nil {
+			continue
+		}
+		clock, err := time.Parse(time.RFC3339Nano, got[field].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got[field] = clock.UTC().Format(time.RFC3339Nano)
+	}
+	requireMergeLinkValue(t, got, want)
 }

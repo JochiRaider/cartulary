@@ -46,13 +46,7 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 		blobID := uuid.New()
 		insertFailedCleanupBlob(t, database, incidentID, adminID, blobID, cleanupKey("concurrent", blobID), base)
 		deleter := newBlockingCleanupDeleter()
-		firstResult := make(chan cleanupSweepResult, 1)
-		firstErr := make(chan error, 1)
-		go func() {
-			result, sweepErr := cleanup.SweepFailedUnattachedBlobs(context.Background(), deleter, base)
-			firstResult <- result
-			firstErr <- sweepErr
-		}()
+		firstResult := startCleanupSweepForTest(t, cleanup, deleter, base)
 		select {
 		case <-deleter.entered:
 		case <-time.After(10 * time.Second):
@@ -66,11 +60,11 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 			t.Fatalf("second instance result = %#v, want no claimed work", second)
 		}
 		close(deleter.release)
-		if err := <-firstErr; err != nil {
-			t.Fatalf("first cleanup instance: %v", err)
-		}
 		first := <-firstResult
-		if first.ClaimedBlobCount != 1 || first.CleanedBlobCount != 1 || deleter.callCount() != 1 {
+		if first.err != nil {
+			t.Fatalf("first cleanup instance: %v", first.err)
+		}
+		if first.result.ClaimedBlobCount != 1 || first.result.CleanedBlobCount != 1 || deleter.callCount() != 1 {
 			t.Fatalf("first instance result=%#v delete_calls=%d, want one claimed and cleaned", first, deleter.callCount())
 		}
 	})
@@ -89,10 +83,12 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 		if err != nil {
 			t.Fatal(err)
 		}
+		registerDispatcherCleanup(t, firstDispatcher)
 		secondDispatcher, err := newCleanupDispatcher(secondCleanup, deleter, secondObserver, func() time.Time { return base })
 		if err != nil {
 			t.Fatal(err)
 		}
+		registerDispatcherCleanup(t, secondDispatcher)
 		if err := firstDispatcher.Prepare(context.Background(), servingCleanupGate()); err != nil {
 			t.Fatal(err)
 		}
@@ -133,11 +129,7 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 		recordID := seedEvidenceAttachmentRecord(t, database, incidentID, adminID, "requested")
 		insertFailedCleanupBlob(t, database, incidentID, adminID, blobID, cleanupKey("race", blobID), base)
 		deleter := newBlockingCleanupDeleter()
-		done := make(chan error, 1)
-		go func() {
-			_, sweepErr := cleanup.SweepFailedUnattachedBlobs(context.Background(), deleter, base)
-			done <- sweepErr
-		}()
+		done := startCleanupSweepForTest(t, cleanup, deleter, base)
 		select {
 		case <-deleter.entered:
 		case <-time.After(10 * time.Second):
@@ -159,8 +151,8 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 			t.Fatal("claimed blob admitted an attachment/import/replacement association")
 		}
 		close(deleter.release)
-		if err := <-done; err != nil {
-			t.Fatalf("complete cleanup after rejected races: %v", err)
+		if outcome := <-done; outcome.err != nil {
+			t.Fatalf("complete cleanup after rejected races: %v", outcome.err)
 		}
 	})
 
@@ -307,6 +299,32 @@ UPDATE evidence SET object_blob_id = $2, updated_at = now() WHERE record_id = $1
 type scriptedCleanupDeleter struct {
 	errors []error
 	calls  int
+}
+
+type cleanupSweepOutcome struct {
+	result cleanupSweepResult
+	err    error
+}
+
+func startCleanupSweepForTest(t testing.TB, cleanup *cleanupService, deleter cleanupObjectDeleter, now time.Time) <-chan cleanupSweepOutcome {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	settled := make(chan struct{})
+	outcomes := make(chan cleanupSweepOutcome, 1)
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-settled:
+		case <-time.After(5 * time.Second):
+			t.Error("cleanup sweep did not settle before fixture teardown")
+		}
+	})
+	go func() {
+		defer close(settled)
+		result, err := cleanup.SweepFailedUnattachedBlobs(ctx, deleter, now)
+		outcomes <- cleanupSweepOutcome{result: result, err: err}
+	}()
+	return outcomes
 }
 
 func (deleter *scriptedCleanupDeleter) DeleteObject(context.Context, string) error {

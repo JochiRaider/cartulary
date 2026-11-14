@@ -24,8 +24,8 @@ import { expect, test } from "./fixtures";
 import { expectAllInteractiveControlsNamed } from "./support/accessibility/assertions";
 import { expectVisibleSemanticGridCellFocus } from "./support/accessibility/grid";
 import {
+  expectInitialTabRoundTrip,
   expectKeyboardFocusReachesTestId,
-  expectNoFocusTrap,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
 import { withPresentation } from "./support/accessibility/presentation";
@@ -359,7 +359,7 @@ test("a11y.mention resolution and undo preserve names and focus", async ({
     "dismissed-host-selected-1440x900",
   );
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
   await expectAndRecordContrast(page, [mentionRestoreUnresolvedButtonTestId()]);
 });
 

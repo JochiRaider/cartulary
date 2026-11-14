@@ -319,7 +319,9 @@ func (c *collectorClient) terminate() error {
 	}
 	c.mu.Lock()
 	if !c.reaped {
-		_ = syscall.Kill(-c.cmd.Process.Pid, syscall.SIGKILL)
+		// Wait can reap before publishing c.reaped. The owned process handle
+		// fences that race; the waiter settles the anchored group before reap.
+		_ = c.cmd.Process.Kill()
 	}
 	c.input.Close()
 	c.mu.Unlock()

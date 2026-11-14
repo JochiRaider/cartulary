@@ -22,7 +22,7 @@ import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { expectAllInteractiveControlsNamed } from "./support/accessibility/assertions";
-import { expectNoFocusTrap } from "./support/accessibility/keyboard";
+import { expectInitialTabRoundTrip } from "./support/accessibility/keyboard";
 import { withPresentation } from "./support/accessibility/presentation";
 import { expectAndRecordContrast } from "./support/accessibility/records";
 import { csrfHeaders } from "./support/auth/browserSession";
@@ -398,7 +398,7 @@ test("a11y.conflict recovery retains values focus and reachable controls", async
     "Conflict on Activity Synopsis",
   );
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
   await expectAndRecordContrast(page, [
     saveStateTestId(),
     rowPresenceMarkerTestId(recordId),

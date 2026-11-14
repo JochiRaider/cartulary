@@ -16,6 +16,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -127,6 +129,8 @@ UPDATE hosts
 	if err := envelopeTx.Commit(); err != nil {
 		t.Fatalf("commit portable host envelope normalization: %v", err)
 	}
+
+	seedPortableCreationHistory(t, harness, historyHostID)
 
 	identityID := uuid.New()
 	if _, err := harness.DB.Exec(`
@@ -336,9 +340,9 @@ UPDATE artifacts
 	}
 	if _, err := harness.DB.Exec(`
 INSERT INTO handoff_risk_refs (
-    incident_id, handoff_record_id, risk_ref_text, normalized_risk_ref_text, created_by_user_id
+    incident_id, handoff_record_id, risk_ref_text, created_by_user_id
 )
-VALUES ($1, $2, 'Portable Risk', 'portable risk', $3)
+VALUES ($1, $2, 'Portable Risk', $3)
 `, incidentUUID, handoffArtifactID, actorUUID); err != nil {
 		t.Fatalf("seed handoff risk ref: %v", err)
 	}
@@ -406,7 +410,7 @@ INSERT INTO object_blobs (
     pending_expires_at,
     finalized_at
 )
-VALUES ($6, $1, $2, $3, 'available', $4, 'extension_profile.txt', 'text/plain', $5, $4, 'text/plain', $5, now() + interval '1 hour', now() + interval '1 hour', now())
+VALUES ($6, $1, $2, $3, 'available', $4, 'extension_profile.txt', 'text/plain', $5, $4, 'text/plain', $5, now() + interval '1 hour', now() + interval '24 hours', now())
 RETURNING object_blob_id
 `, incidentID, actorUserID, sourceStorageKey, len(blobBytes), blobSHA, objectBlobID).Scan(&objectBlobID); err != nil {
 		t.Fatalf("seed object blob row: %v", err)
@@ -431,10 +435,11 @@ INSERT INTO evidence (
     storage_ref,
     blob_hash,
     upload_state,
-    object_blob_id
+    object_blob_id,
+    owner_user_id
 )
-VALUES ($1, $2, 'Portable evidence', 'received', now(), now(), $3, $4, 'available', $5)
-`, evidenceRecordID, incidentID, sourceStorageKey, blobSHA, objectBlobID); err != nil {
+VALUES ($1, $2, 'Portable evidence', 'received', now(), now(), $3, $4, 'available', $5, $6)
+`, evidenceRecordID, incidentID, sourceStorageKey, blobSHA, objectBlobID, actorUUID); err != nil {
 		t.Fatalf("seed evidence row: %v", err)
 	}
 	if _, err := harness.DB.Exec(`
@@ -450,6 +455,7 @@ VALUES ($1, $2, 'made_available', $3, 'source deployment', 'seeded portable cust
 `, incidentID, evidenceRecordID, actorUserID); err != nil {
 		t.Fatalf("seed evidence custody event: %v", err)
 	}
+	seedPortableCreationHistory(t, harness, identityID, assessmentID, indicatorID, partyRecordID, taskRequestID, decisionID, findingArtifactID, queryArtifactID, keywordArtifactID, handoffArtifactID, uuid.MustParse(evidenceRecordID))
 	return seededIncidentBundlePortableState{
 		BlobBytes:                blobBytes,
 		BlobSHA:                  blobSHA,
@@ -516,12 +522,29 @@ func seedPortableRollbackHostPatch(t testing.TB, db *sql.DB, incidentID uuid.UUI
 	afterRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 2}
 	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": "portable-host", "host_state": "canonical", "row_version": 1}
 	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": "portable-host", "host_state": "canonical", "row_version": 2}
-	// Retained v1 snapshots contain the source's nullable columns explicitly.
-	for _, source := range []map[string]any{beforeSource, afterSource} {
-		for _, member := range []string{"aad_device_id", "fqdn", "merged_into_record_id", "location", "os_platform", "business_owner", "criticality", "containment_status"} {
+	// These complete expected snapshots describe the fixture's independently
+	// seeded transition. Required clocks, actors and explicit nulls are history,
+	// not optional metadata inferred by the import implementation.
+	for index, record := range []map[string]any{beforeRecord, afterRecord} {
+		record["created_at"] = "2026-05-25T16:59:00+00:00"
+		record["updated_at"] = "2026-05-25T16:59:00+00:00"
+		if index == 1 {
+			record["updated_at"] = strings.TrimSuffix(createdAt.UTC().Format(time.RFC3339Nano), "Z") + "+00:00"
+		}
+		record["created_by_user_id"], record["updated_by_user_id"] = actorID.String(), actorID.String()
+		record["deleted_at"], record["deleted_by_user_id"] = nil, nil
+	}
+	for index, source := range []map[string]any{beforeSource, afterSource} {
+		for _, member := range []string{"aad_device_id", "fqdn", "seed_entity_mention_id", "merged_into_record_id", "location", "os_platform", "business_owner", "criticality", "containment_status"} {
 			source[member] = nil
 		}
 		source["entity_origin"] = "entity_sheet"
+		source["created_at"] = "2026-05-25T16:59:00+00:00"
+		source["updated_at"] = "2026-05-25T16:59:00+00:00"
+		if index == 1 {
+			source["updated_at"] = strings.TrimSuffix(createdAt.UTC().Format(time.RFC3339Nano), "Z") + "+00:00"
+		}
+		source["created_by_user_id"], source["updated_by_user_id"] = actorID.String(), actorID.String()
 	}
 	beforeValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": beforeRecord, "source": beforeSource}
 	afterValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": afterRecord, "source": afterSource}
@@ -530,6 +553,27 @@ func seedPortableRollbackHostPatch(t testing.TB, db *sql.DB, incidentID uuid.UUI
 		t.Fatalf("begin portable rollback host transition: %v", err)
 	}
 	defer func() { _ = envelopeTx.Rollback() }()
+	requireSeededSnapshot := func(expected map[string]any) {
+		t.Helper()
+		var raw []byte
+		if err := envelopeTx.QueryRowContext(ctx, `
+SELECT jsonb_build_object('snapshot_schema_id','cartulary.revisions.snapshot.host.v1',
+                          'record',to_jsonb(r),'source',to_jsonb(h))
+ FROM records r JOIN hosts h USING (record_id,incident_id)
+ WHERE r.record_id=$1 AND r.incident_id=$2`, recordID, incidentID).Scan(&raw); err != nil {
+			t.Fatalf("read independently seeded portable Host snapshot: %v", err)
+		}
+		var actual map[string]any
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.UseNumber()
+		if err := decoder.Decode(&actual); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(jsonRaw(t, actual), jsonRaw(t, expected)) {
+			t.Fatalf("portable Host fixture snapshot = %#v; want %#v", actual, expected)
+		}
+	}
+	requireSeededSnapshot(beforeValue)
 	if _, err := envelopeTx.ExecContext(ctx, `
 UPDATE records
    SET row_version = 2,
@@ -551,6 +595,7 @@ UPDATE hosts
 	`, recordID, incidentID, afterName, createdAt, actorID); err != nil {
 		t.Fatalf("advance portable rollback host source: %v", err)
 	}
+	requireSeededSnapshot(afterValue)
 	if err := envelopeTx.Commit(); err != nil {
 		t.Fatalf("commit portable rollback host transition: %v", err)
 	}
@@ -657,13 +702,21 @@ func postImport(t testing.TB, server *httptestx.Server, login authcookietest.Aut
 	return httptestx.Do(t, http.DefaultClient, req)
 }
 
+func observeIncidentBundleJob(t testing.TB, ctx context.Context, server *httptestx.Server, login authcookietest.AuthCookies, jobID string) map[string]any {
+	t.Helper()
+	request := httptestx.NewJSONRequest(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil).WithContext(ctx)
+	httptestx.WithCookies(login.Session)(request)
+	response := httptestx.Do(t, http.DefaultClient, request)
+	return httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+}
+
 func waitJob(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(30 * time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
 	var lastJob map[string]any
-	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
-		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	for ctx.Err() == nil {
+		job := observeIncidentBundleJob(t, ctx, server, login, jobID)
 		lastJob = job
 		status := job["status"].(string)
 		switch status {
@@ -673,7 +726,10 @@ func waitJob(t testing.TB, server *httptestx.Server, login authcookietest.AuthCo
 			encoded, _ := json.MarshalIndent(job, "", "  ")
 			t.Fatalf("job reached terminal non-success state: %s", encoded)
 		}
-		time.Sleep(25 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+		case <-time.After(25 * time.Millisecond):
+		}
 	}
 	t.Fatalf("job %s did not finish: %#v", jobID, lastJob)
 	return nil
@@ -681,10 +737,10 @@ func waitJob(t testing.TB, server *httptestx.Server, login authcookietest.AuthCo
 
 func waitJobWithStatus(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string, wantStatus string) map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
-		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	for ctx.Err() == nil {
+		job := observeIncidentBundleJob(t, ctx, server, login, jobID)
 		status := job["status"].(string)
 		if status == wantStatus {
 			return job
@@ -694,7 +750,10 @@ func waitJobWithStatus(t testing.TB, server *httptestx.Server, login authcookiet
 			encoded, _ := json.MarshalIndent(job, "", "  ")
 			t.Fatalf("job reached terminal status %q while waiting for %q: %s", status, wantStatus, encoded)
 		}
-		time.Sleep(25 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+		case <-time.After(25 * time.Millisecond):
+		}
 	}
 	t.Fatalf("job %s did not reach status %q", jobID, wantStatus)
 	return nil
@@ -702,11 +761,11 @@ func waitJobWithStatus(t testing.TB, server *httptestx.Server, login authcookiet
 
 func waitFailedJob(t testing.TB, server *httptestx.Server, login authcookietest.AuthCookies, jobID string) map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(40 * time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 40*time.Second)
+	defer cancel()
 	var lastJob map[string]any
-	for time.Now().Before(deadline) {
-		resp := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.Session))
-		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	for ctx.Err() == nil {
+		job := observeIncidentBundleJob(t, ctx, server, login, jobID)
 		lastJob = job
 		status := job["status"].(string)
 		switch status {
@@ -716,7 +775,10 @@ func waitFailedJob(t testing.TB, server *httptestx.Server, login authcookietest.
 			encoded, _ := json.MarshalIndent(job, "", "  ")
 			t.Fatalf("job reached unexpected terminal state: %s", encoded)
 		}
-		time.Sleep(25 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+		case <-time.After(25 * time.Millisecond):
+		}
 	}
 	t.Fatalf("job %s did not fail; last observed state: %#v", jobID, lastJob)
 	return nil
@@ -1284,37 +1346,58 @@ func requireIncidentPortabilityProof(
 	db *sql.DB,
 	jobID string,
 	operationKind string,
-) {
+	wantResult map[string]any,
+) string {
 	t.Helper()
 	var ownerProfileID string
 	var actualOperationKind string
 	var finalCommitID string
-	var terminalCode string
+	var terminalJSON, refsJSON, terminalSHA256 string
 	if err := db.QueryRow(`
 SELECT owner_profile_id, operation_kind, final_commit_id,
-       terminal_result->>'code'
+       terminal_result::text, resource_refs::text,
+       terminal_result_sha256
   FROM extension_job_commit_proofs
  WHERE job_id::text = $1
 `, jobID).Scan(
 		&ownerProfileID,
 		&actualOperationKind,
 		&finalCommitID,
-		&terminalCode,
+		&terminalJSON,
+		&refsJSON,
+		&terminalSHA256,
 	); err != nil {
 		t.Fatalf("read Incident Portability proof for job %s: %v", jobID, err)
 	}
+	var result map[string]any
+	if err := json.Unmarshal([]byte(terminalJSON), &result); err != nil || !reflect.DeepEqual(result, wantResult) {
+		t.Fatalf("proof result=%#v want original=%#v err=%v", result, wantResult, err)
+	}
+	var refs []any
+	if err := json.Unmarshal([]byte(refsJSON), &refs); err != nil || !reflect.DeepEqual(refs, wantResult["resource_refs"]) {
+		t.Fatalf("proof references=%#v want original=%#v err=%v", refs, wantResult["resource_refs"], err)
+	}
+	// These owner results contain one reference and ASCII strings only, so the
+	// standard encoder independently supplies their RFC-8785 canonical bytes.
+	canonicalResult, err := json.Marshal(wantResult)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := fmt.Sprintf("%x", sha256.Sum256(canonicalResult)); terminalSHA256 != want {
+		t.Fatalf("proof result SHA-256=%q want=%q", terminalSHA256, want)
+	}
+	if !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$`).MatchString(finalCommitID) {
+		t.Fatalf("unsafe proof commit identity=%q", finalCommitID)
+	}
 	if ownerProfileID != incidentPortabilityProfileID ||
-		actualOperationKind != operationKind ||
-		finalCommitID == "" ||
-		terminalCode == "" {
+		actualOperationKind != operationKind {
 		t.Fatalf(
-			"unexpected Incident Portability proof: owner=%q operation=%q commit=%q code=%q",
+			"unexpected Incident Portability proof: owner=%q operation=%q",
 			ownerProfileID,
 			actualOperationKind,
-			finalCommitID,
-			terminalCode,
 		)
 	}
+	return finalCommitID
 }
 
 func requireFailedJobReason(t testing.TB, job map[string]any, wantCode string, wantReason string) {
@@ -1368,10 +1451,8 @@ func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarn
 	} else {
 		requireFailedJobReason(t, terminal, "incident_bundle_import_rejected", wantReason)
 	}
-	if summary, ok := terminal["result_summary"].(map[string]any); ok {
-		if refs, ok := summary["resource_refs"].([]any); ok && len(refs) != 0 {
-			t.Fatalf("failed import must not expose imported resource refs: %#v", summary)
-		}
+	if summary, present := terminal["result_summary"]; !present || summary != nil {
+		t.Fatalf("failed import result_summary must be explicit null: present=%v value=%#v", present, summary)
 	}
 	awaitImportInputCleanup(t, harness, job["job_id"].(string))
 	reclaimAbandonedBundleMembers(t, harness)
@@ -1387,7 +1468,10 @@ func assertImportFailureLeavesState(t testing.TB, harness *appsupport.ServerHarn
 		t.Fatalf("decode failed import request json: %v", err)
 	}
 	fileSHA, ok := normalized["file_sha256"].(string)
-	if len(normalized) != 1 || !ok || fileSHA == "" || strings.Contains(requestJSON, "manifest.json") {
+	if want := fmt.Sprintf("%x", sha256.Sum256(bundle)); fileSHA != want {
+		t.Fatalf("failed import retained upload SHA-256=%q want=%q", fileSHA, want)
+	}
+	if len(normalized) != 1 || !ok {
 		t.Fatalf("failed import request payload must retain only upload hash, got %s", requestJSON)
 	}
 	assertNoIncidentBundleStaging(t, harness.Server)
@@ -1544,7 +1628,7 @@ INSERT INTO object_blobs (
     pending_expires_at,
     finalized_at
 )
-VALUES ($1, $2, $3, 'available', $4, 'missing.txt', 'text/plain', $5, $4, 'text/plain', $5, now() + interval '1 hour', now() + interval '1 hour', now())
+VALUES ($1, $2, $3, 'available', $4, 'missing.txt', 'text/plain', $5, $4, 'text/plain', $5, now() + interval '1 hour', now() + interval '24 hours', now())
 `, incidentID, actorUserID, "extension_profile/missing/"+incidentID+"/"+sha, len(missingBytes), sha); err != nil {
 		t.Fatalf("seed missing object blob row: %v", err)
 	}

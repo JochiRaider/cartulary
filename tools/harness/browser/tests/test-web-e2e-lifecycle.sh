@@ -8,7 +8,7 @@ ATTACH_SCRIPT="$ROOT_DIR/tools/harness/browser/playwright-owned-stack.sh"
 EVIDENCE_HELPER="$ROOT_DIR/tools/harness/browser/browser-session-evidence.mjs"
 PLAYWRIGHT_CONFIG="$ROOT_DIR/apps/web/playwright.shared.config.ts"
 NODE_BIN="${NODE_BIN:-$ROOT_DIR/.cache/cartulary/node-runtime/bin/node}"
-cleanup_pids=()
+cleanup_groups=()
 
 fail() {
   printf 'test-web-e2e-lifecycle: %s\n' "$*" >&2
@@ -50,12 +50,15 @@ assert_json() {
 
 # shellcheck disable=SC2329
 fixture_cleanup() {
-  local pid
-  for pid in "${cleanup_pids[@]}"; do
-    kill -TERM "$pid" >/dev/null 2>&1 || true
-    wait "$pid" >/dev/null 2>&1 || true
+  local group status=0 primary=$?
+  for group in "${cleanup_groups[@]}"; do
+    stop_owned_command "$group" || status=$?
   done
-  rm -rf "$tmp_dir"
+  if [[ "$status" -eq 0 ]]; then rm -rf "$tmp_dir"; else
+    echo "browser lifecycle fixture cleanup failed" >&2
+    if [[ "$primary" -ne 0 ]]; then exit "$primary"; fi
+    exit "$status"
+  fi
 }
 
 [[ -x "$NODE_BIN" ]] || NODE_BIN=node
@@ -102,9 +105,19 @@ if [[ "${1:-}" == --artifact-fixture ]]; then
 fi
 
 (
+  unset CARTULARY_BROWSER_ACQUISITION_FILE
+  SESSION_MODE=wrap
+  rejected_group=""
+  status=0
+  start_browser_process_group rejected_group "$tmp_dir/unowned-service.log" touch "$tmp_dir/unowned-service-started" >/dev/null 2>&1 || status=$?
+  [[ "$status" == 12 && -z "$rejected_group" && ! -e "$tmp_dir/unowned-service-started" ]] ||
+    fail "browser service launch accepted missing acquisition ownership"
+)
+
+(
   # A live acquisition anchor does not make its exited Vite child ready.
   exit_for_requested_shutdown() { return 0; }
-  process_group_running() { return 0; }
+  browser_process_group_running() { return 0; }
   port_owned_by_process_group() { fail "bind failure reached listener polling"; }
   write_startup_diagnostics() { printf '%s\n' "$*" >"$tmp_dir/bind-failure"; }
   sleep() { fail "bind failure entered readiness retry"; }
@@ -189,7 +202,7 @@ assert_stack_publication_failure() {
       TEST_SERVICES_BIN=""
       SERVER_PGID=""
       VITE_PGID=""
-      CHILD_PGID=""
+      CHILD_HANDLE=""
       BACKEND_PORT=39881
       FRONTEND_PORT=39882
       PORT_LEASE_DIRS=()
@@ -256,7 +269,7 @@ verification_failure_output="$(
     TEST_SERVICES_METADATA_FILE=""
     SERVER_PGID=""
     VITE_PGID=""
-    CHILD_PGID=""
+    CHILD_HANDLE=""
     BACKEND_PORT=39883
     FRONTEND_PORT=39884
     PORT_LEASE_DIRS=()
@@ -367,34 +380,105 @@ fi
   fail "bounded private failure diagnostic lost its safe failure class"
 TEST_ROUTE_TOKEN=""
 
-# A launcher may exit before a reporter descendant in the same process group.
-# Group liveness and cleanup must follow the whole group, not the leader PID.
+# The qualified native owner drains descendants on leader exit and preserves
+# that leader's original result. Register the fixture before any assertion.
 descendant_group=""
-start_process_group descendant_group "" bash -c 'sleep 120 &'
-sleep 0.3
-process_group_running "$descendant_group" ||
-  fail "process-group liveness lost a live descendant after leader exit"
-stop_process_group "$descendant_group" ||
-  fail "descendant process-group cleanup"
-if process_group_running "$descendant_group"; then
+start_owned_command descendant_group "" bash -c 'sleep 120 </dev/null >/dev/null 2>&1 & exit 17'
+cleanup_groups+=("$descendant_group")
+for _ in $(seq 1 300); do
+  if ! owned_command_running "$descendant_group"; then break; fi
+  sleep 0.02
+done
+stop_owned_command "$descendant_group" || fail "descendant process-group cleanup"
+if owned_command_running "$descendant_group"; then
   fail "descendant process group remained live after cleanup"
+fi
+if owned_command_result "$descendant_group"; then descendant_status=0; else descendant_status=$?; fi
+[[ "$descendant_status" -eq 17 ]] || fail "descendant settlement changed leader status"
+stop_owned_command "$descendant_group" || fail "repeated descendant settlement"
+
+# Native exec must preserve the inherited admission descriptor, including the
+# same open-file-description lock. This subshell never replaces the parent lease.
+(
+  admission_fixture="$tmp_dir/native-admission"
+  exec 9>"$admission_fixture"
+  flock -s 9
+  admission_identity="$(stat -Lc '%d:%i' /proc/self/fd/9)"
+  admission_command=""
+  trap 'stop_owned_command "$admission_command"' EXIT
+  # Expansion belongs to the native-owned child shell.
+  # shellcheck disable=SC2016
+  start_owned_command admission_command "" bash -c '
+    [[ "$(stat -Lc "%d:%i" /proc/self/fd/9)" == "$1" ]] || exit 41
+    if ! grep -Eq "FLOCK[[:space:]]+ADVISORY[[:space:]]+READ" /proc/self/fdinfo/9; then exit 42; fi
+    printf "admitted\n" >"$2"
+    sleep 60
+  ' fixture "$admission_identity" "$tmp_dir/native-admission-ready"
+  for _ in $(seq 1 250); do
+    [[ -f "$tmp_dir/native-admission-ready" ]] && break
+    sleep 0.02
+  done
+  [[ -f "$tmp_dir/native-admission-ready" ]] || fail "native command lost inherited workspace admission"
+  stop_owned_command "$admission_command"
+  trap - EXIT
+)
+
+# Force PID reuse at the projection boundary while keeping real native owners.
+# The old opaque handle must never control the later acquisition.
+if bash -s -- "$ROOT_DIR" <<'FIXTURE'
+set -euo pipefail
+source "$1/tools/harness/readiness/process-lifecycle.sh"
+fixture_binary="${CARTULARY_HARNESS_RUNTIME_BIN:-$1/$CARTULARY_LAYOUT_TOOLBIN/cartulary-harness}"
+lifecycle_native() {
+  if [[ "$1" == ready ]]; then
+    "$fixture_binary" owned-command "$@" >/dev/null || return $?
+    printf '%s\n' 424242
+  else
+    "$fixture_binary" owned-command "$@"
+  fi
+}
+first_handle=""; second_handle=""
+trap 'stop_owned_command "$first_handle"; stop_owned_command "$second_handle"' EXIT
+start_owned_command first_handle "" sleep 60
+[[ "$(owned_command_pid "$first_handle")" == 424242 ]]
+stop_owned_command "$first_handle"
+start_owned_command second_handle "" sleep 60
+[[ "$first_handle" != "$second_handle" && "$(owned_command_pid "$second_handle")" == 424242 ]]
+stop_owned_command "$first_handle"
+owned_command_running "$second_handle"
+status=0
+owned_command_result "$first_handle" || status=$?
+[[ "$status" == 143 ]]
+for operation in stop_owned_command owned_command_running owned_command_result owned_command_pid; do
+  status=0
+  "$operation" 424242 || status=$?
+  [[ "$status" == 12 ]]
+done
+owned_command_running "$second_handle"
+stop_owned_command "$second_handle"
+trap - EXIT
+FIXTURE
+then
+  :
+else
+  fail "reused PID projection crossed native command lifetimes"
 fi
 
 # Port ownership survives the transient allocator shell and becomes stale only
 # after the transferred live owner exits.
 export CARTULARY_WEB_E2E_PORT_LEASE_ROOT="$tmp_dir/port-leases"
 PORT_LEASE_DIRS=()
-setsid sleep 120 &
-lease_owner_pid=$!
-cleanup_pids+=("$lease_owner_pid")
+lease_owner_handle=""
+start_owned_command lease_owner_handle "" sleep 120
+cleanup_groups+=("$lease_owner_handle")
+lease_owner_pid="$(owned_command_pid "$lease_owner_handle")"
 reserve_port_lease 39001 frontend || fail "initial port lease reservation"
 transfer_port_lease_for_port 39001 "$lease_owner_pid" ||
   fail "port lease ownership transfer"
 if reserve_port_lease 39001 frontend; then
   fail "live transferred port lease must remain exclusive"
 fi
-kill -TERM "$lease_owner_pid" >/dev/null 2>&1 || true
-wait "$lease_owner_pid" >/dev/null 2>&1 || true
+stop_owned_command "$lease_owner_handle" || fail "transferred port owner settlement"
 remove_stale_port_lease "$(port_lease_dir 39001)" ||
   fail "dead transferred port lease must become reclaimable"
 [[ ! -d "$(port_lease_dir 39001)" ]] ||

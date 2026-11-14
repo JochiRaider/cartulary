@@ -177,12 +177,22 @@ func appendCommittedIntent(t testing.TB, pool *pgxpool.Pool, writer privatestrea
 	if err != nil {
 		t.Fatalf("begin intent transaction: %v", err)
 	}
+	defer rollbackStreamTestTransaction(t, tx)
 	if err := writer.AppendTx(ctx, tx, intent); err != nil {
-		_ = tx.Rollback(ctx)
 		t.Fatalf("append durable intent: %v", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatalf("commit durable intent: %v", err)
+	}
+}
+
+// A failed assertion must not retain a pool connection or a source-state lock.
+func rollbackStreamTestTransaction(t testing.TB, tx pgx.Tx) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+		t.Errorf("retire stream-test transaction: %v", err)
 	}
 }
 

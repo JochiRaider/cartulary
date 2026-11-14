@@ -23,6 +23,7 @@ type collectionReviewInput struct {
 }
 
 func TestCollectionReviewRouteResolve_Integration(t *testing.T) {
+	exerciseHostIdentityCollectionConflicts(t)
 	harness, login, actorID, incidentID := ConflictFixture(t, "workbook-collection-review", "IR-WORKBOOK-COLLECTION-REVIEW")
 	// Each closure owns its subject's complete payload and reference arrangement.
 	// No case consumes a record version or subject mutated by another case.

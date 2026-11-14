@@ -11,6 +11,31 @@ import (
 )
 
 func TestCanonicalConflictWindowUsesRetainedFactsWithoutTimestampInference_Unit(t *testing.T) {
+	t.Run("owner object paths preserve colliding member names", func(t *testing.T) {
+		paths := map[string][]string{"parent.owner": {"owner"}, "child.owner": {"child", "owner"}, "child.nullable": {"child", "nullable"}, "literal.owner": {"child.owner"}}
+		projector, err := NewRevisionSnapshotPathProjector("fixture.nested.v2", paths)
+		if err != nil {
+			t.Fatal(err)
+		}
+		paths["child.owner"][0] = "changed"
+		delete(paths, "parent.owner")
+		projected, ok := projector.Project([]byte(`{"snapshot_schema_id":"fixture.nested.v2","record":{},"source":{"owner":"parent","child":{"owner":"child","nullable":null},"child.owner":"literal"}}`))
+		want := map[string]any{"cells": map[string]any{"parent.owner": map[string]any{"value": "parent"}, "child.owner": map[string]any{"value": "child"}, "child.nullable": map[string]any{"value": nil}, "literal.owner": map[string]any{"value": "literal"}}}
+		if !ok || !reflect.DeepEqual(projected, want) {
+			t.Fatalf("nested projection = %#v, %t", projected, ok)
+		}
+		for _, child := range []string{`null`, `"scalar"`, `{}`} {
+			projected, ok := projector.Project([]byte(`{"snapshot_schema_id":"fixture.nested.v2","record":{},"source":{"owner":"parent","child":` + child + `}}`))
+			if !ok || !reflect.DeepEqual(projected, map[string]any{"cells": map[string]any{"parent.owner": map[string]any{"value": "parent"}}}) {
+				t.Fatalf("absent nested path borrowed another owner: %#v", projected)
+			}
+		}
+		for _, path := range [][]string{nil, {}, {""}, {"child", " "}} {
+			if _, err := NewRevisionSnapshotPathProjector("fixture.nested.v2", map[string][]string{"field.key": path}); !errors.Is(err, ErrInvalidSnapshotProjector) {
+				t.Fatalf("invalid source path admitted: %#v", path)
+			}
+		}
+	})
 	fields := []string{
 		"timeline.host_refs",
 		"timeline.identity_refs",

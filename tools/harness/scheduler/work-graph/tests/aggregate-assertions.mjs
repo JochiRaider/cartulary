@@ -105,10 +105,19 @@ export function assertAssuranceUnions(compiler, plans) {
   }
   assert.deepEqual(ci.graph.units.filter((unit) => unit.row_bindings.some((binding) => binding.row_id === scannerRow)), [scanner]);
   const outputCases = compiler.compilePrivateSelection("harness.assurance_tool_output_real_targets");
-  const outputUnits = outputCases.units.filter((unit) => unit.unit_id.startsWith("operation:harness.assurance_output_"));
-  const caseArguments = outputUnits.map((unit) => compiler.owner.operations[unit.unit_id.slice("operation:".length)].execution.command.at(-1));
+  const outputUnits = outputCases.units.flatMap((unit) => {
+    const operationIDs = unit.row_bindings.length
+      ? unit.row_bindings.map(({ row_id }) => compiler.catalog.rowByID.get(row_id).selector.operation_id)
+      : [unit.unit_id.replace(/^operation:/u, "")];
+    return operationIDs.filter((id) => id?.startsWith("harness.assurance_output_") && id !== "harness.assurance_output_contract")
+      .map((id) => ({ unit, operation: compiler.owner.operations[id] }));
+  });
+  assert.equal(outputCases.units.filter((unit) => unit.row_bindings.some(({ row_id }) =>
+    row_id === "harness.command_surface.behavior.real_output_contract")).length, 1,
+  "parser contract remains one separate canonical assertion boundary");
+  const caseArguments = outputUnits.map(({ operation }) => operation.execution.command.at(-1));
   assert.deepEqual(caseArguments.sort(), ["backend-unit", "backend-unit-machine", "build", "build-machine", "check", "check-machine", "invalid-usage", "lint", "owner-json", "source-schema", "test-fast"]);
-  assert.equal(new Set(outputUnits.map((unit) => unit.semantic_digest)).size, outputUnits.length, "each distinct output assertion is one separately bounded execution");
+  assert.equal(new Set(outputUnits.map(({ unit }) => unit.semantic_digest)).size, outputUnits.length, "each distinct output assertion is one separately bounded execution");
   const artifacts = compiler.compilePrivateSelection("harness.contract_artifact_consumers");
   assert.deepEqual(selectedRows(artifacts), ["harness.browser.boundary_support.frontend_artifact_lifetime", "package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b"]);
   assert.deepEqual(artifacts, compiler.compileRows(selectedRows(artifacts)), "artifact preset preserves exact row execution");

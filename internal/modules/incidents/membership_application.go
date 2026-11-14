@@ -181,10 +181,6 @@ func (a *Application) UpdateMembership(
 	if !request.admitted {
 		return MembershipRecord{}, false, errInvalidMutationAdmission
 	}
-	mutationTime, err := a.recordedMutationTime()
-	if err != nil {
-		return MembershipRecord{}, false, err
-	}
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return MembershipRecord{}, false, fmt.Errorf("begin membership patch transaction: %w", err)
@@ -223,6 +219,11 @@ func (a *Application) UpdateMembership(
 	}
 	if wouldLeaveNoIncidentAdmins(current.Role, adminCount, &request.role, false) {
 		return MembershipRecord{}, false, ErrLastIncidentAdmin
+	}
+
+	mutationTime, err := a.recordedMutationTime()
+	if err != nil {
+		return MembershipRecord{}, false, err
 	}
 
 	updated, err := txRepository.updateMembership(ctx, updateMembershipPersistenceParams{
@@ -272,10 +273,6 @@ func (a *Application) DeleteMembership(
 	if !request.admitted {
 		return MembershipDeleteResult{}, errInvalidMutationAdmission
 	}
-	mutationTime, err := a.recordedMutationTime()
-	if err != nil {
-		return MembershipDeleteResult{}, err
-	}
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return MembershipDeleteResult{}, fmt.Errorf("begin membership delete transaction: %w", err)
@@ -308,6 +305,11 @@ func (a *Application) DeleteMembership(
 	}
 	if wouldLeaveNoIncidentAdmins(current.Role, adminCount, nil, true) {
 		return MembershipDeleteResult{}, ErrLastIncidentAdmin
+	}
+
+	mutationTime, err := a.recordedMutationTime()
+	if err != nil {
+		return MembershipDeleteResult{}, err
 	}
 
 	if err := txRepository.deleteMembership(ctx, incidentID, userID); err != nil {

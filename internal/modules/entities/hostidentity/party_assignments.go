@@ -45,19 +45,43 @@ func applyPartyAssignmentActionsTx(ctx context.Context, tx pgx.Tx, incidentID, r
 			return nil, invalidMutationPayload(field, "invalid_value")
 		}
 	}
-	result, err := links.NewStore().ApplyPartyRefCollectionWithMutationValuesTx(ctx, tx, command)
-	if err != nil {
-		var invalid *links.CollectionValidationError
-		if errors.As(err, &invalid) {
-			return nil, invalidMutationPayload(field, "invalid_value")
-		}
-		return nil, err
+	// Lock the whole addition set before executing the ordered actions. Reusing
+	// the set command for the entire payload would move every add before every
+	// remove and change both membership and retained Link identity.
+	store := links.NewStore()
+	if err := store.ValidatePartyRefCollectionTx(ctx, tx, links.PartyRefCollectionValidation{
+		IncidentID: incidentID, FieldKey: field, LinkType: command.LinkType,
+		ExpectedTargetType: command.ExpectedTargetType, AddPartyIDs: command.AddPartyIDs,
+	}); err != nil {
+		return nil, partyAssignmentMutationError(field, err)
 	}
-	mutations := make([]collectionMutation, 0, len(result.Mutations()))
-	for _, m := range result.Mutations() {
-		mutations = append(mutations, collectionMutation{targetKind: m.TargetKind(), targetID: m.TargetID(), operationKind: m.OperationKind(), beforeValue: m.BeforeValue(), afterValue: m.AfterValue()})
+	var mutations []collectionMutation
+	for _, action := range actions {
+		step := command
+		step.AddPartyIDs, step.RemovePartyIDs = nil, nil
+		if action.Op == "add_party_ref" {
+			step.AddPartyIDs = []uuid.UUID{action.PartyID}
+		} else {
+			id, _ := links.ParsePartyRefItemRef(action.ItemRef) // Validated above.
+			step.RemovePartyIDs = []uuid.UUID{id}
+		}
+		result, err := store.ApplyPartyRefCollectionWithMutationValuesTx(ctx, tx, step)
+		if err != nil {
+			return nil, partyAssignmentMutationError(field, err)
+		}
+		for _, m := range result.Mutations() {
+			mutations = append(mutations, collectionMutation{targetKind: m.TargetKind(), targetID: m.TargetID(), operationKind: m.OperationKind(), beforeValue: m.BeforeValue(), afterValue: m.AfterValue()})
+		}
 	}
 	return mutations, nil
+}
+
+func partyAssignmentMutationError(field string, err error) error {
+	var invalid *links.CollectionValidationError
+	if errors.As(err, &invalid) {
+		return invalidMutationPayload(field, "invalid_value")
+	}
+	return err
 }
 
 func applyPartyAssignmentAddsTx(ctx context.Context, tx pgx.Tx, incidentID, recordID uuid.UUID, adds map[string][]CollectionAction, actorID uuid.UUID, now time.Time) ([]collectionMutation, error) {
@@ -139,4 +163,22 @@ func (s *mutationCore) appendCollectionMutationsTx(ctx context.Context, tx pgx.T
 		}
 	}
 	return nil
+}
+
+// Conflict previews borrow the ordinary Links admission capability, including
+// its complete, canonical addition-target protection before labels are read.
+func partyAssignmentConflictLabelsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, field string, actions []CollectionAction) (map[uuid.UUID]string, error) {
+	var ids []uuid.UUID
+	for _, action := range actions {
+		if action.Op == "add_party_ref" {
+			ids = append(ids, action.PartyID)
+		}
+	}
+	if len(ids) == 0 {
+		return map[uuid.UUID]string{}, nil
+	}
+	if err := links.NewStore().ValidatePartyRefCollectionTx(ctx, tx, links.PartyRefCollectionValidation{IncidentID: incidentID, FieldKey: field, LinkType: links.LinkTypeReferencesRecord, ExpectedTargetType: "party", AddPartyIDs: ids}); err != nil {
+		return nil, partyAssignmentMutationError(field, err)
+	}
+	return partyreferences.LoadLabels(ctx, tx, incidentID, ids)
 }

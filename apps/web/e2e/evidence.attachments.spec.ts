@@ -179,6 +179,18 @@ test("refreshes a second live workbook from the real evidence attach stream", as
     await expect(
       listener.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeVisible();
+    await openTimelineInspector(listener, timelineRow.record_id);
+    const evidencePanel = listener.getByRole("region", {
+      name: "Timeline evidence",
+      exact: true,
+    });
+    await expect(
+      evidencePanel.getByText("Attached evidence count: 0", { exact: true }),
+    ).toBeVisible();
+    await expect(evidencePanel).toHaveAttribute(
+      "data-evidence-count-state",
+      "empty",
+    );
 
     await openTimelineSurface(page, incidentId);
     await openTimelineInspector(page, timelineRow.record_id);
@@ -194,6 +206,13 @@ test("refreshes a second live workbook from the real evidence attach stream", as
     await socketMonitor.waitForMessage("record_changed", {
       matches: (message) => message.payload.record_id === timelineRow.record_id,
     });
+    await expect(
+      evidencePanel.getByText("Attached evidence count: 1", { exact: true }),
+    ).toBeVisible();
+    await expect(evidencePanel).toHaveAttribute(
+      "data-evidence-count-state",
+      "available",
+    );
     await expect
       .poll(async () => {
         const rows = await queryViewRows(

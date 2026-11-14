@@ -241,13 +241,21 @@ SELECT 1;
 	if err := migrations.ApplyWithCryptoAdmission(ctx, db, guard, canonical, emptyCryptoDependencies); !errors.Is(err, migrations.ErrIncompatibleCryptoState) {
 		t.Fatalf("interrupted retry = %v", err)
 	}
-	var unlocked bool
-	if err := guard.QueryRowContext(ctx, `SELECT pg_try_advisory_lock(4097083627::bigint)`).Scan(&unlocked); err != nil || !unlocked {
-		t.Fatalf("lock not released: %v", err)
-	}
-	if _, err := guard.ExecContext(ctx, `SELECT pg_advisory_unlock(4097083627::bigint)`); err != nil {
+	probe, err := guard.Conn(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer probe.Close()
+	var unlocked bool
+	if err := probe.QueryRowContext(ctx, `SELECT pg_try_advisory_lock(4097083627::bigint)`).Scan(&unlocked); err != nil || !unlocked {
+		t.Fatalf("lock not released: %v", err)
+	}
+	unlock := migrationFixtureUnlock(probe, 4097083627)
+	defer func() {
+		if err := unlock(); err != nil {
+			t.Errorf("settle admission lock probe: %v", err)
+		}
+	}()
 }
 
 func TestCryptoAdmissionConnectionLossNeverPublishesIdentity_Integration(t *testing.T) {
@@ -279,13 +287,35 @@ func TestCryptoAdmissionConnectionLossNeverPublishesIdentity_Integration(t *test
 	if _, err := holder.ExecContext(ctx, `SELECT pg_advisory_lock(4097083626::bigint)`); err != nil {
 		t.Fatal(err)
 	}
-	defer holder.ExecContext(context.Background(), `SELECT pg_advisory_unlock(4097083626::bigint)`)
+	unlock := migrationFixtureUnlock(holder, 4097083626)
+	defer func() {
+		if err := unlock(); err != nil {
+			t.Errorf("settle migration lock holder: %v", err)
+		}
+	}()
 	source, err := dbmigrations.Source()
 	if err != nil {
 		t.Fatal(err)
 	}
 	result := make(chan error, 1)
 	go func() { result <- migrations.ApplyWithCryptoAdmission(ctx, db, guard, source, emptyCryptoDependencies) }()
+	settled := false
+	defer func() {
+		cancel()
+		if err := unlock(); err != nil {
+			t.Errorf("release lock before initializer settlement: %v", err)
+		}
+		if !settled {
+			// Allow the owner's detached 30-second unlock budget to finish.
+			timer := time.NewTimer(35 * time.Second)
+			defer timer.Stop()
+			select {
+			case <-result:
+			case <-timer.C:
+				t.Error("initializer did not settle after cancellation")
+			}
+		}
+	}()
 	for {
 		var present bool
 		if err := admin.QueryRowContext(ctx, `SELECT to_regclass('public.goose_db_version') IS NOT NULL`).Scan(&present); err != nil {
@@ -296,6 +326,7 @@ func TestCryptoAdmissionConnectionLossNeverPublishesIdentity_Integration(t *test
 		}
 		select {
 		case err := <-result:
+			settled = true
 			t.Fatalf("initialization ended before ledger: %v", err)
 		case <-ctx.Done():
 			t.Fatal(ctx.Err())
@@ -315,10 +346,12 @@ func TestCryptoAdmissionConnectionLossNeverPublishesIdentity_Integration(t *test
 	if err := migrations.ApplyWithCryptoAdmission(ctx, db, retryGuard, source, emptyCryptoDependencies); !errors.Is(err, migrations.ErrIncompatibleCryptoState) {
 		t.Fatalf("lost-session retry = %v", err)
 	}
-	if _, err := holder.ExecContext(ctx, `SELECT pg_advisory_unlock(4097083626::bigint)`); err != nil {
+	if err := unlock(); err != nil {
 		t.Fatal(err)
 	}
-	if err := <-result; err == nil {
+	err = <-result
+	settled = true
+	if err == nil {
 		t.Fatal("lost session published success")
 	}
 	var count int

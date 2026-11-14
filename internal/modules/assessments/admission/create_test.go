@@ -2,6 +2,7 @@ package admission
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -92,6 +93,31 @@ func TestCreateRequestAdmissionRejectsNonContractualShapes(t *testing.T) {
 		wantReason string
 	}{
 		{
+			name:       "null assessment timestamp",
+			body:       `{"client_txn_id":"txn","assessment.assessed_at":null}`,
+			wantField:  "assessment.assessed_at",
+			wantReason: "invalid_value",
+		},
+		{
+			name:       "timezone-less assessment timestamp",
+			body:       `{"client_txn_id":"txn","assessment.assessed_at":"2026-04-24T12:00:00"}`,
+			wantField:  "assessment.assessed_at",
+			wantReason: "invalid_value",
+		},
+		{
+			name:       "padded assessment timestamp",
+			body:       `{"client_txn_id":"txn","assessment.assessed_at":" 2026-04-24T12:00:00Z"}`,
+			wantField:  "assessment.assessed_at",
+			wantReason: "invalid_value",
+		},
+		{
+			name: "client support confidence",
+			body: `{"client_txn_id":"txn","assessment.support_refs":{"kind":"collection_actions_v1","actions":[` +
+				`{"op":"add_record_ref","linked_record_id":"20000000-0000-4000-8000-000000000002","confidence":80}]}}`,
+			wantField:  "assessment.support_refs",
+			wantReason: "invalid_value",
+		},
+		{
 			name:       "unknown field",
 			body:       `{"client_txn_id":"txn","assessment.future":true}`,
 			wantField:  "assessment.future",
@@ -131,7 +157,7 @@ func TestCreateRequestAdmissionRejectsNonContractualShapes(t *testing.T) {
 			if apiErr == nil {
 				t.Fatal("expected invalid mutation payload")
 			}
-			if apiErr.Code != "invalid_mutation_payload" || apiErr.Details["field"] != test.wantField || apiErr.Details["reason_code"] != test.wantReason {
+			if apiErr.Status != http.StatusBadRequest || apiErr.Code != "invalid_mutation_payload" || apiErr.Details["field"] != test.wantField || apiErr.Details["reason_code"] != test.wantReason {
 				t.Fatalf("error = %#v", apiErr)
 			}
 		})

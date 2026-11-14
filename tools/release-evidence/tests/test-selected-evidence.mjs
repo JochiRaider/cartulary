@@ -8,6 +8,7 @@ import { verifySelectedEvidence, packageConsumerNames, qualificationRequirements
 import { verifyPackageIdentity } from "../package-identity.mjs";
 import { WorkGraphCompiler } from "../../harness/scheduler/work-graph/index.mjs";
 import { loadTestCatalog } from "../../harness/test-catalog/index.mjs";
+import { validateSchemaSync } from "../../harness/contract/index.mjs";
 
 test("release obligations resolve current owners and reject duplicate, unknown or ownerless claims", () => {
   const root = path.resolve(import.meta.dirname, "../../..");
@@ -17,6 +18,13 @@ test("release obligations resolve current owners and reject duplicate, unknown o
   const required = qualificationRequirements(policy, catalog, compile);
   assert.ok(required.row_ids.includes("module.database_migrations.integration.production_preflight_state_matrix"));
   assert.ok(required.operation_ids.includes("harness.package_release"));
+  const entra = policy.obligations.find(value => value.obligation_id === "reference.entra_retention");
+  const entraSources = [
+    "module.reference_data.unit.independent_entra_producer",
+    "module.reference_data.unit.independent_entra_source_model",
+  ];
+  assert.deepEqual(entra.row_ids.filter(id => id.includes("entra") && (id.includes("producer") || id.includes("source_model"))), entraSources);
+  for (const id of entraSources) assert.ok(required.row_ids.includes(id), `missing Entra source qualification: ${id}`);
   for (const [change, error] of [
     [value => value.obligations.push(structuredClone(value.obligations[0])), /duplicate release obligation/],
     [value => value.obligations[0].row_ids.push("module.absent.unit.missing"), /unknown release row/],
@@ -36,7 +44,7 @@ const receipt = {
   operator_sha256: "d".repeat(64), inventory_disposition: "content_complete_review_unestablished",
 };
 
-function fixture(t) {
+function fixture(t, failedOperation = null) {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-selected-release-"));
   t.after(() => rmSync(root, {recursive: true, force: true}));
   const identity = loadFixtureIdentity("package-inspect");
@@ -47,7 +55,8 @@ function fixture(t) {
     unit.current_run_evidence_outputs = [`unit-results/${unit.unit_id.replace(":", "-")}.json`];
     const projections = {"package-inspect": {command_id: identity.commandID, unit_ids: [unit.unit_id]}};
     if (packageConsumerNames.includes(name)) projections[name] = {command_id: identity.commandID, unit_ids: [unit.unit_id]};
-    const evidence = buildCompleteEvidence({runID: `independent-${name}`, target: "package-inspect", identity, units: [unit], projections});
+    const outcomes = name === failedOperation ? { [unit.unit_id]: "failed" } : {};
+    const evidence = buildCompleteEvidence({runID: `independent-${name}`, target: "package-inspect", identity, units: [unit], projections, outcomes});
     const original = `unit-results/${unit.unit_id}.json`;
     evidence.files[unit.current_run_evidence_outputs[0]] = evidence.files[original];
     delete evidence.files[original];
@@ -83,13 +92,31 @@ test("selected release evidence accepts one complete package and rejects missing
   const cleanup = structuredClone(f.evidence.files["cleanup-results.json"]);
   cleanup.results[0].outcome = "failed";
   f.save("cleanup-results.json", cleanup);
-  await assert.rejects(verifySelectedEvidence(f.options));
+  await assert.rejects(verifySelectedEvidence(f.options), /cartulary\.harness_cleanup_results\.v2/u, "malformed cleanup is a separate admission failure");
+  Object.assign(cleanup.results[0], {
+    failure_class: "harness", failure_reason: "cleanup_error",
+    failures: [{ failure_class: "harness", failure_reason: "cleanup_error" }],
+    diagnostic: { schema_id: "cartulary.harness_cleanup_diagnostic.v4", stage: "host_release", cause: "io", errno: 5 },
+  });
+  validateSchemaSync("cartulary.harness_cleanup_results.v2", cleanup);
+  f.save("cleanup-results.json", cleanup);
+  await assert.rejects(verifySelectedEvidence(f.options), /^Error: retained cleanup did not complete$/u);
+  const blocked = structuredClone(f.evidence.files["cleanup-results.json"]);
+  blocked.results[0].outcome = "blocked";
+  validateSchemaSync("cartulary.harness_cleanup_results.v2", blocked);
+  f.save("cleanup-results.json", blocked);
+  await assert.rejects(verifySelectedEvidence(f.options), /^Error: retained cleanup did not complete$/u);
   f.save("cleanup-results.json", f.evidence.files["cleanup-results.json"]);
   f.save("retained-secret-scan.json", {...f.evidence.files["retained-secret-scan.json"], status: "fail"});
-  await assert.rejects(verifySelectedEvidence(f.options));
+  await assert.rejects(verifySelectedEvidence(f.options), /cartulary\.harness_retained_secret_scan\.v1 validation failed/u);
   f.save("retained-secret-scan.json", f.evidence.files["retained-secret-scan.json"]);
   rmSync(path.join(f.root, packageConsumerNames[1], `${packageConsumerNames[1]}/artifacts/package.json`));
   await assert.rejects(verifySelectedEvidence(f.options));
+});
+
+test("selected release evidence rejects a complete failed invocation before acceptance", async t => {
+  const f = fixture(t, "package-release");
+  await assert.rejects(verifySelectedEvidence(f.options), /^Error: retained invocation did not pass$/u);
 });
 
 test("release closure requires explicit roots and its Make selection launches no test or service work", () => {

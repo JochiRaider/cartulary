@@ -13,6 +13,7 @@ import (
 )
 
 func TestCoordinator_Unit_ExecutesDeterministicBoundedProtocol(t *testing.T) {
+	assertPhaseInputOwnership(t)
 	assertOwnerPreconditionBoundary(t)
 	assertRollbackConflictOutcomes(t)
 	assertRollbackInterruptionOutcomes(t)
@@ -47,6 +48,8 @@ func TestCoordinator_Unit_ExecutesDeterministicBoundedProtocol(t *testing.T) {
 }
 
 func TestCoordinator_Unit_RejectsLimitsAndMalformedKeysBeforeTransaction(t *testing.T) {
+	assertNilCapabilityAdmission(t)
+	assertProtocolCardinalityLimits(t)
 	assertProtocolByteLimits(t)
 	assertProtocolContractAdmission(t)
 	backend := &backendFake{tx: &transactionFake{}}
@@ -140,6 +143,7 @@ func TestCoordinator_Unit_ClosedCommitOutcomesAndNoRetry(t *testing.T) {
 }
 
 func TestCoordinator_Unit_DeadlineOverflowAndBoundaryTie(t *testing.T) {
+	assertDeadlineArithmeticAndInheritance(t)
 	calls := 0
 	clock := func() int64 {
 		calls++

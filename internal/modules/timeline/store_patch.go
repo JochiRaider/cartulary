@@ -106,6 +106,19 @@ func (s *store) clearConflict(ctx context.Context, actor authn.UserRecord, recor
 }
 
 func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time, routeKey string) (MutationResult, error) {
+	preparation := &referencePreparation{}
+	for {
+		result, err := s.applyPatchAttempt(ctx, actor, recordID, request, requestHash, requestID, now, routeKey, preparation)
+		if !errors.Is(err, errReferencePreparationChanged) {
+			return result, err
+		}
+		if err := ctx.Err(); err != nil {
+			return MutationResult{}, err
+		}
+	}
+}
+
+func (s *store) applyPatchAttempt(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time, routeKey string, preparation *referencePreparation) (MutationResult, error) {
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    routeKey,
 		ActorUserID: actor.ID,
@@ -138,6 +151,9 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 		_ = tx.Rollback(ctx)
 	}()
 
+	if err := s.prepareReferencesTx(ctx, tx, uuid.Nil, []referenceRow{{recordID: recordID, changes: request.CanonicalChange}}, true, preparation); err != nil {
+		return MutationResult{}, err
+	}
 	current, err := s.loadSourceRecordTx(ctx, tx, recordID)
 	if err != nil {
 		return MutationResult{}, err
@@ -162,7 +178,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 			if err := s.hydrateProjectedCollections(ctx, tx, &currentProjected); err != nil {
 				return MutationResult{}, err
 			}
-			conflict, err := s.buildSameFieldConflict(recordID, currentProjected, request.BaseRowVersion, requestHash, window, change, changed)
+			conflict, err := s.buildSameFieldConflictTx(ctx, tx, recordID, currentProjected, request.BaseRowVersion, requestHash, window, change, changed)
 			if err != nil {
 				return MutationResult{}, err
 			}
@@ -228,7 +244,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	materialChanged := hasMaterialChange(current, next)
 	var mentionLinkMutations []attachedEvidenceMutation
 	if mentionChanged {
-		mentionResult, err := s.applyPatchMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, request.CanonicalChange, now.UTC())
+		mentionResult, err := s.applyPatchMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, request.CanonicalChange, preparation.auto, now.UTC())
 		if err != nil {
 			return MutationResult{}, err
 		}
@@ -254,6 +270,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 			return MutationResult{}, err
 		}
 	}
+	evidenceChanged = len(attachedEvidenceMutations) > 0
 	linkMutations := append(mentionLinkMutations, attachedEvidenceMutations...)
 	if !materialChanged && !mentionChanged && !tagChanged && !evidenceChanged {
 		return MutationResult{}, ErrNoEffectiveChange

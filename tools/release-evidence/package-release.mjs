@@ -1,24 +1,21 @@
 // One Make-owned producer. Qualification consumes its immutable archive verbatim.
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { chmodSync, closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { chmodSync, copyFileSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { validateSchemaSync } from "../harness/contract/index.mjs";
+import { publicExitCodeForFailure, validateSchemaSync } from "../harness/contract/index.mjs";
+import { CommandFailure, reportCommandFailure } from "../harness/runtime/command-failure.mjs";
+import { borrowRuntime } from "../harness/runtime/session-client.mjs";
+import { reservePackageResources } from "./package-resources.mjs";
 import { stageRendererInstallation } from "../report-renderer/stage-installation.mjs";
+import { packageRunContext, publishPackageEvidence, readPackageJSON, readPackageReceipt } from "./package-identity.mjs";
+import { hashPackageFile as hashFile, preparePackageArchiveDirectory, publishPackageArchive, withVerifiedPackageArchive } from "./package-archive.mjs";
 
 const root = path.resolve(import.meta.dirname, "../..");
-export const packageArtifactRoot = () => path.join(path.resolve(root, process.env.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results"), process.env.CARTULARY_TEST_RUN_ID || "package-release-manual", "package-release", "artifacts");
 const packageArchiveRoot = path.join(root, ".cartulary/release-artifacts/packages");
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
-function hashFile(file) {
-  const hash=createHash("sha256"), buffer=Buffer.alloc(4*1024*1024), fd=openSync(file,"r");
-  try { let count; while((count=readSync(fd,buffer,0,buffer.length,null))>0) hash.update(buffer.subarray(0,count)); }
-  finally {closeSync(fd);} return hash.digest("hex");
-}
-const json = (file) => JSON.parse(readFileSync(file, "utf8"));
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { cwd: root, encoding: "utf8", timeout: 600000, maxBuffer: 64 * 1024 * 1024, ...options });
   assert.equal(result.status, 0, `${path.basename(command)} failed: ${String(result.stderr || result.error || "").slice(-2000)}`);
@@ -41,15 +38,36 @@ function imageInfo(reference) {
   return image;
 }
 
-export function produce() {
-  const artifacts = packageArtifactRoot();
-  mkdirSync(artifacts, { recursive: true, mode: 0o700 });
-  mkdirSync(packageArchiveRoot,{recursive:true});
-  const stage = mkdtempSync(path.join(packageArchiveRoot, ".stage-"));
-  const payload = path.join(stage, "release"); mkdirSync(payload);
-  const appTag = `cartulary/package-build:${randomUUID()}`;
-  let temporaryContainer;
+export function finalizePackageResources({ allocation, stage, runtime }, primary) {
+  const failures = allocation?.releaseAll() ?? [];
+  const attempt = (step, action) => {
+    try { action(); }
+    catch (cause) {
+      failures.push(Object.assign(new CommandFailure("package producer cleanup failed", {
+        failure_class: "harness", failure_reason: "cleanup_error",
+      }, { cause }), { cleanup_step: step }));
+    }
+  };
+  if (stage) attempt("stage", () => rmSync(stage, { recursive: true, force: true }));
+  if (runtime) attempt("runtime_handle", () => runtime.close());
+  if (failures.length) {
+    if (primary) (primary.cleanupFailures ??= []).push(...failures);
+    else throw Object.assign(new CommandFailure("package producer cleanup failed", {
+      failure_class: "harness", failure_reason: "cleanup_error",
+    }, { cause: new AggregateError(failures) }), { cleanupFailures: failures });
+  }
+}
+
+export function produce({ sourceRoot = root, archiveRoot = packageArchiveRoot } = {}) {
+  const { runRoot } = packageRunContext();
+  const runtime = borrowRuntime({ repoRoot: root, runRoot });
+  let allocation, stage, primary;
   try {
+    preparePackageArchiveDirectory(archiveRoot);
+    const workspace = runtime.producerPath("package-production");
+    mkdirSync(workspace, { recursive: true, mode: 0o700 });
+    stage = mkdtempSync(path.join(workspace, "stage-"));
+    const payload = path.join(stage, "release"); mkdirSync(payload);
     const scanner = process.env.SYFT_BIN;
     assert.ok(scanner && path.isAbsolute(scanner), "Make must supply the pinned inventory tool");
     const scannerBuild = run(process.env.GO || "go", ["version", "-m", scanner]);
@@ -57,17 +75,19 @@ export function produce() {
     write(path.join(payload,"inventories/scanner.json"), {schema_id:"cartulary.image_inventory_tool.v1", module:"github.com/anchore/syft", version:"v1.44.0", binary_sha256:hashFile(scanner)});
     const context = path.join(stage, "image-context");
     mkdirSync(path.join(context, "build/bin"), { recursive: true });
-    for (const binary of ["server", "migrate", "operator"]) copy(path.join(root, "build/bin", binary), path.join(context, "build/bin", binary));
-    copy(path.join(root, "deploy/mvp/Containerfile"), path.join(context, "Containerfile"));
+    for (const binary of ["server", "migrate", "operator"]) copy(path.join(sourceRoot, "build/bin", binary), path.join(context, "build/bin", binary));
+    copy(path.join(sourceRoot, "deploy/mvp/Containerfile"), path.join(context, "Containerfile"));
     for (const directory of ["backups", "exports", "reference-packs", "tmp"]) mkdirSync(path.join(context, "deploy/mvp/runtime-roots", directory), { recursive: true });
-    stageRendererInstallation(path.join(root, "build/report-renderer"), path.join(context, "build/report-renderer"));
+    stageRendererInstallation(path.join(sourceRoot, "build/report-renderer"), path.join(context, "build/report-renderer"));
+    allocation = reservePackageResources(runtime);
+    const appTag = allocation.identity("build_tag").name;
     run("docker", ["build", "--platform", "linux/amd64", "--file", path.join(context, "Containerfile"), "--tag", appTag, context]);
     const application = imageInfo(appTag);
     const immutableTag = `cartulary/local:sha256-${application.Id.slice(7)}`;
     const prior = spawnSync("docker", ["image", "inspect", "--format", "{{.Id}}", immutableTag], { encoding: "utf8" });
     assert.ok(prior.status !== 0 || prior.stdout.trim() === application.Id, "immutable application tag contaminated");
     run("docker", ["tag", application.Id, immutableTag]);
-    const source = path.join(root, "deploy/mvp");
+    const source = path.join(sourceRoot, "deploy/mvp");
     const compose = readFileSync(path.join(source, "docker-compose.yml"), "utf8");
     const references = [...compose.matchAll(/^    image: (docker\.io\/[^\n]+)$/gm)].map((m) => m[1]);
     assert.equal(references.length, 2);
@@ -99,18 +119,21 @@ export function produce() {
       assert.equal(inventoryData.source.metadata.imageID, `sha256:${configSHA256}`);
       assert.ok(inventoryData.artifacts.length > 0, "empty shipped-content inventory");
       write(path.join(payload, inventory), inventoryData);
-      temporaryContainer = run("docker", ["create", "--label", "cartulary.package.producer=true", reference]);
+      const identity = allocation.identity(role);
+      const temporaryContainer = run("docker", ["create", "--name", identity.name,
+        ...Object.entries(identity.labels).flatMap(([key, value]) => ["--label", `${key}=${value}`]), reference]);
+      assert.match(temporaryContainer, /^[a-f0-9]{64}$/u);
       if (role === "application") for (const binary of ["migrate", "operator", "server"]) {
         const output = path.join(stage, binary);
         run("docker", ["cp", `${temporaryContainer}:/usr/local/bin/cartulary-${binary}`, output]);
-        const receipt = json(path.join(root, "build/bin", `${binary}.crypto.json`));
+        const receipt = readPackageJSON(sourceRoot, `build/bin/${binary}.crypto.json`, "cartulary.cryptographic_build_receipt.v1");
         assert.equal(receipt.binary_sha256, hashFile(output), "shipped binary differs from admitted receipt");
-        copy(path.join(root, "build/bin", `${binary}.crypto.json`), path.join(payload, "receipts", `${binary}.crypto.json`));
+        write(path.join(payload, "receipts", `${binary}.crypto.json`), receipt);
         binaries[binary] = { sha256: receipt.binary_sha256, receipt: `receipts/${binary}.crypto.json` };
       }
       const exported = path.join(stage, `${role}-filesystem.tar`);
       run("docker", ["export", "--output", exported, temporaryContainer]);
-      run("docker", ["rm", temporaryContainer]); temporaryContainer = null;
+      allocation.release(role);
       const candidates = run("tar", ["-tf", exported]).split("\n").filter((entry) => /(^|\/)(copyright|licen[cs]e[^/]*|notice[^/]*)$/i.test(entry) && /^[A-Za-z0-9_./+@ -]+$/.test(entry) && !entry.split("/").includes("..") && !entry.startsWith("/"));
       const noticeFiles = [];
       for (const [index, member] of candidates.entries()) {
@@ -144,47 +167,58 @@ export function produce() {
     const digest = run(path.join(payload, "assets/scripts/release-verify.sh"), [payload, "images"]);
     const archive = path.join(stage, "package.tar");
     run("tar", ["--sort=name", "--mtime=@0", "--owner=0", "--group=0", "--numeric-owner", "-cf", archive, "-C", stage, "release"]);
-    const archiveDigest = hashFile(archive);
-    const destination = path.join(packageArchiveRoot, `${digest}.tar`);
-    if (existsSync(destination)) assert.equal(hashFile(destination), archiveDigest, "same manifest cannot publish different archive bytes");
-    else renameSync(archive, destination);
-    write(path.join(artifacts, "package.json"), { schema_id: "cartulary.local_release_receipt.v1", manifest_sha256: digest, archive_sha256: archiveDigest, archive: path.basename(destination), images: images.map(({role,id}) => ({role,id})), operator_sha256: binaries.operator.sha256, inventory_disposition: "content_complete_review_unestablished" });
-    chmodSync(path.join(artifacts,"package.json"),0o600);
-    return json(path.join(artifacts, "package.json"));
-  } finally {
-    if (temporaryContainer) run("docker", ["rm", "-f", temporaryContainer]);
-    run("docker", ["image", "rm", appTag]);
-    rmSync(stage, { recursive: true, force: true });
-  }
+    const published = publishPackageArchive(archiveRoot, digest, archive);
+    const receipt = { schema_id: "cartulary.local_release_receipt.v1", manifest_sha256: digest, ...published, images: images.map(({role,id}) => ({role,id})), operator_sha256: binaries.operator.sha256, inventory_disposition: "content_complete_review_unestablished" };
+    publishPackageEvidence(runRoot, "package", receipt);
+    return receipt;
+  } catch (error) { primary = error; throw error; }
+  finally { finalizePackageResources({ allocation, stage, runtime }, primary); }
 }
 
-export function unpack(destination) {
-  const artifacts = packageArtifactRoot(), receipt = json(path.join(artifacts, "package.json"));
-  assert.match(receipt.archive, /^[a-f0-9]{64}\.tar$/);
-  const archive = path.join(packageArchiveRoot, receipt.archive);
-  assert.equal(hashFile(archive), receipt.archive_sha256);
-  // The producer's archive is authenticated by its exact receipt before extraction.
-  run("tar", ["--no-same-owner", "--same-permissions", "-xf", archive, "-C", destination]);
+function extractPackage(destination, receipt, runtime, archiveRoot) {
+  // This proves receipt-bound bytes, not the publisher's authenticity.
+  withVerifiedPackageArchive(archiveRoot, receipt, runtime.producerPath("package-snapshots"), archive =>
+    run("tar", ["--no-same-owner", "--same-permissions", "-xf", archive, "-C", destination]));
   const release = path.join(destination, "release");
   assert.equal(run(path.join(release, "assets/scripts/release-verify.sh"), [release, "images"]), receipt.manifest_sha256);
   return { release, receipt };
 }
-export function inspect() {
-  const scratch = mkdtempSync(path.join(tmpdir(), "cartulary-package-inspect-"));
+export function unpack(destination, { archiveRoot = packageArchiveRoot } = {}) {
+  const { runRoot } = packageRunContext(), receipt = readPackageReceipt(runRoot);
+  const runtime = borrowRuntime({ repoRoot: root, runRoot });
+  let primary;
+  try { return extractPackage(destination, receipt, runtime, archiveRoot); }
+  catch (error) { primary = error; throw error; }
+  finally { finalizePackageResources({ runtime }, primary); }
+}
+export function inspect({ archiveRoot = packageArchiveRoot } = {}) {
+  const { runRoot } = packageRunContext();
+  const runtime = borrowRuntime({ repoRoot: root, runRoot });
+  let scratch, primary;
   try {
-    const { release, receipt } = unpack(scratch);
+    const workspace = runtime.producerPath("package-inspection");
+    mkdirSync(workspace, { recursive: true, mode: 0o700 });
+    scratch = mkdtempSync(path.join(workspace, "inspect-"));
+    const { release, receipt } = extractPackage(scratch, readPackageReceipt(runRoot), runtime, archiveRoot);
     const installation = path.join(scratch, "installation");
     run(path.join(release, "assets/scripts/install.sh"), [installation]);
     assert.equal(run(path.join(installation, "release/assets/scripts/release-verify.sh"), [path.join(installation, "release"), "images"]), receipt.manifest_sha256);
     assert.notEqual(spawnSync(path.join(release, "assets/scripts/install.sh"), [installation], { encoding:"utf8" }).status, 0);
-    write(path.join(packageArtifactRoot(), "inspection.json"), { ...receipt, schema_id: "cartulary.local_release_inspection.v1", installed_without_build_toolchain: true, occupied_destination_rejected: true });
-    chmodSync(path.join(packageArtifactRoot(),"inspection.json"),0o600);
-  } finally { rmSync(scratch, {recursive:true,force:true}); }
+    publishPackageEvidence(runRoot, "inspection", { ...receipt, schema_id: "cartulary.local_release_inspection.v1", installed_without_build_toolchain: true, occupied_destination_rejected: true });
+  } catch (error) { primary = error; throw error; }
+  finally { finalizePackageResources({ stage: scratch, runtime }, primary); }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
-  const command = process.argv[2];
-  if (command === "produce") produce();
-  else if (command === "inspect") inspect();
-  else if (command === "unpack") { const {receipt} = unpack(process.argv[3]); process.stdout.write(JSON.stringify(receipt)+"\n"); }
-  else throw new Error("expected produce, inspect, or unpack");
+  try {
+    const command = process.argv[2];
+    if (command === "produce") produce();
+    else if (command === "inspect") inspect();
+    else if (command === "unpack") { const {receipt} = unpack(process.argv[3]); process.stdout.write(JSON.stringify(receipt)+"\n"); }
+    else throw new CommandFailure("unsupported package operation", { failure_class: "config", failure_reason: "usage_error" });
+  } catch (error) {
+    const failure = reportCommandFailure(root, error, { failure_class: "artifact", failure_reason: "artifact_error" });
+    console.error(`Package release failed: ${failure.failure_class}/${failure.failure_reason}`);
+    if (error.cleanupFailures?.length) console.error(`Package producer cleanup failed: ${error.cleanupFailures.length} steps`);
+    process.exitCode = publicExitCodeForFailure(failure);
+  }
 }

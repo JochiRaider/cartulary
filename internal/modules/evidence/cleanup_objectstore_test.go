@@ -33,6 +33,11 @@ func TestEvidenceCleanupObjectDeleterUsesTypedPurposeAndPreservesNotFound(t *tes
 }
 
 func TestEvidenceCleanupObjectDeleterRequiresTypedStore(t *testing.T) {
+	for _, store := range []objectstore.TypedStore{nil, (*cleanupTypedStoreFixture)(nil)} {
+		if value, err := newCleanupObjectDeleter(store); err == nil || value != nil {
+			t.Fatal("cleanup deleter accepted an unusable store")
+		}
+	}
 	field, ok := reflect.TypeOf(OwnerRuntimeDependencies{}).FieldByName("ObjectStore")
 	if !ok {
 		t.Fatal("Evidence owner runtime is missing its object-store dependency")

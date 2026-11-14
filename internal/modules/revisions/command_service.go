@@ -75,6 +75,7 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		deleteRestoreSources:   dependencies.DeleteRestoreSources,
 		targetSemantics:        dependencies.TargetSemantics,
 		recordPublications:     dependencies.RecordPublications,
+		importedAttributions:   dependencies.ImportedAttributionResolver,
 	}
 	return &CommandService{
 		commands: store,

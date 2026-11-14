@@ -46,7 +46,7 @@ func (f *nativeFixtures) Unresolved() bool {
 		return true
 	}
 	for _, r := range resources {
-		if r.Kind == "browser_stack" || r.Kind == "object_store_proxy" || r.Kind == "browser_renderer" {
+		if r.Kind == "browser_stack" || r.Kind == "object_store_proxy" || r.Kind == "browser_renderer" || r.Kind == "package_resource" || r.Kind == "package_deployment" {
 			return true
 		}
 	}

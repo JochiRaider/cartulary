@@ -11,6 +11,17 @@ TOOLBIN_DIR="${TOOLBIN_DIR:-${ROOT_DIR}/${CARTULARY_LAYOUT_TOOLBIN}}"
 SHELLCHECK_BIN="${SHELLCHECK_BIN:-${TOOLBIN_DIR}/shellcheck-v${SHELLCHECK_VERSION}}"
 ARCHIVE_DIR="${CARTULARY_SHELLCHECK_ARCHIVE_DIR:-${ROOT_DIR}/${CARTULARY_LAYOUT_SHELLCHECK_ARCHIVES}}"
 PLATFORM_OVERRIDE="${CARTULARY_BOOTSTRAP_SHELLCHECK_PLATFORM:-}"
+INSTALL_TMP=""
+
+cleanup() {
+  if [[ -n "$INSTALL_TMP" ]]; then
+    rm -rf -- "$INSTALL_TMP"
+  fi
+}
+
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 detect_platform() {
   if [[ -n "$PLATFORM_OVERRIDE" ]]; then
@@ -109,22 +120,20 @@ download_archive() {
 
 install_archive() {
   local archive="$1"
-  local temp_dir
   local extracted
 
   mkdir -p "$TOOLBIN_DIR"
-  temp_dir="$(mktemp -d "${TOOLBIN_DIR}/shellcheck-install.XXXXXX")"
-  trap 'rm -rf "$temp_dir"' RETURN
-  tar -xJf "$archive" -C "$temp_dir"
-  extracted="${temp_dir}/shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+  INSTALL_TMP="$(mktemp -d "${TOOLBIN_DIR}/shellcheck-install.XXXXXX")"
+  tar -xJf "$archive" -C "$INSTALL_TMP"
+  extracted="${INSTALL_TMP}/shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
   if [[ ! -x "$extracted" ]]; then
     echo "ShellCheck archive did not contain executable shellcheck at shellcheck-v${SHELLCHECK_VERSION}/shellcheck" >&2
     return 1
   fi
   cp "$extracted" "$SHELLCHECK_BIN"
   chmod 0755 "$SHELLCHECK_BIN"
-  trap - RETURN
-  rm -rf "$temp_dir"
+  rm -rf "$INSTALL_TMP"
+  INSTALL_TMP=""
 }
 
 main() {

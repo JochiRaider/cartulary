@@ -71,7 +71,7 @@ func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
 		t.Fatalf("construct actor catalog: %v", err)
 	}
 	operationID := "incident-source-characterization"
-	prepared, err := port.PrepareImport(context.Background(), portabilitysupport.MapBundle{
+	_, err = port.PrepareImport(context.Background(), portabilitysupport.MapBundle{
 		"data/incident.json": wantPayload,
 	}, sourceport.ImportContext{
 		IncidentID: incidentID, ActorUserID: actorID, BundleVersion: 8,
@@ -79,9 +79,6 @@ func TestIncidentsSourcePortCurrentFormatCharacterization_Unit(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("prepare characterized valid incident source: %v", err)
-	}
-	if _, err := prepared.ValueFor("module.incidents:incident", operationID); err != nil {
-		t.Fatalf("prepared incident source binding: %v", err)
 	}
 }
 

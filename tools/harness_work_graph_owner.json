@@ -507,6 +507,7 @@
       }
     ],
     "harness.assurance_tool_output_real_targets": [
+      "harness.assurance_output_contract",
       "harness.assurance_output_source_schema",
       "harness.assurance_output_backend_unit",
       "harness.assurance_output_backend_unit_machine",
@@ -963,18 +964,6 @@
       ],
       "postgres_isolation": "none"
     },
-    "harness.seaweedfs_release_evidence": {
-      "needs": [
-        "harness.license_report",
-        "harness.sbom",
-        "harness.seaweedfs_compatibility"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 3000,
-      "resource_profile_id": "standard",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
     "harness.seaweedfs_release_gate": {
       "needs": [
         "harness.license_report",
@@ -985,7 +974,13 @@
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": [],
-      "postgres_isolation": "none"
+      "postgres_isolation": "none",
+      "required_rows": [
+        {
+          "row_id": "module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9",
+          "rationale": "Current canonical backup creation/inspection, restore and latest/due verification with real operator effects and safe-output assertions."
+        }
+      ]
     },
     "harness.semantic_identity_check": {
       "needs": [
@@ -1838,6 +1833,16 @@
       "resource_profile_id": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"
+    },
+    "harness.assurance_output_contract": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   },
   "evidence_estimates_ms": {
@@ -2096,9 +2101,9 @@
         "mode": "run_step",
         "step_label": "credential-capacity-assessment",
         "command": [
-          "env",
-          "CARTULARY_PACKAGE_QUALIFICATION=credential-capacity",
-          "./tools/release-evidence/check-standup-package-smoke.sh"
+          "$(NODE_BIN)",
+          "./tools/release-evidence/package-qualification.mjs",
+          "credential-capacity"
         ],
         "test_target": "self",
         "graph_entry": true
@@ -2191,7 +2196,8 @@
         "prerequisites": [
           "$(FRONTEND_INSTALL_STAMP)",
           "$(NODE_BIN)",
-          "$(REPORT_RENDERER_RECEIPT)"
+          "$(REPORT_RENDERER_RECEIPT)",
+          "$(HARNESS_RUNTIME_BIN)"
         ],
         "type": "step_command",
         "mode": "command",
@@ -3483,24 +3489,6 @@
       },
       "kind": "policy"
     },
-    "harness.release_evidence_contract": {
-      "report_key": "release-evidence-contract",
-      "execution": {
-        "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
-          "$(NODE_BIN)"
-        ],
-        "type": "step_command",
-        "mode": "run_step",
-        "step_label": "release-evidence-contract",
-        "command": [
-          "$(NODE_BIN)",
-          "./tools/release-evidence/tests/test-release-readiness-evidence.mjs"
-        ],
-        "test_target": "self"
-      },
-      "kind": "policy"
-    },
     "harness.release_inventory_artifacts": {
       "report_key": "release-inventory-artifacts",
       "execution": {
@@ -3612,40 +3600,6 @@
       },
       "kind": "policy"
     },
-    "harness.seaweedfs_release_evidence": {
-      "report_key": "seaweedfs-release-evidence",
-      "execution": {
-        "prerequisites": [
-          "$(LICENSE_REPORT_ARTIFACT)",
-          "$(NODE_BIN)",
-          "$(SBOM_ARTIFACT)",
-          "$(TEST_SERVICES_BIN)",
-          "tools/release-evidence/seaweedfs-release-evidence.mjs",
-          "tools/seaweedfs_occurrence_classifications.json"
-        ],
-        "type": "step_command",
-        "mode": "run_step",
-        "step_label": "seaweedfs-release-evidence",
-        "env": {
-          "RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)",
-          "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
-          "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
-          "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
-          "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json"
-        },
-        "command": [
-          "$(NODE_BIN)",
-          "./tools/release-evidence/seaweedfs-release-evidence.mjs"
-        ],
-        "exports": {
-          "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
-          "CARTULARY_TEST_RUN_ID": "$(CARTULARY_TEST_RUN_ID)"
-        },
-        "test_target": "self",
-        "graph_entry": true
-      },
-      "kind": "policy"
-    },
     "harness.seaweedfs_release_gate": {
       "report_key": "seaweedfs-release-gate",
       "execution": {
@@ -3660,17 +3614,10 @@
         "type": "step_command",
         "mode": "run_step",
         "step_label": "seaweedfs-release-gate",
-        "env": {
-          "RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)",
-          "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
-          "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
-          "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
-          "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json"
-        },
+        "env": {},
         "command": [
           "$(NODE_BIN)",
-          "./tools/release-evidence/seaweedfs-release-evidence.mjs",
-          "--enforce-release-gate"
+          "./tools/release-evidence/seaweedfs-release-evidence.mjs"
         ],
         "exports": {
           "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
@@ -3752,7 +3699,9 @@
         "mode": "run_step",
         "step_label": "standup-operational-recovery-smoke",
         "command": [
-          "./tools/release-evidence/check-standup-operational-recovery-smoke.sh"
+          "$(NODE_BIN)",
+          "./tools/release-evidence/package-qualification.mjs",
+          "recovery"
         ],
         "test_target": "self",
         "success_summary": true,
@@ -3775,7 +3724,9 @@
         "mode": "run_step",
         "step_label": "standup-package-smoke",
         "command": [
-          "./tools/release-evidence/check-standup-package-smoke.sh"
+          "$(NODE_BIN)",
+          "./tools/release-evidence/package-qualification.mjs",
+          "package"
         ],
         "test_target": "self",
         "success_summary": true,
@@ -3798,7 +3749,9 @@
         "mode": "run_step",
         "step_label": "standup-reference-pack-smoke",
         "command": [
-          "./tools/release-evidence/check-standup-reference-pack-smoke.sh"
+          "$(NODE_BIN)",
+          "./tools/release-evidence/package-qualification.mjs",
+          "reference-pack"
         ],
         "test_target": "self",
         "success_summary": true,
@@ -4467,6 +4420,7 @@
           "CI_VERBOSE",
           "CARTULARY_OUTPUT_MODE=summary",
           "$(NODE_BIN)",
+          "--test",
           "tools/harness/generated-artifacts/tests/test-json-shapes.mjs"
         ],
         "backing_scripts": [
@@ -4579,7 +4533,31 @@
           "deploy/mvp/scripts/package-common.sh",
           "deploy/mvp/scripts/package-verification.sh",
           "tools/release-evidence/tests/test-package-operation.mjs",
-          "tools/release-evidence/tests/test-release-readiness-evidence.mjs"
+          "tools/release-evidence/tests/test-release-readiness-evidence.mjs",
+          "tools/release-evidence/package-release.mjs",
+          "tools/release-evidence/tests/test-package-release.mjs",
+          "tools/release-evidence/package-identity.mjs",
+          "tools/release-evidence/release-readiness-evidence.mjs",
+          "tools/release-evidence/tests/test-package-identity.mjs",
+          "tools/release-evidence/package-archive.mjs",
+          "tools/release-evidence/tests/test-package-archive.mjs",
+          "tools/release-evidence/package-platform.mjs",
+          "tools/release-evidence/tests/test-package-platform.mjs",
+          "tools/release-evidence/package-resources.mjs",
+          "tools/release-evidence/tests/test-package-resources.mjs",
+          "tools/release-evidence/tests/package-producer-fixture.mjs",
+          "tools/release-evidence/tests/test-package-producer.mjs",
+          "tools/release-evidence/tests/test-package-consumers.mjs",
+          "tools/release-evidence/package-deployment.mjs",
+          "tools/release-evidence/package-deployment-stop.mjs",
+          "tools/release-evidence/package-qualification-allocation.mjs",
+          "tools/release-evidence/tests/test-package-deployment.mjs",
+          "tools/release-evidence/tests/package-deployment-fixture.mjs",
+          "tools/release-evidence/tests/test-package-deployment-lifecycle.mjs",
+          "tools/release-evidence/package-qualification.mjs",
+          "tools/release-evidence/package-qualification-project.mjs",
+          "tools/release-evidence/tests/test-package-qualification.mjs",
+          "tools/release-evidence/reference-pack-fixtures.mjs"
         ]
       }
     },
@@ -4615,7 +4593,9 @@
         "backing_scripts": [
           "tools/release-evidence/tests/test-sbom-license-evidence.mjs",
           "tools/release-evidence/generate-sbom-license-evidence.mjs",
-          "tools/release-evidence/validate-cyclonedx.mjs"
+          "tools/release-evidence/validate-cyclonedx.mjs",
+          "tools/release-evidence/license-inputs.mjs",
+          "tools/release-evidence/tests/test-license-inputs.mjs"
         ]
       }
     },
@@ -4651,7 +4631,9 @@
         "backing_scripts": [
           "tools/release-evidence/tests/test-seaweedfs-release-evidence.mjs",
           "tools/release-evidence/seaweedfs-release-evidence.mjs",
-          "tools/seaweedfs_occurrence_classifications.json"
+          "tools/seaweedfs_occurrence_classifications.json",
+          "tools/release-evidence/seaweedfs-artifacts.mjs",
+          "tools/release-evidence/tests/test-seaweedfs-artifacts.mjs"
         ]
       }
     },
@@ -5098,7 +5080,9 @@
       "execution": {
         "type": "step_command",
         "mode": "command",
-        "prerequisites": [],
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)"
+        ],
         "command": [
           "env",
           "-u",
@@ -5134,7 +5118,9 @@
       "execution": {
         "type": "step_command",
         "mode": "command",
-        "prerequisites": [],
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)"
+        ],
         "command": [
           "env",
           "-u",
@@ -5368,7 +5354,8 @@
           "source-schema"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -5403,7 +5390,8 @@
           "backend-unit"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -5438,7 +5426,8 @@
           "backend-unit-machine"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -5473,7 +5462,8 @@
           "owner-json"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -5508,7 +5498,8 @@
           "lint"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -5543,7 +5534,8 @@
           "build"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -5578,7 +5570,8 @@
           "build-machine"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -5613,7 +5606,8 @@
           "test-fast"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -5648,7 +5642,8 @@
           "check"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -5683,7 +5678,8 @@
           "check-machine"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -5718,7 +5714,8 @@
           "invalid-usage"
         ],
         "backing_scripts": [
-          "tools/harness/tests/test-tool-output-real-targets.sh"
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "tools/harness/tests/real-command-output.mjs"
         ]
       }
     },
@@ -6034,6 +6031,29 @@
         }
       },
       "kind": "policy"
+    },
+    "harness.assurance_output_contract": {
+      "report_key": "harness-output-contract",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "run_step",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "step_label": "harness-output-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "tools/harness/tests/test-real-command-output.mjs"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/real-command-output.mjs",
+          "tools/harness/tests/test-real-command-output.mjs"
+        ],
+        "test_target": "self"
+      }
     }
   },
   "row_execution_contexts": {

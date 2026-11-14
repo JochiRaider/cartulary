@@ -170,12 +170,16 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 			}
 		}
 		wantInvariants := []string{
+			"artifacts.source_identity_admitted",
+			"artifacts.row_shape_exact",
 			"artifacts.envelope_type_scope",
 			"artifacts.subtype_exact",
 			"artifacts.lifecycle_fields_legal",
 			"artifacts.handoff_risk_target",
+			"artifacts.handoff_risk_legal",
 			"artifacts.references_same_incident",
-			"artifacts.source_identity_admitted",
+			"artifacts.attribution_exact",
+			"artifacts.source_state_exact",
 		}
 		if !slices.Equal(descriptor.InvariantIDs, wantInvariants) {
 			t.Fatalf("artifact incident-bundle invariants = %#v, want %#v", descriptor.InvariantIDs, wantInvariants)
@@ -277,7 +281,7 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 	if contribution.SourceOwnerModule != "artifacts" ||
 		contribution.Records[0].SourceOwnerModule != "artifacts" ||
 		contribution.Records[0].RecordType != "artifact" ||
-		contribution.Records[0].SnapshotSchemaID != "cartulary.revisions.snapshot.artifact.v1" {
+		contribution.Records[0].SnapshotSchemaID != "cartulary.revisions.snapshot.artifact.v2" {
 		t.Fatalf("artifact revision contribution identity = %#v", contribution)
 	}
 	routes := contribution.Records[0].RecordViewRoutes

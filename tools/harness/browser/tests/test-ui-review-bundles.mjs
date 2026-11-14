@@ -1,4 +1,4 @@
-import { closeReviewBrowser } from "./ui-review-browser-fixture.mjs";
+import { closeReviewBrowserFixture } from "./ui-review-browser-fixture.mjs";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -239,36 +239,58 @@ test("multiple captures in one failed producer result keep exact images and comp
     assert.ok(Object.isFrozen(canonicalComparison(selected.metadata.source)));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
-test("page capture preserves focus and scroll, crops exactly, and rejects post-screenshot geometry changes", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-capture-")), session = sessionAt(root);
-  const server = createServer((_request, response) => { response.setHeader("content-type", "text/html"); response.end('<html lang="en"><title>Capture fixture</title><body style="margin:0"><button data-testid="box" style="position:absolute;left:10.25px;top:20.5px;width:31px;height:22px">Capture</button></body></html>'); });
+test("page capture preserves focus and scroll, crops exactly, and rejects post-screenshot geometry changes", async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-capture-"));
+  const server = createServer((_request, response) => { response.setHeader("content-type", "text/html"); response.end('<html lang="en"><title>Capture fixture</title><body style="margin:0;height:3000px"><button data-testid="box" style="position:fixed;left:10.25px;top:20.5px;width:31px;height:22px">Capture</button><div data-testid="scrollport" style="position:fixed;left:200px;top:100px;width:100px;height:100px;overflow:scroll"><div style="width:300px;height:300px">Scrollable</div></div></body></html>'); });
   let admission, browser;
-  try {
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
-    browser = await new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev" }).start();
-    session.mode = "dev"; session.browser = browser;
-    await browser.page.getByTestId("box").focus();
-    await browser.page.evaluate(() => {
-      Object.defineProperty(document.fonts, "ready", { value: new Promise((resolve) => setTimeout(resolve, 120)) });
-      const node = document.querySelector("button"); node.style.fontFamily = "monospace";
-      let count = 0; const update = () => { node.textContent = count++ % 2 ? "ABCD" : "WXYZ"; requestAnimationFrame(update); }; requestAnimationFrame(update);
-    });
-    const target = { kind: "test_id", value: "box" };
-    const request = parseRequest(Buffer.from(JSON.stringify({ schema_id: schemaID("capture_request"), source: "page", expected_epoch: 0, scope: { kind: "element", target }, targets: [target], include_axe: false })), "capture_request");
-    const start = performance.now();
-    const produced = await execute(session, request, 1), { bundle } = await session.store.loadBundle(produced.bundle_id);
-    assert.ok(performance.now() - start >= 100);
-    assert.equal(bundle.source.kind, "live_unattested"); assert.deepEqual(bundle.observation.image_dimensions, { width: 32, height: 23 });
-    assert.deepEqual(bundle.observation.coordinate_transform, { origin_x: 10, origin_y: 20, scale_x: 1, scale_y: 1 });
-    assert.equal(await browser.page.getByTestId("box").evaluate((node) => document.activeElement === node), true);
-    const screenshot = browser.page.screenshot.bind(browser.page);
-    browser.page.screenshot = async (options) => { const bytes = await screenshot(options); await browser.page.getByTestId("box").evaluate((node) => { node.style.left = "30px"; }); return bytes; };
-    await assert.rejects(execute(session, request, 2), /unstable_capture/u); assert.equal(session.store.usage.bundles, 1);
-    browser.page.screenshot = screenshot;
-    await browser.page.getByTestId("box").evaluate((node) => {
-      let count = 0; const move = () => { node.style.left = `${20 + count++ * 0.25}px`; requestAnimationFrame(move); }; requestAnimationFrame(move);
-    });
-    await assert.rejects(execute(session, request, 3), /operation_expired/u); assert.equal(session.store.usage.bundles, 1);
-  } finally { await closeReviewBrowser(browser); await admission?.release(); await new Promise((resolve) => server.close(resolve)); rmSync(root, { recursive: true, force: true }); }
+  t.after(async () => {
+    await closeReviewBrowserFixture({ browser, admission, server });
+    rmSync(root, { recursive: true, force: true });
+  });
+  const session = sessionAt(root);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  admission = await acquireHostAdmission({ parent: inheritedHostLease(), claims: { browser_stack: 1 }, capacities: Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({ root: repoRoot }))) });
+  browser = new ReviewBrowser({ origin: `http://127.0.0.1:${server.address().port}`, mode: "dev" });
+  await browser.start();
+  session.mode = "dev"; session.browser = browser;
+  await browser.page.getByTestId("box").focus();
+  await browser.page.evaluate(() => {
+    window.scrollTo(0, 250);
+    document.querySelector('[data-testid="scrollport"]').scrollTo(40, 60);
+  });
+  const scrollOffsets = () => browser.page.evaluate(() => {
+    const port = document.querySelector('[data-testid="scrollport"]');
+    return { document: [scrollX, scrollY], container: [port.scrollLeft, port.scrollTop] };
+  });
+  const expectedScroll = { document: [0, 250], container: [40, 60] };
+  assert.deepEqual(await scrollOffsets(), expectedScroll);
+  await browser.page.evaluate(() => {
+    Object.defineProperty(document.fonts, "ready", { value: new Promise((resolve) => setTimeout(resolve, 120)) });
+    const node = document.querySelector("button"); node.style.fontFamily = "monospace";
+    let count = 0; const update = () => { node.textContent = count++ % 2 ? "ABCD" : "WXYZ"; requestAnimationFrame(update); }; requestAnimationFrame(update);
+  });
+  const target = { kind: "test_id", value: "box" };
+  const request = parseRequest(Buffer.from(JSON.stringify({ schema_id: schemaID("capture_request"), source: "page", expected_epoch: 0, scope: { kind: "element", target }, targets: [target, { kind: "test_id", value: "scrollport" }], include_axe: false })), "capture_request");
+  const start = performance.now();
+  const produced = await execute(session, request, 1), { bundle } = await session.store.loadBundle(produced.bundle_id);
+  assert.ok(performance.now() - start >= 100);
+  assert.equal(bundle.source.kind, "live_unattested"); assert.deepEqual(bundle.observation.image_dimensions, { width: 32, height: 23 });
+  assert.deepEqual(bundle.observation.coordinate_transform, { origin_x: 10, origin_y: 20, scale_x: 1, scale_y: 1 });
+  assert.equal(await browser.page.getByTestId("box").evaluate((node) => document.activeElement === node), true);
+  assert.deepEqual(await scrollOffsets(), expectedScroll);
+  const screenshot = browser.page.screenshot.bind(browser.page);
+  browser.page.screenshot = async (options) => { const bytes = await screenshot(options); await browser.page.getByTestId("box").evaluate((node) => { node.style.left = "30px"; }); return bytes; };
+  await assert.rejects(execute(session, request, 2), /unstable_capture/u); assert.equal(session.store.usage.bundles, 1);
+  browser.page.screenshot = async (options) => {
+    const bytes = await screenshot(options);
+    await browser.page.getByTestId("scrollport").evaluate((node) => { node.scrollTop += 10; });
+    return bytes;
+  };
+  await assert.rejects(execute(session, request, 3), /unstable_capture/u); assert.equal(session.store.usage.bundles, 1);
+  assert.deepEqual(await scrollOffsets(), { document: [0, 250], container: [40, 70] });
+  browser.page.screenshot = screenshot;
+  await browser.page.getByTestId("box").evaluate((node) => {
+    let count = 0; const move = () => { node.style.left = `${20 + count++ * 0.25}px`; requestAnimationFrame(move); }; requestAnimationFrame(move);
+  });
+  await assert.rejects(execute(session, request, 4), /operation_expired/u); assert.equal(session.store.usage.bundles, 1);
 });

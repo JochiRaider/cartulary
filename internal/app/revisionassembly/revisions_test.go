@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
@@ -146,7 +147,7 @@ func TestCurrentProviderContributionsBuildExactImmutableRecordViewCatalog(t *tes
 func TestCurrentProviderContributionsCloseSnapshotAndTargetSets(t *testing.T) {
 	t.Parallel()
 	contributions := mustCurrentProviderContributions(t)
-	snapshots, err := revisions.NewRecordSnapshotCaptureCatalog(contributions)
+	snapshots, err := revisions.NewRecordSnapshotCaptureCatalog(contributions, records.ValidateSnapshotEnvelope)
 	if err != nil {
 		t.Fatalf("build current snapshot catalog: %v", err)
 	}
@@ -385,4 +386,8 @@ func mustCurrentProviderContributions(t testing.TB) []revisions.ProviderContribu
 		t.Fatalf("compose current Revisions provider contributions: %v", err)
 	}
 	return contributions
+}
+
+func (revisionsCompositionTestAttribution) ResolveImportedHistoryActorsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, []string) (map[string]string, error) {
+	return nil, nil
 }

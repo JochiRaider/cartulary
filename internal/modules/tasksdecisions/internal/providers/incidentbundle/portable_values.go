@@ -61,7 +61,7 @@ func canonicalPortableUUID(value any) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	parsed, err := uuid.Parse(text)
-	return parsed, err == nil && parsed.String() == text
+	return parsed, err == nil && parsed != uuid.Nil && parsed.String() == text
 }
 
 func nullableCanonicalPortableUUID(value any) (*uuid.UUID, bool) {
@@ -125,7 +125,8 @@ func canonicalPortableTime(value any) (time.Time, bool) {
 	if strings.HasSuffix(canonicalText, "+00:00") {
 		canonicalText = strings.TrimSuffix(canonicalText, "+00:00") + "Z"
 	}
-	if offset != 0 || parsed.UTC().Format(time.RFC3339Nano) != canonicalText {
+	if offset != 0 || parsed.Year() < 1 || parsed.Year() > 9999 || parsed.Nanosecond()%1000 != 0 ||
+		parsed.UTC().Format(time.RFC3339Nano) != canonicalText {
 		return time.Time{}, false
 	}
 	return parsed.UTC(), true

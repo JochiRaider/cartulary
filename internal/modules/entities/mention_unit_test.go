@@ -3,6 +3,7 @@ package entities_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -161,6 +162,31 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 	initialItem := workbookscenariotest.RequireSingleCollectionItem(t, initialRow, timelinetest.FieldHostRefs)
 	mentionID := entitytest.MentionIDFromItemRef(t, initialItem["item_ref"].(string))
 
+	requireSourceFacts := func(status string, version int64) {
+		t.Helper()
+		tx, err := harness.DB.BeginTx(context.Background(), pgxTxOptions())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback(context.Background()) }()
+		facts, err := mentionStore.LoadCollectionSourceFactsTx(context.Background(), tx, created.RecordID, timelinetest.FieldHostRefs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected := mentions.CollectionSourceFact{MentionID: mentionID, EntityType: "host", RawText: "WS-023", ResolutionStatus: status, RowVersion: version, Ordinal: 1}
+		if status == "resolved" {
+			target := entitytest.CanonicalHostRecordID
+			expected.ResolvedRecordID = &target
+		}
+		if len(facts) != 1 || !reflect.DeepEqual(facts[0], expected) {
+			t.Fatalf("preview source facts=%#v want=%#v", facts, expected)
+		}
+		other, err := mentionStore.LoadCollectionSourceFactsTx(context.Background(), tx, created.RecordID, timelinetest.FieldIdentityRefs)
+		if err != nil || len(other) != 0 {
+			t.Fatalf("preview facts crossed field: %#v %v", other, err)
+		}
+	}
+	requireSourceFacts("resolved", 1)
 	initialMention := entitytest.LookupMention(t, harness.DB, mentionID)
 	dismissRequest := mentions.MentionActionRequest{
 		BaseMentionRowVersion: initialMention.RowVersion,
@@ -172,6 +198,7 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 		t.Fatalf("dismiss mention: %v", err)
 	}
 
+	requireSourceFacts("dismissed", 2)
 	dismissed := entitytest.LookupMention(t, harness.DB, mentionID)
 	entitytest.RequireMentionStatus(t, dismissed, entitytest.MentionStatusDismissed)
 	if dismissed.ResolvedRecordID != nil || dismissed.ResolvedAt != nil || dismissed.ResolutionMethod != nil {
@@ -208,6 +235,7 @@ SELECT COUNT(*)
 		t.Fatalf("restore mention: %v", err)
 	}
 
+	requireSourceFacts("unresolved", 3)
 	restored := entitytest.LookupMention(t, harness.DB, mentionID)
 	entitytest.RequireMentionStatus(t, restored, entitytest.MentionStatusUnresolved)
 	if restored.RawText != "WS-023" || restored.ResolvedRecordID != nil || restored.ResolutionMethod != nil {

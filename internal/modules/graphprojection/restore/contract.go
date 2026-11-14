@@ -352,7 +352,7 @@ func (result RestoreRebuildResult) Validate() error {
 			return NewRestoreError(RestoreErrorPostconditionFailed)
 		}
 	case result.Status == RestoreStatusFailed && result.ReadinessOutcome == RestoreReadinessIncomplete:
-		if len(result.ClearedTableIDs) != 0 || len(result.RebuiltViews) != 0 || result.PostconditionSHA256 != nil || len(result.Errors) == 0 {
+		if len(result.ClearedTableIDs) != 0 || len(result.RebuiltViews) != 0 || result.ReconciledNonterminalJobCount != 0 || result.PostconditionSHA256 != nil || len(result.Errors) == 0 {
 			return NewRestoreError(RestoreErrorPostconditionFailed)
 		}
 	default:

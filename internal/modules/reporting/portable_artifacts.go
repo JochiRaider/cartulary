@@ -109,9 +109,13 @@ func decodePortableObject[T any](raw []byte, digest string) (T, []byte, error) {
 	return result, encoded, nil
 }
 
+func admittedPortableCatalogSize(size int) bool {
+	return size > 0 && size <= portableCatalogBytes
+}
+
 func decodePortableCatalog(raw []byte, incident uuid.UUID) (portableArtifactCatalog, error) {
 	var c portableArtifactCatalog
-	if len(raw) == 0 || len(raw) > portableCatalogBytes {
+	if !admittedPortableCatalogSize(len(raw)) {
 		return c, artifactport.ErrInvalid
 	}
 	admitted, err := canonicaljson.Canonicalize(raw)

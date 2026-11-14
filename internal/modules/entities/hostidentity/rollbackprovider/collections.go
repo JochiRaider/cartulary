@@ -2,17 +2,18 @@ package rollbackprovider
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
-	"strings"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/aliashistory"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/preservedhistory"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
-	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
 
 type CollectionProvider struct{}
@@ -34,15 +35,9 @@ func (CollectionProvider) IdentifierClaimRecordTx(_ context.Context, _ pgx.Tx, t
 }
 
 type collectionIdentity struct {
-	targetKind      string
-	rowID           uuid.UUID
-	incidentID      uuid.UUID
-	recordID        uuid.UUID
-	entityType      string
-	rawValue        string
-	normalizedValue string
-	identifierType  string
-	classification  string
+	targetKind                  string
+	rowID, incidentID, recordID uuid.UUID
+	entityType, classification  string
 }
 
 func (p CollectionProvider) DescribeTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.DescribeRequest) (rollbackcontract.TargetDescriptor, error) {
@@ -57,30 +52,40 @@ func (p CollectionProvider) DescribeTx(ctx context.Context, tx pgx.Tx, request r
 	if request.Target.IncidentID != identity.incidentID {
 		return descriptor, rollbackcontract.ErrTargetNotFound
 	}
-	var incidentID uuid.UUID
-	var recordType string
-	if err := tx.QueryRow(ctx, `SELECT incident_id, record_type FROM records WHERE record_id = $1`, identity.recordID).Scan(&incidentID, &recordType); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	envelope, err := records.NewStore().LoadEnvelopeTx(ctx, tx, identity.recordID, false)
+	if err != nil {
+		if errors.Is(err, enveloperead.ErrEnvelopeNotFound) {
 			return descriptor, rollbackcontract.ErrTargetNotFound
 		}
 		return descriptor, err
 	}
-	if incidentID != identity.incidentID || recordType != identity.entityType {
+	if envelope.IncidentID != identity.incidentID || envelope.RecordType != identity.entityType {
 		return descriptor, rollbackcontract.ErrTargetNotFound
 	}
-	if identity.targetKind == "entity_alias" && identity.rowID != uuid.Nil {
-		current, err := loadCollectionValueByIDTx(ctx, tx, identity.targetKind, identity.rowID)
-		if err != nil {
-			return descriptor, err
-		}
-		currentDeleted := current["deleted_at"] != nil
-		if (request.Target.OperationKind == "create" && currentDeleted) || (request.Target.OperationKind == "delete" && !currentDeleted) {
-			return descriptor, rollbackcontract.ErrStaleTarget
-		}
-	} else if _, _, err := loadActiveCollectionValueTx(ctx, tx, identity); err != nil {
+	current, err := loadCollectionValueByIDTx(ctx, tx, identity.targetKind, identity.rowID)
+	if err != nil {
 		return descriptor, err
 	}
+	if !sameCompleteCollectionState(identity.targetKind, current, request.Target.AfterValue) {
+		return descriptor, rollbackcontract.ErrStaleTarget
+	}
+
 	return descriptor, nil
+}
+
+func sameCompleteCollectionState(kind string, current, expected map[string]any) bool {
+	switch kind {
+	case "entity_alias":
+		left, leftErr := aliashistory.Decode(current)
+		right, rightErr := aliashistory.Decode(expected)
+		return leftErr == nil && rightErr == nil && reflect.DeepEqual(left, right)
+	case "entity_preserved_identifier":
+		left, leftErr := preservedhistory.Decode(current)
+		right, rightErr := preservedhistory.Decode(expected)
+		return leftErr == nil && rightErr == nil && reflect.DeepEqual(left, right)
+	default:
+		return false
+	}
 }
 
 func (p CollectionProvider) ApplyInverseTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.ApplyInverseRequest) (rollbackcontract.ApplyInverseResult, error) {
@@ -93,12 +98,7 @@ func (p CollectionProvider) ApplyInverseTx(ctx context.Context, tx pgx.Tx, reque
 		return rollbackcontract.ApplyInverseResult{}, err
 	}
 	rowID := identity.rowID
-	var before map[string]any
-	if rowID != uuid.Nil {
-		before, err = loadCollectionValueByIDTx(ctx, tx, identity.targetKind, rowID)
-	} else {
-		rowID, before, err = loadActiveCollectionValueTx(ctx, tx, identity)
-	}
+	before, err := loadCollectionValueByIDTx(ctx, tx, identity.targetKind, rowID)
 	if err != nil {
 		return rollbackcontract.ApplyInverseResult{}, err
 	}
@@ -125,66 +125,19 @@ func (p CollectionProvider) ApplyInverseTx(ctx context.Context, tx pgx.Tx, reque
 }
 
 func parseCollectionTarget(target rollbackcontract.NonRowTarget) (collectionIdentity, error) {
-	if target.OperationKind != "create" && target.OperationKind != "delete" {
+	if target.TargetKind == "entity_preserved_identifier" {
+		return parsePreservedTarget(target)
+	}
+	if target.TargetKind != "entity_alias" || (target.OperationKind != "create" && target.OperationKind != "delete") ||
+		aliashistory.ValidateMutation(target.TargetID, target.OperationKind, target.BeforeValue, target.AfterValue) != nil {
 		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
-	value := target.AfterValue
-	if target.OperationKind == "delete" {
-		value = target.BeforeValue
-	}
-	if value == nil {
+	value, err := aliashistory.Decode(target.AfterValue)
+	if err != nil {
 		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
-	identity := collectionIdentity{targetKind: target.TargetKind}
-	var err error
-	if identity.incidentID, err = requiredCollectionUUID(value, "incident_id"); err != nil {
-		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	if identity.recordID, err = requiredCollectionUUID(value, "record_id"); err != nil {
-		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	identity.entityType = requiredCollectionText(value, "entity_type")
-	if identity.entityType != "host" && identity.entityType != "identity" {
-		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	switch target.TargetKind {
-	case "entity_alias":
-		if rawID, ok := value["entity_alias_id"].(string); ok && rawID != "" {
-			identity.rowID, err = uuid.Parse(rawID)
-			if err != nil {
-				return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
-			}
-		}
-		identity.rawValue = rawCollectionText(value, "raw_text")
-		identity.normalizedValue = requiredCollectionText(value, "normalized_text")
-		identity.classification = requiredCollectionText(value, "classification")
-		normalized, valid := fieldnorm.NormalizeEntityAliasText(identity.rawValue)
-		if !valid || normalized != identity.normalizedValue || identity.classification != "suggestion_only" {
-			return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-	case "entity_preserved_identifier":
-		if target.OperationKind != "create" {
-			return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-		identity.identifierType = requiredCollectionText(value, "identifier_type")
-		identity.rawValue = rawCollectionText(value, "raw_value")
-		identity.normalizedValue = requiredCollectionText(value, "normalized_value")
-		identity.classification = requiredCollectionText(value, "classification")
-		normalized, valid := fieldnorm.NormalizeIdentifier(identity.identifierType, identity.rawValue)
-		if !valid || normalized != identity.normalizedValue || !validIdentifierType(identity.entityType, identity.identifierType) || !validIdentifierClassification(identity.classification) {
-			return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
-		}
-	default:
-		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	physicalTargetID := ""
-	if identity.rowID != uuid.Nil {
-		physicalTargetID = "entity_alias:" + identity.rowID.String()
-	}
-	if target.TargetID != collectionTargetID(identity) && target.TargetID != physicalTargetID {
-		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
-	}
-	return identity, nil
+	return collectionIdentity{targetKind: target.TargetKind, rowID: value.ID, incidentID: value.IncidentID, recordID: value.RecordID,
+		entityType: value.EntityType, classification: value.Classification}, nil
 }
 
 func restoreAliasCollectionTx(ctx context.Context, tx pgx.Tx, rowID uuid.UUID) error {
@@ -196,133 +149,6 @@ func restoreAliasCollectionTx(ctx context.Context, tx pgx.Tx, rowID uuid.UUID) e
 		return rollbackcontract.ErrStaleTarget
 	}
 	return nil
-}
-
-func loadActiveCollectionValueTx(ctx context.Context, tx pgx.Tx, identity collectionIdentity) (uuid.UUID, map[string]any, error) {
-	var rows pgx.Rows
-	var err error
-	switch identity.targetKind {
-	case "entity_alias":
-		rows, err = tx.Query(ctx, `
-SELECT entity_alias_id,
-       raw_text,
-       jsonb_build_object(
-           'entity_alias_id', entity_alias_id::text,
-           'incident_id', incident_id::text,
-           'record_id', record_id::text,
-           'entity_type', entity_type,
-           'raw_text', raw_text,
-           'normalized_text', normalized_text,
-           'classification', classification,
-           'created_by_user_id', created_by_user_id::text,
-           'created_at', created_at,
-           'deleted_at', deleted_at
-       )
-  FROM entity_aliases
- WHERE incident_id = $1
-   AND record_id = $2
-   AND entity_type = $3
-   AND normalized_text = $4
-   AND classification = $5
-   AND deleted_at IS NULL
- ORDER BY entity_alias_id
- LIMIT 2
-`, identity.incidentID, identity.recordID, identity.entityType, identity.normalizedValue, identity.classification)
-	case "entity_preserved_identifier":
-		rows, err = tx.Query(ctx, `
-SELECT entity_preserved_identifier_id,
-       raw_value,
-       jsonb_build_object(
-           'entity_preserved_identifier_id', entity_preserved_identifier_id::text,
-           'incident_id', incident_id::text,
-           'record_id', record_id::text,
-           'entity_type', entity_type,
-           'identifier_type', identifier_type,
-           'raw_value', raw_value,
-           'normalized_value', normalized_value,
-           'classification', classification,
-           'created_by_user_id', created_by_user_id::text,
-           'created_at', created_at,
-           'deleted_at', deleted_at
-       )
-  FROM entity_preserved_identifiers
- WHERE incident_id = $1
-   AND record_id = $2
-   AND entity_type = $3
-   AND identifier_type = $4
-   AND normalized_value = $5
-   AND classification = $6
-   AND deleted_at IS NULL
- ORDER BY entity_preserved_identifier_id
- LIMIT 2
-`, identity.incidentID, identity.recordID, identity.entityType, identity.identifierType, identity.normalizedValue, identity.classification)
-	default:
-		return uuid.Nil, nil, rollbackcontract.ErrTargetNotReversible
-	}
-	if err != nil {
-		return uuid.Nil, nil, err
-	}
-	defer rows.Close()
-	var rowID uuid.UUID
-	var rawValue string
-	var rawJSON []byte
-	count := 0
-	for rows.Next() {
-		count++
-		if err := rows.Scan(&rowID, &rawValue, &rawJSON); err != nil {
-			return uuid.Nil, nil, err
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return uuid.Nil, nil, err
-	}
-	if count > 1 {
-		return uuid.Nil, nil, rollbackcontract.ErrTargetNotReversible
-	}
-	if count == 0 {
-		exists, err := collectionTargetExistsTx(ctx, tx, identity)
-		if err != nil {
-			return uuid.Nil, nil, err
-		}
-		if exists {
-			return uuid.Nil, nil, rollbackcontract.ErrStaleTarget
-		}
-		return uuid.Nil, nil, rollbackcontract.ErrTargetNotFound
-	}
-	if rawValue != identity.rawValue {
-		return uuid.Nil, nil, rollbackcontract.ErrStaleTarget
-	}
-	var value map[string]any
-	if err := json.Unmarshal(rawJSON, &value); err != nil {
-		return uuid.Nil, nil, err
-	}
-	return rowID, value, nil
-}
-
-func collectionTargetExistsTx(ctx context.Context, tx pgx.Tx, identity collectionIdentity) (bool, error) {
-	var exists bool
-	switch identity.targetKind {
-	case "entity_alias":
-		err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1 FROM entity_aliases
-     WHERE incident_id = $1 AND record_id = $2 AND entity_type = $3
-       AND normalized_text = $4 AND classification = $5
-)
-`, identity.incidentID, identity.recordID, identity.entityType, identity.normalizedValue, identity.classification).Scan(&exists)
-		return exists, err
-	case "entity_preserved_identifier":
-		err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1 FROM entity_preserved_identifiers
-     WHERE incident_id = $1 AND record_id = $2 AND entity_type = $3
-       AND identifier_type = $4 AND normalized_value = $5 AND classification = $6
-)
-`, identity.incidentID, identity.recordID, identity.entityType, identity.identifierType, identity.normalizedValue, identity.classification).Scan(&exists)
-		return exists, err
-	default:
-		return false, rollbackcontract.ErrTargetNotReversible
-	}
 }
 
 func tombstoneCollectionTx(ctx context.Context, tx pgx.Tx, targetKind string, rowID uuid.UUID, now time.Time) error {
@@ -350,109 +176,64 @@ func tombstoneCollectionTx(ctx context.Context, tx pgx.Tx, targetKind string, ro
 }
 
 func loadCollectionValueByIDTx(ctx context.Context, tx pgx.Tx, targetKind string, rowID uuid.UUID) (map[string]any, error) {
-	var rawJSON []byte
-	var err error
 	switch targetKind {
 	case "entity_alias":
-		err = tx.QueryRow(ctx, `
-SELECT jsonb_build_object(
-    'entity_alias_id', entity_alias_id::text,
-    'incident_id', incident_id::text,
-    'record_id', record_id::text,
-    'entity_type', entity_type,
-    'raw_text', raw_text,
-    'normalized_text', normalized_text,
-    'classification', classification,
-    'created_by_user_id', created_by_user_id::text,
-    'created_at', created_at,
-    'deleted_at', deleted_at
-)
-  FROM entity_aliases
- WHERE entity_alias_id = $1
-`, rowID).Scan(&rawJSON)
+		return loadAliasValueTx(ctx, tx, rowID)
 	case "entity_preserved_identifier":
-		err = tx.QueryRow(ctx, `
-SELECT jsonb_build_object(
-    'entity_preserved_identifier_id', entity_preserved_identifier_id::text,
-    'incident_id', incident_id::text,
-    'record_id', record_id::text,
-    'entity_type', entity_type,
-    'identifier_type', identifier_type,
-    'raw_value', raw_value,
-    'normalized_value', normalized_value,
-    'classification', classification,
-    'created_by_user_id', created_by_user_id::text,
-    'created_at', created_at,
-    'deleted_at', deleted_at
-)
-  FROM entity_preserved_identifiers
- WHERE entity_preserved_identifier_id = $1
-`, rowID).Scan(&rawJSON)
+		return loadPreservedValueTx(ctx, tx, rowID)
 	default:
 		return nil, rollbackcontract.ErrTargetNotReversible
 	}
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, rollbackcontract.ErrTargetNotFound
+}
+
+func parsePreservedTarget(target rollbackcontract.NonRowTarget) (collectionIdentity, error) {
+	if target.OperationKind != "create" || preservedhistory.ValidateMutation(target.TargetID, target.OperationKind, target.BeforeValue, target.AfterValue) != nil {
+		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
+	value, err := preservedhistory.Decode(target.AfterValue)
 	if err != nil {
-		return nil, err
+		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
-	var value map[string]any
-	if err := json.Unmarshal(rawJSON, &value); err != nil {
-		return nil, err
-	}
-	return value, nil
+	return collectionIdentity{targetKind: target.TargetKind, rowID: value.ID, incidentID: value.IncidentID, recordID: value.RecordID,
+		entityType: value.EntityType, classification: value.Classification}, nil
 }
 
-func collectionTargetID(identity collectionIdentity) string {
-	components := []string{identity.targetKind, identity.recordID.String(), identity.entityType}
-	if identity.targetKind == "entity_preserved_identifier" {
-		components = append(components, identity.identifierType, identity.normalizedValue, identity.classification)
-	} else {
-		components = append(components, identity.normalizedValue)
-	}
-	for index := 1; index < len(components); index++ {
-		components[index] = base64.RawURLEncoding.EncodeToString([]byte(components[index]))
-	}
-	return strings.Join(components, ":")
-}
-
-func validIdentifierType(entityType string, identifierType string) bool {
-	allowed := map[string][]string{
-		"host":     {"aad_device_id", "fqdn", "hostname"},
-		"identity": {"aad_object_id", "sid", "upn", "email", "sam_account_name"},
-	}
-	for _, value := range allowed[entityType] {
-		if value == identifierType {
-			return true
+func loadPreservedValueTx(ctx context.Context, tx pgx.Tx, rowID uuid.UUID) (map[string]any, error) {
+	var value preservedhistory.Value
+	if err := tx.QueryRow(ctx, `
+SELECT entity_preserved_identifier_id,incident_id,record_id,entity_type,identifier_type,
+       raw_value,normalized_value,classification,created_by_user_id,created_at,deleted_at
+FROM entity_preserved_identifiers WHERE entity_preserved_identifier_id=$1`, rowID).Scan(
+		&value.ID, &value.IncidentID, &value.RecordID, &value.EntityType, &value.IdentifierType,
+		&value.RawValue, &value.NormalizedValue, &value.Classification, &value.CreatedByUserID, &value.CreatedAt, &value.DeletedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, rollbackcontract.ErrTargetNotFound
 		}
+		return nil, err
 	}
-	return false
-}
-
-func validIdentifierClassification(value string) bool {
-	switch value {
-	case "exact_match_reuse", "suggestion_only", "provenance_only":
-		return true
-	default:
-		return false
+	encoded := value.Map()
+	if _, err := preservedhistory.Decode(encoded); err != nil {
+		return nil, rollbackcontract.ErrTargetNotReversible
 	}
+	return encoded, nil
 }
 
-func requiredCollectionUUID(value map[string]any, key string) (uuid.UUID, error) {
-	raw := requiredCollectionText(value, key)
-	if raw == "" {
-		return uuid.Nil, errors.New("missing uuid")
+func loadAliasValueTx(ctx context.Context, tx pgx.Tx, rowID uuid.UUID) (map[string]any, error) {
+	var value aliashistory.Value
+	if err := tx.QueryRow(ctx, `
+SELECT entity_alias_id,incident_id,record_id,entity_type,raw_text,normalized_text::text,
+       classification,created_by_user_id,created_at,deleted_at
+FROM entity_aliases WHERE entity_alias_id=$1`, rowID).Scan(
+		&value.ID, &value.IncidentID, &value.RecordID, &value.EntityType, &value.RawText, &value.NormalizedText,
+		&value.Classification, &value.CreatedByUserID, &value.CreatedAt, &value.DeletedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, rollbackcontract.ErrTargetNotFound
+		}
+		return nil, err
 	}
-	return uuid.Parse(raw)
-}
-
-func requiredCollectionText(value map[string]any, key string) string {
-	raw, _ := value[key].(string)
-	return strings.TrimSpace(raw)
-}
-
-func rawCollectionText(value map[string]any, key string) string {
-	raw, _ := value[key].(string)
-	return raw
+	encoded := value.Map()
+	if _, err := aliashistory.Decode(encoded); err != nil {
+		return nil, rollbackcontract.ErrTargetNotReversible
+	}
+	return encoded, nil
 }

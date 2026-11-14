@@ -127,6 +127,64 @@
       "postgres_isolation": "shared"
     },
     {
+      "row_id": "module.artifacts.incident_portability.admission",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.incident_portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactIncidentBundleAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.artifacts.incident_portability.transaction",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.incident_portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactIncidentBundleTransaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
       "row_id": "module.artifacts.linked_notes.artifact_linked_note_creation_is_atomic_across_f_bce1ac123b",
       "owner_id": "module.artifacts",
       "family_id": "module.artifacts.linked_notes",

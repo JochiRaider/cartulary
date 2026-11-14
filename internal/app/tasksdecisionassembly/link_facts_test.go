@@ -13,6 +13,10 @@ import (
 )
 
 func TestLinkFactsAdapterCopiesScalarFactsAndFailsWithoutPartialResults_Unit(t *testing.T) {
+	t.Run("retained field references", exerciseFieldReferenceAdapter)
+	t.Run("retained supersession", exerciseSupersessionAdapter)
+	t.Run("current envelope facts", exerciseEnvelopeAdapter)
+	t.Run("reference target locks", exerciseReferenceTargetAdapter)
 	incidentID := uuid.New()
 	recordID := uuid.New()
 	targetID := uuid.New()

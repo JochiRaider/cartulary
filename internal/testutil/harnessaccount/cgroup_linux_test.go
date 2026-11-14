@@ -45,6 +45,12 @@ func TestAccountingSignalExit(t *testing.T) {
 	if err = cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if cmd.ProcessState == nil {
+			cancel()
+			_ = cmd.Wait()
+		}
+	}()
 	scanner := bufio.NewScanner(output)
 	if !scanner.Scan() || scanner.Text() != "ready" {
 		_ = cmd.Wait()

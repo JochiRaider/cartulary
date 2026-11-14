@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -40,7 +41,7 @@ type Coordinator struct {
 var monotonicOrigin = time.Now()
 
 func New(options Options) (*Coordinator, error) {
-	if options.Backend == nil || options.FatalSink == nil || options.ValidationPolicy == nil || !options.Limits.valid() {
+	if nilCapability(options.Backend) || options.FatalSink == nil || nilCapability(options.ValidationPolicy) || !options.Limits.valid() {
 		return nil, ErrUnavailable
 	}
 	if options.Timeout <= 0 || options.CancellationGrace < 0 {
@@ -75,8 +76,12 @@ func New(options Options) (*Coordinator, error) {
 func (c *Coordinator) Timeout() time.Duration { return c.timeout }
 
 func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result, error) {
-	if c == nil || c.backend == nil || c.clock == nil || c.fatalSink == nil {
+	if c == nil || nilCapability(c.backend) || c.clock == nil || c.fatalSink == nil {
 		return Result{}, ErrUnavailable
+	}
+	if (operation.Preconditions != nil && nilCapability(operation.Preconditions)) ||
+		(operation.Finalizer != nil && nilCapability(operation.Finalizer)) {
+		return Result{}, ErrInput
 	}
 	participants, descriptors, err := c.resolve(operation.Participants)
 	if err != nil {
@@ -152,7 +157,6 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 		inputs[index] = input
 	}
 
-	prepared := make([]PrepareResult, len(participants))
 	keys := make([]OrderedSerializationKey, 0)
 	var aggregatePrepareBytes int64
 	for index, participant := range participants {
@@ -183,7 +187,6 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 			return Result{}, ErrSerializationKeys
 		}
 		keys = append(keys, validatedKeys...)
-		prepared[index] = result
 	}
 	sort.Slice(keys, func(i, j int) bool { return compareKey(keys[i], keys[j]) < 0 })
 	for index := 1; index < len(keys); index++ {
@@ -197,6 +200,10 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 	tx, err := c.backend.Begin(ctx, descriptors)
 	if err != nil {
 		return Result{}, classifyDatabaseError(err)
+	}
+	if nilCapability(tx) {
+		// Begin was invoked, but no usable handle can establish absence.
+		return Result{}, c.fatal(ErrUnavailable)
 	}
 	finalized := false
 	defer func() {
@@ -254,7 +261,7 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 			return rollback(err)
 		}
 		access, err := tx.PreconditionCapability()
-		if err != nil || access == nil {
+		if err != nil || nilCapability(access) {
 			return rollback(fmt.Errorf("%w: owner precondition capability", ErrValidation))
 		}
 		if _, err := invokeParticipant(c, ctx, deadline, func(callCtx context.Context) (struct{}, error) {
@@ -271,7 +278,7 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 			return rollback(err)
 		}
 		access, accessErr := tx.ReadCapability(participant.ID())
-		if accessErr != nil || access == nil || access.ParticipantScope() != participant.ID() {
+		if accessErr != nil || nilCapability(access) || access.ParticipantScope() != participant.ID() {
 			return rollback(fmt.Errorf("%w: %s read capability", ErrValidation, participant.ID()))
 		}
 		result, validationErr := invokeParticipant(c, ctx, deadline, func(callCtx context.Context) (ValidationResult, error) {
@@ -300,7 +307,7 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 			return rollback(err)
 		}
 		access, accessErr := tx.WriteCapability(participant.ID())
-		if accessErr != nil || access == nil || access.ParticipantScope() != participant.ID() {
+		if accessErr != nil || nilCapability(access) || access.ParticipantScope() != participant.ID() {
 			return rollback(fmt.Errorf("%w: %s write capability", ErrWrite, participant.ID()))
 		}
 		result, writeErr := invokeParticipant(c, ctx, deadline, func(callCtx context.Context) (WriteResult, error) {
@@ -322,7 +329,7 @@ func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result,
 			return rollback(err)
 		}
 		access, accessErr := tx.FinalizationCapability()
-		if accessErr != nil || access == nil {
+		if accessErr != nil || nilCapability(access) {
 			return rollback(fmt.Errorf("%w: finalization capability", ErrWrite))
 		}
 		if _, err := invokeParticipant(c, ctx, deadline, func(callCtx context.Context) (struct{}, error) {
@@ -403,19 +410,18 @@ func (c *Coordinator) resolve(source []Participant) ([]Participant, []Descriptor
 		return nil, nil, ErrParticipantSet
 	}
 	participants := append([]Participant(nil), source...)
+	for _, participant := range participants {
+		if nilCapability(participant) {
+			return nil, nil, ErrParticipantSet
+		}
+	}
 	sort.Slice(participants, func(i, j int) bool {
-		if participants[i] == nil {
-			return false
-		}
-		if participants[j] == nil {
-			return true
-		}
 		return participants[i].ID() < participants[j].ID()
 	})
 	descriptors := make([]Descriptor, len(participants))
 	previous := ""
 	for index, participant := range participants {
-		if participant == nil || participant.ID() == "" || participant.ID() == previous {
+		if participant.ID() == "" || participant.ID() == previous {
 			return nil, nil, ErrParticipantSet
 		}
 		descriptor, admitted := c.catalog[participant.ID()]
@@ -427,6 +433,19 @@ func (c *Coordinator) resolve(source []Participant) ([]Participant, []Descriptor
 		previous = participant.ID()
 	}
 	return participants, descriptors, nil
+}
+
+func nilCapability(value any) bool {
+	if value == nil {
+		return true
+	}
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
 }
 
 func (c *Coordinator) fatal(cause error) error {
@@ -486,6 +505,9 @@ func (c *Coordinator) validatePrepare(descriptor Descriptor, result PrepareResul
 }
 
 func invocationFor(phase string, operation Operation, descriptor Descriptor, input Input, deadline int64, read ReadCapability, write WriteCapability, canceled bool) Invocation {
+	// Each phase borrows its own bytes; callbacks cannot mutate the admitted
+	// input retained for later validation and writes.
+	input.CanonicalBytes = bytes.Clone(input.CanonicalBytes)
 	return Invocation{
 		SchemaID: ParticipantContextSchema, Phase: phase, OperationID: operation.OperationID,
 		ParticipantID: descriptor.ParticipantID, OwnerProfileID: descriptor.OwnerProfileID,

@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
 SCRIPT="$ROOT_DIR/tools/harness/generated-artifacts/check-generate-drift.sh"
 cleanup_paths=()
 
@@ -39,8 +41,9 @@ assert_not_contains() {
   fi
 }
 
-missing_sqlc="$ROOT_DIR/tmp/generate-drift-missing-sqlc"
-rm -f "$missing_sqlc"
+missing_sqlc_dir="$(cartulary_harness_mktemp_dir generate-drift-missing-sqlc.XXXXXX)"
+cleanup_paths+=("$missing_sqlc_dir")
+missing_sqlc="$missing_sqlc_dir/sqlc"
 
 set +e
 output="$(SQLC_BIN="$missing_sqlc" "$SCRIPT" 2>&1)"
@@ -67,7 +70,11 @@ prepare_otel_contract_fixture() {
   mkdir -p \
     "$fixture_root/apps/web/src/app" \
     "$fixture_root/tools/otel"
-  cp -a "$ROOT_DIR/contracts" "$fixture_root/contracts"
+  mkdir -p "$fixture_root/contracts/otel"
+  local contract
+  for contract in otel_source_snapshot.v1.json generated_constants_manifest.json import_boundary.json; do
+    cp "$ROOT_DIR/contracts/otel/$contract" "$fixture_root/contracts/otel/$contract"
+  done
   cp "$ROOT_DIR/tools/otel/generate-otel-contracts.mjs" "$fixture_root/tools/otel/generate-otel-contracts.mjs"
   cp "$ROOT_DIR/apps/web/src/app/otelBoundary.test.ts" "$fixture_root/apps/web/src/app/otelBoundary.test.ts"
 }
@@ -86,8 +93,78 @@ writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`);
 NODE
 }
 
-otel_contract_tmp="$(mktemp -d "$ROOT_DIR/tmp/otel-contract-fixtures.XXXXXX")"
+otel_contract_tmp="$(cartulary_harness_mktemp_dir otel-contract-fixtures.XXXXXX)"
 cleanup_paths+=("$otel_contract_tmp")
+
+"$node_bin" --input-type=module - "$ROOT_DIR" "$otel_contract_tmp" <<'NODE'
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+const [repo, fixture] = process.argv.slice(2);
+const { copyGenerationInputs } = await import(pathToFileURL(path.join(repo, "tools/harness/generated-artifacts/copy-generation-inputs.mjs")));
+const source = path.join(fixture, "copy-source"), output = path.join(fixture, "copy-output");
+fs.mkdirSync(path.join(source, "contracts/human-material"), { recursive: true });
+fs.mkdirSync(path.join(source, "contracts/README.bundle"));
+fs.mkdirSync(path.join(source, "empty"));
+const payload = Buffer.from(Array.from({ length: 2 * 65536 + 7 }, (_, index) => index % 251));
+const input = path.join(source, "contracts/allowed.bin");
+fs.writeFileSync(input, payload);
+fs.writeFileSync(path.join(source, "contracts/tool.sh"), "#!/bin/sh\nexit 0\n");
+fs.chmodSync(path.join(source, "contracts/tool.sh"), 0o751);
+for (const name of ["README.md", "readme", "owner.MaRkDoWn", "human-material/hidden.ts", "README.bundle/hidden.ts"])
+  fs.writeFileSync(path.join(source, "contracts", name), "excluded fixture input");
+const prohibited = file => typeof file === "string" && file.startsWith(`${source}/`) &&
+  /\/(?:human-material(?:\/|$)|readme(?:\.|\/|$)|owner\.markdown$)/iu.test(file);
+const originals = Object.fromEntries(["lstatSync", "openSync", "readFileSync", "readdirSync", "copyFileSync"].map(name => [name, fs[name]]));
+const opened = [];
+try {
+  for (const name of ["lstatSync", "openSync", "readFileSync", "readdirSync"]) {
+    fs[name] = (file, ...args) => {
+      assert.equal(prohibited(file), false, `probed excluded fixture input via ${name}`);
+      if (name === "openSync" && typeof file === "string" && file.startsWith(`${source}/`)) opened.push(file);
+      return originals[name](file, ...args);
+    };
+  }
+  syncBuiltinESMExports();
+  copyGenerationInputs(source, output, ["contracts", "contracts/allowed.bin", "empty"], ["contracts/human-material"]);
+  assert.deepEqual(fs.readdirSync(path.join(output, "contracts")).sort(), ["allowed.bin", "tool.sh"]);
+  assert.deepEqual(fs.readFileSync(path.join(output, "contracts/allowed.bin")), payload);
+  assert.equal(fs.readFileSync(path.join(output, "contracts/tool.sh"), "utf8"), "#!/bin/sh\nexit 0\n");
+  assert.equal(fs.statSync(path.join(output, "contracts/tool.sh")).mode & 0o777, 0o751);
+  assert.deepEqual(fs.readdirSync(path.join(output, "empty")), []);
+  assert.deepEqual(opened.sort(), [input, path.join(source, "contracts/tool.sh")].sort(), "overlapping selections copy each input once");
+  const beforeRejected = opened.length;
+  for (const request of ["contracts/README.md", "contracts/README.bundle/hidden.ts", "contracts/human-material/hidden.ts"]) {
+    assert.throws(() => copyGenerationInputs(source, output, [request], ["contracts/human-material"]), /outside executable scope/);
+  }
+  for (const request of ["..", "/outside", "contracts/../allowed.bin", "contracts\\allowed.bin", "", "."]) {
+    assert.throws(() => copyGenerationInputs(source, output, [request], []), /normalized repository-relative/);
+  }
+  assert.equal(opened.length, beforeRejected);
+  assert.throws(() => copyGenerationInputs(source, output, [], []), /selection is empty/);
+  assert.throws(() => copyGenerationInputs(source, path.join(source, "scratch"), ["contracts"], []), /must be disjoint/);
+  assert.throws(() => copyGenerationInputs(source, output, ["absent"], []), /required generate-drift input missing: absent/);
+  fs.symlinkSync("README.md", path.join(source, "contracts/link"));
+  assert.throws(() => copyGenerationInputs(source, output, ["contracts/link"], []), /must be a regular file/);
+  fs.symlinkSync("contracts", path.join(source, "alias"));
+  assert.throws(() => copyGenerationInputs(source, output, ["alias/allowed.bin"], []), /ancestor.*symbolic links/);
+  let copiedDescriptor;
+  fs.copyFileSync = (from, to, ...args) => {
+    copiedDescriptor = Number(from.slice("/proc/self/fd/".length));
+    const result = originals.copyFileSync(from, to, ...args);
+    fs.appendFileSync(input, "changed");
+    return result;
+  };
+  assert.throws(() => copyGenerationInputs(source, path.join(fixture, "changed-copy"), ["contracts/allowed.bin"], []), /changed while copying/);
+  assert.ok(Number.isInteger(copiedDescriptor));
+  assert.throws(() => fs.fstatSync(copiedDescriptor), { code: "EBADF" });
+} finally {
+  Object.assign(fs, originals);
+  syncBuiltinESMExports();
+}
+NODE
 
 valid_otel_fixture="$otel_contract_tmp/valid"
 prepare_otel_contract_fixture "$valid_otel_fixture"

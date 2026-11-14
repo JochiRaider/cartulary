@@ -4,7 +4,7 @@ set -euo pipefail
 bash ./tools/harness/readiness/go-toolchain-readiness.sh ensure
 qualified_go="$(bash ./tools/harness/readiness/go-toolchain-readiness.sh resolve)"
 "${NODE_BIN:?}" tools/harness/readiness/cryptographic-build-cli.mjs verify
-module_info="$("$NODE_BIN" --input-type=module -e 'import { independentGoModules, validateIndependentGoModule } from "./tools/harness/test-catalog/go-modules.mjs"; const selected = independentGoModules(process.cwd()).find(entry => entry.root === `referencepacks/${process.env.MODULE}`); if (!selected) throw new Error("unregistered module"); validateIndependentGoModule(process.cwd(), selected.root); process.stdout.write([selected.root, selected.module_path, selected.version].join("\t"));')"
+module_info="$("$NODE_BIN" --input-type=module -e 'import { independentGoModules, validateIndependentGoModule } from "./tools/harness/test-catalog/go-modules.mjs"; const selected = independentGoModules(process.cwd()).find(entry => entry.root === "referencepacks/" + process.env.MODULE); if (!selected) throw new Error("unregistered module"); validateIndependentGoModule(process.cwd(), selected.root); process.stdout.write([selected.root, selected.module_path, selected.version].join("\t"));')"
 IFS=$'\t' read -r module_root module_path module_version <<< "$module_info"
 mkdir -p "${GO_TMP_DIR:?}" "${GO_CACHE_DIR:?}" "${GO_MOD_CACHE_DIR:?}" .cartulary/reference-packs/modules
 module_work="$(mktemp -d "$GO_TMP_DIR/reference-pack-module.XXXXXXXX")"

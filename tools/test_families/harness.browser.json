@@ -25,6 +25,34 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.browser.boundary_support.ac043_foreground_admission_lifetime",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/performance/ac043Snapshot.test.ts",
+        "project_id": "harness-node",
+        "titles": [
+          "AC-043 snapshot runtime bundle retires foreground admission transports after operation and logout failures"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.browser.boundary_support.accessibility_contrast",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -500,8 +528,8 @@
       "selector": {
         "file": "apps/web/e2e/support/runtime/harnessState.test.ts",
         "titles": [
-          "harnessState falls back to tmpdir paths when shared state is not configured",
-          "harnessState uses the configured shared-state directory in external-server mode"
+          "harnessState preserves private publication isolation and borrowed runtime lifetime",
+          "harnessState rejects missing or unsafe owned-state bindings without creating or repairing paths"
         ],
         "project_id": "harness-node"
       },
@@ -769,7 +797,7 @@
           "reconcileSuiteAdminTotpState fails explicitly when shared harness state is missing for an active MFA setup",
           "reconcileSuiteAdminTotpState reuses the stored suite-admin secret when it still authenticates",
           "verifyOwnedHarnessRuntime fails before admin login when the identity endpoint is not the harness-owned runtime",
-          "verifyOwnedHarnessRuntime skips the identity probe when the owned-stack token file is not configured",
+          "verifyOwnedHarnessRuntime rejects missing owned-stack credentials before the identity probe",
           "verifyOwnedHarnessRuntime verifies the token-protected harness identity before suite admin login"
         ],
         "project_id": "harness-node"
@@ -1013,6 +1041,10 @@
       "selector": {
         "file": "apps/web/e2e/support/auth/sessions.test.ts",
         "titles": [
+          "authentication request lifetime attempts every release and preserves primary and cleanup failures separately",
+          "authentication request lifetime leaves borrowed revocation transports with their owner",
+          "authentication request lifetime retires before disposal and preserves successful results",
+          "authentication request lifetime settles the anonymous predecessor before acquiring a transferable control plane",
           "createDeploymentUser preserves explicit MFA and deployment-admin intent in request bytes",
           "reconcileWorkerAdminManifest rediscovers deterministic worker-admin users when local manifest state is missing",
           "reconcileWorkerAdminManifest resets the canonical password when a reused worker-admin user can no longer log in",
@@ -1219,7 +1251,9 @@
       "selector": {
         "file": "apps/web/src/testing/timelineWorkbookTestSupport.test.tsx",
         "titles": [
+          "timeline workbook test support ignores matching grids and controls outside the supplied container",
           "timeline workbook test support rejects a matching row on the wrong surface until the correct surface hydrates",
+          "timeline workbook test support requires the selected shell and controls before accepting zero rows",
           "timeline workbook test support times out persistent row mismatch within the configured budget without payload values",
           "timeline workbook test support waits for delayed workbook row identity with the shared bounded helper",
           "timeline workbook test support waits for row identity despite identical text without changing focus or dispatching actions"
@@ -1490,7 +1524,7 @@
         "titles": [
           "visual preference isolation blocks undeclared writes without forwarding requests to persistence",
           "visual preference isolation has one presentation write owner and immutable read snapshots",
-          "visual preference isolation starts each page from no override despite previous variants and failures"
+          "visual preference isolation starts each page from no override after previous variants and rejected writes"
         ],
         "project_id": "harness-node"
       },
@@ -2264,6 +2298,38 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.browser.integration.timeline_fixture_semantics",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "module.auth",
+        "module.incidents",
+        "module.timeline",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/appsupport/performancefixture",
+        "tests": [
+          "TestTimelineFixtureObservesDefaultView_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
       "row_id": "harness.browser.integration.ui_review_seeded_default",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",
@@ -2638,6 +2704,7 @@
         "tests": [
           "TestArtifactsAreImmutableAndRedacted",
           "TestOwnedNamesAreDeterministicAndBounded",
+          "TestSuiteCleanupPreservesIndependentFailures",
           "TestWaitForNoTemplateConnectionsAllowsOnlyBoundedOwnedDrain",
           "TestWaitForNoTemplateConnectionsHonorsDrainDeadline",
           "TestWaitForNoTemplateConnectionsRejectsUnownedConnectionImmediately"

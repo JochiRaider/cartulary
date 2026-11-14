@@ -18,44 +18,38 @@ func applyPreparedRevisionsImportTx(
 	importContext sourceport.ImportContext,
 	validation *incidentBundleValidationCatalog,
 ) error {
-	if importContext.Attributions == nil || importContext.ActorUserID == uuid.Nil ||
+	if importContext.ActorUserID == uuid.Nil ||
 		importContext.IncidentID != prepared.incidentID || importContext.ActorUserID != prepared.runtimeActor || validation == nil {
 		return revisionsFailure(revisionsReferencesInvariant)
 	}
-	if err := validatePreparedRevisionsBeforeWriteTx(ctx, tx, prepared, validation); err != nil {
+	if err := validatePreparedRevisionsBeforeWriteTx(ctx, tx, prepared, validation, importContext.Attributions); err != nil {
 		return err
 	}
 	if err := prepared.walkChangeSets(ctx, func(row portableChangeSet) error {
+		if err := importContext.Attributions.RecordImportedAttribution(
+			"change_sets", row.ChangeSetID.String(), "actor_user_id", row.PortableActorID.String(),
+		); err != nil {
+			return err
+		}
 		tag, err := tx.Exec(ctx, `
 INSERT INTO change_sets (
     change_set_id, incident_id, actor_user_id, source, reason,
-    client_txn_id, request_id, created_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    client_txn_id, request_id, created_at, actor_import_contexts, history_order
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `, row.ChangeSetID, row.IncidentID, importContext.ActorUserID, row.Source,
-			row.Reason, row.ClientTxnID, row.RequestID, row.CreatedAt)
+			row.Reason, row.ClientTxnID, row.RequestID, row.CreatedAt, jsonOrNil(prepared.importedActorContexts(row.ActorImportContexts)), row.HistoryOrder)
 		if err != nil {
-			return err
+			return classifyRevisionsImportError(err)
 		}
 		if tag.RowsAffected() != 1 {
 			return revisionsFailure(revisionsReferencesInvariant)
 		}
-		if err := importContext.Attributions.RecordImportedAttribution(
-			"change_sets",
-			row.ChangeSetID.String(),
-			"actor_user_id",
-			row.PortableActorID.String(),
-		); err != nil {
-			return revisionsFailure(revisionsActorsInvariant)
-		}
 		return nil
 	}); err != nil {
-		return classifyRevisionsImportError(err)
+		return err
 	}
 
 	if err := prepared.walkMutations(ctx, func(row portableChangeSetMutation) error {
-		if err := validateImportedChangeSetTx(ctx, tx, prepared.incidentID, row.ChangeSetID); err != nil {
-			return err
-		}
 		history, err := validation.targets.DescribeValues(row.TargetKind, row.TargetID, row.OperationKind, row.BeforeValue, row.AfterValue)
 		if err != nil {
 			return revisionsFailure(revisionsHistoryInvariant)
@@ -71,19 +65,16 @@ INSERT INTO change_set_mutations (
 			jsonOrNil(row.BeforeValue), jsonOrNil(row.AfterValue),
 			history.HistoryRecordIDs, history.HistoryEntryRecordIDs)
 		if err != nil {
-			return err
+			return classifyRevisionsImportError(err)
 		}
 		if tag.RowsAffected() != 1 {
 			return revisionsFailure(revisionsSequenceInvariant)
 		}
 		return nil
 	}); err != nil {
-		return classifyRevisionsImportError(err)
+		return err
 	}
 	if err := prepared.walkRevisions(ctx, func(row portableRecordRevision) error {
-		if err := validateImportedChangeSetTx(ctx, tx, prepared.incidentID, row.ChangeSetID); err != nil {
-			return err
-		}
 		tag, err := tx.Exec(ctx, `
 INSERT INTO record_revisions (
     revision_id, change_set_id, record_id, row_version,
@@ -92,14 +83,14 @@ INSERT INTO record_revisions (
 `, row.RevisionID, row.ChangeSetID, row.RecordID, row.RowVersion,
 			jsonOrNil(row.BeforeJSON), jsonOrNil(row.AfterJSON), row.CreatedAt)
 		if err != nil {
-			return err
+			return classifyRevisionsImportError(err)
 		}
 		if tag.RowsAffected() != 1 {
 			return revisionsFailure(revisionsRecordVersionInvariant)
 		}
 		return nil
 	}); err != nil {
-		return classifyRevisionsImportError(err)
+		return err
 	}
 	return nil
 }
@@ -110,6 +101,8 @@ func classifyRevisionsImportError(err error) error {
 		return err
 	}
 	switch failure.ConstraintName {
+	case "change_sets_incident_history_order_key":
+		return revisionsFailure(revisionsHistoryInvariant)
 	case "record_revisions_pkey", "record_revisions_record_id_row_version_key":
 		return revisionsFailure(revisionsRecordVersionInvariant)
 	case "change_set_mutations_pkey":

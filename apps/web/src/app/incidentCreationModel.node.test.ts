@@ -286,7 +286,7 @@ describe("incident creation operation", () => {
     const { controller, ports } = setup({
       create: vi
         .fn()
-        .mockResolvedValueOnce(rejection("csrf_failed", 403))
+        .mockResolvedValueOnce(rejection("csrf_verification_failed", 403))
         .mockResolvedValue(rejection("session_required", 401)),
     });
     controller.submit();
@@ -333,18 +333,21 @@ describe("incident creation operation", () => {
       expect(
         await createIncident({ request, signal: new AbortController().signal }),
       ).toMatchObject({ ok: true, status });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1].body);
-    expect(body).toEqual({
-      client_txn_id: "txn-captured",
-      incident_key: "IR-CREATE",
-      title: "Creation draft",
-      description: null,
-      severity: null,
-      tlp: null,
-      current_phase: null,
-      primary_external_case_ref: null,
-    });
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/incidents");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [url, init] of fetchMock.mock.calls) {
+      expect(url).toBe("/api/v1/incidents");
+      expect(init.method).toBe("POST");
+      expect(JSON.parse(init.body)).toEqual({
+        client_txn_id: "txn-captured",
+        incident_key: "IR-CREATE",
+        title: "Creation draft",
+        description: null,
+        severity: null,
+        tlp: null,
+        current_phase: null,
+        primary_external_case_ref: null,
+      });
+    }
   });
 
   it("classifies malformed success as uncertain at the public validation boundary", async () => {

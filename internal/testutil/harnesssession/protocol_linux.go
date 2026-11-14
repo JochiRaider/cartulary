@@ -210,6 +210,8 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 			}
 		}
 		result = r.RegisterEnvironment(q.Environment)
+	case "inspect_resource":
+		out.Result, result = r.InspectResource(*q.Resource)
 	case "record":
 		if q.Resource.RunID != r.RunID || q.Resource.LeaseID != r.LeaseID {
 			return out, harnesslocal.ErrUnsafe

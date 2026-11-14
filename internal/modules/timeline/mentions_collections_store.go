@@ -24,6 +24,7 @@ func (s *store) hydrateProjectedCollections(ctx context.Context, tx pgx.Tx, reco
 }
 
 type mentionInsertOptions struct {
+	preparedAuto                   preparedAutoResolution
 	allowInteractiveAutoResolution bool
 	originKind                     string
 }
@@ -101,6 +102,7 @@ func (s *store) applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, acto
 	var result mentionApplicationResult
 	insertOptions := mentionInsertOptions{
 		allowInteractiveAutoResolution: options.allowInteractiveAutoResolution,
+		preparedAuto:                   options.preparedAuto,
 	}
 	hostResult, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.host_refs", collectionEntityType("timeline.host_refs"), hostRefs, insertOptions, now)
 	if err != nil {
@@ -119,7 +121,7 @@ func (s *store) applyCreateTagActionsTx(ctx context.Context, tx pgx.Tx, actorUse
 	return s.applyTimelineTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, tags, now)
 }
 
-func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) (mentionApplicationResult, error) {
+func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, prepared preparedAutoResolution, now time.Time) (mentionApplicationResult, error) {
 	var result mentionApplicationResult
 	for _, change := range changes {
 		if change.ActionPayload == nil {
@@ -131,6 +133,7 @@ func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 			case "add_token", "add_resolved_ref":
 				applied, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, change.FieldKey, entityType, &CollectionActionPayload{Actions: []CollectionAction{action}}, mentionInsertOptions{
 					allowInteractiveAutoResolution: true,
+					preparedAuto:                   prepared,
 				}, now)
 				if err != nil {
 					return mentionApplicationResult{}, err
@@ -210,22 +213,38 @@ func (s *store) applyAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, a
 	if err != nil {
 		return nil, err
 	}
+	if err := s.linkStore.ValidateRecordRefCollectionTx(ctx, tx, RecordRefCollectionValidation{
+		IncidentID: command.IncidentID, FieldKey: command.FieldKey, LinkType: command.LinkType,
+		ExpectedTargetType: command.ExpectedTargetType, AddRecordIDs: command.AddRecordIDs,
+	}); err != nil {
+		return nil, err
+	}
 	if err := s.evidenceStore.ValidateTimelineAttachmentsTx(ctx, tx, incidentID, command.AddRecordIDs); err != nil {
 		return nil, err
 	}
-	result, err := s.linkStore.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, command)
-	if err != nil {
-		return nil, err
+	mutations := make([]attachedEvidenceMutation, 0, len(payload.Actions))
+	affectedRecordIDs := make([]uuid.UUID, 0, len(payload.Actions))
+	for _, action := range payload.Actions {
+		single, err := timelineRecordRefCollectionCommand(incidentID, recordID, actorUserID, policy, &CollectionActionPayload{Actions: []CollectionAction{action}}, now)
+		if err != nil {
+			return nil, err
+		}
+		result, err := s.linkStore.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, single)
+		if err != nil {
+			return nil, err
+		}
+		if len(result.RecordLinks) > 0 {
+			affectedRecordIDs = append(affectedRecordIDs, single.AddRecordIDs...)
+			affectedRecordIDs = append(affectedRecordIDs, single.RemoveRecordIDs...)
+		}
+		for _, mutation := range result.RecordLinks {
+			mutations = append(mutations, attachedEvidenceMutation(mutation))
+		}
 	}
-	affectedRecordIDs := append([]uuid.UUID{}, command.AddRecordIDs...)
-	affectedRecordIDs = append(affectedRecordIDs, command.RemoveRecordIDs...)
 	if err := s.evidenceStore.RefreshTimelineAttachmentProjectionsTx(ctx, tx, affectedRecordIDs); err != nil {
 		return nil, err
 	}
-	mutations := make([]attachedEvidenceMutation, 0, len(result.RecordLinks))
-	for _, mutation := range result.RecordLinks {
-		mutations = append(mutations, attachedEvidenceMutation(mutation))
-	}
+
 	return mutations, nil
 }
 
@@ -259,17 +278,19 @@ func (s *store) applyTimelineTagActionsTx(ctx context.Context, tx pgx.Tx, actorU
 	if !ok || !policy.AllowsLinksCollectionMutation() {
 		return nil, fmt.Errorf("missing collection policy: timeline.tags")
 	}
-	command, err := timelineTagCollectionCommand(incidentID, recordID, actorUserID, policy, payload, now)
-	if err != nil {
-		return nil, err
-	}
-	result, err := s.linkStore.ApplyTagCollectionWithMutationValuesTx(ctx, tx, command)
-	if err != nil {
-		return nil, err
-	}
-	mutations := make([]recordTagMutation, 0, len(result.RecordTags))
-	for _, mutation := range result.RecordTags {
-		mutations = append(mutations, recordTagMutation(mutation))
+	var mutations []recordTagMutation
+	for _, action := range payload.Actions {
+		command, err := timelineTagCollectionCommand(incidentID, recordID, actorUserID, policy, &CollectionActionPayload{Actions: []CollectionAction{action}}, now)
+		if err != nil {
+			return nil, err
+		}
+		result, err := s.linkStore.ApplyTagCollectionWithMutationValuesTx(ctx, tx, command)
+		if err != nil {
+			return nil, err
+		}
+		for _, mutation := range result.RecordTags {
+			mutations = append(mutations, recordTagMutation(mutation))
+		}
 	}
 	return mutations, nil
 }
@@ -391,7 +412,7 @@ func (s *store) insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore
 			if action.ResolvedRecord == nil {
 				return mentionApplicationResult{}, fmt.Errorf("missing resolved record for action: %s", action.Op)
 			}
-			if err := s.entityStore.ValidateResolvedTargetTx(ctx, tx, incidentID, entityType, *action.ResolvedRecord); err != nil {
+			if err := s.entityStore.AdmitResolvedTargetTx(ctx, tx, incidentID, entityType, *action.ResolvedRecord); err != nil {
 				return mentionApplicationResult{}, err
 			}
 			resolutionStatus = "resolved"
@@ -403,7 +424,7 @@ func (s *store) insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore
 			method := action.Op
 			resolutionMethod = &method
 		} else if options.allowInteractiveAutoResolution {
-			match, err := s.lookupInteractiveAutoResolutionMatchTx(ctx, tx, incidentID, fieldKey, action.RawText)
+			match, err := s.lookupInteractiveAutoResolutionMatchTx(ctx, tx, incidentID, fieldKey, action.RawText, options.preparedAuto)
 			if err != nil {
 				return mentionApplicationResult{}, err
 			}

@@ -64,10 +64,10 @@
       "selector": {
         "file": "packages/protocol-ts/src/index.node.test.ts",
         "titles": [
-          "@cartulary/protocol-ts family conformance decodes every server WebSocket family with its complete envelope",
           "@cartulary/protocol-ts family conformance decodes exact Network Flow contracts without exposing payload data on failure",
           "@cartulary/protocol-ts family conformance projects replayable messages to fresh known members at every additive boundary",
-          "@cartulary/protocol-ts family conformance rejects incomplete envelopes, invalid payloads, and non-server families"
+          "@cartulary/protocol-ts family conformance rejects incomplete envelopes, invalid payloads, and non-server families",
+          "@cartulary/protocol-ts family conformance validates every WebSocket family with its directional envelope"
         ],
         "project_id": "node-unit"
       },
@@ -150,7 +150,7 @@
         "file": "packages/protocol-ts/src/index.node.test.ts",
         "titles": [
           "@cartulary/protocol-ts family conformance exposes deterministic generated HTTP operation bindings without payload leakage",
-          "@cartulary/protocol-ts family conformance requires complete incident paging and consistent continuation metadata"
+          "@cartulary/protocol-ts family conformance requires complete collection paging and consistent continuation metadata"
         ],
         "project_id": "node-unit"
       },

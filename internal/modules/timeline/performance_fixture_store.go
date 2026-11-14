@@ -40,6 +40,30 @@ func (s *store) createPerformanceFixtureRows(ctx context.Context, command Perfor
 		return PerformanceFixtureResult{}, fmt.Errorf("timeline performance fixture requires an empty incident timeline")
 	}
 
+	relationshipCells := make([][]ownerBatchCellV1, len(command.Rows))
+	referenceRows := make([]referenceRow, 0)
+	for index, row := range command.Rows {
+		if row.HostRef == "" {
+			continue
+		}
+		for _, field := range []struct{ key, value string }{{"timeline.host_refs", row.HostRef}, {"timeline.identity_refs", row.IdentityRef}, {"timeline.tags", row.Tag}} {
+			change, ok := clipboardValueToPatchChange(field.key, field.value)
+			if !ok {
+				return PerformanceFixtureResult{}, fmt.Errorf("build timeline performance fixture collection %s", field.key)
+			}
+			relationshipCells[index] = append(relationshipCells[index], ownerBatchCellV1{FieldKey: field.key, Change: change})
+		}
+		preparedRow := referenceRow{}
+		for _, cell := range relationshipCells[index] {
+			preparedRow.changes = append(preparedRow.changes, cell.Change)
+		}
+		referenceRows = append(referenceRows, preparedRow)
+	}
+	preparation := &referencePreparation{}
+	if err := s.prepareReferencesTx(ctx, tx, command.IncidentID, referenceRows, true, preparation); err != nil {
+		return PerformanceFixtureResult{}, err
+	}
+
 	now := command.Now.UTC()
 	envelopes := make([]RecordCreateParams, len(command.Rows))
 	sourceRows := make([][]any, len(command.Rows))
@@ -99,19 +123,8 @@ func (s *store) createPerformanceFixtureRows(ctx context.Context, command Perfor
 			continue
 		}
 		result.RelationshipRows++
-		cells := make([]ownerBatchCellV1, 0, 3)
-		for _, field := range []struct{ key, value string }{
-			{"timeline.host_refs", row.HostRef},
-			{"timeline.identity_refs", row.IdentityRef},
-			{"timeline.tags", row.Tag},
-		} {
-			change, ok := clipboardValueToPatchChange(field.key, field.value)
-			if !ok {
-				return PerformanceFixtureResult{}, fmt.Errorf("build timeline performance fixture collection %s", field.key)
-			}
-			cells = append(cells, ownerBatchCellV1{FieldKey: field.key, Change: change})
-		}
-		mentionResult, err := s.applyBatchMentionActionsTx(ctx, tx, command.Actor, command.IncidentID, recordIDs[index], cells, "clipboard_paste", now)
+		cells := relationshipCells[index]
+		mentionResult, err := s.applyBatchMentionActionsTx(ctx, tx, command.Actor, command.IncidentID, recordIDs[index], cells, "clipboard_paste", preparation.auto, now)
 		if err != nil {
 			return PerformanceFixtureResult{}, err
 		}

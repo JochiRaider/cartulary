@@ -38,12 +38,6 @@ export async function waitForPageRequestAPIReady(page: Page) {
 }
 
 export async function verifyOwnedHarnessRuntime() {
-  if (
-    !process.env.CARTULARY_TEST_ROUTE_TOKEN_FILE?.trim() &&
-    !process.env.CARTULARY_TEST_ROUTE_TOKEN?.trim()
-  ) {
-    return;
-  }
   const request = {
     fetch: async (
       url: string,

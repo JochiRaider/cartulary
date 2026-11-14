@@ -2,10 +2,10 @@ package tabularingest
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -172,7 +172,7 @@ func BuildMappingKernelPlanV1(ctx context.Context, request MappingKernelRequestV
 			if column.FieldKey == nil {
 				unknown := MappingKernelUnknownValueV1{
 					SourceColumnOrdinal: column.SourceColumnOrdinal,
-					SourceHeaderText:    cloneMappingKernelJSONValue(column.SourceHeaderText),
+					SourceHeaderText:    column.SourceHeaderText,
 					RawValue:            cell.RawValue,
 					CellKind:            cell.CellKind,
 				}
@@ -204,7 +204,7 @@ func BuildMappingKernelPlanV1(ctx context.Context, request MappingKernelRequestV
 				TransformedValue:    transformed,
 				Disposition:         disposition,
 				SourceColumnOrdinal: column.SourceColumnOrdinal,
-				SourceHeaderText:    cloneMappingKernelJSONValue(column.SourceHeaderText),
+				SourceHeaderText:    column.SourceHeaderText,
 				CellKind:            cell.CellKind,
 				EntityBindingMode:   cloneMappingKernelString(column.EntityBindingMode),
 				TransformID:         cloneMappingKernelString(column.TransformID),
@@ -260,8 +260,11 @@ func validateMappingKernelSourceColumns(
 		if source.SourceColumnOrdinal != index+1 {
 			return nil, fmt.Errorf("tabular mapping kernel source columns are not contiguous")
 		}
-		if _, err := json.Marshal(source.SourceHeaderText); err != nil {
-			return nil, fmt.Errorf("tabular mapping kernel source header %d is not a scalar JSON value", source.SourceColumnOrdinal)
+		if source.SourceHeaderText != nil {
+			text, ok := source.SourceHeaderText.(string)
+			if !ok || !utf8.ValidString(text) {
+				return nil, fmt.Errorf("tabular mapping kernel source header %d must be Unicode text or null", source.SourceColumnOrdinal)
+			}
 		}
 		if source.TransformOptions == nil {
 			return nil, fmt.Errorf("tabular mapping kernel transform options are nil for column %d", source.SourceColumnOrdinal)
@@ -302,7 +305,6 @@ func validateMappingKernelSourceColumns(
 		source.EntityBindingMode = cloneMappingKernelString(source.EntityBindingMode)
 		source.TransformID = cloneMappingKernelString(source.TransformID)
 		source.TransformOptions = cloneMappingKernelOptions(source.TransformOptions)
-		source.SourceHeaderText = cloneMappingKernelJSONValue(source.SourceHeaderText)
 		validated = append(validated, source)
 	}
 	return validated, nil
@@ -419,18 +421,6 @@ func cloneMappingKernelOptions(options map[string]any) map[string]any {
 	cloned := make(map[string]any, len(options))
 	for key, value := range options {
 		cloned[key] = value
-	}
-	return cloned
-}
-
-func cloneMappingKernelJSONValue(value any) any {
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		return nil
-	}
-	var cloned any
-	if err := json.Unmarshal(encoded, &cloned); err != nil {
-		return nil
 	}
 	return cloned
 }

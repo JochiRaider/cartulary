@@ -4,10 +4,170 @@ import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { goRunnerBuildContext, loadTestCatalog, resolvePlaywrightSelection, resolveVitestTitles, restrictedExecutableInputRoots } from "../test-catalog/index.mjs";
 import { createContractTestContext } from "./contract-test-context.mjs";
+import { loadCatalogMetadata, sourceExclusionPolicy } from "../test-support/owner-fixtures.mjs";
+import { createScratch } from "../test-support/scratch.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+
+test("metadata admission rejects linked files and ancestors before reading through them", (t) => {
+  const fixture = createScratch(t, "catalog-metadata-boundary-");
+  const outside = createScratch(t, "catalog-metadata-external-");
+  const read = fs.readFileSync;
+  const inputs = new Set();
+  let catalog;
+  fs.readFileSync = (file, ...args) => {
+    if (typeof file === "string" && file.startsWith(`${root}/`) && file.endsWith(".json")) inputs.add(file);
+    return read(file, ...args);
+  };
+  syncBuiltinESMExports();
+  try { catalog = loadCatalogMetadata(root); }
+  finally { fs.readFileSync = read; syncBuiltinESMExports(); }
+  // Copy only admitted machine inputs. Their contents construct the valid
+  // fixture; the rejection expectations below are independently authored.
+  inputs.add(path.join(root, "tools/performance_fixture_snapshot_owner.json"));
+  for (const profile of catalog.fixtureProfiles.registry.profiles) {
+    for (const ref of profile.source_contract_refs) inputs.add(path.join(root, ref.path));
+  }
+  for (const runner of catalog.runners.runners) inputs.add(path.join(root, runner.adapter_path));
+  for (const input of inputs) {
+    const destination = path.join(fixture, path.relative(root, input));
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(input, destination);
+  }
+  assert.ok(loadCatalogMetadata(fixture).rowByID.has("harness.test_catalog.behavior.routing_contract"));
+
+  for (const relative of [
+    "tools/test_catalog_owner.json", "tools/test_runner_registry.json",
+    "tools/execution_topology_manifest.json", "tools/scheduler_resource_registry.json",
+    "tools/harness_work_graph_owner.json", "tools/test_catalog_row_migrations.json",
+    "tools/task_surface_owner.json", "contracts/verification/registry.json",
+    "tools/postgres_fixture_policy_registry.json",
+    "tools/test_families/app.migrate.json", "contracts/verification/owners/app.migrate.json",
+    "tools/harness/execution/runners/go.mjs", "tools/test_families",
+    "contracts/verification/owners", "contracts/verification", "tools",
+  ]) {
+    const candidate = path.join(fixture, relative);
+    const target = path.join(outside, "moved-input");
+    const directory = fs.lstatSync(candidate).isDirectory();
+    fs.renameSync(candidate, target);
+    const originals = new Map(["readFileSync", "lstatSync", "statSync", "realpathSync"].map((name) => [name, fs[name]]));
+    const forbiddenProbes = [];
+    try {
+      fs.symlinkSync(target, candidate, directory ? "dir" : "file");
+      for (const [name, original] of originals) fs[name] = (file, ...args) => {
+        if (typeof file === "string" && (
+          file === target || file.startsWith(`${target}/`) || file.startsWith(`${candidate}/`) ||
+          (file === candidate && name !== "lstatSync")
+        )) forbiddenProbes.push(`${name}:${file}`);
+        return original(file, ...args);
+      };
+      syncBuiltinESMExports();
+      assert.throws(() => loadCatalogMetadata(fixture), directory ? /ancestor is not a directory/u : /non-symlink regular file/u, relative);
+      assert.deepEqual(forbiddenProbes, [], relative);
+    } finally {
+      for (const [name, original] of originals) fs[name] = original;
+      syncBuiltinESMExports();
+      fs.rmSync(candidate, { force: true });
+      fs.renameSync(target, candidate);
+    }
+  }
+
+  const registryPath = path.join(fixture, "contracts/verification/registry.json");
+  const registryBytes = fs.readFileSync(registryPath);
+  const registry = JSON.parse(registryBytes);
+  for (const contractPath of [
+    "contracts/verification/owners/../app.migrate.json",
+    "tools/test_families/app.migrate.json",
+    "contracts/verification/owners/readme.json",
+  ]) {
+    fs.writeFileSync(registryPath, JSON.stringify({ ...registry, owners: [{ ...registry.owners[0], contract_path: contractPath }] }));
+    const original = fs.lstatSync;
+    const probes = [];
+    fs.lstatSync = (file, ...args) => {
+      if (String(file).startsWith(path.join(fixture, "contracts/verification/owners"))) probes.push(String(file));
+      return original(file, ...args);
+    };
+    syncBuiltinESMExports();
+    try {
+      assert.throws(() => loadCatalogMetadata(fixture), /validation failed|documentation|human|prose/iu);
+      assert.deepEqual(probes, [], contractPath);
+    } finally {
+      fs.lstatSync = original;
+      syncBuiltinESMExports();
+      fs.writeFileSync(registryPath, registryBytes);
+    }
+  }
+  assert.ok(loadCatalogMetadata(fixture).rowByID.has("harness.test_catalog.behavior.routing_contract"));
+});
+
+test("support metadata uses the same strict admission as catalog owner inputs", (t) => {
+  const fixture = createScratch(t, "catalog-support-metadata-");
+  const outside = createScratch(t, "catalog-support-external-");
+  fs.mkdirSync(path.join(fixture, "tools"));
+  for (const name of ["toolchain_pins", "go_modules", "generated_artifact_policy", "executable_input_policy", "test_runner_registry"]) {
+    fs.copyFileSync(path.join(root, `tools/${name}.json`), path.join(fixture, `tools/${name}.json`));
+  }
+  assert.equal(goRunnerBuildContext(fixture).environment.GOOS, "linux");
+  assert.equal(sourceExclusionPolicy(fixture)("internal/gen/example.go"), true);
+  assert.ok(restrictedExecutableInputRoots(fixture).length > 0);
+  assert.deepEqual(resolveVitestTitles(fixture, []), new Map());
+  assert.deepEqual(resolvePlaywrightSelection(fixture, []), []);
+
+  for (const [name, consume] of [
+    ["toolchain_pins", () => goRunnerBuildContext(fixture)],
+    ["go_modules", () => goRunnerBuildContext(fixture)],
+    ["generated_artifact_policy", () => sourceExclusionPolicy(fixture)],
+    ["executable_input_policy", () => restrictedExecutableInputRoots(fixture)],
+    ["test_runner_registry", () => resolveVitestTitles(fixture, [])],
+    ["test_runner_registry", () => resolvePlaywrightSelection(fixture, [])],
+  ]) {
+    const file = path.join(fixture, `tools/${name}.json`);
+    const original = fs.readFileSync(file);
+    const target = path.join(outside, "metadata.json");
+    fs.renameSync(file, target);
+    const read = fs.readFileSync;
+    const reads = [];
+    try {
+      fs.symlinkSync(target, file);
+      fs.readFileSync = (input, ...args) => {
+        if (input === file || input === target) reads.push(input);
+        return read(input, ...args);
+      };
+      syncBuiltinESMExports();
+      assert.throws(consume, /non-symlink regular file/u, name);
+      assert.deepEqual(reads, [], name);
+    } finally {
+      fs.readFileSync = read;
+      syncBuiltinESMExports();
+      fs.rmSync(file, { force: true });
+      fs.renameSync(target, file);
+    }
+    const [key, value] = Object.entries(JSON.parse(original))[0];
+    try {
+      fs.writeFileSync(file, original.toString().replace("{", `{${JSON.stringify(key)}:${JSON.stringify(value)},`));
+      assert.throws(consume, /duplicate/iu, name);
+    } finally { fs.writeFileSync(file, original); }
+  }
+
+  // Optional module metadata is absent only when the isolated root has no
+  // independent module tree. A dangling link is invalid, never absence.
+  const modules = path.join(fixture, "tools/go_modules.json");
+  fs.rmSync(modules);
+  assert.deepEqual(goRunnerBuildContext(fixture).modules, []);
+  fs.symlinkSync(path.join(outside, "missing.json"), modules);
+  assert.throws(() => goRunnerBuildContext(fixture), /non-symlink regular file/u);
+  fs.rmSync(modules);
+  fs.mkdirSync(path.join(fixture, "referencepacks"));
+  assert.throws(() => goRunnerBuildContext(fixture), /missing independent Go module registry/u);
+
+  fs.renameSync(path.join(fixture, "tools"), path.join(outside, "tools"));
+  fs.symlinkSync(path.join(outside, "tools"), path.join(fixture, "tools"), "dir");
+  assert.throws(() => goRunnerBuildContext(fixture), /ancestor is not a directory/u);
+  assert.throws(() => sourceExclusionPolicy(fixture), /ancestor is not a directory/u);
+  assert.throws(() => restrictedExecutableInputRoots(fixture), /ancestor is not a directory/u);
+});
 
 test("renderer context rejects missing browser capacity and unrelated service fixtures before selection", () => {
   const read = fs.readFileSync;

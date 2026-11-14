@@ -1,4 +1,3 @@
-import type { ViewRow } from "@cartulary/protocol-ts/http";
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   currentIncidentRoleTestId,
@@ -10,34 +9,33 @@ import {
   timelinePreviewRowTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import { timelineViewSchemaId } from "@cartulary/view-contracts";
-import { expect, type Page, type Response } from "@playwright/test";
+import {
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+} from "@cartulary/view-contracts";
+import { expect, type Page } from "@playwright/test";
 import { readHttpOperationResponse } from "../transport/publicHttpOperationClient";
-import { queryViewRows } from "../workbook/query";
-import { collectionItems, findRow, requireItemByRawText } from "./mentions";
 
 export async function exerciseEntityMerge(
   page: Page,
   options: {
-    dependentRow: ViewRow;
+    dependentRecordId: string;
     entityType: "host" | "identity";
     expectAdminRole?: boolean;
-    fieldKey: string;
     incidentId: string;
-    loser: ViewRow;
+    loserRecordId: string;
     loserLabel: string;
     mergeReason: string;
-    rawText: string;
-    recordType: string;
     resolvedLabel: string;
-    survivor: ViewRow;
+    survivorRecordId: string;
     survivorLabel: string;
-    viewSchemaId: string;
   },
-) {
+): Promise<void> {
+  const viewSchemaId =
+    options.entityType === "host" ? hostsViewSchemaId : identitiesViewSchemaId;
   await page.goto(
     `/?incident_id=${options.incidentId}&view_schema_id=${encodeURIComponent(
-      options.viewSchemaId,
+      viewSchemaId,
     )}`,
   );
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -45,26 +43,22 @@ export async function exerciseEntityMerge(
     await expectCurrentIncidentRole(page, "Current incident role: admin");
   }
   await expect(
-    page.getByTestId(
-      gridRowTestId(options.viewSchemaId, options.survivor.record_id),
-    ),
+    page.getByTestId(gridRowTestId(viewSchemaId, options.survivorRecordId)),
   ).toBeVisible();
   await expect(
-    page.getByTestId(
-      gridRowTestId(options.viewSchemaId, options.loser.record_id),
-    ),
+    page.getByTestId(gridRowTestId(viewSchemaId, options.loserRecordId)),
   ).toBeVisible();
   const inspectButtonTestId = entityInspectButtonTestId(
     options.entityType,
-    options.survivor.record_id,
+    options.survivorRecordId,
   );
   await scrollGridTargetIntoView({
     page,
-    surface: options.viewSchemaId,
+    surface: viewSchemaId,
     targetTestId: inspectButtonTestId,
   });
   await page.getByTestId(inspectButtonTestId).click();
-  const inspectorTestId = entityInspectorLocalTestId(options.entityType);
+  const inspectorTestId = entityInspectorTestId(options.entityType);
   await expect(page.getByTestId(inspectorTestId)).toContainText(
     options.survivorLabel,
   );
@@ -74,7 +68,7 @@ export async function exerciseEntityMerge(
   await page.getByTestId(entityMergeControlTestId("start")).click();
   await page
     .getByTestId(entityMergeControlTestId("loser-record"))
-    .selectOption(options.loser.record_id);
+    .selectOption(options.loserRecordId);
   await page
     .getByTestId(entityMergeControlTestId("reason"))
     .fill(options.mergeReason);
@@ -86,17 +80,20 @@ export async function exerciseEntityMerge(
   ).toContainText(`loser ${options.loserLabel}`);
   await expect(
     page.getByTestId(entityMergeControlTestId("plan")),
-  ).toContainText(options.survivor.record_id);
+  ).toContainText(options.survivorRecordId);
   await expect(
     page.getByTestId(entityMergeControlTestId("plan")),
-  ).toContainText(options.loser.record_id);
+  ).toContainText(options.loserRecordId);
   await page.getByTestId(entityMergeControlTestId("review")).click();
   await expect(
     page.getByTestId(entityMergeControlTestId("cancel")),
   ).toBeFocused();
-  const mergeResponsePromise = waitForMergeResponse(
-    page,
-    options.survivor.record_id,
+  const mergeResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(`/api/v1/records/${options.survivorRecordId}/merge`),
   );
   const scrollport = page.locator(gridScrollportSelector());
   const scrollBefore = await scrollport.evaluate((node) => ({
@@ -104,11 +101,17 @@ export async function exerciseEntityMerge(
     top: node.scrollTop,
   }));
   await page.getByTestId(entityMergeControlTestId("confirm")).click();
-  const mergeEnvelope = await readMergeEnvelope(await mergeResponsePromise);
+  const mergeEnvelope = await readHttpOperationResponse(
+    await mergeResponsePromise,
+    "mergeEntityRecord",
+  );
+  expect(mergeEnvelope.data.survivor_record_id).toBe(options.survivorRecordId);
+  expect(mergeEnvelope.data.loser_record_id).toBe(options.loserRecordId);
+  expect(mergeEnvelope.data.merged_into_record_id).toBe(
+    options.survivorRecordId,
+  );
   await expect(
-    page.getByTestId(
-      gridRowTestId(options.viewSchemaId, options.loser.record_id),
-    ),
+    page.getByTestId(gridRowTestId(viewSchemaId, options.loserRecordId)),
   ).toHaveCount(0);
   await expect(page.getByTestId(inspectorTestId)).toContainText(
     options.survivorLabel,
@@ -116,14 +119,14 @@ export async function exerciseEntityMerge(
   await expect(
     page.getByTestId(entityMergeControlTestId("message")),
   ).toContainText(
-    `Merged ${options.loserLabel} (${options.loser.record_id}) into ${options.survivorLabel} (${options.survivor.record_id})`,
+    `Merged ${options.loserLabel} (${options.loserRecordId}) into ${options.survivorLabel} (${options.survivorRecordId})`,
   );
   await expect(
-    page.getByTestId(timelinePreviewRowTestId(options.dependentRow.record_id)),
+    page.getByTestId(timelinePreviewRowTestId(options.dependentRecordId)),
   ).toBeVisible();
   await expect(
     page
-      .getByTestId(timelinePreviewRowTestId(options.dependentRow.record_id))
+      .getByTestId(timelinePreviewRowTestId(options.dependentRecordId))
       .getByRole("note", {
         name: `Resolved ${options.entityType}: ${options.resolvedLabel}`,
         exact: true,
@@ -138,68 +141,6 @@ export async function exerciseEntityMerge(
       top: node.scrollTop,
     })),
   ).toEqual(scrollBefore);
-  const entityRowsAfter = await queryViewRows(
-    page,
-    options.incidentId,
-    options.viewSchemaId,
-  );
-  const timelineRowsAfter = await queryViewRows(
-    page,
-    options.incidentId,
-    timelineViewSchemaId,
-  );
-  const dependentRowAfter = findRow(
-    timelineRowsAfter,
-    options.dependentRow.record_id,
-  );
-  const dependentItemAfter = requireItemByRawText(
-    collectionItems(dependentRowAfter, options.fieldKey),
-    options.rawText,
-  );
-  expect(mergeEnvelope.data.survivor_record_id).toBe(
-    options.survivor.record_id,
-  );
-  expect(mergeEnvelope.data.loser_record_id).toBe(options.loser.record_id);
-  expect(mergeEnvelope.data.merged_into_record_id).toBe(
-    options.survivor.record_id,
-  );
-  expect(mergeEnvelope.data.merge_summary.record_type).toBe(options.recordType);
-  expect(
-    mergeEnvelope.data.merge_summary.repointed_mention_resolution_count,
-  ).toBeGreaterThan(0);
-  expect(mergeEnvelope.data.merge_summary.repointed_link_count).toBeGreaterThan(
-    0,
-  );
-  expect(
-    entityRowsAfter.some((row) => row.record_id === options.survivor.record_id),
-  ).toBeTruthy();
-  expect(
-    entityRowsAfter.some((row) => row.record_id === options.loser.record_id),
-  ).toBeFalsy();
-  expect(String(dependentItemAfter.item_kind)).toBe("resolved_ref");
-  expect(String(dependentItemAfter.raw_text)).toBe(options.rawText);
-  expect(String(dependentItemAfter.resolved_record_id)).toBe(
-    options.survivor.record_id,
-  );
-  return {
-    dependentItemAfter,
-    dependentRowAfter,
-    entityRowsAfter,
-    mergeEnvelope,
-    timelineRowsAfter,
-  };
-}
-
-function waitForMergeResponse(page: Page, survivorRecordId: string) {
-  return page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response.url().endsWith(`/api/v1/records/${survivorRecordId}/merge`),
-  );
-}
-
-async function readMergeEnvelope(response: Response) {
-  return readHttpOperationResponse(response, "mergeEntityRecord");
 }
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
@@ -211,8 +152,4 @@ async function expectCurrentIncidentRole(page: Page, roleText: string) {
     roleText,
   );
   await accountMenuTrigger.click();
-}
-
-function entityInspectorLocalTestId(entityType: "host" | "identity") {
-  return entityInspectorTestId(entityType);
 }

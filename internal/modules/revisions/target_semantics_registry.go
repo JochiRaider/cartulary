@@ -11,12 +11,13 @@ import (
 const targetSemanticsRegistrySchemaID = "cartulary.revisions_target_semantics_registry.v1"
 
 type targetSemanticsRequirement struct {
-	TargetKind            string
-	SourceOwnerID         string
-	DispatchClass         rollbackcontract.DispatchClass
-	AdmittedRecordTypes   []string
-	HistoryRecordIDFields []string
-	Addressability        HistoryAddressability
+	TargetKind               string
+	SourceOwnerID            string
+	DispatchClass            rollbackcontract.DispatchClass
+	AdmittedRecordTypes      []string
+	HistoryRecordIDFields    []string
+	Addressability           HistoryAddressability
+	HistoryValidatorRequired bool
 }
 
 type targetSemanticsRegistry struct {
@@ -26,12 +27,13 @@ type targetSemanticsRegistry struct {
 }
 
 type targetSemanticsRegistryEntry struct {
-	TargetKind            string                         `json:"target_kind"`
-	SourceOwner           string                         `json:"source_owner"`
-	DispatchClass         rollbackcontract.DispatchClass `json:"dispatch_class"`
-	AdmittedRecordTypes   []string                       `json:"admitted_record_types"`
-	HistoryRecordIDFields []string                       `json:"history_record_id_fields"`
-	Addressability        HistoryAddressability          `json:"addressability"`
+	TargetKind               string                         `json:"target_kind"`
+	SourceOwner              string                         `json:"source_owner"`
+	DispatchClass            rollbackcontract.DispatchClass `json:"dispatch_class"`
+	AdmittedRecordTypes      []string                       `json:"admitted_record_types"`
+	HistoryRecordIDFields    []string                       `json:"history_record_id_fields"`
+	Addressability           HistoryAddressability          `json:"addressability"`
+	HistoryValidatorRequired *bool                          `json:"history_validator_required"`
 }
 
 func parseTargetSemanticsRequirements(data []byte) ([]targetSemanticsRequirement, error) {
@@ -44,13 +46,17 @@ func parseTargetSemanticsRequirements(data []byte) ([]targetSemanticsRequirement
 	}
 	requirements := make([]targetSemanticsRequirement, 0, len(registry.Targets))
 	for _, entry := range registry.Targets {
+		if entry.HistoryValidatorRequired == nil {
+			return nil, fmt.Errorf("%w: missing history validator policy", ErrInvalidTargetSemantics)
+		}
 		requirements = append(requirements, targetSemanticsRequirement{
-			TargetKind:            entry.TargetKind,
-			SourceOwnerID:         entry.SourceOwner,
-			DispatchClass:         entry.DispatchClass,
-			AdmittedRecordTypes:   append([]string(nil), entry.AdmittedRecordTypes...),
-			HistoryRecordIDFields: append([]string(nil), entry.HistoryRecordIDFields...),
-			Addressability:        entry.Addressability,
+			TargetKind:               entry.TargetKind,
+			SourceOwnerID:            entry.SourceOwner,
+			DispatchClass:            entry.DispatchClass,
+			AdmittedRecordTypes:      append([]string(nil), entry.AdmittedRecordTypes...),
+			HistoryRecordIDFields:    append([]string(nil), entry.HistoryRecordIDFields...),
+			Addressability:           entry.Addressability,
+			HistoryValidatorRequired: *entry.HistoryValidatorRequired,
 		})
 	}
 	return requirements, nil

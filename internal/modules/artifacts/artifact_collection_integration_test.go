@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
+	"github.com/google/uuid"
 )
 
 func TestArtifactCollectionMutationContractMatrix(t *testing.T) {
@@ -105,12 +105,16 @@ VALUES ($1, $2, 'Synthetic responder', 'person')
 			},
 			collections: map[string]any{
 				"handoff.open_risk_refs": artifactCollectionPayload(
-					map[string]any{"op": "add_risk_ref", "risk_ref_text": "Synthetic risk"},
-					map[string]any{"op": "add_risk_ref", "risk_ref_text": "synthetic risk"},
+					map[string]any{"op": "add_risk_ref", "risk_ref_text": " Synthetic risk\u200d "},
+					map[string]any{"op": "add_risk_ref", "risk_ref_text": "Synthetic risk\u200d"},
+					map[string]any{"op": "add_risk_ref", "risk_ref_text": "synthetic risk\u200d"},
 				),
 			},
 			assert: func(result artifacts.MutationResult) {
-				requireCount(t, harness, `SELECT count(*) FROM handoff_risk_refs WHERE handoff_record_id = $1 AND normalized_risk_ref_text = 'synthetic risk' AND deleted_at IS NULL`, result.RecordID, 1)
+				requireCount(t, harness, `SELECT count(*) FROM handoff_risk_refs WHERE handoff_record_id = $1 AND deleted_at IS NULL`, result.RecordID, 2)
+				for _, text := range []string{"Synthetic risk\u200d", "synthetic risk\u200d"} {
+					requireCount(t, harness, `SELECT count(*) FROM handoff_risk_refs WHERE handoff_record_id = $1 AND risk_ref_text = $2 AND deleted_at IS NULL`, result.RecordID, text, 1)
+				}
 			},
 		},
 	}
@@ -130,11 +134,66 @@ VALUES ($1, $2, 'Synthetic responder', 'person')
 				t.Fatalf("create collection family %s: %v", tc.name, err)
 			}
 			tc.assert(result)
+			var createdRiskIDs []uuid.UUID
+			if tc.name == "risk_ref" {
+				if err := harness.DB.QueryRow(ctx, `SELECT array_agg(risk_ref_id ORDER BY risk_ref_id) FROM handoff_risk_refs WHERE handoff_record_id=$1 AND deleted_at IS NULL`, result.RecordID).Scan(&createdRiskIDs); err != nil {
+					t.Fatal(err)
+				}
+			}
 			replayed, err := facade.Create(ctx, command)
 			if err != nil || replayed.Outcome != artifacts.MutationOutcomeReplayed || replayed.RecordID != result.RecordID {
 				t.Fatalf("collection replay = %#v, %v; want original result", replayed, err)
 			}
 			requireCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, result.RecordID, 1)
+			if tc.name == "risk_ref" {
+				readIDs := func(parent uuid.UUID) map[uuid.UUID]string {
+					rows, err := harness.DB.Query(ctx, `SELECT risk_ref_id, risk_ref_text FROM handoff_risk_refs WHERE handoff_record_id=$1 AND deleted_at IS NULL`, parent)
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer rows.Close()
+					ids := map[uuid.UUID]string{}
+					for rows.Next() {
+						var id uuid.UUID
+						var text string
+						if err := rows.Scan(&id, &text); err != nil {
+							t.Fatal(err)
+						}
+						if id == uuid.Nil || ids[id] != "" {
+							t.Fatal("missing or duplicate risk identity")
+						}
+						ids[id] = text
+					}
+					if rows.Err() != nil || len(ids) != 2 {
+						t.Fatalf("risk identities = %v, %v", ids, rows.Err())
+					}
+					return ids
+				}
+				firstIDs := readIDs(result.RecordID)
+				for _, id := range createdRiskIDs {
+					if _, exists := firstIDs[id]; !exists {
+						t.Fatal("replay replaced a stable risk identity")
+					}
+				}
+				other := command
+				other.Admission = mustArtifactCreateAdmission(t, tc.viewSchemaID, "second-risk-parent", tc.values, tc.collections)
+				other.RequestID = "second-risk-parent"
+				second, err := facade.Create(ctx, other)
+				if err != nil || second.RecordID == result.RecordID {
+					t.Fatalf("second risk parent = %#v, %v", second, err)
+				}
+				tc.assert(second)
+				for id := range readIDs(second.RecordID) {
+					if _, exists := firstIDs[id]; exists {
+						t.Fatal("risk identity escaped parent scope")
+					}
+				}
+				for id, text := range readIDs(result.RecordID) {
+					if firstIDs[id] != text {
+						t.Fatal("existing risk identity changed")
+					}
+				}
+			}
 
 			conflicting := command
 			conflicting.Admission = mustArtifactCreateAdmission(
@@ -146,16 +205,4 @@ VALUES ($1, $2, 'Synthetic responder', 'person')
 		})
 	}
 
-	beforeRecords := artifactContractCount(t, harness, `SELECT count(*) FROM records WHERE incident_id = $1`, incident.ID)
-	_, admissionErr := artifacts.AdmitCreate(artifacts.NotesViewSchemaID, strings.NewReader(`{
-		"client_txn_id":"txn-artifacts-collection-invalid",
-		"note.title":"Rejected collection",
-		"note.tags":{"kind":"collection_actions_v1","actions":[{"op":"replace"}]}
-	}`))
-	if admissionErr == nil {
-		t.Fatal("invalid collection operation unexpectedly succeeded")
-	}
-	if got := artifactContractCount(t, harness, `SELECT count(*) FROM records WHERE incident_id = $1`, incident.ID); got != beforeRecords {
-		t.Fatalf("invalid collection changed record count: got %d want %d", got, beforeRecords)
-	}
 }

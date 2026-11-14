@@ -225,18 +225,23 @@ func TestRuntimeScheduling(t *testing.T) {
 		p := enginePlan(engineUnit("a", 1), engineUnit("b", 1), engineUnit("c", 1, "a", "b"))
 		p.facts.Capacities["cpu"] = 2
 		var active, peak atomic.Int64
-		started := make(chan struct{}, 2)
-		r := boundedGraph(t, p, enginePorts{Execute: func(_ context.Context, r executionRequest) unitResult {
+		var arrived atomic.Int64
+		started := make(chan struct{})
+		r := boundedGraph(t, p, enginePorts{Execute: func(ctx context.Context, r executionRequest) unitResult {
 			n := active.Add(1)
+			defer active.Add(-1)
 			for prior := peak.Load(); n > prior && !peak.CompareAndSwap(prior, n); prior = peak.Load() {
 			}
 			if r.Unit.ID != "c" {
-				started <- struct{}{}
-				for len(started) < 2 {
-					time.Sleep(time.Millisecond)
+				if arrived.Add(1) == 2 {
+					close(started)
+				}
+				select {
+				case <-started:
+				case <-ctx.Done():
+					return unitResult{Status: "cancelled", Failure: failureOf(ctx.Err())}
 				}
 			}
-			active.Add(-1)
 			return unitResult{Status: "passed"}
 		}})
 		if peak.Load() != 2 || r.Admissions[2] != "c" {
@@ -466,26 +471,46 @@ func TestRuntimeFailurePrecedence(t *testing.T) {
 		t.Run(fmt.Sprintf("concurrent_failures_product_first_%v", productFirst), func(t *testing.T) {
 			p := enginePlan(engineUnit("infra", 1), engineUnit("product", 1))
 			p.facts.Capacities["cpu"] = 2
-			arrived := make(chan struct{}, 2)
+			var arrived atomic.Int64
+			both := make(chan struct{})
 			firstDone := make(chan struct{})
-			r := boundedGraph(t, p, enginePorts{Execute: func(_ context.Context, r executionRequest) unitResult {
-				arrived <- struct{}{}
-				for len(arrived) < 2 {
-					time.Sleep(time.Millisecond)
+			wantOrder := []string{"infra", "product"}
+			if productFirst {
+				wantOrder = []string{"product", "infra"}
+			}
+			var order []string
+			r := boundedGraph(t, p, enginePorts{Event: func(event map[string]any) error {
+				if event["event"] == "failed" {
+					id := event["unit_id"].(string)
+					order = append(order, id)
+					if id == wantOrder[0] {
+						close(firstDone)
+					}
 				}
-				first := (r.Unit.ID == "product") == productFirst
-				if !first {
-					<-firstDone
-				} else {
-					close(firstDone)
+				return nil
+			}, Execute: func(ctx context.Context, r executionRequest) unitResult {
+				if arrived.Add(1) == 2 {
+					close(both)
+				}
+				select {
+				case <-both:
+				case <-ctx.Done():
+					return unitResult{Status: "cancelled", Failure: failureOf(ctx.Err())}
+				}
+				if r.Unit.ID != wantOrder[0] {
+					select {
+					case <-firstDone:
+					case <-ctx.Done():
+						return unitResult{Status: "cancelled", Failure: failureOf(ctx.Err())}
+					}
 				}
 				if r.Unit.ID == "product" {
 					return unitResult{Status: "failed", Failure: failed("product", "test_assertion_failure")}
 				}
 				return unitResult{Status: "failed", Failure: failed("infra", "service_start_error")}
 			}})
-			if r.Failure.Class != "product" || r.States["infra"] != "failed" || r.States["product"] != "failed" {
-				t.Fatal(r)
+			if r.Failure.Class != "product" || r.States["infra"] != "failed" || r.States["product"] != "failed" || !slices.Equal(order, wantOrder) {
+				t.Fatal(r, order)
 			}
 		})
 	}

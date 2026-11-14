@@ -1,6 +1,7 @@
 package sourcecatalog
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 	"testing/fstest"
@@ -40,6 +41,7 @@ func TestNewProviderContract(t *testing.T) {
 		{name: "nil database", catalog: catalog, locker: locker, wantErr: "migration provider database is nil"},
 		{name: "nil catalog", db: &sql.DB{}, locker: locker, wantErr: "migration source is invalid"},
 		{name: "nil locker", db: &sql.DB{}, catalog: catalog, wantErr: "migration provider session locker is nil"},
+		{name: "typed nil locker", db: &sql.DB{}, catalog: catalog, locker: (*unusableSessionLocker)(nil), wantErr: "migration provider session locker is nil"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -58,6 +60,16 @@ func TestNewProviderContract(t *testing.T) {
 	if len(sources) != 1 || sources[0].Version != 1 {
 		t.Fatalf("provider sources = %#v", sources)
 	}
+}
+
+type unusableSessionLocker struct{}
+
+func (*unusableSessionLocker) SessionLock(context.Context, *sql.Conn) error {
+	panic("unusable locker invoked")
+}
+
+func (*unusableSessionLocker) SessionUnlock(context.Context, *sql.Conn) error {
+	panic("unusable locker invoked")
 }
 
 func TestSessionLockerPolicy(t *testing.T) {

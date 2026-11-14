@@ -3,7 +3,6 @@ package evidence
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -67,22 +66,9 @@ func (dependencies MutationDependencies) validate() error {
 		{name: "Collaboration publication", value: dependencies.Collaboration},
 	}
 	for _, dependency := range required {
-		if isNilMutationCapability(dependency.value) {
+		if isNilCapability(dependency.value) {
 			return fmt.Errorf("evidence mutation dependencies: %s is required", dependency.name)
 		}
 	}
 	return nil
-}
-
-func isNilMutationCapability(value any) bool {
-	if value == nil {
-		return true
-	}
-	candidate := reflect.ValueOf(value)
-	switch candidate.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return candidate.IsNil()
-	default:
-		return false
-	}
 }

@@ -104,6 +104,20 @@ func AdmitStored(fieldKey string, stored *string) (Value, *Error) {
 	return Admit(fieldKey, stored)
 }
 
+// IsStoredExact rejects representations that admission would change, including
+// an optional empty string that would become null. It never rewrites history.
+func IsStoredExact(fieldKey string, raw *string) bool {
+	admitted, err := AdmitStored(fieldKey, raw)
+	if err != nil {
+		return false
+	}
+	stored, present := admitted.StoredValue()
+	if raw == nil {
+		return !present
+	}
+	return present && stored == *raw
+}
+
 func normalize(field partypolicy.Field, raw string) (string, string) {
 	if field.FieldKey == "party.party_kind" {
 		if slices.Contains(field.EnumValues, raw) {

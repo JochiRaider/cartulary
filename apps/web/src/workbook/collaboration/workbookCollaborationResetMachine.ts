@@ -1,6 +1,7 @@
 export type WorkbookCollaborationResetAdmission = {
   readonly eventGeneration: number;
   readonly generation: number;
+  readonly reason: "resume_reset" | "sequence_gap";
   readonly sessionGeneration: number;
   readonly sheetKey: string;
 };
@@ -18,6 +19,7 @@ export function beginWorkbookCollaborationReset(
   machine: WorkbookCollaborationResetMachine,
   input: {
     readonly eventGeneration: number;
+    readonly reason: "resume_reset" | "sequence_gap";
     readonly sessionGeneration: number;
     readonly sheetKey: string;
   },

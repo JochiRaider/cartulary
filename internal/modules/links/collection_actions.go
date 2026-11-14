@@ -93,24 +93,14 @@ func (s *Store) ValidateRecordRefCollectionTx(ctx context.Context, tx pgx.Tx, co
 	if err := validateLinkCollectionPolicy(command.FieldKey, command.LinkType); err != nil {
 		return err
 	}
-	for _, recordID := range command.AddRecordIDs {
-		if err := validateCollectionTargetRecordTx(ctx, tx, command.IncidentID, recordID, command.ExpectedTargetType, command.FieldKey); err != nil {
-			return err
-		}
-	}
-	return nil
+	return validateCollectionTargetRecordsTx(ctx, tx, command.IncidentID, command.AddRecordIDs, command.ExpectedTargetType, command.FieldKey)
 }
 
 func (s *Store) ValidatePartyRefCollectionTx(ctx context.Context, tx pgx.Tx, command PartyRefCollectionValidation) error {
 	if err := validateLinkCollectionPolicy(command.FieldKey, command.LinkType); err != nil {
 		return err
 	}
-	for _, partyID := range command.AddPartyIDs {
-		if err := validateCollectionTargetRecordTx(ctx, tx, command.IncidentID, partyID, command.ExpectedTargetType, command.FieldKey); err != nil {
-			return err
-		}
-	}
-	return nil
+	return validateCollectionTargetRecordsTx(ctx, tx, command.IncidentID, command.AddPartyIDs, command.ExpectedTargetType, command.FieldKey)
 }
 
 func (s *Store) ValidateTagCollectionTx(ctx context.Context, tx pgx.Tx, command TagCollectionValidation) error {
@@ -152,14 +142,16 @@ func validateTagCollectionPolicy(fieldKey string) error {
 	return nil
 }
 
-func validateCollectionTargetRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, expectedType string, field string) error {
-	envelopes, err := records.NewStore().LoadEnvelopesTx(ctx, tx, []uuid.UUID{recordID}, false)
+func validateCollectionTargetRecordsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID, expectedType string, field string) error {
+	envelopes, err := records.NewStore().LoadEnvelopesForNoKeyUpdateTx(ctx, tx, recordIDs)
 	if err != nil {
 		return fmt.Errorf("validate collection target: %w", err)
 	}
-	envelope := envelopes[recordID]
-	if !activeIncidentEnvelope(envelope, incidentID) || (expectedType != "" && envelope.RecordType != expectedType) {
-		return collectionValidationError(field)
+	for _, recordID := range recordIDs {
+		envelope := envelopes[recordID]
+		if !activeIncidentEnvelope(envelope, incidentID) || (expectedType != "" && envelope.RecordType != expectedType) {
+			return collectionValidationError(field)
+		}
 	}
 	return nil
 }

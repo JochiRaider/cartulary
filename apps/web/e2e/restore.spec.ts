@@ -13,7 +13,7 @@ import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page, TestInfo } from "@playwright/test";
 import {
   type BrowserFixtureFailure,
-  createBrowserFixtureProcess,
+  createGoBrowserFixtureProcess,
   fixtureLifecycleAttachment,
 } from "../../../tools/harness/browser/index.mjs";
 import { test as base, expect } from "./fixtures";
@@ -42,7 +42,7 @@ type RestoreTarget = {
 };
 
 type RestoreProcess = {
-  target: ReturnType<typeof createBrowserFixtureProcess>;
+  target: ReturnType<typeof createGoBrowserFixtureProcess>;
   ready: boolean;
 };
 
@@ -64,11 +64,9 @@ const test = base.extend<{
           portableSource.bundle,
           { mode: 0o600, flag: "wx" },
         );
-      const target = createBrowserFixtureProcess({
-        command: "go",
+      const target = createGoBrowserFixtureProcess({
+        packagePath: "./tools/recoverybrowserrestore",
         args: [
-          "run",
-          "./tools/recoverybrowserrestore",
           "--runtime-root",
           runtimeRoot,
           ...(bundleName ? ["--incident-bundle", bundleName] : []),

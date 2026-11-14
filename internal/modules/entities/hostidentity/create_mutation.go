@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/aliashistory"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
@@ -283,15 +284,15 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	}, nil
 }
 
-func (s *Store) appendAliasCreateMutationsTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequence int, aliases []AliasMutationValue) error {
+func (s *Store) appendAliasCreateMutationsTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequence int, aliases []aliashistory.Value) error {
 	for index, alias := range aliases {
 		if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    startSequence + index,
 			TargetKind:    "entity_alias",
-			TargetID:      "entity_alias:" + alias.EntityAliasID.String(),
+			TargetID:      alias.TargetID(),
 			OperationKind: "create",
-			AfterValue:    alias.MutationValue(),
+			AfterValue:    alias.Map(),
 		}); err != nil {
 			return err
 		}

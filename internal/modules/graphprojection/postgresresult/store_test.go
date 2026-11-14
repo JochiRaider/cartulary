@@ -3,6 +3,7 @@ package postgresresult_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -69,6 +70,7 @@ func TestResultV2PublicationReadTraversalAndCleanup_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin identity conflict transaction: %v", err)
 	}
+	defer tx.Rollback(context.WithoutCancel(ctx))
 	publisher, err := postgresresult.NewPublisher(tx)
 	if err != nil {
 		t.Fatalf("construct identity conflict publisher: %v", err)
@@ -86,6 +88,7 @@ func TestResultV2PublicationReadTraversalAndCleanup_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin atomicity transaction: %v", err)
 	}
+	defer tx.Rollback(context.WithoutCancel(ctx))
 	publisher, err = postgresresult.NewPublisher(tx)
 	if err != nil {
 		t.Fatalf("construct atomicity publisher: %v", err)
@@ -109,7 +112,7 @@ func TestResultV2PublicationReadTraversalAndCleanup_Integration(t *testing.T) {
 		MaximumVertices:    2,
 		MaximumEdges:       1,
 	})
-	if err != nil || len(traversal.Vertices) != 2 || len(traversal.Edges) != 1 {
+	if err != nil || len(traversal.Vertices) != 2 || len(traversal.Edges) != 1 || !reflect.DeepEqual(traversal.Vertices, result.Vertices) || !reflect.DeepEqual(traversal.Edges, result.Edges) {
 		t.Fatalf("bounded traversal got %#v err=%v", traversal, err)
 	}
 	incoming, err := reader.Traverse(ctx, graphprojection.TraversalRequestV2{
@@ -120,7 +123,7 @@ func TestResultV2PublicationReadTraversalAndCleanup_Integration(t *testing.T) {
 		MaximumVertices:    2,
 		MaximumEdges:       1,
 	})
-	if err != nil || len(incoming.Vertices) != 2 || len(incoming.Edges) != 1 {
+	if err != nil || len(incoming.Vertices) != 2 || len(incoming.Edges) != 1 || !reflect.DeepEqual(incoming.Vertices, result.Vertices) || !reflect.DeepEqual(incoming.Edges, result.Edges) {
 		t.Fatalf("incoming traversal got %#v err=%v", incoming, err)
 	}
 	seedOnly, err := reader.Traverse(ctx, graphprojection.TraversalRequestV2{
@@ -133,7 +136,7 @@ func TestResultV2PublicationReadTraversalAndCleanup_Integration(t *testing.T) {
 		VertexKinds:        []string{"endpoint"},
 		EdgeKinds:          []string{"flow"},
 	})
-	if err != nil || len(seedOnly.Vertices) != 1 || len(seedOnly.Edges) != 0 {
+	if err != nil || len(seedOnly.Vertices) != 1 || len(seedOnly.Edges) != 0 || seedOnly.Vertices[0].VertexID != vertexIDA {
 		t.Fatalf("zero-depth filtered traversal got %#v err=%v", seedOnly, err)
 	}
 	if _, err := reader.Traverse(ctx, graphprojection.TraversalRequestV2{
@@ -176,6 +179,7 @@ func publishInNestedTransaction(t testing.TB, ctx context.Context, db interface 
 	if err != nil {
 		t.Fatalf("begin publication transaction: %v", err)
 	}
+	defer tx.Rollback(context.WithoutCancel(ctx))
 	publisher, err := postgresresult.NewPublisher(tx)
 	if err != nil {
 		t.Fatalf("construct result publisher: %v", err)

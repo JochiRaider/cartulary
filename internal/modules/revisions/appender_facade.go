@@ -112,8 +112,8 @@ func (a *Appender) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recor
 }
 
 func recordSnapshotPair(recordID uuid.UUID, before *RecordSnapshot, after *RecordSnapshot) (map[string]any, map[string]any, error) {
-	if before == nil && after == nil {
-		return nil, nil, fmt.Errorf("%w: record %s has no before or after value", ErrInvalidRecordSnapshot, recordID)
+	if after == nil {
+		return nil, nil, fmt.Errorf("%w: record %s has no after snapshot", ErrInvalidRecordSnapshot, recordID)
 	}
 	beforeValue, err := recordSnapshotValue(before, recordID)
 	if err != nil {

@@ -139,7 +139,7 @@
             "$ref": "#/components/schemas/AdministrativeAuditData"
           },
           "meta": {
-            "$ref": "#/components/schemas/EnvelopeMeta"
+            "$ref": "#/components/schemas/PagedEnvelopeMeta"
           }
         },
         "required": [

@@ -35,8 +35,8 @@ import {
   expectVisibleSemanticGridCellFocus,
 } from "./support/accessibility/grid";
 import {
-  expectNoFocusTrap,
-  expectTabOrderIncludes,
+  expectInitialTabRoundTrip,
+  expectTabReachability,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
 import { withPresentation } from "./support/accessibility/presentation";
@@ -133,7 +133,7 @@ test("a11y.mutation-lifecycle.row-01 Verify grid navigation, edit entry/exit, pa
     editRow.record_id,
     "timeline.activity_synopsis_text",
   );
-  await expectTabOrderIncludes(page, [
+  await expectTabReachability(page, [
     workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
     gridGroupingSelectTestId(timelineViewSchemaId),
     gridShellTestId(timelineViewSchemaId),
@@ -414,7 +414,7 @@ test("a11y.mutation-lifecycle.row-01 Verify grid navigation, edit entry/exit, pa
       ),
     ).toContainText("Activity Synopsis");
     await expectAllInteractiveControlsNamed(page);
-    await expectNoFocusTrap(page);
+    await expectInitialTabRoundTrip(page);
     await expectAndRecordContrast(page, [
       workbookShellSlotTestId("status-strip"),
       workbookFilterPopoverTriggerTestId(timelineViewSchemaId),

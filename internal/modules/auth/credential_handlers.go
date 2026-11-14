@@ -79,7 +79,6 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		s.clearAuthCookies(w)
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
 		return
 	} else if !errors.Is(err, authn.ErrNotFound) {
@@ -138,7 +137,9 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	s.clearAuthCookies(w)
+	if !result.Replayed {
+		s.clearAuthCookies(w)
+	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
 }
 
@@ -159,106 +160,88 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if pending, err := s.credentialStore.GetPendingTOTPEnrollmentForUser(r.Context(), authContext.User.ID, s.now()); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	} else if pending != nil {
-		sameScope := authContext.Principal != nil && pending.AuthScopeKind == "session" && pending.AuthScopeSessionID != nil && *pending.AuthScopeSessionID == authContext.Principal.Session.ID && pending.AuthScopeBootstrapTokenID == nil
-		if authContext.BootstrapToken != nil {
-			sameScope = pending.AuthScopeKind == "bootstrap_token" && pending.AuthScopeBootstrapTokenID != nil && *pending.AuthScopeBootstrapTokenID == authContext.BootstrapToken.ID && pending.AuthScopeSessionID == nil
-		}
-		if !sameScope || pending.UserID != authContext.User.ID || pending.ClientTxnID != request.ClientTxnID || authn.PendingEnrollmentStatusAt(pending, s.now()) != authn.PendingEnrollmentValid {
-			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
-			return
-		}
-		secret, err := authn.OpenSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: pending.ID, SubjectID: pending.UserID}, pending.SecretEnvelope)
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		s.writeTOTPBeginResponse(w, r, authContext, *pending, authn.EncodeSecretBase32(secret))
-		return
-	}
-
-	replacesActive := authContext.User.TOTPEnrolledAt != nil && len(authContext.User.TOTPSecretEnvelope) > 0
-	if authContext.Principal != nil && replacesActive {
-		if request.CurrentPassword == nil {
-			writeAPIError(w, r, invalidAuthRequest("current_password", "current_password is required for totp replacement"))
-			return
-		}
-		workflow := beginPasswordWorkflow(w, r)
-		if workflow == nil {
-			return
-		}
-		defer workflow.Close()
-		ok, err := workflow.Verify(authContext.User.PasswordHash, *request.CurrentPassword)
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		if !ok {
-			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "invalid_current_password", Details: map[string]any{}})
-			return
-		}
-		if apiErr := s.validateActiveTOTP(authContext.User, request.SecondFactor); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-	}
-
-	clearSecret, secretBase32, err := authn.GenerateTOTPSecret()
+	pending, err := s.credentialStore.GetPendingTOTPEnrollmentForUser(r.Context(), authContext.User.ID, s.now())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	enrollmentID := uuid.New()
-	envelope, err := authn.SealSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: authContext.User.ID}, clearSecret)
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-
-	var sessionID *uuid.UUID
-	var bootstrapTokenID *uuid.UUID
-	authScopeKind := "bootstrap_token"
+	input := authn.TOTPBeginInput{User: authContext.User, ClientTxnID: request.ClientTxnID, AuthScopeKind: "bootstrap_token"}
 	if authContext.Principal != nil {
-		sessionID = &authContext.Principal.Session.ID
-		authScopeKind = "session"
+		input.AuthScopeKind, input.SessionID = "session", &authContext.Principal.Session.ID
 	} else if authContext.BootstrapToken != nil {
-		bootstrapTokenID = &authContext.BootstrapToken.ID
+		input.BootstrapTokenID = &authContext.BootstrapToken.ID
+	}
+	if pending == nil {
+
+		replacesActive := authContext.User.TOTPEnrolledAt != nil && len(authContext.User.TOTPSecretEnvelope) > 0
+		if authContext.Principal != nil && replacesActive {
+			if request.CurrentPassword == nil {
+				writeAPIError(w, r, invalidAuthRequest("current_password", "current_password is required for totp replacement"))
+				return
+			}
+			workflow := beginPasswordWorkflow(w, r)
+			if workflow == nil {
+				return
+			}
+			defer workflow.Close()
+			ok, err := workflow.Verify(authContext.User.PasswordHash, *request.CurrentPassword)
+			if err != nil {
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
+			if !ok {
+				writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "invalid_current_password", Details: map[string]any{}})
+				return
+			}
+			if apiErr := s.validateActiveTOTP(authContext.User, request.SecondFactor); apiErr != nil {
+				writeAPIError(w, r, apiErr)
+				return
+			}
+		}
+
+		clearSecret, _, err := authn.GenerateTOTPSecret()
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		enrollmentID := uuid.New()
+		envelope, err := authn.SealSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: enrollmentID, SubjectID: authContext.User.ID}, clearSecret)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		input.Creation = &authn.TOTPEnrollmentCreation{ID: enrollmentID, SecretEnvelope: envelope}
 	}
 
-	pending, replayed, err := s.credentialStore.BeginTOTPEnrollment(
-		r.Context(),
-		enrollmentID,
-		authContext.User.ID,
-		authScopeKind,
-		sessionID,
-		bootstrapTokenID,
-		request.ClientTxnID,
-		envelope,
-		replacesActive,
-		s.now(),
-	)
-	if errors.Is(err, authn.ErrClientTxnConflict) {
+	admitted, err := s.credentialStore.BeginTOTPEnrollment(r.Context(), input, s.now())
+	var bootstrapScopeErr *authn.BootstrapScopeError
+	switch {
+	case errors.As(err, &bootstrapScopeErr):
+		writeAPIError(w, r, httpauth.BootstrapRejectedError(bootstrapScopeErr.ReasonCode))
+		return
+	case errors.Is(err, authn.ErrSessionAuthorityChanged):
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}})
+		return
+	case errors.Is(err, authn.ErrPasswordAuthorityChanged):
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "invalid_current_password", Details: map[string]any{}})
+		return
+	case errors.Is(err, authn.ErrTOTPAuthorityChanged):
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_second_factor", Details: map[string]any{}})
+		return
+	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
 	}
+	clearSecret, err := authn.OpenSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: admitted.ID, SubjectID: admitted.UserID}, admitted.SecretEnvelope)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 
-	if replayed {
-		clearSecret, err = authn.OpenSecret(s.keys, authn.SecretBinding{Purpose: authn.PendingTOTPSecret, RecordID: pending.ID, SubjectID: pending.UserID}, pending.SecretEnvelope)
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		secretBase32 = authn.EncodeSecretBase32(clearSecret)
-	}
-
-	s.writeTOTPBeginResponse(w, r, authContext, pending, secretBase32)
+	s.writeTOTPBeginResponse(w, r, authContext, admitted, authn.EncodeSecretBase32(clearSecret))
 }
 
 func (s *Service) writeTOTPBeginResponse(w http.ResponseWriter, r *http.Request, authContext CredentialAuthContext, pending authn.PendingTOTPEnrollmentRecord, secretBase32 string) {
@@ -362,7 +345,15 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		activeEnvelope,
 		s.now(),
 	)
+	var bootstrapScopeErr *authn.BootstrapScopeError
+
 	switch {
+	case errors.As(err, &bootstrapScopeErr):
+		writeAPIError(w, r, httpauth.BootstrapRejectedError(bootstrapScopeErr.ReasonCode))
+		return
+	case errors.Is(err, authn.ErrSessionAuthorityChanged):
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}})
+		return
 	case errors.Is(err, authn.ErrNotFound):
 		writeAPIError(w, r, TOTPSetupNotPendingError("not_found"))
 		return

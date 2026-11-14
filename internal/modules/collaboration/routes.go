@@ -23,6 +23,7 @@ type routeService struct {
 	acceptSocket   protocol.AcceptSocket
 	checkOrigin    protocol.CheckBrowserOrigin
 	serviceVersion string
+	workspaces     claimedWorkspaces
 	now            func() time.Time
 }
 
@@ -58,6 +59,7 @@ func newRouteService(deps httpapi.DependencySet, runtime *Runtime) (*routeServic
 		acceptSocket:   runtime.routes.acceptSocket,
 		checkOrigin:    runtime.routes.checkOrigin,
 		serviceVersion: runtime.routes.serviceVersion,
+		workspaces:     runtime.routes.workspaces,
 		now:            now,
 	}, nil
 }

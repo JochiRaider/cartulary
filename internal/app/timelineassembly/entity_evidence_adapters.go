@@ -20,6 +20,25 @@ type mentionAdapter struct {
 	store *mentions.Store
 }
 
+func (a mentionAdapter) TransitionStatus(field, from, action string) (string, error) {
+	return a.store.TransitionStatus(field, from, action)
+}
+
+func (a mentionAdapter) LoadCollectionSourceFactsTx(ctx context.Context, tx pgx.Tx, sourceID uuid.UUID, field string) ([]timeline.MentionSourceFact, error) {
+	facts, err := a.store.LoadCollectionSourceFactsTx(ctx, tx, sourceID, field)
+	if errors.Is(err, mentions.ErrInvalidMentionResolution) {
+		return nil, &timeline.InvalidCollectionActionError{FieldKey: field}
+	}
+	if err != nil {
+		return nil, err
+	}
+	result := make([]timeline.MentionSourceFact, len(facts))
+	for i, fact := range facts {
+		result[i] = timeline.MentionSourceFact(fact)
+	}
+	return result, nil
+}
+
 func (a mentionAdapter) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, fieldKey string, mentionID uuid.UUID, resolvedRecordID *uuid.UUID, now time.Time) ([]timeline.RecordLinkMutation, error) {
 	result, err := a.store.ResolveExistingFromMentionTx(ctx, tx, actor, sourceRecordID, fieldKey, mentionID, resolvedRecordID, now)
 	if errors.Is(err, mentions.ErrResolvedRecordNotFound) {
@@ -79,8 +98,16 @@ func (a entityAdapter) ListEligibleAliasesTx(ctx context.Context, tx pgx.Tx, inc
 	return result, nil
 }
 
-func (a entityAdapter) ValidateResolvedTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, recordID uuid.UUID) error {
-	err := a.store.ValidateResolvedTargetTx(ctx, tx, incidentID, entityType, recordID)
+func (a entityAdapter) InspectResolvedTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, recordID uuid.UUID) error {
+	err := a.store.InspectResolvedTargetTx(ctx, tx, incidentID, entityType, recordID)
+	if errors.Is(err, hostidentity.ErrHostIdentityRecordNotFound) {
+		return timeline.ErrResolvedRecordNotFound
+	}
+	return err
+}
+
+func (a entityAdapter) AdmitResolvedTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, recordID uuid.UUID) error {
+	err := a.store.AdmitResolvedTargetTx(ctx, tx, incidentID, entityType, recordID)
 	if errors.Is(err, hostidentity.ErrHostIdentityRecordNotFound) {
 		return timeline.ErrResolvedRecordNotFound
 	}

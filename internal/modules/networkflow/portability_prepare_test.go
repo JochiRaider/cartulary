@@ -297,6 +297,9 @@ func TestNetworkFlowPortableSelectedGraphHistory(t *testing.T) {
 		}
 		forward := compose(rows)
 		reverse := compose([]flowRow{rows[1], rows[0]})
+		if len(forward.Edges) != 1 || len(reverse.Edges) != 1 {
+			t.Fatalf("two matching observations must yield one edge: forward=%d reverse=%d", len(forward.Edges), len(reverse.Edges))
+		}
 		if !canonicalEqual(networkFlowProjectionInput("nfsnap_test", forward), networkFlowProjectionInput("nfsnap_test", reverse)) {
 			t.Fatal("transport order changed selected examples")
 		}

@@ -2,6 +2,7 @@ package collaboration
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"sync"
 	"testing"
@@ -15,6 +16,75 @@ import (
 )
 
 func TestPresenceReplayRevocationTransport(t *testing.T) {
+	t.Run("establishment guards each write and latches terminal authority", func(t *testing.T) {
+		for _, cause := range []string{"session", "membership", "incident", "expiry"} {
+			t.Run(cause, func(t *testing.T) {
+				now := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+				sessions, memberships, terminals := make(chan string, 1), make(chan string, 1), make(chan string, 1)
+				authority := &socketAuthority{sessionRevocations: sessions, incidentRevocations: memberships, incidentTerminals: terminals, sessionExpiresAt: now.Add(time.Second), now: func() time.Time { return now }}
+				writes := 0
+				socket := establishmentSocket{Socket: establishmentTestSocket{write: func(context.Context, collabprotocol.MessageKind, []byte) error { writes++; return nil }}, authority: authority}
+				if err := socket.Write(context.Background(), collabprotocol.MessageText, []byte("first")); err != nil {
+					t.Fatal(err)
+				}
+				wantReason := ""
+				switch cause {
+				case "session":
+					wantReason = "concurrency_limit"
+					sessions <- wantReason
+				case "membership":
+					wantReason = "incident_access_revoked"
+					memberships <- wantReason
+				case "incident":
+					wantReason = "incident_closed"
+					terminals <- wantReason
+				case "expiry":
+					wantReason = "session_expired"
+					now = now.Add(time.Second)
+				}
+				for range 2 {
+					err := socket.Write(context.Background(), collabprotocol.MessageText, []byte("protected"))
+					var terminal *socketTermination
+					if !errors.As(err, &terminal) || terminal.reasonCode != wantReason || terminal.incidentClosed != (cause == "incident") || writes != 1 {
+						t.Fatalf("authority %s leaked a write or lost reason: %d / %v", cause, writes, err)
+					}
+				}
+			})
+		}
+	})
+	t.Run("failed establishment removes presence at every write boundary", func(t *testing.T) {
+		for _, failure := range []string{"ack", "replay", "snapshot"} {
+			t.Run(failure, func(t *testing.T) {
+				now := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+				incidentID, connectionID := uuid.New(), uuid.New()
+				h := newHub("0.0.0+unknown")
+				service := &routeService{hub: h, now: func() time.Time { return now }}
+				injected := errors.New("write failed")
+				writes := 0
+				socket := establishmentTestSocket{write: func(context.Context, collabprotocol.MessageKind, []byte) error {
+					writes++
+					if failure == "ack" || (failure == "snapshot" && writes == 2) {
+						return injected
+					}
+					return nil
+				}}
+				input := collabprotocol.PresenceInput{SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"}, Mode: "viewing"}
+				err := service.publishSessionPresence(context.Background(), socket, incidentID, connectionID, nil, httpauth.Principal{}, input, collabprotocol.EphemeralMessage(incidentID, "hello_ack", map[string]any{}, now), func() error {
+					if failure == "replay" {
+						return injected
+					}
+					return nil
+				})
+				wantWrites := 1
+				if failure == "snapshot" {
+					wantWrites = 2
+				}
+				if !errors.Is(err, injected) || writes != wantWrites || len(h.PresenceSnapshot(incidentID, now)) != 0 {
+					t.Fatalf("failed %s retained presence or advanced: writes%d/error%v", failure, writes, err)
+				}
+			})
+		}
+	})
 	t.Run("renewal preserves scopes and removal and expiry are final", func(t *testing.T) {
 		now := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
 		h := newHub("0.0.0+unknown")
@@ -155,9 +225,18 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 			hub := newHub("0.0.0+unknown")
 			incidentID := uuid.New()
 			messages, unsubscribeIncident := hub.SubscribeIncident(incidentID, 1)
+			slowMessages, unsubscribeSlow := hub.SubscribeIncident(incidentID, 1)
 			start := make(chan struct{})
 			var workers sync.WaitGroup
-			workers.Add(2)
+			workers.Add(3)
+
+			go func() {
+				defer workers.Done()
+				<-start
+				for publish := 0; publish < 32; publish++ {
+					hub.BroadcastPresenceDelta(incidentID, "upsert", collabprotocol.PresenceRecord{}, time.Now().UTC())
+				}
+			}()
 
 			go func() {
 				defer workers.Done()
@@ -182,6 +261,14 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 
 			close(start)
 			workers.Wait()
+			if _, ok := <-slowMessages; !ok {
+				t.Fatal("slow subscriber lost its buffered message")
+			}
+			if _, ok := <-slowMessages; ok {
+				t.Fatal("slow subscriber was not closed by durable publication")
+			}
+			unsubscribeSlow()
+			unsubscribeSlow()
 
 			for len(messages) > 0 {
 				<-messages
@@ -229,6 +316,15 @@ func TestPresenceReplayRevocationTransport(t *testing.T) {
 		}
 
 	})
+}
+
+type establishmentTestSocket struct {
+	collabprotocol.Socket
+	write func(context.Context, collabprotocol.MessageKind, []byte) error
+}
+
+func (s establishmentTestSocket) Write(ctx context.Context, kind collabprotocol.MessageKind, payload []byte) error {
+	return s.write(ctx, kind, payload)
 }
 
 func sequencedJobMessage(t testing.TB, incidentID uuid.UUID, streamSeq int64) collabprotocol.Message {

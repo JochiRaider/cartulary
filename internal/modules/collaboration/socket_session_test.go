@@ -36,6 +36,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 			"presence_delta",
 			"presence_update",
 			"record_changed",
+			"extension_resource_changed",
 			"job_progress",
 			"ping",
 			"pong",
@@ -54,7 +55,7 @@ func TestIncidentSocketHandshakeResume_Unit(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 				if err := conn.WriteJSON(ctx, platformws.Message{
-					Type:    messageType,
+					Type: messageType, IncidentID: incidentID, EmittedAt: time.Now().UTC().Format(time.RFC3339Nano),
 					Payload: invalidFirstMessagePayload(t, messageType),
 				}); err != nil {
 					t.Fatalf("send invalid first message %q: %v", messageType, err)

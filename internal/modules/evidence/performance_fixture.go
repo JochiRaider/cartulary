@@ -29,7 +29,7 @@ type PerformanceFixtureContribution struct {
 }
 
 func NewPerformanceFixtureContribution(db dbport.DB, objects objectstore.TypedStore, source *SourceRuntime) *PerformanceFixtureContribution {
-	if isNilMutationCapability(db) || isNilMutationCapability(objects) || source == nil {
+	if isNilCapability(db) || isNilCapability(objects) || source == nil {
 		return nil
 	}
 	return &PerformanceFixtureContribution{postgres: db, objectStore: objects, source: source}

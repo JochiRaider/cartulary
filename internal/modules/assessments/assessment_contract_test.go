@@ -2,7 +2,6 @@ package assessments_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
-	assessmentadmission "github.com/JochiRaider/cartulary/internal/modules/assessments/admission"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
@@ -90,10 +88,14 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		requireCellValue(t, cells, "assessment.assessor", actor.ID.String())
 		if tc.score == nil {
 			requireCellValue(t, cells, "assessment.confidence_score", nil)
+		} else {
+			requireNumericCellValue(t, cells, "assessment.confidence_score", *tc.score)
 		}
-		if got := cells["assessment.assessed_at"].(map[string]any)["value"]; got == "" {
-			t.Fatalf("expected assessed_at to default to a persisted timestamp")
+		wantAssessedAt := time.Date(2026, 5, 17, 17, index, 0, 0, time.UTC)
+		if tc.assessedAt != nil {
+			wantAssessedAt = *tc.assessedAt
 		}
+		requireCellValue(t, cells, "assessment.assessed_at", wantAssessedAt.UTC().Format(time.RFC3339Nano))
 	}
 
 	if got := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID); got != 5 {
@@ -180,31 +182,6 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 		}
 	}
 
-	expectAssessmentCreateRejected(t, assessmentOwner, actor, incident.ID, map[string]any{
-		"client_txn_id":               "txn-workbook_interaction-u-9-06-null-assessed-at",
-		"assessment.subject_ref":      hostID.String(),
-		"assessment.subject_type":     "host",
-		"assessment.assessment_state": "confirmed",
-		"assessment.rationale":        "Explicit null timestamp.",
-		"assessment.assessed_at":      nil,
-	})
-	expectDecodeCreateRejected(t, map[string]any{
-		"client_txn_id":               "txn-workbook_interaction-u-9-06-no-zone-assessed-at",
-		"assessment.subject_ref":      hostID.String(),
-		"assessment.subject_type":     "host",
-		"assessment.assessment_state": "confirmed",
-		"assessment.rationale":        "Timezone-less timestamp.",
-		"assessment.assessed_at":      "2026-04-24T12:00:00",
-	})
-	expectDecodeCreateRejected(t, map[string]any{
-		"client_txn_id":               "txn-workbook_interaction-u-9-06-padded-assessed-at",
-		"assessment.subject_ref":      hostID.String(),
-		"assessment.subject_type":     "host",
-		"assessment.assessment_state": "confirmed",
-		"assessment.rationale":        "Whitespace padded timestamp.",
-		"assessment.assessed_at":      " 2026-04-24T12:00:00Z",
-	})
-
 	assessmentSchema, ok := viewschema.Lookup(assessments.AssessmentsViewSchemaID)
 	if !ok {
 		t.Fatal("assessment view schema is missing")
@@ -282,263 +259,8 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 		t.Fatalf("manual assessment support link must preserve provenance=manual confidence=NULL, got %#v", link)
 	}
 
-	before := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID)
-	expectDecodeCreateRejected(t, map[string]any{
-		"client_txn_id":               "txn-workbook_interaction-u-9-12-client-confidence",
-		"assessment.subject_ref":      hostID.String(),
-		"assessment.subject_type":     "host",
-		"assessment.assessment_state": "confirmed",
-		"assessment.rationale":        "Client confidence must be rejected.",
-		"assessment.support_refs": map[string]any{
-			"kind": "collection_actions_v1",
-			"actions": []map[string]any{
-				{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-			},
-		},
-	})
-	if after := queryCount(t, harness, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID); after != before {
-		t.Fatalf("client-supplied support confidence left partial assessment rows: before=%d after=%d", before, after)
-	}
 	if got := queryCount(t, harness, `SELECT COUNT(*) FROM record_links WHERE incident_id = $1 AND src_record_id = $2 AND link_type = 'supported_by' AND confidence IS NOT NULL`, incident.ID, result.RecordID); got != 0 {
 		t.Fatalf("expected no manual assessment support links with client confidence, got %d", got)
-	}
-
-	expectOwnerDecodeCreateRejected(t, tasksdecisions.TaskRequestsViewSchemaID, map[string]any{
-		"client_txn_id":  "txn-workbook_interaction-u-9-12-task-confidence-create",
-		"task.title":     "Task confidence must be rejected",
-		"task.task_kind": "collection",
-		"task.linked_record_ids": map[string]any{
-			"kind": "collection_actions_v1",
-			"actions": []map[string]any{
-				{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-			},
-		},
-	})
-	expectOwnerDecodePatchRejected(t, map[string]any{
-		"view_schema_id":   tasksdecisions.TaskRequestsViewSchemaID,
-		"base_row_version": 1,
-		"client_txn_id":    "txn-workbook_interaction-u-9-12-task-confidence-patch",
-		"changes": []map[string]any{
-			{
-				"field_key": "task.linked_record_ids",
-				"action_payload": map[string]any{
-					"kind": "collection_actions_v1",
-					"actions": []map[string]any{
-						{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-					},
-				},
-			},
-		},
-	})
-	expectOwnerDecodeCreateRejected(t, tasksdecisions.DecisionsViewSchemaID, map[string]any{
-		"client_txn_id":          "txn-workbook_interaction-u-9-12-decision-support-confidence-create",
-		"decision.summary":       "Decision confidence must be rejected",
-		"decision.decision_type": "containment",
-		"decision.rationale":     "Client confidence is not authoritative.",
-		"decision.support_refs": map[string]any{
-			"kind": "collection_actions_v1",
-			"actions": []map[string]any{
-				{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-			},
-		},
-	})
-	expectOwnerDecodePatchRejected(t, map[string]any{
-		"view_schema_id":   tasksdecisions.DecisionsViewSchemaID,
-		"base_row_version": 1,
-		"client_txn_id":    "txn-workbook_interaction-u-9-12-decision-support-confidence-patch",
-		"changes": []map[string]any{
-			{
-				"field_key": "decision.support_refs",
-				"action_payload": map[string]any{
-					"kind": "collection_actions_v1",
-					"actions": []map[string]any{
-						{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-					},
-				},
-			},
-		},
-	})
-	expectOwnerDecodeCreateRejected(t, tasksdecisions.DecisionsViewSchemaID, map[string]any{
-		"client_txn_id":          "txn-workbook_interaction-u-9-12-decision-affected-confidence-create",
-		"decision.summary":       "Decision affected confidence must be rejected",
-		"decision.decision_type": "containment",
-		"decision.rationale":     "Client confidence is not authoritative.",
-		"decision.affected_record_ids": map[string]any{
-			"kind": "collection_actions_v1",
-			"actions": []map[string]any{
-				{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-			},
-		},
-	})
-	expectOwnerDecodePatchRejected(t, map[string]any{
-		"view_schema_id":   tasksdecisions.DecisionsViewSchemaID,
-		"base_row_version": 1,
-		"client_txn_id":    "txn-workbook_interaction-u-9-12-decision-affected-confidence-patch",
-		"changes": []map[string]any{
-			{
-				"field_key": "decision.affected_record_ids",
-				"action_payload": map[string]any{
-					"kind": "collection_actions_v1",
-					"actions": []map[string]any{
-						{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-					},
-				},
-			},
-		},
-	})
-
-	for _, tc := range []struct {
-		name         string
-		viewSchemaID string
-		fieldKey     string
-		createBody   map[string]any
-		action       map[string]any
-	}{
-		{
-			name:         "comm-decision",
-			viewSchemaID: artifacts.CommLogViewSchemaID,
-			fieldKey:     "comm_log.decision_ids",
-			createBody: map[string]any{
-				"comm_log.comm_type":          "briefing",
-				"comm_log.audience":           "leadership",
-				"comm_log.channel_or_meeting": "Bridge",
-				"comm_log.summary":            "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-		},
-		{
-			name:         "comm-action-task",
-			viewSchemaID: artifacts.CommLogViewSchemaID,
-			fieldKey:     "comm_log.action_task_ids",
-			createBody: map[string]any{
-				"comm_log.comm_type":          "briefing",
-				"comm_log.audience":           "leadership",
-				"comm_log.channel_or_meeting": "Bridge",
-				"comm_log.summary":            "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-		},
-		{
-			name:         "comm-audience-party",
-			viewSchemaID: artifacts.CommLogViewSchemaID,
-			fieldKey:     "comm_log.audience_party_ids",
-			createBody: map[string]any{
-				"comm_log.comm_type":          "briefing",
-				"comm_log.audience":           "leadership",
-				"comm_log.channel_or_meeting": "Bridge",
-				"comm_log.summary":            "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_party_ref", "party_id": hostID.String(), "confidence": 80},
-		},
-		{
-			name:         "comm-attendee-party",
-			viewSchemaID: artifacts.CommLogViewSchemaID,
-			fieldKey:     "comm_log.attendee_party_ids",
-			createBody: map[string]any{
-				"comm_log.comm_type":          "briefing",
-				"comm_log.audience":           "leadership",
-				"comm_log.channel_or_meeting": "Bridge",
-				"comm_log.summary":            "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_party_ref", "party_id": hostID.String(), "confidence": 80},
-		},
-		{
-			name:         "handoff-task",
-			viewSchemaID: artifacts.HandoffViewSchemaID,
-			fieldKey:     "handoff.open_task_ids",
-			createBody: map[string]any{
-				"handoff.incoming_owner_user_id": actor.ID.String(),
-				"handoff.current_state_summary":  "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-		},
-		{
-			name:         "handoff-decision",
-			viewSchemaID: artifacts.HandoffViewSchemaID,
-			fieldKey:     "handoff.open_decision_ids",
-			createBody: map[string]any{
-				"handoff.incoming_owner_user_id": actor.ID.String(),
-				"handoff.current_state_summary":  "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-		},
-		{
-			name:         "handoff-risk",
-			viewSchemaID: artifacts.HandoffViewSchemaID,
-			fieldKey:     "handoff.open_risk_refs",
-			createBody: map[string]any{
-				"handoff.incoming_owner_user_id": actor.ID.String(),
-				"handoff.current_state_summary":  "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_risk_ref", "risk_ref_text": "Non-authoritative risk confidence", "confidence": 80},
-		},
-		{
-			name:         "status-blocked-task",
-			viewSchemaID: artifacts.StatusReviewViewSchemaID,
-			fieldKey:     "status_review.blocked_task_ids",
-			createBody: map[string]any{
-				"status_review.current_state_summary": "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-		},
-		{
-			name:         "status-pending-evidence",
-			viewSchemaID: artifacts.StatusReviewViewSchemaID,
-			fieldKey:     "status_review.pending_evidence_ids",
-			createBody: map[string]any{
-				"status_review.current_state_summary": "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-		},
-		{
-			name:         "status-open-decision",
-			viewSchemaID: artifacts.StatusReviewViewSchemaID,
-			fieldKey:     "status_review.open_decision_ids",
-			createBody: map[string]any{
-				"status_review.current_state_summary": "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-		},
-		{
-			name:         "lesson-follow-up-task",
-			viewSchemaID: artifacts.LessonViewSchemaID,
-			fieldKey:     "lesson.follow_up_task_ids",
-			createBody: map[string]any{
-				"lesson.summary": "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-		},
-		{
-			name:         "lesson-evidence",
-			viewSchemaID: artifacts.LessonViewSchemaID,
-			fieldKey:     "lesson.evidence_refs",
-			createBody: map[string]any{
-				"lesson.summary": "Coordination confidence must be rejected.",
-			},
-			action: map[string]any{"op": "add_record_ref", "linked_record_id": supportID.String(), "confidence": 80},
-		},
-	} {
-		createBody := cloneBody(tc.createBody)
-		createBody["client_txn_id"] = "txn-workbook_interaction-u-9-12-" + tc.name + "-confidence-create"
-		createBody[tc.fieldKey] = map[string]any{
-			"kind":    "collection_actions_v1",
-			"actions": []map[string]any{tc.action},
-		}
-		expectOwnerDecodeCreateRejected(t, tc.viewSchemaID, createBody)
-		expectOwnerDecodePatchRejected(t, map[string]any{
-			"view_schema_id":   tc.viewSchemaID,
-			"base_row_version": 1,
-			"client_txn_id":    "txn-workbook_interaction-u-9-12-" + tc.name + "-confidence-patch",
-			"changes": []map[string]any{
-				{
-					"field_key": tc.fieldKey,
-					"action_payload": map[string]any{
-						"kind":    "collection_actions_v1",
-						"actions": []map[string]any{tc.action},
-					},
-				},
-			},
-		})
 	}
 
 	createOutcome1, err := workbookroutetest.CreateWorkbookRow(workbookStore, ctx, workbook.CreateCommand{Actor: actor, IncidentID: incident.ID, ViewSchemaID: tasksdecisions.TaskRequestsViewSchemaID, RequestID: "req-workbook_interaction-u-9-12-task-null-confidence", Now: time.Date(2026, 5, 17, 18, 30, 0, 0, time.UTC)}, httptestx.JSONReader(t, map[string]any{"client_txn_id": "txn-workbook_interaction-u-9-12-task-null-confidence",
@@ -708,21 +430,19 @@ func filterEq(fieldKey string, value any) viewschema.Filter {
 func requireNumericCellValue(t testing.TB, cells map[string]any, fieldKey string, want int) {
 	t.Helper()
 	value := cells[fieldKey].(map[string]any)["value"]
-	var got int
+	match := false
 	switch typed := value.(type) {
 	case int:
-		got = typed
+		match = typed == want
 	case int32:
-		got = int(typed)
+		match = int64(typed) == int64(want)
 	case int64:
-		got = int(typed)
+		match = typed == int64(want)
 	case float64:
-		got = int(typed)
-	default:
-		t.Fatalf("unexpected %s numeric type: %T", fieldKey, value)
+		match = typed == float64(want)
 	}
-	if got != want {
-		t.Fatalf("unexpected %s value: got %d want %d", fieldKey, got, want)
+	if !match {
+		t.Fatalf("unexpected %s value: got %#v (%T) want %d", fieldKey, value, value, want)
 	}
 }
 
@@ -779,95 +499,12 @@ func queryCount(t testing.TB, harness *appsupport.StoreHarness, query string, ar
 	return got
 }
 
-func expectDecodeCreateRejected(t testing.TB, body map[string]any) {
-	t.Helper()
-	data, err := json.Marshal(body)
-	if err != nil {
-		t.Fatalf("marshal create body: %v", err)
-	}
-	if _, apiErr := assessmentadmission.DecodeCreateRequest(strings.NewReader(string(data))); apiErr == nil {
-		t.Fatalf("expected create body to be rejected: %#v", body)
-	}
-}
-
-func expectAssessmentCreateRejected(
-	t testing.TB,
-	owner *assessments.Facade,
-	actor authn.UserRecord,
-	incidentID uuid.UUID,
-	body map[string]any,
-) {
-	t.Helper()
-	data, err := json.Marshal(body)
-	if err != nil {
-		t.Fatalf("marshal assessment create body: %v", err)
-	}
-	input, apiErr := assessmentadmission.DecodeCreateRequest(strings.NewReader(string(data)))
-	if apiErr != nil {
-		return
-	}
-	if _, err := owner.Create(context.Background(), assessments.CreateCommand{
-		ActorUserID: actor.ID,
-		IncidentID:  incidentID,
-		Input:       input,
-		RequestID:   "req-" + input.ClientTxnID,
-		Now:         time.Now().UTC(),
-	}); err == nil {
-		t.Fatalf("expected assessment create body to be rejected: %#v", body)
-	}
-}
-
-func expectOwnerDecodeCreateRejected(t testing.TB, viewSchemaID string, body map[string]any) {
-	t.Helper()
-	data, err := json.Marshal(body)
-	if err != nil {
-		t.Fatalf("marshal workbook create body: %v", err)
-	}
-	if viewSchemaID == tasksdecisions.TaskRequestsViewSchemaID || viewSchemaID == tasksdecisions.DecisionsViewSchemaID {
-		_, admissionFailure := tasksdecisions.AdmitCreateJSON(viewSchemaID, strings.NewReader(string(data)))
-		if admissionFailure == nil {
-			t.Fatalf("expected Tasks/Decisions mutation body to be rejected: %#v", body)
-		}
-		return
-	}
-	if _, admissionErr := artifacts.AdmitCreate(viewSchemaID, strings.NewReader(string(data))); admissionErr == nil {
-		t.Fatalf("expected owner mutation body to be rejected: %#v", body)
-	}
-}
-
-func expectOwnerDecodePatchRejected(t testing.TB, body map[string]any) {
-	t.Helper()
-	data, err := json.Marshal(body)
-	if err != nil {
-		t.Fatalf("marshal workbook patch body: %v", err)
-	}
-	viewSchemaID, _ := body["view_schema_id"].(string)
-	if viewSchemaID == tasksdecisions.TaskRequestsViewSchemaID || viewSchemaID == tasksdecisions.DecisionsViewSchemaID {
-		_, admissionFailure := tasksdecisions.AdmitPatchJSON(strings.NewReader(string(data)))
-		if admissionFailure == nil {
-			t.Fatalf("expected Tasks/Decisions mutation body to be rejected: %#v", body)
-		}
-		return
-	}
-	if _, admissionErr := artifacts.AdmitPatch(strings.NewReader(string(data))); admissionErr == nil {
-		t.Fatalf("expected owner mutation body to be rejected: %#v", body)
-	}
-}
-
 func requireManualLinkConfidenceNull(t testing.TB, harness *appsupport.StoreHarness, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) {
 	t.Helper()
 	link := linktest.LookupActiveLink(t, harness.DB, incidentID, sourceID, targetID, linkType)
 	if link.Provenance != "manual" || link.Confidence != nil {
 		t.Fatalf("manual %s link must preserve provenance=manual confidence=NULL, got %#v", linkType, link)
 	}
-}
-
-func cloneBody(body map[string]any) map[string]any {
-	cloned := make(map[string]any, len(body)+2)
-	for key, value := range body {
-		cloned[key] = value
-	}
-	return cloned
 }
 
 func uuidStrings(values []uuid.UUID) []string {

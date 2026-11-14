@@ -120,6 +120,9 @@ func TestArtifactMutationContributionRejectsMissingDependencies(t *testing.T) {
 
 func TestArtifactImportContributionRejectsMissingDependencies(t *testing.T) {
 	t.Parallel()
+	if facade, err := NewImportContribution(NotesViewSchemaID, "artifacts.notes.create", completeArtifactImportDependencies()); err != nil || facade == nil {
+		t.Fatalf("complete import dependencies: facade = %v, error = %v", facade, err)
+	}
 	tests := []struct {
 		name string
 		want string
@@ -137,6 +140,26 @@ func TestArtifactImportContributionRejectsMissingDependencies(t *testing.T) {
 			tc.drop(&dependencies)
 			if _, err := NewImportContribution(NotesViewSchemaID, "artifacts.notes.create", dependencies); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("missing %s error = %v", tc.name, err)
+			}
+		})
+	}
+	typedNilTests := []struct {
+		name string
+		want string
+		drop func(*ImportDependencies)
+	}{
+		{name: "records insertion", want: "Records insertion", drop: func(d *ImportDependencies) { d.RecordEnvelopes = (*artifactImportRecordStub)(nil) }},
+		{name: "active-user lookup", want: "Active-user lookup", drop: func(d *ImportDependencies) { d.ActiveUsers = (*artifactImportActiveUserStub)(nil) }},
+		{name: "projection refresh/load", want: "Projection refresh/load", drop: func(d *ImportDependencies) { d.Projections = (*artifactImportProjectionStub)(nil) }},
+		{name: "collaboration publication", want: "Collaboration publication appender", drop: func(d *ImportDependencies) { d.Collaboration = (*artifactCollaborationStub)(nil) }},
+		{name: "revision and intent appender", want: "Revision and intent appender", drop: func(d *ImportDependencies) { d.Revisions = (*artifactImportRevisionStub)(nil) }},
+	}
+	for _, tc := range typedNilTests {
+		t.Run("typed nil "+tc.name, func(t *testing.T) {
+			dependencies := completeArtifactImportDependencies()
+			tc.drop(&dependencies)
+			if _, err := NewImportContribution(NotesViewSchemaID, "artifacts.notes.create", dependencies); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("typed nil %s error = %v", tc.name, err)
 			}
 		})
 	}

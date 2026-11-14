@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, rmSync, symlinkSync, readdirSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, symlinkSync, readdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { readExecutionIndex } from "../execution-reader.mjs";
@@ -50,13 +50,25 @@ test("explicit omissions preserve incomplete parentage without manufacturing a l
   assert.equal(analyzeExecution(index).completeness, "partial");
 });
 
-test("execution reader rejects digest corruption, unsafe files, duplicate JSON keys and byte overflow", (t) => {
+test("execution reader rejects digest corruption, unsafe files and malformed or duplicate JSON", (t) => {
   for (const transform of [
     (f) => atomicLocalFile(f.file, JSON.stringify({ ...f.index, records_digest: digest }), { replace: true }),
     (f) => atomicLocalFile(f.file, '{"schema_id":1,"schema_id":2}', { replace: true }),
-    (f) => atomicLocalFile(f.file, " ".repeat(4 * 1024 ** 2 + 1), { replace: true }),
+    (f) => atomicLocalFile(f.file, "{", { replace: true }),
     (f) => { const target = path.join(f.root, "elsewhere"); atomicLocalFile(target, "{}"); rmSync(f.file); symlinkSync(target, f.file); },
   ]) { const f = fixture(t); transform(f); assert.throws(() => readExecutionIndex(f.root, f.run)); }
+});
+
+test("execution reader admits the exact combined byte limit and rejects one extra byte", (t) => {
+  const f = fixture(t);
+  // Legal whitespace keeps JSON, schemas, identities and section sizes valid.
+  // The independent bound exercises file admission rather than parser rejection.
+  const limit = 24 * 1024 ** 2;
+  const valid = readFileSync(f.file, "utf8");
+  atomicLocalFile(f.file, valid.padEnd(limit, " "), { replace: true });
+  assert.equal(readExecutionIndex(f.root, f.run).run_id, "execution");
+  appendFileSync(f.file, " ");
+  assert.throws(() => readExecutionIndex(f.root, f.run), /^Error: unsafe local file$/u);
 });
 
 test("failed acquisition cannot invent a successful lease or measured unavailable activity", (t) => {

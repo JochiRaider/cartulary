@@ -1,8 +1,10 @@
 package evidence
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -145,22 +147,16 @@ INSERT INTO user_sessions (
 
 func requireStableBlobPayload(t testing.TB, got map[string]any, want map[string]any) {
 	t.Helper()
-	for _, key := range []string{"incident_id", "object_blob_id", "upload_state", "target_expires_at", "pending_expires_at"} {
-		if got[key] != want[key] {
-			t.Fatalf("payload[%s] got %#v want %#v; got=%#v want=%#v", key, got[key], want[key], got, want)
-		}
+	gotJSON, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
 	}
-	gotTarget := got["upload_target"].(map[string]any)
-	wantTarget := want["upload_target"].(map[string]any)
-	if gotTarget["href"] != wantTarget["href"] || gotTarget["expires_at"] != wantTarget["expires_at"] {
-		t.Fatalf("upload target changed on replay: got=%#v want=%#v", gotTarget, wantTarget)
+	wantJSON, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
 	}
-	gotAccepted := got["accepted_contract"].(map[string]any)
-	wantAccepted := want["accepted_contract"].(map[string]any)
-	for _, key := range []string{"incident_id", "filename_hint", "content_type_hint", "sha256_hex"} {
-		if gotAccepted[key] != wantAccepted[key] {
-			t.Fatalf("accepted_contract[%s] changed: got=%#v want=%#v", key, gotAccepted[key], wantAccepted[key])
-		}
+	if !bytes.Equal(gotJSON, wantJSON) {
+		t.Fatalf("blob payload changed on replay: got=%s want=%s", gotJSON, wantJSON)
 	}
 }
 

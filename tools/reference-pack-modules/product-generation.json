@@ -19,6 +19,7 @@
   ],
   "node_dependencies": [
     "ajv",
+    "ajv-formats",
     "json-schema-to-typescript"
   ],
   "steps": [

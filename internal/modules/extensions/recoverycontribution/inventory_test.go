@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/platform/sqlshape"
 )
 
 func TestStagedObjectRecoveryInventory_Unit(t *testing.T) {
@@ -138,7 +139,7 @@ type inventorySnapshot struct {
 	queries  int
 }
 
-func (s *inventorySnapshot) QueryRows(context.Context, string, ...any) (recovery.VNextRows, error) {
+func (s *inventorySnapshot) QueryRows(context.Context, sqlshape.Fragment, ...any) (recovery.VNextRows, error) {
 	s.queries++
 	return s.rows, s.queryErr
 }

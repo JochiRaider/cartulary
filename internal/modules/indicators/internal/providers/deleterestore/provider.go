@@ -42,3 +42,7 @@ func (Source) ViewSchemaID(context.Context, pgx.Tx, uuid.UUID) (string, error) {
 func (Source) PrepareStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
 	return deleterestorecontract.StateTransitionPreparation{}, nil
 }
+
+func (Source) ValidateStateTransitionTx(context.Context, pgx.Tx, deleterestorecontract.StateTransitionRequest) (deleterestorecontract.StateTransitionPreparation, error) {
+	return deleterestorecontract.StateTransitionPreparation{}, nil
+}

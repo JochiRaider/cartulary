@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -81,9 +82,9 @@ func TestArtifactWorkbookMutationContractMatrix(t *testing.T) {
 		{"forensic_keyword", artifacts.ForensicKeywordsViewSchemaID, "forensic_keyword", func() map[string]any {
 			return artifactTextValues(
 				"forensic_keyword.pattern", "synthetic-pattern",
-				"forensic_keyword.reason", "Synthetic fixture",
+				"forensic_keyword.reason", "  Synthe\u0301tic\r\n\tfixture\u200d  ",
 			)
-		}, "forensic_keyword.reason", "Updated synthetic fixture"},
+		}, "forensic_keyword.reason", "  Updated\r\n\tsynthe\u0301tic\u200d fixture  "},
 	}
 
 	for index, tc := range cases {
@@ -120,6 +121,12 @@ SELECT count(*)
 			requireCount(t, harness, `SELECT count(*) FROM change_sets WHERE change_set_id = $1 AND source = $2`, created.ChangeSetID, string(artifacts.OperationCreate), 1)
 			requireCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1`, created.ChangeSetID, 1)
 			requireCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1 AND row_version = 1`, created.RecordID, 1)
+			if tc.artifactType == "forensic_keyword" {
+				var reason string
+				if err := harness.DB.QueryRow(ctx, `SELECT reason FROM artifact_forensic_keywords WHERE record_id=$1`, created.RecordID).Scan(&reason); err != nil || reason != "Synthétic\n\tfixture\u200d" {
+					t.Fatalf("stored Keyword create reason = %q, %v", reason, err)
+				}
+			}
 
 			replayed, err := facade.Create(ctx, command)
 			if err != nil {
@@ -160,6 +167,24 @@ SELECT count(*)
 			requireArtifactRecordChangedIntent(t, harness, patched, actor.ID)
 			requireCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, created.RecordID, 2)
 			requireCount(t, harness, `SELECT count(*) FROM artifact_grid_projection WHERE record_id = $1 AND row_version = 2`, created.RecordID, 1)
+			_, column, _ := strings.Cut(tc.patchField, ".")
+			var stored string
+			if err := harness.DB.QueryRow(ctx, `
+SELECT COALESCE(to_jsonb(a)->>$2, to_jsonb(f)->>$2, to_jsonb(q)->>$2, to_jsonb(k)->>$2)
+FROM artifacts a
+LEFT JOIN artifact_findings f USING (incident_id, record_id)
+LEFT JOIN artifact_investigative_queries q USING (incident_id, record_id)
+LEFT JOIN artifact_forensic_keywords k USING (incident_id, record_id)
+WHERE a.record_id=$1`, created.RecordID, column).Scan(&stored); err != nil {
+				t.Fatal(err)
+			}
+			wantStored := tc.patchValue
+			if tc.artifactType == "forensic_keyword" {
+				wantStored = "Updated\n\tsynthétic\u200d fixture"
+			}
+			if stored != wantStored {
+				t.Fatalf("stored %s = %q, want %q", tc.patchField, stored, wantStored)
+			}
 
 			patchReplay, err := facade.Patch(ctx, patchCommand)
 			if err != nil || patchReplay.Outcome != artifacts.MutationOutcomeReplayed || patchReplay.RecordID != created.RecordID {

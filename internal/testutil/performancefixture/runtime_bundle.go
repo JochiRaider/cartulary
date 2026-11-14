@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 )
 
 const RuntimeBundleName = "performance-fixture-runtime.json"
@@ -116,11 +117,13 @@ func ReadRuntimeBundle(profile performancefixtureprofile.Profile, path string) (
 	if err != nil {
 		return RuntimeBundle{}, fmt.Errorf("read performance fixture runtime bundle: %w", err)
 	}
+	value, err := harnessschema.Decode(raw)
+	if err != nil || harnessschema.Validate(profile.ArtifactPolicy.RuntimeSchemaID, value) != nil {
+		return RuntimeBundle{}, errors.New("performance fixture runtime bundle document is invalid")
+	}
 	var bundle RuntimeBundle
-	decoder := json.NewDecoder(strings.NewReader(string(raw)))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&bundle); err != nil {
-		return RuntimeBundle{}, fmt.Errorf("decode performance fixture runtime bundle: %w", err)
+	if err := json.Unmarshal(raw, &bundle); err != nil {
+		return RuntimeBundle{}, errors.New("performance fixture runtime bundle document is invalid")
 	}
 	if err := ValidateRuntimeBundle(profile, bundle); err != nil {
 		return RuntimeBundle{}, err

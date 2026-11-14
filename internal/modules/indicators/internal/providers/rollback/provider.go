@@ -3,13 +3,11 @@ package rollback
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/vocabulary"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
@@ -25,7 +23,7 @@ func NewProvider(assignments reference_data.RegistryAssignments) Provider {
 }
 
 func (Provider) ValidateRollbackValue(value map[string]any) error {
-	_, err := parseIndicatorSourcePatch(value)
+	_, err := parseCompleteIndicatorSource(value)
 	return err
 }
 
@@ -43,29 +41,13 @@ type rowState struct {
 	stixPattern   *string
 }
 
-type nullableTextPatch struct {
-	present bool
-	value   *string
-}
-
-type indicatorSourcePatch struct {
-	recordID      *uuid.UUID
-	incidentID    *uuid.UUID
-	indicatorType *string
-	valueKind     *string
-	displayValue  *string
-	normalized    nullableTextPatch
-	dedupeKey     *string
-	defanged      nullableTextPatch
-	hashAlgorithm nullableTextPatch
-	hashValue     nullableTextPatch
-	stixPattern   nullableTextPatch
-}
-
 func (p Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
-	patch, err := parseIndicatorSourcePatch(request.RetainedValue)
+	state, err := parseCompleteIndicatorSource(request.RetainedValue)
 	if err != nil {
 		return err
+	}
+	if state.recordID != request.RecordID {
+		return rollbackcontract.ErrTargetNotReversible
 	}
 	assignment, err := p.assignments.BeginTx(ctx, tx)
 	if err != nil {
@@ -75,25 +57,20 @@ func (p Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcont
 	if err != nil {
 		return err
 	}
-	var state rowState
+	var currentIncidentID uuid.UUID
+	var previousType string
 	if err := tx.QueryRow(ctx, `
-SELECT record_id, incident_id, indicator_type, value_kind, display_value, normalized_value, dedupe_key,
-       defanged_value, hash_algorithm, hash_value, stix_pattern
+SELECT incident_id, indicator_type
   FROM indicators
  WHERE record_id = $1
  FOR UPDATE
-`, request.RecordID).Scan(
-		&state.recordID, &state.incidentID,
-		&state.indicatorType, &state.valueKind, &state.displayValue, &state.normalized, &state.dedupeKey,
-		&state.defanged, &state.hashAlgorithm, &state.hashValue, &state.stixPattern,
-	); err != nil {
+`, request.RecordID).Scan(&currentIncidentID, &previousType); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return rollbackcontract.ErrTargetNotFound
 		}
 		return err
 	}
-	previousType := state.indicatorType
-	if !patch.overlay(&state) {
+	if state.incidentID != currentIncidentID {
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	canonical, err := identity.Canonicalize(evaluate, identity.Input{
@@ -109,10 +86,9 @@ SELECT record_id, incident_id, indicator_type, value_kind, display_value, normal
 	if err != nil || !identityMatchesCanonical(state, canonical) {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	if patch.dedupeKey != nil && *patch.dedupeKey != canonical.DedupeKey {
+	if state.dedupeKey != canonical.DedupeKey {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	state.dedupeKey = canonical.DedupeKey
 	tag, err := tx.Exec(ctx, `
 UPDATE indicators
    SET indicator_type = $2,
@@ -136,152 +112,6 @@ UPDATE indicators
 		return assignment.RecordUsage(ctx, "type_registry.indicator")
 	}
 	return nil
-}
-
-func parseIndicatorSourcePatch(value map[string]any) (indicatorSourcePatch, error) {
-	rawSource, present := value["source"]
-	if !present || rawSource == nil {
-		return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-	}
-	source, ok := rawSource.(map[string]any)
-	if !ok || len(source) == 0 {
-		return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-	}
-	var patch indicatorSourcePatch
-	for key, raw := range source {
-		switch key {
-		case "record_id":
-			parsed, valid := parsePatchUUID(raw)
-			if !valid {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.recordID = &parsed
-		case "incident_id":
-			parsed, valid := parsePatchUUID(raw)
-			if !valid {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.incidentID = &parsed
-		case "indicator_type":
-			text, valid := parseRequiredPatchText(raw)
-			if !valid || !vocabulary.IsIndicatorType(text) {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.indicatorType = &text
-		case "value_kind":
-			text, valid := parseRequiredPatchText(raw)
-			if !valid || !vocabulary.IsValueKind(text) {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.valueKind = &text
-		case "display_value":
-			text, valid := parseRequiredPatchText(raw)
-			if !valid {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.displayValue = &text
-		case "dedupe_key":
-			text, valid := parseRequiredPatchText(raw)
-			if !valid {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.dedupeKey = &text
-		case "normalized_value":
-			parsed, valid := parseNullablePatchText(raw)
-			if !valid {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.normalized = parsed
-		case "defanged_value":
-			parsed, valid := parseNullablePatchText(raw)
-			if !valid {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.defanged = parsed
-		case "hash_algorithm":
-			parsed, valid := parseNullablePatchText(raw)
-			if !valid {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.hashAlgorithm = parsed
-		case "hash_value":
-			parsed, valid := parseNullablePatchText(raw)
-			if !valid {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.hashValue = parsed
-		case "stix_pattern":
-			parsed, valid := parseNullablePatchText(raw)
-			if !valid {
-				return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-			}
-			patch.stixPattern = parsed
-		default:
-			return indicatorSourcePatch{}, rollbackcontract.ErrTargetNotReversible
-		}
-	}
-	return patch, nil
-}
-
-func parsePatchUUID(raw any) (uuid.UUID, bool) {
-	text, ok := raw.(string)
-	if !ok || !validPatchText(text) {
-		return uuid.Nil, false
-	}
-	parsed, err := uuid.Parse(text)
-	return parsed, err == nil && parsed != uuid.Nil && parsed.String() == text
-}
-
-func parseRequiredPatchText(raw any) (string, bool) {
-	text, ok := raw.(string)
-	return text, ok && validPatchText(text)
-}
-
-func parseNullablePatchText(raw any) (nullableTextPatch, bool) {
-	if raw == nil {
-		return nullableTextPatch{present: true}, true
-	}
-	text, ok := raw.(string)
-	if !ok || !validPatchText(text) {
-		return nullableTextPatch{}, false
-	}
-	return nullableTextPatch{present: true, value: &text}, true
-}
-
-func validPatchText(text string) bool {
-	return text != "" && strings.TrimSpace(text) != "" && !strings.ContainsRune(text, 0)
-}
-
-func (patch indicatorSourcePatch) overlay(state *rowState) bool {
-	if state == nil || (patch.recordID != nil && *patch.recordID != state.recordID) ||
-		(patch.incidentID != nil && *patch.incidentID != state.incidentID) {
-		return false
-	}
-	if patch.indicatorType != nil {
-		state.indicatorType = *patch.indicatorType
-	}
-	if patch.valueKind != nil {
-		state.valueKind = *patch.valueKind
-	}
-	if patch.displayValue != nil {
-		state.displayValue = *patch.displayValue
-	}
-	if patch.normalized.present {
-		state.normalized = patch.normalized.value
-	}
-	if patch.defanged.present {
-		state.defanged = patch.defanged.value
-	}
-	if patch.hashAlgorithm.present {
-		state.hashAlgorithm = patch.hashAlgorithm.value
-	}
-	if patch.hashValue.present {
-		state.hashValue = patch.hashValue.value
-	}
-	if patch.stixPattern.present {
-		state.stixPattern = patch.stixPattern.value
-	}
-	return true
 }
 
 func identityMatchesCanonical(state rowState, canonical identity.Canonical) bool {

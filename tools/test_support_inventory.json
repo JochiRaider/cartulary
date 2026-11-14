@@ -77,10 +77,10 @@
       "path": "internal/modules/indicators/testsupport",
       "owner": "indicators",
       "posture": "owner_local",
-      "runtime_scan": "included",
+      "runtime_scan": "excluded",
       "support_scan": "included",
       "service_starting": false,
-      "rationale": "Indicator route inventory support without service-starting entrypoints."
+      "rationale": "Indicator-owned fixture values and source seeds used only by tests; no runtime or service-starting entrypoints."
     },
     {
       "path": "internal/modules/links/testsupport",

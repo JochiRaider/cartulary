@@ -36,7 +36,7 @@ import { openIncidentControls } from "./pages/deploymentAdministration";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
 import { expectAllInteractiveControlsNamed } from "./support/accessibility/assertions";
 import {
-  expectNoFocusTrap,
+  expectInitialTabRoundTrip,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
 import { withPresentation } from "./support/accessibility/presentation";
@@ -483,7 +483,7 @@ test("a11y.query overflow remains reachable through density enlargement reflow a
     "query-sort-header",
   );
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
   await openFilterPopover(page, timelineViewSchemaId);
   await expectAndRecordContrast(
     page,

@@ -22,6 +22,7 @@ var ErrSourceRecordNotFound = errors.New("timeline mention effects: source recor
 
 type RecordPort interface {
 	sourcelocking.EnvelopeReader
+	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (sourcerepository.Envelope, error)
 	LoadEnvelopesTx(context.Context, pgx.Tx, []uuid.UUID, bool) (map[uuid.UUID]sourcerepository.Envelope, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)

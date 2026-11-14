@@ -117,16 +117,35 @@ func TestStateStore_Integration_MapsProfileLockTimeout(t *testing.T) {
 	}
 
 	acquired := make(chan struct{})
-	release := make(chan struct{})
-	holderDone := make(chan error, 1)
+	holderCtx, cancelHolder := context.WithCancel(t.Context())
+	holderDone := make(chan struct{})
+	var holderErr error
+	t.Cleanup(func() {
+		cancelHolder()
+		select {
+		case <-holderDone:
+			if holderErr != nil {
+				t.Errorf("profile lock holder: %v", holderErr)
+			}
+		case <-time.After(5 * time.Second):
+			t.Error("profile lock holder did not settle after cancellation")
+		}
+	})
 	go func() {
-		holderDone <- physical.WithProfileLock(context.Background(), "network_flow_activity", time.Second, func(*extensionstore.Session) error {
+		defer close(holderDone)
+		holderErr = physical.WithProfileLock(holderCtx, "network_flow_activity", time.Second, func(*extensionstore.Session) error {
 			close(acquired)
-			<-release
+			<-holderCtx.Done()
 			return nil
 		})
 	}()
-	<-acquired
+	select {
+	case <-acquired:
+	case <-holderDone:
+		t.Fatalf("profile lock holder failed before acquisition: %v", holderErr)
+	case <-time.After(5 * time.Second):
+		t.Fatal("profile lock holder did not acquire")
+	}
 
 	err = store.WithProfileSession(context.Background(), "network_flow_activity", time.Millisecond, func(extensions.ProfileSession) error {
 		t.Fatal("operation ran without acquiring the profile lock")
@@ -134,10 +153,6 @@ func TestStateStore_Integration_MapsProfileLockTimeout(t *testing.T) {
 	})
 	if !errors.Is(err, extensions.ErrStateMigrationLockTimeout) {
 		t.Fatalf("mapped lock error = %v", err)
-	}
-	close(release)
-	if err := <-holderDone; err != nil {
-		t.Fatal(err)
 	}
 }
 

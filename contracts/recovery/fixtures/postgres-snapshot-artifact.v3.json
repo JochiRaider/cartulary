@@ -918,6 +918,14 @@
       "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "table_name": "revision_history_orders",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "logical_ref": "postgres/revision_history_orders",
+      "row_count": 0,
+      "plaintext_bytes": 0,
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
       "table_name": "route_idempotency",
       "codec_id": "cartulary.postgres_snapshot_unit.v1",
       "logical_ref": "postgres/route_idempotency",

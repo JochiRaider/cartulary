@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.seaweedfs_release_gate_summary.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "target",
+    "source_digest",
+    "toolchain_digest",
+    "graph_digest",
+    "status",
+    "checks",
+    "findings",
+    "source_occurrences"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.seaweedfs_release_gate_summary.v3"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "target": {
+      "const": "seaweedfs-release-gate"
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "toolchain_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "blocked"
+      ]
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "kind",
+          "status",
+          "evidence_refs"
+        ],
+        "properties": {
+          "check_id": {
+            "enum": [
+              "occurrence_inventory",
+              "release_surface",
+              "dependency_boundary",
+              "inventory_classification",
+              "threat_policy",
+              "storage_ref_policy",
+              "backup_contracts",
+              "compatibility",
+              "recovery",
+              "redaction"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "source_policy",
+              "contract_inventory",
+              "runtime",
+              "privacy"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "unqualified"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\x00-\\x1f]+$"
+            },
+            "uniqueItems": true
+          }
+        }
+      },
+      "minItems": 10
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "code",
+          "path",
+          "line",
+          "column",
+          "json_path"
+        ],
+        "properties": {
+          "check_id": {
+            "enum": [
+              "occurrence_inventory",
+              "release_surface",
+              "dependency_boundary",
+              "inventory_classification",
+              "threat_policy",
+              "storage_ref_policy",
+              "backup_contracts",
+              "compatibility",
+              "recovery",
+              "redaction"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-z][a-z0-9_-]*$"
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\x00-\\x1f]+$"
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "column": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "json_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1024
+          }
+        }
+      }
+    },
+    "source_occurrences": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "line",
+          "column",
+          "matched_term",
+          "classification",
+          "classification_rule_id"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\\\x00-\\x1f]+$"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "classification": {
+            "enum": [
+              "sdk_only",
+              "legacy_external_endpoint",
+              "historical_changelog",
+              "invalid",
+              "unclassified"
+            ]
+          },
+          "classification_rule_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "matched_term": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "pass"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "checks": {
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "pass"
+                }
+              }
+            }
+          },
+          "findings": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ]
+}

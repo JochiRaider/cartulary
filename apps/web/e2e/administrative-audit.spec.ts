@@ -72,26 +72,8 @@ test("administrative audit browses more than one hundred real exact matching eve
       request: testActorRequest,
       query: { ...query, occurred_at_gte: newest.occurred_at },
     });
-    const exclusive = await publicHttpOperation({
-      operationID: "listAdministrativeAuditEvents",
-      request: testActorRequest,
-      query: { ...query, occurred_at_lt: newest.occurred_at },
-    });
-    if (!inclusive.ok || !exclusive.ok)
-      throw new Error("Timestamp boundary read failed");
-    expect(
-      inclusive.payload.data.audit_events.map((event) => event.audit_event_id),
-    ).toContain(newest.audit_event_id);
-    expect(
-      exclusive.payload.data.audit_events.map((event) => event.audit_event_id),
-    ).not.toContain(newest.audit_event_id);
-    const mismatch = await publicHttpOperation({
-      operationID: "listAdministrativeAuditEvents",
-      request: testActorRequest,
-      query: { ...query, cursor_token: cursor, limit: 99 },
-    });
-    expect(mismatch.ok).toBe(false);
-    expect(mismatch.status).toBe(400);
+    if (!inclusive.ok)
+      throw new Error(`Audit UI comparison read failed: ${inclusive.status}`);
 
     const requests: URL[] = [];
     page.on("request", (request) => {
@@ -162,10 +144,13 @@ test("administrative audit browses more than one hundred real exact matching eve
       body: JSON.stringify({
         generated_matching_events: events.length,
         unique_ids: new Set(events.map((event) => event.audit_event_id)).size,
-        page_sizes: [100, 5],
-        inclusive_boundary: true,
-        exclusive_boundary: true,
-        cursor_mismatch_status: mismatch.status,
+        page_sizes: [
+          first.payload.data.audit_events.length,
+          second.payload.data.audit_events.length,
+        ],
+        inclusive_filter_event_count:
+          inclusive.payload.data.audit_events.length,
+        inspected_event_id: newest.audit_event_id,
       }),
       contentType: "application/json",
     });

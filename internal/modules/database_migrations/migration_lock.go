@@ -3,7 +3,9 @@ package database_migrations
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
+	"reflect"
 	"time"
 
 	gooselock "github.com/pressly/goose/v3/lock"
@@ -22,14 +24,14 @@ type validatingSessionLocker struct {
 }
 
 func (locker *validatingSessionLocker) SessionLock(ctx context.Context, conn *sql.Conn) (retErr error) {
-	if locker == nil || locker.delegate == nil || locker.validate == nil {
+	if locker == nil || nilMigrationCapability(locker.delegate) || locker.validate == nil {
 		return newMigrationFailure(reasonMigrationLockAcquisitionFailed, nil)
 	}
 
 	lockCtx, cancel := context.WithTimeout(ctx, locker.effectiveLockTimeout())
 	defer cancel()
-	if err := locker.delegate.SessionLock(lockCtx, conn); err != nil {
-		return newMigrationFailure(reasonMigrationLockAcquisitionFailed, err)
+	if err := locker.acquire(lockCtx, conn); err != nil {
+		return err
 	}
 
 	release := true
@@ -53,13 +55,49 @@ func (locker *validatingSessionLocker) SessionLock(ctx context.Context, conn *sq
 }
 
 func (locker *validatingSessionLocker) SessionUnlock(ctx context.Context, conn *sql.Conn) error {
-	if locker == nil || locker.delegate == nil {
+	if locker == nil || nilMigrationCapability(locker.delegate) {
 		return newMigrationFailure(reasonSchemaMigrationCleanupFailed, nil)
 	}
 	return locker.unlock(ctx, conn)
 }
 
-func (locker *validatingSessionLocker) unlock(ctx context.Context, conn *sql.Conn) error {
+func nilMigrationCapability(value any) bool {
+	if value == nil {
+		return true
+	}
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
+}
+
+func (locker *validatingSessionLocker) acquire(ctx context.Context, conn *sql.Conn) (retErr error) {
+	defer func() {
+		if recover() != nil {
+			retErr = newMigrationFailure(reasonMigrationLockAcquisitionFailed, nil)
+		}
+		if retErr != nil {
+			discardMigrationSession(conn)
+		}
+	}()
+	if err := locker.delegate.SessionLock(ctx, conn); err != nil {
+		return newMigrationFailure(reasonMigrationLockAcquisitionFailed, err)
+	}
+	return nil
+}
+
+func (locker *validatingSessionLocker) unlock(ctx context.Context, conn *sql.Conn) (retErr error) {
+	defer func() {
+		if recover() != nil {
+			retErr = newMigrationFailure(reasonSchemaMigrationCleanupFailed, nil)
+		}
+		if retErr != nil {
+			discardMigrationSession(conn)
+		}
+	}()
 	detached := context.WithoutCancel(ctx)
 	unlockCtx, cancel := context.WithTimeout(detached, locker.effectiveUnlockTimeout())
 	defer cancel()
@@ -67,6 +105,14 @@ func (locker *validatingSessionLocker) unlock(ctx context.Context, conn *sql.Con
 		return newMigrationFailure(reasonSchemaMigrationCleanupFailed, err)
 	}
 	return nil
+}
+
+func discardMigrationSession(conn *sql.Conn) {
+	if conn != nil {
+		// Close alone would return a possibly locked session to the borrowed
+		// pool. ErrBadConn retires only this physical connection.
+		_ = conn.Raw(func(any) error { return driver.ErrBadConn })
+	}
 }
 
 func (locker *validatingSessionLocker) effectiveLockTimeout() time.Duration {

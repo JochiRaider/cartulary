@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"log"
 	"path"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -61,7 +62,7 @@ func (catalog catalogFS) Open(name string) (fs.File, error) {
 // Build copies and validates a complete migration catalog without database
 // access. Lineage arguments are supplied only by the owning package.
 func Build(fsys fs.FS, root string, lineageID string, lineageBoundary string) (*Catalog, error) {
-	if fsys == nil {
+	if nilCapability(fsys) {
 		return nil, errors.New("migration source filesystem is nil")
 	}
 	if root == "" || !fs.ValidPath(root) || path.Clean(root) != root {
@@ -251,7 +252,7 @@ func NewProvider(db *sql.DB, catalog *Catalog, locker gooselock.SessionLocker) (
 	if err := Validate(catalog); err != nil {
 		return nil, err
 	}
-	if locker == nil {
+	if nilCapability(locker) {
 		return nil, errors.New("migration provider session locker is nil")
 	}
 	return goose.NewProvider(
@@ -263,6 +264,19 @@ func NewProvider(db *sql.DB, catalog *Catalog, locker gooselock.SessionLocker) (
 		goose.WithSessionLocker(locker),
 		goose.WithTableName("public.goose_db_version"),
 	)
+}
+
+func nilCapability(value any) bool {
+	if value == nil {
+		return true
+	}
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
 }
 
 func NewSessionLocker() (gooselock.SessionLocker, error) {

@@ -37,6 +37,12 @@ import type {
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
 
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
 it("browses only the active Entity sheet and releases its rows independently on departure", async () => {
   const fetch = vi.fn((url: RequestInfo | URL) =>
     Promise.resolve(
@@ -165,7 +171,6 @@ it("browses only the active Entity sheet and releases its rows independently on 
   expect(startup.result.current.references.hosts).toEqual([]);
   expect(recoveredReader.query).toHaveBeenCalledTimes(2);
   startup.unmount();
-  vi.unstubAllGlobals();
 });
 const incidentId = "00000000-0000-4000-8000-000000000001";
 const hostCurrentId = "00000000-0000-4000-8000-000000000201";
@@ -289,12 +294,6 @@ function EntityQueryHarness({
 }
 
 describe("useEntitySurfaceQuery", () => {
-  afterEach(() => {
-    cleanup();
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-  });
-
   it("requires an accepted current query before authorization recovery can resume", async () => {
     for (const activeViewSchemaId of [
       hostsViewSchemaId,

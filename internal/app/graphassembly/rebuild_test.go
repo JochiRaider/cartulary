@@ -89,6 +89,7 @@ func TestClaimedGraphReconstructionUsesOneTransaction_Integration(t *testing.T) 
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer retry.Rollback(context.WithoutCancel(t.Context()))
 			if _, err := retry.Exec(t.Context(), "SELECT 1"); err != nil {
 				t.Fatal(err)
 			}

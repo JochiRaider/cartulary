@@ -1,11 +1,14 @@
 package workbookassembly
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"math"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -18,8 +21,9 @@ func TestAssessmentCreateResultCodec(t *testing.T) {
 	recordID := uuid.MustParse("2aaaaaaa-0000-4000-8000-000000000001")
 	changeSetID := uuid.MustParse("3bbbbbbb-0000-4000-8000-000000000001")
 	scopeKey := incidentID.String() + ":" + assessments.AssessmentsViewSchemaID
-	requestHash := []byte("request-hash")
-	valid := `{
+	sum := sha256.Sum256([]byte("request-hash"))
+	requestHash := sum[:]
+	legacyValid := `{
   "schema_id":"cartulary.assessments.create_result.v1",
   "record_id":"2aaaaaaa-0000-4000-8000-000000000001",
   "change_set_id":"3bbbbbbb-0000-4000-8000-000000000001",
@@ -32,10 +36,20 @@ func TestAssessmentCreateResultCodec(t *testing.T) {
   }
 }`
 
-	result, err := decodeAssessmentCreateResult([]byte(valid), scopeKey, http.StatusCreated, requestHash)
+	defaultTime := time.Date(2026, 9, 1, 12, 0, 0, 123456000, time.UTC)
+	valid := strings.Replace(legacyValid, `"schema_id":"cartulary.assessments.create_result.v1"`, `"schema_id":"cartulary.assessments.create_result.v2","default_assessed_at":"2026-09-01T12:00:00.123456Z"`, 1)
+	legacy, err := decodeAssessmentCreateResult([]byte(legacyValid), scopeKey, http.StatusCreated, requestHash)
+	if err != nil || legacy.DefaultAssessedAt != nil || legacy.Result.RecordID != recordID || !bytes.Equal(legacy.RequestHash, requestHash) {
+		t.Fatalf("legacy receipt changed comparison context: %#v, %v", legacy, err)
+	}
+	receipt, err := decodeAssessmentCreateResult([]byte(valid), scopeKey, http.StatusCreated, requestHash)
 	if err != nil {
 		t.Fatalf("decode valid canonical result: %v", err)
 	}
+	if receipt.DefaultAssessedAt == nil || !receipt.DefaultAssessedAt.Equal(defaultTime) || !bytes.Equal(receipt.RequestHash, requestHash) {
+		t.Fatalf("normalized receipt lost default context/hash: %#v", receipt)
+	}
+	result := receipt.Result
 	if result.RecordID != recordID || result.ChangeSetID != changeSetID || result.RowVersion != 7 {
 		t.Fatalf("decoded identity/version = %#v", result)
 	}
@@ -43,16 +57,17 @@ func TestAssessmentCreateResultCodec(t *testing.T) {
 		t.Fatalf("decoded result lost committed outcome or extensible row: %#v", result)
 	}
 
-	encoded, err := encodeAssessmentCreateResult(scopeKey, requestHash, assessments.CreateResult{
-		RecordID:    recordID,
-		ChangeSetID: changeSetID,
-		RowVersion:  7,
-		CanonicalRow: map[string]any{
-			"record_id":   recordID.String(),
-			"incident_id": incidentID.String(),
-			"row_version": int64(7),
-		},
-	})
+	encoded, err := encodeAssessmentCreateResult(scopeKey, assessments.CreateIdempotencyRecord{
+		RequestHash: requestHash, DefaultAssessedAt: &defaultTime, Result: assessments.CreateResult{
+			RecordID:    recordID,
+			ChangeSetID: changeSetID,
+			RowVersion:  7,
+			CanonicalRow: map[string]any{
+				"record_id":   recordID.String(),
+				"incident_id": incidentID.String(),
+				"row_version": int64(7),
+			},
+		}})
 	if err != nil {
 		t.Fatalf("encode canonical result: %v", err)
 	}
@@ -60,8 +75,12 @@ func TestAssessmentCreateResultCodec(t *testing.T) {
 	if err := json.Unmarshal(encoded, &encodedObject); err != nil {
 		t.Fatalf("decode encoded object for inspection: %v", err)
 	}
-	if !hasExactJSONMembers(encodedObject, assessmentCreateResultMembers) {
+	if !hasExactJSONMembers(encodedObject, []string{"schema_id", "default_assessed_at", "record_id", "change_set_id", "row_version", "row"}) {
 		t.Fatalf("encoded members = %v", encodedObject)
+	}
+
+	if string(encodedObject["schema_id"]) != `"cartulary.assessments.create_result.v2"` || string(encodedObject["default_assessed_at"]) != `"2026-09-01T12:00:00.123456Z"` {
+		t.Fatalf("new receipt omitted version/default identity: %s", encoded)
 	}
 
 	for _, test := range []struct {
@@ -75,7 +94,7 @@ func TestAssessmentCreateResultCodec(t *testing.T) {
 		{name: "legacy", payload: `{"view_schema_id":"cartulary.view.assessments.v1","change_set_id":"3bbbbbbb-0000-4000-8000-000000000001","row":{"record_id":"2aaaaaaa-0000-4000-8000-000000000001","incident_id":"10000000-0000-4000-8000-000000000001","row_version":7}}`, scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid members"},
 		{name: "extra top member", payload: strings.Replace(valid, `"row":{`, `"extra":true,"row":{`, 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid members"},
 		{name: "duplicate nested member", payload: strings.Replace(valid, "\"row_version\":7,\n    \"future_field\"", "\"row_version\":7,\n    \"row_version\":7,\n    \"future_field\"", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "duplicate object member"},
-		{name: "unknown schema", payload: strings.Replace(valid, assessmentCreateResultSchemaID, "cartulary.assessments.create_result.v2", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid schema_id"},
+		{name: "unknown schema", payload: strings.Replace(valid, "cartulary.assessments.create_result.v2", "cartulary.assessments.create_result.v99", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid schema_id"},
 		{name: "noncanonical record uuid", payload: strings.Replace(valid, recordID.String(), strings.ToUpper(recordID.String()), 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid record_id"},
 		{name: "nil change set uuid", payload: strings.Replace(valid, changeSetID.String(), uuid.Nil.String(), 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid change_set_id"},
 		{name: "fractional top version", payload: strings.Replace(valid, `"row_version":7,`, `"row_version":7.5,`, 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid row_version"},
@@ -85,7 +104,16 @@ func TestAssessmentCreateResultCodec(t *testing.T) {
 		{name: "row version mismatch", payload: strings.Replace(valid, "\"row_version\":7,\n    \"future_field\"", "\"row_version\":8,\n    \"future_field\"", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "row_version mismatch"},
 		{name: "invalid scope", payload: valid, scope: "not-an-incident:" + assessments.AssessmentsViewSchemaID, status: 201, request: requestHash, wantReason: "invalid scope"},
 		{name: "wrong status", payload: valid, scope: scopeKey, status: 200, request: requestHash, wantReason: "invalid stored status"},
-		{name: "empty request hash", payload: valid, scope: scopeKey, status: 201, request: nil, wantReason: "request hash is required"},
+		{name: "empty request hash", payload: valid, scope: scopeKey, status: 201, request: nil, wantReason: "invalid request hash"},
+		{name: "short hash", payload: valid, scope: scopeKey, status: 201, request: []byte("short"), wantReason: "invalid request hash"},
+		{name: "long hash", payload: valid, scope: scopeKey, status: 201, request: make([]byte, 33), wantReason: "invalid request hash"},
+		{name: "missing default", payload: strings.Replace(legacyValid, "create_result.v1", "create_result.v2", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid members"},
+		{name: "legacy with default", payload: strings.Replace(valid, "create_result.v2", "create_result.v1", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid members"},
+		{name: "null default", payload: strings.Replace(valid, `"2026-09-01T12:00:00.123456Z"`, "null", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid default assessment time"},
+		{name: "invalid default", payload: strings.Replace(valid, "2026-09-01T12:00:00.123456Z", "not-a-time", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid default assessment time"},
+		{name: "zero default", payload: strings.Replace(valid, "2026-09-01T12:00:00.123456Z", "0001-01-01T00:00:00Z", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid default assessment time"},
+		{name: "noncanonical default", payload: strings.Replace(valid, "2026-09-01T12:00:00.123456Z", "2026-09-01T13:00:00.123456+01:00", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid default assessment time"},
+		{name: "submicrosecond default", payload: strings.Replace(valid, "2026-09-01T12:00:00.123456Z", "2026-09-01T12:00:00.1234567Z", 1), scope: scopeKey, status: 201, request: requestHash, wantReason: "invalid default assessment time"},
 		{name: "not object", payload: `[]`, scope: scopeKey, status: 201, request: requestHash, wantReason: "value is not one object"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -99,10 +127,17 @@ func TestAssessmentCreateResultCodec(t *testing.T) {
 		})
 	}
 
-	if _, err := encodeAssessmentCreateResult(scopeKey, requestHash, assessments.CreateResult{
-		RecordID: recordID, ChangeSetID: changeSetID, RowVersion: math.MaxInt64,
-		CanonicalRow: map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "row_version": int64(0)},
-	}); err == nil {
+	if _, err := encodeAssessmentCreateResult(scopeKey, assessments.CreateIdempotencyRecord{
+		RequestHash: requestHash, DefaultAssessedAt: &defaultTime, Result: assessments.CreateResult{
+			RecordID: recordID, ChangeSetID: changeSetID, RowVersion: math.MaxInt64,
+			CanonicalRow: map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "row_version": int64(0)},
+		}}); err == nil {
 		t.Fatal("encode accepted a canonical row that disagrees with the result")
 	}
+	for _, defaultValue := range []*time.Time{nil, new(time.Time)} {
+		if _, err := encodeAssessmentCreateResult(scopeKey, assessments.CreateIdempotencyRecord{RequestHash: requestHash, DefaultAssessedAt: defaultValue, Result: result}); err == nil {
+			t.Fatal("encoder accepted missing default context")
+		}
+	}
+
 }

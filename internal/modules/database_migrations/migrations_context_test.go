@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"path"
 	"sync"
 	"testing"
 	"testing/fstest"
+
+	"github.com/pressly/goose/v3"
 
 	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/sourcecatalog"
 )
@@ -48,8 +51,9 @@ func TestProviderSourceIsolation(t *testing.T) {
 		go func() {
 			defer wait.Done()
 
+			files := fstest.MapFS{testCase.migration: &fstest.MapFile{Data: []byte(validMigrationBody)}}
 			source, err := buildSource(
-				fstest.MapFS{testCase.migration: &fstest.MapFile{Data: []byte(validMigrationBody)}},
+				files,
 				"migrations",
 				testCase.name+"-lineage",
 				testCase.name+"-boundary",
@@ -58,6 +62,8 @@ func TestProviderSourceIsolation(t *testing.T) {
 				t.Errorf("%s: construct source: %v", testCase.name, err)
 				return
 			}
+			delete(files, testCase.migration)
+			files["migrations/00001_replacement.sql"] = &fstest.MapFile{Data: []byte(validMigrationBody)}
 			locker, err := sourcecatalog.NewSessionLocker()
 			if err != nil {
 				t.Errorf("%s: create provider locker: %v", testCase.name, err)
@@ -69,7 +75,8 @@ func TestProviderSourceIsolation(t *testing.T) {
 				return
 			}
 			sources := provider.ListSources()
-			if len(sources) != 1 || sources[0].Version != 1 {
+			if len(sources) != 1 || sources[0].Version != 1 ||
+				sources[0].Type != goose.TypeSQL || sources[0].Path != path.Base(testCase.migration) {
 				t.Errorf("%s: provider source leak: %#v", testCase.name, sources)
 			}
 		}()

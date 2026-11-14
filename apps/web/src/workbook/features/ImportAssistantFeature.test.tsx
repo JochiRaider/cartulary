@@ -184,8 +184,16 @@ describe("ImportAssistantFeature selection lifecycle", () => {
     const h = setup(true);
     await screen.findByRole("button", { name: "Create operator region" });
     expect(
-      (screen.getByLabelText("Target view") as HTMLSelectElement).options,
-    ).toHaveLength(workbookImportTargets.length);
+      Array.from(
+        (screen.getByLabelText("Target view") as HTMLSelectElement).options,
+        (option) => ({ value: option.value, label: option.textContent }),
+      ),
+    ).toEqual(
+      workbookImportTargets.map((target) => ({
+        value: target.contract.viewSchemaId,
+        label: target.contract.title,
+      })),
+    );
     fireEvent.change(screen.getByLabelText("Region start row"), {
       target: { value: "2" },
     });

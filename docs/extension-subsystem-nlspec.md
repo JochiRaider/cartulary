@@ -40,9 +40,10 @@ reader. It also adopts the v2 extension job-kind contract and its owner-declared
 identity, coordinates the Core-owned analytical import binding shape with target-owned exact payload
 schemas, requires every analytical `import_target` contribution to name its binding, and adopts the
 generated worker runtime contract used by Jobs to enforce per-worker process capacity.
-Its Network Flow amendment is adopted with Core 00/Core 01,
-Core 03/Core 04 and Network Flow Activity `8.0.0` (contract major `8`); the machine projection and implementation evidence remain
-governed by the controlling remediation tracker.
+The historical Network Flow `8.0.0` amendment was adopted with Core 00/Core 01
+and Core 03/Core 04. Network Flow Activity's current adopted owner supersedes
+that major-version baseline; owner adoption, machine projection and implementation
+evidence remain separate.
 
 The target-neutral CSV source-admission amendment in Core 00 §1.4 was separately
 adopted by the repository maintainer on 2026-10-29. It extends the Core-owned analytical import facade
@@ -193,7 +194,7 @@ Verified by: EXT-AC-004, EXT-AC-005, EXT-AC-072, EXT-AC-076
 | --- | --- | --- |
 | Owner-authored normative input | Adopted owner document and separately stored `cartulary.extension_owner_fragment.v3` explicitly adopted by that document | Normative only for the exact facts allocated to that owner. |
 | Generated normalized input | Dependency snapshot and owner-input registry | Derived from owner-authored input; cannot add or override behavior. |
-| Generated runtime input | Descriptor, registry, registry-integrity object, conformance-manifest index | Runtime and conformance input; cannot override owner facts. |
+| Generated runtime input | Descriptor, registry, registry-integrity object | Runtime input; cannot override owner facts or establish conformance. |
 | Build-time implementation declaration | `cartulary.extension_implementation_binding.v2` | Declares packaged support and generated worker runtime contracts; cannot widen the descriptor or owner contract. |
 | Durable runtime state | State metadata, migration ledger, job commit proof, cancellation observation | Authoritative only for the runtime fact explicitly represented by its schema. |
 | Harness evidence | Verification routes, executed rows, owner summaries, evidence-audit summaries, and retained target results | Derived evidence only; cannot define product behavior or make an incomplete specification complete. |
@@ -1981,13 +1982,13 @@ Verified by: EXT-AC-092
 
 **EXT-REQ-231**
 The generic seven-member discovery item is the sole discovery contract. Network
-Flow Activity contract major `8` retains semantic-query v2, effective-limit,
-and time-bucket graph routes and schemas while removing the v1 query union and
-MUST be
-projected atomically through Core 00 recognition, owner fragments, dependency
+Flow Activity's current contract major, declared by its adopted NF-REQ-006a,
+MUST be projected atomically through Core 00 recognition, owner fragments, dependency
 snapshots, descriptors, implementation bindings, client support, and behavioral
-verification routing. A client that does not support major `8` omits the
-workspace. A profile-local
+verification routing. Network Flow Activity owns its current semantic-query,
+effective-limit, time-bucket and graph schema contracts; this shared owner does
+not retain a predecessor query union or schema version. A client that does not
+support the current adopted major omits the workspace. A profile-local
 item, dual decoder, compatibility alias, or partial major update is invalid.
 
 Profiles: base, network_flow_activity
@@ -2784,7 +2785,7 @@ Every `extension_versioned` profile MUST publish exactly one closed `cartulary.e
 {"kind":"algorithm","algorithm_id":"...","algorithm_definition_sha256":"..."}
 ```
 
-For `kind='algorithm'`, `algorithm_id` MUST satisfy the public schema-ID scalar, `algorithm_definition_sha256` MUST bind the exact canonical algorithm definition resolved by that locator. For `kind='empty'`, all three algorithm members are absent. The initialization definition MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_state_initialization_definition_sha256_v1`. The descriptor, owner facts, implementation binding, registry integrity object, and conformance artifacts MUST agree on the exact definition identity and digest.
+For `kind='algorithm'`, `algorithm_id` MUST satisfy the public schema-ID scalar, `algorithm_definition_sha256` MUST bind the exact canonical algorithm definition resolved by that locator. For `kind='empty'`, all three algorithm members are absent. The initialization definition MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_state_initialization_definition_sha256_v1`. The descriptor, owner facts, implementation binding, and registry integrity object MUST agree on the exact definition identity and digest.
 
 An algorithm initialization MUST receive one closed `cartulary.extension_state_initialization_context.v1` object containing exactly:
 
@@ -3153,11 +3154,12 @@ Every durable extension job kind MUST be declared by one closed canonical `cartu
 
 `resource_ref_contracts[]` MUST contain `0..64` rows. Each row MUST contain exactly `resource_ref_kind`, `resource_id_schema_id`, `min_refs`, and `max_refs`. `resource_ref_kind` MUST satisfy Table 4-B. `resource_id_schema_id` MUST be a public schema ID that resolves through the current typed schema registry and implementation binding. Rows MUST reject duplicate kinds and sort by ascending UTF-8 bytes of `resource_ref_kind`. `max_refs` MUST be a JSON integer in `1..1024`; `min_refs` MUST be a JSON integer in `0..max_refs`. Successful results MUST satisfy every declared minimum and maximum and MUST NOT contain an undeclared kind. Current owner-required primary references have `min_refs=max_refs=1`; optional outputs retain zero minima. A kind that permits no references MUST be omitted rather than declared with zero. The sum across rows MUST NOT exceed `1024`. `max_proof_bytes` MUST be a JSON integer in `1..1048576`.
 
-A proof-required job MUST have at most one immutable proof, and its committed terminal success MUST have exactly one immutable proof. Proof replacement and proof deletion are forbidden while the job or its idempotency outcome is retained. The proof's total nesting depth MUST NOT exceed `32`; resource references MUST sort by `resource_ref_kind`, then canonical resource-ID bytes. The job-kind contract MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_job_kind_contract_sha256_v1`; that existing digest algorithm covers the complete v2 object, including `progress_unit_id`. Reconciliation MUST determine proof requiredness only from this digest-bound contract and MUST reject a proof present under `forbidden` or absent under a committed required success.
+A proof-required job MUST have at most one immutable proof, and its committed terminal success MUST have exactly one immutable proof. Proof replacement and proof deletion are forbidden while the job or its idempotency outcome is retained. The proof's total nesting depth MUST NOT exceed `32`; resource references MUST sort by `resource_ref_kind`, then canonical resource-ID bytes. The job-kind contract MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_job_kind_contract_sha256_v1`; that existing digest algorithm covers the complete v3 object, including `progress_unit_id`, `terminal_success_codes[]`, and the resource-reference minima and maxima. Reconciliation MUST determine proof requiredness only from this digest-bound contract and MUST reject a proof present under `forbidden` or absent under a committed required success.
 
-The v2 adoption is a clean internal cutover. No active runtime input may use
-`cartulary.extension_job_kind_contract.v1`, and no v1 reader, alias, defaulted
-unit, mixed catalog, or dual digest path is permitted.
+The v3 adoption is a clean internal cutover. No active runtime input may use
+`cartulary.extension_job_kind_contract.v1` or
+`cartulary.extension_job_kind_contract.v2`. No predecessor reader, alias, defaulted
+unit or terminal policy, mixed catalog, or dual digest path is permitted.
 
 The one immutable Jobs definition catalog MUST include every packaged,
 recognized current contract required to validate retained jobs and reconcile
@@ -3539,7 +3541,28 @@ Every `incident_portability_participant` contribution MUST resolve to one canoni
 
 `operations[]` MUST reject duplicate `operation_kind` values and sort by ascending UTF-8 bytes of `operation_kind`; array position has no other semantic meaning, and the specialization digest uses that order. The operation set and each `result_schema_id` MUST equal Table 23-D for the participant kind and operation. `shared_context_schema_id` is the complete serialized input schema for every operation of that specialization; an operation MUST NOT extend the shared context with profile-local members. Algorithm, result, and output schema IDs MUST resolve through current typed registries and implementation bindings. Authorization, redaction, and error behavior remains normative in the applicable product specifications and MUST be exercised directly; participant contracts MUST NOT carry requirement identifiers or synthetic provenance references.
 
-`state_family_ids[]` MUST contain `0..64` unique logical state-family IDs sorted by UTF-8 bytes. Portability IDs MUST resolve in the authoritative state-presence manifest. `max_input_bytes` and `max_output_bytes` MUST be JSON integers in `1..67108864` and `0..67108864`, respectively; `max_items` MUST be a JSON integer in `0..1048576`. `max_input_bytes` limits canonical context and member-catalog metadata. Bulk member bytes are governed separately by Core archive limits and owner record bounds. `max_items` independently limits both the selected input item count and emitted output item count. `max_output_bytes=0` means the operation permits only the generic empty or omit result and no referenced payload or output bytes. `max_items=0` means the scoped input accessor exposes no selected item and the result emits no item. `ordering_algorithm_id` is required even when the output can contain at most one item; in that case it MUST resolve to an exact identity-order algorithm.
+`state_family_ids[]` MUST contain `0..64` unique logical state-family IDs sorted by UTF-8 bytes. Portability IDs MUST resolve in the authoritative state-presence manifest. `max_input_bytes` and `max_output_bytes` MUST be JSON integers in `1..67108864` and `0..67108864`, respectively; `max_items` MUST be a JSON integer in `0..1048576`. `max_input_bytes` limits canonical context and member-catalog metadata. Bulk member bytes are governed separately by Core archive limits and owner record bounds. `max_items` independently limits both the selected input item count and emitted output item count. `max_output_bytes=0` permits shared-owner omission only in matrix rows that require no participant invocation. A required serialized participant result exceeds that limit; the limit does not introduce an empty or omit participant-result variant. `max_items=0` means the scoped input accessor exposes no selected item and the result emits no item. `ordering_algorithm_id` is required even when the output can contain at most one item; in that case it MUST resolve to an exact identity-order algorithm.
+
+Portability accounting MUST use the selected operation's admitted limits and
+state-family selection. Export and import limits remain independent even when
+their current values coincide. No projection or shared owner may substitute a
+constant or the other operation's limits. Input and output accounting is:
+
+| Operation | Selected input items | Emitted output items | Input metadata bytes | Output metadata bytes |
+| --- | --- | --- | --- | --- |
+| Export | The operation's selected logical state-family streams, including empty streams. | The members actually emitted into the profile catalog, including zero-byte members. | Canonical shared context. | Canonical export result plus canonical member catalog. |
+| Import | The verified members in the admitted profile catalog, including zero-byte members. | Operation-owned preparation members plus staged publication members; each member counts once. | Canonical shared context plus the exact admitted canonical catalog. | Canonical preparation result plus the shared owner's canonical publication metadata. |
+
+Each standalone canonical metadata object includes its canonical framing bytes.
+The two item counts are independently bounded by `max_items`; input and output
+byte sums are independently bounded by their respective limits. Count selected
+input before exposing a participant capability, and enforce output item limits
+before allocating or writing the next member. Metadata overflow rejects before
+publication and abandons operation-owned output. Re-reading a selected member
+does not select a second item. Rows inside streamed members and bulk blob bytes
+are not metadata items or metadata bytes; Core archive ceilings and the source
+owner's record limits still apply. The generic accessor accounting in
+EXT-REQ-221 uses these portability-specific units.
 
 The specialization MUST define all profile-specific input selection, payload/output schema, ordering, authorization, redaction, error mapping, state-family access, and limits. It MUST NOT contain physical table, bucket, object key, package, component, callback, secret, incident value, or deployment endpoint data. It MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_participant_contract_sha256_v1` equal to the contribution's `participant_contract_sha256`.
 
@@ -3680,7 +3703,7 @@ only its current canonical digest is admitted. The removed
 `timeouts.extensions.backup_restore_participant_seconds` key is unknown
 configuration, with no alias or replacement Extensions key.
 
-All serialized participant inputs and results MUST reject unknown members, duplicate members, wrong types, and explicit invalid `null`. For a claimed-profile generic specialization invocation, the shared owner MUST provide one process-local read-only input accessor constrained to the exact context references and `state_family_ids[]` in the specialization. The accessor MUST count every selected item's canonical bytes and item count against `max_input_bytes` and `max_items`, MUST apply the specialization ordering before exposure, and MUST reject any attempt to enumerate or read another incident, snapshot, payload, binding, or logical family. The accessor MUST NOT be serialized, persisted, logged, returned, or retained after invocation.
+All serialized participant inputs and results MUST reject unknown members, duplicate members, wrong types, and explicit invalid `null`. For a claimed-profile generic specialization invocation, the shared owner MUST provide one process-local read-only input accessor constrained to the exact context references and `state_family_ids[]` in the specialization. The accessor MUST enforce `max_input_bytes` and `max_items` using EXT-REQ-232's operation-specific metadata and logical-item units, MUST apply the specialization ordering before exposure, and MUST reject any attempt to enumerate or read another incident, snapshot, payload, binding, or logical family. The accessor MUST NOT be serialized, persisted, logged, returned, or retained after invocation.
 
 A participant result returned after its deadline is discarded under EXT-REQ-215. Backup and restore for inactive profiles MUST use the physical state binding and shared validators without profile code. A participant MUST NOT discover physical storage, incident data, another owner's state, secrets, or egress capability outside its exact context, scoped accessor, and specialization.
 
@@ -3752,7 +3775,7 @@ Verified by: EXT-AC-094
 | `no_authoritative_incident_state` | No | Any | Emit no profile payload. |
 | `no_authoritative_incident_state` | Yes | Any | Fail owner-integrity validation before bundle publication. |
 | `participant` | No | Any | Shared owner returns `omit` and emits no profile payload without invoking profile code. |
-| `participant` | Yes | Claimed | Invoke the typed participant; include only a valid `payload` result or omit on a valid `omit` result. |
+| `participant` | Yes | Claimed | Invoke the typed participant and require the valid nonempty member result and catalog defined by EXT-REQ-221. |
 | `participant` | Yes | Unclaimed or recognized unclaimable | Fail before bundle publication with `extension_state_unavailable_for_portability`. |
 | `blocked_when_present` | No | Any | Continue without profile payload. |
 | `blocked_when_present` | Yes | Any | Fail before bundle publication with the owner blocking reason. |
@@ -4359,7 +4382,7 @@ The implementation and coordinated specification set are conformant only when ev
 | `EXT-AC-153` | Transaction participant counts `0`, `1`, `16384`, and `16385`, every 64 MiB boundary, first-invalid order, result validity, and cancellation checkpoint execute exactly with no partial effects. |
 | `EXT-AC-154` | Every staged-object default, expiry/retry predicate, upload abandonment, deletion outcome/order, transaction-free delete, serialized sweep, missed-interval coalescing, startup dependency, and readiness branch executes exactly. |
 | `EXT-AC-155` | Restore accepts only stopped empty targets, processes numeric groups and sequential bindings with validation before advance, never serves failure, invokes no inactive code, uses only digest-bound codecs, and rebuilds only after claim. |
-| `EXT-AC-156` | The standard client registry covers every claimable workspace profile including Network Flow major `8`/`network_analysis`, and linearized reservation, stale/current generation, concurrency, rollover, authorization loss, and Base identity preservation are exact. |
+| `EXT-AC-156` | The standard client registry covers every claimable workspace profile including the current Network Flow major adopted by NF-REQ-006a and workspace `network_analysis`, and linearized reservation, stale/current generation, concurrency, rollover, authorization loss, and Base identity preservation are exact. |
 | `EXT-AC-157` | Every capability surface emits `[]`; nonempty facts, arrays, and activation attempts are rejected with `extension_capability_not_supported` and execute no behavior. |
 | `EXT-AC-158` | A preparation/activation operation failing before `serving` prevents publication and exits `2` under EXT-REQ-214 unless an admitted fatal condition occurs. Unexpected termination after a mandatory component becomes prepared invokes fatal shutdown and exits `70` before bind, before serving or while serving. Confirmed lease loss and other admitted fatal-integrity conditions also exit `70` during startup. State and committed jobs are preserved, ordinary operation failure does not imply component loss, and fatal components never restart in-process. |
 | `EXT-AC-159` | Generated worker runtime contracts assign every runnable job kind exactly once, enforce maximum `1` for Network Flow graph materialization and `8` for existing workers, reject malformed or duplicate assignments before readiness, and let non-saturated worker kinds progress while another kind is saturated. |
@@ -4663,8 +4686,9 @@ The shared context carries only bounded metadata and scoped capabilities:
 restricted snapshot reads, declared member emission on export, admitted member
 reads on import, typed actor collection and operation-scoped streamed staging.
 Capabilities are process-local, non-serializable and cannot authorize arbitrary
-SQL, storage paths, profile activation or publication. Export yields an omit
-result only for absent authoritative state, otherwise a sealed member catalog.
+SQL, storage paths, profile activation or publication. The shared owner omits
+profiles when the state-and-claim matrix requires no invocation. An invoked
+export participant returns a sealed nonempty member catalog.
 Import yields an inert prepared descriptor and staged logical references for
 the existing cross-owner transaction protocol. Metadata/prepared inputs retain
 64 MiB per-participant and aggregate ceilings; bulk members use Core archive

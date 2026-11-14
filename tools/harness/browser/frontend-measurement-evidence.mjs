@@ -316,6 +316,8 @@ export function collectFinalizedMeasurementSummaries({
       canonicalJSONString(build.artifact.object_snapshot) !== canonicalJSONString(lease.artifact.object_snapshot) ||
       summary.snapshot_key !== build.artifact.snapshot_key ||
       summary.snapshot_key !== lease.artifact.snapshot_key ||
+      lease.artifact.builder_unit_id !== build.artifact.builder_unit_id ||
+      lease.artifact.predicate_id !== observation.artifact.predicate_id ||
       summary.fixture_profile_id !== build.artifact.fixture_profile_id ||
       summary.fixture_profile_id !== lease.artifact.fixture_profile_id ||
       summary.row_id !== lease.artifact.row_id ||
@@ -364,8 +366,22 @@ export async function readMeasurementSchedulerEvidenceForGroups({ file: eventFil
   if (states.size !== groupResults.length) {
     throw new Error("measurement scheduler groups are duplicated");
   }
+  const activeUnits = new Set();
   for await (const event of readCanonicalUnitEvents(eventFile, { prefix })) {
     const state = states.get(event.unit_id);
+    if (event.event === "started") {
+      // Quietness covers intersecting intervals, including units already
+      // running when this measurement starts and other selected groups.
+      for (const [unitID, active] of states) {
+        if (event.unit_id !== unitID && active.start_seq !== null && active.end_seq === null) {
+          active.overlap_count += 1;
+        }
+      }
+      if (state !== undefined) state.overlap_count += activeUnits.size;
+      activeUnits.add(event.unit_id);
+    } else if (["completed", "failed", "skipped", "cancelled"].includes(event.event)) {
+      activeUnits.delete(event.unit_id);
+    }
     if (state !== undefined) {
         if (event.event === "started") {
           if (state.start_seq !== null) {
@@ -392,13 +408,6 @@ export async function readMeasurementSchedulerEvidenceForGroups({ file: eventFil
           state.end_seq = event.seq;
           continue;
         }
-    }
-    if (event.event === "started") {
-      for (const [unitID, active] of states) {
-        if (event.unit_id !== unitID && active.start_seq !== null && active.end_seq === null) {
-          active.overlap_count += 1;
-        }
-      }
     }
   }
   for (const state of states.values()) {

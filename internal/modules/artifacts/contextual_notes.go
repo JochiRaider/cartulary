@@ -47,7 +47,7 @@ func (f *MutationFacade) contextIncidentTx(
 	tx pgx.Tx,
 	sourceRecordID uuid.UUID,
 ) (uuid.UUID, error) {
-	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, sourceRecordID, false)
+	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, sourceRecordID, true)
 	if errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
 		return uuid.UUID{}, pgx.ErrNoRows
 	}

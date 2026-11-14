@@ -31,6 +31,26 @@ func TestSemanticHistorySourceContributions(t *testing.T) {
 					snapshot := historytest.Snapshot(record.RecordType, record.SnapshotSchemaID, variant)
 					facts := historycontract.Facts{RecordID: historyFixtureID, Operation: "create", After: snapshot}
 					assertHistoryProjection(t, record.HistoryProjector, facts)
+					if record.RecordType == "artifact" && variant == "finding" {
+						units, err := record.HistoryProjector(facts)
+						if err != nil {
+							t.Fatal(err)
+						}
+						found := false
+						for _, unit := range units {
+							for _, change := range unit.Changes {
+								if change.FieldKey == "finding.owner_user_id" {
+									found = true
+									if change.After.State != "present" || change.After.Value != historyFixtureID {
+										t.Fatal("finding History read the parent owner instead of child owner")
+									}
+								}
+							}
+						}
+						if !found {
+							t.Fatal("finding owner History field missing")
+						}
+					}
 					missing := record
 					missing.HistoryProjector = nil
 					altered := cloneProviderContributions(contributions)
@@ -50,9 +70,7 @@ func TestSemanticHistorySourceContributions(t *testing.T) {
 		}
 		for _, target := range owner.NonRowTargets {
 			t.Run(target.TargetKind, func(t *testing.T) {
-				source := historytest.NonRowFacts(target.TargetKind)
-				facts := historycontract.Facts{RecordID: historyFixtureID, Operation: "create", After: source}
-				assertHistoryProjection(t, target.HistoryProjector, facts)
+				assertCanonicalNonRowHistoryFixture(t, target)
 				altered := cloneProviderContributions(contributions)
 				for i := range altered {
 					for j := range altered[i].NonRowTargets {

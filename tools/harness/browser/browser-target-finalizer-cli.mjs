@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import {
-  existsSync,
-  lstatSync,
-  readFileSync,
-} from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -13,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   primaryPublicFailure,
   parseStrictJSON,
+  readRetainedArtifactBytes,
   publicExitCodeForFailure,
   secureMkdir,
   secureWriteFile,
@@ -91,13 +88,15 @@ function runRoot() {
 }
 
 function groupResult(base, groupID, target) {
-  const file = path.join(base, target, "browser-groups", groupID, "browser-group-result.json");
-  if (!existsSync(file)) return null;
-  const stat = lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 16 * 1024 * 1024) {
-    throw new Error(`browser group result exceeds its bounded JSON contract: ${file}`);
+  const relative = `${target}/browser-groups/${groupID}/browser-group-result.json`;
+  let bytes;
+  try {
+    bytes = readRetainedArtifactBytes(base, relative, 16 * 1024 * 1024);
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
   }
-  const bytes = readFileSync(file);
+  const file = path.join(base, relative);
   const result = parseStrictJSON(bytes.toString("utf8"));
   validateSchemaSync("cartulary.browser_group_result.v11", result);
   if (result.group_id !== groupID || result.target_id !== target) throw new Error("browser group result identity mismatch");

@@ -1,18 +1,26 @@
 // @vitest-environment node
 
 import type { SafeUserResource } from "@cartulary/protocol-ts/http";
-import { describe, expect, it, vi } from "vitest";
+import { type APIRequestContext, request } from "@playwright/test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { JsonRequestContextLike } from "../transport/publicJsonClient";
+import * as browserSession from "./browserSession";
 import {
   createDeploymentUser,
   type DeploymentUserCreation,
 } from "./deploymentUsers";
+import { withOwnedRequestContext } from "./requestLifetime";
 import {
   findProvisionedUser,
+  listUsers,
   loadUser,
+  loginBootstrapControlPlaneContext,
   patchUser,
   reconcileWorkerAdminManifest,
+  verifySessionUnauthorized,
 } from "./sessions";
+import { storageStateFromCookieValues } from "./storageState";
+import * as suiteAdmin from "./suiteAdmin";
 import type { WorkerAdminBlueprint } from "./workerAdmin";
 
 type FakeUser = Pick<
@@ -124,12 +132,30 @@ describe("createDeploymentUser", () => {
 describe("deployment admin generated operation boundary", () => {
   it("preserves list, load, and patch request bytes while validating resources", async () => {
     const user = safeUserResource("11111111-1111-4111-8111-111111111111");
+    const unrelated = {
+      ...safeUserResource("22222222-2222-4222-8222-222222222222"),
+      email: "other@example.test",
+    };
     const fetch = vi.fn<JsonRequestContextLike["fetch"]>(
       async (path, _options) => ({
         headers: () => ({}),
         json: async () =>
           path.startsWith("/api/v1/users?")
-            ? { data: { users: [user] }, meta: { request_id: "request-1" } }
+            ? {
+                data: {
+                  users: path.includes("cursor_token=") ? [user] : [unrelated],
+                },
+                meta: {
+                  request_id: "request-1",
+                  paging: {
+                    limit: 100,
+                    has_more: !path.includes("cursor_token="),
+                    next_cursor: path.includes("cursor_token=")
+                      ? null
+                      : "next/+?=",
+                  },
+                },
+              }
             : { data: user, meta: { request_id: "request-1" } },
         ok: () => true,
         status: () => 200,
@@ -140,6 +166,7 @@ describe("deployment admin generated operation boundary", () => {
     await expect(findProvisionedUser(client, user.email)).resolves.toBe(
       user.user_id,
     );
+    await expect(listUsers(client)).resolves.toEqual([unrelated, user]);
     await expect(loadUser(client, user.user_id)).resolves.toEqual(user);
     await expect(
       patchUser(client, user.user_id, {
@@ -153,6 +180,9 @@ describe("deployment admin generated operation boundary", () => {
         "/api/v1/users?limit=100&search=generated%40example.test",
         { method: "GET" },
       ],
+      ["/api/v1/users?cursor_token=next%2F%2B%3F%3D", { method: "GET" }],
+      ["/api/v1/users?limit=100", { method: "GET" }],
+      ["/api/v1/users?cursor_token=next%2F%2B%3F%3D", { method: "GET" }],
       [`/api/v1/users/${user.user_id}`, { method: "GET" }],
       [
         `/api/v1/users/${user.user_id}`,
@@ -172,7 +202,10 @@ describe("deployment admin generated operation boundary", () => {
       headers: () => ({}),
       json: async () => ({
         data: { users: [{ user_id: "missing-required-fields" }] },
-        meta: { request_id: "request-1" },
+        meta: {
+          request_id: "request-1",
+          paging: { limit: 100, has_more: false, next_cursor: null },
+        },
       }),
       ok: () => true,
       status: () => 200,
@@ -180,7 +213,75 @@ describe("deployment admin generated operation boundary", () => {
 
     await expect(
       findProvisionedUser({ fetch }, "generated@example.test"),
-    ).rejects.toThrow("Provisioned actor lookup failed");
+    ).rejects.toThrow("list users failed with HTTP 502");
+
+    const user = safeUserResource("11111111-1111-4111-8111-111111111111");
+    const terminal = { limit: 100, has_more: false, next_cursor: null };
+    for (const fixture of [
+      { paging: undefined, message: "HTTP 502" },
+      { paging: { ...terminal, has_more: true }, message: "HTTP 502" },
+      {
+        paging: { ...terminal, next_cursor: "unexpected" },
+        message: "HTTP 502",
+      },
+    ]) {
+      const malformed = vi.fn<JsonRequestContextLike["fetch"]>(async () => ({
+        headers: () => ({}),
+        json: async () => ({
+          data: { users: [user] },
+          meta: { request_id: "request-1", paging: fixture.paging },
+        }),
+        ok: () => true,
+        status: () => 200,
+      }));
+      await expect(listUsers({ fetch: malformed })).rejects.toThrow(
+        fixture.message,
+      );
+      expect(malformed).toHaveBeenCalledTimes(1);
+    }
+
+    for (const variant of ["cycle", "failure", "ambiguous"] as const) {
+      let page = 0;
+      const continuation = vi.fn<JsonRequestContextLike["fetch"]>(async () => {
+        page += 1;
+        const failed = variant === "failure" && page === 2;
+        return {
+          headers: () => ({}),
+          json: async () => ({
+            data: {
+              users: [
+                {
+                  ...user,
+                  user_id:
+                    page === 1
+                      ? user.user_id
+                      : "22222222-2222-4222-8222-222222222222",
+                },
+              ],
+            },
+            meta: {
+              request_id: "request-1",
+              paging:
+                page === 2 && variant === "ambiguous"
+                  ? terminal
+                  : { limit: 100, has_more: true, next_cursor: "repeat" },
+            },
+          }),
+          ok: () => !failed,
+          status: () => (failed ? 503 : 200),
+        };
+      });
+      await expect(
+        findProvisionedUser({ fetch: continuation }, user.email),
+      ).rejects.toThrow(
+        variant === "cycle"
+          ? "did not advance"
+          : variant === "failure"
+            ? "HTTP 503"
+            : "identity is ambiguous",
+      );
+      expect(continuation).toHaveBeenCalledTimes(2);
+    }
   });
 });
 
@@ -487,3 +588,157 @@ function toUserResource(user: FakeUser): SafeUserResource {
     updated_by_user_id: null,
   };
 }
+
+afterEach(() => vi.restoreAllMocks());
+
+describe("authentication request lifetime", () => {
+  it("retires before disposal and preserves successful results", async () => {
+    const events: string[] = [];
+    const context = {
+      dispose: vi.fn(async () => {
+        events.push("dispose");
+      }),
+    } as unknown as APIRequestContext;
+    const value = { user: "owned" };
+    await expect(
+      withOwnedRequestContext(
+        context,
+        async (owned) => {
+          expect(owned).toBe(context);
+          events.push("operation");
+          return value;
+        },
+        async (owned) => {
+          expect(owned).toBe(context);
+          events.push("retire");
+        },
+      ),
+    ).resolves.toBe(value);
+    expect(events).toEqual(["operation", "retire", "dispose"]);
+    expect(context.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("attempts every release and preserves primary and cleanup failures separately", async () => {
+    for (let failures = 1; failures < 8; failures += 1) {
+      const primary = new Error("operation failure");
+      const retirement = new Error("retirement failure");
+      const disposal = new Error("disposal failure");
+      const events: string[] = [];
+      const context = {
+        dispose: vi.fn(async () => {
+          events.push("dispose");
+          if (failures & 4) throw disposal;
+        }),
+      } as unknown as APIRequestContext;
+      const outcome = await withOwnedRequestContext(
+        context,
+        async () => {
+          events.push("operation");
+          if (failures & 1) throw primary;
+          return "completed";
+        },
+        async () => {
+          events.push("retire");
+          if (failures & 2) throw retirement;
+        },
+      ).then(
+        () => ({ error: undefined }),
+        (error: unknown) => ({ error }),
+      );
+      expect(events).toEqual(["operation", "retire", "dispose"]);
+      expect(context.dispose).toHaveBeenCalledOnce();
+      if (failures === 1) {
+        expect(outcome.error).toBe(primary);
+      } else {
+        expect(outcome.error).toBeInstanceOf(AggregateError);
+        expect((outcome.error as AggregateError).errors).toEqual([
+          ...(failures & 1 ? [primary] : []),
+          ...(failures & 2 ? [retirement] : []),
+          ...(failures & 4 ? [disposal] : []),
+        ]);
+        expect((outcome.error as AggregateError).cause).toBe(
+          failures & 1 ? primary : undefined,
+        );
+      }
+    }
+  });
+
+  it("settles the anonymous predecessor before acquiring a transferable control plane", async () => {
+    vi.spyOn(suiteAdmin, "loadSuiteAdminTotpSecret").mockReturnValue(
+      "RPS5CE6AQ4OODIJC22FH374UBK33BGWY37H5TKC2UXA2ZQBGE6PA",
+    );
+    vi.spyOn(browserSession, "loginLocalAPIContext").mockResolvedValue({
+      ok: true,
+      response: {
+        headersArray: () => [
+          { name: "set-cookie", value: "cartulary_session=session" },
+          { name: "set-cookie", value: "cartulary_csrf=csrf" },
+        ],
+      },
+    } as unknown as Awaited<
+      ReturnType<typeof browserSession.loginLocalAPIContext>
+    >);
+    for (const failDisposal of [false, true]) {
+      const events: string[] = [];
+      const disposal = new Error("anonymous disposal failure");
+      const anonymous = {
+        get: vi.fn(async () => ({ ok: () => true })),
+        dispose: vi.fn(async () => {
+          events.push("anonymous.dispose");
+          if (failDisposal) throw disposal;
+        }),
+      } as unknown as APIRequestContext;
+      const authenticated = {
+        dispose: vi.fn(async () => {}),
+      } as unknown as APIRequestContext;
+      const create = vi
+        .spyOn(request, "newContext")
+        .mockReset()
+        .mockImplementationOnce(async () => {
+          events.push("anonymous.acquire");
+          return anonymous;
+        })
+        .mockImplementationOnce(async () => {
+          events.push("authenticated.acquire");
+          return authenticated;
+        });
+      if (failDisposal) {
+        const outcome = await loginBootstrapControlPlaneContext().then(
+          () => undefined,
+          (error: unknown) => error,
+        );
+        expect(outcome).toBeInstanceOf(AggregateError);
+        expect((outcome as AggregateError).errors).toEqual([disposal]);
+        expect(create).toHaveBeenCalledOnce();
+      } else {
+        const result = await loginBootstrapControlPlaneContext();
+        expect(result.request).toBe(authenticated);
+        expect(create).toHaveBeenCalledTimes(2);
+        expect(authenticated.dispose).not.toHaveBeenCalled();
+      }
+      expect(anonymous.dispose).toHaveBeenCalledOnce();
+      expect(events).toEqual([
+        "anonymous.acquire",
+        "anonymous.dispose",
+        ...(failDisposal ? [] : ["authenticated.acquire"]),
+      ]);
+    }
+  });
+
+  it("leaves borrowed revocation transports with their owner", async () => {
+    const transport = {
+      get: vi.fn(async () => ({
+        status: () => 401,
+        json: async () => ({ error: { code: "session_required" } }),
+      })),
+      dispose: vi.fn(async () => {}),
+    } as unknown as APIRequestContext;
+    await verifySessionUnauthorized(
+      storageStateFromCookieValues("session", "csrf"),
+      "borrowed",
+      transport,
+    );
+    expect(transport.get).toHaveBeenCalledOnce();
+    expect(transport.dispose).not.toHaveBeenCalled();
+  });
+});

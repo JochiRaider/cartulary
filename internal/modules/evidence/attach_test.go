@@ -461,10 +461,13 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 	}
 	close(start)
 
+	outcomes := make([]error, len(recordIDs))
+	for index := range outcomes {
+		outcomes[index] = <-results
+	}
 	successes := 0
 	rejections := 0
-	for range recordIDs {
-		err := <-results
+	for _, err := range outcomes {
 		if err == nil {
 			successes++
 			continue

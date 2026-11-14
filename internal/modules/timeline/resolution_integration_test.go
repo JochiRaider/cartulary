@@ -129,6 +129,83 @@ func (port failAfterIdempotencyPort) InsertRouteIdempotencyPayload(ctx context.C
 
 // timeline-resolution / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestAutoResolutionEligibility_Integration(t *testing.T) {
+	t.Run("current auto target and alias admission", exerciseTimelineAutoTargetAdmission)
+	for _, entityType := range []string{"host", "identity"} {
+		t.Run("deleted "+entityType+" aliases remain unresolved and explicit targets fail closed", func(t *testing.T) {
+			harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "timeline-deleted-alias-" + entityType, TestRouteMode: httptestx.TestRouteModeDisabled})
+			login, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
+			incident := createIncident(t, harness.Server, login, map[string]any{
+				"client_txn_id": "txn-deleted-alias-incident", "incident_key": "IR-DELETED-ALIAS", "title": "Deleted alias eligibility",
+			})
+			incidentID := incident["incident_id"].(string)
+			targetID := uuid.New()
+			fieldKey := timelinetest.FieldHostRefs
+			if entityType == "host" {
+				seedHostRecord(t, harness.DB, mustUUID(t, incidentID), actorID, targetID, "Target", "deleted-alias-host")
+			} else {
+				fieldKey = timelinetest.FieldIdentityRefs
+				seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), actorID, targetID, "Target", "deleted@example.test", "deleted@example.test", "DELETED")
+			}
+			seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), actorID, targetID, entityType, "Exact Target Alias")
+			if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, targetID, actorID); err != nil {
+				t.Fatal(err)
+			}
+			created := createTimelineRow(t, harness.Server, incidentID, login, map[string]any{
+				"client_txn_id": "txn-deleted-alias-row", "timeline.activity_synopsis_text": "Retain unresolved observation",
+				fieldKey: timelinetest.CollectionActions(timelinetest.AddTokenAction("Exact Target Alias")),
+			})
+			row := created["row"].(map[string]any)
+			recordID := row["record_id"].(string)
+			item := requireSingleCollectionItem(t, row, fieldKey)
+			if item["item_kind"] != "unresolved_mention" || item["raw_text"] != "Exact Target Alias" || item["resolved_record_id"] != nil {
+				t.Fatalf("deleted alias must preserve an unresolved token: %#v", item)
+			}
+			before := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID)
+			resolve := entitytest.ResolveItemAction(item["item_ref"].(string), targetID)
+			patch := func(txn string, action map[string]any) *http.Response {
+				return httptestx.DoJSON(t, http.DefaultClient, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+					timelinetest.TimelineCollectionPatchPayload(fieldKey, 1, txn, timelinetest.CollectionActions(action)),
+					httptestx.WithCookies(login.Session, login.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRF.Value))
+			}
+			for _, attempt := range []struct {
+				txn    string
+				action map[string]any
+			}{
+				{"txn-deleted-alias-resolve", resolve},
+				{"txn-deleted-alias-add", timelinetest.AddResolvedRefAction("Exact Target Alias", targetID)},
+			} {
+				httptestx.RequireErrorEnvelope(t, patch(attempt.txn, attempt.action), http.StatusBadRequest, "invalid_mutation_payload")
+				if got := snapshotTimelineMutationState(t, harness.DB, incidentID, recordID); got != before {
+					t.Fatalf("deleted target rejection changed durable effects: %+v -> %+v", before, got)
+				}
+			}
+			if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET deleted_at = NULL, deleted_by_user_id = NULL WHERE record_id = $1`, targetID); err != nil {
+				t.Fatal(err)
+			}
+			resolved := httptestx.RequireSuccessData(t, patch("txn-deleted-alias-resolve", resolve), http.StatusOK)
+			resolvedItem := requireSingleCollectionItem(t, resolved["row"].(map[string]any), fieldKey)
+			if resolvedItem["resolved_record_id"] != targetID.String() || resolvedItem["raw_text"] != "Exact Target Alias" {
+				t.Fatalf("restored target must resolve the retained observation: %#v", resolvedItem)
+			}
+			active := createTimelineRow(t, harness.Server, incidentID, login, map[string]any{
+				"client_txn_id": "txn-active-alias-row", "timeline.activity_synopsis_text": "Eligible active observation",
+				fieldKey: timelinetest.CollectionActions(timelinetest.AddTokenAction("Exact Target Alias")),
+			})
+			activeItem := requireSingleCollectionItem(t, active["row"].(map[string]any), fieldKey)
+			if activeItem["resolved_record_id"] != targetID.String() || activeItem["auto_resolved"] != true || activeItem["confidence"] != float64(100) {
+				t.Fatalf("restored alias must auto-resolve with full provenance: %#v", activeItem)
+			}
+			explicit := createTimelineRow(t, harness.Server, incidentID, login, map[string]any{
+				"client_txn_id": "txn-active-explicit-row", "timeline.activity_synopsis_text": "Eligible explicit observation",
+				fieldKey: timelinetest.CollectionActions(timelinetest.AddResolvedRefAction("Chosen Target", targetID)),
+			})
+			explicitItem := requireSingleCollectionItem(t, explicit["row"].(map[string]any), fieldKey)
+			if explicitItem["resolved_record_id"] != targetID.String() || explicitItem["provenance"] != "manual" || explicitItem["confidence"] != nil {
+				t.Fatalf("restored target must support manual addition: %#v", explicitItem)
+			}
+		})
+	}
+
 	t.Run("host alias exact equality auto resolves in the same patch change set", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-u-4-08-host-auto-match", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
@@ -1184,6 +1261,7 @@ SELECT COUNT(*)
 
 // timeline-resolution / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
 func TestManualTimelineConfidenceNull_Integration(t *testing.T) {
+	t.Run("current explicit target admission", exerciseTimelineExplicitTargetAdmission)
 	t.Run("create route add_resolved_ref persists manual host link and replays cleanly", func(t *testing.T) {
 		harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "entity_linking-i-4-09-create-add-resolved-ref", TestRouteMode: httptestx.TestRouteModeDisabled})
 		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)

@@ -18,8 +18,8 @@ import { openIncidentControls } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
 import { expectAllInteractiveControlsNamed } from "./support/accessibility/assertions";
 import {
-  expectNoFocusTrap,
-  expectTabOrderIncludes,
+  expectInitialTabRoundTrip,
+  expectTabReachability,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
 import { expectAndRecordContrast } from "./support/accessibility/records";
@@ -202,12 +202,12 @@ async function expectIncidentSelectionSurfaceA11y(
   } = {},
 ) {
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
   if (options.focusTestId) {
     await expectVisibleFocus(page.getByTestId(options.focusTestId));
   }
   if (options.tabStops && options.tabStops.length > 0) {
-    await expectTabOrderIncludes(page, options.tabStops);
+    await expectTabReachability(page, options.tabStops);
   }
   await expectAndRecordContrast(page, [
     ...(options.focusTestId ? [options.focusTestId] : []),

@@ -21,6 +21,33 @@
         "shell"
       ],
       "public_target": "release-check"
+    },
+    {
+      "verification_id": "harness.release.verification.inventory_contract",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
+      "verification_id": "harness.release.verification.package_readiness_contract",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
+      "verification_id": "harness.release.verification.seaweedfs_evidence_contract",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ],
+      "public_target": "harness-contract"
     }
   ]
 }

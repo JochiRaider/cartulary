@@ -121,11 +121,9 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	if err != nil {
 		t.Fatalf("open cmd/server listener: %v", err)
 	}
+	defer listener.Close()
 	listenerFile := listenerFile(t, listener)
-	closeListener := func() {
-		_ = listenerFile.Close()
-		_ = listener.Close()
-	}
+	defer listenerFile.Close()
 
 	address := clientAddress(listener.Addr())
 	baseURL := "https://" + address
@@ -139,7 +137,6 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	command := serverCommand(t)
 	repoRoot, err := resolveRepoRoot()
 	if err != nil {
-		closeListener()
 		t.Fatalf("resolve repository root: %v", err)
 	}
 	cmd := exec.Command(command)
@@ -158,11 +155,9 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	cmd.Stderr = &server.stderr
 
 	if err := cmd.Start(); err != nil {
-		closeListener()
 		t.Fatalf("start cmd/server: %v", err)
 	}
 	server.group = processGroupController{pid: cmd.Process.Pid}
-	closeListener()
 
 	go func() {
 		waitErr := cmd.Wait()
@@ -171,6 +166,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		server.resultMu.Unlock()
 		close(server.done)
 	}()
+	t.Cleanup(func() { server.Stop(t) })
 
 	return server
 }

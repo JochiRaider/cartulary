@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -213,6 +214,90 @@ func TestMigrateRunnerRunPassesContextToMigration(t *testing.T) {
 	if gotMarker != "marker" {
 		t.Fatalf("migration did not receive caller context marker: got %#v", gotMarker)
 	}
+}
+
+func TestMigrateRunnerClosesAcquiredResources(t *testing.T) {
+	applyFailure := errors.New("apply failed")
+	guardFailure := errors.New("guard acquisition failed")
+	for _, test := range []struct {
+		name       string
+		applyError error
+		guardError error
+		wantError  error
+		wantClosed []string
+	}{
+		{name: "success", wantClosed: []string{"guard", "work"}},
+		{name: "apply failure", applyError: applyFailure, wantError: applyFailure, wantClosed: []string{"guard", "work"}},
+		{name: "guard failure", guardError: guardFailure, wantError: guardFailure, wantClosed: []string{"work"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runner := newTestMigrateRunner(t)
+			var closed []string
+			var handles []*sql.DB
+			runner.openSQL = func(ctx context.Context, _ postgres.Settings) (*sql.DB, error) {
+				name := "work"
+				if len(handles) == 1 {
+					if test.guardError != nil {
+						return nil, test.guardError
+					}
+					name = "guard"
+				}
+				db := sql.OpenDB(migrateClosingConnector{close: func() { closed = append(closed, name) }})
+				t.Cleanup(func() { _ = db.Close() })
+				// Open a real database/sql connection so Close has an observable effect.
+				if err := db.PingContext(ctx); err != nil {
+					t.Fatal(err)
+				}
+				handles = append(handles, db)
+				return db, nil
+			}
+			applied := false
+			runner.apply = func(context.Context, *sql.DB, *sql.DB, *database_migrations.Source, func(context.Context) error) error {
+				applied = true
+				if len(closed) != 0 {
+					t.Fatalf("resources closed before apply completed: %v", closed)
+				}
+				return test.applyError
+			}
+			if err := runner.run(t.Context()); !errors.Is(err, test.wantError) {
+				t.Fatalf("run error = %v, want %v", err, test.wantError)
+			}
+			if applied != (test.guardError == nil) {
+				t.Fatalf("apply called = %t, guard failure = %v", applied, test.guardError)
+			}
+			if !slices.Equal(closed, test.wantClosed) {
+				t.Fatalf("closed resources = %v, want %v", closed, test.wantClosed)
+			}
+			for _, db := range handles {
+				if err := db.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if !slices.Equal(closed, test.wantClosed) {
+				t.Fatalf("repeated disposal closed resources again: %v", closed)
+			}
+		})
+	}
+}
+
+type migrateClosingConnector struct{ close func() }
+
+func (connector migrateClosingConnector) Connect(context.Context) (driver.Conn, error) {
+	return migrateClosingConnection{close: connector.close}, nil
+}
+func (migrateClosingConnector) Driver() driver.Driver { return migrateNoConnectDriver{} }
+
+type migrateClosingConnection struct{ close func() }
+
+func (connection migrateClosingConnection) Close() error {
+	connection.close()
+	return nil
+}
+func (migrateClosingConnection) Prepare(string) (driver.Stmt, error) {
+	return nil, errors.New("unexpected statement in facade lifetime test")
+}
+func (migrateClosingConnection) Begin() (driver.Tx, error) {
+	return nil, errors.New("unexpected transaction in facade lifetime test")
 }
 
 func newTestMigrateRunner(t testing.TB) migrateRunner {

@@ -67,6 +67,7 @@ func NewOwners(pool dbport.DB, objects objectstore.TypedStore, conflictTokens co
 		return nil, err
 	}
 	entityStore, err := hostidentity.NewStore(hostidentity.StoreDependencies{
+		ConflictTokens: conflictTokens, ConflictFields: conflictFields,
 		Postgres:               pool,
 		Revisions:              appender,
 		ProjectionMutationRows: projectionRuntime.EntityMutationRows(),

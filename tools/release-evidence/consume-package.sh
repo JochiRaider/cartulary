@@ -2,7 +2,7 @@
 # Test composition consumes a single Make producer receipt; it never builds images.
 consume_package_release() {
   local root="$1" installation="$2" evidence="$3" extracted status=0
-  extracted="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-package-extract.XXXXXXXX")"
+  extracted="$(mktemp -d "${CARTULARY_PACKAGE_TEMP_DIR:?native package temporary directory required}/package-extract.XXXXXXXX")"
   if ! "${NODE_BIN:-node}" "$root/tools/release-evidence/package-release.mjs" unpack "$extracted" >"$evidence/package.json"; then status=1; fi
   if [[ "$status" == 0 ]]; then
     rmdir "$installation" || status=1

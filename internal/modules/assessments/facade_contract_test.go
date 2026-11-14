@@ -43,10 +43,42 @@ func TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipant
 		"",
 	)
 
+	for _, tc := range []struct {
+		name   string
+		result assessments.ReferenceAdmissionResult
+		field  string
+	}{
+		{"subject before support", assessments.ReferenceAdmissionResult{}, "assessment.subject_ref"},
+		{"subject before assessor", assessments.ReferenceAdmissionResult{SupportValid: true}, "assessment.subject_ref"},
+		{"support before assessor", assessments.ReferenceAdmissionResult{SubjectValid: true}, "assessment.support_refs"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ports := &assessmentFacadePorts{referenceResult: &tc.result}
+			facade := newAssessmentFacadeForTest(t, harness.DB, ports)
+			command := assessmentFacadeCommand(actor.ID, incident.ID, subjectID, "txn-"+tc.name)
+			support := uuid.New()
+			command.Input.SupportRefs = []uuid.UUID{support, support, subjectID}
+			_, err := facade.Create(t.Context(), command)
+			var invalid *assessments.CreateValidationError
+			if !errors.As(err, &invalid) || invalid.Field != tc.field || invalid.ReasonCode != "invalid_value" {
+				t.Fatalf("reference failure=%v, want %s invalid_value", err, tc.field)
+			}
+			if fmt.Sprint(ports.calls) != "[idempotency_lookup references]" {
+				t.Fatalf("failed admission called downstream participants: %v", ports.calls)
+			}
+			got := ports.admittedReferences
+			if got.SubjectRef != subjectID || got.SubjectType != "host" || len(got.SupportRefs) != 2 || got.SupportRefs[0] != support || got.SupportRefs[1] != subjectID {
+				t.Fatalf("admitted references=%#v", got)
+			}
+			if len(command.Input.SupportRefs) != 3 || command.Input.SupportRefs[1] != support {
+				t.Fatal("reference admission changed caller input")
+			}
+		})
+	}
+
 	for _, failure := range []string{
 		"idempotency_lookup",
-		"subject",
-		"support_targets",
+		"references",
 		"assessor",
 		"records",
 		"support_links",
@@ -85,21 +117,24 @@ func TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipant
 
 	replayedRecordID := uuid.New()
 	replayedChangeSetID := uuid.New()
-	replayPorts := &assessmentFacadePorts{
-		replay: &assessments.CreateIdempotencyRecord{
-			Result: assessments.CreateResult{
-				Outcome:      assessments.CreateOutcomeCommitted,
-				CanonicalRow: map[string]any{"record_id": replayedRecordID.String(), "row_version": int64(4)},
-				RecordID:     replayedRecordID,
-				ChangeSetID:  replayedChangeSetID,
-				RowVersion:   4,
-			},
-		},
-	}
+	replayPorts := &assessmentFacadePorts{}
 	facade := newAssessmentFacadeForTest(t, harness.DB, replayPorts)
+	command := assessmentFacadeCommand(actor.ID, incident.ID, subjectID, "txn-replay")
+	if _, err := facade.Create(t.Context(), command); err != nil {
+		t.Fatalf("capture committed receipt: %v", err)
+	}
+	replayPorts.replay.Result = assessments.CreateResult{
+		Outcome:      assessments.CreateOutcomeCommitted,
+		CanonicalRow: map[string]any{"record_id": replayedRecordID.String(), "row_version": int64(4)},
+		RecordID:     replayedRecordID,
+		ChangeSetID:  replayedChangeSetID,
+		RowVersion:   4,
+	}
+	replayPorts.participantCalls = 0
+	beforeReplay := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID)
 	result, err := facade.Create(
 		context.Background(),
-		assessmentFacadeCommand(actor.ID, incident.ID, subjectID, "txn-replay"),
+		command,
 	)
 	if err != nil {
 		t.Fatalf("replay assessment create: %v", err)
@@ -113,6 +148,10 @@ func TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipant
 	if replayPorts.participantCalls != 0 {
 		t.Fatalf("replay called %d transactional participants", replayPorts.participantCalls)
 	}
+	if afterReplay := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incident.ID); afterReplay != beforeReplay {
+		t.Fatalf("replay appended another assessment: %d -> %d", beforeReplay, afterReplay)
+	}
+
 }
 
 func TestAssessmentLiveRowVersionBoundary(t *testing.T) {
@@ -220,8 +259,7 @@ func TestAssessmentFacadeCreateParticipantOrder(t *testing.T) {
 	}
 	want := []string{
 		"idempotency_lookup",
-		"subject",
-		"support_targets",
+		"references",
 		"assessor",
 		"records",
 		"support_links",
@@ -235,6 +273,8 @@ func TestAssessmentFacadeCreateParticipantOrder(t *testing.T) {
 }
 
 type assessmentFacadePorts struct {
+	referenceResult         *assessments.ReferenceAdmissionResult
+	admittedReferences      assessments.CreateReferences
 	failure                 string
 	replay                  *assessments.CreateIdempotencyRecord
 	projectionRowVersion    any
@@ -245,20 +285,17 @@ type assessmentFacadePorts struct {
 	calls                   []string
 }
 
-func (p *assessmentFacadePorts) LookupCreate(
+func (p *assessmentFacadePorts) AdmitCreateTx(
 	_ context.Context,
-	key assessments.CreateIdempotencyKey,
+	_ pgx.Tx,
+	_ assessments.CreateIdempotencyKey,
 ) (assessments.CreateIdempotencyRecord, bool, error) {
 	p.call("idempotency_lookup")
 	if p.failure == "idempotency_lookup" {
 		return assessments.CreateIdempotencyRecord{}, false, errors.New("injected idempotency lookup failure")
 	}
 	if p.replay != nil {
-		replay := *p.replay
-		if replay.RequestHash == nil {
-			replay.RequestHash = append([]byte(nil), key.RequestHash...)
-		}
-		return replay, true, nil
+		return *p.replay, true, nil
 	}
 	return assessments.CreateIdempotencyRecord{}, false, nil
 }
@@ -267,27 +304,34 @@ func (p *assessmentFacadePorts) StoreCreateTx(
 	_ context.Context,
 	_ pgx.Tx,
 	_ assessments.CreateIdempotencyKey,
-	_ assessments.CreateResult,
+	receipt assessments.CreateIdempotencyRecord,
 ) error {
 	p.call("idempotency_store")
 	p.participantCalls++
 	p.idempotencyStoreCalls++
-	return p.inject("idempotency_store")
+	if err := p.inject("idempotency_store"); err != nil {
+		return err
+	}
+	p.replay = &receipt
+	return nil
 }
 
-func (p *assessmentFacadePorts) ValidateAssessmentSubjectTx(
+func (p *assessmentFacadePorts) AdmitAssessmentReferencesTx(
 	_ context.Context,
 	_ pgx.Tx,
 	_ uuid.UUID,
-	_ string,
-	_ uuid.UUID,
-) (bool, error) {
-	p.call("subject")
+	refs assessments.CreateReferences,
+) (assessments.ReferenceAdmissionResult, error) {
+	p.call("references")
 	p.participantCalls++
-	if err := p.inject("subject"); err != nil {
-		return false, err
+	p.admittedReferences = refs
+	if err := p.inject("references"); err != nil {
+		return assessments.ReferenceAdmissionResult{}, err
 	}
-	return true, nil
+	if p.referenceResult != nil {
+		return *p.referenceResult, nil
+	}
+	return assessments.ReferenceAdmissionResult{SubjectValid: true, SupportValid: true}, nil
 }
 
 func (p *assessmentFacadePorts) ValidateAssessmentAssessorTx(
@@ -299,20 +343,6 @@ func (p *assessmentFacadePorts) ValidateAssessmentAssessorTx(
 	p.call("assessor")
 	p.participantCalls++
 	if err := p.inject("assessor"); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func (p *assessmentFacadePorts) ValidateAssessmentSupportTargetsTx(
-	_ context.Context,
-	_ pgx.Tx,
-	_ uuid.UUID,
-	_ []uuid.UUID,
-) (bool, error) {
-	p.call("support_targets")
-	p.participantCalls++
-	if err := p.inject("support_targets"); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -408,14 +438,13 @@ func newAssessmentFacadeForTest(
 ) *assessments.Facade {
 	t.Helper()
 	facade, err := assessments.NewFacade(database, assessments.FacadeDependencies{
-		Idempotency:    ports,
-		Subjects:       ports,
-		Assessors:      ports,
-		SupportTargets: ports,
-		Records:        ports,
-		SupportLinks:   ports,
-		Revisions:      ports,
-		Projections:    ports,
+		Idempotency:  ports,
+		References:   ports,
+		Assessors:    ports,
+		Records:      ports,
+		SupportLinks: ports,
+		Revisions:    ports,
+		Projections:  ports,
 	})
 	if err != nil {
 		t.Fatalf("construct assessment facade: %v", err)

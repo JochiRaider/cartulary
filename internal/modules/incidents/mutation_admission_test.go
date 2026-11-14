@@ -175,8 +175,23 @@ func TestAdmissionErrorsExposeOnlyStableQueries_Unit(t *testing.T) {
 	if !present || field != "base_membership_version" || admissionErr.ReasonCode() != "missing_required_field" {
 		t.Fatalf("unexpected admission error queries: field=%q present=%t reason=%q", field, present, admissionErr.ReasonCode())
 	}
-	if reflect.TypeOf(*admissionErr).NumField() != 2 {
-		t.Fatalf("admission error unexpectedly widened: %#v", admissionErr)
+	errorType := reflect.TypeOf(*admissionErr)
+	for index := range errorType.NumField() {
+		if field := errorType.Field(index); field.IsExported() {
+			t.Fatalf("admission error exposes writable state: %s", field.Name)
+		}
+	}
+	for _, empty := range []*AdmissionError{nil, {}} {
+		if field, present := empty.Field(); present || field != "" || empty.ReasonCode() != "" {
+			t.Fatalf("empty error queries = field %q, present %t, reason %q", field, present, empty.ReasonCode())
+		}
+	}
+	_, framing := AdmitMembershipDeleteJSON(strings.NewReader(`[]`))
+	if framing == nil || framing.ReasonCode() != "request_not_object" {
+		t.Fatalf("framing error = %#v", framing)
+	}
+	if field, present := framing.Field(); present || field != "" {
+		t.Fatalf("framing error exposes field %q, present %t", field, present)
 	}
 }
 

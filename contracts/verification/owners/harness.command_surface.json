@@ -3,6 +3,46 @@
   "owner_id": "harness.command_surface",
   "verifications": [
     {
+      "verification_id": "harness.command_surface.verification.bootstrap_node_runtime",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
+      "verification_id": "harness.command_surface.verification.bootstrap_shellcheck",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
+      "verification_id": "harness.command_surface.verification.dev_services_lifecycle",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
+      "verification_id": "harness.command_surface.verification.dev_stack_lifecycle",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
       "verification_id": "harness.command_surface.verification.embedded_asset_layout",
       "behavior_class": "harness",
       "profile": "support",
@@ -11,7 +51,27 @@
       ]
     },
     {
+      "verification_id": "harness.command_surface.verification.generate_drift",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
       "verification_id": "harness.command_surface.verification.go_scanner_wrappers",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
+      "verification_id": "harness.command_surface.verification.go_toolchain_readiness",
       "behavior_class": "harness",
       "profile": "support",
       "evidence_kinds": [
@@ -93,6 +153,16 @@
     },
     {
       "verification_id": "harness.command_surface.verification.toolchain_pins",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "harness-contract"
+    },
+    {
+      "verification_id": "harness.command_surface.verification.web_e2e_lifecycle",
       "behavior_class": "harness",
       "profile": "support",
       "evidence_kinds": [

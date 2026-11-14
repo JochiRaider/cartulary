@@ -325,7 +325,7 @@ func requireBlobCreateHTTPReason(t testing.TB, resp *http.Response, field string
 func requireAcceptedContract(t testing.TB, got map[string]any, want map[string]any) {
 	t.Helper()
 	for key, wantValue := range want {
-		if got[key] != wantValue {
+		if value, present := got[key]; !present || value != wantValue {
 			t.Fatalf("accepted_contract[%s] got %#v want %#v in %#v", key, got[key], wantValue, got)
 		}
 	}

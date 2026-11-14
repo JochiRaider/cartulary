@@ -1559,32 +1559,50 @@ func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
 	objectStoreStarted := make(chan struct{})
 	release := make(chan struct{})
 	done := make(chan struct{})
+	waitCtx, cancelWaits := context.WithCancel(context.Background())
+	t.Cleanup(func() {
+		cancelWaits()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Error("concurrent cleanup worker did not settle")
+		}
+	})
+	waitForRelease := func(peerStarted <-chan struct{}) error {
+		select {
+		case <-peerStarted:
+		case <-waitCtx.Done():
+			return waitCtx.Err()
+		}
+		select {
+		case <-release:
+			return nil
+		case <-waitCtx.Done():
+			return waitCtx.Err()
+		}
+	}
 
 	go func() {
+		defer close(done)
 		cleanupOwnedServices(
 			deps.dependencies,
 			activeEnv,
 			postgresService{
 				close: func(context.Context) error {
 					close(postgresStarted)
-					<-objectStoreStarted
-					<-release
-					return nil
+					return waitForRelease(objectStoreStarted)
 				},
 			},
 			objectStoreService{
 				close: func(context.Context) error {
 					close(objectStoreStarted)
-					<-postgresStarted
-					<-release
-					return nil
+					return waitForRelease(postgresStarted)
 				},
 			},
 			"",
 			"succeeded",
 			0,
 		)
-		close(done)
 	}()
 
 	select {

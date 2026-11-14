@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"reflect"
-	"sort"
 	"strings"
 	"testing"
 
@@ -114,53 +112,37 @@ INSERT INTO saved_views (
 	if len(first) != 1 || first[0].Path != "data/saved_views.ndjson" {
 		t.Fatalf("saved-view export files = %#v", first)
 	}
-	if len(second) != 1 || !bytes.Equal(first[0].Payload, second[0].Payload) {
-		t.Fatalf("identical saved-view state did not export byte-identically")
+	if len(second) != 1 || second[0].Path != "data/saved_views.ndjson" {
+		t.Fatalf("second saved-view export files = %#v", second)
 	}
-	exportedRows, err := incidentportability.DecodeNDJSON(first[0].Payload)
-	if err != nil {
-		t.Fatalf("decode characterized export: %v", err)
+	var expectedLayout any
+	if err := json.Unmarshal(canonicalLayout, &expectedLayout); err != nil {
+		t.Fatal(err)
 	}
-	if len(exportedRows) != len(rows) {
-		t.Fatalf("exported row count = %d; want %d", len(exportedRows), len(rows))
+	var expectedPayload []byte
+	for _, seed := range rows {
+		var owner any
+		if seed.owner != nil {
+			owner = actorID.String()
+		}
+		expected := map[string]any{
+			"saved_view_id": seed.id, "incident_id": incidentID.String(),
+			"view_schema_id": "cartulary.view.timeline.v2", "scope": seed.scope,
+			"display_name": seed.name, "owner_user_id": owner,
+			"query_json":  map[string]any{"filters": []any{}, "sort": []any{}},
+			"layout_json": expectedLayout, "saved_view_version": seed.version,
+			"created_at": seed.createdAt, "updated_at": seed.updatedAt,
+		}
+		encoded, err := json.Marshal(expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectedPayload = append(expectedPayload, encoded...)
+		expectedPayload = append(expectedPayload, '\n')
 	}
-	expectedKeys := []string{
-		"created_at", "display_name", "incident_id", "layout_json",
-		"owner_user_id", "query_json", "saved_view_id", "saved_view_version",
-		"scope", "updated_at", "view_schema_id",
-	}
-	for index, row := range exportedRows {
-		keys := make([]string, 0, len(row))
-		for key := range row {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		if !reflect.DeepEqual(keys, expectedKeys) {
-			t.Fatalf("exported row %d keys = %v; want %v", index+1, keys, expectedKeys)
-		}
-		if row["saved_view_id"] != rows[index].id || row["scope"] != rows[index].scope {
-			t.Fatalf("exported row %d identity/scope = %#v", index+1, row)
-		}
-		if _, ok := row["id"]; ok {
-			t.Fatalf("exported row %d contains advisory id alias", index+1)
-		}
-		if _, ok := row["view_scope"]; ok {
-			t.Fatalf("exported row %d contains advisory view_scope alias", index+1)
-		}
-		if row["created_at"] != rows[index].createdAt ||
-			row["updated_at"] != rows[index].updatedAt {
-			t.Fatalf("exported row %d timestamps = %#v", index+1, row)
-		}
-		if incidentportability.StringFromAny(row["saved_view_version"]) !=
-			incidentportability.StringFromAny(rows[index].version) {
-			t.Fatalf("exported row %d version = %#v", index+1, row["saved_view_version"])
-		}
-		if rows[index].owner == nil {
-			if row["owner_user_id"] != nil {
-				t.Fatalf("system owner = %#v; want null", row["owner_user_id"])
-			}
-		} else if row["owner_user_id"] != actorID.String() {
-			t.Fatalf("%s owner = %#v; want %s", rows[index].scope, row["owner_user_id"], actorID)
+	for index, files := range [][]portabilitysupport.File{first, second} {
+		if !bytes.Equal(files[0].Payload, expectedPayload) {
+			t.Fatalf("export %d canonical source bytes = %s; want %s", index+1, files[0].Payload, expectedPayload)
 		}
 	}
 
@@ -236,11 +218,15 @@ INSERT INTO incidents (
 	}
 
 	privateRow := validPortableSavedViewRow(t)
+	privateRow["created_at"] = "2026-07-02T00:00:00.123456Z"
+	privateRow["updated_at"] = "2026-07-02T00:00:00.123456Z"
 	privateRow["layout_json"].(map[string]any)["frozen_through_field_key"] = "timeline.activity_synopsis_text"
 	sharedRow := validPortableSavedViewRow(t)
 	sharedRow["saved_view_id"] = "00000000-0000-4000-8000-000000110404"
 	sharedRow["scope"] = "shared"
 	sharedRow["display_name"] = "Portable shared saved view"
+	sharedRow["created_at"] = "2026-07-02T00:00:00.000001Z"
+	sharedRow["updated_at"] = "2026-07-02T00:00:00.999999Z"
 	systemRow := validPortableSavedViewRow(t)
 	systemRow["saved_view_id"] = "00000000-0000-4000-8000-000000110405"
 	systemRow["scope"] = "system"
@@ -338,6 +324,14 @@ SELECT saved_view_id, scope, owner_user_id
 
 	if got := exportedRows[0]["layout_json"].(map[string]any)["frozen_through_field_key"]; got != "timeline.activity_synopsis_text" {
 		t.Fatalf("compatible restore/re-export lost frozen boundary: %v", got)
+	}
+	if exportedRows[0]["created_at"] != "2026-07-02T00:00:00.123456Z" ||
+		exportedRows[0]["updated_at"] != "2026-07-02T00:00:00.123456Z" ||
+		exportedRows[1]["created_at"] != "2026-07-02T00:00:00.000001Z" ||
+		exportedRows[1]["updated_at"] != "2026-07-02T00:00:00.999999Z" ||
+		exportedRows[2]["created_at"] != "2026-07-02T00:00:00Z" ||
+		exportedRows[2]["updated_at"] != "2026-07-02T00:00:00Z" {
+		t.Fatalf("re-export changed admitted row clocks: %#v", exportedRows)
 	}
 
 	if err := tx.Rollback(ctx); err != nil {
@@ -558,6 +552,23 @@ func TestIncidentBundleSavedViewStrictPrepareFramingAndShape_Unit(t *testing.T) 
 	); err != nil {
 		t.Fatalf("canonical saved-view row rejected: %v", err)
 	}
+	t.Run("logical line byte ceiling", func(t *testing.T) {
+		for name, ending := range map[string]string{"EOF": "", "LF": "\n"} {
+			t.Run(name, func(t *testing.T) {
+				for _, size := range []int{16777216, 16777217} {
+					payload := bytes.TrimSuffix(canonicalLine, []byte("\n"))
+					payload = append(append([]byte(nil), payload...), bytes.Repeat([]byte(" "), size-len(payload))...)
+					payload = append(payload, ending...)
+					prepared, err := prepareSavedViewImport(t.Context(), savedViewMapBundle{"data/saved_views.ndjson": payload}, importContext)
+					if size == 16777217 {
+						requireSavedViewInvariantFailure(t, err, "saved_views.row_shape_exact")
+					} else if err != nil || prepared.count != 1 {
+						t.Fatalf("exact logical-line ceiling: rows=%d err=%v", prepared.count, err)
+					}
+				}
+			})
+		}
+	})
 
 	rowWith := func(mutate func(map[string]any)) []byte {
 		row := validPortableSavedViewRow(t)
@@ -597,10 +608,6 @@ func TestIncidentBundleSavedViewStrictPrepareFramingAndShape_Unit(t *testing.T) 
 		),
 		"trailing content": append(append([]byte(nil), bytes.TrimSpace(canonicalLine)...), []byte(" true\n")...),
 		"malformed object": []byte("{\"saved_view_id\":\n"),
-		"over bounded line": append(
-			append([]byte(`{"saved_view_id":"`), bytes.Repeat([]byte("a"), 16*1024*1024)...),
-			[]byte(`"}`)...,
-		),
 		"id alias": rowWith(func(row map[string]any) {
 			row["id"] = row["saved_view_id"]
 			delete(row, "saved_view_id")
@@ -810,6 +817,29 @@ func TestIncidentBundleSavedViewStrictPrepareFramingAndShape_Unit(t *testing.T) 
 }
 
 func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
+	t.Run("row clocks preserve storage precision", func(t *testing.T) {
+		for _, field := range []string{"created_at", "updated_at"} {
+			for _, value := range []string{
+				"2026-07-02T00:00:00Z", "2026-07-02T00:00:00.000001Z",
+				"2026-07-02T00:00:00.123456Z", "2026-07-02T00:00:00.999999Z",
+				"2026-07-02T00:00:00.1234567Z", "2026-07-02T00:00:00.000000001Z",
+			} {
+				t.Run(field+"/"+value, func(t *testing.T) {
+					row := validPortableSavedViewRow(t)
+					row["updated_at"] = "2026-07-02T00:00:01Z"
+					row[field] = value
+					prepared, err := prepareSavedViewImport(t.Context(), savedViewMapBundle{
+						"data/saved_views.ndjson": encodePortableSavedViewRow(t, row),
+					}, strictSavedViewImportContext(t))
+					if value == "2026-07-02T00:00:00.1234567Z" || value == "2026-07-02T00:00:00.000000001Z" {
+						requireSavedViewInvariantFailure(t, err, "saved_views.version_timestamps_legal")
+					} else if err != nil || prepared.count != 1 {
+						t.Fatalf("representable row clock rejected: rows=%d err=%v", prepared.count, err)
+					}
+				})
+			}
+		}
+	})
 
 	t.Run("timestamp query preparation preserves precision and rejects contradictions", func(t *testing.T) {
 		for _, reverse := range []bool{false, true} {

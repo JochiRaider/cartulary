@@ -106,6 +106,38 @@ func TestStructuredStringDecodesJSONBeforeRedaction(t *testing.T) {
 }
 
 func TestStringRedactsClosedRawFamilies(t *testing.T) {
+	for _, tc := range []struct{ input, want string }{
+		{"https://PrivateFixtureAlpha@example.test/path", "https://[REDACTED:dsn]@example.test/path"},
+		{"https://PrivateUser:PrivatePassword@example.test:443/path?q=1", "https://[REDACTED:dsn]@example.test:443/path?q=1"},
+		{"https://PrivateUser:@example.test", "https://[REDACTED:dsn]@example.test"},
+		{"https://Private%3AToken@example.test", "https://[REDACTED:dsn]@example.test"},
+		{"postgresql://PrivateUser:PrivatePassword@localhost/db", "postgresql://[REDACTED:dsn]@localhost/db"},
+		{"https://example.test/path@item?q=a@b#c@d", "https://example.test/path@item?q=a@b#c@d"},
+		{"https://example.test?q=a@b", "https://example.test?q=a@b"},
+		{"https://example.test#c@d", "https://example.test#c@d"},
+	} {
+		for _, got := range []string{String(tc.input), StructuredString(tc.input), Value(tc.input, "").(string)} {
+			if got != tc.want || String(got) != tc.want {
+				t.Fatal("URL authority redaction changed noncredential components or retained userinfo")
+			}
+		}
+	}
+	for _, tc := range []struct{ name, input, secret string }{
+		{"URL userinfo", "https://user:PrivateFixtureAlpha@example.test/path", "PrivateFixtureAlpha"},
+		{"basic header", "Authorization: Basic Zml4dHVyZTpwYXNzd29yZA==", "Zml4dHVyZTpwYXNzd29yZA=="},
+		{"JWT", "eyJhbGciOiJub25lIn0.eyJzdWIiOiJmaXh0dXJlIn0.c2ln", "eyJhbGciOiJub25lIn0"},
+		{"DSN", "host=local password=PrivateFixtureBeta dbname=test", "PrivateFixtureBeta"},
+		{"CLI", "--client-secret=PrivateFixtureGamma", "PrivateFixtureGamma"},
+		{"object store", "AWS_SECRET_ACCESS_KEY=PrivateFixtureDelta", "PrivateFixtureDelta"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, got := range []string{String(tc.input), StructuredString(tc.input)} {
+				if strings.Contains(got, tc.secret) || !strings.Contains(got, "[REDACTED") {
+					t.Fatal("required raw credential family was not redacted")
+				}
+			}
+		})
+	}
 	input := strings.Join([]string{
 		"https://user:secret@example.test/path",
 		"postgres://cartulary:supersecret@127.0.0.1:5432/postgres password=supersecret",

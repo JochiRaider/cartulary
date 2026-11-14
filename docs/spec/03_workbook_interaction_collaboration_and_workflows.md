@@ -105,7 +105,7 @@ Claimed extension profiles MAY contribute an extension workspace to the top-leve
 
 The stable `sheet_ref` identity for an extension workspace MUST use `kind='extension_workspace'` with exact `extension_profile_id` and `workspace_key` members as defined by Core 01 §3.3.10.1. Visible labels, icons, route segments, React component names, and inner workspace tab labels MUST NOT define identity. For Network Flow Activity, after that profile is adopted and claimed, the only current-profile extension workspace key is `workspace_key='network_analysis'` under `extension_profile_id='network_flow_activity'`; its user-facing label MAY be `Network Analysis`.
 
-The workbook shell MUST render an extension workspace entry only when its exact `(extension_profile_id, workspace_key)` is in the intersection of: current discovery with `claimed=true`; the packaged `client_build_class='standard'` support row whose one major equals discovery; the current no-store workbook-startup `extension_workspace_availability`; and the client's current local availability epoch/generation. The support registry MUST contain a row for every claimable profile with workspaces; its Network Flow row is exactly major `8` and `network_analysis`; capability arrays are empty. Discovery does not authorize, packaged code does not claim support by itself, and a stale availability response never renders. Unclaimed, unsupported, mismatched-major, undeclared, stale, or unauthorized extension workspaces MUST be omitted from available workbook navigation and MUST fail closed when supplied as an explicit launch, home, default, presence, or deep-link target. Omission behavior MUST be indistinguishable from ordinary unavailability except for owner-approved errors on explicit route requests.
+The workbook shell MUST render an extension workspace entry only when its exact `(extension_profile_id, workspace_key)` is in the intersection of: current discovery with `claimed=true`; the packaged `client_build_class='standard'` support row whose one major equals discovery; the current no-store workbook-startup `extension_workspace_availability`; and the client's current local availability epoch/generation. The support registry MUST contain a row for every claimable profile with workspaces; its Network Flow row MUST select the current contract major adopted by Network Flow Activity NF-REQ-006a and workspace `network_analysis`; capability arrays are empty. Discovery does not authorize, packaged code does not claim support by itself, and a stale availability response never renders. Unclaimed, unsupported, mismatched-major, undeclared, stale, or unauthorized extension workspaces MUST be omitted from available workbook navigation and MUST fail closed when supplied as an explicit launch, home, default, presence, or deep-link target. Omission behavior MUST be indistinguishable from ordinary unavailability except for owner-approved errors on explicit route requests.
 Profiles: base, network_flow_activity
 Verified by: AC-078, AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-121, AC-122, AC-231, EXT-AC-156, EXT-AC-157
 
@@ -1225,6 +1225,55 @@ Verified by: AC-126, AC-203, AC-204, AC-226, AC-227, AC-228, AC-229, AC-230, AC-
 
 **REQ-03-069**
 When `conflict_resolution_class='collection_review'`, the conflict object MUST include `base_value`. In that case `error.conflict.client_value`, `error.conflict.server_value`, and `error.conflict.base_value` MUST each use `collection_value_v1`. The server MUST preserve distinct item kinds in those values and MUST NOT collapse unresolved mentions, resolved entity refs, tags, aliases, or linked-record references into raw string arrays or plain delimited text for conflict transport.
+For a Timeline `timeline.attached_evidence_ids` conflict preview, the source owner
+MUST validate every requested `add_record_ref` target against current Evidence
+facts before base-collection simulation or duplicate coalescing. Each target MUST
+be a non-deleted Evidence record in the source Timeline row's incident. Evidence
+availability or completed upload is not a prerequisite for attachment. An
+ineligible target MUST reject with `400 invalid_mutation_payload`,
+`error.details.field=timeline.attached_evidence_ids`, and
+`error.details.reason_code=invalid_value`, without source, projection, history,
+successful idempotency or Collaboration effects. This read-only preview admission
+does not replace the protected current-target admission required for an actual
+write or later conflict resolution.
+For Timeline Host/Identity Mention conflict previews, every target of
+`add_resolved_ref` or `resolve_item` MUST likewise pass read-only current source
+admission before preview simulation. Its Records envelope MUST be non-deleted,
+in the source Timeline incident, and of the field-derived Host/Identity type;
+its typed entity state MUST be `stub` or `canonical`. Merged entities are
+ineligible even when their envelope remains live. Ineligibility MUST reject with
+`400 invalid_mutation_payload`, `error.details.field` identifying the affected
+Mention collection and `error.details.reason_code=invalid_value`, without
+persisted effects. Later accepted writes still require their ordinary protected
+current-target admission; a preview is not a reservation or authorization to write.
+Existing-item actions in a Timeline Mention conflict preview MUST identify a
+current Mention belonging to the addressed source row, collection field and
+field-derived entity type. Missing, foreign-row or wrong-field identities MUST
+reject with `400 invalid_mutation_payload`, the affected collection in
+`error.details.field`, and `error.details.reason_code=invalid_value`, without
+persisted effects. Dismissed Mentions remain valid source identities for this
+check. Identity admission neither makes an illegal lifecycle transition legal
+nor replaces the source owner's transition checks at an accepted write.
+For base-visible Mention identities, the preview MUST evaluate the ordered action
+sequence against the simulated base state using the legal transition matrix in
+Core 01 Table 3.3.5.5-A. A dismissal hides the item but preserves its private
+simulation slot, so a later legal restore returns it to its original position.
+An illegal step MUST reject with `409 illegal_transition`, its simulated
+`from_status` and requested `to_status`, and the `from_status_not_allowed` guard,
+without persisted effects. Preview actions MUST retain factual Mention version
+tokens; they MUST NOT invent versions for hypothetical future commits.
+A referenced Mention absent from `base_value` MAY supplement the simulation only
+when its current source state is `dismissed`. The source owner MUST then seed a
+private dismissed slot from its current identity, entity type, raw text, factual
+Mention version and ordinal; it MUST NOT add that slot to `base_value` or claim
+these current facts reconstruct historical hidden state. The ordinary transition
+matrix governs the slot. A legal restore MUST make it visible in source ordinal
+position, before newly requested Mention additions. A current active identity
+absent from the base MUST reject with `400 invalid_mutation_payload`, the affected
+collection in `error.details.field`, and `error.details.reason_code=invalid_value`.
+If source facts needed to establish retained-item order are unavailable, the server
+MUST use the ordinary unavailable-base `row_version_conflict` fallback. These
+preview rules do not authorize a subsequent write against stale source state.
 Profiles: base
 Verified by: AC-126, AC-203, AC-204, AC-226, AC-227, AC-228, AC-229, AC-230, AC-231
 
@@ -2408,6 +2457,14 @@ Verified by: AC-003, AC-231
 **REQ-03-149**
 Unknown columns MUST be preserved as bounded, normalized source-provenance
 entries or in an owner-authorized `custom_attrs` surface.
+For Timeline clipboard paste, a source-provenance value, identity, count or
+identity-collision failure under Core01 REQ-01-699 MUST reject the complete
+request with400 `invalid_mutation_payload`, `details.field=clipboard_text` and
+`details.reason_code=invalid_value`. It MUST leave source, envelopes, provenance,
+projections, revisions, receipts and publication effects unchanged. Diagnostics
+MUST NOT expose raw source values, SQL errors or storage selectors. Existing
+exact receipt replay still precedes fresh provenance admission; infrastructure
+failures MUST NOT be mislabeled as invalid clipboard input.
 Profiles: base
 Verified by: AC-003, AC-231
 
@@ -2977,6 +3034,30 @@ Verified by: AC-205, AC-231, AC-388, AC-392, AC-393
 
 **REQ-03-277**
 For auto-resolution comparison, the system MUST derive one exact comparison value named `auto_resolution_candidate_text`. This value is derived only and MUST NOT by itself require persisted source-model state in the current profile. The system MUST derive it from the JSON-decoded submitted `raw_text` by applying `mention_token_text_v1` normalization and then locale-independent Unicode case folding for comparison only. Exact alias equality for auto-resolution MUST compare `auto_resolution_candidate_text` to candidate alias text after applying that same `mention_token_text_v1` normalization and the same locale-independent Unicode case folding for comparison only. This comparison substrate MUST NOT alter authoritative alias storage or alias dedupe semantics.
+A fresh automatic binding MUST select exactly one eligible same-incident Host
+or Identity record from current non-deleted alias rows using this comparison.
+Multiple matching aliases on the same record count as one candidate; matches on
+different records are ambiguous. Before binding the mention or creating its
+resolved Link, the operation MUST admit the selected target through a Records-
+owned transaction-scoped `FOR NO KEY UPDATE` envelope lock and recheck its
+non-deletion, type, incident and `stub`/`canonical` source eligibility. After any
+wait it MUST reread current eligible aliases and require that the same admitted
+record remains the sole exact candidate. If the target is ineligible, or the match
+is absent, changed to another record, or ambiguous, the operation MUST take the
+ordinary unresolved path in REQ-03-205. It MUST NOT switch to an unprotected
+replacement candidate. Database or infrastructure failures MUST abort rather than
+masquerade as absence. Exact committed replay precedes fresh matching and retains
+the original resolved or unresolved result. This decision is evaluated at the
+protected admission read; subsequent alias changes govern later requests and do
+not retroactively rewrite committed mention provenance or source text.
+For interactive Timeline creation, patching, and coordinated clipboard/bulk writes,
+candidate decisions MUST be frozen for every submitted token across the complete
+request before acquiring its reference-envelope set.
+Initially absent or ambiguous matches MUST remain unresolved for that request,
+even if a candidate becomes unique during a wait on another target. Initially
+unique matches MUST still pass the same-target post-wait checks above; preparing
+one token MUST NOT defer another token's initial selection until after a wait for
+reference locks.
 Profiles: base
 Verified by: AC-205, AC-231, AC-388, AC-389, AC-390, AC-391
 
@@ -3774,6 +3855,20 @@ For the lifecycle machine in §6, the current Timeline write surfaces and row-an
 
 - `capture-state-material`: any committed change to one of the ten visible Timeline v2 operational fields, Timeline-row evidence attach or detach, and row-anchored source-bound MITRE/entity/indicator observation create, link, dismiss, or equivalent typed-link mutation initiated from the row or its inspector.
 - not `capture-state-material`: hidden tag edits, generated conversion-pair updates that only fill a server-generated paired Activity Date value, explicit `mark-reviewed` or `supersede` lifecycle actions, selection, focus, presence, sort, filter, grouping, projection rebuild, and idempotent no-op retry.
+
+Duplicate additions to `timeline.attached_evidence_ids` MUST coalesce with the
+existing active membership. An addition that produces no Link mutation MUST NOT
+be treated as evidence attach/detach or as a capture-state-material change. An
+ordinary Timeline record patch (including an applied conflict-resolution patch)
+that produces no effective source or collection mutation MUST fail with `400`,
+`error.code=invalid_mutation_payload`, `error.details.field=changes`, and
+`error.details.reason_code=no_effective_change`, without changing source,
+version, capture state, projections, history, successful idempotency results or
+Collaboration publication. Effective companion edits retain their own material
+classification; a duplicate attachment MUST NOT make a tag-only edit material.
+Ordered actions that actually create or delete memberships remain mutations even
+when the final membership equals its initial value. Batch no-row outcomes retain
+their separately specified batch receipt semantics.
 
 An effective `clear_cells_v1` assignment is a material operational-field change;
 an already-null assignment is not. Clearing source text MUST NOT manufacture

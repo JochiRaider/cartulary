@@ -37,7 +37,20 @@ type ownerBatchApplyV1 struct {
 }
 
 func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request ownerBatchApplyV1) (BatchMutationResult, error) {
-	if err := validateOwnerBatchShape(request); err != nil {
+	preparation := &referencePreparation{}
+	for {
+		result, err := s.applyOwnerBatchAttempt(ctx, actor, incidentID, &request, preparation)
+		if !errors.Is(err, errReferencePreparationChanged) {
+			return result, err
+		}
+		if err := ctx.Err(); err != nil {
+			return BatchMutationResult{}, err
+		}
+	}
+}
+
+func (s *store) applyOwnerBatchAttempt(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request *ownerBatchApplyV1, preparation *referencePreparation) (BatchMutationResult, error) {
+	if err := validateOwnerBatchShape(*request); err != nil {
 		return BatchMutationResult{}, err
 	}
 	scopeKey := incidentID.String() + ":" + TimelineViewSchemaID
@@ -76,7 +89,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			return BatchMutationResult{}, err
 		}
 		request.BuildRows = nil
-		if err := validateOwnerBatchShape(request); err != nil {
+		if err := validateOwnerBatchShape(*request); err != nil {
 			return BatchMutationResult{}, err
 		}
 	}
@@ -90,6 +103,16 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return BatchMutationResult{}, err
 	}
+	referenceRows := make([]referenceRow, len(request.Rows))
+	for index, row := range request.Rows {
+		referenceRows[index].recordID = request.Targets[index].RecordID
+		for _, cell := range row.Cells {
+			referenceRows[index].changes = append(referenceRows[index].changes, cell.Change)
+		}
+	}
+	if err := s.prepareReferencesTx(ctx, tx, incidentID, referenceRows, true, preparation); err != nil {
+		return BatchMutationResult{}, err
+	}
 	if err := s.validateOwnerBatchTargetsTx(ctx, tx, incidentID, request.Operation, request.Targets); err != nil {
 		return BatchMutationResult{}, err
 	}
@@ -100,13 +123,13 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 		target := request.Targets[index]
 		switch target.Kind {
 		case "create":
-			row, err := s.applyOwnerBatchCreateTx(ctx, tx, actor, incidentID, rowPlan, originKind, request.Now.UTC())
+			row, err := s.applyOwnerBatchCreateTx(ctx, tx, actor, incidentID, rowPlan, originKind, preparation.auto, request.Now.UTC())
 			if err != nil {
 				return BatchMutationResult{}, err
 			}
 			applied = append(applied, row)
 		case "record":
-			row, rowConflicts, err := s.applyOwnerBatchPatchTx(ctx, tx, actor, incidentID, target.RecordID, target.BaseRowVersion, request.RequestHash, rowPlan, originKind, request.Now.UTC())
+			row, rowConflicts, err := s.applyOwnerBatchPatchTx(ctx, tx, actor, incidentID, target.RecordID, target.BaseRowVersion, request.RequestHash, rowPlan, originKind, preparation.auto, request.Now.UTC())
 			if err != nil {
 				return BatchMutationResult{}, err
 			}
@@ -306,7 +329,7 @@ func (s *store) validateOwnerBatchTargetsTx(ctx context.Context, tx pgx.Tx, inci
 			return ErrRecordNotFound
 		}
 	}
-	envelopes, err := s.recordStore.LoadEnvelopesTx(ctx, tx, recordIDs, true)
+	envelopes, err := s.recordStore.LoadEnvelopesTx(ctx, tx, recordIDs, false)
 	if err != nil {
 		return err
 	}
@@ -340,7 +363,7 @@ type batchAppliedRow struct {
 	RecordID         uuid.UUID
 }
 
-func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ownerBatchRowPlanV1, originKind string, now time.Time) (batchAppliedRow, error) {
+func (s *store) applyOwnerBatchCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ownerBatchRowPlanV1, originKind string, prepared preparedAutoResolution, now time.Time) (batchAppliedRow, error) {
 	recordID := uuid.New()
 	current := sourcerepository.Snapshot{
 		RecordID:              recordID,
@@ -404,7 +427,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 	if err := insertSourceProvenanceTx(ctx, tx, current.RecordID, rowPlan.Unmapped); err != nil {
 		return batchAppliedRow{}, err
 	}
-	mentionResult, err := s.applyBatchMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC())
+	mentionResult, err := s.applyBatchMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, prepared, now.UTC())
 	if err != nil {
 		return batchAppliedRow{}, err
 	}
@@ -448,7 +471,7 @@ func ensureOwnerBatchRecordIncident(current sourcerepository.Snapshot, incidentI
 	return nil
 }
 
-func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, requestHash []byte, rowPlan ownerBatchRowPlanV1, originKind string, now time.Time) (batchAppliedRow, []map[string]any, error) {
+func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, requestHash []byte, rowPlan ownerBatchRowPlanV1, originKind string, prepared preparedAutoResolution, now time.Time) (batchAppliedRow, []map[string]any, error) {
 	current, err := s.loadSourceRecordForIncidentTx(ctx, tx, incidentID, recordID)
 	if err != nil {
 		return batchAppliedRow{}, nil, err
@@ -473,7 +496,7 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 		kept := acceptedCells[:0]
 		for _, cell := range acceptedCells {
 			if changed, ok := window.ChangedFields[cell.FieldKey]; ok {
-				conflict, err := s.buildSameFieldConflict(recordID, currentProjected, baseRowVersion, requestHash, window, cell.Change, changed)
+				conflict, err := s.buildSameFieldConflictTx(ctx, tx, recordID, currentProjected, baseRowVersion, requestHash, window, cell.Change, changed)
 				if err != nil {
 					return batchAppliedRow{}, nil, err
 				}
@@ -513,7 +536,7 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	materialChanged := hasMaterialChange(current, next) || provenanceChanged
 	var mentionLinkMutations []attachedEvidenceMutation
 	if mentionChanged {
-		mentionResult, err := s.applyBatchMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, now.UTC())
+		mentionResult, err := s.applyBatchMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, prepared, now.UTC())
 		if err != nil {
 			return batchAppliedRow{}, nil, err
 		}
@@ -657,7 +680,7 @@ func batchCellsIncludeField(cells []ownerBatchCellV1, fieldKey string) bool {
 	})
 }
 
-func (s *store) applyBatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, originKind string, now time.Time) (mentionApplicationResult, error) {
+func (s *store) applyBatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []ownerBatchCellV1, originKind string, prepared preparedAutoResolution, now time.Time) (mentionApplicationResult, error) {
 	var result mentionApplicationResult
 	for _, cell := range cells {
 		if cell.Change.ActionPayload == nil || (cell.FieldKey != "timeline.host_refs" && cell.FieldKey != "timeline.identity_refs") {
@@ -669,6 +692,7 @@ func (s *store) applyBatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 		}
 		applied, err := s.insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
 			allowInteractiveAutoResolution: true,
+			preparedAuto:                   prepared,
 			originKind:                     originKind,
 		}, now)
 		if err != nil {

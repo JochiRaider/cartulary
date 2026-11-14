@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +36,7 @@ func TestMigrationEvidenceTransport_Unit(t *testing.T) {
 	t.Run("remain invariant across manifest relocation", runMigrationEvidenceRelocationInvariance)
 	t.Run("redact manifest locator failures", runMigrationEvidenceManifestFailureRedaction)
 	t.Run("source failure has no external side effects", runMigrationEvidenceSourceFailureNoExternalEffects)
+	t.Run("all failure boundaries emit bounded diagnostics", runMigrationEvidenceFailureRedaction)
 }
 
 func TestMigrationEvidenceSemantics_Unit(t *testing.T) {
@@ -78,6 +80,14 @@ func runMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
 	if _, stop, exitCode := parseMigrationEvidenceCaptureArgs([]string{"-help"}, &stderr); !stop || exitCode != 0 {
 		t.Fatalf("help got stop=%t exit=%d stderr=%s", stop, exitCode, stderr.String())
 	}
+	if !strings.HasPrefix(stderr.String(), "Usage of operator migration-evidence capture:\n") {
+		t.Fatalf("help omitted command usage: %q", stderr.String())
+	}
+	for _, flag := range []string{"-source-config", "-manifest", "-as-of"} {
+		if !strings.Contains(stderr.String(), flag) {
+			t.Fatalf("help omitted %s", flag)
+		}
+	}
 }
 
 func runMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
@@ -89,7 +99,7 @@ func runMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 		{
 			name:        "deprecated admin flag",
 			args:        []string{"migration-evidence", "capture", "-deployment-admin-email", "not-an-email"},
-			wantMessage: "deployment-admin-email",
+			wantMessage: "invalid migration evidence arguments",
 		},
 		{
 			name:        "invalid timestamp",
@@ -101,6 +111,16 @@ func runMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 			args:        []string{"migration-evidence", "capture", "-manifest", ""},
 			wantMessage: "manifest is required",
 		},
+		{
+			name:        "private unknown flag",
+			args:        []string{"migration-evidence", "capture", "-private-credential-marker"},
+			wantMessage: "invalid migration evidence arguments",
+		},
+		{
+			name:        "private timestamp",
+			args:        []string{"migration-evidence", "capture", "-as-of", "/private-credential-marker"},
+			wantMessage: "as-of must be RFC3339",
+		},
 	}
 
 	for _, test := range tests {
@@ -110,8 +130,8 @@ func runMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 			if !stop || exitCode != 2 {
 				t.Fatalf("expected parse exit 2, got stop=%v exit=%d stderr=%s", stop, exitCode, stderr.String())
 			}
-			if !strings.Contains(stderr.String(), test.wantMessage) {
-				t.Fatalf("stderr %q does not contain %q", stderr.String(), test.wantMessage)
+			if stderr.String() != test.wantMessage+"\n" {
+				t.Fatalf("stderr %q is not the bounded diagnostic %q", stderr.String(), test.wantMessage)
 			}
 		})
 	}
@@ -290,10 +310,78 @@ func runMigrationEvidenceManifestFailureRedaction(t *testing.T) {
 	if strings.Contains(stderr.String(), secretPath) || strings.Contains(stderr.String(), "operator-private-manifest") {
 		t.Fatalf("manifest failure disclosed locator: %s", stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "migration evidence manifest unavailable") {
+	if !strings.Contains(stderr.String(), "migration evidence capture failed") {
 		t.Fatalf("manifest failure omitted safe reason: %s", stderr.String())
 	}
 }
+
+func runMigrationEvidenceFailureRedaction(t *testing.T) {
+	privateFailure := errors.New("private-credential-marker postgres://user:password@private-host/db /private/config SELECT sensitive")
+	for _, stage := range []string{"source", "configuration", "postgres", "ledger", "output"} {
+		t.Run(stage, func(t *testing.T) {
+			t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", migrationEvidenceFixtureDSN)
+			var stdout, stderr bytes.Buffer
+			var output io.Writer = &stdout
+			if stage == "output" {
+				output = migrationEvidenceErrorWriter{err: privateFailure}
+			}
+			pool := newMigrationEvidenceFakePool(false, nil)
+			runner := operatorRunner{migrationEvidence: migrationEvidenceExecutor{
+				transport: operatorTransport{stdout: output, stderr: &stderr},
+				source: func() (*database_migrations.Source, error) {
+					if stage == "source" {
+						return nil, privateFailure
+					}
+					return dbmigrations.Source()
+				},
+				loadConfig: func(string) (configassembly.Loaded, error) {
+					if stage == "configuration" {
+						return configassembly.Loaded{}, privateFailure
+					}
+					return migrationEvidenceTestDeployment(t), nil
+				},
+				setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
+					if stage == "postgres" {
+						return nil, privateFailure
+					}
+					if stage == "ledger" {
+						return migrationEvidenceErrorPool{migrationEvidenceFakePool: pool, err: privateFailure}, nil
+					}
+					return pool, nil
+				},
+				now: time.Now,
+			}}
+			exit := runner.runCLI(t.Context(), []string{"migration-evidence", "capture", "-manifest", migrationEvidenceManifestPathForTest(t)})
+			if exit != 1 || stdout.Len() != 0 {
+				t.Fatalf("failure transport exit=%d stdout=%q", exit, stdout.String())
+			}
+			if strings.Count(stderr.String(), "\n") != 1 || !strings.HasSuffix(stderr.String(), "level=ERROR msg=\"migration evidence capture failed\"\n") {
+				t.Fatalf("unbounded failure diagnostic: %q", stderr.String())
+			}
+			for _, private := range []string{"private-credential-marker", "postgres://", "/private/config", "SELECT sensitive"} {
+				if strings.Contains(stderr.String(), private) {
+					t.Fatalf("failure diagnostic exposed %q", private)
+				}
+			}
+			if wantClosed := stage == "ledger" || stage == "output"; pool.closed != wantClosed {
+				t.Fatalf("pool closed=%t want=%t", pool.closed, wantClosed)
+			}
+		})
+	}
+}
+
+type migrationEvidenceErrorPool struct {
+	*migrationEvidenceFakePool
+	err error
+}
+
+func (pool migrationEvidenceErrorPool) QueryRow(context.Context, string, ...any) pgx.Row {
+	return migrationEvidenceFakeRow{err: pool.err}
+}
+
+type migrationEvidenceErrorWriter struct{ err error }
+
+func (writer migrationEvidenceErrorWriter) Write([]byte) (int, error) { return 0, writer.err }
 
 func runMigrationEvidenceSourceFailureNoExternalEffects(t *testing.T) {
 	wantErr := errors.New("source unavailable")

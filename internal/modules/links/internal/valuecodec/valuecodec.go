@@ -102,6 +102,43 @@ var recordTagMembers = []string{
 	"deleted_at", "deleted_by_user_id",
 }
 
+type HistoryRecordReference struct {
+	IncidentID uuid.UUID
+	RecordID   uuid.UUID
+}
+
+// HistoryRecordReferences admits only the reference scalars. Complete shape and
+// operation admission remains with ValidateHistoryMutation.
+func HistoryRecordReferences(targetKind string, beforeValue, afterValue map[string]any) ([]HistoryRecordReference, error) {
+	var fields []string
+	switch targetKind {
+	case "record_link":
+		fields = []string{"src_record_id", "dst_record_id"}
+	case "record_tag":
+		fields = []string{"record_id"}
+	default:
+		return nil, fmt.Errorf("unsupported target kind")
+	}
+	var references []HistoryRecordReference
+	for _, value := range []map[string]any{beforeValue, afterValue} {
+		if value == nil {
+			continue
+		}
+		incidentID, err := canonicalUUID(value, "incident_id")
+		if err != nil {
+			return nil, err
+		}
+		for _, field := range fields {
+			recordID, err := canonicalUUID(value, field)
+			if err != nil {
+				return nil, err
+			}
+			references = append(references, HistoryRecordReference{IncidentID: incidentID, RecordID: recordID})
+		}
+	}
+	return references, nil
+}
+
 func ValidateHistoryMutation(targetKind string, targetID string, operationKind string, beforeValue map[string]any, afterValue map[string]any) error {
 	switch targetKind {
 	case "record_link":

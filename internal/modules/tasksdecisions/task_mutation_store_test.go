@@ -248,6 +248,9 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	_, err = patchRecord(owner, actor, ownerless.RecordID, tasksdecisions.TaskRequestsViewSchemaID, 1, "txn-workbook_interaction-task-decision-task-ownerless-open",
 		valueChange("task.owner_user_id", tasksdecisions.FieldValue{}))
 	requireLifecycle(t, err)
+	t.Run("admitted source text and clear replay", func(t *testing.T) {
+		requireTaskDecisionAdmittedTextPersistence(t, harness.DB, owner, actor, incident.ID)
+	})
 }
 
 func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {

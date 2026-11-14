@@ -419,6 +419,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 }
 
 func TestCoordinatorPortabilityPolicyProjection_Unit(t *testing.T) {
+	t.Run("independent admitted operation limits", checkPortabilityOperationPolicies)
 	coordinator := requireGeneratedCoordinator(t)
 	policies := coordinator.PortabilityPolicies()
 	if len(policies) != 6 {
@@ -433,7 +434,10 @@ func TestCoordinatorPortabilityPolicyProjection_Unit(t *testing.T) {
 		networkFlow.ParticipantID != "network_flow_activity.incident_portability_v1" ||
 		networkFlow.ParticipantSchemaID != "cartulary.extension_participant_specialization.v5" ||
 		len(networkFlow.ParticipantSHA256) != 64 ||
-		networkFlow.MaximumInputBytes != 64*1024*1024 || networkFlow.MaximumOutputBytes != 64*1024*1024 ||
+		networkFlow.Export.MaximumInputBytes != 67108864 || networkFlow.Export.MaximumOutputBytes != 67108864 || networkFlow.Export.MaximumItems != 10000 ||
+		networkFlow.Import.MaximumInputBytes != 67108864 || networkFlow.Import.MaximumOutputBytes != 67108864 || networkFlow.Import.MaximumItems != 10000 ||
+		networkFlow.Export.OutputSchemaID != "cartulary.network_flow.incident_members.v1" || networkFlow.Import.OutputSchemaID != "cartulary.network_flow.incident_import_input.v1" ||
+		!reflect.DeepEqual(networkFlow.Export.StateFamilyIDs, networkFlow.AuthoritativeFamilyIDs) || !reflect.DeepEqual(networkFlow.Import.StateFamilyIDs, networkFlow.AuthoritativeFamilyIDs) ||
 		len(networkFlow.BlockingFamilyIDs) != 0 ||
 		!reflect.DeepEqual(networkFlow.AuthoritativeFamilyIDs, []string{
 			"network_flow_activity.graph_views",
@@ -455,6 +459,7 @@ func TestCoordinatorPortabilityPolicyProjection_Unit(t *testing.T) {
 }
 
 func TestCoordinatorClaimResolution_Unit(t *testing.T) {
+	t.Run("canonical immutable claim identity", requireResolvedClaimSetIdentity)
 	t.Run("bounded dependency phase", verifyDependencyFindingBound)
 	verifyDependencyGraphs(t)
 	coordinator := requireGeneratedCoordinator(t)
@@ -573,6 +578,10 @@ func TestCoordinatorPublicationPlan_Unit(t *testing.T) {
 	if summary.SchemaID != "cartulary.extension_publication_plan.v1" || summary.RegistrySHA256 != coordinator.RegistrySHA256() {
 		t.Fatalf("unexpected publication summary: %#v", summary)
 	}
+	const claimDigest = "fb7daa3792a51595c7ebb6043c2578481a7994b8bd272b2d3f5f667db58bdda5"
+	if summary.ResolvedClaimSetSHA256 != claimDigest || plan.ResolvedClaims().SHA256() != claimDigest {
+		t.Fatal("publication did not preserve canonical resolved-claim identity")
+	}
 	for _, digest := range []string{summary.ResolvedClaimSetSHA256, summary.ContributionRegistrySHA256, summary.RouteDispatchPlanSHA256, summary.WorkspaceRegistrySHA256, summary.WorkerPlanSHA256, summary.ListenerPlanSHA256, summary.ClientSupportRegistrySHA256, summary.ImplementationBindingSetSHA256} {
 		if len(digest) != 64 {
 			t.Fatalf("publication component digest %q is invalid", digest)
@@ -615,6 +624,59 @@ func TestCoordinatorPublicationPlan_Unit(t *testing.T) {
 	for _, binding := range plan.ImplementationBindings() {
 		if len(binding.BindingSHA256) != 64 {
 			t.Fatalf("publication binding projection = %#v", binding)
+		}
+	}
+}
+
+func requireResolvedClaimSetIdentity(t *testing.T) {
+	t.Helper()
+	// Independently calculated from the literal canonical object bytes, with one LF.
+	for _, vector := range []struct {
+		name   string
+		input  []string
+		want   []string
+		digest string
+	}{
+		{"empty", nil, nil, "e6d6317f1985f900f7cdc505d437bc0f3d706a5be7efc6b291303d997a81ebee"},
+		{"single", []string{"import"}, []string{"import"}, "438eb82d605997436277a9318a6ce13f70a4966da8fbb22d2373b4de10890e87"},
+		{"ordered", []string{"import", "snapshot_reporting"}, []string{"import", "snapshot_reporting"}, "5eadd0fb42151fe414a8c59ea58584ae9cbaea3e00d630f80b87738f9b72f178"},
+		{"reordered duplicates", []string{"snapshot_reporting", "import", "import"}, []string{"import", "snapshot_reporting"}, "5eadd0fb42151fe414a8c59ea58584ae9cbaea3e00d630f80b87738f9b72f178"},
+	} {
+		t.Run(vector.name, func(t *testing.T) {
+			claims, err := NewResolvedClaimSet(vector.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			requireExactStrings(t, claims.ProfileIDs(), vector.want, "canonical resolved profile ids")
+			if claims.SHA256() != vector.digest {
+				t.Fatalf("resolved claim digest = %q; want %q", claims.SHA256(), vector.digest)
+			}
+			for _, id := range vector.want {
+				if !claims.Contains(id) {
+					t.Fatalf("missing admitted claim %q", id)
+				}
+			}
+			for _, id := range []string{"", "base", "absent"} {
+				if claims.Contains(id) {
+					t.Fatalf("invented claim %q", id)
+				}
+			}
+			if len(vector.input) > 0 {
+				vector.input[0] = "mutated_input"
+			}
+			copy := claims.ProfileIDs()
+			if len(copy) > 0 {
+				copy[0] = "mutated_output"
+			}
+			requireExactStrings(t, claims.ProfileIDs(), vector.want, "immutable resolved profile ids")
+			if claims.SHA256() != vector.digest || claims.Contains("mutated_input") || claims.Contains("mutated_output") {
+				t.Fatal("caller mutation changed claim identity")
+			}
+		})
+	}
+	for _, invalid := range []string{"base", "", "BAD", "contains-dash"} {
+		if _, err := NewResolvedClaimSet([]string{invalid}); err == nil {
+			t.Fatalf("invalid resolved profile id %q was accepted", invalid)
 		}
 	}
 }

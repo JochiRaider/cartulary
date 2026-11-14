@@ -1,11 +1,10 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
+import { readExecutableRepositoryJSON } from "./restricted-input-boundary.mjs";
 import { independentGoModules } from "./go-modules.mjs";
 
 // One projection of the ordinary runner profile, shared by static discovery
 // and execution. Runtime profiles never add compiler/build tags.
 export function goRunnerBuildContext(root) {
-  const pins = JSON.parse(readFileSync(path.join(root, "tools/toolchain_pins.json"), "utf8"));
+  const pins = readExecutableRepositoryJSON(root, "tools/toolchain_pins.json");
   const version = /^(1)\.(\d+)(?:\.(\d+))?$/u.exec(String(pins.go_version ?? ""));
   if (!version) throw new Error("tools/toolchain_pins.json.go_version must be a Go 1.x or Go 1.x.patch release");
   const environment = Object.freeze({

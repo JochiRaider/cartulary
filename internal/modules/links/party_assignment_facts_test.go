@@ -28,6 +28,8 @@ func TestPartyAssignmentSnapshotSource(t *testing.T) {
 	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "assignment-source@example.test", DisplayName: "Assignment source", DeploymentAdmin: true})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "assignment-source-incident", "IR-ASSIGNMENT", "Assignment snapshot isolation")
 	testPartyAssignmentFacts(t, harness.DB, incident.ID, actor.ID)
+	testCollectionTargetLocking(t, harness.DB, incident.ID, actor.ID)
+	testFreshLinkEndpointLocks(t, harness.DB, incident.ID, actor.ID)
 }
 
 func testPartyAssignmentFacts(t *testing.T, db dbport.DB, incident, actor uuid.UUID) {

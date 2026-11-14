@@ -186,6 +186,36 @@ func (f *historyAttributionResolverFake) ResolveImportedSourceActorsTx(_ context
 }
 
 func TestSemanticHistoryRejectsMalformedCanonicalFactsAndPreservesValues(t *testing.T) {
+	t.Run("owner object paths preserve independent facts", func(t *testing.T) {
+		fields := []historycontract.Field{{Key: "parent.owner", Member: "owner", Type: "text"}, {Key: "child.owner", Path: []string{"child", "owner"}, Type: "text"}, {Key: "child.nullable", Path: []string{"child", "nullable"}, Type: "text"}}
+		source := map[string]any{"owner": "parent", "child": map[string]any{"owner": "child", "nullable": nil}}
+		facts := historycontract.Facts{RecordID: "10000000-0000-4000-8000-000000000001", After: map[string]any{"record": map[string]any{}, "source": source}}
+		units, err := historycontract.Row(facts, fields)
+		if err != nil {
+			t.Fatal(err)
+		}
+		values := map[string]historycontract.Value{}
+		for _, unit := range units {
+			for _, change := range unit.Changes {
+				values[change.FieldKey] = change.After
+			}
+		}
+		if len(values) != 3 || values["parent.owner"].Value != "parent" || values["child.owner"].Value != "child" || values["child.nullable"].State != "null" {
+			t.Fatalf("nested history lost source ownership: %#v", values)
+		}
+		for _, invalid := range []any{nil, "wrong type", map[string]any{"nullable": nil}} {
+			source["child"] = invalid
+			if _, err := historycontract.Row(facts, fields); err == nil {
+				t.Fatal("missing or malformed child admitted")
+			}
+		}
+		source["child"] = map[string]any{"owner": "child", "nullable": nil}
+		for _, field := range []historycontract.Field{{Key: "test.owner", Member: "owner", Path: []string{"child", "owner"}, Type: "text"}, {Key: "test.owner", Path: []string{"child", ""}, Type: "text"}} {
+			if _, err := historycontract.Row(facts, []historycontract.Field{field}); err == nil {
+				t.Fatal("ambiguous or empty path admitted")
+			}
+		}
+	})
 	record := RecordHistoryRecord{RecordID: uuid.New(), RecordType: "host"}
 	catalog := validTargetSemanticsCatalog(t, validProviderContributions())
 	for _, raw := range []string{`{"name":"schema-less"}`, `{"snapshot_schema_id":"cartulary.revisions.snapshot.host.v0","record":{},"source":{}}`, `[]`, `{} {}`} {
@@ -337,4 +367,8 @@ VALUES ($1, $2, 2, $3, $4, $5)
 	}
 
 	return historyRepositoryFixture{database: database, record: RecordHistoryRecord{IncidentID: incidentResult.Incident.ID, RecordID: recordID, RecordType: "host", RowVersion: 2}, changeSetID: changeSetID, actorID: actor.ID, now: now, before: beforeJSON, after: afterJSON}
+}
+
+func (*historyAttributionResolverFake) ResolveImportedHistoryActorsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, []string) (map[string]string, error) {
+	return nil, nil
 }

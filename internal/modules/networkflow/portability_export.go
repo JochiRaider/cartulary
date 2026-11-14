@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
@@ -28,8 +29,8 @@ type portabilityExportAccess struct {
 
 func (r *portabilityExportAccess) ProfileScope() string     { return ProfileID }
 func (r *portabilityExportAccess) IncidentScope() uuid.UUID { return r.incidentID }
-func NewPortabilityExportAccess(query incidentbundles.ExportSnapshotQuery, incidentID uuid.UUID, attributions sourceport.PortableAttributionResolver) (incidentbundles.ExportReadCapability, error) {
-	if query == nil || incidentID == uuid.Nil || attributions == nil {
+func NewPortabilityExportAccess(query incidentbundles.ExportSnapshotQuery, incidentID uuid.UUID, familyIDs []string, attributions sourceport.PortableAttributionResolver) (incidentbundles.ExportReadCapability, error) {
+	if query == nil || incidentID == uuid.Nil || attributions == nil || !slices.Equal(familyIDs, networkFlowExtensionFamilies) {
 		return nil, incidentbundles.ErrPortabilityUnavailable
 	}
 	return &portabilityExportAccess{query: query, incidentID: incidentID, attributions: attributions}, nil

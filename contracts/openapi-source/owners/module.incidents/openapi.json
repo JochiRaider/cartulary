@@ -1663,9 +1663,9 @@
         }
       },
       "IncidentSingletonInvalidResponse": {
-        "description": "Incident singleton query contains unsupported list or pagination members",
+        "description": "Incident singleton query contains unsupported pagination members",
         "x-cartulary-error-codes": [
-          "invalid_list_query"
+          "invalid_pagination_request"
         ],
         "content": {
           "application/json": {

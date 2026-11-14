@@ -1205,7 +1205,6 @@ function WorkbookShellContent({
                                             />
                                           ) : null}
                                           <WorkbookIncidentControlsPresentation
-                                            key={`${incidentId}:${authorization.authorizationGeneration}`}
                                             onIncidentResourceAccepted={
                                               acceptIncidentResource
                                             }

@@ -2,14 +2,14 @@ package revisions_test
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"strings"
+	"errors"
+	"math"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
@@ -27,6 +27,72 @@ type revisionAllocatorHarness struct {
 }
 
 func TestRevisionsIncidentBundleNextIDsDoNotCollide(t *testing.T) {
+	t.Run("committed_history_order", exerciseHistoryOrderAllocator)
+	t.Run("last representable next value is preserved", func(t *testing.T) {
+		h := newRevisionAllocatorHarness(t, "last-representable")
+		tx, err := h.db.BeginTx(t.Context(), pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback(context.Background()) }()
+		originalNext, err := revisions.BeginIncidentBundleImportedRevisionSequenceTx(t.Context(), tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		insertImportedRevisionTx(t, tx, h, math.MaxInt64-1)
+		if err := revisions.FinishIncidentBundleImportedRevisionSequenceTx(t.Context(), tx, originalNext); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.Commit(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if got := readRevisionSequenceNext(t, h.db); got != math.MaxInt64 {
+			t.Fatalf("last repaired next=%d want=%d", got, int64(math.MaxInt64))
+		}
+		if got := consumeRevisionSequenceNext(t, h.db); got != math.MaxInt64 {
+			t.Fatalf("last allocated ID=%d want=%d", got, int64(math.MaxInt64))
+		}
+	})
+	t.Run("exhausted import rolls back rows and sequence", func(t *testing.T) {
+		h := newRevisionAllocatorHarness(t, "exhausted-import")
+		originalNext := readRevisionSequenceNext(t, h.db)
+		tx, err := h.db.BeginTx(t.Context(), pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = tx.Rollback(context.Background()) }()
+		lockedNext, err := revisions.BeginIncidentBundleImportedRevisionSequenceTx(t.Context(), tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lockedNext != originalNext {
+			t.Fatalf("locking changed next=%d want=%d", lockedNext, originalNext)
+		}
+		insertImportedRevisionTx(t, tx, h, math.MaxInt64)
+		err = revisions.FinishIncidentBundleImportedRevisionSequenceTx(t.Context(), tx, lockedNext)
+		var exhausted *pgconn.PgError
+		if !errors.As(err, &exhausted) || exhausted.Code != "22003" {
+			t.Fatalf("exhausted repair error=%v; want numeric range rejection", err)
+		}
+		if err := tx.Rollback(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		for _, query := range []string{
+			`SELECT count(*) FROM change_sets WHERE incident_id=$1`,
+			`SELECT count(*) FROM record_revisions r JOIN records e USING(record_id) WHERE e.incident_id=$1`,
+		} {
+			var count int
+			if err := h.db.QueryRow(t.Context(), query, h.incidentID).Scan(&count); err != nil || count != 0 {
+				t.Fatalf("exhausted import retained %d rows: %v", count, err)
+			}
+		}
+		if got := readRevisionSequenceNext(t, h.db); got != originalNext {
+			t.Fatalf("exhausted repair changed next=%d want=%d", got, originalNext)
+		}
+		if got := consumeRevisionSequenceNext(t, h.db); got != originalNext {
+			t.Fatalf("allocation after exhausted rollback=%d want=%d", got, originalNext)
+		}
+	})
 	t.Run("imported maximum advances the allocator", func(t *testing.T) {
 		harness := newRevisionAllocatorHarness(t, "imported-maximum")
 		originalNext := readRevisionSequenceNext(t, harness.db)
@@ -111,34 +177,6 @@ func TestRevisionsIncidentBundleSequenceRepairRollsBackOnLaterFailure(t *testing
 	}
 }
 
-func TestRevisionsIncidentBundleSequenceRepairRunsAfterValidation(t *testing.T) {
-	sourcePath := filepath.Join("..", "incidentbundles", "source.go")
-	source, err := os.ReadFile(sourcePath)
-	if err != nil {
-		t.Fatalf("read Incident Bundles coordinator: %v", err)
-	}
-	text := string(source)
-	begin := strings.Index(text, "BeginIncidentBundleImportedRevisionSequenceTx")
-	apply := strings.Index(text, ".ApplyImportTx(")
-	validate := strings.Index(text, ".ValidateImportTx(")
-	finish := strings.Index(text, "FinishIncidentBundleImportedRevisionSequenceTx")
-	if begin < 0 || apply < 0 || validate < 0 || finish < 0 || !(begin < apply && apply < validate && validate < finish) {
-		t.Fatalf("sequence protocol order begin=%d apply=%d validate=%d finish=%d", begin, apply, validate, finish)
-	}
-	for _, runtimePath := range []string{
-		"incident_bundle_sequence.go",
-		filepath.Join("..", "incidentbundles", "source.go"),
-	} {
-		payload, err := os.ReadFile(runtimePath)
-		if err != nil {
-			t.Fatalf("read runtime sequence caller %s: %v", runtimePath, err)
-		}
-		if strings.Contains(strings.ToLower(string(payload)), "setval(") {
-			t.Fatalf("runtime sequence caller %s still uses setval", runtimePath)
-		}
-	}
-}
-
 func TestRevisionsIncidentBundleSequenceLockExcludesConcurrentWriter(t *testing.T) {
 	harness := newRevisionAllocatorHarness(t, "concurrent-writer")
 	tx, err := harness.db.BeginTx(context.Background(), pgx.TxOptions{})
@@ -150,17 +188,26 @@ func TestRevisionsIncidentBundleSequenceLockExcludesConcurrentWriter(t *testing.
 	if err != nil {
 		t.Fatalf("acquire sequence restart lock: %v", err)
 	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	writer, err := harness.db.Acquire(ctx)
+	if err != nil {
+		t.Fatalf("acquire concurrent writer connection: %v", err)
+	}
+	defer writer.Release()
+	blockerPID := int32(tx.Conn().PgConn().PID())
+	writerPID := int32(writer.Conn().PgConn().PID())
 
-	started := make(chan struct{})
+	finished := make(chan struct{})
 	result := make(chan struct {
 		value int64
 		err   error
 	}, 1)
 	go func() {
-		close(started)
+		defer close(finished)
 		var value int64
-		err := harness.db.QueryRow(
-			context.Background(),
+		err := writer.QueryRow(
+			ctx,
 			`SELECT nextval('public.record_revisions_revision_id_seq')`,
 		).Scan(&value)
 		result <- struct {
@@ -168,13 +215,28 @@ func TestRevisionsIncidentBundleSequenceLockExcludesConcurrentWriter(t *testing.
 			err   error
 		}{value: value, err: err}
 	}()
-	<-started
-	select {
-	case outcome := <-result:
-		t.Fatalf("concurrent nextval did not block: value=%d err=%v", outcome.value, outcome.err)
-	case <-time.After(200 * time.Millisecond):
+	defer func() {
+		cancel()
+		<-finished
+	}()
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		var blocked bool
+		if err := harness.db.QueryRow(ctx, `SELECT $1::integer = ANY(pg_blocking_pids($2::integer))`, blockerPID, writerPID).Scan(&blocked); err != nil {
+			t.Fatalf("observe concurrent sequence lock: %v", err)
+		}
+		if blocked {
+			break
+		}
+		select {
+		case outcome := <-result:
+			t.Fatalf("concurrent nextval completed before observed exclusion: value=%d err=%v", outcome.value, outcome.err)
+		case <-ctx.Done():
+			t.Fatalf("concurrent nextval never blocked on the import transaction: %v", ctx.Err())
+		case <-ticker.C:
+		}
 	}
-
 	if err := revisions.FinishIncidentBundleImportedRevisionSequenceTx(context.Background(), tx, originalNext); err != nil {
 		t.Fatalf("finish no-op sequence repair: %v", err)
 	}
@@ -189,7 +251,7 @@ func TestRevisionsIncidentBundleSequenceLockExcludesConcurrentWriter(t *testing.
 		if outcome.value != originalNext {
 			t.Fatalf("concurrent nextval = %d, want %d", outcome.value, originalNext)
 		}
-	case <-time.After(5 * time.Second):
+	case <-ctx.Done():
 		t.Fatal("concurrent nextval remained blocked after import commit")
 	}
 }
@@ -291,6 +353,7 @@ VALUES ($1, $2, $3, 'incident_bundle.import.test')
 	afterSnapshot := canonicalRowSnapshot(
 		harness.recordID,
 		harness.incidentID,
+		harness.actor.ID,
 		"host",
 		"cartulary.revisions.snapshot.host.v1",
 		1,

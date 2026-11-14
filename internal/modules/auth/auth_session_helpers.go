@@ -155,12 +155,12 @@ func (s *Service) authenticateSessionToken(r *http.Request, authSource httpauth.
 	}, nil
 }
 
-func (s *Service) issueBootstrapToken(ctx context.Context, userID uuid.UUID) (string, time.Time, error) {
+func (s *Service) issueBootstrapToken(ctx context.Context, user authn.UserRecord) (string, time.Time, error) {
 	token, err := authn.GenerateOpaqueToken()
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	record, err := s.sessionStore.IssueBootstrapToken(ctx, userID, authn.FingerprintToken(s.keys, token), s.now())
+	record, err := s.sessionStore.IssueBootstrapToken(ctx, user, authn.FingerprintToken(s.keys, token), s.now())
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -209,6 +209,14 @@ func (s *Service) clearAuthCookies(w http.ResponseWriter) {
 }
 
 func (s *Service) buildSessionResource(ctx context.Context, user authn.UserRecord, session authn.SessionRecord) (map[string]any, error) {
+	memberships, err := s.sessionMembershipReader.ListIncidentMembershipSummaries(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return assembleSessionResource(user, session, memberships), nil
+}
+
+func assembleSessionResource(user authn.UserRecord, session authn.SessionRecord, memberships []authn.IncidentMembershipSummary) map[string]any {
 	mfaState := "not_required"
 	if user.MFARequired {
 		mfaState = "satisfied"
@@ -218,10 +226,6 @@ func (s *Service) buildSessionResource(ctx context.Context, user authn.UserRecor
 		providerType = "local"
 	}
 
-	memberships, err := s.sessionMembershipReader.ListIncidentMembershipSummaries(ctx, user.ID)
-	if err != nil {
-		return nil, err
-	}
 	summaries := make([]map[string]any, 0, len(memberships))
 	for _, membership := range memberships {
 		summaries = append(summaries, map[string]any{
@@ -241,7 +245,7 @@ func (s *Service) buildSessionResource(ctx context.Context, user authn.UserRecor
 		"absolute_expires_at": session.AbsoluteExpiresAt,
 		"session_expires_at":  session.SessionExpiresAt,
 		"memberships":         summaries,
-	}, nil
+	}
 }
 
 func (s *Service) buildSafeUserResource(ctx context.Context, user authn.UserRecord) (map[string]any, error) {

@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/projectionports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	mentioneffects "github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -93,6 +94,7 @@ type storePorts struct {
 }
 
 type recordPort interface {
+	LoadEnvelopesForNoKeyUpdateTx(context.Context, pgx.Tx, []uuid.UUID) (map[uuid.UUID]enveloperead.Envelope, error)
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
 }
 
@@ -176,6 +178,10 @@ func newStorePorts() storePorts {
 
 type recordAdapter struct {
 	store *records.Store
+}
+
+func (a recordAdapter) LoadEnvelopesForNoKeyUpdateTx(ctx context.Context, tx pgx.Tx, ids []uuid.UUID) (map[uuid.UUID]enveloperead.Envelope, error) {
+	return a.store.LoadEnvelopesForNoKeyUpdateTx(ctx, tx, ids)
 }
 
 func (a recordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (int64, error) {

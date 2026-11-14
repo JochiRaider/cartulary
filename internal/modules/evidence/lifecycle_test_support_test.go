@@ -146,8 +146,9 @@ func RequireAffectedView(t testing.TB, payload map[string]any, viewSchemaID stri
 			t.Fatalf("record_changed affected view has invalid shape: %#v", rawView)
 		}
 		if view["view_schema_id"] == viewSchemaID {
-			if view["change_kind"] == "" {
-				t.Fatalf("affected view missing change_kind: %#v", view)
+			kind, ok := view["change_kind"].(string)
+			if !ok || (kind != "patch" && kind != "invalidate") {
+				t.Fatalf("affected view has invalid change_kind: %#v", view)
 			}
 			return
 		}

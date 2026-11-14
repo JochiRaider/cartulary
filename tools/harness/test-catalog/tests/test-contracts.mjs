@@ -11,10 +11,6 @@ const tiers = ["fast", "standard", "full", "release"];
 function assertGoSelectorBuildContextContract() {
   const sourceRoot = mkdtempSync(path.join(tmpdir(), "cartulary-selector-build-context."));
   const fixtureRoot = path.join(sourceRoot, "internal/fixture");
-  mkdirSync(fixtureRoot, { recursive: true });
-  mkdirSync(path.join(sourceRoot, "tools"));
-  copyFileSync(path.join(root, "tools/toolchain_pins.json"), path.join(sourceRoot, "tools/toolchain_pins.json"));
-  copyFileSync(path.join(root, "tools/generated_artifact_policy.json"), path.join(sourceRoot, "tools/generated_artifact_policy.json"));
   const relativePackage = "./internal/fixture";
   const runner = { approved_roots: ["internal"] };
   const row = (testName) => ({
@@ -23,6 +19,10 @@ function assertGoSelectorBuildContextContract() {
     selector: { package: relativePackage, tests: [testName] },
   });
   try {
+    mkdirSync(fixtureRoot, { recursive: true });
+    mkdirSync(path.join(sourceRoot, "tools"));
+    copyFileSync(path.join(root, "tools/toolchain_pins.json"), path.join(sourceRoot, "tools/toolchain_pins.json"));
+    copyFileSync(path.join(root, "tools/generated_artifact_policy.json"), path.join(sourceRoot, "tools/generated_artifact_policy.json"));
     writeFileSync(path.join(fixtureRoot, "ordinary_test.go"), "package fixture\nfunc TestOrdinary() {}\n");
     writeFileSync(path.join(fixtureRoot, "applicable_linux_amd64_test.go"), "//go:build linux && amd64\n\npackage fixture\nfunc TestApplicablePlatform() {}\n");
     writeFileSync(path.join(fixtureRoot, "private_test.go"), "//go:build cartulary_harness\n\npackage fixture\nfunc TestPrivateProfile() {}\n");

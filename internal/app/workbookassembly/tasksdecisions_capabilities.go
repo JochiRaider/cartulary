@@ -303,6 +303,7 @@ func newTaskDecisionMutationDependencies(
 		IncidentState:        admission.NewChecker(pool),
 		Idempotency:          taskDecisionIdempotency{store: authStore},
 		RecordEnvelopes:      records.NewStore(),
+		ReferenceTargets:     tasksdecisionassembly.NewReferenceTargetCapability(),
 		Links:                linkStore,
 		LinkFacts:            tasksdecisionassembly.NewLinkFactsCapability(),
 		Projections:          projectionRows,

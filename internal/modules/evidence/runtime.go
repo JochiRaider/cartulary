@@ -64,19 +64,19 @@ type OwnerRuntimeDependencies struct {
 
 func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, error) {
 	switch {
-	case isNilMutationCapability(dependencies.JobTransactions) || isNilMutationCapability(dependencies.JobManager) || isNilMutationCapability(dependencies.JobRunner):
+	case isNilCapability(dependencies.JobTransactions) || isNilCapability(dependencies.JobManager) || isNilCapability(dependencies.JobRunner):
 		return nil, fmt.Errorf("compose Evidence owner runtime: Jobs dependencies are required")
-	case dependencies.Postgres == nil:
+	case isNilCapability(dependencies.Postgres):
 		return nil, fmt.Errorf("compose Evidence owner runtime: Postgres is required")
 	case dependencies.ConflictTokens == nil:
 		return nil, fmt.Errorf("compose Evidence owner runtime: conflict-token codec is required")
 	case dependencies.Revisions == nil:
 		return nil, fmt.Errorf("compose Evidence owner runtime: Revisions appender is required")
-	case dependencies.Collaboration == nil:
+	case isNilCapability(dependencies.Collaboration):
 		return nil, fmt.Errorf("compose Evidence owner runtime: Collaboration intent appender is required")
-	case dependencies.ObjectStore == nil:
+	case isNilCapability(dependencies.ObjectStore):
 		return nil, fmt.Errorf("compose Evidence owner runtime: object store is required")
-	case dependencies.CleanupObserver == nil:
+	case isNilCapability(dependencies.CleanupObserver):
 		return nil, fmt.Errorf("compose Evidence owner runtime: cleanup observer is required")
 	case dependencies.Now == nil:
 		return nil, fmt.Errorf("compose Evidence owner runtime: clock is required")

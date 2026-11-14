@@ -21,7 +21,7 @@ import {
   expectVisibleSemanticGridCellFocus,
 } from "./support/accessibility/grid";
 import {
-  expectNoFocusTrap,
+  expectInitialTabRoundTrip,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
 import { expectAndRecordContrast } from "./support/accessibility/records";
@@ -395,7 +395,7 @@ test("a11y.grid editing and grouped navigation preserve keyboard semantics", asy
     ),
   ).toContainText("Activity Synopsis");
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
   await expectAndRecordContrast(page, [
     gridGroupingSelectTestId(timelineViewSchemaId),
     gridSortHeaderTestId(

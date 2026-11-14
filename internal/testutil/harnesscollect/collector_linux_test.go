@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -343,7 +344,18 @@ func TestContainerCancellationDrain(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan containerBatch, 1)
-	go func() { batch, _ := c.sample(ctx); done <- batch }()
+	settled := make(chan struct{})
+	releaseDrain := sync.OnceFunc(func() { close(drain) })
+	defer func() {
+		cancel()
+		releaseDrain()
+		<-settled
+	}()
+	go func() {
+		defer close(settled)
+		batch, _ := c.sample(ctx)
+		done <- batch
+	}()
 	<-started
 	cancel()
 	<-cancelled
@@ -352,7 +364,7 @@ func TestContainerCancellationDrain(t *testing.T) {
 		t.Fatal("acknowledged before drain")
 	case <-time.After(10 * time.Millisecond):
 	}
-	close(drain)
+	releaseDrain()
 	select {
 	case batch := <-done:
 		if batch.omitted != 1 || batch.overruns != 0 {

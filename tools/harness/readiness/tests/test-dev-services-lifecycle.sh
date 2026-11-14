@@ -7,29 +7,33 @@ export SEAWEEDFS_S3_ACCESS_KEY_ID=fixture-access
 export SEAWEEDFS_S3_SECRET_ACCESS_KEY=fixture-secret
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-dev-services.XXXXXX")"
+# shellcheck source=tools/harness/readiness/process-lifecycle.sh
+source "$repo_root/tools/harness/readiness/process-lifecycle.sh"
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$repo_root/tools/harness/test-support/harness-scratch.sh"
+tmp_dir="$(cartulary_harness_mktemp_dir cartulary-dev-services.XXXXXX)"
 fake_bin="$tmp_dir/bin"
 docker_log="$tmp_dir/docker.log"
 go_log="$tmp_dir/go.log"
 run_stdout=""
 run_stderr=""
 run_status=0
+command_handles=()
 
 cleanup() {
-  local lease=""
-  local pid=""
-  for lease in \
-    "$tmp_dir/runtime/object-store-proxy/ready-lease.json" \
-    "$tmp_dir/concurrent-runtime/object-store-proxy/ready-lease.json"; do
-    [[ -f "$lease" ]] || continue
-    pid="$(awk '{print $2}' "$lease" 2>/dev/null || true)"
-    if [[ -n "${pid:-}" ]]; then
-      kill "$pid" >/dev/null 2>&1 || true
-    fi
+  local handle status=0 primary=$?
+  for handle in "${command_handles[@]}"; do
+    stop_owned_command "$handle" || status=$?
   done
+  if [[ "$status" -ne 0 ]]; then
+    echo "development service fixture cleanup failed; runtime retained" >&2
+    if [[ "$primary" -ne 0 ]]; then exit "$primary"; fi
+    exit "$status"
+  fi
   rm -rf "$tmp_dir"
 }
 trap cleanup EXIT
+lifecycle_install_signal_traps
 
 fail() {
   printf 'test-dev-services-lifecycle: %s\n' "$*" >&2
@@ -138,12 +142,12 @@ done
 
 case "$command" in
   attempt)
-    printf 'launching 0\n' >"$attempt_file"
+    printf 'launching\n' >"$attempt_file"
     ;;
   serve)
-    printf 'bound %d\n' "$$" >"$attempt_file"
-    trap 'exit 0' TERM INT
-    while true; do sleep 1; done
+    # This adapter tests orchestration, not physical proxy ownership. Publishing
+    # state completes the fake service; no persistent process or PID is needed.
+    printf 'bound\n' >"$attempt_file"
     ;;
   status)
     [[ -f "$state_file" && "$(awk '{print $1}' "$state_file")" == "bound" ]]
@@ -151,14 +155,7 @@ case "$command" in
   promote)
     mv "$attempt_file" "$lease_file"
     ;;
-  stop)
-    pid="$(awk '{print $2}' "$state_file")"
-    if [[ "$pid" =~ ^[0-9]+$ && "$pid" -gt 1 ]]; then
-      kill -TERM "$pid" >/dev/null 2>&1 || true
-    fi
-    rm -f "$state_file"
-    ;;
-  discard)
+  stop | discard)
     rm -f "$state_file"
     ;;
   *)
@@ -348,11 +345,13 @@ assert_file_not_contains "$docker_log" "provision.sh" "startup does not reprovis
 
 reset_logs
 concurrent_runtime="$tmp_dir/concurrent-runtime"
-concurrent_pids=()
 for index in 1 2; do
-  (
-    cd "$repo_root"
-    PATH="$fake_bin:$PATH" \
+  concurrent_handle=""
+  acquisition_status=0
+  # The positional parameters belong to the owned child shell, not this caller.
+  # shellcheck disable=SC2016
+  start_owned_command concurrent_handle "$tmp_dir/concurrent-${index}.log" env \
+      PATH="$fake_bin:$PATH" \
       GO=go \
       FAKE_DOCKER_LOG="$docker_log" \
       FAKE_GO_LOG="$go_log" \
@@ -363,15 +362,33 @@ for index in 1 2; do
       CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS=5 \
       CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS=5 \
       CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset \
-      bash tools/harness/readiness/dev-services.sh object-store-reset
-  ) >"$tmp_dir/concurrent-${index}.stdout" 2>"$tmp_dir/concurrent-${index}.stderr" &
-  concurrent_pids+=("$!")
+      bash -c '
+        cd "$1"
+        : >"$2"
+        while [[ ! -f "$3" ]]; do sleep 0.02; done
+        exec bash tools/harness/readiness/dev-services.sh object-store-reset
+      ' fixture "$repo_root" "$tmp_dir/concurrent-${index}.ready" "$tmp_dir/concurrent.release" || acquisition_status=$?
+  if [[ -n "$concurrent_handle" ]]; then command_handles+=("$concurrent_handle"); fi
+  [[ "$acquisition_status" -eq 0 ]] || fail "concurrent caller acquisition failed"
 done
-for concurrent_pid in "${concurrent_pids[@]}"; do
-  if ! wait "$concurrent_pid"; then
-    fail "concurrent proxy lifecycle operation failed"
+concurrent_deadline=$((SECONDS + 10))
+while [[ ! -f "$tmp_dir/concurrent-1.ready" || ! -f "$tmp_dir/concurrent-2.ready" ]]; do
+  (( SECONDS < concurrent_deadline )) || fail "concurrent callers did not reach the release barrier"
+  sleep 0.02
+done
+: >"$tmp_dir/concurrent.release"
+concurrent_status=0
+for concurrent_handle in "${command_handles[@]}"; do
+  while owned_command_running "$concurrent_handle"; do
+    (( SECONDS < concurrent_deadline )) || fail "concurrent lifecycle command did not finish"
+    sleep 0.02
+  done
+  stop_owned_command "$concurrent_handle" || fail "concurrent caller settlement failed"
+  if ! owned_command_result "$concurrent_handle"; then
+    concurrent_status=1
   fi
 done
+[[ "$concurrent_status" -eq 0 ]] || fail "concurrent proxy lifecycle operation failed"
 build_count="$(grep -c '^build -o ' "$go_log" || true)"
 [[ "$build_count" == "1" ]] ||
   fail "concurrent proxy starts must publish exactly one owned instance, got $build_count builds"

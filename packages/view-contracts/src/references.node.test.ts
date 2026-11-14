@@ -71,6 +71,34 @@ describe("ordinary reference field contracts", () => {
     );
     expect(member?.identityKind).toBe("incident_member");
     expect(member?.targetViewSchemaIds).toEqual([]);
+    expect(
+      getReferenceFieldContract(
+        "cartulary.view.evidence.v1",
+        "evidence.owner_user_id",
+      ),
+    ).toEqual({
+      viewSchemaId: "cartulary.view.evidence.v1",
+      fieldKey: "evidence.owner_user_id",
+      kind: "direct",
+      identityKind: "incident_member",
+      targetRecordTypes: [],
+      targetViewSchemaIds: [],
+      excludeSource: false,
+      addOperation: null,
+      removeOperation: null,
+    });
+    expect(
+      requireViewContract("cartulary.view.evidence.v1").fieldMap[
+        "evidence.owner_user_id"
+      ],
+    ).toMatchObject({
+      clearable: true,
+      createWritable: true,
+      patchWritable: true,
+      defaultHidden: true,
+      directReferenceContractId: "incident_member_user_ref_v1",
+      conflictResolutionClass: "atomic_replace",
+    });
     const records = getReferenceFieldContract(
       "cartulary.view.decisions.v1",
       "decision.support_refs",

@@ -185,6 +185,7 @@ class WorkbookCollaborationCoordinatorRuntime {
   private presenceTask: WorkbookCollaborationScheduledTask | null = null;
   private resetMachine = initialWorkbookCollaborationResetMachine();
   private resetRetryTask: WorkbookCollaborationScheduledTask | null = null;
+  private resetRefreshAttempt = 0;
   private retainCount = 0;
   private retainGeneration = 0;
   private session: WorkbookCollaborationSessionPort | null = null;
@@ -333,7 +334,10 @@ class WorkbookCollaborationCoordinatorRuntime {
       recordId: null,
     };
     this.cancelPresenceTask();
-    this.cancelReset();
+    const reset = this.resetMachine.active;
+    if (reset !== null) {
+      this.beginReset(reset.eventGeneration, reset.reason);
+    }
     if (this.authorizationRecoveryMachine.authorizationConfirmed)
       this.markPresenceAcceptance();
     this.publishPresenceNow();
@@ -344,10 +348,13 @@ class WorkbookCollaborationCoordinatorRuntime {
     this.activePort = port;
     if (this.pendingAuthorizationRefresh !== null)
       void this.settleAuthorizedRecovery(this.pendingAuthorizationRefresh);
+    if (this.resetMachine.active !== null)
+      void this.runResetRefresh(this.resetMachine.active);
     const key = sheetRefKey(port.identity.sheetRef);
     if (
-      this.dirtySurfaceKeys.delete(key) &&
-      this.pendingAuthorizationRefresh === null
+      this.pendingAuthorizationRefresh === null &&
+      this.resetMachine.active === null &&
+      this.dirtySurfaceKeys.delete(key)
     ) {
       void port
         .refresh({ reason: "inactive_surface_reconciliation" })
@@ -356,7 +363,10 @@ class WorkbookCollaborationCoordinatorRuntime {
         });
     }
     return () => {
-      if (this.activePort === port) this.activePort = null;
+      if (this.activePort === port) {
+        this.activePort = null;
+        this.cancelResetRefresh();
+      }
     };
   }
 
@@ -806,9 +816,14 @@ class WorkbookCollaborationCoordinatorRuntime {
     this.session?.reconnect();
   }
 
-  private cancelReset(): void {
+  private cancelResetRefresh(): void {
+    this.resetRefreshAttempt += 1;
     this.resetRetryTask?.cancel();
     this.resetRetryTask = null;
+  }
+
+  private cancelReset(): void {
+    this.cancelResetRefresh();
     this.resetMachine = cancelWorkbookCollaborationReset(this.resetMachine);
   }
 
@@ -826,11 +841,13 @@ class WorkbookCollaborationCoordinatorRuntime {
     this.applyInvalidationPlan({ kind: "collaboration_reset_required" });
     const started = beginWorkbookCollaborationReset(this.resetMachine, {
       eventGeneration,
+      reason,
       sessionGeneration: this.sessionGeneration,
       sheetKey: sheetRefKey(this.activeSheetRef),
     });
     this.resetMachine = started.machine;
-    void this.runResetRefresh(started.admission, reason);
+    this.dirtySurfaceKeys.add(started.admission.sheetKey);
+    void this.runResetRefresh(started.admission);
   }
 
   private resetIsCurrent(admission: WorkbookCollaborationResetAdmission) {
@@ -845,24 +862,37 @@ class WorkbookCollaborationCoordinatorRuntime {
 
   private async runResetRefresh(
     admission: WorkbookCollaborationResetAdmission,
-    reason: "resume_reset" | "sequence_gap",
   ): Promise<void> {
+    if (!this.resetIsCurrent(admission)) return;
+    this.cancelResetRefresh();
+    const port = this.activePort;
+    if (
+      port === null ||
+      sheetRefKey(port.identity.sheetRef) !== admission.sheetKey
+    )
+      return;
+    const attempt = this.resetRefreshAttempt;
+    const current = () =>
+      this.resetIsCurrent(admission) &&
+      this.activePort === port &&
+      this.resetRefreshAttempt === attempt;
     try {
-      await this.refreshActiveSurface(reason);
+      await port.refresh({ reason: admission.reason });
     } catch {
-      if (!this.resetIsCurrent(admission)) return;
+      if (!current()) return;
       this.dirtySurfaceKeys.add(admission.sheetKey);
       this.resetRetryTask = this.options.scheduler.schedule(1_000, () => {
-        this.resetRetryTask = null;
-        if (this.resetIsCurrent(admission)) {
-          void this.runResetRefresh(admission, reason);
+        if (current()) {
+          this.resetRetryTask = null;
+          void this.runResetRefresh(admission);
         }
       });
       return;
     }
-    if (!this.resetIsCurrent(admission)) return;
+    if (!current()) return;
+    this.dirtySurfaceKeys.delete(admission.sheetKey);
     const completed = this.session?.completeReset(admission.eventGeneration);
-    this.resetMachine = cancelWorkbookCollaborationReset(this.resetMachine);
+    this.cancelReset();
     if (completed !== true) return;
     if (this.authorizationRecoveryMachine.canResumeMutations) {
       this.options.mutationRuntime.applyAuthorizationRecoveryState("resumed");

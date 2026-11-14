@@ -697,7 +697,7 @@ func hasExactMembers(value map[string]any, required []string, optional []string)
 
 func parseCanonicalPortableTimestamp(value string) (time.Time, error) {
 	parsed, err := time.Parse(time.RFC3339Nano, value)
-	if err != nil || parsed.UTC().Format(time.RFC3339Nano) != value {
+	if err != nil || parsed.Nanosecond()%1_000 != 0 || parsed.UTC().Format(time.RFC3339Nano) != value {
 		return time.Time{}, fmt.Errorf("noncanonical timestamp")
 	}
 	return parsed.UTC(), nil

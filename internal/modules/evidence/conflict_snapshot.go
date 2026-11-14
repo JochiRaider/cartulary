@@ -4,7 +4,7 @@ import conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisio
 
 func newEvidenceConflictSnapshotProjector() conflicttokens.RevisionSnapshotProjector {
 	projector, err := conflicttokens.NewRevisionSnapshotProjector(
-		"cartulary.revisions.snapshot.evidence.v1",
+		"cartulary.revisions.snapshot.evidence.v2",
 		map[string]string{
 			"evidence.title":                "title",
 			"evidence.lifecycle_state":      "lifecycle_state",
@@ -16,6 +16,7 @@ func newEvidenceConflictSnapshotProjector() conflicttokens.RevisionSnapshotProje
 			"evidence.collector_party_id":   "collector_party_id",
 			"evidence.source_party_text":    "source_party_text",
 			"evidence.source_party_id":      "source_party_id",
+			"evidence.owner_user_id":        "owner_user_id",
 			"evidence.upload_state":         "upload_state",
 		},
 	)

@@ -15,6 +15,7 @@ import { changedTrackedWorkspace, restoreTrackedWorkspace, snapshotTrackedWorksp
 import { createValidatedContext, buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { captureFinalizationSubstep } from "../finalization/captured-substep.mjs";
 import { publishFinalizationFailure } from "../finalization/failure-publication.mjs";
+import { CommandFailure } from "../runtime/command-failure.mjs";
 import { assertRetainedFinalizerPreflight } from "./retained-finalizer-cases.mjs";
 
 await assertRetainedFinalizerPreflight();
@@ -188,8 +189,83 @@ try {
       assert.equal(fs.statSync(result.stderrLog).mode & 0o777, 0o600);
     }
     if (scenario === "cleanup-failure") assert.equal(result.failure.failure_reason, "cleanup_error");
-    if (scenario === "failure-and-cleanup") assert.equal(result.cleanupFailure.failure_reason, "cleanup_error");
+    if (scenario === "failure-and-cleanup") assert.deepEqual(result.failures.filter(failure => failure.failure_reason === "cleanup_error"), [{ failure_class: "harness", failure_reason: "cleanup_error", phase: "capture_release" }]);
     if (scenario === "capture-failure") assert.equal(result.failure.failure_reason, "artifact_error");
+  }
+  for (const [name, signal, nativeStatus, priorFailure, cleanupFails, throws, expectedStatus, expectedReason] of [
+    ["interrupt", "SIGINT", null, null, false, false, 130, "cancelled_or_interrupted"],
+    ["terminate", "SIGTERM", null, null, false, false, 143, "cancelled_or_interrupted"],
+    ["other-signal", "SIGKILL", null, null, false, false, 15, "cancelled_or_interrupted"],
+    ["interruption-and-cleanup", "SIGTERM", null, null, true, false, 143, "cancelled_or_interrupted"],
+    ["earlier-failure-and-signal", "SIGTERM", null, { failure_class: "config", failure_reason: "configuration_error" }, true, false, 2, "configuration_error"],
+    ["unclassified-exit143", null, 143, null, false, false, 143, null],
+    ["unclassified-exit143-and-cleanup", null, 143, null, true, false, 143, null],
+    ["prelaunch-cancellation", null, null, null, true, true, 15, "cancelled_or_interrupted"],
+  ]) {
+    const events = [];
+    const result = await captureFinalizationSubstep({
+      command: "fixture", args: [], repoRoot: root, runRoot: fixture, env: {},
+      logDirectory: path.join(fixture, name),
+    }, {
+      createLaunch: () => ({ settle: outcome => events.push(outcome) }),
+      createFailureContext: () => ({ environment: {}, read: () => priorFailure,
+        close() { events.push("context released"); if (cleanupFails) throw new Error("context release failed"); },
+      }),
+      capture: async () => {
+        if (throws) throw new CommandFailure("cancelled before launch", { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" });
+        return { status: nativeStatus, signal, stdout: "", stderr: "", cleanup() { events.push("capture released"); } };
+      },
+    });
+    assert.equal(result.status, expectedStatus, name);
+    assert.equal(result.failure?.failure_reason ?? null, expectedReason, name);
+    const cleanupFailures = result.failures.filter(failure => failure.failure_reason === "cleanup_error");
+    assert.deepEqual(cleanupFailures, cleanupFails ? [{ failure_class: "harness", failure_reason: "cleanup_error", phase: "context_release" }] : [], name);
+    assert.deepEqual(events.slice(0, -1), throws ? ["context released"] : ["capture released", "context released"], name);
+    assert.equal(events.at(-1), signal || expectedReason === "cancelled_or_interrupted" ? "cancelled" : "failed", name);
+    if (expectedReason) {
+      let published;
+      const status = publishFinalizationFailure(root, result.failures, (_root, failure) => { published = failure; return failure; }, { status: result.status });
+      assert.equal(published.failure_reason, expectedReason, name);
+      assert.equal(status, expectedStatus, `${name}: final publication preserves the substep exit`);
+    }
+  }
+  for (const [name, childFailure, signal, cleanupFails, expectedReason, expectedStatus] of [
+    ["publication-only", null, null, false, "artifact_error", 11],
+    ["configuration-and-publication", { failure_class: "config", failure_reason: "configuration_error" }, null, true, "configuration_error", 2],
+    ["product-and-publication", { failure_class: "product", failure_reason: "test_assertion_failure" }, null, false, "test_assertion_failure", 10],
+    ["interruption-and-publication", null, "SIGTERM", true, "artifact_error", 11],
+    ["artifact-and-publication", { failure_class: "artifact", failure_reason: "artifact_error" }, null, false, "artifact_error", 11],
+  ]) {
+    const logDirectory = path.join(fixture, name);
+    fs.writeFileSync(logDirectory, "block directory creation");
+    const releases = [];
+    const result = await captureFinalizationSubstep({
+      command: "fixture", args: [], repoRoot: root, runRoot: fixture, env: {}, logDirectory,
+    }, {
+      createLaunch: () => ({ settle: outcome => releases.push(outcome) }),
+      createFailureContext: () => ({ environment: {}, read: () => childFailure, close() {
+        releases.push("context_release"); if (cleanupFails) throw new Error("context failure");
+      } }),
+      capture: async () => ({ status: signal ? null : childFailure ? 1 : 0, signal,
+        stdout: "Authorization: Bearer fixture-private-token\n", stderr: "original diagnostic",
+        cleanup() { releases.push("capture_release"); if (cleanupFails) throw new Error("capture failure"); },
+      }),
+    });
+    const first = childFailure ? { ...childFailure, phase: "child" } : signal ? { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted", phase: "interruption" } : null;
+    assert.deepEqual(result.failures, [
+      ...(first ? [first] : []),
+      { failure_class: "artifact", failure_reason: "artifact_error", phase: "diagnostic_publication" },
+      ...(cleanupFails ? ["capture_release", "context_release"].map(phase => ({ failure_class: "harness", failure_reason: "cleanup_error", phase })) : []),
+    ], name);
+    assert.equal(result.failure.failure_reason, expectedReason, name);
+    assert.equal(result.status, expectedStatus, name);
+    assert.equal(publishFinalizationFailure(root, result.failures, (_root, failure) => failure, { status: result.status }), expectedStatus, name);
+    assert.deepEqual(releases, ["capture_release", "context_release", signal ? "cancelled" : "failed"], name);
+    assert.equal(result.stdoutLog, null, name);
+    assert.equal(result.stderrLog, null, name);
+    assert.equal(result.stderr, "original diagnostic\nfinalization diagnostic publication failed", name);
+    assert.ok(!JSON.stringify(result).includes("fixture-private-token"), name);
+    assert.equal(readFileSync(logDirectory, "utf8"), "block directory creation", name);
   }
 } finally {
   fs.readFileSync = originalRead; fs.lstatSync = originalStat; childProcess.spawnSync = originalSpawn;

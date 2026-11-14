@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { chmodSync, closeSync, lstatSync, linkSync, mkdtempSync, openSync, readFileSync, rmSync, symlinkSync, writeFileSync, writeSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { currentUnitEventSource, readMeasurementSchedulerEvidence } from "../frontend-measurement-evidence.mjs";
+import { currentUnitEventSource, readMeasurementSchedulerEvidence, readMeasurementSchedulerEvidenceForGroups } from "../frontend-measurement-evidence.mjs";
 import test from "node:test";
 const root = path.resolve(import.meta.dirname, "../../../..");
 test("scheduler evidence admits bounded private prefixes and rejects overlap and incomplete intervals", async (t) => {
@@ -113,6 +113,32 @@ test("scheduler evidence admits bounded private prefixes and rejects overlap and
         writeFileSync(overlapFile, `${overlapEvents.map((entry) => JSON.stringify(entry)).join("\n")}\n`);
         assert.equal((await readMeasurementSchedulerEvidence({ file: overlapFile }, measurementGroupResult))
             .overlap_count, 1, "ordinary work beginning inside a measurement session must disqualify it");
+        const secondGroup = { group_id: "measurement-second", stage_id: "measurement" };
+        const secondUnitID = "browser_group:measurement:measurement-second";
+        for (const scenario of [
+            { name: "already-running", groups: [measurementGroupResult], expected: [1], events: [
+                ["started", "row:ordinary"], ["started", measurementUnitID],
+                ["completed", "row:ordinary"], ["completed", measurementUnitID],
+            ] },
+            { name: "already-completed", groups: [measurementGroupResult], expected: [0], events: [
+                ["started", "row:ordinary"], ["completed", "row:ordinary"],
+                ["started", measurementUnitID], ["completed", measurementUnitID],
+            ] },
+            { name: "selected-groups-overlap", groups: [measurementGroupResult, secondGroup], expected: [1, 1], events: [
+                ["started", measurementUnitID], ["started", secondUnitID],
+                ["completed", measurementUnitID], ["completed", secondUnitID],
+            ] },
+        ]) {
+            const file = path.join(schedulerStreamRoot, `${scenario.name}.ndjson`);
+            const events = scenario.events.map(([event, unit_id], index) => ({
+                schema_id: "cartulary.harness_unit_event.v4", event, unit_id,
+                status: event === "started" ? "running" : "passed", seq: index + 1, monotonic_ms: index + 1,
+                resource_claims: {}, needs: [], service_dependencies: [],
+            }));
+            writeFileSync(file, `${events.map(event => JSON.stringify(event)).join("\n")}\n`);
+            const evidence = await readMeasurementSchedulerEvidenceForGroups({ file }, scenario.groups);
+            assert.deepEqual([...evidence.values()].map(group => group.overlap_count), scenario.expected, scenario.name);
+        }
         const incompleteFile = path.join(schedulerStreamRoot, "incomplete-events.ndjson");
         writeFileSync(incompleteFile, `${JSON.stringify(overlapEvents[0])}\n`);
         await assert.rejects(readMeasurementSchedulerEvidence({ file: incompleteFile }, measurementGroupResult), /lacks a closed scheduler interval/u, "incomplete scheduler proof must fail closed");

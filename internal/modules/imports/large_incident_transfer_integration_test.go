@@ -125,6 +125,7 @@ func TestLargeIncidentMemberTransfersThroughPublicOperations_Integration(t *test
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer content.Close()
 		assertBulkHash(t, content, size, digest)
 		content.Close()
 	}

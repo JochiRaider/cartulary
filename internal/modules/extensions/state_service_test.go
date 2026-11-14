@@ -126,18 +126,6 @@ INSERT INTO extension_state_metadata (
 	}
 }
 
-func TestStateRuntimeAdmit_ServiceBacked_AllowedEmptyRestart(t *testing.T) {
-	fixture := newNetworkFlowStateFixture(t, nil)
-	validationCalls := 0
-	runtime := newNetworkFlowStateRuntime(t, fixture.store, &validationCalls)
-	if err := runtime.Admit(context.Background(), fixture.plan); err != nil {
-		t.Fatalf("allowed-empty restart: %v", err)
-	}
-	if validationCalls != 1 {
-		t.Fatalf("final validation calls = %d, want 1", validationCalls)
-	}
-}
-
 func TestStateRuntimeAdmit_ServiceBacked_ForbiddenEmptyState(t *testing.T) {
 	fixture := newSyntheticStateFixture(t, nil)
 	plan := syntheticStatePlan(1)
@@ -392,13 +380,26 @@ func TestStateRuntimeAdmit_ServiceBacked_FinalValidationFailureResumable(t *test
 
 func TestStateRuntimeAdmit_ServiceBacked_AlreadyCurrentValidation(t *testing.T) {
 	fixture := newNetworkFlowStateFixture(t, nil)
+	initialCalls := 0
+	initial := newNetworkFlowStateRuntime(t, fixture.store, &initialCalls)
+	if err := initial.Admit(context.Background(), fixture.plan); err != nil || initialCalls != 1 {
+		t.Fatalf("initialize restart fixture: err=%v final_calls=%d", err, initialCalls)
+	}
+	before := readStateMetadata(t, fixture.pool, fixture.plan.ProfileID)
+	if before.StateVersion != fixture.plan.CurrentStateVersion || before.MetadataVersion != 1 || before.LastMigrationID != nil {
+		t.Fatalf("fixture is not already current: %#v", before)
+	}
 	validationCalls := 0
 	runtime := newNetworkFlowStateRuntime(t, fixture.store, &validationCalls)
 	if err := runtime.Admit(context.Background(), fixture.plan); err != nil {
-		t.Fatal(err)
+		t.Fatalf("allowed-empty current-state admission: %v", err)
 	}
 	if validationCalls != 1 {
 		t.Fatalf("validation calls = %d, want 1", validationCalls)
+	}
+	after := readStateMetadata(t, fixture.pool, fixture.plan.ProfileID)
+	if !equalJSONValue(after, before) || ledgerCount(t, fixture.pool, fixture.plan.ProfileID) != 0 {
+		t.Fatalf("current-state validation changed metadata or added a migration: before=%#v after=%#v", before, after)
 	}
 }
 
@@ -956,7 +957,7 @@ func standardSyntheticMigrations(t testing.TB, events *[]string) map[string]Stat
 	t.Helper()
 	return map[string]StateMigration{
 		"test_profile.apply_1_2_v1": func(ctx context.Context, invocation MigrationContext, capability StateWriteCapability) (MigrationApplyResult, error) {
-			if invocation.MigrationID != "test_profile.migrate_1_2_v1" || invocation.StateAccessCapabilityID != capability.CapabilityID() {
+			if invocation.MigrationID != "test_profile.migrate_1_2_v1" || invocation.StateAccessCapabilityID != capability.CapabilityID() || invocation.MetadataBeforeSHA256 != syntheticMetadataDigests[1] {
 				t.Fatalf("step 1 context = %#v", invocation)
 			}
 			if events != nil {
@@ -965,7 +966,7 @@ func standardSyntheticMigrations(t testing.TB, events *[]string) map[string]Stat
 			return readyMigration(), putSyntheticMember(ctx, capability, "step-1-2")
 		},
 		"test_profile.apply_2_3_v1": func(ctx context.Context, invocation MigrationContext, capability StateWriteCapability) (MigrationApplyResult, error) {
-			if invocation.MigrationID != "test_profile.migrate_2_3_v1" || invocation.StateAccessCapabilityID != capability.CapabilityID() {
+			if invocation.MigrationID != "test_profile.migrate_2_3_v1" || invocation.StateAccessCapabilityID != capability.CapabilityID() || invocation.MetadataBeforeSHA256 != syntheticMetadataDigests[2] {
 				t.Fatalf("step 2 context = %#v", invocation)
 			}
 			if events != nil {
@@ -984,7 +985,7 @@ func standardSyntheticPendingValidators() map[string]PendingStateValidator {
 }
 
 func validPendingValidator(_ context.Context, invocation MigrationValidationContext, reader StateReadCapability) (StateValidationResult, error) {
-	if invocation.StateAccessCapabilityID != reader.CapabilityID() || !sameTestStrings(invocation.StateFamilyIDs, reader.StateFamilyIDs()) {
+	if invocation.StateAccessCapabilityID != reader.CapabilityID() || !sameTestStrings(invocation.StateFamilyIDs, reader.StateFamilyIDs()) || invocation.MetadataBeforeSHA256 != syntheticMetadataDigests[invocation.FromStateVersion] {
 		return StateValidationResult{}, errors.New("pending validation capability mismatch")
 	}
 	return validMigrationValidationResult(), nil
@@ -996,7 +997,7 @@ func countingSyntheticFinalValidator(t testing.TB, calls *int, wantMembers int64
 		(*calls)++
 		if invocation.ReadOnlyStateAccessCapabilityID != reader.CapabilityID() ||
 			!sameTestStrings(invocation.StateFamilyIDs, []string{testStateFamilyID}) ||
-			invocation.StateMetadataSHA256 == "" {
+			invocation.StateMetadataSHA256 == "" || invocation.StateMetadataSHA256 != syntheticMetadataDigests[invocation.StateVersion] {
 			t.Fatalf("final validation context = %#v", invocation)
 		}
 		counts, err := reader.FamilyCounts(ctx, invocation.StateFamilyIDs)

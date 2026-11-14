@@ -18,6 +18,12 @@ import (
 )
 
 func TestMutationContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
+	missingReferences := completeMutationDependencies()
+	missingReferences.ReferenceTargets = nil
+	if facade, err := NewMutationContribution(compositionDB{}, conflicttokens.ConflictTokenCodec{}, missingReferences); err == nil || facade != nil || !strings.Contains(err.Error(), "Reference targets is required") {
+		t.Fatalf("missing reference capability facade=%#v error=%v", facade, err)
+	}
+
 	if _, err := NewMutationContribution(nil, conflicttokens.ConflictTokenCodec{}, MutationDependencies{}); err == nil || !strings.Contains(err.Error(), "Postgres is required") {
 		t.Fatalf("nil Postgres error = %v", err)
 	}
@@ -29,8 +35,11 @@ func TestMutationContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 	if _, err := NewMutationContribution(compositionDB{}, conflicttokens.ConflictTokenCodec{}, missingLinkFacts); err == nil || !strings.Contains(err.Error(), "Links facts is required") {
 		t.Fatalf("missing Links facts error = %v", err)
 	}
-	if _, err := NewIncidentBundleSourcePort(nil); err == nil || !strings.Contains(err.Error(), "Links facts are required") {
+	if _, err := NewIncidentBundleSourcePort(nil, nil, nil); err == nil || !strings.Contains(err.Error(), "Links facts are required") {
 		t.Fatalf("missing incident-bundle Links facts error = %v", err)
+	}
+	if port, err := NewIncidentBundleSourcePort(compositionOperations{}, nil, nil); err == nil || port != nil || !strings.Contains(err.Error(), "retained field references are required") {
+		t.Fatalf("missing retained binding reader port=%#v error=%v", port, err)
 	}
 }
 
@@ -89,6 +98,7 @@ func completeMutationDependencies() MutationDependencies {
 		IncidentState:        operations,
 		Idempotency:          compositionIdempotency{},
 		RecordEnvelopes:      records.NewStore(),
+		ReferenceTargets:     operations,
 		Links:                links.NewStore(),
 		LinkFacts:            operations,
 		Projections:          operations,
@@ -187,4 +197,11 @@ func (compositionOperations) AppendRecordChangedTx(context.Context, pgx.Tx, coll
 
 func (compositionOperations) LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]conflicttokens.RevisionWindowRow, error) {
 	return nil, nil
+}
+
+func (compositionOperations) LockEnvelopeFactTx(context.Context, pgx.Tx, uuid.UUID, string, bool) (EnvelopeFact, bool, error) {
+	return EnvelopeFact{}, false, errors.New("unexpected reference envelope lock")
+}
+func (compositionOperations) LockPartySourceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, bool) (bool, error) {
+	return false, errors.New("unexpected reference Party lock")
 }

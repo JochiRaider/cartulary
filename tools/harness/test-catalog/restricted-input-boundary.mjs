@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-import { validateSchemaSync } from "../contract/index.mjs";
+import { assertMachineEvidencePath, parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 
 const policySchemaID = "cartulary.executable_input_policy.v1";
 const policyPath = "tools/executable_input_policy.json";
@@ -21,7 +21,7 @@ function normalize(value) {
 }
 
 function readPolicy(root) {
-  const policy = JSON.parse(readFileSync(path.join(root, policyPath), "utf8"));
+  const policy = readExecutableRepositoryJSON(root, policyPath);
   validateSchemaSync(policySchemaID, policy);
   for (const key of [
     "restricted_roots",
@@ -38,6 +38,13 @@ function readPolicy(root) {
 
 export function restrictedExecutableInputRoots(root) {
   return [...readPolicy(root).restricted_roots];
+}
+
+// Lexical admission must precede every filesystem probe, including ancestors of
+// an explicitly requested file. Directory enumeration alone does not admit it.
+export function isDocumentationOnlyPath(relativePath, restrictedRoots) {
+  return restrictedRoots.some(root => relativePath === root || relativePath.startsWith(`${root}/`)) ||
+    relativePath.split("/").some(part => /\.(?:md|markdown)$/iu.test(part) || /^readme(?:\.|$)/iu.test(part));
 }
 
 // Git must prune human material before inspecting untracked directories. A
@@ -82,6 +89,16 @@ export function inspectExecutableRepositoryPath(root, relative) {
     if (index === segments.length - 1) return { absolute, stat };
     if (!stat.isDirectory()) throw new Error("executable input ancestor is not a directory (symbolic links are forbidden)");
   }
+}
+
+// Catalog metadata is executable input too. Apply the same component admission
+// before reading it, rather than trusting the realpath of a movable owner root.
+export function readExecutableRepositoryJSON(root, relative) {
+  const file = path.resolve(root, relative);
+  assertMachineEvidencePath(file);
+  const admitted = inspectExecutableRepositoryPath(root, relative);
+  if (!admitted?.stat.isFile()) throw new Error("executable metadata must reference a non-symlink regular file");
+  return parseStrictJSON(readFileSync(file, "utf8"), file);
 }
 
 function readExecutableSource(root, relative) {

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/envelopefacts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 )
@@ -36,7 +37,27 @@ SELECT record_id, incident_id, status, owner_user_id::text, decided_at
 `, recordID).Scan(&state.RecordID, &state.IncidentID, &state.Status, &state.OwnerUserID, &state.DecidedAt); err != nil {
 		return policy.DecisionMachineState{}, &Error{Operation: "load decision machine state", Err: err}
 	}
-	links, err := loadRecordLinkFactsTx(ctx, tx, facts, state.IncidentID, recordID)
+	return withActiveDecisionRelationsTx(ctx, tx, facts, state)
+}
+
+// LoadDecisionRestoreStateTx uses the coordinator-protected envelope and a
+// non-waiting typed source lock. Deleted peers retain their intrinsic state.
+func LoadDecisionRestoreStateTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, recordID, incidentID uuid.UUID) (policy.DecisionMachineState, bool, error) {
+	var state policy.DecisionMachineState
+	var deleted bool
+	err := tx.QueryRow(ctx, `SELECT d.record_id,d.incident_id,d.status,d.owner_user_id::text,d.decided_at,r.deleted_at IS NOT NULL
+FROM decisions d JOIN records r ON r.record_id=d.record_id AND r.incident_id=d.incident_id
+WHERE d.record_id=$1 AND d.incident_id=$2 AND r.record_type='decision'
+FOR UPDATE OF d NOWAIT`, recordID, incidentID).Scan(&state.RecordID, &state.IncidentID, &state.Status, &state.OwnerUserID, &state.DecidedAt, &deleted)
+	if err != nil {
+		return policy.DecisionMachineState{}, false, &Error{Operation: "load Decision restore state", Err: err}
+	}
+	state, err = withActiveDecisionRelationsTx(ctx, tx, facts, state)
+	return state, deleted, err
+}
+
+func withActiveDecisionRelationsTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, state policy.DecisionMachineState) (policy.DecisionMachineState, error) {
+	links, err := loadRecordLinkFactsTx(ctx, tx, facts, state.IncidentID, state.RecordID)
 	if err != nil {
 		return policy.DecisionMachineState{}, err
 	}
@@ -44,11 +65,11 @@ SELECT record_id, incident_id, status, owner_user_id::text, decided_at
 		if fact.LinkType != "supersedes" {
 			continue
 		}
-		if fact.DestinationRecordID == recordID {
+		if fact.DestinationRecordID == state.RecordID {
 			state.IncomingSupersedes++
 			state.IncomingSupersederID = minimumUUIDText(state.IncomingSupersederID, fact.SourceRecordID)
 		}
-		if fact.SourceRecordID == recordID {
+		if fact.SourceRecordID == state.RecordID {
 			state.OutgoingSupersedes++
 			state.OutgoingTargetID = minimumUUIDText(state.OutgoingTargetID, fact.DestinationRecordID)
 		}
@@ -56,22 +77,16 @@ SELECT record_id, incident_id, status, owner_user_id::text, decided_at
 	return state, nil
 }
 
-func EnvelopeValidTx(ctx context.Context, tx pgx.Tx, recordID, incidentID uuid.UUID, recordType string) (bool, error) {
-	var actualIncidentID uuid.UUID
-	var actualType string
-	var active bool
-	err := tx.QueryRow(ctx, `
-SELECT incident_id, record_type, deleted_at IS NULL
-  FROM records
- WHERE record_id = $1
-`, recordID).Scan(&actualIncidentID, &actualType, &active)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
+// PortableDecisionDeletedTx reads lifecycle only through the typed source's
+// same-incident envelope. Earlier portable phases still validate every source value.
+func PortableDecisionDeletedTx(ctx context.Context, tx pgx.Tx, recordID, incidentID uuid.UUID) (bool, error) {
+	var deleted bool
+	if err := tx.QueryRow(ctx, `SELECT r.deleted_at IS NOT NULL
+FROM decisions d JOIN records r ON r.record_id=d.record_id AND r.incident_id=d.incident_id
+WHERE d.record_id=$1 AND d.incident_id=$2 AND r.record_type='decision'`, recordID, incidentID).Scan(&deleted); err != nil {
+		return false, &Error{Operation: "load portable Decision lifecycle", Err: err}
 	}
-	if err != nil {
-		return false, &Error{Operation: "load portable envelope fact", Err: err}
-	}
-	return actualIncidentID == incidentID && actualType == recordType && active, nil
+	return deleted, nil
 }
 
 func SupersessionRelationsValidTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, recordID, incidentID uuid.UUID) (bool, error) {
@@ -94,40 +109,53 @@ func SupersessionRelationsValidTx(ctx context.Context, tx pgx.Tx, facts linkfact
 	return true, nil
 }
 
-func TargetValidTx(ctx context.Context, tx pgx.Tx, recordID, incidentID uuid.UUID, recordType string) (bool, error) {
+// PortableTaskReferenceTargetValidTx keeps deleted Task source portable without
+// admitting dangling or untyped targets. Live Tasks still require active targets.
+func PortableTaskReferenceTargetValidTx(ctx context.Context, tx pgx.Tx, taskID, targetID, incidentID uuid.UUID, recordType string) (bool, error) {
+	var query string
+	switch recordType {
+	case "party":
+		query = `SELECT EXISTS (
+            SELECT 1 FROM task_requests t
+            JOIN records task_record ON task_record.record_id=t.record_id AND task_record.incident_id=t.incident_id
+            JOIN records target ON target.record_id=$1 AND target.incident_id=t.incident_id
+            JOIN parties p ON p.record_id=target.record_id AND p.incident_id=target.incident_id
+            WHERE t.record_id=$3 AND t.incident_id=$2 AND task_record.record_type='task_request'
+              AND target.record_type='party' AND (task_record.deleted_at IS NOT NULL OR target.deleted_at IS NULL)
+        )`
+	case "decision":
+		query = `SELECT EXISTS (
+            SELECT 1 FROM task_requests t
+            JOIN records task_record ON task_record.record_id=t.record_id AND task_record.incident_id=t.incident_id
+            JOIN records target ON target.record_id=$1 AND target.incident_id=t.incident_id
+            JOIN decisions d ON d.record_id=target.record_id AND d.incident_id=target.incident_id
+            WHERE t.record_id=$3 AND t.incident_id=$2 AND task_record.record_type='task_request'
+              AND target.record_type='decision' AND (task_record.deleted_at IS NOT NULL OR target.deleted_at IS NULL)
+        )`
+	default:
+		return false, nil
+	}
 	var valid bool
-	err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1 FROM records
-     WHERE record_id = $1
-       AND incident_id = $2
-       AND record_type = $3
-       AND deleted_at IS NULL
-)
-`, recordID, incidentID, recordType).Scan(&valid)
-	if err != nil {
-		return false, &Error{Operation: "load target reference fact", Err: err}
+	if err := tx.QueryRow(ctx, query, targetID, incidentID, taskID).Scan(&valid); err != nil {
+		return false, &Error{Operation: "load portable Task reference fact", Err: err}
 	}
 	return valid, nil
 }
 
-func TaskDecisionFieldLinkValidTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, taskID, decisionID, incidentID uuid.UUID) (bool, error) {
-	links, err := loadRecordLinkFactsTx(ctx, tx, facts, incidentID, taskID)
+// TaskDecisionFieldLinkValidTx compares the nullable convenience scalar with
+// retained non-deleted owner-field bindings, independently of endpoint visibility.
+func TaskDecisionFieldLinkValidTx(ctx context.Context, tx pgx.Tx, facts linkfacts.FieldReferenceReader, taskID uuid.UUID, decisionID *uuid.UUID, incidentID uuid.UUID) (bool, error) {
+	if facts == nil {
+		return false, &Error{Operation: "load Task Decision bindings", Err: errors.New("retained field references are required")}
+	}
+	bindings, err := facts.LoadFieldReferencesTx(ctx, tx, incidentID, taskID, policy.TaskDecisionRecordField)
 	if err != nil {
-		return false, err
+		return false, &Error{Operation: "load Task Decision bindings", Err: err}
 	}
-	count := 0
-	var linkedTarget uuid.UUID
-	for _, fact := range links {
-		if fact.SourceRecordID == taskID && fact.HasFieldKey && fact.FieldKey == policy.TaskDecisionRecordField && fact.LinkType == "references_record" {
-			count++
-			linkedTarget = fact.DestinationRecordID
-		}
-	}
-	return count == 0 || (count == 1 && linkedTarget == decisionID), nil
+	return len(bindings) == 0 || (len(bindings) == 1 && decisionID != nil && bindings[0].LinkType == "references_record" && bindings[0].DestinationRecordID == *decisionID), nil
 }
 
-func OwnedLinksValidTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, sourceRecordID, incidentID uuid.UUID, recordType string) (bool, error) {
+func OwnedLinksValidTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capability, envelopes envelopefacts.Reader, sourceRecordID, incidentID uuid.UUID, recordType string) (bool, error) {
 	links, err := loadRecordLinkFactsTx(ctx, tx, facts, incidentID, sourceRecordID)
 	if err != nil {
 		return false, err
@@ -140,7 +168,7 @@ func OwnedLinksValidTx(ctx context.Context, tx pgx.Tx, facts linkfacts.Capabilit
 		if fact.LinkType != expectedType {
 			return false, nil
 		}
-		valid, err := ownedLinkEndpointsValidTx(ctx, tx, fact, incidentID, recordType)
+		valid, err := ownedLinkEndpointsValidTx(ctx, tx, envelopes, fact, incidentID, recordType)
 		if err != nil {
 			return false, err
 		}
@@ -217,25 +245,17 @@ func ownedLinkType(fact linkfacts.Fact) (string, bool) {
 	}
 }
 
-func ownedLinkEndpointsValidTx(ctx context.Context, tx pgx.Tx, fact linkfacts.Fact, incidentID uuid.UUID, recordType string) (bool, error) {
-	var sourceIncidentID, targetIncidentID uuid.UUID
-	var sourceType string
-	var sourceActive, targetActive bool
-	err := tx.QueryRow(ctx, `
-SELECT source_record.incident_id, source_record.record_type, source_record.deleted_at IS NULL,
-       target_record.incident_id, target_record.deleted_at IS NULL
-  FROM records source_record
-  JOIN records target_record ON target_record.record_id = $2
- WHERE source_record.record_id = $1
-`, fact.SourceRecordID, fact.DestinationRecordID).Scan(
-		&sourceIncidentID, &sourceType, &sourceActive, &targetIncidentID, &targetActive,
-	)
-	if errors.Is(err, pgx.ErrNoRows) {
+func ownedLinkEndpointsValidTx(ctx context.Context, tx pgx.Tx, envelopes envelopefacts.Reader, fact linkfacts.Fact, incidentID uuid.UUID, recordType string) (bool, error) {
+	source, found, err := envelopes.LoadEnvelopeFactTx(ctx, tx, fact.SourceRecordID)
+	if err != nil {
+		return false, &Error{Operation: fmt.Sprintf("load %s owned-link source fact", recordType), Err: err}
+	}
+	if !found || source.IncidentID != incidentID || source.RecordType != recordType || source.Deleted {
 		return false, nil
 	}
+	target, found, err := envelopes.LoadEnvelopeFactTx(ctx, tx, fact.DestinationRecordID)
 	if err != nil {
-		return false, &Error{Operation: fmt.Sprintf("load %s owned-link facts", recordType), Err: err}
+		return false, &Error{Operation: fmt.Sprintf("load %s owned-link target fact", recordType), Err: err}
 	}
-	return sourceIncidentID == incidentID && targetIncidentID == incidentID &&
-		sourceType == recordType && sourceActive && targetActive, nil
+	return found && target.IncidentID == incidentID && !target.Deleted, nil
 }

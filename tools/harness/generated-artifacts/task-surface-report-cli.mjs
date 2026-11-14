@@ -17,13 +17,7 @@ import {
 } from "./task-surface/index.mjs";
 import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
 
-const schedulerGrowthBudgets = Object.freeze({
-  manifestBytesPerWorkUnit: 1700,
-  ordinaryP95Bytes: 1500,
-  structurallyWideP95Bytes: 5000,
-  maximumBytes: 12 * 1024,
-  syntheticBytesPerWorkUnit: 1600,
-});
+import { collectSchedulerGrowth } from "./scheduler-growth.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -39,7 +33,6 @@ const manifestPath = resolvePath(
 const generatedMakePath = resolvePath(
   process.env.CARTULARY_TASK_SURFACE_GENERATED_MAKE ?? defaultGeneratedMakePath,
 );
-const schedulerManifestPath = resolvePath("tools/scheduler_manifest.json");
 
 const validTargetClasses = new Set(["public", "check_internal", "internal_helper"]);
 const validDefaultInclusionSets = new Set(["test", "check", "ci", "release-check", "helper_only"]);
@@ -74,7 +67,11 @@ function main() {
     recipeByTarget,
     targetScriptRefs,
   });
-  const schedulerGrowth = collectSchedulerGrowthMetrics(schedulerManifestPath);
+  // Invalid task inputs already fail the report. Do not compile unrelated
+  // canonical selections or claim structural measurements for that surface.
+  const schedulerGrowth = errors.length === 0
+    ? { status: "measured", ...collectSchedulerGrowth(repoRoot) }
+    : { status: "not_measured", reason: "invalid_task_surface", errors: [] };
   errors.push(...schedulerGrowth.errors);
   const report = buildReport({
     errors,
@@ -96,107 +93,6 @@ function main() {
   if (checkMode && errors.length > 0) {
     process.exit(1);
   }
-}
-
-function serializedBytes(value) {
-  return Buffer.byteLength(JSON.stringify(value), "utf8");
-}
-
-function collectSchedulerGrowthMetrics(file) {
-  const manifest = readJSON(file);
-  const workUnits = (manifest.schedules ?? []).flatMap((schedule) => schedule.work_units ?? []);
-  const serializedSizes = workUnits.map(serializedBytes).sort((left, right) => left - right);
-  const structurallyWideKinds = new Set([
-    "aggregate_finalize",
-    "browser_group",
-    "browser_stage_complete",
-  ]);
-  const ordinarySerializedSizes = workUnits
-    .filter((unit) => !structurallyWideKinds.has(unit.kind))
-    .map(serializedBytes)
-    .sort((left, right) => left - right);
-  const structurallyWideSerializedSizes = workUnits
-    .filter((unit) => structurallyWideKinds.has(unit.kind))
-    .map(serializedBytes)
-    .sort((left, right) => left - right);
-  const workUnitCount = serializedSizes.length;
-  const manifestBytes = statSync(file).size;
-  const p95 = (values) => values[Math.max(0, Math.ceil(values.length * 0.95) - 1)] ?? 0;
-  const syntheticUnit = {
-    target: "synthetic-growth-unit",
-    priority: 100,
-    weight_ms: 1000,
-    needs: [],
-    make_prerequisite_policy: "run",
-    resource_claims: { host_cpu: 1 },
-    make_jobs: "host_cpu",
-    command: { type: "make_target", target: "synthetic-growth-unit" },
-  };
-  const renderSynthetic = () =>
-    `${JSON.stringify(
-      {
-        work_units: Array.from({ length: 25 }, (_, index) => ({
-          ...syntheticUnit,
-          target: `${syntheticUnit.target}-${String(index + 1).padStart(2, "0")}`,
-          command: {
-            ...syntheticUnit.command,
-            target: `${syntheticUnit.target}-${String(index + 1).padStart(2, "0")}`,
-          },
-        })),
-      },
-      null,
-      2,
-    )}\n`;
-  const syntheticA = renderSynthetic();
-  const syntheticB = renderSynthetic();
-  const syntheticEmptyBytes = Buffer.byteLength(`${JSON.stringify({ work_units: [] }, null, 2)}\n`);
-  const metrics = {
-    manifest_bytes: manifestBytes,
-    work_unit_count: workUnitCount,
-    manifest_bytes_per_work_unit:
-      workUnitCount === 0 ? 0 : Math.ceil(manifestBytes / workUnitCount),
-    p95_serialized_work_unit_bytes: p95(serializedSizes),
-    ordinary_p95_serialized_work_unit_bytes: p95(ordinarySerializedSizes),
-    structurally_wide_p95_serialized_work_unit_bytes: p95(structurallyWideSerializedSizes),
-    max_serialized_work_unit_bytes: serializedSizes.at(-1) ?? 0,
-    synthetic_25_bytes_per_work_unit: Math.ceil(
-      (Buffer.byteLength(syntheticA) - syntheticEmptyBytes) / 25,
-    ),
-    scratch_generations_byte_identical: syntheticA === syntheticB,
-  };
-  const errors = [];
-  if (metrics.manifest_bytes_per_work_unit > schedulerGrowthBudgets.manifestBytesPerWorkUnit) {
-    errors.push(
-      `scheduler manifest exceeds ${schedulerGrowthBudgets.manifestBytesPerWorkUnit} bytes per work unit`,
-    );
-  }
-  if (metrics.ordinary_p95_serialized_work_unit_bytes > schedulerGrowthBudgets.ordinaryP95Bytes) {
-    errors.push(
-      `scheduler manifest ordinary-kind p95 serialized work unit exceeds ${schedulerGrowthBudgets.ordinaryP95Bytes} bytes`,
-    );
-  }
-  if (
-    metrics.structurally_wide_p95_serialized_work_unit_bytes >
-    schedulerGrowthBudgets.structurallyWideP95Bytes
-  ) {
-    errors.push(
-      `scheduler manifest structurally-wide p95 serialized work unit exceeds ${schedulerGrowthBudgets.structurallyWideP95Bytes} bytes`,
-    );
-  }
-  if (metrics.max_serialized_work_unit_bytes > schedulerGrowthBudgets.maximumBytes) {
-    errors.push("scheduler manifest maximum serialized work unit exceeds 12 KiB");
-  }
-  if (
-    metrics.synthetic_25_bytes_per_work_unit > schedulerGrowthBudgets.syntheticBytesPerWorkUnit
-  ) {
-    errors.push(
-      `25 synthetic ordinary scheduler work units exceed ${schedulerGrowthBudgets.syntheticBytesPerWorkUnit} bytes each`,
-    );
-  }
-  if (!metrics.scratch_generations_byte_identical) {
-    errors.push("two scratch scheduler generations are not byte-identical");
-  }
-  return { ...metrics, errors };
 }
 
 function resolvePath(value) {
@@ -598,7 +494,7 @@ function buildReport({
     });
 
   return {
-    schema_id: "cartulary.task_surface_report.v4",
+    schema_id: "cartulary.task_surface_report.v5",
     check_passed: errors.length === 0,
     errors,
     targets,
@@ -660,7 +556,7 @@ function printHumanReport(report, { allMode = false } = {}) {
   console.log("");
   console.log("scheduler growth:");
   for (const [metric, value] of Object.entries(report.scheduler_growth)) {
-    console.log(`  ${metric}: ${value}`);
+    console.log(`  ${metric}: ${typeof value === "object" ? JSON.stringify(value) : value}`);
   }
 
   console.log("");

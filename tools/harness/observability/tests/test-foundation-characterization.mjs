@@ -4,10 +4,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { canonicalTimingAccounting, projectResourcePressure, reduceCanonicalUnitIntervals } from "../../evidence-accounting/index.mjs";
-import { validateSchemaSync } from "../../contract/index.mjs";
+import { validateSchemaSync, redactString, redactValue } from "../../contract/index.mjs";
 import { resolveExactRunDir } from "../observability.mjs";
 import { deliver, headersFromFile, validatedEndpoint } from "../otel-export-cli.mjs";
 import { renderInstrumentationDefinitions } from "../../generated-artifacts/instrumentation-definitions.mjs";
+import { renderNativeRedactionPolicy } from "../../generated-artifacts/redaction-policy.mjs";
 import { readFileSync } from "node:fs";
 import { createResourceAccumulator } from "../resource-accumulator.mjs";
 import Ajv2020 from "ajv/dist/2020.js";
@@ -18,6 +19,24 @@ import { readExecutionIndex } from "../execution-reader.mjs";
 import { instrumentationPolicy } from "../instrumentation-policy.mjs";
 import { activityTiming, beginActivity } from "../../runtime/local-activity.mjs";
 
+
+test("URL redaction removes complete userinfo and preserves unrelated URL components", () => {
+  for (const [input, expected] of [
+    ["https://PrivateFixtureAlpha@example.test/path", "https://[REDACTED:dsn]@example.test/path"],
+    ["https://PrivateUser:PrivatePassword@example.test:443/path?q=1", "https://[REDACTED:dsn]@example.test:443/path?q=1"],
+    ["https://PrivateUser:@example.test", "https://[REDACTED:dsn]@example.test"],
+    ["https://Private%3AToken@example.test", "https://[REDACTED:dsn]@example.test"],
+    ["postgresql://PrivateUser:PrivatePassword@localhost/db", "postgresql://[REDACTED:dsn]@localhost/db"],
+    ["https://example.test/path@item?q=a@b#c@d", "https://example.test/path@item?q=a@b#c@d"],
+    ["https://example.test?q=a@b", "https://example.test?q=a@b"],
+    ["https://example.test#c@d", "https://example.test#c@d"],
+  ]) {
+    assert.equal(redactString(input), expected);
+    assert.equal(redactString(expected), expected);
+    assert.deepEqual(redactValue({ url: input, count: 1, available: true, absent: null }),
+      { url: expected, count: 1, available: true, absent: null });
+  }
+});
 
 test("local activities retain independent overlapping durations, unavailable clocks and incomplete ends", () => {
   const options = { repoRoot: ".", environment: {}, activity: "report_parse" };
@@ -214,12 +233,27 @@ test("generated definitions preserve acceptance and admit isolated ordinary exte
   assert.throws(() => renderInstrumentationDefinitions(duplicate), /duplicate/u);
 });
 
+test("native redaction generation rejects unavailable, partial and ambiguous policy", () => {
+  const policy = { schema_id: "cartulary.harness_redaction_manifest.v1", replacement: "[REDACTED]",
+    value_patterns: [{ name: "fixture", pattern: "(?i)fixture-secret", replacement: "[REDACTED]" }] };
+  assert.match(renderNativeRedactionPolicy(policy), /regexp\.MustCompile\("\(\?i\)fixture-secret"\)/u);
+  for (const mutate of [
+    () => null,
+    (p) => ({ ...p, schema_id: "foreign" }),
+    (p) => ({ ...p, replacement: "" }),
+    (p) => ({ ...p, value_patterns: [] }),
+    (p) => ({ ...p, value_patterns: [...p.value_patterns, p.value_patterns[0]] }),
+    (p) => { delete p.value_patterns[0].replacement; return p; },
+    (p) => { p.value_patterns[0].pattern = "["; return p; },
+  ]) assert.throws(() => renderNativeRedactionPolicy(mutate(structuredClone(policy))));
+});
+
 test("foundation generation compiles before publication and rolls back partial installation", async (t) => {
   const { chmodSync, cpSync, linkSync, mkdirSync, renameSync, statSync, symlinkSync } = await import("node:fs");
   const { generateFoundationArtifacts } = await import("../../generated-artifacts/generate-foundation-schema-validators.mjs");
   const { normalizeGeneratedSourceModes, publishGeneratedTransaction } = await import("../../generated-artifacts/generated-transaction.mjs");
   const root = temporary(t), repo = path.resolve(import.meta.dirname, "../../../..");
-  for (const relative of ["tools/schemas", "tools/harness_schema_attachments.json", "tools/harness_instrumentation_definitions.json", "tools/harness_lifecycle_policy.json", "tools/task_surface_owner.json", "internal/testutil/harnessdiag/testdata/schema-probes.json"]) {
+  for (const relative of ["tools/schemas", "tools/harness_schema_attachments.json", "tools/harness_instrumentation_definitions.json", "tools/harness_lifecycle_policy.json", "tools/harness_redaction_manifest.json", "tools/task_surface_owner.json", "internal/testutil/harnessdiag/testdata/schema-probes.json"]) {
     mkdirSync(path.dirname(path.join(root, relative)), { recursive: true });
     cpSync(path.join(repo, relative), path.join(root, relative), { recursive: true });
   }
@@ -247,6 +281,15 @@ test("foundation generation compiles before publication and rolls back partial i
   const humanRoot = ["do", "cs"].join("");
   assert.throws(() => normalizeGeneratedSourceModes(root, [`${humanRoot}/never-probe.json`]), /unsafe generated path/u);
   const before = readFileSync(shared);
+  const nativePolicy = path.join(root, "internal/platform/harnessredact/policy_generated.go");
+  const policyBefore = readFileSync(nativePolicy);
+  const policyFile = path.join(root, "tools/harness_redaction_manifest.json");
+  const policy = JSON.parse(readFileSync(policyFile));
+  writeFileSync(policyFile, JSON.stringify({ ...policy, value_patterns: [] }));
+  assert.throws(() => generateFoundationArtifacts(root), /invalid native redaction policy/u);
+  assert.deepEqual(readFileSync(nativePolicy), policyBefore);
+  assert.deepEqual(readFileSync(shared), before);
+  writeFileSync(policyFile, JSON.stringify(policy));
   const catalogFile = path.join(root, "tools/harness_instrumentation_definitions.json");
   const catalog = JSON.parse(readFileSync(catalogFile)); catalog.phases.push("synthetic_phase"); writeFileSync(catalogFile, JSON.stringify(catalog));
   // Catalog is valid, but a dependent foundation schema cannot compile.

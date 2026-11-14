@@ -369,6 +369,9 @@ func TestConflictResolveDurability_Integration(t *testing.T) {
 }
 
 func TestSourceOwnerConflictContributions_Integration(t *testing.T) {
+	t.Run("HostIdentity waits and prepares current identifiers", exerciseHostIdentityWaitingRebase)
+	t.Run("HostIdentity scalar rebase and resolution", exerciseHostIdentityScalarConflicts)
+	t.Run("HostIdentity envelope-backed patch and replay", exerciseHostIdentityEnvelopeConflict)
 	harness, login, _, incidentID := ConflictFixture(t, "workbook-source-owner-conflict-contributions", "IR-WORKBOOK-SOURCE-CONFLICTS")
 
 	party := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.parties.v1", map[string]any{

@@ -117,8 +117,8 @@ func canonicalArtifactCollectionPayload(payload collectionActionPayload) map[str
 		if action.Op == "add_token" && action.NormalizedText != "" {
 			entry["raw_text"] = action.NormalizedText
 		}
-		if action.Op == "add_risk_ref" && action.NormalizedText != "" {
-			entry["risk_ref_text"] = action.NormalizedText
+		if action.Op == "add_risk_ref" && action.RiskRefText != "" {
+			entry["risk_ref_text"] = action.RiskRefText
 		}
 		actions = append(actions, entry)
 	}

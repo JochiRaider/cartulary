@@ -57,7 +57,7 @@ type handleRecord struct {
 }
 
 func newAccessHandleService(pool dbport.DB) (*accessHandleService, error) {
-	if pool == nil {
+	if isNilCapability(pool) {
 		return nil, errors.New("compose Evidence access handles: Postgres is required")
 	}
 	return &accessHandleService{accessHandles: accessHandleRepository{db: pool}}, nil

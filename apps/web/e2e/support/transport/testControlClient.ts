@@ -33,10 +33,36 @@ function requireControlPath(path: string): string {
     );
   }
   const parsed = new URL(path, "https://cartulary.invalid");
-  if (parsed.origin !== "https://cartulary.invalid") {
+  if (
+    parsed.origin !== "https://cartulary.invalid" ||
+    !parsed.pathname.startsWith(testControlRoutePrefix) ||
+    `${parsed.pathname}${parsed.search}` !== path
+  ) {
     throw new Error(
-      "test-control path must be relative to the approved origin",
+      "test-control path must be canonical within the approved namespace",
     );
+  }
+  for (const segment of parsed.pathname
+    .slice(testControlRoutePrefix.length)
+    .split("/")) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      throw new Error("test-control path contains an invalid segment");
+    }
+    if (
+      !decoded ||
+      decoded === "." ||
+      decoded === ".." ||
+      /[\\/%]/u.test(decoded) ||
+      Array.from(decoded).some(
+        (character) =>
+          character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127,
+      )
+    ) {
+      throw new Error("test-control path contains an invalid segment");
+    }
   }
   return `${parsed.pathname}${parsed.search}`;
 }

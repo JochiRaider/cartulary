@@ -15,7 +15,7 @@ import (
 )
 
 func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
-	h, login, _, incidentID := ConflictFixture(t, "note-association-public-contract", "IR-NOTE-ASSOCIATION-API")
+	h, login, actorID, incidentID := ConflictFixture(t, "note-association-public-contract", "IR-NOTE-ASSOCIATION-API")
 	note := CreateNote(t, h, login, incidentID, "association-api-note", "Current note", "Body")
 	noteID := appsupport.MustUUID(t, note["record_id"].(string))
 	prefix := h.Server.HTTP.URL + "/api/v1/records/" + noteID.String()
@@ -158,5 +158,19 @@ func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
 	sources := get("?kind=source")["items"].([]any)
 	if len(sources) != 1 || sources[0].(map[string]any)["display_label"] != "Authored Timeline source" {
 		t.Fatalf("Timeline association must use its authored synopsis: %#v", sources)
+	}
+	// Canonical links survive counterpart deletion. They cannot manufacture a
+	// continuation when no eligible related Notes remain, even across windows.
+	for _, action := range actions {
+		if _, err := h.DB.ExecContext(context.Background(), `UPDATE records SET deleted_at=now(), deleted_by_user_id=$2 WHERE record_id=$1`, action["counterpart_record_id"], actorID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	terminal := httptestx.RequireSuccessEnvelope(t, request(http.MethodGet, route+"?kind=related_note&limit=1", nil), http.StatusOK)
+	if paging := terminal["meta"].(map[string]any)["paging"]; !reflect.DeepEqual(paging, map[string]any{"limit": float64(1), "has_more": false, "next_cursor": nil}) {
+		t.Fatalf("deleted-counterpart page metadata: %#v", paging)
+	}
+	if data := terminal["data"].(map[string]any); len(data["items"].([]any)) != 0 || data["next_cursor_token"] != nil {
+		t.Fatalf("deleted-counterpart page must be terminal: %#v", data)
 	}
 }

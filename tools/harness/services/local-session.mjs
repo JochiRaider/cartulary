@@ -16,15 +16,16 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-import { semanticJSONDigest, validateSchemaSync } from "../contract/index.mjs";
+import { assertMachineEvidencePath, semanticJSONDigest, validateSchemaSync } from "../contract/index.mjs";
 import { acquireHostAdmission, processIdentity, processIdentityAlive, hostClaims, hostAdmissionRoot, inheritedHostLease, transactAdmission } from "../runtime/host-admission.mjs";
 import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
 import { captureCapabilitySnapshot, resourceCapacities } from "../scheduler/work-graph/capability.mjs";
 import { parseStrictJSON } from "../contract/index.mjs";
-import { readLocalFile } from "../runtime/secure-local-files.mjs";
+import { atomicLocalFile, readLocalFile } from "../runtime/secure-local-files.mjs";
 import { recoverRuntime, borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
 
 const descriptorSchemaID = "cartulary.test_services.local_session.v3";
+const borrowerSchemaID = "cartulary.test_services.local_session_borrower.v2";
 const statusSchemaID = "cartulary.test_services.local_session_status.v1";
 const sessionDurationMS = 24 * 60 * 60 * 1000;
 export function attachedSelectionAllowed(target, inputs) {
@@ -74,6 +75,7 @@ function contained(parent, child) {
 }
 
 function assertNoSymlinkComponents(candidate) {
+  assertMachineEvidencePath(candidate);
   const resolved = path.resolve(candidate);
   const parsed = path.parse(resolved);
   let current = parsed.root;
@@ -112,6 +114,10 @@ function assertPrivateFile(file, label) {
   if (typeof process.getuid === "function" && info.uid !== process.getuid()) {
     throw new Error(`${label} must be owned by the current user`);
   }
+}
+
+function readPrivateJSON(file) {
+  return parseStrictJSON(readLocalFile(file, { maximum: 1048576 }).toString("utf8"), "local service session artifact");
 }
 
 function writePrivateJSON(file, value) {
@@ -257,7 +263,7 @@ export function resolveLocalSessionFile(environment = process.env) {
 function validateDescriptorSecurity(sessionFile, descriptor) {
   assertPrivateDirectory(path.dirname(sessionFile), "local service session directory");
   assertPrivateFile(sessionFile, "local service session descriptor");
-  validateSchemaSync(descriptor.schema_id, descriptor);
+  validateSchemaSync(descriptorSchemaID, descriptor);
   if (typeof process.getuid === "function" && descriptor.owner_uid !== process.getuid()) {
     throw new Error("local service session descriptor has the wrong owner UID");
   }
@@ -311,7 +317,7 @@ function validateDescriptorSecurity(sessionFile, descriptor) {
 export function readLocalSessionDescriptor(sessionFile) {
   assertPrivateDirectory(path.dirname(sessionFile), "local service session directory");
   assertPrivateFile(sessionFile, "local service session descriptor");
-  const descriptor = JSON.parse(readFileSync(sessionFile, "utf8"));
+  const descriptor = readPrivateJSON(sessionFile);
   return validateDescriptorSecurity(sessionFile, descriptor);
 }
 
@@ -319,25 +325,29 @@ function borrowerDirectory(descriptor) {
   return path.join(descriptor.state_root, "borrowers");
 }
 
-function processStartProof(pid = process.pid) {
-  try {
-    const raw = readFileSync(`/proc/${pid}/stat`, "utf8");
-    const close = raw.lastIndexOf(")");
-    const fields = raw.slice(close + 2).trim().split(/\s+/u);
-    return `linux-proc-start:${fields[19]}`;
-  } catch {
-    return `pid-only:${pid}`;
+function validateBorrower(borrower, descriptor) {
+  validateSchemaSync(borrowerSchemaID, borrower);
+  if (borrower.owner_uid !== process.getuid() || borrower.session_id !== descriptor.session_id) {
+    throw new Error("invalid borrower binding");
   }
+  return borrower;
 }
 
 function liveBorrower(record, dependencies) {
   if (dependencies.borrowerAlive) return dependencies.borrowerAlive(record);
   try {
-    process.kill(record.pid, 0);
-  } catch {
-    return false;
-  }
-  return processStartProof(record.pid) === record.process_start_proof;
+    const owner = processIdentity(record.pid);
+    return `linux-proc-start:${owner.start}` === record.process_start_proof && processIdentityAlive(owner);
+  } catch { return false; }
+}
+
+function detachBorrower(descriptor, borrower) {
+  validateBorrower(borrower, descriptor);
+  const file = path.join(borrowerDirectory(descriptor), `${borrower.borrower_id}.json`);
+  if (!existsSync(file)) return;
+  const retained = validateBorrower(readPrivateJSON(file), descriptor);
+  if (semanticJSONDigest(retained) !== semanticJSONDigest(borrower)) throw new Error("borrower was replaced");
+  rmSync(file, { force: false });
 }
 
 function borrowerRecords(descriptor) {
@@ -350,18 +360,8 @@ function borrowerRecords(descriptor) {
     .map((name) => {
       const file = path.join(directory, name);
       assertPrivateFile(file, "local service session borrower lease");
-      const value = JSON.parse(readFileSync(file, "utf8"));
-      if (
-        value.schema_id !== "cartulary.test_services.local_session_borrower.v1" ||
-        value.session_id !== descriptor.session_id ||
-        !identityPattern.test(value.borrower_id) ||
-        !identityPattern.test(value.run_id) ||
-        !Number.isInteger(value.pid) ||
-        value.pid < 1 ||
-        typeof value.process_start_proof !== "string"
-      ) {
-        throw new Error("local service session borrower lease is invalid");
-      }
+      const value = validateBorrower(readPrivateJSON(file), descriptor);
+      if (name !== `${value.borrower_id}.json`) throw new Error("borrower filename does not match its identity");
       return { file, value };
     });
 }
@@ -459,6 +459,7 @@ function withLifecycleLock(sessionFile, operation) {
 }
 
 export function localSessionStatus({ root, binary, sessionFile, dependencies = {} }) {
+  assertMachineEvidencePath(sessionFile);
   if (!existsSync(sessionFile)) {
     return statusValue(
       { state: "absent", compatible: false, reason: "descriptor_missing", services: [] },
@@ -560,10 +561,10 @@ export async function createLocalSession({ root, binary, sessionFile, environmen
       assertPrivateFile(envFile, "local service session environment staging file");
       assertPrivateFile(leaseFile, "local service session lease staging file");
       assertPrivateFile(resultFile, "local service session start-result staging file");
-      const suiteEnvironment = JSON.parse(readFileSync(envFile, "utf8"));
-      const serviceLease = JSON.parse(readFileSync(leaseFile, "utf8"));
-      const startResult = JSON.parse(readFileSync(resultFile, "utf8"));
-      validateSchemaSync(serviceLease.schema_id, serviceLease);
+      const suiteEnvironment = readPrivateJSON(envFile);
+      const serviceLease = readPrivateJSON(leaseFile);
+      const startResult = readPrivateJSON(resultFile);
+      validateSchemaSync("cartulary.test_services.lease.v3", serviceLease);
       validateSchemaSync("cartulary.test_services.start_result.v2", startResult);
       if (
         startResult.status !== "ready" ||
@@ -621,7 +622,7 @@ export async function createLocalSession({ root, binary, sessionFile, environmen
         service_lease: serviceLease,
         resident_allocation: reservation,
       };
-      validateSchemaSync(descriptor.schema_id, descriptor);
+      validateSchemaSync(descriptorSchemaID, descriptor);
       suiteRuntime.registerEnvironment(selectedEnvironment);
       for (const file of startResult.recovery_files) assertPrivateFile(file, "local service cleanup credential");
       suiteRuntime.record({ kind: "managed_suite", target: leaseFile, recovery_files: startResult.recovery_files });
@@ -696,15 +697,17 @@ export function attachLocalSession({
     const borrowerID = (dependencies.borrowerID?.() ?? randomUUID()).replaceAll("-", "");
     const borrowerFile = path.join(borrowers, `${borrowerID}.json`);
     const borrower = {
-      schema_id: "cartulary.test_services.local_session_borrower.v1",
+      schema_id: borrowerSchemaID,
       session_id: descriptor.session_id,
       borrower_id: borrowerID,
+      owner_uid: process.getuid(),
       run_id: runID,
       pid: borrowerOwner?.pid ?? process.pid,
-      process_start_proof: processStartProof(borrowerOwner?.pid),
+      process_start_proof: `linux-proc-start:${(borrowerOwner ?? processIdentity()).start}`,
       created_at: new Date().toISOString(),
     };
-    writePrivateJSON(borrowerFile, borrower);
+    validateBorrower(borrower, descriptor);
+    atomicLocalFile(borrowerFile, `${JSON.stringify(borrower)}\n`);
     const runSuiteID = createHash("sha256")
       .update(`${descriptor.session_id}\0${runID}`)
       .digest("hex")
@@ -720,7 +723,12 @@ export function attachLocalSession({
       CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: suiteRuntime.leaseID,
       CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID,
     };
-    suiteRuntime.registerEnvironment(environment);
+    try { suiteRuntime.registerEnvironment(environment); }
+    catch (error) {
+      try { detachBorrower(descriptor, borrower); }
+      catch (secondary) { (error.cleanupFailures ??= []).push(secondary); }
+      throw error;
+    }
     try { onContainerProof({ lease: descriptor.service_lease, ownership: "borrowed", borrower_file: borrowerFile, borrower_id: borrowerID }); } catch { /* Optional observation cannot change attachment. */ }
     let closed = false;
     return {
@@ -732,18 +740,9 @@ export function attachLocalSession({
       ownership: "borrowed",
       close() {
         if (closed) return;
-        try { onContainerProof(null); } catch { /* Observational revocation. */ }
+        detachLocalBorrower({ sessionFile, borrower });
         closed = true;
-        withLifecycleLock(sessionFile, () => {
-          const current = readLocalSessionDescriptor(sessionFile);
-          if (current.session_id !== descriptor.session_id) {
-            throw new Error("local service session changed before borrower detach");
-          }
-          if (existsSync(borrowerFile)) {
-            assertPrivateFile(borrowerFile, "local service session borrower lease");
-            rmSync(borrowerFile, { force: false });
-          }
-        });
+        try { onContainerProof(null); } catch { /* Observational revocation. */ }
       },
     };
   });
@@ -752,12 +751,7 @@ export function attachLocalSession({
 export function detachLocalBorrower({ sessionFile, borrower }) {
   return withLifecycleLock(sessionFile, () => {
     const current = readLocalSessionDescriptor(sessionFile);
-    if (borrower.schema_id !== "cartulary.test_services.local_session_borrower.v1" || current.session_id !== borrower.session_id || !/^[a-f0-9]{32}$/u.test(borrower.borrower_id)) throw new Error("invalid borrower binding");
-    const file = path.join(borrowerDirectory(current), `${borrower.borrower_id}.json`);
-    if (!existsSync(file)) return;
-    const retained = parseStrictJSON(readLocalFile(file,{maximum:1048576}).toString());
-    if (JSON.stringify(retained) !== JSON.stringify(borrower)) throw new Error("borrower was replaced");
-    rmSync(file,{force:false});
+    detachBorrower(current, borrower);
   });
 }
 

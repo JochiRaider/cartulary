@@ -2,6 +2,7 @@ package importassembly
 
 import (
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/app/tasksdecisionassembly"
 
 	"github.com/JochiRaider/cartulary/internal/gen/importtargetregistry"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
@@ -96,11 +97,12 @@ func NewOwnerCreateRegistry(
 	}
 
 	taskDecisionImportDependencies := tasksdecisions.ImportDependencies{
-		RecordEnvelopes: records.NewStore(),
-		Links:           links.NewStore(),
-		Projections:     dependencies.TaskDecisionProjections,
-		Revisions:       dependencies.RevisionAppender,
-		Collaboration:   dependencies.Collaboration,
+		ReferenceTargets: tasksdecisionassembly.NewReferenceTargetCapability(),
+		RecordEnvelopes:  records.NewStore(),
+		Links:            links.NewStore(),
+		Projections:      dependencies.TaskDecisionProjections,
+		Revisions:        dependencies.RevisionAppender,
+		Collaboration:    dependencies.Collaboration,
 	}
 	artifactImportDependencies := artifacts.ImportDependencies{
 		RecordEnvelopes: artifactRecordInserter{store: records.NewStore()},

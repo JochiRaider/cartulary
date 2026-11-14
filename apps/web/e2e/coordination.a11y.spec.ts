@@ -40,7 +40,7 @@ import { expect, test } from "./fixtures";
 import { expectAllInteractiveControlsNamed } from "./support/accessibility/assertions";
 import { expectVisibleSemanticGridCellFocus } from "./support/accessibility/grid";
 import {
-  expectNoFocusTrap,
+  expectInitialTabRoundTrip,
   expectTabTraversalAdvancesFrom,
   expectVisibleFocus,
 } from "./support/accessibility/keyboard";
@@ -444,7 +444,7 @@ test("a11y.coordination-review.row-01 Verify coordination surfaces and full keyb
     });
 
   await expectAllInteractiveControlsNamed(page);
-  await expectNoFocusTrap(page);
+  await expectInitialTabRoundTrip(page);
   await openFilterPopover(page, taskRequestsViewSchemaId);
   await expectAndRecordContrast(
     page,

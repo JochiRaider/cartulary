@@ -39,6 +39,14 @@ func publicationFixture(t *testing.T) (*diskPublisher, Locator) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		// Fault cases deliberately retain recovery state; always release our
+		// handles even when that state prevents ordinary closure.
+		_ = runtime.Close()
+		if err := runtime.ReleaseHandles(); err != nil {
+			t.Error(err)
+		}
+	})
 	id := "uireview-" + nonce(16)
 	socket := filepath.Join(registryRoot(), strings.TrimPrefix(id, "uireview-")+".sock")
 	if err = os.MkdirAll(registryRoot(), 0700); err != nil {
@@ -49,6 +57,14 @@ func publicationFixture(t *testing.T) (*diskPublisher, Locator) {
 		t.Fatal(err)
 	}
 	listener.SetUnlinkOnClose(false)
+	t.Cleanup(func() {
+		if err := listener.Close(); err != nil {
+			t.Error(err)
+		}
+		if err := os.Remove(socket); err != nil && !errors.Is(err, os.ErrNotExist) {
+			t.Error(err)
+		}
+	})
 	if err = os.Chmod(socket, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -66,11 +82,11 @@ func publicationFixture(t *testing.T) (*diskPublisher, Locator) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		listener.Close()
-		os.Remove(socket)
-		os.Remove(registryPath(id))
-		_ = runtime.Close()
-		runtime.ReleaseHandles()
+		for _, path := range []string{registryPath(id), registryPath(id) + ".lock"} {
+			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				t.Error(err)
+			}
+		}
 	})
 	p := &diskPublisher{runtime: runtime, record: record, runRoot: run}
 	l := Locator{Schema: "cartulary.ui_review_session.v1", Session: id, RunID: "fixture", Mode: "artifacts", State: "ready", Created: timestamp(time.Now()), Updated: timestamp(time.Now())}

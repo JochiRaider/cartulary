@@ -35,6 +35,13 @@ func TestArtifactStoredIdempotencyPayloadCompatibility(t *testing.T) {
 		"row": map[string]any{
 			"record_id":   recordID.String(),
 			"row_version": float64(4),
+			"cells": map[string]any{
+				"note.title": map[string]any{"value": "Retained title"},
+				"note.tags": map[string]any{"value": map[string]any{
+					"kind": "collection_value_v1", "ordered": false,
+					"items": []any{map[string]any{"item_ref": "synthetic-tag", "display_text": "Retained tag"}},
+				}},
+			},
 		},
 	}
 	tests := []struct {
@@ -83,12 +90,53 @@ func TestArtifactStoredIdempotencyPayloadCompatibility(t *testing.T) {
 				t.Fatalf("complete stored result = %#v, %v", stored, ok)
 			}
 			stored.Row["mutated"] = true
+			cells := stored.Row["cells"].(map[string]any)
+			cells["note.title"].(map[string]any)["value"] = "Changed title"
+			items := cells["note.tags"].(map[string]any)["value"].(map[string]any)["items"].([]any)
+			items[0].(map[string]any)["display_text"] = "Changed tag"
+			items[0] = nil
 			again, _ := decoded.Payload()
 			if _, leaked := again.Row["mutated"]; leaked {
 				t.Fatal("stored result payload exposed mutable row state")
 			}
+			if !reflect.DeepEqual(again.Row, payload["row"]) {
+				t.Fatalf("stored result exposed nested row state: %#v", again.Row)
+			}
 		})
 	}
+	t.Run("constructors isolate input and returned typed collections", func(t *testing.T) {
+		for name, construct := range map[string]func(artifacts.StoredMutationPayload) artifacts.StoredMutationResult{
+			"create":       artifacts.NewStoredCreateResult,
+			"patch":        artifacts.NewStoredPatchResult,
+			"linked note":  artifacts.NewStoredLinkedNoteResult,
+			"associations": artifacts.NewStoredNoteAssociationResult,
+		} {
+			t.Run(name, func(t *testing.T) {
+				items := []map[string]any{{"display_text": "Original"}}
+				row := map[string]any{"cells": map[string]any{"items": items}, "row_version": int64(4)}
+				input := artifacts.StoredMutationPayload{ViewSchemaID: artifacts.NotesViewSchemaID, IncidentID: incidentID, RecordID: recordID, RowVersion: 4, ChangeSetID: &changeSetID, Row: row}
+				if name == "linked note" {
+					input.ContextualLink = &artifacts.ContextualLink{SourceRecordID: sourceRecordID, LinkType: "references_artifact"}
+				}
+				result := construct(input)
+				items[0]["display_text"] = "Changed input"
+				items[0] = nil
+				row["cells"] = nil
+				want := map[string]any{"cells": map[string]any{"items": []map[string]any{{"display_text": "Original"}}}, "row_version": int64(4)}
+				stored, ok := result.Payload()
+				if !ok || !reflect.DeepEqual(stored.Row, want) {
+					t.Fatalf("constructor retained caller state: %#v, %v", stored.Row, ok)
+				}
+				returned := stored.Row["cells"].(map[string]any)["items"].([]map[string]any)
+				returned[0]["display_text"] = "Changed output"
+				returned[0] = nil
+				again, ok := result.Payload()
+				if !ok || !reflect.DeepEqual(again.Row, want) {
+					t.Fatalf("payload exposed typed collection state: %#v, %v", again.Row, ok)
+				}
+			})
+		}
+	})
 
 	t.Run("malformed incomplete and wrong-kind payloads fail closed", func(t *testing.T) {
 		invalid := []struct {

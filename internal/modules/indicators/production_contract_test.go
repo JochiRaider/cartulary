@@ -146,6 +146,30 @@ func TestIndicatorLifecycleVocabulary(t *testing.T) {
 			t.Fatalf("owner support-reference order = %v", params.SupportRefs)
 		}
 	})
+	for _, value := range []*string{nil, stringPointer(""), stringPointer(" \t"), stringPointer("réviewed")} {
+		params := validLifecycleContractParams("active")
+		params.Rationale, params.Assessor = value, value
+		want := ""
+		if value != nil {
+			want = *value
+		}
+		if err := normalizeLifecycleAppendParams(&params); err != nil || params.Rationale != value || params.Assessor != value || value != nil && *value != want {
+			t.Fatalf("nullable interval text changed or rejected: value=%v err=%v", value, err)
+		}
+	}
+	for _, field := range []string{"rationale", "assessor"} {
+		for _, text := range []string{"bad\x00text", string([]byte{255})} {
+			params := validLifecycleContractParams("active")
+			if field == "rationale" {
+				params.Rationale = &text
+			} else {
+				params.Assessor = &text
+			}
+			if err := normalizeLifecycleAppendParams(&params); !errors.Is(err, ErrInvalidCreateRequest) {
+				t.Fatalf("invalid %s text accepted: %v", field, err)
+			}
+		}
+	}
 	for _, state := range []string{"active", "benign", "false_positive", "retired"} {
 		state := state
 		t.Run("accept/"+state, func(t *testing.T) {

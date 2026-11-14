@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -198,7 +196,7 @@ func TestLoginRequestShape_Unit(t *testing.T) {
 				t.Fatal("malformed login request must not create sessions")
 				return authn.SessionRecord{}, nil, nil
 			},
-			issueBootstrapTokenFunc: func(context.Context, uuid.UUID, []byte, time.Time) (authn.BootstrapTokenRecord, error) {
+			issueBootstrapTokenFunc: func(context.Context, authn.UserRecord, []byte, time.Time) (authn.BootstrapTokenRecord, error) {
 				storeCalls++
 				t.Fatal("malformed login request must not issue bootstrap tokens")
 				return authn.BootstrapTokenRecord{}, nil

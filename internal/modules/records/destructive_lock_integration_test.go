@@ -42,6 +42,10 @@ INSERT INTO records (
 		}
 	}
 
+	t.Run("shared non-waiting envelope port", func(t *testing.T) {
+		exerciseSharedEnvelopeLock(t, lockHolder, contender, incidentID, lowerRecordID, actorID, now)
+	})
+
 	holderTx, err := lockHolder.Begin(ctx)
 	if err != nil {
 		t.Fatalf("begin lock holder transaction: %v", err)

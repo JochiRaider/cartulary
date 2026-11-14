@@ -351,6 +351,22 @@ func decodeContract(data []byte) (any, error) {
 	return canonicaljson.DecodeStrict(data)
 }
 
+func decodeStrictContractFile(path string, destination any) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	if _, err := decodeContract(raw); err != nil {
+		return fmt.Errorf("decode %s: %w", path, err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return fmt.Errorf("decode %s: invalid typed contract shape", path)
+	}
+	return nil
+}
+
 func canonicalizeDecoded(normalized any) (string, error) {
 	canonicalJSON, err := json.Marshal(normalized)
 	if err != nil {

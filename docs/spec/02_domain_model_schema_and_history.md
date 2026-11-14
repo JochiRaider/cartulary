@@ -320,6 +320,46 @@ Verified by: AC-231, AC-406
 
 **REQ-02-025A**
 A `timeline_event` MUST persist the ten Timeline v2 visible operational fields from Core 01 §7.4.1 as structured state, not only in `custom_attrs`, source-provenance rows, JSONB extension payloads, projection-only columns, or label-derived mappings. The fields are `date_entered_text`, `analyst_text`, `mitre_stage_text`, `device_object_text`, `ip_address_text`, `activity_utc_text`, `activity_local_text`, `raw_activity_text`, `activity_synopsis_text`, and `data_source_text`. Derived MITRE, entity, indicator, tag, evidence, conversion, or link records MUST NOT overwrite these source-preserved text fields.
+
+A Timeline mutation that requires both its Records envelope and typed source row
+MUST acquire the envelope lock before the typed-row lock in the same borrowed
+transaction. A coordinator protecting several existing Timeline envelopes MUST
+acquire that envelope set in canonical record-ID order before locking their typed
+rows. Single-row and coordinated mutations MUST use this same relative order.
+After waiting, admission MUST use the current envelope and typed source, including
+current incident, deletion, version and capture state. This rule does not require
+a source-only provenance append to acquire an envelope it does not otherwise use;
+it MUST NOT subsequently acquire one in the reverse order. Exact committed replay
+retains its precedence over fresh mutation admission.
+A standalone interactive Timeline create MUST prepare the complete set of existing
+reference envelopes before its first reference admission or mutation. The set is
+the union of explicit Host/Identity targets, attached Evidence additions, and
+initially unique automatic-resolution candidates across both Mention fields. It
+MUST acquire this deduplicated set through Records-owned `FOR NO KEY UPDATE` locks
+in canonical record-ID order. Preparation MUST NOT reorder action validation,
+collection mutation, or history emission, and a lock alone MUST NOT admit an
+ineligible reference. The new source identity is private to the creating transaction
+and is not an existing reference endpoint in this preparation set.
+Ordinary and applied-conflict Timeline patches, coordinated clipboard/bulk writes,
+and direct Entity Mention lifecycle actions MUST use the same complete-set order.
+Their prepared set MUST also include all existing source envelopes, current previous
+resolved targets of addressed Mentions, and attached Evidence removal targets.
+A coordinated write MUST prepare the union across all its rows before acquiring
+any typed source or Mention lock. Locks acquired for preparation MUST NOT be
+upgraded to envelope `FOR UPDATE` locks; non-key source changes use the retained
+`FOR NO KEY UPDATE` protection. Preparation MUST NOT substitute for ordinary
+current-state, authorization, transition or target validation.
+Timeline supersession with an explicit replacement MUST prepare the union of
+the superseded source and replacement envelopes in this same canonical non-key
+order before locking either typed source. Both identities are request-defined;
+replacement eligibility MUST use its current protected state after waiting.
+Read-only discovery of source/reference facts is provisional. After acquiring the
+set, the coordinator MUST verify that the source or Mention version governing that
+discovery remains current. If it changed, the coordinator MUST roll back that
+attempt before preparing again; it MUST NOT acquire an undiscovered target while
+retaining the old set. This retry is limited to preparation-version change, MUST
+obey caller cancellation, and MUST preserve the request's initial automatic-match
+decisions. Ordinary failures and completed writes MUST NOT be retried by this rule.
 Profiles: base
 Verified by: AC-444, AC-448, AC-452
 
@@ -603,7 +643,7 @@ Verified by: AC-022, AC-028, AC-186, AC-187, AC-231, AC-279
 **REQ-02-062**
 Only non-authoritative candidate mechanisms are suggestion inputs. Exact matches on `suggestion_only` aliases and fuzzy or trigram matches MAY be surfaced as suggestions. They MUST NOT:
 
-- auto-resolve mentions,
+- auto-resolve mentions, except when exact alias equality satisfies the interactive auto-resolution policy owned by Core 03 §12,
 - auto-create stubs,
 - auto-merge entities,
 - auto-create parties,
@@ -781,6 +821,14 @@ the loser's active claims, apply survivor promotion and carry-forward, and
 mark the loser merged in one deterministic effect sequence. Planning MUST NOT
 insert preserved identifiers, mutate canonical fields, or otherwise rely on
 effects that occur before the lock set is complete.
+Claim preparation MUST retain the normalized union discovered for both sources.
+After destructive record protection and current source/base-version admission,
+Merge MUST compare that union with the current source-owned normalized union.
+If it changed while claim protection was being acquired, Merge MUST reject with
+`merge_precondition_failed`, `reason_code=protected_set_changed`, before effects
+or disclosure of a prepared semantic collision. It MUST NOT acquire additional
+claim locks while holding the protected source rows. A fresh attempt may prepare
+the new complete set; a rejected attempt MUST NOT consume its transaction identity.
 Profiles: base
 Verified by: AC-023, AC-186, AC-187, AC-209, AC-231, AC-559
 
@@ -915,7 +963,83 @@ Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-
 **REQ-02-260**
 `indicator_observation` and `indicator_state_interval` mutation targets MUST participate in row-centric history and rollback without becoming first-class record envelopes. An observation mutation MUST be visible from its `source_record_id` and from every canonical `indicator` record referenced by its reversible before or after value. An interval mutation MUST be visible from its `indicator_record_id`.
 
-Rollback of an observation resolution MUST restore the exact prior resolution state and attribution values. Rollback of an observation or interval creation MUST retain the source row and mark it inactive through paired nullable `deleted_at` and `deleted_by_user_id` tombstone state; it MUST NOT hard-delete the row or rewrite its semantic source fields. Active owner reads, matching, aggregates, and projections MUST exclude tombstoned observation and interval rows, while retained history and incident portability MUST preserve them. Missing tombstone members in retained pre-migration mutation values mean the retained row was active.
+Rollback of an observation resolution MUST restore the exact prior resolution state and attribution values. Rollback of an observation or interval creation MUST retain the source row and mark it inactive through paired nullable `deleted_at` and `deleted_by_user_id` tombstone state; it MUST NOT hard-delete the row or rewrite its semantic source fields. Active owner reads, matching, aggregates, and projections MUST exclude tombstoned observation and interval rows, while retained history and incident portability MUST preserve them. Current retained Observation and interval history requires explicit tombstone members; no missing-member compatibility default remains.
+
+Current `indicator_observation` retained history has exactly nineteen required
+members: `indicator_observation_id`, `incident_id`, `source_record_id`,
+`source_field_key`, `origin_kind`, `origin_locator`, `observed_text`,
+`parsed_indicator_type`, `normalized_candidate`, `resolution_status`,
+`resolved_indicator_record_id`, `row_version`, `created_by_user_id`, `created_at`,
+`resolved_by_user_id`, `resolved_at`, `resolution_method`, `deleted_at`, and
+`deleted_by_user_id`. UUIDs are canonical lowercase nonzero strings. Text is
+valid UTF-8 without NUL; source field, locator and observed text are non-empty
+and preserved exactly. Origin, parsed type and resolution status use the exact
+owner vocabularies. Parsed type and candidate may be null; a populated candidate
+is non-empty and requires a populated parsed type. The complete resolution tuple
+is null for `unresolved`; `resolved` has target, actor, clock and non-empty method;
+`dismissed` has actor, clock and non-empty method but null target. Paired deletion
+members are both null or both populated. Resolution is not before creation, and
+deletion is not before creation or resolution. Retained clocks use canonical UTC
+RFC3339Nano with `Z`, years 1 through 9999, at most six fractional digits. Version
+is a canonical positive signed-64-bit integer, without floating-point coercion.
+
+The sole Observation target identifier is its bare physical UUID and matches
+both retained sides. `create` has null before and complete active after at
+version1 in `unresolved` or `resolved` state. `resolve`, `dismiss`, and `restore`
+retain complete active before/after values, implement exactly REQ-02-264 and
+increment version by one without overflow. Only the resolution tuple and version
+may change. `rollback` has complete active before and either a tombstoned after
+for creation reversal (only paired deletion fields and version change), or a
+complete active after with a different resolution tuple for exact prior-state
+restoration (only that tuple and version change). Every non-create pair preserves
+physical identity, incident, source binding, raw provenance, parse metadata and
+creation attribution exactly. No-op, partial, inferred, alternate-target or
+alternate-operation mutations are invalid. All ordinary/inverse writers share
+the typed owner encoder and capture actual stored clocks and exact integers.
+Indicators contributes a required pure Observation history validator to generic
+Revisions admission. Pre-production history lacking this complete shape requires
+reset; there is no legacy missing-tombstone or partial-value reader.
+
+Current `indicator_state_interval` retained history has exactly sixteen required
+members: `indicator_state_interval_id`, `incident_id`, `indicator_record_id`,
+`lifecycle_state`, `valid_from`, `valid_to`, `confidence`, `rationale`,
+`support_refs`, `assessor`, `assessed_at`, `row_version`, `created_by_user_id`,
+`created_at`, `deleted_at`, and `deleted_by_user_id`. Only `valid_to`,
+`confidence`, `rationale`, `assessor`, and the paired deletion members may be
+null. UUIDs are canonical lowercase nonzero UUID strings. Text is valid UTF-8
+without NUL; nullable rationale and assessor preserve even empty text. Lifecycle
+state uses REQ-02-263. Support references are an ordered array of unique canonical
+UUID strings, including an explicit empty array. Confidence is a canonical
+integer from 0 through 100. Row version is a canonical positive signed-64-bit
+integer; floating-point approximations are not admitted. Retained clocks use
+canonical UTC RFC3339Nano with `Z`, years 1 through 9999, and at most six
+fractional digits. `valid_to` is not before `valid_from`; deletion is not before
+creation. Assessment, validity and creation retain their separate meanings.
+
+The sole target identifier is the bare physical interval UUID and matches each
+retained side. `create` has null before and complete active after at version1.
+`rollback` of creation has complete active before and tombstoned after, changes
+only the paired deletion fields and increments version by exactly one without
+overflow. All other fields, including support-reference order and creation facts,
+are immutable across this pair. No-op, partial, inferred, alternate-operation
+or alternate-target forms are invalid. Ordinary and inverse writers share the
+complete typed owner encoder and preserve actual stored clocks and exact
+integers. Indicators contributes a required pure interval history validator to
+the generic Revisions catalog. Pre-production interval history lacking this
+shape requires reset; no missing-member defaults or compatibility reader remain.
+
+Before applying a supported Observation or interval inverse, Indicators MUST
+compare the complete authoritative current child value with the complete retained
+`after_value` through its typed owner codec. Equality includes raw provenance,
+parse metadata, lifecycle and validity facts, ordered support references,
+assessment and creation attribution, version, resolution and tombstone state.
+Checking only identity, version, resolution or deletion status is insufficient.
+A well-formed current value that differs MUST fail with
+`rollback_precondition_failed` and reason `stale_target`, without committing
+source, history, idempotency, projection or publication effects. This check is
+part of authoritative revalidation after the full protected set is locked and
+is repeated immediately before inverse application. It does not expand the
+supported inverse operations or replace generic later-mutation checks.
 
 The protected set for one of these rollback targets MUST contain every first-class record whose authoritative state or derived workbook projection changes. Successful rollback MUST advance each affected record envelope, append inverse target-level history and record revisions, rebuild affected projections, and use ordinary `record_changed` publication. For observation effects, the exact source `source_field_key` and the affected Indicator derived field keys are the owner-defined changed-field effects. For interval effects, `indicator.lifecycle_summary` is the owner-defined changed-field effect.
 Profiles: base, incident_portability
@@ -940,6 +1064,11 @@ first-class record UUIDs as `support_refs`, nullable assessor text, and
 server-owned actor and creation/assessment time. Repeated support UUIDs are
 invalid rather than silently deduplicated. Appending an interval does not
 overwrite or close an earlier interval implicitly.
+
+Nullable rationale and assessor text MUST preserve null, empty, whitespace-only
+and populated values distinctly through ordinary admission, storage, responses,
+history and portability. Populated text MUST be valid UTF-8 without NUL; neither
+field is required to contain a non-whitespace or non-empty value.
 Profiles: base, incident_portability
 Verified by: AC-532, AC-533
 
@@ -999,6 +1128,26 @@ Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-
 
 **REQ-02-083**
 Compromise state MUST be modeled as incident-scoped assessment history attached to a host or identity rather than as a static property on the entity.
+
+Fresh Assessment creation MUST admit the union of its subject and initial
+support references through Records-owned transaction-scoped `FOR NO KEY UPDATE`
+envelope locks in canonical record-identity order, held through completion.
+Admission precedes assessor validation and any Assessment or relation creation.
+After any wait, the subject MUST be a non-deleted same-incident Host or Identity
+of the requested type whose typed source remains in `stub` or `canonical` state.
+Current typed eligibility MUST be evaluated after the envelope locks, following
+the source writer/merge lock order. Every support reference MUST be present,
+non-deleted and same-incident in the admitted set; a previously missing reference
+MUST NOT become eligible through an unlocked later read. A later projection or
+Link lock is not reference admission. Subject validation precedes support
+validation, which precedes assessor validation. Invalid references retain
+`invalid_mutation_payload` with field `assessment.subject_ref` or
+`assessment.support_refs`, respectively, and reason `invalid_value`, with no
+partial source, relation, history, projection, publication or receipt effect.
+Exact committed replay precedes fresh reference admission, including after
+subject deletion or merge or support deletion. Failed admission consumes no
+request identity. This does not reinterpret retained Assessment history or
+change merge's required repoint behavior.
 Profiles: base
 Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-231
 
@@ -1157,7 +1306,47 @@ Profiles: base
 Verified by: AC-085, AC-137, AC-138, AC-139, AC-140, AC-145, AC-231
 
 **REQ-02-233**
-When `decision_record_id` is present on a `task_request`, it MUST reference one same-incident active `decision` record. If `decision_record_id` is implemented as a denormalized convenience scalar, set and clear operations for that field MUST remain atomically consistent with the authoritative `record_links` representation required by REQ-02-101.
+When `decision_record_id` is present on a live (non-deleted) `task_request`, it MUST reference one same-incident active `decision` record. Inverse application, including whole-row restore, MUST establish this against the current Records envelope and Decision source in the applying transaction. A retained reference whose target is deleted, absent, of another type or incident, or lacks its Decision source MUST reject the inverse with `target_not_reversible` and no partial mutation; a null retained reference requires no Decision target. If `decision_record_id` is implemented as a denormalized convenience scalar, set and clear operations for that field MUST remain atomically consistent with the authoritative `record_links` representation required by REQ-02-101. Ordinary Task create and patch MUST hold transaction-scoped `FOR NO KEY UPDATE` locks on each supplied non-null Decision envelope and shared locks on its typed source through commit. Envelope admission MUST precede mirrored Link writes, serializing overlapping Decision-reference writers without a shared-lock upgrade, and MUST recheck active same-incident typed state after any wait and before writing. Invalid targets retain the field-scoped `invalid_mutation_payload/invalid_value` response with no source, history, projection, publication or receipt changes. Null clears require no target lock; exact committed replay precedes fresh reference admission.
+A deleted Task MAY retain a reference to a deleted same-incident typed Decision;
+its retained reference MUST still resolve to both the Decision envelope and source.
+Deleting a Decision with any live Task scalar reference MUST fail closed, including
+references from done or canceled Tasks and references without a materialized Link.
+The Task/Decision owner MUST evaluate this after the Decision envelope lock is held,
+including references committed while deletion awaited that lock. A rejection MUST
+return non-retryable `record_delete_blocked` with only the target Decision record ID
+and `reason_code=active_incoming_task_decision_reference`, preserving source,
+envelope, versions, history, projections, Collaboration intents and receipts.
+Clearing the reference or deleting its Task permits retry of the same failed
+Decision delete request. Deleted Tasks contribute no active incoming reference.
+Restoring a Task Request to live state MUST validate every retained non-null
+requester Party and Decision reference against its current same-incident active
+Records envelope and typed source. After protecting the Task envelope and checking
+version/tombstone state, validation MUST hold non-waiting locks on referenced
+envelopes and sources in ascending record UUID order through commit: Party
+envelopes and both typed sources use shared locks; Decision envelopes use
+`FOR NO KEY UPDATE` to avoid later mirrored-Link or projection lock upgrades.
+An unavailable target returns `record_restore_blocked` with
+`reason_code=inactive_task_reference`; dependency-lock contention returns retryable
+`record_locked` for the Task. Details MUST disclose only the Task record ID and,
+for the blocked response, that safe reason. Rejection MUST preserve the Task's
+tombstone, source, version, history, projections, Collaboration intent and receipt.
+Repairing a dependency permits the same failed restore request to be retried.
+Null references require no dependency lookup. Restoration MUST preserve requester
+text independently and MUST NOT synthesize or remove non-row associations.
+
+Task inverse application MUST preserve coherence with materialized distinguished
+Decision associations. Before applying a retained scalar, the Task owner MUST
+read Links-owned, non-deleted bindings for its `task.decision_record_id` field,
+including bindings hidden from active-link views by a deleted endpoint. If any
+binding exists, exactly one MUST have type `references_record` and destination
+equal to the retained non-null Decision scalar. A retained null scalar, unequal
+destination, wrong link type or multiple bindings MUST reject the inverse as
+`target_not_reversible` without partial effects. An absent materialized binding
+alone does not reject the scalar; the current typed-target guard still applies.
+This comparison MUST use a typed Links-owned read capability. Whole-row restore
+MUST NOT synthesize, delete or revive Links to satisfy it; whole-change-set inverse
+MAY satisfy it through the declared companion mutations in reverse source order.
+
 Profiles: base
 Verified by: AC-319
 
@@ -1276,6 +1465,37 @@ Profiles: base
 Verified by: AC-086, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-314
 
 The authoritative machine condition is determined by persisted `status` together with the authoritative decision-to-decision `record_links` relation using `link_type='supersedes'`, `owner_user_id`, and `decided_at`. Any exposed `supersedes_record_id` field remains a read-only computed projection of that relation and MUST NOT be treated as Decision source state. If these persisted inputs do not resolve to exactly one legal machine condition, the decision record is inconsistent. Ordinary Decision grid mutations, including direct status writes, non-status scalar writes, relationship collection writes, and ordinary explicit supersession actions, MUST fail closed while the decision record is inconsistent. Returning the decision record to a legal machine condition MUST require rollback or another explicit corrective action that restores exactly one legal machine condition.
+
+Decision deletion MUST leave every surviving live Decision directly connected by
+an active `supersedes` relation in a legal machine condition after excluding the
+deleted endpoint's relations. The source owner MUST evaluate this in the current
+transaction after Revisions protects the affected envelopes, using Links-owned
+facts and protected Decision source state. A violation returns non-retryable
+`record_delete_blocked` with only the selected Decision record ID and
+`reason_code=decision_supersession_dependency`. The Task-reference guard in
+REQ-02-233 precedes this guard. Rejection preserves all source, envelope, history,
+projection, Collaboration and receipt state. Deletion MUST NOT repair a surviving
+Decision by changing its status or deleting its retained relation rows. Deleting
+the superseded target first permits retry of a previously blocked replacement
+delete when the remaining live machines are legal.
+
+A deleted Decision MAY retain its source status while endpoint deletion hides its
+supersession relations. The active-relation machine requirement applies to live
+Decisions; deleted state does not waive source scalar, actor, type or incident
+validity. Restoring an endpoint MUST re-establish legal live machine state for
+that Decision and every live directly related Decision after reactivating exactly
+the retained non-deleted supersession relations whose other endpoint is live.
+Retained supersession endpoints MUST be distinct typed Decisions in the same
+incident. A peer that remains deleted contributes no active relation and need not
+satisfy the active machine. The owner MUST read retained relations through Links,
+validate current typed source after Revisions protects the affected envelopes,
+and acquire typed source locks in UUID order without waiting. Invalid prospective
+state returns non-retryable `record_restore_blocked` with only the selected
+Decision ID and `reason_code=decision_supersession_dependency`. Source lock
+contention returns retryable `record_locked` identifying only the selected record.
+Both failures preserve source, envelope, history, projection, Collaboration and
+receipt state. Restore MUST NOT normalize statuses or mutate retained relations;
+retry after an explicit corrective action uses ordinary unconsumed request identity.
 
 The machine states mean:
 
@@ -1500,6 +1720,7 @@ Verified by: AC-410
 The current-profile registry rows are:
 
 - `note`: `artifact_variant_id='note'`; `durable_discriminator=artifact_type='note'`; `public_surface_ref=cartulary.view.notes.v1 (required built-in sheet)`; `identifier_field=record_id`; `required_structured_state[]=[title, body]`; `optional_structured_state[]=[tags via record_tags]`; `lifecycle_notes=shared artifact lifecycle only; Notes-sheet create and add-linked-note create use the same underlying artifact shape`.
+  The Note title/body members are nullable under Core01 REQ-01-329; required structured state names the represented members, not a requirement for both non-null values. The minimum create signal is not an ongoing retained-row invariant.
 - `comm_log`: `artifact_variant_id='comm_log'`; `durable_discriminator=artifact_type='comm_log'`; `public_surface_ref=cartulary.view.comm_log.v1 (required workbook-native coordination surface)`; `identifier_field=comm_id`; `required_structured_state[]=[comm_id, comm_type, timestamp_utc, audience, channel_or_meeting, summary]`; `optional_structured_state[]=[decision_ids[], action_task_ids[], next_report_at, privilege_tag, audience_party_ids[], attendee_party_ids[]]`; `lifecycle_notes=audience text remains required source-preserving text even when supplemental party refs are present`.
 - `handoff`: `artifact_variant_id='handoff'`; `durable_discriminator=artifact_type='handoff'`; `public_surface_ref=cartulary.view.handoff.v1 (required workbook-native coordination surface)`; `identifier_field=handoff_id`; `required_structured_state[]=[handoff_id, timestamp_utc, outgoing_owner_user_id, incoming_owner_user_id, current_state_summary]`; `optional_structured_state[]=[open_task_ids[], open_decision_ids[], open_risk_refs[], next_checks, acknowledged_at]`; `lifecycle_notes=derived ack_state uses exact tokens pending|acknowledged; risk refs are child rows rather than first-class risk records`.
 - `status_review`: `artifact_variant_id='status_review'`; `durable_discriminator=artifact_type='status_review'`; `public_surface_ref=cartulary.view.status_review.v1 (required workbook-native coordination surface)`; `identifier_field=status_review_id`; `required_structured_state[]=[status_review_id, timestamp_utc, review_owner_user_id, current_state_summary]`; `optional_structured_state[]=[blocked_task_ids[], pending_evidence_ids[], open_decision_ids[], active_risks_summary, next_report_at]`; `lifecycle_notes=coordination artifact only; no separate subtype lifecycle machine beyond ordinary artifact lifecycle`.
@@ -1963,6 +2184,33 @@ Verified by: AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-231, AC-329
 
 **REQ-02-169**
 For projection, count, ordinary export, snapshot-source derivation, and incident portability purposes, a link is active only when the `record_link` row is not soft-deleted and both endpoint records are not soft-deleted. Soft-deleted links and links whose endpoint records are soft-deleted MUST remain reconstructible through history and rollback.
+
+Ordinary Link create/upsert, non-null field-reference synchronization and
+supersedes insertion MUST hold transaction-scoped `FOR NO KEY UPDATE` locks on
+both current endpoint envelopes through caller transaction completion. Links
+MUST obtain these through Records in canonical UUID order before relationship
+writes, serializing overlapping writers without a later shared-lock upgrade for
+projection refresh, and validate same-incident, non-deleted state after any wait;
+supersedes retains its source-owner/type rules. Rejection MUST precede
+relation, projection, history, publication or receipt effects. Existing invalid-
+link error causes and source-owned public admission mappings remain unchanged.
+This does not require add-endpoint locks for removal-only work or reinterpret
+retained endpoint-hidden relationships as active. A later projection refresh lock
+is not endpoint admission.
+
+Ordinary Record-reference and Party-reference collection additions MUST hold
+transaction-scoped `FOR NO KEY UPDATE` locks on every added target envelope
+through caller completion. Admission MUST obtain these through Records in
+canonical UUID order without changing the caller's input arrays, serializing
+writers before application and projection rather than upgrading shared locks,
+then validate current same-incident, non-deleted state and any required target
+type after waiting. Missing, deleted,
+foreign or wrong-type targets retain the field-scoped collection validation error
+and MUST leave no partial relation, projection, history, publication or receipt
+state. Validation and application both enforce this condition in their borrowed
+transaction; neither owns commit or rollback. Empty additions and removal-only
+requests acquire no add-target lock. This rule does not turn retained endpoint-
+hidden relations into active ones or relax restore/inverse admission.
 Profiles: base
 Verified by: AC-196, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-231, AC-332
 
@@ -2246,6 +2494,21 @@ The closed quarantine-clear trigger set is exactly `content_inspection_clear` an
 
 A write that leaves `upload_state` unchanged is a legal idempotent in-state write only if the resulting blob slot still satisfies the guards in this section.
 
+Retained portable blob state MUST preserve a coherent lifecycle tuple. Creation
+and update clocks are ordered. Because the single-upload lease cannot be renewed,
+target expiry is creation plus60minutes and pending expiry is creation plus24hours.
+A pending slot has no finalized observation, finalization clock, terminal reason,
+failure clock or cleanup clocks. A failed slot has no finalized observation or
+finalization clock; it has exactly one closed terminal reason and a failure clock
+at or after creation, cleanup due exactly45minutes later, and an optional cleanup
+completion at or after that due time. A pending-timeout failure cannot predate
+pending expiry. Available and quarantined slots have a finalization clock between
+creation (inclusive) and pending expiry (exclusive), observed size/digest matching
+the accepted create contract, and no failure or cleanup tuple. Observed content
+type is nullable advisory metadata. Every finalization, failure or completed
+cleanup clock is at or before the row's update clock. These retained-state guards
+do not authorize a lifecycle transition, refresh a lease, or restore credentials.
+
 A direct `pending -> quarantined` transition is illegal. Any transition out of `failed` is illegal. A direct `available -> failed` transition is illegal except for the terminal failure causes already defined for pending-slot finalization and timeout. A transition from `quarantined` to `available` is legal only when the stored object bytes remain present and the slot otherwise still satisfies the accepted create contract.
 
 Any attempted blob or evidence lifecycle transition outside the legal transition sets above MUST be rejected as an illegal transition. A rejected lifecycle transition MUST return the stable lifecycle-validation error defined by Core 01 §3.3.6 and MUST leave authoritative persisted state unchanged. A successful evidence lifecycle transition MUST commit through the ordinary record-mutation path or a documented bridge update, increment `row_version` on every changed evidence record, append a `change_set` and mutation entries, update derived projections, and surface the ordinary `record_changed` signal plus the corresponding evidence-access availability outcome. A successful blob lifecycle transition MUST surface through the ordinary finalization path or through the documented timeout or quarantine work, and it MUST NOT partially mutate blob state or evidence linkage.
@@ -2269,6 +2532,27 @@ association in the caller transaction, and rely on a database uniqueness
 constraint as the final concurrent-write guard. Competing association or
 uniqueness failure MUST leave the losing transaction with no partial Evidence
 row, custody, history, projection, collaboration, or idempotency effect.
+Portable current state MUST preserve a same-incident finalized Blob association:
+every linked Blob is `available` or `quarantined`, never pending, failed, missing
+or foreign. The at-most-one association rule includes deleted Evidence. For live
+Evidence, lifecycle bridge guards use the linked Blob's actual current state,
+not the retained Evidence `upload_state` scalar. That scalar remains preserved
+source state and need not change when an earlier Evidence lifecycle remains
+unchanged during Blob quarantine. Deleted Evidence MAY retain its prior
+lifecycle after its Blob is quarantined; portable admission MUST preserve that
+retained state without making it live or granting access.
+Restoring deleted Evidence MUST validate its prospective live state against
+the associated Blob's actual current state, preserving the retained Evidence
+lifecycle, upload-state scalar and hash. A present association MUST resolve to
+a same-incident finalized (`available` or `quarantined`) Blob, and the live
+bridge above MUST hold. A violated guard returns `record_restore_blocked` with
+`reason_code=evidence_blob_state_conflict`, without partial envelope, source,
+history, projection, Collaboration or receipt changes. This validation follows
+the Party-reference admission in REQ-02-198. After protecting the Evidence
+envelope, restore MUST lock its Blob non-waitingly through commit; waiting would
+invert quarantine's Blob-before-Evidence lock order. Contention returns retryable
+`record_locked` for the Evidence target without exposing the Blob identity or
+database text. Repairing the dependency permits retry of the same failed request.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313, AC-522, AC-523
 
@@ -2341,16 +2625,60 @@ An evidence record or its deterministic joined projection from authoritative obj
 - `collector_party_text`,
 - optional `source_party_id`,
 - `source_party_text`.
+Every Evidence source string, including nullable attachment metadata and
+retained historical snapshot strings, MUST be valid Unicode without NUL.
+Admission MUST reject unrepresentable strings before mutation and MUST NOT
+repair them by replacement, deletion, trimming or normalization outside their
+field's explicit text contract.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-278, AC-280
 
 **REQ-02-198**
 `requested_at` and `received_at` MUST remain first-class structured state. `storage_ref` MAY be a human-usable repository locator derived from the authoritative object-blob pointer, but it MUST be filterable and exportable without parsing `custom_attrs`. When present, `collector_party_id` and `source_party_id` MUST remain first-class structured state and MUST reference same-incident active `party` records.
+For retained portable current state, each present Party ID MUST resolve to both
+a same-incident `party` envelope and its Party source row. Live Evidence requires
+the Party envelope to be non-deleted. Deleted Evidence MAY retain a reference to
+a deleted Party, because it contributes no active incoming reference; deletion
+does not permit a missing, wrong-type or foreign-incident target. This distinction
+does not require historical snapshots to reference currently active Parties.
+Restoring Evidence to live state MUST revalidate both retained Party references
+against current same-incident, non-deleted Party envelopes and source rows.
+A failed reference guard MUST leave the Evidence tombstone, version, source,
+history, projections, Collaboration and receipt state unchanged, returning
+`record_restore_blocked` with `reason_code=inactive_evidence_party_reference`.
+After the Evidence envelope is protected, validation MUST hold shared locks on
+the distinct referenced Party envelopes in ascending UUID order through commit,
+serializing admission against Party deletion. These locks MUST be non-waiting;
+contention returns retryable `record_locked` for the Evidence target, without
+disclosing the referenced Party or database error text. Restoring the Party
+first permits a later retry of the same failed Evidence restore request.
+Ordinary Evidence create (including import-create), patch and resolved-conflict
+writes MUST serialize new collector/source references against Party deletion.
+Create MUST hold ordinary shared locks on the distinct same-incident Party
+envelopes in ascending UUID order before insertion. Patch MUST acquire its
+Evidence target and newly supplied Party targets in one ascending UUID order
+before protected version evaluation; ordinary exclusive row locks are permitted
+for that set. After waiting for any lock, validate current same-incident active
+Party envelopes and source rows before writing. Failed validation retains the
+existing field-scoped `invalid_mutation_payload/invalid_value` response and
+commits no source, history, projection, Collaboration or receipt change. These
+are ordinary transaction locks, not the fail-fast destructive-operation family;
+null clears introduce no Party dependency and exact committed replay precedes
+fresh locks and reference validation.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-280
 
 **REQ-02-199**
 When an evidence record represents requested or pending evidence rather than already received material, the model MUST be able to store `owner_user_id` so accountable follow-up does not require a separate timeline field. A linked `task_request` MAY also exist. Supplemental `collector_party_id` or `source_party_id` links MUST NOT replace this accountable assignee field.
+The accountable owner is nullable and defaults to unassigned. An explicit
+assignment uses the current incident-member reference contract; clearing is
+allowed. Assignment does not create a membership, permission or authorization
+binding. It remains authoritative source state across receipt, availability,
+quarantine and release until explicitly changed or cleared. It MUST survive
+History, rollback, delete/restore and portability. Portability preserves the
+historical assigned actor in attribution and binds its runtime user reference to
+the importing local actor, as with other imported user references; it MUST NOT
+create a user or incident membership for the historical actor.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-278
 
@@ -2361,6 +2689,25 @@ Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-
 
 **REQ-02-201**
 When custody narrative or handoff commentary is preserved as authoritative workflow state, it MUST be modeled as append-only custody events or equivalent child rows. A convenience `custody_note` or similar summary field MAY exist, but it MUST NOT be the sole authoritative custody history.
+
+The current custody-event vocabulary is `requested`, `received`,
+`made_available`, `transferred`, `quarantined`, and `released`. An event records
+retained history; its label MUST NOT independently set or reconstruct current
+Evidence lifecycle. Each event identifies its incident and Evidence record,
+has a non-null occurrence time, and may have a historical actor, location text
+and note. Location and note preserve their exact admitted strings, including
+empty strings; null is distinct from empty. Metadata is an opaque JSON object,
+not an authorization or actor-reference registry. Nested metadata names and
+strings MUST NOT create actors, users, memberships or permissions.
+
+Custody chronology is increasing occurrence time with custody-event UUID as a
+deterministic tie-break. Event identity remains the transport order under Core01
+REQ-01-686; occurrence time need not increase in that transport order. Retained
+historical events may predate source-record creation and remain attached to a
+soft-deleted Evidence record. Their references MUST still resolve to same-incident
+Evidence and its Evidence envelope. Neither retained history nor import revives
+the record or overrides current lifecycle. Portability preserves the complete
+source and historical actor attribution under Core01 REQ-01-696.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -2480,7 +2827,8 @@ Verified by: AC-236, AC-409, AC-432, AC-440
 **REQ-02-205**
 A conformant history schema MUST include both:
 
-- immutable `change_set` attribution records, and
+- immutable `change_set` attribution records, including the actor import-context
+  provenance defined by Core01 REQ-01-701, and
 - mutation-entry records at target granularity.
 Profiles: base
 Verified by: AC-215, AC-216, AC-217, AC-218, AC-231
@@ -2563,11 +2911,32 @@ A `change_set` MUST record, at minimum:
 - incident,
 - actor,
 - timestamp,
+- immutable positive incident-local `history_order`,
 - source,
 - optional reason,
 - optional client transaction identifier.
 Profiles: base
 Verified by: AC-215, AC-216, AC-217, AC-231, AC-412
+
+Revisions MUST assign native `history_order` values transactionally in serialized
+incident action order, independently of timestamps and UUIDs. Values MUST be
+unique within the incident and representable as positive signed 64-bit integers.
+A Revisions-owned per-incident allocator MUST hold its serialization lock through
+commit or rollback. Aborted allocations MUST roll back. Imported values MUST be
+preserved exactly, and imported maxima MUST advance that allocator so subsequent
+native actions follow all imported history. Exhaustion MUST fail atomically;
+values MUST NOT wrap or be reused for committed actions. The allocator is derived
+operational state, reconstructed by admitted import inserts, not portable source
+history. Full deployment recovery MUST preserve it with the history substrate.
+Rollback currentness MUST use `(history_order, mutation sequence)` within the
+incident, not clock or UUID order. For row targets, sameness is the canonical
+record identity across every row target kind admitted for that record type by
+the immutable source-owner catalog, including the generic `record` kind.
+Different admitted spellings MUST NOT allow an old reversal to bypass later
+committed changes to that record. Non-row target identity remains source-owned;
+Revisions MUST NOT guess it from JSON or source-table vocabulary. This does not
+change the public history page ordering or cursor contract. Missing historical order MUST NOT be inferred from
+timestamps or UUIDs; adoption requires empty history state.
 
 ### 15.2 Mutation-entry unit
 
@@ -2631,6 +3000,31 @@ Profiles: base
 Verified by: AC-215, AC-217, AC-231, AC-412, AC-529
 
 **REQ-02-265**
+Every first-class row mutation and every live or historical record revision MUST
+retain a complete non-null after snapshot. Row deletion retains the tombstoned
+row; it MUST NOT use a missing after image. A null before snapshot denotes the
+creation boundary. Typed append entry points MUST reject a missing after snapshot
+before history persistence with the canonical invalid-snapshot error. This rule
+does not change source-owned non-row relationship/collection absence semantics.
+
+Native live and historical record-revision append MUST bind the declared
+positive row version to the captured after snapshot. Version `1` requires a null
+before snapshot; every later revision requires a captured before snapshot at
+exactly the preceding version. Both captures retain the same record identity and
+schema. A mismatch MUST fail with the canonical invalid-snapshot error before
+inserting a revision or conflict facts. This is a row-revision rule, not a demand
+for one revision per intermediate mutation entry in a coalesced action.
+
+The native Revisions append facade MUST enforce its typed boundary. The raw
+non-row entry point accepts only registered non-row targets. A row mutation MUST
+use captured opaque snapshots and resolve its target kind and captured record
+type through the compiled source-owner row-provider catalog before persistence.
+A dispatch-class or record-type mismatch fails with the canonical invalid-target-
+semantics error; unknown-target lookup errors remain available through error
+unwrapping. The generic `record` target retains its explicitly admitted record
+types; target-kind spelling is not a substitute for the catalog. Non-row values
+continue through their source-owned pure validator.
+
 Every newly persisted non-null row snapshot in `change_set_mutations` or
 `record_revisions` MUST be a closed canonical snapshot envelope containing
 exactly `snapshot_schema_id`, `record`, and `source`. `record` is the complete
@@ -2641,6 +3035,20 @@ Separately revisioned collections and relationships, projection labels,
 counts, chips, joined summaries, preview handles, grouping/sorting/layout
 state, authorization or UI state, external enrichment, and binary/object bytes
 MUST NOT be folded into the row snapshot.
+
+For an Indicator row, the complete `source` object contains exactly
+`record_id`, `incident_id`, `indicator_type`, `value_kind`, `display_value`,
+`normalized_value`, `dedupe_key`, `defanged_value`, `hash_algorithm`, `hash_value`,
+and `stix_pattern`. Only the last four members may be null. Records remains the
+sole envelope/version/deletion authority for this subtype. Indicator rollback
+MUST validate this complete source through the same intrinsic source validator
+used by snapshot admission and restore its full retained values; it MUST NOT
+overlay a sparse object onto current source state or infer omitted members.
+Optional presentation text preserves explicit null, empty and non-empty text
+under its source contract. Normalized identity, hash-pair form and type/value
+rules remain owner-validated; transactional restoration additionally verifies
+normalization and dedupe against the operation's immutable Reference Data set.
+This hard cut has no partial-history compatibility reader.
 
 An ordinary live record revision MUST also derive narrow optimistic-
 concurrency facts from the explicit live-change value in the same transaction.
@@ -2653,20 +3061,111 @@ into a canonical snapshot, used by generic history lookup, or treated as
 projection authority. Imported historical revisions do not synthesize these
 facts, and the facts are not Incident Bundle members.
 
+Every non-null timestamp scalar in the canonical snapshot's `source` object MUST
+be UTC RFC 3339 in years `0001` through `9999`, with at most
+microsecond precision, no trailing fractional zeroes, and either `Z` or `+00:00`.
+Validation MUST reject other representations without rounding, truncation or
+rewriting retained facts. Source owners retain authority over nullable fields,
+independent clock meanings and lifecycle ordering; this common scalar rule does
+not add a chronology relation between fields.
+
 The current snapshot-schema registry is exact:
 
 | Record type | `snapshot_schema_id` | Source owner |
 | --- | --- | --- |
-| `artifact` | `cartulary.revisions.snapshot.artifact.v1` | Artifacts |
+| `artifact` | `cartulary.revisions.snapshot.artifact.v2` | Artifacts |
 | `assessment` | `cartulary.revisions.snapshot.assessment.v1` | Assessments |
 | `decision` | `cartulary.revisions.snapshot.decision.v1` | Tasks/Decisions |
-| `evidence` | `cartulary.revisions.snapshot.evidence.v1` | Evidence |
+| `evidence` | `cartulary.revisions.snapshot.evidence.v2` | Evidence |
 | `host` | `cartulary.revisions.snapshot.host.v1` | Entities |
 | `identity` | `cartulary.revisions.snapshot.identity.v1` | Entities |
 | `indicator` | `cartulary.revisions.snapshot.indicator.v1` | Indicators |
 | `party` | `cartulary.revisions.snapshot.party.v2` | Parties |
 | `task_request` | `cartulary.revisions.snapshot.task_request.v1` | Tasks/Decisions |
 | `timeline_event` | `cartulary.revisions.snapshot.timeline_event.v1` | Timeline |
+
+For Artifact snapshot v2, `source` MUST contain every one of the 28 parent row
+members listed for `data/artifacts.ndjson` in Core01 REQ-01-692, plus exactly
+three required members: `finding`, `investigative_query` and `forensic_keyword`.
+Each additional member is either null or the complete closed corresponding
+subtype row listed in that requirement, including its own record/incident IDs,
+creation/update timestamps, creator and owner where applicable. A finding,
+investigative query or forensic keyword MUST have exactly its named child;
+the other children MUST be null. The five parent-only artifact types MUST have
+all three child members null. Child record/incident IDs MUST equal the parent.
+
+All parent and child facts MUST survive capture and retained-history validation
+without concatenating their objects or overwriting colliding names. Independent
+parent and child clocks, creators and owners MUST NOT be forced equal. Their
+own source invariants, including subtype lifecycle and bound text, still apply.
+History and conflict projections MUST read each field from its owner-declared
+parent or child path. Rollback MUST consume the same complete v2 source while
+applying ordinary version/edit-clock advancement. The current pre-production
+profile rejects retired flattened v1 snapshots; it MUST NOT invent missing
+parent/child facts or retain a legacy snapshot reader. Separately revisioned
+handoff-risk references remain outside the row snapshot.
+
+For Indicator snapshots, pure retained-source validation MUST enforce exact
+type/kind vocabularies, non-empty display/normalized/dedupe values, the 8192-scalar
+display and normalized bounds, and the canonical paired hash representation.
+Strings MUST contain no NUL. Hash algorithms are non-empty trimmed lowercase
+text; hash values are non-empty lowercase hexadecimal text. IP-literal sources
+MUST use `atomic`, have equal display and normalized values, and omit both hash
+fields. Optional defanged and STIX presentation text, including explicit null
+and empty text, remains unchanged. These intrinsic checks MUST NOT recompute
+identity using an unrelated current registry or implement a competing value
+algorithm. Full normalization and dedupe evaluation remains Reference Data's
+registry-bound responsibility under REQ-02-074/074A.
+
+For Timeline snapshots, the retained source row version MUST be positive and
+the ten visible text fields MUST satisfy `timeline_visible_text_v1` without
+rewriting their code points or collapsing empty text to null. Capture state
+MUST be exactly `rough`, `enriched`, `reviewed` or `superseded`. Each review or
+supersession actor/timestamp pair MUST be wholly present or wholly null. Rough
+and enriched rows have neither pair; reviewed rows require only the review
+pair; superseded rows require the supersession pair and MAY retain a prior
+complete review pair.
+
+Timeline pair state MUST be one of the six REQ-01-312 tokens. At most one Activity
+Date field may be marked generated, and that field MUST contain the exact
+server-generated format specified there. `empty` requires both Activity Date
+values to be null or empty and neither generated flag. `paired_generated`
+requires two non-empty values and exactly one generated flag;
+`paired_user_preserved` requires two non-empty values and neither generated
+flag; `paired_mismatch` requires two non-empty values. `disabled` and
+`conversion_unavailable` MAY retain a generated value and its flag. Pure
+historical validation MUST NOT recompute pair state from today's conversion
+profile. Conversion consistency and cross-envelope attribution remain separate
+owner-coordinated checks.
+
+Timeline rollback MUST restore the retained Activity Date text, both generated
+flags and pair state together. It MUST NOT clear a generated flag or recompute
+conversion from the current profile. Ordinary rollback version, edit timestamp
+and actor advancement still applies; it does not change those retained date facts.
+
+Evidence snapshot v2 adds the required nullable `source.owner_user_id` to the
+complete authoritative Evidence source. A populated owner is a canonical nonzero
+UUID and remains a historical assignment; snapshot admission MUST NOT require
+current incident membership. The retired v1 shape is not an active registry
+binding and MUST NOT be repaired by inventing an unassigned owner. Rollback
+restores the retained assignment or null together with the other row-backed
+source values.
+
+For Evidence snapshots, `source.lifecycle_state` and `source.upload_state` MUST
+belong to their closed owner vocabularies. The retained `object_blob_id` presence
+and retained upload-state mirror MUST satisfy the REQ-02-190 lifecycle bridge:
+available/released require a linked available blob; quarantined permits no link
+or a linked quarantined blob. Pure historical validation uses those retained
+facts and MUST NOT query today's blob state or apply initial-create restrictions
+to a previously committed lifecycle. This intrinsic check does not prove that
+historical blob metadata, actors or external references agree; those remain
+separate owner-coordinated history and portability checks.
+
+A retained Evidence `storage_ref` using the reserved `object://` scheme MUST be
+the canonical logical reference for that same source object's non-null
+`object_blob_id`. Malformed, orphaned and mismatched logical references MUST be
+rejected without rewriting retained source. External locators and null remain
+permitted with or without a linked blob; neither changes that association.
 
 For Party snapshots, the Records envelope is the sole authority for creation
 and update timestamps, row version, actors and deletion state. The v2 `source`
@@ -2718,6 +3217,147 @@ inverse application. Generic Revisions code may branch only on `row` versus
 `non_row`; it MUST NOT contain a target-kind/source-type switch, target-to-
 relation map, source JSON-key predicate, global provider registry, dynamic SQL,
 or legacy fallback.
+
+Every non-row target contribution MUST also supply a non-nil pure retained
+reference projector, independently of its full-value history validator and
+public history association facet. Catalog admission MUST reject an absent
+projector. The projector receives the immutable imported incident and both
+retained object sides, selects only source-owned reference fields, and returns
+typed incident/record identities without querying or mutating state.
+
+| Target owner and kind | Incident scope | Record references in each retained object side |
+| --- | --- | --- |
+| Entities `entity_mention` | Supplied immutable incident; this retained value has no incident member | Required `source_record_id`; required nullable `resolved_record_id` |
+| Entities `entity_alias`, `entity_preserved_identifier` | Required `incident_id` | Required `record_id` |
+| Indicators `indicator_observation` | Required `incident_id` | Required `source_record_id`; required nullable `resolved_indicator_record_id` |
+| Indicators `indicator_state_interval` | Required `incident_id` | Required `indicator_record_id`; every member of required `support_refs` array |
+| Links `record_link` | Required `incident_id` | Required `src_record_id` and `dst_record_id` |
+| Links `record_tag` | Required `incident_id` | Required `record_id` |
+
+Each non-null reference scalar MUST be a canonical lowercase nonzero UUID.
+Interval `support_refs` MUST be a non-null array of unique canonical lowercase
+nonzero UUID strings, including an explicit empty array. Its references on both
+retained sides MUST resolve to authoritative source records in the retained
+incident, independently of public History association or addressability. Missing,
+malformed, duplicate, foreign, absent or envelope-only support references fail
+the reference-completeness invariant before lower-priority history checks.
+Missing required members, including required nullable members, and wrongly typed
+or noncanonical references fail closed without normalization. A null nullable
+reference contributes no identity. Null sides contribute no references;
+non-object sides still fail full history admission. Both retained sides matter,
+including references absent from public history associations. Full value shape,
+source-type legality, target grammar and transitions remain with their source
+owner; a valid reference projection alone does not admit a mutation.
+
+Current `entity_mention` retained before/after values MUST use one Entities-owned
+closed encoding with exactly these seventeen members: `entity_mention_id`,
+`source_record_id`, `entity_type`, `source_field_key`, `origin_kind`,
+`origin_locator`, `raw_text`, `normalized_text`, `resolution_status`,
+`row_version`, `ordinal`, `created_by_user_id`, `created_at`,
+`resolved_record_id`, `resolved_by_user_id`, `resolved_at`, `resolution_method`.
+All members are required. Only the four `resolved_*`/`resolution_method` members
+may be null. The value contains no derived `incident_id`; scope is established
+through its source record. Ordinary resolution, merge repointing and inverse
+capture MUST use the same complete owner encoder, preserving creation and ordinal
+facts rather than inventing them during replay.
+
+UUID members MUST be canonical lowercase nonzero UUID strings. `row_version`
+is a positive exact signed-64-bit integer and `ordinal` is an integer in
+`1..2147483647`. Text is preserved without normalization, contains no NUL, and is
+valid UTF-8; field key, locator, raw text, normalized text and any non-null
+resolution method are nonblank. Entity type, origin kind and resolution status
+use their closed owner vocabularies. Clocks use canonical UTC RFC3339Nano `Z`,
+years `0001..9999` and at most microsecond precision. Resolved status requires
+all four resolution members; unresolved or dismissed status requires all four
+to be null. No additional clock ordering is implied by this scalar contract.
+
+The sole retained Mention target identifier is its canonical bare Mention UUID.
+Current `patch` and `rollback` mutations require both complete retained sides
+with that same identity. Source record, entity type, source field, origin,
+observed raw/normalized text, ordinal and creation attribution/time are immutable
+across the pair. The after row version is exactly the before version plus one,
+without overflow, and resolution status or its tuple must change. A version-only
+no-op is not a mutation. Other operation kinds and partial or alternate shapes
+are invalid. Entities MUST supply the required pure full-value validator through
+the immutable target catalog; it runs before append, history description,
+rollback planning/application and Incident Bundle persistence. Owner reference
+projection remains independent and precedes lower-ranked imported-history
+validation. Existing pre-production partial Mention history must be discarded
+and regenerated from reset state; no alias, inferred default, migration or
+compatibility reader is admitted.
+
+Mention inverse admission MUST compare the complete typed authoritative current
+Mention with the complete selected retained `after_value`, including provenance,
+ordinal, creation attribution, row version and the entire resolution tuple.
+A well-formed divergent current value fails with `rollback_precondition_failed`
+and reason `stale_target`, committing no Mention, companion-link, record,
+history, idempotency, projection or publication effect. The source owner performs
+this check during authoritative revalidation after acquiring the full protected
+set and repeats it immediately before inverse application. Scope/identity checks,
+supported inverse operations and generic later-mutation checks remain required.
+
+Current `entity_preserved_identifier` history values MUST contain exactly the
+eleven source members `entity_preserved_identifier_id`, `incident_id`,
+`record_id`, `entity_type`, `identifier_type`, `raw_value`, `normalized_value`,
+`classification`, `created_by_user_id`, `created_at` and `deleted_at`. Every
+member is required; only `deleted_at` may be null. UUIDs are canonical lowercase
+nonzero strings. Text is valid UTF-8 without NUL; raw and normalized values are
+nonblank, and the normalized value already equals the adopted owner normalizer
+for the declared identifier class. Entity type, identifier class and classification
+use the closed combinations defined by the Entities owner. Clocks use canonical
+UTC RFC3339Nano `Z`, years `0001..9999` and at most microsecond precision. A
+non-null deletion clock MUST be greater than or equal to the creation clock;
+reversal of creation cannot predate that creation.
+
+The sole current target identity is
+`entity_preserved_identifier:<canonical-physical-row-uuid>`, matching the retained
+row's `entity_preserved_identifier_id`. A `create` has a null before value and a
+complete active after value. A retained `rollback` of that create has two
+complete values with all members unchanged except `deleted_at`, which changes
+from null to a non-null canonical clock. Other operations, partial values and
+base64 logical compound target forms are invalid. The owner insert boundary MUST
+return the actual inserted identity and creation facts; merge history MUST NOT
+reconstruct an incomplete value from the insertion seed. Inverse capture and
+catalog admission MUST use the same complete owner encoder and required pure
+validator. Claim preparation retains the declared classification's meaning.
+Existing pre-production partial/composite preserved-identifier history requires
+reset; no inferred physical identity, fallback, backfill or compatibility reader
+is admitted.
+
+Current `entity_alias` retained values MUST contain exactly `entity_alias_id`,
+`incident_id`, `record_id`, `entity_type`, `raw_text`, `normalized_text`,
+`classification`, `created_by_user_id`, `created_at` and `deleted_at`. Every member
+is required and only `deleted_at` may be null. UUIDs are canonical lowercase
+nonzero strings; entity type is `host` or `identity`, and classification is
+`suggestion_only`. Both text members MUST equal the same canonical
+`alias_text_v1` value under REQ-01-495, without case-folding. Invalid or missing
+retained text is rejected rather than repaired. Clocks use canonical UTC
+RFC3339Nano `Z`, years `0001..9999` and at most microsecond precision. A non-null
+deleted clock MUST be greater than or equal to the created clock.
+
+The sole current Alias target identity is
+`entity_alias:<canonical-physical-row-uuid>`, matching `entity_alias_id` in every
+retained side. A `create` has null before and complete active after. A `delete`
+has two complete values and changes only `deleted_at` from null to a non-null
+clock. A `rollback` has two complete values and toggles that same deletion state
+in either direction; every other member is immutable across the pair. No-op,
+partial, alternate-operation and logical composite-target values are invalid.
+Ordinary create/delete, merge and inverse capture MUST share the complete owner
+encoder and required pure catalog validator. Insert and delete writers MUST
+retain the actual stored clocks. The pre-production cutover rejects old partial
+or composite Alias history and requires reset; it MUST NOT infer physical IDs,
+fill fields, reinterpret old shapes, or retain a compatibility reader.
+
+Alias and PreservedIdentifier inverse admission MUST compare the complete typed
+authoritative current collection row with the complete selected retained
+`after_value`. Identity, owner binding, text/classification, creation attribution
+and the exact nullable deletion clock all participate; deletion status alone is
+insufficient. A well-formed divergent current value fails with
+`rollback_precondition_failed` and reason `stale_target`, committing no source,
+record, history, idempotency, projection or publication effect. This source-owned
+check runs after the full protected set is locked and again immediately before
+inverse application. Existing scope, claim, supported-operation and whole-change-set
+requirements remain in force.
 
 The current profile provides no compatibility reader or backfill for
 schema-less snapshots or mutation rows without the canonical association
@@ -2818,19 +3458,41 @@ exact invariants:
 - `delete` has two canonical values with stable target identity, an active
   before value, and an after value carrying the exact deletion actor and time;
 - a command that makes no authoritative change emits no mutation; and
-- inverse application requires and validates both retained canonical sides,
-  retains the addressed original target, and restores every retained field
-  exactly, including original creation attribution and timestamps.
+- inverse planning and application require and validate both retained canonical
+  sides and the complete current source row through the Links-owned codec;
+  every current source field MUST equal the retained after value, including
+  endpoint ownership, metadata, attribution, creation and deletion clocks;
+  a difference fails with the owner-neutral stale-target error before mutation;
+  the inverse retains the addressed original target and restores every retained
+  field exactly, including original creation attribution and timestamps.
 
 Each Links command MUST produce its mutation atomically with the source write in
 the caller-owned transaction. The Links owner MUST contribute one pure history
 validator to the application-composed Revisions target-semantics catalog.
+Catalog admission MUST reject a missing or nil required validator before serving
+or importing. The typed target registry MUST explicitly declare whether each
+target requires this capability; `record_link` and `record_tag` require it in the
+current profile. This requirement MUST be enforced through generic catalog
+policy, without a Revisions target-kind switch. A target whose owner does not
+require this capability may omit it; a supplied nil implementation is invalid.
 Revisions MUST invoke that validator with the operation kind and both retained
 sides before local append, history description, inverse planning or
 application, and Incident Bundle mutation. Revisions MUST remain ignorant of
 Links field names and target grammar. Missing, extra, mistyped, noncanonical,
 default-dependent, or operation-inconsistent values and targets fail closed
 through owner-neutral errors before persistence or import-side mutation.
+
+For Incident Bundle admission, the Links contribution MUST also expose the typed
+incident and record references through its separate reference projector in each
+retained object side: both link endpoints
+or the tag's record. This is a pure bounded projection owned by Links, separate
+from full value/transition validation. Every reference scalar in an object side
+MUST be a canonical nonzero UUID; neither current live association rows nor
+Revisions guesses at Links field names may substitute for these retained facts.
+Both sides matter, including a tag that moved between records. Revisions MUST
+check the exposed references against the immutable imported incident and resolve
+each referenced Records envelope and authoritative current source through owner
+capabilities before applying imported history, and recheck during validation.
 
 This is a pre-production hard cutover. A database or retained Incident Bundle
 containing an earlier Links history shape or tag-target grammar MUST be
@@ -2845,6 +3507,20 @@ Verified by: AC-554, AC-555, AC-556, AC-557
 
 **REQ-02-238**
 For an extant incident record in the current profile, retained history is the full authoritative history substrate needed to materialize that record's row history and rollback semantics, including the relevant immutable `change_set` rows, mutation-entry rows, and `record_revisions` rows.
+
+A retained row-revision chain MUST begin at row version `1`, with a null before
+snapshot and a complete non-null creation after snapshot. Every later revision
+MUST retain non-null before and after snapshots; adjacent row versions are
+consecutive. Along increasing row versions, the parent change-set `history_order`
+MUST NOT decrease. Distinct change sets therefore advance in committed order;
+versions belonging to one change set may share its order. Gaps caused by other
+incident actions are valid. This comparison is independent of timestamps, UUIDs
+and revision IDs. Within one capture context the prior after snapshot equals the next
+before snapshot exactly, including actors. Across recorded import contexts,
+actor comparison MUST follow Core01 REQ-01-701's directional context-path rule;
+all non-actor facts remain exact and retained actor IDs are never rewritten.
+Soft deletion retains a complete tombstoned after snapshot. The current profile
+admits no partial-prefix or null-after truncation.
 Profiles: base
 Verified by: AC-231, AC-383, AC-386
 
@@ -3039,7 +3715,20 @@ Profiles: base
 Verified by: AC-231, AC-279, AC-561
 
 **REQ-02-231**
-A `*_party_id` write MUST fail unless the referenced `party` row is active and belongs to the same incident as the referencing record. Deleting a `party` row that still has active incoming references MUST fail closed.
+A `*_party_id` write MUST fail unless the referenced `party` row is active and belongs to the same incident as the referencing record. Task Request inverse application, including whole-row restore, MUST establish a non-null retained requester reference against the current same-incident active Party envelope and Party source in the applying transaction. An unavailable target MUST reject the inverse with `target_not_reversible` and no partial mutation. A null retained reference requires no Party target, and requester text MUST remain independently preserved. Deleting a `party` row that still has active incoming references MUST fail closed. Ordinary Task create and patch MUST hold transaction-scoped shared locks on each supplied non-null requester Party envelope and source through commit, rechecking active same-incident typed state after any wait and before writing. Invalid targets retain the field-scoped `invalid_mutation_payload/invalid_value` response with no source, history, projection, publication or receipt changes. Null clears require no target lock; exact committed replay precedes fresh reference admission.
+For retained portable Task state, a non-null requester Party ID MUST resolve to
+both a same-incident Party envelope and its typed source. Live Tasks require the
+Party to be non-deleted. Deleted Tasks MAY retain a deleted Party reference, because
+they contribute no active incoming reference; a missing, wrong-type, foreign or
+source-less target remains invalid. Null references remain null and requester
+text MUST be preserved independently. This portable-state distinction does not
+relax ordinary write or inverse admission.
+Task restore uses the current-reference guard and safe failure semantics in REQ-02-233.
+Party-reference collection writers MUST use REQ-02-169's protected current
+envelope admission. Together with the post-envelope-lock incoming-reference
+check on Party deletion, a committed collection addition is observed before
+delete admission, or a completed deletion is observed before addition admission.
+A pre-lock read cannot authorize adding a reference to a deleted Party.
 Profiles: base
 Verified by: AC-231, AC-280, AC-318
 

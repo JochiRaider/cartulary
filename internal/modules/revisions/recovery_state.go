@@ -9,5 +9,6 @@ func RecoveryStateContribution() recoverystate.Contribution {
 		"record_history_entry_refs",
 		"record_revision_conflict_facts",
 		"record_revisions",
+		"revision_history_orders",
 	))
 }

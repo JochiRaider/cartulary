@@ -12,7 +12,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"math/big"
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -223,27 +222,7 @@ func TestEnterpriseSAMLAlgorithmAdmission(t *testing.T) {
 }
 
 func TestEnterpriseProviderInputBounds(t *testing.T) {
-	if admitOIDCToken(strings.Repeat("a", providerResponseLimit+1)) == nil {
-		t.Fatal("oversized JWT admitted")
-	}
-	if admitOIDCKeySet([]byte(`{"keys":[],"keys":[]}`)) == nil {
-		t.Fatal("duplicate JWK set field admitted")
-	}
-	if _, err := admitSAMLResponse(base64.StdEncoding.EncodeToString([]byte(strings.Repeat("x", providerResponseLimit+1)))); err == nil {
-		t.Fatal("oversized SAML admitted")
-	}
-	server, root := newProviderHTTPSServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(strings.Repeat("x", providerResponseLimit+1)))
-	}))
-	client, closeClient, err := providerHTTPClient(server.URL+"/jwks", root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer closeClient()
-	if response, err := client.Get(server.URL + "/jwks"); err == nil {
-		response.Body.Close()
-		t.Fatal("oversized provider response admitted")
-	}
+	assertEnterpriseProviderBoundaries(t)
 }
 
 func TestEnterpriseSAMLClaimAndTrustAdmission(t *testing.T) {

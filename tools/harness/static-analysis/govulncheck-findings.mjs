@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { redactValue, validateSchemaSync } from "../contract/index.mjs";
+import { parseStrictJSON, redactValue, validateSchemaSync } from "../contract/index.mjs";
 
 const schemaID = "cartulary.govulncheck_findings.v1";
 
@@ -38,7 +38,7 @@ function parseJSONStream(source) {
   const values = [];
   let index = 0;
   while (index < source.length) {
-    while (index < source.length && /\s/u.test(source[index])) {
+    while (index < source.length && /[\t\n\r ]/u.test(source[index])) {
       index += 1;
     }
     if (index >= source.length) {
@@ -46,6 +46,9 @@ function parseJSONStream(source) {
     }
 
     const start = index;
+    if (source[start] !== "{") {
+      throw new Error("Govulncheck messages must be JSON objects");
+    }
     let depth = 0;
     let inString = false;
     let escaped = false;
@@ -76,7 +79,23 @@ function parseJSONStream(source) {
     if (depth !== 0 || inString) {
       throw new Error("unterminated JSON object in Govulncheck output");
     }
-    values.push(JSON.parse(source.slice(start, index)));
+    const value = parseStrictJSON(source.slice(start, index), "Govulncheck message");
+    const keys = Object.keys(value);
+    const kind = keys[0];
+    if (keys.length !== 1 || !["config", "progress", "SBOM", "osv", "finding"].includes(kind)) {
+      throw new Error("Govulncheck messages require exactly one recognized event");
+    }
+    const payload = value[kind];
+    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("Govulncheck event payloads must be objects");
+    }
+    if ((values.length === 0) !== (kind === "config")) {
+      throw new Error("Govulncheck requires one configuration as its first message");
+    }
+    if (kind === "config" && payload.protocol_version !== "v1.0.0") {
+      throw new Error("unsupported Govulncheck protocol version");
+    }
+    values.push(value);
   }
   return values;
 }

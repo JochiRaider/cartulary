@@ -130,6 +130,17 @@ func (a linkAdapter) HasActiveIncomingSupersedesLinkForUpdateTx(ctx context.Cont
 	return a.store.HasActiveIncomingSupersedesLinkForUpdateTx(ctx, tx, incidentID, recordID)
 }
 
+func (a linkAdapter) ValidateRecordRefCollectionTx(ctx context.Context, tx pgx.Tx, command timeline.RecordRefCollectionValidation) error {
+	linkType, err := links.ParseLinkType(command.LinkType)
+	if err != nil {
+		return err
+	}
+	return a.store.ValidateRecordRefCollectionTx(ctx, tx, links.RecordRefCollectionValidation{
+		IncidentID: command.IncidentID, FieldKey: command.FieldKey, LinkType: linkType,
+		ExpectedTargetType: command.ExpectedTargetType, AddRecordIDs: command.AddRecordIDs,
+	})
+}
+
 func (a linkAdapter) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command timeline.RecordRefCollectionCommand) (timeline.CollectionMutationResult, error) {
 	linkType, err := links.ParseLinkType(command.LinkType)
 	if err != nil {

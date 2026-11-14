@@ -363,6 +363,8 @@ describe("Workbook import lifecycle", () => {
           await settle();
           h.controller.stopObservation();
         }
+        const respond = h.client.send.getMockImplementation();
+        if (!respond) throw new Error("Missing successful response fixture");
         const pending = deferred<ImportWriteResult>();
         h.client.send.mockReturnValueOnce(pending.promise);
         if (stage === "upload")
@@ -386,6 +388,9 @@ describe("Workbook import lifecycle", () => {
                     : h.controller.cancel();
         await settle();
         const admitted = h.client.send.mock.calls.length;
+        const request = h.client.send.mock.calls.at(-1)?.[0];
+        expect(request?.kind).toBe(stage);
+        if (!request) throw new Error("Missing admitted request");
         expect(
           h.controller.getSnapshot()[
             stage === "cancel" ? "cancellation" : "operation"
@@ -400,10 +405,7 @@ describe("Workbook import lifecycle", () => {
                 ? { available: false }
                 : { scope: { ...importTestScope, incidentId: ids.secondUnit } },
         );
-        pending.resolve({
-          kind: "accepted",
-          receipt: { kind: "unit", unit: importTestApprovedUnit() },
-        });
+        pending.resolve(await respond(request));
         await operation;
         await settle();
         expect(h.client.send).toHaveBeenCalledTimes(admitted);

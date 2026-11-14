@@ -8,14 +8,21 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/envelopefacts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/linkfacts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 )
 
-func NewSourcePort(linkFacts linkfacts.Capability) (sourceport.Port, error) {
+func NewSourcePort(linkFacts linkfacts.Capability, fieldReferences linkfacts.FieldReferenceReader, envelopes envelopefacts.Reader) (sourceport.Port, error) {
 	if linkFacts == nil {
 		return nil, fmt.Errorf("tasks/decisions incident bundle source: Links facts are required")
+	}
+	if fieldReferences == nil {
+		return nil, fmt.Errorf("tasks/decisions incident bundle source: retained field references are required")
+	}
+	if envelopes == nil {
+		return nil, fmt.Errorf("tasks/decisions incident bundle source: envelope reader is required")
 	}
 	descriptor := tasksDecisionsSourceDescriptor()
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
@@ -35,7 +42,7 @@ func NewSourcePort(linkFacts linkfacts.Capability) (sourceport.Port, error) {
 			if !ok {
 				return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 			}
-			return validatePreparedTasksDecisionsImportTx(ctx, tx, linkFacts, prepared, importContext)
+			return validatePreparedTasksDecisionsImportTx(ctx, tx, linkFacts, fieldReferences, envelopes, prepared, importContext)
 		},
 	}), nil
 }
@@ -57,16 +64,18 @@ func validatePreparedTasksDecisionsImportTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	linkFacts linkfacts.Capability,
+	fieldReferences linkfacts.FieldReferenceReader,
+	envelopes envelopefacts.Reader,
 	prepared preparedTasksDecisionsImport,
 	importContext sourceport.ImportContext,
 ) error {
 
 	validateEnvelope := func(id uuid.UUID, kind string) error {
-		valid, err := tasksource.EnvelopeValidTx(ctx, tx, id, importContext.IncidentID, kind)
+		fact, found, err := envelopes.LoadEnvelopeFactTx(ctx, tx, id)
 		if err != nil {
 			return err
 		}
-		if !valid {
+		if !found || fact.IncidentID != importContext.IncidentID || fact.RecordType != kind {
 			return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 		}
 		return nil
@@ -77,9 +86,25 @@ func validatePreparedTasksDecisionsImportTx(
 	if err := prepared.walkDecisions(ctx, importContext, func(row portableDecision) error { return validateEnvelope(row.RecordID, "decision") }); err != nil {
 		return err
 	}
+	if err := prepared.validateTaskState(ctx, tx, importContext); err != nil {
+		return err
+	}
+	if err := prepared.validateDecisionState(ctx, tx, importContext); err != nil {
+		return err
+	}
+	if err := prepared.validateAttributions(ctx, importContext); err != nil {
+		return err
+	}
 
 	if err := prepared.walkDecisions(ctx, importContext, func(row portableDecision) error {
 		recordID := row.RecordID
+		deleted, err := tasksource.PortableDecisionDeletedTx(ctx, tx, recordID, importContext.IncidentID)
+		if err != nil {
+			return err
+		}
+		if deleted {
+			return nil
+		}
 		state, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, linkFacts, recordID)
 		if err != nil {
 			return err
@@ -111,13 +136,20 @@ func validatePreparedTasksDecisionsImportTx(
 		if err := policy.ValidateTaskState(state); err != nil {
 			return tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
 		}
+		valid, err := tasksource.TaskDecisionFieldLinkValidTx(ctx, tx, fieldReferences, row.RecordID, row.DecisionRecordID, importContext.IncidentID)
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
+		}
 		return nil
 	}); err != nil {
 		return err
 	}
 
 	if err := prepared.walkTasks(ctx, importContext, func(row portableTaskRequest) error {
-		valid, err := portableTaskReferencesValidTx(ctx, tx, linkFacts, row, importContext.IncidentID)
+		valid, err := portableTaskReferencesValidTx(ctx, tx, linkFacts, envelopes, row, importContext.IncidentID)
 		if err != nil {
 			return err
 		}
@@ -129,7 +161,7 @@ func validatePreparedTasksDecisionsImportTx(
 		return err
 	}
 	if err := prepared.walkDecisions(ctx, importContext, func(row portableDecision) error {
-		valid, err := tasksource.OwnedLinksValidTx(ctx, tx, linkFacts, row.RecordID, importContext.IncidentID, "decision")
+		valid, err := tasksource.OwnedLinksValidTx(ctx, tx, linkFacts, envelopes, row.RecordID, importContext.IncidentID, "decision")
 		if err != nil {
 			return err
 		}
@@ -147,24 +179,21 @@ func portableTaskReferencesValidTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	linkFacts linkfacts.Capability,
+	envelopes envelopefacts.Reader,
 	row portableTaskRequest,
 	incidentID uuid.UUID,
 ) (bool, error) {
 	if row.RequesterPartyID != nil {
-		valid, err := tasksource.TargetValidTx(ctx, tx, *row.RequesterPartyID, incidentID, "party")
+		valid, err := tasksource.PortableTaskReferenceTargetValidTx(ctx, tx, row.RecordID, *row.RequesterPartyID, incidentID, "party")
 		if err != nil || !valid {
 			return valid, err
 		}
 	}
 	if row.DecisionRecordID != nil {
-		valid, err := tasksource.TargetValidTx(ctx, tx, *row.DecisionRecordID, incidentID, "decision")
-		if err != nil || !valid {
-			return valid, err
-		}
-		valid, err = tasksource.TaskDecisionFieldLinkValidTx(ctx, tx, linkFacts, row.RecordID, *row.DecisionRecordID, incidentID)
+		valid, err := tasksource.PortableTaskReferenceTargetValidTx(ctx, tx, row.RecordID, *row.DecisionRecordID, incidentID, "decision")
 		if err != nil || !valid {
 			return valid, err
 		}
 	}
-	return tasksource.OwnedLinksValidTx(ctx, tx, linkFacts, row.RecordID, incidentID, "task_request")
+	return tasksource.OwnedLinksValidTx(ctx, tx, linkFacts, envelopes, row.RecordID, incidentID, "task_request")
 }

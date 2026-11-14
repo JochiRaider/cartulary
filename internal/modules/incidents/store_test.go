@@ -615,12 +615,7 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 		t.Fatalf("fresh create must be marked created: %#v", firstResult)
 	}
 
-	selector := storetest.IncidentCreateReplaySelector{
-		ActorUserID: actor.ID,
-		ClientTxnID: firstInput.ClientTxnID,
-		IncidentID:  firstResult.Incident.ID,
-	}
-	stableBefore := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.PostgresReplayDatabase(harness.DB), selector)
+	contentBefore := storetest.SnapshotIncidentCreateContent(t, storetest.PostgresReplayDatabase(harness.DB))
 
 	replayRequest := admissiontest.IncidentCreate(t, firstInput)
 	replayResult, err := store.CreateIncident(
@@ -638,8 +633,8 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 	if canonicalFirst := canonicalJSONMap(t, firstResult.Payload); !reflect.DeepEqual(canonicalFirst, replayResult.Payload) {
 		t.Fatalf("expected replayed payload to match original create payload: first=%#v replay=%#v", canonicalFirst, replayResult.Payload)
 	}
-	if stableAfter := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.PostgresReplayDatabase(harness.DB), selector); stableAfter != stableBefore {
-		t.Fatalf("replay must keep durable side effects stable: before=%+v after=%+v", stableBefore, stableAfter)
+	if contentAfter := storetest.SnapshotIncidentCreateContent(t, storetest.PostgresReplayDatabase(harness.DB)); contentAfter != contentBefore {
+		t.Fatal("incident-create replay or conflict changed bootstrap content")
 	}
 
 	divergentInput := firstInput
@@ -653,8 +648,8 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 	); !errors.Is(err, authn.ErrClientTxnConflict) {
 		t.Fatalf("divergent replay must return client transaction conflict: %v", err)
 	}
-	if stableAfterConflict := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.PostgresReplayDatabase(harness.DB), selector); stableAfterConflict != stableBefore {
-		t.Fatalf("divergent replay must not change durable side effects: before=%+v after=%+v", stableBefore, stableAfterConflict)
+	if contentAfter := storetest.SnapshotIncidentCreateContent(t, storetest.PostgresReplayDatabase(harness.DB)); contentAfter != contentBefore {
+		t.Fatal("incident-create replay or conflict changed bootstrap content")
 	}
 
 	secondActorInput := admissiontest.IncidentCreateInput{
@@ -676,7 +671,7 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 		t.Fatalf("actor-scoped idempotency must allow a distinct create for a different actor: %#v", secondActorResult)
 	}
 
-	wantSecondActorSideEffects := storetest.IncidentCreateReplaySideEffects{
+	wantSecondActorSideEffects := storetest.IncidentCreateSideEffectCounts{
 		BootstrapMembershipRows:        1,
 		IncidentRows:                   1,
 		IncidentWorkbookPreferenceRows: 1,
@@ -684,7 +679,7 @@ func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Un
 		RouteIdempotencyRows:           1,
 		UserWorkbookPreferenceRows:     1,
 	}
-	if got := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.PostgresReplayDatabase(harness.DB), storetest.IncidentCreateReplaySelector{
+	if got := storetest.CountIncidentCreateSideEffects(t, storetest.PostgresReplayDatabase(harness.DB), storetest.IncidentCreateSelector{
 		ActorUserID: secondActor.ID,
 		ClientTxnID: secondActorInput.ClientTxnID,
 		IncidentID:  secondActorResult.Incident.ID,

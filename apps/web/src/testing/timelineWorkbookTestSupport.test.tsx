@@ -12,6 +12,9 @@ import {
 
 import {
   changeInputValue,
+  gridScalarInput,
+  visibleGridRowRecordIds,
+  waitForVisibleGridRowRecordIds,
   waitForWorkbookRows,
   workbookAsyncTimeoutMs,
 } from "./timelineWorkbookTestSupport";
@@ -35,29 +38,15 @@ function IdentityRows({
         aria-label="Unrelated row editor"
         defaultValue="private-authoring-value"
       />
-      <div
-        data-testid={workbookViewBarQueryControlsTestId(timelineViewSchemaId)}
-      />
-      <table data-testid={gridShellTestId(timelineViewSchemaId)}>
+      <div data-testid={workbookViewBarQueryControlsTestId(surface)} />
+      <table data-testid={gridShellTestId(surface)}>
         <tbody>
-          {surface === timelineViewSchemaId ? (
-            // biome-ignore lint/a11y/noRedundantRoles: identity fixtures exercise the actual row selectors.
-            <tr data-grid-record-id={recordId} role="row">
-              <td>private-row-payload</td>
-            </tr>
-          ) : null}
+          {/* biome-ignore lint/a11y/noRedundantRoles: identity fixtures exercise the actual row selectors. */}
+          <tr data-grid-record-id={recordId} role="row">
+            <td>private-row-payload</td>
+          </tr>
         </tbody>
       </table>
-      {surface !== timelineViewSchemaId ? (
-        <table data-testid={gridShellTestId(surface)}>
-          <tbody>
-            {/* biome-ignore lint/a11y/noRedundantRoles: identity fixtures exercise the actual row selectors. */}
-            <tr data-grid-record-id={recordId} role="row">
-              <td>private-row-payload</td>
-            </tr>
-          </tbody>
-        </table>
-      ) : null}
     </section>
   );
 }
@@ -133,6 +122,17 @@ describe("timeline workbook test support", () => {
     const { container, rerender } = render(
       <IdentityRows recordId="record-expected" surface={hostsViewSchemaId} />,
     );
+    expect(visibleGridRowRecordIds(container, timelineViewSchemaId)).toEqual(
+      [],
+    );
+    expect(() =>
+      gridScalarInput(
+        container,
+        "record-expected",
+        "summary",
+        timelineViewSchemaId,
+      ),
+    ).toThrow(/Expected visible grid row/);
     const ready = vi.fn();
     const observation = waitForWorkbookRows({
       container,
@@ -147,6 +147,70 @@ describe("timeline workbook test support", () => {
     expect(ready).toHaveBeenCalledOnce();
   });
 
+  it("ignores matching grids and controls outside the supplied container", async () => {
+    vi.useFakeTimers();
+    render(<IdentityRows recordId="record-expected" />);
+    const { container, rerender } = render(
+      <IdentityRows recordId="record-expected" surface={hostsViewSchemaId} />,
+    );
+    const ready = vi.fn();
+    const observation = waitForWorkbookRows({
+      container,
+      expectedRecordIds: ["record-expected"],
+      surface: timelineViewSchemaId,
+    }).then(ready);
+    await vi.advanceTimersByTimeAsync(50);
+    expect(ready).not.toHaveBeenCalled();
+    rerender(<IdentityRows recordId="record-expected" />);
+    await vi.advanceTimersByTimeAsync(50);
+    await observation;
+    expect(ready).toHaveBeenCalledExactlyOnceWith(
+      container.querySelector(
+        `[data-testid="${gridShellTestId(timelineViewSchemaId)}"]`,
+      ),
+    );
+  });
+
+  it("requires the selected shell and controls before accepting zero rows", async () => {
+    vi.useFakeTimers();
+    const { container, rerender } = render(<section />);
+    const identitiesReady = vi.fn();
+    const workbookReady = vi.fn();
+    const identities = waitForVisibleGridRowRecordIds(
+      container,
+      [],
+      timelineViewSchemaId,
+    ).then(identitiesReady);
+    const workbook = waitForWorkbookRows({
+      container,
+      expectedVisibleRows: 0,
+      surface: timelineViewSchemaId,
+    }).then(workbookReady);
+    await vi.advanceTimersByTimeAsync(50);
+    expect(identitiesReady).not.toHaveBeenCalled();
+    expect(workbookReady).not.toHaveBeenCalled();
+    rerender(<table data-testid={gridShellTestId(timelineViewSchemaId)} />);
+    await vi.advanceTimersByTimeAsync(50);
+    await identities;
+    expect(identitiesReady).toHaveBeenCalledOnce();
+    expect(workbookReady).not.toHaveBeenCalled();
+    rerender(
+      <section>
+        <table data-testid={gridShellTestId(timelineViewSchemaId)} />
+        <div
+          data-testid={workbookViewBarQueryControlsTestId(timelineViewSchemaId)}
+        />
+      </section>,
+    );
+    await vi.advanceTimersByTimeAsync(50);
+    await workbook;
+    expect(workbookReady).toHaveBeenCalledExactlyOnceWith(
+      container.querySelector(
+        `[data-testid="${gridShellTestId(timelineViewSchemaId)}"]`,
+      ),
+    );
+  });
+
   it("times out persistent row mismatch within the configured budget without payload values", async () => {
     vi.useFakeTimers();
     const { container } = render(<IdentityRows recordId="record-other" />);
@@ -157,7 +221,7 @@ describe("timeline workbook test support", () => {
       expectedRecordIds: ["record-expected"],
       surface: timelineViewSchemaId,
     }).then(ready, rejected);
-    // Existing shell controls settle first; the identity wait retains its own configured deadline.
+    // Shell, controls and row identity share one configured deadline.
     await vi.advanceTimersByTimeAsync(50);
     expect(ready).not.toHaveBeenCalled();
     expect(rejected).not.toHaveBeenCalled();

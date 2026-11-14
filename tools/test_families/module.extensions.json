@@ -385,7 +385,6 @@
         "package": "./internal/modules/extensions",
         "tests": [
           "TestStateRuntimeAdmit_ServiceBacked_AlgorithmInitialization",
-          "TestStateRuntimeAdmit_ServiceBacked_AllowedEmptyRestart",
           "TestStateRuntimeAdmit_ServiceBacked_AlreadyCurrentValidation",
           "TestStateRuntimeAdmit_ServiceBacked_BorrowedSessionLifecycle",
           "TestStateRuntimeAdmit_ServiceBacked_CancellationDeadlineTie",
@@ -494,6 +493,7 @@
       "selector": {
         "package": "./internal/modules/extensions",
         "tests": [
+          "TestStateMetadataCanonicalIdentity_Unit",
           "TestStateRuntimeAdmit_ServiceBacked_StatePresenceMatrix"
         ]
       },

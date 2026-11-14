@@ -303,11 +303,3 @@ func hashHex(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }
-
-func canonicalJSONString(value any) ([]byte, error) {
-	payload, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-	return append(payload, '\n'), nil
-}

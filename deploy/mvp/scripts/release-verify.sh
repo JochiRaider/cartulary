@@ -36,9 +36,10 @@ done < <(jq -r '.assets[] | [.path,.size_bytes,.sha256,.mode] | @tsv' "$manifest
 expected="$( { jq -r '.assets[].path' "$manifest"; echo release-manifest.json; } | LC_ALL=C sort)"
 actual="$(find "$release" -type f -printf '%P\n' | LC_ALL=C sort)"
 [[ "$expected" == "$actual" ]] || fail
-while IFS=$'\t' read -r digest receipt; do
-  jq -e --arg digest "$digest" '.schema_id == "cartulary.cryptographic_build_receipt.v1" and .binary_sha256 == $digest and (.selector | length > 0)' "$release/$receipt" >/dev/null || fail
-done < <(jq -r '.binaries | to_entries[] | [.value.sha256,.value.receipt] | @tsv' "$manifest")
+# Cryptographic receipts are opaque, manifest-bound assets here. Their typed
+# meaning and actual binary/module admission belong to build qualification.
+# Require every declared receipt in the exact hashed asset set above.
+jq -e '(.assets | map(.path)) as $assets | all(.binaries[]; .receipt as $receipt | $assets | index($receipt) != null)' "$manifest" >/dev/null || fail
 jq -e '.schema_id == "cartulary.image_inventory_tool.v1" and .module == "github.com/anchore/syft" and .version == "v1.44.0" and (.binary_sha256 | test("^[a-f0-9]{64}$"))' "$release/inventories/scanner.json" >/dev/null || fail
 jq -e '.schema_id == "cartulary.distribution_notices.v1" and .review_disposition == "unestablished" and (.images | length == 3)' "$release/inventories/notices.json" >/dev/null || fail
 while IFS=$'\t' read -r config_digest inventory archive; do

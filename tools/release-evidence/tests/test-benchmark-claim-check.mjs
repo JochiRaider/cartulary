@@ -13,7 +13,6 @@ import { loadTestCatalog } from "../../harness/test-catalog/index.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const checker = path.join(root, "tools/release-evidence/check-benchmark-claim.mjs");
-const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "cartulary-benchmark-contract-"));
 const digest = bytes => `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 const json = value => Buffer.from(`${JSON.stringify(value)}\n`);
 const read = relative => JSON.parse(fs.readFileSync(path.join(root, relative), "utf8"));
@@ -150,6 +149,7 @@ function rejected(mutate, pattern, criterion) {
   assert.match(errors(candidate).join("; "), pattern);
 }
 function cli(file) { return spawnSync(process.execPath, [checker, ...(file ? [file] : [])], { cwd: root, encoding: "utf8" }); }
+const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "cartulary-benchmark-contract-"));
 try {
   const percentile = packet();
   assert.deepEqual(errors(percentile), []);
@@ -185,7 +185,7 @@ try {
   rejected({ report: r => { r.suites[0].specs[0].title += " suffix"; } }, /exact catalog selection/u);
   rejected({ report: r => { r.suites[0].specs[0].tests[0].projectName = "other"; } }, /exact catalog selection/u);
   rejected({ report: r => { r.suites[0].specs[0].file = "wrong.spec.ts"; } }, /exact catalog selection/u);
-  rejected({ report: r => { r.suites[0].specs[0].tests[0].results[0].retry = 1; } }, /without retry/u);
+  rejected({ report: r => { r.suites[0].specs[0].tests[0].results[0].retry = 1; } }, /^browser result differs from its exact catalog selection$/u);
   rejected({ report: r => { r.suites[0].specs[0].tests[0].results[0].attachments.pop(); } }, /not bound/u);
   rejected({ report: r => { r.suites[0].specs[0].tests[0].results[0].attachments[0].body = json({}).toString("base64"); } }, /required/u);
   rejected({ summary: s => { s.scheduler_overlap_count = 1; } }, /environment_not_qualified/u);

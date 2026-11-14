@@ -3,6 +3,8 @@ package incidentbundles
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,16 +19,17 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
-	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 func TestIncidentBundlePortabilityStateAndClaimMatrix_Integration(t *testing.T) {
+	t.Run("operation limits", checkPortabilityExportLimits)
 	incidentID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	base := ExtensionPolicy{
 		ProfileID: "profile", ClaimState: ClaimStateClaimed, ContractMajor: 1,
 		Mode: PortabilityModeParticipant, ParticipantID: "profile.portability_v1",
 		ParticipantSHA256: strings.Repeat("a", 64), ParticipantSchemaID: "test.specialization.v2",
-		MaximumInputBytes: PortabilityParticipantByteLimit, MaximumOutputBytes: PortabilityParticipantByteLimit,
+		Export:                 PortabilityOperationPolicy{OutputSchemaID: "profile.state.v1", StateFamilyIDs: []string{"profile.state"}, MaximumInputBytes: PortabilityParticipantByteLimit, MaximumOutputBytes: PortabilityParticipantByteLimit, MaximumItems: 10000},
+		Import:                 PortabilityOperationPolicy{OutputSchemaID: "profile.import.v1", StateFamilyIDs: []string{"profile.state"}, MaximumInputBytes: PortabilityParticipantByteLimit, MaximumOutputBytes: PortabilityParticipantByteLimit, MaximumItems: 10000},
 		AuthoritativeFamilyIDs: []string{"profile.state"},
 	}
 	tests := []struct {
@@ -63,8 +66,33 @@ func TestIncidentBundlePortabilityStateAndClaimMatrix_Integration(t *testing.T) 
 			if !errors.Is(err, test.wantError) {
 				t.Fatalf("error=%v want=%v", err, test.wantError)
 			}
-			if got := len(members.Members()) == 2; got != test.wantPayload {
-				t.Fatalf("members=%v", members.Members())
+			wantFiles := map[string][]byte{}
+			if test.wantPayload {
+				data := []byte("{\"value\":\"portable\"}\n")
+				dataPath := "ext/extensions/profile/members/state.ndjson"
+				catalog, err := json.Marshal(map[string]any{
+					"schema_id":  "cartulary.incident_bundle_extension_members.v2",
+					"profile_id": "profile", "contract_major": 1, "state_version": 1,
+					"content_schema_id": "profile.state.v1",
+					"members":           []map[string]any{{"path": dataPath, "byte_size": len(data), "sha256": fmt.Sprintf("%x", sha256.Sum256(data))}},
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantFiles[dataPath] = data
+				wantFiles["ext/extensions/profile/catalog.json"] = append(catalog, '\n')
+			}
+			wantMembers := make([]incidentportability.Member, 0, len(wantFiles))
+			for path, want := range wantFiles {
+				wantMembers = append(wantMembers, incidentportability.Member{Path: path, ByteSize: int64(len(want)), SHA256: fmt.Sprintf("%x", sha256.Sum256(want))})
+				got, err := incidentportability.ReadControl(t.Context(), members, path, PortabilityParticipantByteLimit)
+				if err != nil || !bytes.Equal(got, want) {
+					t.Fatalf("member %s bytes=%q want=%q err=%v", path, got, want, err)
+				}
+			}
+			slices.SortFunc(wantMembers, func(a, b incidentportability.Member) int { return strings.Compare(a.Path, b.Path) })
+			if got := members.Members(); !slices.Equal(got, wantMembers) {
+				t.Fatalf("members=%+v want=%+v", got, wantMembers)
 			}
 			if participant.exportCalls != test.wantCalls {
 				t.Fatalf("participant calls=%d want=%d", participant.exportCalls, test.wantCalls)
@@ -92,13 +120,15 @@ func TestIncidentBundlePortabilityStateAndClaimMatrix_Integration(t *testing.T) 
 }
 
 func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testing.T) {
+	t.Run("operation limits", checkPortabilityImportLimits)
 	ctx := t.Context()
 	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	input := PortabilityImportContext{OperationID: "operation", IncidentID: incidentID, ActorUserID: uuid.MustParse("33333333-3333-4333-8333-333333333333")}
 	policy := ExtensionPolicy{ProfileID: "profile", ClaimState: ClaimStateClaimed, ContractMajor: 1,
 		Mode: PortabilityModeParticipant, ParticipantID: "profile.portability_v2",
 		ParticipantSHA256: strings.Repeat("a", 64), ParticipantSchemaID: "test.specialization.v2",
-		MaximumInputBytes: PortabilityParticipantByteLimit, MaximumOutputBytes: PortabilityParticipantByteLimit,
+		Export:                 PortabilityOperationPolicy{OutputSchemaID: "profile.state.v1", StateFamilyIDs: []string{"profile.state"}, MaximumInputBytes: PortabilityParticipantByteLimit, MaximumOutputBytes: PortabilityParticipantByteLimit, MaximumItems: 10000},
+		Import:                 PortabilityOperationPolicy{OutputSchemaID: "profile.import.v1", StateFamilyIDs: []string{"profile.state"}, MaximumInputBytes: PortabilityParticipantByteLimit, MaximumOutputBytes: PortabilityParticipantByteLimit, MaximumItems: 10000},
 		AuthoritativeFamilyIDs: []string{"profile.state"}}
 	allocator := &portabilityAllocatorFake{}
 	participant := &portabilityParticipantFake{id: policy.ParticipantID, allocate: true}
@@ -114,6 +144,9 @@ func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testi
 	if len(actors.ids) != 1 {
 		t.Fatal("extension-only actor was not collected before roster closure")
 	}
+	if _, exists := actors.ids["44444444-4444-4444-8444-444444444444"]; !exists {
+		t.Fatalf("collected actors=%v", actors.ids)
+	}
 	members.Seal()
 	prepared, err := orchestrator.PrepareImport(ctx, input, members)
 	if err != nil {
@@ -122,18 +155,38 @@ func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testi
 	if participant.importCalls != 1 || len(prepared.Participants) != 1 || len(prepared.Publications) != 1 {
 		t.Fatal("participant or transfer missing")
 	}
-	if refs := prepared.Publications[0].Transfer.References(); len(refs) != 1 || !strings.HasPrefix(participant.stagedRefs[0], "cartulary:staged_output:") {
-		t.Fatal("staging identity escaped logical reference")
+	if got := prepared.Participants[0].ID(); got != "profile.import_v1" {
+		t.Fatalf("prepared participant=%q", got)
+	}
+	transfer := prepared.Publications[0].Transfer
+	if transfer.OperationID() != "operation" || transfer.ProfileID() != "profile" || !slices.Equal(transfer.References(), []string{"operation:profile"}) {
+		t.Fatalf("transfer operation=%q profile=%q refs=%v", transfer.OperationID(), transfer.ProfileID(), transfer.References())
+	}
+	if !slices.Equal(participant.stagedRefs, []string{"cartulary:staged_output:operation:profile"}) || !slices.Equal(allocator.allocated, []string{"operation:profile"}) {
+		t.Fatalf("logical refs=%v allocations=%v", participant.stagedRefs, allocator.allocated)
+	}
+	wantPublications := []stagedobjects.Publication{{
+		StagingID: "operation:profile", ResourceKind: "test_resource", ResourceID: "22222222-2222-2222-2222-222222222222",
+		ByteSize: 6, SHA256: fmt.Sprintf("%x", sha256.Sum256([]byte("staged"))),
+	}}
+	if got := prepared.Publications[0].Publications; !slices.Equal(got, wantPublications) {
+		t.Fatalf("publications=%+v want=%+v", got, wantPublications)
 	}
 	bound, err := prepared.Participants[0].BuildInput(ctx, crossownertransaction.OperationContext{OperationID: input.OperationID})
 	if err != nil || string(bound.CanonicalBytes) != "{\"prepared\":true}\n" {
 		t.Fatalf("bound input: %v", err)
 	}
+	if bound.SchemaID != "profile.import.v1" {
+		t.Fatalf("prepared input schema=%q", bound.SchemaID)
+	}
 	if _, err := prepared.Participants[0].BuildInput(ctx, crossownertransaction.OperationContext{OperationID: "another"}); err == nil {
 		t.Fatal("prepared descriptor crossed operations")
 	}
-	if err := prepared.Abandon(ctx); err != nil || len(allocator.abandoned) != 1 {
+	if err := prepared.Abandon(ctx); err != nil {
 		t.Fatalf("abandon: %v", err)
+	}
+	if !slices.Equal(allocator.abandoned, []string{"operation:profile"}) {
+		t.Fatalf("abandoned=%v", allocator.abandoned)
 	}
 	catalogPath := extensionCatalogPath("profile")
 	raw, err := incidentportability.ReadControl(ctx, members, catalogPath, PortabilityParticipantByteLimit)
@@ -142,28 +195,36 @@ func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testi
 	}
 	dataPath := extensionMemberPrefix("profile") + "state.ndjson"
 	for _, tc := range []struct {
-		name   string
-		policy ExtensionPolicy
-		mutate func(map[string][]byte)
+		name          string
+		policy        ExtensionPolicy
+		mutate        func(map[string][]byte)
+		wantError     error
+		wantInvariant string
 	}{
 		{"unknown profile", policy, func(files map[string][]byte) {
 			delete(files, catalogPath)
-			files[extensionCatalogPath("unknown")] = bytes.ReplaceAll(raw, []byte("profile"), []byte("unknown"))
-		}},
-		{"recognized unclaimable", withClaim(policy, ClaimStateRecognizedUnclaimable), nil},
-		{"unclaimed", withClaim(policy, ClaimStateUnclaimed), nil},
-		{"nonparticipant", withPortabilityMode(policy, PortabilityModeNoAuthoritativeState), nil},
+			unknown := bytes.Replace(raw, []byte(`"profile_id":"profile"`), []byte(`"profile_id":"unknown"`), 1)
+			files[extensionCatalogPath("unknown")] = bytes.ReplaceAll(unknown, []byte(extensionMemberPrefix("profile")), []byte(extensionMemberPrefix("unknown")))
+			files[extensionMemberPrefix("unknown")+"state.ndjson"] = files[dataPath]
+			delete(files, dataPath)
+		}, ErrPortabilityUnavailable, "extension_payload.participant_admitted"},
+		{"recognized unclaimable", withClaim(policy, ClaimStateRecognizedUnclaimable), nil, ErrPortabilityUnavailable, "extension_payload.participant_admitted"},
+		{"unclaimed", withClaim(policy, ClaimStateUnclaimed), nil, ErrPortabilityUnavailable, "extension_payload.participant_admitted"},
+		{"nonparticipant", withPortabilityMode(policy, PortabilityModeNoAuthoritativeState), nil, ErrPortabilityUnavailable, "extension_payload.participant_admitted"},
 		{"incompatible major", policy, func(files map[string][]byte) {
 			files[catalogPath] = bytes.Replace(raw, []byte("\"contract_major\":1"), []byte("\"contract_major\":2"), 1)
-		}},
-		{"digest mismatch", policy, func(files map[string][]byte) { files[dataPath] = []byte("changed") }},
-		{"undeclared member", policy, func(files map[string][]byte) { files[extensionMemberPrefix("profile")+"extra"] = []byte("undeclared") }},
-		{"missing member", policy, func(files map[string][]byte) { delete(files, dataPath) }},
+		}, ErrPortabilityResult, "extension_payload.contract_compatible"},
+		{"wrong schema", policy, func(files map[string][]byte) {
+			files[catalogPath] = bytes.Replace(raw, []byte("profile.state.v1"), []byte("profile.other.v1"), 1)
+		}, ErrPortabilityPayload, "extension_payload.schema_digest_valid"},
+		{"digest mismatch", policy, func(files map[string][]byte) { files[dataPath] = []byte("changed") }, ErrPortabilityPayload, "extension_payload.schema_digest_valid"},
+		{"undeclared member", policy, func(files map[string][]byte) { files[extensionMemberPrefix("profile")+"extra"] = []byte("undeclared") }, ErrPortabilityPayload, "extension_payload.schema_digest_valid"},
+		{"missing member", policy, func(files map[string][]byte) { delete(files, dataPath) }, ErrPortabilityPayload, "extension_payload.schema_digest_valid"},
 		{"inline predecessor", policy, func(files map[string][]byte) {
 			delete(files, catalogPath)
 			files["ext/extensions/profile/payload.json"] = []byte(`{"payload":{}}`)
-		}},
-		{"noncanonical catalog", policy, func(files map[string][]byte) { files[catalogPath] = append([]byte(" "), raw...) }},
+		}, ErrPortabilityPayload, "extension_payload.schema_digest_valid"},
+		{"noncanonical catalog", policy, func(files map[string][]byte) { files[catalogPath] = append([]byte(" "), raw...) }, ErrPortabilityPayload, "extension_payload.schema_digest_valid"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			files := map[string][]byte{catalogPath: raw, dataPath: []byte("{\"value\":\"portable\"}\n")}
@@ -179,11 +240,68 @@ func TestIncidentBundlePortabilityImportAdmissionAndCleanup_Integration(t *testi
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := current.PrepareImport(ctx, input, fixtureMembers(t, files)); err == nil {
-				t.Fatal("invalid member catalog admitted")
+			_, err = current.PrepareImport(ctx, input, fixtureMembers(t, files))
+			if !errors.Is(err, tc.wantError) {
+				t.Fatalf("admission error=%v, want %v", err, tc.wantError)
+			}
+			reason, details := incidentBundleFailureDetails("incident_bundle_import_rejected", err)
+			if reason != "source_family_invalid" || !reflect.DeepEqual(details, map[string]any{
+				"reason_code": "source_family_invalid", "source_family_id": "extension_payload",
+				"invariant_id": tc.wantInvariant,
+			}) {
+				t.Fatalf("admission reason=%q details=%#v", reason, details)
 			}
 			if fake.importCalls != 0 {
 				t.Fatal("participant ran before admission")
+			}
+		})
+	}
+	for _, tc := range []struct {
+		name        string
+		mutate      func(map[string]any, map[string]any)
+		wantInvalid bool
+	}{
+		{name: "zero-byte member"},
+		{name: "missing member size", wantInvalid: true, mutate: func(_ map[string]any, member map[string]any) { delete(member, "byte_size") }},
+		{name: "null member size", wantInvalid: true, mutate: func(_ map[string]any, member map[string]any) { member["byte_size"] = nil }},
+		{name: "member field case alias", wantInvalid: true, mutate: func(_ map[string]any, member map[string]any) { delete(member, "byte_size"); member["BYTE_SIZE"] = 0 }},
+		{name: "catalog field case alias", wantInvalid: true, mutate: func(catalog map[string]any, _ map[string]any) {
+			catalog["SCHEMA_ID"] = catalog["schema_id"]
+			delete(catalog, "schema_id")
+		}},
+		{name: "unknown member field", wantInvalid: true, mutate: func(_ map[string]any, member map[string]any) { member["extra"] = true }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			member := map[string]any{"path": dataPath, "byte_size": 0, "sha256": fmt.Sprintf("%x", sha256.Sum256(nil))}
+			catalog := map[string]any{
+				"schema_id": "cartulary.incident_bundle_extension_members.v2", "profile_id": "profile",
+				"contract_major": 1, "state_version": 1, "content_schema_id": "profile.state.v1",
+				"members": []map[string]any{member},
+			}
+			if tc.mutate != nil {
+				tc.mutate(catalog, member)
+			}
+			raw, err := json.Marshal(catalog)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fake := &portabilityParticipantFake{id: policy.ParticipantID}
+			current, err := NewPortabilityOrchestrator(PortabilityOptions{Policies: []ExtensionPolicy{policy}, Presence: portabilityPresenceFake{}, Participants: []ExtensionParticipant{fake}, Allocator: &portabilityAllocatorFake{}, SnapshotReads: portabilityReadFactoryFake{}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			prepared, err := current.PrepareImport(t.Context(), input, fixtureMembers(t, map[string][]byte{catalogPath: append(raw, '\n'), dataPath: {}}))
+			if tc.wantInvalid {
+				if !errors.Is(err, ErrPortabilityPayload) || fake.importCalls != 0 {
+					t.Fatalf("invalid catalog: error=%v participant calls=%d", err, fake.importCalls)
+				}
+				return
+			}
+			if err != nil || fake.importCalls != 1 || fake.readBytes != 0 {
+				t.Fatalf("zero-byte member: error=%v calls=%d bytes=%d", err, fake.importCalls, fake.readBytes)
+			}
+			if err := prepared.Abandon(t.Context()); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
@@ -255,8 +373,9 @@ func TestIncidentBundleImportDescriptorIsClosed_Unit(t *testing.T) {
 	if produceErr != nil {
 		t.Fatal(produceErr)
 	}
-	if _, err := canonicaljson.DecodeExtension(produced.CanonicalBytes); err != nil || produced.SchemaID != importTransactionInputSchema {
-		t.Fatalf("noncanonical import producer: %v", err)
+	const wantInput = `{"incident_id":"12345678-1234-4234-8234-123456789abc","job_id":"00000000-0000-0000-0000-000000000000","manifest_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","schema_id":"cartulary.incident_portability_import_transaction_input.v2"}` + "\n"
+	if produced.SchemaID != "cartulary.incident_portability_import_transaction_input.v2" || string(produced.CanonicalBytes) != wantInput {
+		t.Fatalf("import input schema=%q bytes=%q, want %q", produced.SchemaID, produced.CanonicalBytes, wantInput)
 	}
 
 	input := map[string]any{"schema_id": importTransactionInputSchema, "incident_id": "12345678-1234-4234-8234-123456789abc", "job_id": "22345678-1234-4234-8234-123456789abc", "manifest_sha256": strings.Repeat("a", 64)}
@@ -280,11 +399,20 @@ func TestIncidentBundleImportDescriptorIsClosed_Unit(t *testing.T) {
 	}
 
 	descriptor := ImportTransactionDescriptor()
-	if descriptor.ParticipantID != ImportTransactionParticipantID ||
-		len(descriptor.SerializationKeyKinds) != 1 ||
-		len(descriptor.OwnedStateFamilyIDs) != 2 ||
-		len(descriptor.ContractSHA256) != 64 {
-		t.Fatalf("descriptor = %#v", descriptor)
+	const contract = `{"owned_state_family_ids":["core.incident","incident_portability.job"],"owner_profile_id":"incident_portability","participant_id":"incident_portability.import_v2","participant_input_schema_id":"cartulary.incident_portability_import_transaction_input.v2","prepare_algorithm_id":"incident_portability.import_prepare_v2","schema_id":"cartulary.extension_transaction_participant_contract.v3","serialization_key_kinds":["incident_portability.incident"],"validation_algorithm_id":"incident_portability.import_validate_v2","write_algorithm_id":"incident_portability.import_write_v2"}` + "\n"
+	wantDescriptor := crossownertransaction.Descriptor{
+		ParticipantID:         "incident_portability.import_v2",
+		OwnerProfileID:        "incident_portability",
+		ContractSHA256:        fmt.Sprintf("%x", sha256.Sum256([]byte(contract))),
+		InputSchemaID:         "cartulary.incident_portability_import_transaction_input.v2",
+		PrepareAlgorithmID:    "incident_portability.import_prepare_v2",
+		ValidationAlgorithmID: "incident_portability.import_validate_v2",
+		WriteAlgorithmID:      "incident_portability.import_write_v2",
+		SerializationKeyKinds: []string{"incident_portability.incident"},
+		OwnedStateFamilyIDs:   []string{"core.incident", "incident_portability.job"},
+	}
+	if !reflect.DeepEqual(descriptor, wantDescriptor) {
+		t.Fatalf("import descriptor = %#v, want %#v", descriptor, wantDescriptor)
 	}
 	contribution := RecoveryStateContribution()
 	if contribution.OwnerID != "module.incidentbundles" || len(contribution.Tables) != 5 || len(contribution.ObjectFamilies) != 1 {
@@ -339,7 +467,7 @@ type portabilityReadFake struct {
 
 func (r portabilityReadFake) ProfileScope() string     { return r.profile }
 func (r portabilityReadFake) IncidentScope() uuid.UUID { return r.incident }
-func (portabilityReadFactoryFake) ForSnapshot(query ExportSnapshotQuery, incident uuid.UUID, profile string) (ExportReadCapability, error) {
+func (portabilityReadFactoryFake) ForSnapshot(query ExportSnapshotQuery, incident uuid.UUID, profile string, _ []string) (ExportReadCapability, error) {
 	if _, ok := query.(pgx.Tx); ok {
 		return nil, errors.New("snapshot exposes transaction")
 	}

@@ -48,6 +48,22 @@ test("Fallow analyzer preserves live roots and reports dead peers", (t) => {
   for (const dead of ["apps/web/src/measurement/unreachable.ts", "ordinaryUnusedExport", "unused-tool"]) assert.ok(text.includes(dead), dead);
 });
 
+test("Fallow recognizes a resolved schema package without declaring a scanner invocation", t => {
+  const fixture = createReachabilityFixture(t);
+  const owner = fixture.readJSON("tools/fallow/reachability_owner.json");
+  owner.executable_tooling_dependencies = [];
+  fixture.write("tools/fallow/reachability_owner.json", JSON.stringify(owner));
+  fixture.write("tools/release-evidence/generate-sbom-license-evidence.mjs", `import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+export const schemaDirectory = require.resolve("@cyclonedx/cdxgen");
+`);
+  const config = path.join(fixture.root, "resolved.json");
+  buildResolvedFallowConfig({ root: fixture.root, outputFile: config });
+  const text = JSON.stringify(analyze(fixture, config));
+  assert.equal(text.includes("@cyclonedx/cdxgen"), false, "the schema package is a real dependency");
+  assert.ok(text.includes("unused-tool"), "unrelated unused dependencies remain visible");
+});
+
 test("Fallow analyzer qualifies authored E2E roots and exposes blanket-root blindness", (t) => {
   const fixture = createE2EReachabilityFixture(t);
   const config = path.join(fixture.root, "resolved.json");

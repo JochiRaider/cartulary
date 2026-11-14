@@ -17,7 +17,7 @@ func dependencyFixture(kind, name string, dependencies []string) harnesssession.
 }
 
 func testCleanupDependencies(t *testing.T) {
-	for _, kind := range []string{"managed_suite", "borrowed_suite", "browser_stack", "object_store_proxy", "helper_process", "browser_process", "diagnostic_scope", "browser_renderer"} {
+	for _, kind := range []string{"managed_suite", "borrowed_suite", "browser_stack", "object_store_proxy", "helper_process", "browser_process", "diagnostic_scope", "browser_renderer", "package_resource", "package_deployment"} {
 		t.Run("all_kinds_block_only_declared_dependencies_"+kind, func(t *testing.T) {
 			suite := dependencyFixture("managed_suite", "suite", []string{})
 			other := dependencyFixture("borrowed_suite", "independent", []string{})

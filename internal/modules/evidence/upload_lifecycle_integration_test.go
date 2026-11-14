@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -172,15 +173,14 @@ SELECT count(*)
 		candidate := createSlot("txn-concurrent-blob")
 		putObject(t, harness.Server.HTTP.URL, candidate["upload_target"].(map[string]any)["href"].(string), payload, "text/plain", login)
 		verifyUploadedBlob(t, harness, login, candidate["object_blob_id"], "verify-"+candidate["object_blob_id"].(string), "succeeded")
-		responses := make(chan *http.Response, 2)
-		for i := 0; i < 2; i++ {
-			go func(index int) {
-				responses <- httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows", map[string]any{"client_txn_id": fmt.Sprintf("txn-concurrent-create-%d", index), "evidence.initial_object_blob_id": candidate["object_blob_id"]}, authOptions(login)...)
-			}(i)
-		}
+		responses := concurrentEvidenceCreates(t,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows",
+			[]map[string]any{
+				{"client_txn_id": "txn-concurrent-create-0", "evidence.initial_object_blob_id": candidate["object_blob_id"]},
+				{"client_txn_id": "txn-concurrent-create-1", "evidence.initial_object_blob_id": candidate["object_blob_id"]},
+			}, login)
 		accepted := 0
-		for i := 0; i < 2; i++ {
-			response := <-responses
+		for _, response := range responses {
 			if response.StatusCode == http.StatusCreated {
 				accepted++
 				httptestx.RequireSuccessEnvelope(t, response, http.StatusCreated)
@@ -201,15 +201,12 @@ SELECT count(*)
 		candidate := createSlot("txn-concurrent-exact-blob")
 		putObject(t, harness.Server.HTTP.URL, candidate["upload_target"].(map[string]any)["href"].(string), payload, "text/plain", login)
 		verifyUploadedBlob(t, harness, login, candidate["object_blob_id"], "verify-"+candidate["object_blob_id"].(string), "succeeded")
-		responses := make(chan *http.Response, 2)
-		for i := 0; i < 2; i++ {
-			go func() {
-				responses <- httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows", map[string]any{"client_txn_id": "txn-concurrent-exact-create", "evidence.initial_object_blob_id": candidate["object_blob_id"]}, authOptions(login)...)
-			}()
-		}
+		body := map[string]any{"client_txn_id": "txn-concurrent-exact-create", "evidence.initial_object_blob_id": candidate["object_blob_id"]}
+		responses := concurrentEvidenceCreates(t,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows",
+			[]map[string]any{body, body}, login)
 		var changeSet any
-		for i := 0; i < 2; i++ {
-			response := <-responses
+		for _, response := range responses {
 			status := response.StatusCode
 			data := httptestx.RequireSuccessEnvelope(t, response, status)["data"].(map[string]any)
 			if status != http.StatusCreated && status != http.StatusOK {
@@ -436,4 +433,44 @@ func TestExpiredSlotReplay_Integration(t *testing.T) {
 		t.Fatalf("expired pending blob associations=%d", associations)
 	}
 
+}
+
+func concurrentEvidenceCreates(t *testing.T, route string, bodies []map[string]any, login authcookietest.AuthCookies) []*http.Response {
+	t.Helper()
+	requests := make([]*http.Request, len(bodies))
+	for index, body := range bodies {
+		request := httptestx.NewJSONRequest(t, http.MethodPost, route, body).WithContext(t.Context())
+		for _, option := range authOptions(login) {
+			option(request)
+		}
+		requests[index] = request
+	}
+	type outcome struct {
+		response *http.Response
+		err      error
+	}
+	outcomes := make(chan outcome, len(requests))
+	for _, request := range requests {
+		go func(request *http.Request) {
+			response, err := http.DefaultClient.Do(request)
+			outcomes <- outcome{response: response, err: err}
+		}(request)
+	}
+	responses := make([]*http.Response, 0, len(requests))
+	failed := false
+	for range requests {
+		result := <-outcomes
+		if result.response != nil {
+			t.Cleanup(func() { _ = result.response.Body.Close() })
+		}
+		if result.err != nil {
+			t.Errorf("concurrent Evidence create: %v", result.err)
+			failed = true
+		}
+		responses = append(responses, result.response)
+	}
+	if failed {
+		t.FailNow()
+	}
+	return responses
 }

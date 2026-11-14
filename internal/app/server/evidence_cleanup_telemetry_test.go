@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -10,12 +11,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 	telemetrytest "github.com/JochiRaider/cartulary/internal/platform/telemetry/testsupport"
+	"github.com/JochiRaider/cartulary/internal/platform/telemetry/testsupport/logcapture"
 )
 
 func TestEvidenceCleanupTelemetryUsesClosedMetricsAndLogFields(t *testing.T) {
 	ctx := context.Background()
 	capture := telemetrytest.StartCapture()
 	t.Cleanup(func() { capture.Close(context.Background()) })
+	logs := logcapture.Start()
+	t.Cleanup(func() {
+		if err := logs.Close(context.Background()); err != nil {
+			t.Errorf("close log capture: %v", err)
+		}
+	})
 	observer, err := newEvidenceCleanupTelemetryObserver("1.2.3")
 	if err != nil {
 		t.Fatal(err)
@@ -72,18 +80,16 @@ func TestEvidenceCleanupTelemetryUsesClosedMetricsAndLogFields(t *testing.T) {
 		}
 	}
 
-	operation, result, errorClass := closedEvidenceCleanupTelemetry(evidence.CleanupSweepObservation{
-		Operation: "raw-object-key", Result: "raw-result", ErrorClass: "raw error",
-	})
-	logAttrs := cleanupLogAttributes(operation, result, errorClass)
-	if len(logAttrs) != 4 || logAttrs["cartulary.module"] != "evidence" ||
-		logAttrs["cartulary.operation"] != "cleanup_sweep" ||
-		logAttrs["cartulary.result"] != "failed" ||
-		logAttrs["cartulary.error_class"] != "internal_error" {
-		t.Fatalf("cleanup log attributes are not closed: %#v", logAttrs)
-	}
-	if body := "Evidence cleanup sweep completed."; strings.Contains(body, "SENTINEL") || strings.Contains(body, "error") {
-		t.Fatalf("cleanup log body is not static and safe: %q", body)
+	wantLogs := []logcapture.Record{{
+		Body: "Evidence cleanup sweep completed.", Scope: "cartulary.evidence", Version: "1.2.3",
+		SeverityNumber: 13, SeverityText: "WARN",
+		Attributes: map[string]string{
+			"cartulary.module": "evidence", "cartulary.operation": "cleanup_sweep",
+			"cartulary.result": "failed", "cartulary.error_class": "internal_error",
+		},
+	}}
+	if got := logs.Records(); !reflect.DeepEqual(got, wantLogs) {
+		t.Fatalf("emitted cleanup logs = %#v, want %#v", got, wantLogs)
 	}
 }
 

@@ -19,7 +19,7 @@ const cryptoIdentityReadSQL = `SELECT count(*) = 1 AND COALESCE(bool_and(singlet
 // RequireApplicationCryptoFormat inspects an already-open read-only capability.
 // It never establishes identity, repairs a schema or acquires a serving lease.
 func RequireApplicationCryptoFormat(ctx context.Context, reader LedgerReader) error {
-	if ctx == nil || reader == nil {
+	if ctx == nil || nilMigrationCapability(reader) {
 		return ErrIncompatibleCryptoState
 	}
 	var present, current bool

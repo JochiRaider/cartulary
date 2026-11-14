@@ -52,11 +52,26 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
     uniqueIncidentKey("ENTITY-AUTORESOLUTION"),
     "Record relationships entity-resolution",
   );
+  // These exact aliases have a unique target: only the uncertainty grammar
+  // should prevent their submitted tokens from resolving.
+  const uncertaintyTokens = [
+    "WS-023?",
+    "WS-023??",
+    "WS-023 ~",
+    "WS-023 maybe",
+    "WS-023 prob",
+    "WS-023 probably",
+    "WS-023 approx",
+    "WS-023 approximately",
+  ];
   const autoTarget = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e404-auto"),
     "host.display_name": "Gateway node",
     "host.hostname": "gateway-node.example.test",
-    "host.aliases": aliasCollectionActionsPayload(["VPN Gateway"]),
+    "host.aliases": aliasCollectionActionsPayload([
+      "VPN Gateway",
+      ...uncertaintyTokens,
+    ]),
   });
   await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e404-competing-a"),
@@ -183,19 +198,14 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
   expect(undoEnvelope.data.entity_mention.resolution_status).toBe("unresolved");
 
   const suppressedTokens = [
+    // Bare WS-023 is ambiguous. Rewrite negatives instead use the unique
+    // positive alias, so ambiguity cannot mask accidental normalization.
     "WS-023",
-    "WS-023?",
-    "WS-023??",
-    "WS-023 ~",
-    "WS-023 maybe",
-    "WS-023 prob",
-    "WS-023 probably",
-    "WS-023 approx",
-    "WS-023 approximately",
-    "(WS-023)",
-    "WS-023.",
-    "WS-023,",
-    "WS-023 likely",
+    ...uncertaintyTokens,
+    "(VPN Gateway)",
+    "VPN Gateway.",
+    "VPN Gateway,",
+    "VPN Gateway likely",
   ];
   let expectedSuppressedBaseRowVersion = suppressedRow.row_version;
   for (const token of suppressedTokens) {

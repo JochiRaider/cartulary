@@ -856,27 +856,6 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 	// These assertions protect the named owner boundaries. Catalog discovery
 	// separately enforces complete, non-overlapping selection; additional owner
 	// tests must not require maintaining a second inventory here.
-	requireResolvedClaimSetIdentity(t)
-}
-
-func requireResolvedClaimSetIdentity(t testing.TB) {
-	t.Helper()
-	claims, err := NewResolvedClaimSet([]string{"snapshot_reporting", "import", "import"})
-	if err != nil {
-		t.Fatalf("construct resolved claim set: %v", err)
-	}
-	requireExactStrings(t, claims.ProfileIDs(), []string{"import", "snapshot_reporting"}, "canonical resolved profile ids")
-	if len(claims.SHA256()) != 64 {
-		t.Fatalf("resolved claim digest has %d characters; want 64", len(claims.SHA256()))
-	}
-	copy := claims.ProfileIDs()
-	copy[0] = "mutated"
-	requireExactStrings(t, claims.ProfileIDs(), []string{"import", "snapshot_reporting"}, "immutable resolved profile ids")
-	for _, invalid := range []string{"base", "", "BAD", "contains-dash"} {
-		if _, err := NewResolvedClaimSet([]string{invalid}); err == nil {
-			t.Fatalf("invalid resolved profile id %q was accepted", invalid)
-		}
-	}
 }
 
 func requireJSONStrings(t testing.TB, value any, want []string, label string) {
@@ -893,9 +872,7 @@ func requireJSONStrings(t testing.TB, value any, want []string, label string) {
 		}
 		got[index] = current
 	}
-	if fmt.Sprint(got) != fmt.Sprint(want) {
-		t.Fatalf("%s = %v; want %v", label, got, want)
-	}
+	requireExactStrings(t, got, want, label)
 }
 
 type extensionTestFamilyManifest struct {

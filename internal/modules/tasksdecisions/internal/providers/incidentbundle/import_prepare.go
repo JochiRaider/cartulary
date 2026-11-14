@@ -2,6 +2,7 @@ package incidentbundle
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/textpolicy"
 )
 
 type preparedTasksDecisionsImport struct {
@@ -23,20 +25,59 @@ func prepareTasksDecisionsImport(ctx context.Context, bundle incidentportability
 		return preparedTasksDecisionsImport{}, tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 	}
 	prepared := preparedTasksDecisionsImport{members: members, incidentID: importContext.IncidentID, actorID: importContext.ActorUserID}
-	previous := ""
-	admit := func(id uuid.UUID) error {
-		if id.String() <= previous {
-			return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
+	var selected error
+	selectedRank := 0
+	remember := func(err error) error {
+		if err == nil {
+			return nil
 		}
-		previous = id.String()
+		var failure *sourceport.Failure
+		if !errors.As(err, &failure) || failure.FamilyID() != "tasks_decisions" {
+			return err
+		}
+		rank := 0
+		switch failure.InvariantID() {
+		case policy.InvariantEnvelope:
+			rank = 1
+		case policy.InvariantLifecycle:
+			rank = 4
+		case policy.InvariantDependent:
+			rank = 5
+		case policy.InvariantReferences:
+			rank = 6
+		default:
+			return err
+		}
+		if selected == nil || rank < selectedRank {
+			selected, selectedRank = err, rank
+		}
 		return nil
 	}
-	if err := prepared.walkTasks(ctx, importContext, func(row portableTaskRequest) error { return admit(row.RecordID) }); err != nil {
-		return preparedTasksDecisionsImport{}, err
+	for _, path := range []string{taskRequestsBundlePath, decisionsBundlePath} {
+		previous := ""
+		if err := prepared.walk(ctx, importContext, path, func(raw map[string]any) error {
+			// Ordering is independent of lower-priority semantic admission.
+			if id, ok := canonicalPortableUUID(raw["record_id"]); ok {
+				if id.String() <= previous {
+					if err := remember(tasksDecisionsInvariantFailure(policy.InvariantEnvelope)); err != nil {
+						return err
+					}
+				}
+				previous = id.String()
+			}
+			var err error
+			if path == taskRequestsBundlePath {
+				_, err = preparePortableTaskRequest(raw, importContext)
+			} else {
+				_, err = preparePortableDecision(raw, importContext)
+			}
+			return remember(err)
+		}); err != nil {
+			return preparedTasksDecisionsImport{}, err
+		}
 	}
-	previous = ""
-	if err := prepared.walkDecisions(ctx, importContext, func(row portableDecision) error { return admit(row.RecordID) }); err != nil {
-		return preparedTasksDecisionsImport{}, err
+	if selected != nil {
+		return preparedTasksDecisionsImport{}, selected
 	}
 	return prepared, nil
 }
@@ -88,8 +129,14 @@ func preparePortableTaskRequest(raw map[string]any, importContext sourceport.Imp
 	if !ok || incidentID != importContext.IncidentID {
 		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 	}
-	title, titleOK := portableString(raw["title"])
 	status, statusOK := portableString(raw["status"])
+	if statusOK && !policy.ValidTaskStatus(status) {
+		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.lifecycle_legal")
+	}
+	if err := textpolicy.ValidateStoredSource("task_request", raw); err != nil {
+		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
+	}
+	title, titleOK := portableString(raw["title"])
 	owner, ownerOK := nullableAdmittedPortableActor(raw["owner_user_id"], importContext)
 	priority, priorityOK := portableString(raw["priority"])
 	taskKind, taskKindOK := portableString(raw["task_kind"])
@@ -98,9 +145,6 @@ func preparePortableTaskRequest(raw map[string]any, importContext sourceport.Imp
 	if !titleOK || strings.TrimSpace(title) == "" || !statusOK || !ownerOK ||
 		!priorityOK || !taskKindOK || !createdOK || !updatedOK || updatedAt.Before(createdAt) {
 		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
-	}
-	if !policy.ValidTaskStatus(status) {
-		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.lifecycle_legal")
 	}
 	if !policy.ValidTaskPriority(priority) || !policy.ValidTaskKind(taskKind) {
 		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
@@ -117,10 +161,6 @@ func preparePortableTaskRequest(raw map[string]any, importContext sourceport.Imp
 	if !ok {
 		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
 	}
-	requesterPartyID, ok := nullableCanonicalPortableUUID(raw["requester_party_id"])
-	if !ok {
-		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.references_same_incident")
-	}
 	blockedReason, ok := nullablePortableString(raw["blocked_reason"])
 	if !ok {
 		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
@@ -136,6 +176,23 @@ func preparePortableTaskRequest(raw map[string]any, importContext sourceport.Imp
 	closureSummary, ok := nullablePortableString(raw["closure_summary"])
 	if !ok {
 		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
+	}
+	state := policy.TaskLifecycleState{Status: status, CreatedAt: createdAt}
+	if owner != nil {
+		state.OwnerUserID = sql.NullString{String: owner.String(), Valid: true}
+	}
+	if blockedReason != nil {
+		state.BlockedReason = sql.NullString{String: *blockedReason, Valid: true}
+	}
+	if completedAt != nil {
+		state.CompletedAt = sql.NullTime{Time: *completedAt, Valid: true}
+	}
+	if err := policy.ValidateTaskState(state); err != nil {
+		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
+	}
+	requesterPartyID, ok := nullableCanonicalPortableUUID(raw["requester_party_id"])
+	if !ok {
+		return portableTaskRequest{}, tasksDecisionsInvariantFailure("tasks_decisions.references_same_incident")
 	}
 	decisionRecordID, ok := nullableCanonicalPortableUUID(raw["decision_record_id"])
 	if !ok {
@@ -168,8 +225,14 @@ func preparePortableDecision(raw map[string]any, importContext sourceport.Import
 	if !ok || incidentID != importContext.IncidentID {
 		return portableDecision{}, tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 	}
-	summary, summaryOK := portableString(raw["summary"])
 	status, statusOK := portableString(raw["status"])
+	if statusOK && !policy.ValidDecisionStatus(status) {
+		return portableDecision{}, tasksDecisionsInvariantFailure("tasks_decisions.lifecycle_legal")
+	}
+	if err := textpolicy.ValidateStoredSource("decision", raw); err != nil {
+		return portableDecision{}, tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
+	}
+	summary, summaryOK := portableString(raw["summary"])
 	owner, ownerOK := admittedPortableActor(raw["owner_user_id"], importContext)
 	decisionType, typeOK := portableString(raw["decision_type"])
 	decidedAt, decidedOK := canonicalPortableTime(raw["decided_at"])
@@ -180,9 +243,6 @@ func preparePortableDecision(raw map[string]any, importContext sourceport.Import
 		!typeOK || !decidedOK || !rationaleOK || strings.TrimSpace(rationale) == "" ||
 		!createdOK || !updatedOK || updatedAt.Before(createdAt) {
 		return portableDecision{}, tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
-	}
-	if !policy.ValidDecisionStatus(status) {
-		return portableDecision{}, tasksDecisionsInvariantFailure("tasks_decisions.lifecycle_legal")
 	}
 	if !policy.ValidDecisionType(decisionType) {
 		return portableDecision{}, tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")

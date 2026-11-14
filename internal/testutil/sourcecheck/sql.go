@@ -775,6 +775,12 @@ func (a *sqlAnalyzer) observe(expr ast.Expr) {
 					boundary.kind = "reject"
 				}
 				switch boundary.kind {
+				case "retire":
+					if a.connectionRetirement(e) {
+						a.results = append(a.results, a.result("closed", "", nil))
+					} else {
+						a.results = append(a.results, a.result("execution", "", []string{"unsupported native SQL API " + selector.Sel.Name}))
+					}
 				case "reject":
 					a.results = append(a.results, a.result("execution", "", []string{"unsupported native SQL API " + selector.Sel.Name}))
 				case "sql", "copy":

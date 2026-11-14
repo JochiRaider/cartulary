@@ -90,6 +90,13 @@ type recordEnvelopeAdapter struct {
 	store *records.Store
 }
 
+func (adapter recordEnvelopeAdapter) VisitIncidentRecordIDsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, visit func(uuid.UUID) error) error {
+	if adapter.store == nil {
+		return pgx.ErrNoRows
+	}
+	return adapter.store.VisitIncidentRecordIDsTx(ctx, tx, incidentID, visit)
+}
+
 func (adapter recordEnvelopeAdapter) RecordTypeTx(
 	ctx context.Context,
 	tx pgx.Tx,

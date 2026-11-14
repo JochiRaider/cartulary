@@ -51,7 +51,28 @@ describe("generated import target frontend semantics", () => {
 
   it("maps selectable targets and policies through the workbook consumer", () => {
     const unit = importTestUnit();
+    expect(
+      workbookImportTargets
+        .map((target) => target.contract.viewSchemaId)
+        .sort(),
+    ).toEqual([
+      "cartulary.view.assessments.v1",
+      "cartulary.view.comm_log.v1",
+      "cartulary.view.decisions.v1",
+      "cartulary.view.evidence.v1",
+      "cartulary.view.handoff.v1",
+      "cartulary.view.hosts.v1",
+      "cartulary.view.identities.v1",
+      "cartulary.view.indicators.v1",
+      "cartulary.view.lesson.v1",
+      "cartulary.view.notes.v1",
+      "cartulary.view.parties.v1",
+      "cartulary.view.status_review.v1",
+      "cartulary.view.task_requests.v1",
+      "cartulary.view.timeline.v2",
+    ]);
     for (const target of workbookImportTargets) {
+      expect(target.fields.length).toBeGreaterThan(0);
       const columns = target.fields.map((field, index) => ({
         source_column_ordinal: index + 1,
         source_header_text: field.label,

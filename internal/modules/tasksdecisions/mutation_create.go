@@ -53,7 +53,7 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 	if err := f.incidentAccess.RequireOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return MutationResult{}, err
 	}
-	if err := validateCreateReferencesTx(ctx, tx, f.catalog, f.linkStore, command.IncidentID, request); err != nil {
+	if err := validateCreateReferencesTx(ctx, tx, f.referenceTargets, f.catalog, f.linkStore, command.IncidentID, request); err != nil {
 		return MutationResult{}, err
 	}
 	now := command.Now.UTC()
@@ -186,6 +186,7 @@ func validateCreateRequest(request CreateRequest) error {
 func validateCreateReferencesTx(
 	ctx context.Context,
 	tx pgx.Tx,
+	targets ReferenceTargetCapability,
 	catalog *sourcecatalog.Catalog,
 	linkStore LinkCapability,
 	incidentID uuid.UUID,
@@ -198,7 +199,7 @@ func validateCreateReferencesTx(
 			}
 		}
 		if value.UUID != nil {
-			if err := validateDirectReferenceTx(ctx, tx, catalog, incidentID, fieldKey, *value.UUID); err != nil {
+			if err := validateDirectReferenceTx(ctx, tx, targets, catalog, incidentID, fieldKey, *value.UUID); err != nil {
 				return err
 			}
 		}

@@ -10,12 +10,16 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/sourcecatalog"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/textpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func decodeMutationValue(fieldKey string, field viewschema.Field, raw json.RawMessage, patch bool) (FieldValue, any, *AdmissionFailure) {
 	if string(raw) == "null" {
+		if field.StringContractID != nil && !field.Clearable {
+			return FieldValue{}, nil, invalidAdmission(fieldKey, "field_not_nullable")
+		}
 		if !patch || field.Clearable {
 			return FieldValue{}, nil, nil
 		}
@@ -61,13 +65,20 @@ func decodeMutationValue(fieldKey string, field viewschema.Field, raw json.RawMe
 	if json.Unmarshal(raw, &text) != nil {
 		return FieldValue{}, nil, invalidAdmission(fieldKey, "invalid_value")
 	}
-	var normalized string
-	var ok bool
-	if field.StringContractID != nil && *field.StringContractID == "multiline_body_v1" {
-		normalized, ok = fieldnorm.NormalizeNote(text)
-	} else {
-		normalized, ok = fieldnorm.NormalizeLine(text)
+	if field.StringContractID != nil {
+		normalized, valid := textpolicy.Normalize(text, *field.StringContractID)
+		if !valid {
+			return FieldValue{}, nil, invalidAdmission(fieldKey, "invalid_value")
+		}
+		if normalized == "" {
+			if field.Clearable {
+				return FieldValue{}, nil, nil
+			}
+			return FieldValue{}, nil, invalidAdmission(fieldKey, "invalid_value")
+		}
+		return FieldValue{Text: &normalized}, normalized, nil
 	}
+	normalized, ok := fieldnorm.NormalizeLine(text)
 	if !ok {
 		return FieldValue{}, nil, invalidAdmission(fieldKey, "invalid_value")
 	}

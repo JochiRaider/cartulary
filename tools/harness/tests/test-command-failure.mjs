@@ -16,11 +16,23 @@ const artifactFailure = { failure_class: "artifact", failure_reason: "artifact_e
 const accounting = { failure_class: "harness", failure_reason: "scheduler_accounting_error" };
 function setup(t) {
   const scratch = mkdtempSync(path.join(os.tmpdir(), "command-failure-test-"));
+  let runtime;
+  const contexts = [];
+  t.after(() => {
+    const failures = [];
+    for (const context of contexts) {
+      try { context.close(); } catch (error) { failures.push(error); }
+    }
+    let settled = !runtime;
+    try { runtime?.close(); settled = true; } catch (error) { failures.push(error); }
+    if (settled) {
+      try { rmSync(scratch, { recursive: true, force: true }); } catch (error) { failures.push(error); }
+    }
+    if (failures.length) throw new AggregateError(failures, "command fixture cleanup failed");
+  });
   const runRoot = path.join(scratch, "run"); mkdirSync(runRoot, { mode: 0o700 });
-  const runtime = createRuntime({ repoRoot: root, runRoot, runID: "run", scratchRoot: path.join(scratch, "private") });
+  runtime = createRuntime({ repoRoot: root, runRoot, runID: "run", scratchRoot: path.join(scratch, "private") });
   const environment = { CARTULARY_TEST_RESULTS_DIR: scratch, CARTULARY_TEST_RUN_ID: "run", CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "run" };
-  const contexts=[];
-  t.after(()=>{for(const context of contexts)context.close();runtime.close();rmSync(scratch,{recursive:true,force:true});});
   const create = () => {
     const context = createCommandFailureContext({ ...{ repoRoot: root, environment, unitID: "target:build", commandID: "cartulary.harness.command.build.v3" }, launch: createLaunchContext({ repoRoot: root, environment, unitID: "target:build", commandID: "cartulary.harness.command.build.v3" }) });
     contexts.push(context); return context;
@@ -38,6 +50,24 @@ export function registerCommandFailureTests() {
     assert.equal(a.unit_id, b.unit_id);
     first.close();
     assert.equal(second.read(), null);
+
+    const cleanup = [];
+    let restore = () => {};
+    const owned = setup({ after: (callback) => {
+      cleanup.push(callback);
+      t.after(() => { restore(); callback(); });
+    } });
+    const broken = owned.create(), independent = owned.create();
+    const releaseBroken = broken.close, releaseIndependent = independent.close;
+    restore = () => { broken.close = releaseBroken; };
+    const failure = new Error("injected context release failure");
+    let independentReleased = false;
+    broken.close = () => { throw failure; };
+    independent.close = () => { releaseIndependent(); independentReleased = true; };
+    assert.throws(cleanup[0], (error) => error instanceof AggregateError && error.errors.length === 1 && error.errors[0] === failure);
+    assert.equal(independentReleased, true);
+    assert.equal(lstatSync(owned.scratch, { throwIfNoEntry: false }), undefined);
+    assert.throws(() => owned.runtime.privatePath("after-close"), /rejected/u);
   });
   test("command failure envelopes bind identity and reject corruption", (t) => {
     const { scratch, runtime, environment, create } = setup(t);
@@ -93,6 +123,10 @@ export function registerCommandFailureTests() {
       { name: "blocking", output: events(config, finding("symbol")), failure: ["security", "security_finding", 1] },
       { name: "blocking-nonzero", output: events(config, finding("symbol")), scannerExit: 3, failure: ["security", "security_finding", 1] },
       { name: "malformed", output: "not-json", failure: ["artifact", "artifact_error", 11] },
+      { name: "unrecognized-json", output: events({}), failure: ["artifact", "artifact_error", 11] },
+      { name: "duplicate-message", output: events(config) + '\n{"finding":{},"finding":null}', failure: ["artifact", "artifact_error", 11] },
+      { name: "missing-config", output: events(finding("symbol")), failure: ["artifact", "artifact_error", 11] },
+      { name: "invalid-stream-scanner-failure", output: events({}), scannerExit: 9, failure: ["harness", "tool_diagnostic_failure", 1] },
       { name: "missing-findings", output: "", failure: ["artifact", "artifact_error", 11] },
       { name: "scanner-failure", output: events(config), scannerExit: 9, failure: ["harness", "tool_diagnostic_failure", 1] },
       { name: "scanner-failure-no-output", output: "", scannerExit: 9, failure: ["harness", "tool_diagnostic_failure", 1] },

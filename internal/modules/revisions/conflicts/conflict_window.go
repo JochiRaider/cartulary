@@ -18,21 +18,36 @@ var ErrInvalidSnapshotProjector = errors.New("revisions conflicts: invalid snaps
 // are never retained as revision history.
 type RevisionSnapshotProjector struct {
 	snapshotSchemaID string
-	fieldSourceKeys  map[string]string
+	fieldSourcePaths map[string][]string
 }
 
 func NewRevisionSnapshotProjector(snapshotSchemaID string, fieldSourceKeys map[string]string) (RevisionSnapshotProjector, error) {
-	if strings.TrimSpace(snapshotSchemaID) == "" || len(fieldSourceKeys) == 0 {
+	paths := make(map[string][]string, len(fieldSourceKeys))
+	for fieldKey, sourceKey := range fieldSourceKeys {
+		paths[fieldKey] = []string{sourceKey}
+	}
+	return NewRevisionSnapshotPathProjector(snapshotSchemaID, paths)
+}
+
+// NewRevisionSnapshotPathProjector binds exact owner-declared object paths.
+// Path segments are literal member names, never parsed as dotted expressions.
+func NewRevisionSnapshotPathProjector(snapshotSchemaID string, fieldSourcePaths map[string][]string) (RevisionSnapshotProjector, error) {
+	if strings.TrimSpace(snapshotSchemaID) == "" || len(fieldSourcePaths) == 0 {
 		return RevisionSnapshotProjector{}, ErrInvalidSnapshotProjector
 	}
-	copied := make(map[string]string, len(fieldSourceKeys))
-	for fieldKey, sourceKey := range fieldSourceKeys {
-		if strings.TrimSpace(fieldKey) == "" || strings.TrimSpace(sourceKey) == "" {
+	copied := make(map[string][]string, len(fieldSourcePaths))
+	for fieldKey, path := range fieldSourcePaths {
+		if strings.TrimSpace(fieldKey) == "" || len(path) == 0 {
 			return RevisionSnapshotProjector{}, ErrInvalidSnapshotProjector
 		}
-		copied[fieldKey] = sourceKey
+		for _, member := range path {
+			if strings.TrimSpace(member) == "" {
+				return RevisionSnapshotProjector{}, ErrInvalidSnapshotProjector
+			}
+		}
+		copied[fieldKey] = slices.Clone(path)
 	}
-	return RevisionSnapshotProjector{snapshotSchemaID: snapshotSchemaID, fieldSourceKeys: copied}, nil
+	return RevisionSnapshotProjector{snapshotSchemaID: snapshotSchemaID, fieldSourcePaths: copied}, nil
 }
 
 type PatchConflictWindow struct {
@@ -126,7 +141,7 @@ func decodeConflictCell(data []byte) (map[string]any, bool) {
 }
 
 func (projector RevisionSnapshotProjector) Project(data []byte) (map[string]any, bool) {
-	if len(data) == 0 || projector.snapshotSchemaID == "" || len(projector.fieldSourceKeys) == 0 {
+	if len(data) == 0 || projector.snapshotSchemaID == "" || len(projector.fieldSourcePaths) == 0 {
 		return nil, false
 	}
 	var envelope map[string]any
@@ -140,9 +155,21 @@ func (projector RevisionSnapshotProjector) Project(data []byte) (map[string]any,
 	if !ok {
 		return nil, false
 	}
-	cells := make(map[string]any, len(projector.fieldSourceKeys))
-	for fieldKey, sourceKey := range projector.fieldSourceKeys {
-		value, present := source[sourceKey]
+	cells := make(map[string]any, len(projector.fieldSourcePaths))
+	for fieldKey, path := range projector.fieldSourcePaths {
+		var value any = source
+		present := true
+		for _, member := range path {
+			object, ok := value.(map[string]any)
+			if !ok {
+				present = false
+				break
+			}
+			value, present = object[member]
+			if !present {
+				break
+			}
+		}
 		if !present {
 			continue
 		}

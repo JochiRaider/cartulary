@@ -137,10 +137,23 @@ func (c *Catalog) WritableDirectStorageMappings() map[string]StorageMapping {
 	return result
 }
 
-func (c *Catalog) ConflictFieldSourceKeys() map[string]string {
-	result := make(map[string]string, 36)
+func (mapping StorageMapping) SnapshotPath() []string {
+	switch mapping.Table {
+	case "artifact_findings":
+		return []string{"finding", mapping.Column}
+	case "artifact_investigative_queries":
+		return []string{"investigative_query", mapping.Column}
+	case "artifact_forensic_keywords":
+		return []string{"forensic_keyword", mapping.Column}
+	default:
+		return []string{mapping.Column}
+	}
+}
+
+func (c *Catalog) ConflictFieldSourcePaths() map[string][]string {
+	result := make(map[string][]string, 36)
 	for fieldKey, storage := range c.WritableDirectStorageMappings() {
-		result[fieldKey] = storage.Column
+		result[fieldKey] = storage.SnapshotPath()
 	}
 	return result
 }

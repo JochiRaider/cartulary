@@ -26,6 +26,7 @@ const graphUnit = (id, needs = [], overrides = {}) => ({
 
 function fixture(t, count = 2) {
   const parent = mkdtempSync(path.join(os.tmpdir(), "cartulary-observation-"));
+  t.after(() => rmSync(parent, { recursive: true, force: true }));
   const runRoot = path.join(parent, "selected");
   mkdirSync(runRoot, { mode: 0o700 });
   const graph = buildWorkGraph(Array.from({ length: count }, (_, index) => graphUnit(`unit-${String(index).padStart(5, "0")}`)));
@@ -44,7 +45,6 @@ function fixture(t, count = 2) {
   };
   validateSchemaSync(manifest.schema_id, manifest);
   atomicLocalFile(path.join(runRoot, "run-manifest.json"), `${JSON.stringify(manifest)}\n`);
-  t.after(() => rmSync(parent, { recursive: true, force: true }));
   // Authored reader input, independent of either runtime publisher.
   const publisher = () => {
     replace({ schema_id: "cartulary.harness_live_snapshot.v3", run_id: manifest.run_id,
@@ -163,7 +163,12 @@ export function registerRunObservationTests() {
   });
   test("concurrent readers admit only complete atomic replacements", async (t) => {
     const f = fixture(t, 3000); f.publisher();
-    const workers = ["writer", "reader", "reader", "reader", "reader"].map((role) => new Worker(`
+    const workers = [];
+    const workerErrors = new Map();
+    let failure;
+    try {
+      for (const role of ["writer", "reader", "reader", "reader", "reader"]) {
+        const worker = new Worker(`
       const { workerData, parentPort } = require('node:worker_threads');
       (async () => {
         const { atomicLocalFile } = await import(workerData.secure);
@@ -181,29 +186,36 @@ export function registerRunObservationTests() {
         });
         parentPort.postMessage('ready');
       })().catch(error => { throw error; });
-    `, { eval: true, workerData: {
-      role, root: f.runRoot, file: f.snapshotFile, snapshot: f.snapshot(),
-      secure: pathToFileURL(path.join(root, "tools/harness/runtime/secure-local-files.mjs")).href,
-      reader: pathToFileURL(path.join(root, "tools/harness/diagnostics/tests/native-observation.mjs")).href,
-    } }));
-    const acknowledgement = (child) => new Promise((resolve, reject) => {
-      const cleanup = () => { child.off("message", complete); child.off("error", failed); child.off("exit", exited); };
-      const complete = () => { cleanup(); resolve(); };
-      const failed = (error) => { cleanup(); reject(error); };
-      const exited = () => failed(new Error("reader fixture worker exited before acknowledgement"));
-      child.once("message", complete); child.once("error", failed); child.once("exit", exited);
-    });
-    try {
+        `, { eval: true, workerData: {
+          role, root: f.runRoot, file: f.snapshotFile, snapshot: f.snapshot(),
+          secure: pathToFileURL(path.join(root, "tools/harness/runtime/secure-local-files.mjs")).href,
+          reader: pathToFileURL(path.join(root, "tools/harness/diagnostics/tests/native-observation.mjs")).href,
+        } });
+        workers.push(worker);
+        worker.on("error", (error) => workerErrors.set(worker, error));
+      }
+      const acknowledgement = (child) => new Promise((resolve, reject) => {
+        if (workerErrors.has(child)) { reject(workerErrors.get(child)); return; }
+        if (child.threadId === -1) { reject(new Error("reader fixture worker already exited")); return; }
+        const cleanup = () => { child.off("message", complete); child.off("error", failed); child.off("exit", exited); };
+        const complete = () => { cleanup(); resolve(); };
+        const failed = (error) => { cleanup(); reject(error); };
+        const exited = () => failed(new Error("reader fixture worker exited before acknowledgement"));
+        child.once("message", complete); child.once("error", failed); child.once("exit", exited);
+      });
       await Promise.all(workers.map(acknowledgement));
       for (let revision = 3; revision < 27; revision++) {
         const completed = workers.map(acknowledgement);
         for (const child of workers) child.postMessage(revision);
         await Promise.all(completed);
       }
-    } finally {
+    } catch (error) { failure = error; throw error; }
+    finally {
       // Fixture deletion is registered by fixture(t); every worker must settle
       // before this test returns, including the first reader or writer failure.
-      await Promise.all(workers.map((child) => child.terminate()));
+      const settled = await Promise.allSettled(workers.map((child) => child.terminate()));
+      const failures = settled.filter((result) => result.status === "rejected").map((result) => result.reason);
+      if (failures.length) throw new AggregateError([...(failure ? [failure] : []), ...failures], "reader fixture cleanup failed");
     }
   });
   test("reader process interruption leaves observed invocation and leases untouched", async (t) => {
@@ -211,13 +223,21 @@ export function registerRunObservationTests() {
     const before = readFileSync(f.snapshotFile);
     const lease = path.join(f.runRoot, "owned-lease"); writeFileSync(lease, "not owned by observer", { mode: 0o600 });
     const child = spawn(nativeBinary, ["diagnostics", "--results-dir", f.runRoot, "--after-revision", String(f.snapshot().revision), "--wait-seconds", "30", "--json"], { stdio: ["ignore", "pipe", "pipe"] });
-    t.after(() => { if (child.exitCode === null) child.kill(); });
+    let spawnError, isClosed = false, timer;
+    child.once("error", (error) => { spawnError = error; });
+    const closed = new Promise((resolve) => child.once("close", (code) => { isClosed = true; resolve(code); }));
     let output = ""; child.stdout.on("data", (bytes) => { output += bytes; });
-    const timer = setTimeout(() => child.kill("SIGTERM"), 1500);
-    t.after(() => clearTimeout(timer));
-    const code = await new Promise((resolve, reject) => { child.once("error", reject); child.once("exit", resolve); });
-    assert.equal(code, 143); assert.equal(JSON.parse(output).operation_exit_code, 143);
-    assert.deepEqual(readFileSync(f.snapshotFile), before); assert.equal(readFileSync(lease, "utf8"), "not owned by observer");
+    try {
+      timer = setTimeout(() => child.kill("SIGTERM"), 1500);
+      const code = await closed;
+      if (spawnError) throw spawnError;
+      assert.equal(code, 143); assert.equal(JSON.parse(output).operation_exit_code, 143);
+      assert.deepEqual(readFileSync(f.snapshotFile), before); assert.equal(readFileSync(lease, "utf8"), "not owned by observer");
+    } finally {
+      clearTimeout(timer);
+      if (!isClosed) child.kill("SIGKILL");
+      await closed;
+    }
   });
   test("snapshot validation rejects duplicate or foreign rosters", (t) => {
     const f = fixture(t); f.publisher(); const snapshot = f.snapshot(); snapshot.targets[0].unit_ids.push("foreign");

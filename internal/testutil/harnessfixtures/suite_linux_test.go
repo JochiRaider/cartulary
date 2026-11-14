@@ -589,6 +589,7 @@ func TestFixtureSuiteOwner(t *testing.T) {
 	}
 }
 func TestFixtureCommandLifecycle(t *testing.T) {
+	testFixtureCommandOwnership(t)
 	testStartupCommandCancellation(t)
 	runtime, root, _ := runtimeFixture(t)
 	run := commandRunner(root, runtime, []string{})

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -154,17 +155,6 @@ func RegisterTestClockRoutes(clock *TestClock) RouteRegistrar {
 				writeInvalidClockSetPayload(w, r, "clock")
 				return
 			}
-			commandCount := 0
-			if request.OffsetSeconds != nil {
-				commandCount++
-			}
-			if request.FixedNow != nil {
-				commandCount++
-			}
-			if commandCount != 1 {
-				writeInvalidClockSetPayload(w, r, "clock")
-				return
-			}
 
 			var next time.Time
 			if request.OffsetSeconds != nil {
@@ -209,47 +199,74 @@ func RegisterTestClockRoutes(clock *TestClock) RouteRegistrar {
 	}
 }
 
-func decodeTestClockSetRequest(r *http.Request) (struct {
-	OffsetSeconds *int64  `json:"offset_seconds"`
-	FixedNow      *string `json:"fixed_now"`
-}, error) {
-	var request struct {
-		OffsetSeconds *int64  `json:"offset_seconds"`
-		FixedNow      *string `json:"fixed_now"`
-	}
-	if r.Body == nil {
-		return request, errors.New("body is required")
-	}
-	defer r.Body.Close()
-	decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil {
+type testClockSetRequest struct {
+	OffsetSeconds *int64
+	FixedNow      *string
+}
+
+func decodeTestClockSetRequest(r *http.Request) (testClockSetRequest, error) {
+	var request testClockSetRequest
+	body, err := decodeTestClockObject(r, false)
+	if err != nil {
 		return request, err
 	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return request, errors.New("body must contain a single JSON object")
+	if len(body) != 1 {
+		return request, errors.New("exactly one clock command is required")
+	}
+	for key, value := range body {
+		switch key {
+		case "offset_seconds":
+			if err := json.Unmarshal(value, &request.OffsetSeconds); err != nil {
+				return request, err
+			}
+			if request.OffsetSeconds == nil {
+				return request, errors.New("offset_seconds must be an integer")
+			}
+		case "fixed_now":
+			if err := json.Unmarshal(value, &request.FixedNow); err != nil {
+				return request, err
+			}
+			if request.FixedNow == nil {
+				return request, errors.New("fixed_now must be a timestamp")
+			}
+		default:
+			return request, errors.New("unknown clock command")
+		}
 	}
 	return request, nil
 }
 
 func validateTestClockResetBody(r *http.Request) error {
-	if r.Body == nil || r.Body == http.NoBody {
-		return nil
-	}
-	defer r.Body.Close()
-	decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	decoder.DisallowUnknownFields()
-	var body struct{}
-	if err := decoder.Decode(&body); err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
+	body, err := decodeTestClockObject(r, true)
+	if err != nil {
 		return err
 	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return errors.New("body must contain a single JSON object")
+	if len(body) != 0 {
+		return errors.New("reset body must be an empty object")
 	}
 	return nil
+}
+
+func decodeTestClockObject(r *http.Request, allowEmpty bool) (map[string]json.RawMessage, error) {
+	if r.Body == nil || r.Body == http.NoBody {
+		if allowEmpty {
+			return nil, nil
+		}
+		return nil, errors.New("body is required")
+	}
+	defer r.Body.Close()
+	const maxBodyBytes = 1 << 20
+	data, err := io.ReadAll(io.LimitReader(r.Body, maxBodyBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxBodyBytes {
+		return nil, errors.New("clock body exceeds its size limit")
+	}
+	if len(data) == 0 && allowEmpty {
+		return nil, nil
+	}
+	return DecodeStrictJSONObject(bytes.NewReader(data))
 }
 
 func testClockControlResponse(snapshot TestClockSnapshot) testClockControlResult {

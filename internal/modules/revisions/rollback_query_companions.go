@@ -100,8 +100,14 @@ func (r rollbackQueryRepository) describeRollbackTargetTx(
 		if err != nil {
 			return rollbackcontract.TargetDescriptor{}, err
 		}
+		values, err := r.store.runtimeHistoryValuesTx(ctx, tx, incidentID, target.ChangeSetID, target.BeforeValue, target.AfterValue)
+		if err != nil {
+			return rollbackcontract.TargetDescriptor{}, err
+		}
+		contractTarget := nonRowContractTarget(incidentID, target)
+		contractTarget.BeforeValue, contractTarget.AfterValue = values[0], values[1]
 		return provider.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{
-			Target:            nonRowContractTarget(incidentID, target),
+			Target:            contractTarget,
 			AddressedRecordID: addressedRecordID,
 			SiblingTargets:    siblingFacts,
 		})

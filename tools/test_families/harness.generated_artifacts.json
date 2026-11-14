@@ -49,6 +49,28 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.generated_artifacts.support.migration_history_checker",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.behavior_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.assurance_check_migrations"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.generated_artifacts.support.migration_input_integrity",
       "owner_id": "harness.generated_artifacts",
       "family_id": "harness.generated_artifacts.support",

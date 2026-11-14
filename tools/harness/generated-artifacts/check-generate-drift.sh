@@ -5,6 +5,8 @@ set -euo pipefail
 source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
 SCRATCH_INPUT_MANIFEST="${GENERATE_DRIFT_SCRATCH_INPUT_MANIFEST:-tools/generate_drift_scratch_inputs.json}"
 mode="check"
 if [[ "${CARTULARY_GENERATE_DRIFT_REFRESH:-}" == "1" ]]; then
@@ -35,32 +37,20 @@ if [[ ! -x "$sqlc_bin" ]]; then
   echo "run make generate before source-check CHECK=generated or set SQLC_BIN to a ready sqlc binary" >&2
   exit 1
 fi
+if [[ ! -d "$ROOT_DIR/node_modules" ]]; then
+  echo "generate-drift requires the managed prepared Node dependencies" >&2
+  exit 11
+fi
 
-mkdir -p "$ROOT_DIR/tmp"
-scratch="$(mktemp -d "$ROOT_DIR/tmp/generate-drift.XXXXXX")"
+scratch="$(cartulary_harness_mktemp_dir generate-drift.XXXXXX)"
 
 cleanup() {
   rm -rf "$scratch"
 }
 trap cleanup EXIT
 
-copy_path() {
-  local source="$1"
-  local destination="$scratch/$source"
-
-  if [[ ! -e "$ROOT_DIR/$source" ]]; then
-    echo "required generate-drift input missing: $source" >&2
-    exit 1
-  fi
-
-  if [[ -d "$ROOT_DIR/$source" && ! -L "$ROOT_DIR/$source" ]]; then
-    mkdir -p "$destination"
-    cp -a "$ROOT_DIR/$source/." "$destination/"
-  else
-    mkdir -p "$(dirname "$destination")"
-    cp -a "$ROOT_DIR/$source" "$destination"
-  fi
-}
+generation_inputs=()
+copy_path() { generation_inputs+=("$1"); }
 
 manifest_values() {
   local key="$1"
@@ -224,9 +214,18 @@ for input in "${task_surface_inputs[@]}"; do
   copy_path "$input"
 done
 
+"${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}" \
+  "$ROOT_DIR/tools/harness/generated-artifacts/copy-generation-inputs.mjs" \
+  "$ROOT_DIR" "$scratch" "${generation_inputs[@]}"
+
 for placeholder_dir in "${scratch_placeholder_dirs[@]}"; do
   mkdir -p "$scratch/$placeholder_dir"
 done
+
+# Generators borrow the already prepared dependency tree explicitly. External
+# scratch must not rely on Node walking up into the invoking checkout. Generation
+# neither installs nor mutates dependencies; cleanup removes only this link.
+ln -s "$ROOT_DIR/node_modules" "$scratch/node_modules"
 
 git -C "$scratch" init --quiet
 

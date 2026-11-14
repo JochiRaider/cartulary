@@ -37,8 +37,8 @@ SEAWEEDFS_S3_SECRET_ACCESS_KEY="${SEAWEEDFS_S3_SECRET_ACCESS_KEY:?set the provis
 AUTH_MASTER_KEY="${CARTULARY_AUTH_MASTER_KEY:?set CARTULARY_AUTH_MASTER_KEY to one persisted base64-encoded 32-byte development key}"
 REVISIONS_CONFLICT_TOKEN_SECRET="${CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE:?set the persisted development conflict-token key}"
 
-SERVER_PGID=""
-VITE_PGID=""
+SERVER_HANDLE=""
+VITE_HANDLE=""
 cleanup_done=0
 
 port_in_use() {
@@ -115,27 +115,40 @@ assert_backing_services_ready() {
   fi
 }
 
-stop_owned_process_group() {
-  local group_id="$1"
+stop_dev_command() {
+  local command_handle="$1"
   local port="$2"
   local name="$3"
 
-  if [[ -z "${group_id}" ]]; then
+  if [[ -z "${command_handle}" ]]; then
     return 0
   fi
 
-  stop_process_group "${group_id}" || true
-  wait_for_port_release "${port}" "${name}" || true
+  stop_owned_command "${command_handle}" || return $?
+  wait_for_port_release "${port}" "${name}"
 }
 
 cleanup() {
   if [[ "${cleanup_done}" -eq 1 ]]; then
     return 0
   fi
-  cleanup_done=1
+  local status=0
+  stop_dev_command "${VITE_HANDLE:-}" "${FRONTEND_PORT}" "frontend" || status=$?
+  stop_dev_command "${SERVER_HANDLE:-}" "${BACKEND_PORT}" "backend" || status=$?
+  if [[ "${status}" -eq 0 ]]; then cleanup_done=1; fi
+  return "${status}"
+}
 
-  stop_owned_process_group "${VITE_PGID:-}" "${FRONTEND_PORT}" "frontend"
-  stop_owned_process_group "${SERVER_PGID:-}" "${BACKEND_PORT}" "backend"
+on_exit() {
+  local status=$? cleanup_status=0
+  trap - EXIT
+  trap '' INT TERM
+  cleanup || cleanup_status=$?
+  if [[ "${cleanup_status}" -ne 0 ]]; then
+    echo "dev stack cleanup failed (status=${cleanup_status})" >&2
+    if [[ "${status}" -eq 0 ]]; then status="${cleanup_status}"; fi
+  fi
+  exit "${status}"
 }
 
 exit_for_requested_shutdown() {
@@ -167,7 +180,7 @@ wait_for_http() {
       return "${shutdown_status}"
     fi
 
-    if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
+    if [[ -n "${SERVER_HANDLE:-}" ]] && ! owned_command_running "${SERVER_HANDLE}" >/dev/null 2>&1; then
       echo "backend exited before ${name} readiness; inspect ${SERVER_LOG}, run make services-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
       if [[ "${name}" == "backend" ]]; then
         echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v3 catalog from version 1." >&2
@@ -175,7 +188,7 @@ wait_for_http() {
       cat "${SERVER_LOG}" >&2 || true
       return 1
     fi
-    if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
+    if [[ -n "${VITE_HANDLE:-}" ]] && ! owned_command_running "${VITE_HANDLE}" >/dev/null 2>&1; then
       echo "frontend exited before ${name} readiness; inspect ${WEB_LOG}" >&2
       cat "${WEB_LOG}" >&2 || true
       return 1
@@ -259,16 +272,14 @@ supervise_dev_stack() {
       return "${shutdown_status}"
     fi
 
-    if ! process_group_running "${SERVER_PGID}"; then
-      # process_group_running reaps an exited group leader. Waiting for the
-      # same PID again is both unnecessary and racy when a short-lived child
-      # exits while several harness cases are completing concurrently.
+    if ! owned_command_running "${SERVER_HANDLE}"; then
+      # The native owner settles descendants before publishing child exit.
       echo "backend exited during dev stack supervision" >&2
       cat "${SERVER_LOG}" >&2 || true
       return 1
     fi
 
-    if ! process_group_running "${VITE_PGID}"; then
+    if ! owned_command_running "${VITE_HANDLE}"; then
       echo "frontend exited during dev stack supervision" >&2
       cat "${WEB_LOG}" >&2 || true
       return 1
@@ -282,7 +293,7 @@ main() {
   mkdir -p "${DEV_ARTIFACT_DIR}"
   rm -f "${SERVER_LOG}" "${WEB_LOG}"
 
-  trap cleanup EXIT
+  trap on_exit EXIT
   lifecycle_reset_shutdown_state
   lifecycle_install_signal_traps
 
@@ -297,7 +308,7 @@ main() {
 
   cd "${ROOT_DIR}"
 
-  start_process_group SERVER_PGID "${SERVER_LOG}" \
+  start_owned_command SERVER_HANDLE "${SERVER_LOG}" \
     env \
     CARTULARY_CONFIG_FILE="${CONFIG_FILE}" \
     CARTULARY__SNAPSHOT_REPORTING__RUNTIME_RECEIPT_PATH="${ROOT_DIR}/build/report-renderer/installation.json" \
@@ -323,7 +334,7 @@ main() {
 
   dev_wait_backend_ready
 
-  start_process_group VITE_PGID "${WEB_LOG}" \
+  start_owned_command VITE_HANDLE "${WEB_LOG}" \
     env \
     COREPACK_HOME="${NODE_RUNTIME_DIR}/corepack" \
     CARTULARY_DEV_API_ORIGIN="https://127.0.0.1:${BACKEND_PORT}" \

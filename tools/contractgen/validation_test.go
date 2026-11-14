@@ -806,6 +806,48 @@ func TestLoadFamiliesUsesActiveRegistryEntries(t *testing.T) {
 }
 
 func TestLoadFamiliesRejectsUnsafeOrAmbiguousRegistry(t *testing.T) {
+	t.Run("strict registry bytes", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(root, "contracts", "errors"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		body, err := json.Marshal(validProjectionRegistry())
+		if err != nil {
+			t.Fatal(err)
+		}
+		base := string(body)
+		for _, tc := range []struct {
+			name, body string
+			want       error
+		}{
+			{"duplicate root", `{"note":"private-contract-value",` + base[1:], canonicaljson.ErrDuplicateMember},
+			{"escaped duplicate", `{"\u006eote":"private-contract-value",` + base[1:], canonicaljson.ErrDuplicateMember},
+			{"duplicate nested", strings.Replace(base, `"go_name":"ErrorArtifacts"`, `"go_name":"private-contract-value","go_name":"ErrorArtifacts"`, 1), canonicaljson.ErrDuplicateMember},
+			{"invalid UTF8", strings.Replace(base, "test registry", "\xff", 1), canonicaljson.ErrInvalidUnicode},
+			{"invalid surrogate", strings.Replace(base, "test registry", `\ud800`, 1), canonicaljson.ErrInvalidUnicode},
+			{"second value", base + ` {"private-contract-value":true}`, canonicaljson.ErrInvalidJSON},
+			{"trailing invalid bytes", base + " private-contract-value", canonicaljson.ErrInvalidJSON},
+			{"unknown member", `{"private-contract-value":true,` + base[1:], nil},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				if err := os.WriteFile(filepath.Join(root, "contracts", "index.json"), []byte(tc.body), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				_, err := loadFamilies(root)
+				if err == nil || (tc.want != nil && !errors.Is(err, tc.want)) || strings.Contains(err.Error(), "private-contract-value") {
+					t.Fatalf("family loader did not safely reject invalid bytes: %v", err)
+				}
+			})
+		}
+		valid := " \n" + strings.Replace(base, "test registry", "Unicode 😀", 1) + "\n\t "
+		if err := os.WriteFile(filepath.Join(root, "contracts", "index.json"), []byte(valid), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		families, err := loadFamilies(root)
+		if err != nil || len(families) != 1 || families[0].Dir != "errors" {
+			t.Fatalf("valid Unicode/whitespace registry rejected: %v", err)
+		}
+	})
 	t.Run("planned family requires activation dependency", func(t *testing.T) {
 		root := t.TempDir()
 		for _, dir := range []string{"contracts/openapi", "contracts/network-flow"} {

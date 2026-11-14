@@ -2003,6 +2003,13 @@
           "evidence.initial_object_blob_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "evidence.owner_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           }
         },
         "required": [

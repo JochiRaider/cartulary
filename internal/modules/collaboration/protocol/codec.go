@@ -37,6 +37,7 @@ const (
 	DecodeFailureInvalidJSON DecodeFailureKind = iota + 1
 	DecodeFailureDuplicateMember
 	DecodeFailureBinaryMessage
+	DecodeFailureInvalidEnvelope
 )
 
 type DecodeFailure struct {
@@ -75,9 +76,56 @@ func DecodeMessage(kind MessageKind, data []byte) (Message, error) {
 		}
 		return Message{}, &DecodeFailure{Kind: DecodeFailureInvalidJSON, err: err}
 	}
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(data, &members); err != nil {
+		return Message{}, &DecodeFailure{Kind: DecodeFailureInvalidEnvelope, err: err}
+	}
 	var message Message
-	if err := json.Unmarshal(data, &message); err != nil {
-		return Message{}, &DecodeFailure{Kind: DecodeFailureInvalidJSON, err: err}
+	// JSON member names are case-sensitive. Go's struct matching would otherwise
+	// let an additive differently-cased member replace the canonical field.
+	for _, field := range []struct {
+		name   string
+		target any
+	}{
+		{"type", &message.Type}, {"incident_id", &message.IncidentID},
+		{"event_id", &message.EventID}, {"emitted_at", &message.EmittedAt},
+		{"stream_seq", &message.StreamSeq}, {"payload", &message.Payload},
+	} {
+		if raw, present := members[field.name]; present {
+			if err := json.Unmarshal(raw, field.target); err != nil {
+				return Message{}, &DecodeFailure{Kind: DecodeFailureInvalidEnvelope, err: err}
+			}
+		}
+	}
+	return message, nil
+}
+
+// DecodeClientMessage admits the common client envelope before session-specific
+// type and payload validation. The route remains the subscription authority.
+func DecodeClientMessage(kind MessageKind, data []byte, incidentID string) (Message, error) {
+	message, err := DecodeMessage(kind, data)
+	if err != nil {
+		return Message{}, err
+	}
+	invalid := func(reason string) (Message, error) {
+		return Message{}, &DecodeFailure{Kind: DecodeFailureInvalidEnvelope, err: errors.New(reason)}
+	}
+	if message.Type == "" || incidentID == "" || message.IncidentID != incidentID {
+		return invalid("client message requires a type and route-matching incident_id")
+	}
+	_, err = parseUTCInstant(message.EmittedAt)
+	if err != nil {
+		return invalid("client emitted_at must be an RFC3339 UTC timestamp")
+	}
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(data, &members); err != nil {
+		return invalid("client envelope must be an object")
+	}
+	if _, present := members["stream_seq"]; present {
+		return invalid("client stream_seq is forbidden")
+	}
+	if payload := bytes.TrimSpace(message.Payload); len(payload) == 0 || payload[0] != '{' {
+		return invalid("client payload must be an object")
 	}
 	return message, nil
 }

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,8 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -44,6 +47,38 @@ import (
 )
 
 func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
+	requireExpectedRequest := func(got exportRequest, txnID, mode string, sections []string, normalizedSections []any) {
+		t.Helper()
+		normalizedBytes := got.Normalized
+		got.Normalized = nil
+		want := exportRequest{
+			IncidentID:           uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+			ClientTxnID:          txnID,
+			ReferencePackMode:    mode,
+			OptionalSections:     sections,
+			RequiredCapabilities: []string{},
+			HistoryMode:          "full",
+			BlobMode:             "full",
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("decoded export request = %#v, want %#v", got, want)
+		}
+		var normalized map[string]any
+		if err := json.Unmarshal(normalizedBytes, &normalized); err != nil {
+			t.Fatal(err)
+		}
+		wantNormalized := map[string]any{
+			"incident_id":           "11111111-1111-1111-1111-111111111111",
+			"reference_pack_mode":   mode,
+			"optional_sections":     normalizedSections,
+			"required_capabilities": []any{},
+			"history_mode":          "full",
+			"blob_mode":             "full",
+		}
+		if !reflect.DeepEqual(normalized, wantNormalized) {
+			t.Fatalf("normalized export request = %#v, want %#v", normalized, wantNormalized)
+		}
+	}
 	request, apiErr := decodeExportRequest(bytes.NewBufferString(`{
 		"incident_id":"11111111-1111-1111-1111-111111111111",
 		"client_txn_id":"txn-export",
@@ -54,23 +89,8 @@ func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("decodeExportRequest returned error: %#v", apiErr)
 	}
-	if request.HistoryMode != historyModeFull || request.BlobMode != blobModeFull {
-		t.Fatalf("export request must force full modes, got history=%q blob=%q", request.HistoryMode, request.BlobMode)
-	}
-	if !slices.Equal(request.OptionalSections, []string{"reference_packs", "snapshots"}) {
-		t.Fatalf("optional sections not canonicalized: %#v", request.OptionalSections)
-	}
-	if len(request.RequiredCapabilities) != 0 {
-		t.Fatalf("required capabilities not canonicalized: %#v", request.RequiredCapabilities)
-	}
-	var normalized map[string]any
-	if err := json.Unmarshal(request.Normalized, &normalized); err != nil {
-		t.Fatalf("decode normalized request: %v", err)
-	}
-	if normalized["history_mode"] != "full" || normalized["blob_mode"] != "full" {
-		t.Fatalf("normalized request must include fixed modes: %#v", normalized)
-	}
-
+	requireExpectedRequest(request, "txn-export", "embedded",
+		[]string{"reference_packs", "snapshots"}, []any{"reference_packs", "snapshots"})
 	omitted, omittedErr := decodeExportRequest(bytes.NewBufferString(`{
 		"incident_id":"11111111-1111-1111-1111-111111111111",
 		"client_txn_id":"txn-export-equivalent"
@@ -85,6 +105,8 @@ func TestDecodeExportRequestCanonicalizesAndRejectsModes_Unit(t *testing.T) {
 	if omittedErr != nil || emptyErr != nil {
 		t.Fatalf("omitted/empty equivalent requests failed: omitted=%#v empty=%#v", omittedErr, emptyErr)
 	}
+	requireExpectedRequest(omitted, "txn-export-equivalent", "refs_only", []string{}, []any{})
+	requireExpectedRequest(explicitEmpty, "txn-export-equivalent", "refs_only", []string{}, []any{})
 	if !bytes.Equal(omitted.Normalized, explicitEmpty.Normalized) {
 		t.Fatalf("omitted and explicit-empty defaults normalize differently:\n omitted=%s\nexplicit=%s", omitted.Normalized, explicitEmpty.Normalized)
 	}
@@ -152,24 +174,57 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 		t.Fatalf("buildBundleArchive second: %v", err)
 	}
 	if !bytes.Equal(archiveBytes(t, first), archiveBytes(t, second)) {
-		t.Fatal("deterministic bundle archive changed when input map order changed")
+		t.Fatal("repeated construction from the same fixture changed archive bytes")
 	}
-	if first.ManifestSHA256 == "" || len(first.ChecksumLines) == 0 {
-		t.Fatalf("bundle result must expose manifest hash and checksums: %#v", first)
+	archiveFiles := zipFilesMap(t, archiveBytes(t, first))
+	manifestBytes := archiveFiles["manifest.json"]
+	decoder := json.NewDecoder(bytes.NewReader(manifestBytes))
+	decoder.UseNumber()
+	var manifestValue map[string]any
+	if err := decoder.Decode(&manifestValue); err != nil {
+		t.Fatal(err)
+	}
+	// This independently orders the ASCII-key fixture, including nested file
+	// objects. It is a byte-format oracle, not an expected semantic manifest.
+	orderedBytes, err := json.Marshal(manifestValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(manifestBytes, append(orderedBytes, '\n')) {
+		t.Fatal("manifest object keys must be lexicographically ordered with one final LF")
+	}
+	manifestDigest := sha256.Sum256(manifestBytes)
+	if first.ManifestSHA256 != fmt.Sprintf("%x", manifestDigest) {
+		t.Fatal("manifest digest does not bind the emitted bytes")
+	}
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	slices.Sort(paths)
+	wantFiles := make([]manifestFile, 0, len(paths))
+	wantChecksums := make([]string, 0, len(paths))
+	for _, path := range paths {
+		payload := files[path]
+		digest := fmt.Sprintf("%x", sha256.Sum256(payload))
+		wantFiles = append(wantFiles, manifestFile{Path: path, SHA256: "sha256:" + digest, SizeBytes: int64(len(payload)), Required: true})
+		wantChecksums = append(wantChecksums, digest+"  "+path)
+	}
+	var emittedManifest bundleManifest
+	if err := json.Unmarshal(manifestBytes, &emittedManifest); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(first.Manifest.Files, wantFiles) || !slices.Equal(emittedManifest.Files, wantFiles) {
+		t.Fatalf("returned and emitted inventories must exactly describe fixture bytes:\nreturned %#v\nemitted %#v\nwant %#v", first.Manifest.Files, emittedManifest.Files, wantFiles)
+	}
+	if !slices.Equal(first.ChecksumLines, wantChecksums) || string(archiveFiles["integrity/checksums.sha256"]) != strings.Join(wantChecksums, "\n")+"\n" {
+		t.Fatal("returned and emitted checksums must exactly describe the sorted fixture inventory")
 	}
 	if first.Manifest.BundleVersion != 8 {
 		t.Fatalf("manifest bundle_version must be numeric 8, got %#v", first.Manifest.BundleVersion)
 	}
-	if first.Manifest.SourceChangeSetHighWatermark == "" {
-		t.Fatalf("manifest must expose source_change_set_high_watermark: %#v", first.Manifest)
-	}
-	for _, file := range first.Manifest.Files {
-		if file.Path == "data/records.ndjson" && file.SizeBytes != int64(len(files["data/records.ndjson"])) {
-			t.Fatalf("manifest file must use exact size_bytes: %#v", file)
-		}
-		if file.Path == "data/artifacts.ndjson" && file.SizeBytes != int64(len(files["data/artifacts.ndjson"])) {
-			t.Fatalf("artifact manifest file must use exact size_bytes: %#v", file)
-		}
+	if !regexp.MustCompile(`^cartulary\.source_boundary\.v1:[0-9a-f]{64}$`).MatchString(first.Manifest.SourceChangeSetHighWatermark) {
+		t.Fatalf("manifest must expose the exact source-boundary token form: %q", first.Manifest.SourceChangeSetHighWatermark)
 	}
 }
 
@@ -283,6 +338,87 @@ func TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit(t *testing.T) {
 	}, files)
 	if err != nil {
 		t.Fatalf("buildBundleArchive valid bundle: %v", err)
+	}
+	t.Run("original source namespace reaches owner admission", func(t *testing.T) {
+		original := []byte("source header\noriginal source record\n")
+		sourcePath := fmt.Sprintf("sources/sha256/%x", sha256.Sum256(original))
+		sourceFiles := minimalRequiredBundleFiles()
+		sourceFiles[sourcePath] = original
+		withSource, err := buildFixtureBundleArchive(t, manifestInput{
+			BundleID: "33333333-3333-3333-3333-333333333333", IncidentID: "11111111-1111-1111-1111-111111111111",
+			IncidentKey: "INC-1", ExportedAt: "2026-05-25T00:00:00Z", ReferencePackMode: referencePackModeRefsOnly,
+		}, sourceFiles)
+		if err != nil {
+			t.Fatal(err)
+		}
+		verified, err := verifyBundleBytes(t, verificationBytesInput{Bundle: archiveBytes(t, withSource)})
+		if err != nil {
+			t.Fatalf("archive gate rejected the owned original-source namespace: %v", err)
+		}
+		actual, err := incidentportability.ReadControl(t.Context(), verified.Members, sourcePath, int64(len(original)))
+		if err != nil || !bytes.Equal(actual, original) {
+			t.Fatalf("verified original source = %q, error=%v", actual, err)
+		}
+	})
+	for _, unexpectedPath := range []string{"extra.json", "blobs/extra.bin", "sources/extra.bin", "integrity/extra.sha256"} {
+		t.Run("unknown logical member/"+unexpectedPath, func(t *testing.T) {
+			var malformed []byte
+			if strings.HasPrefix(unexpectedPath, "integrity/") {
+				malformed = appendZipMember(t, archiveBytes(t, validBundle), unexpectedPath, []byte("extra"))
+			} else {
+				unexpectedFiles := minimalRequiredBundleFiles()
+				unexpectedFiles[unexpectedPath] = []byte("extra")
+				withUnknownMember, buildErr := buildFixtureBundleArchive(t, manifestInput{
+					BundleID: "33333333-3333-3333-3333-333333333333", IncidentID: "11111111-1111-1111-1111-111111111111",
+					IncidentKey: "INC-1", ExportedAt: "2026-05-25T00:00:00Z", ReferencePackMode: referencePackModeRefsOnly,
+				}, unexpectedFiles)
+				if buildErr != nil {
+					t.Fatal(buildErr)
+				}
+				malformed = archiveBytes(t, withUnknownMember)
+			}
+			_, verifyErr := verifyBundleBytes(t, verificationBytesInput{Bundle: malformed})
+			if !isVerificationReason(verifyErr, "malformed_manifest") {
+				t.Fatalf("unknown logical member was admitted: %v", verifyErr)
+			}
+		})
+	}
+	for name, token := range map[string]string{
+		"empty digest":     "cartulary.source_boundary.v1:",
+		"short digest":     "cartulary.source_boundary.v1:" + strings.Repeat("a", 63),
+		"long digest":      "cartulary.source_boundary.v1:" + strings.Repeat("a", 65),
+		"non-hex digest":   "cartulary.source_boundary.v1:" + strings.Repeat("g", 64),
+		"uppercase digest": "cartulary.source_boundary.v1:" + strings.Repeat("A", 64),
+		"trailing space":   "cartulary.source_boundary.v1:" + strings.Repeat("a", 64) + " ",
+	} {
+		t.Run("malformed source boundary/"+name, func(t *testing.T) {
+			malformed := replaceManifestFields(t, archiveBytes(t, validBundle), func(manifest map[string]any) {
+				manifest["source_change_set_high_watermark"] = token
+			})
+			_, verifyErr := verifyBundleBytes(t, verificationBytesInput{Bundle: malformed})
+			if !isVerificationReason(verifyErr, "malformed_manifest") {
+				t.Fatalf("invalid source-boundary token was admitted: %v", verifyErr)
+			}
+		})
+	}
+	for _, conflicting := range []bool{false, true} {
+		t.Run(fmt.Sprintf("duplicate_checksum_path/conflicting=%t", conflicting), func(t *testing.T) {
+			members := zipFilesMap(t, archiveBytes(t, validBundle))
+			inventory := string(members["integrity/checksums.sha256"])
+			firstLine, _, _ := strings.Cut(inventory, "\n")
+			if conflicting {
+				_, memberPath, _ := strings.Cut(firstLine, "  ")
+				firstLine = strings.Repeat("0", 64) + "  " + memberPath
+			}
+			members["integrity/checksums.sha256"] = []byte(firstLine + "\n" + inventory)
+			_, verifyErr := verifyBundleBytes(t, verificationBytesInput{
+				Bundle: newZip(t, members),
+				Limits: Limits{Archives: ArchiveLimits{MaxMembers: 100, MaxCompressionRatio: 100}, IncidentBundles: IncidentBundleLimits{MaxExtractedBytes: 1024 * 1024}},
+			})
+			if !isVerificationReason(verifyErr, "checksum_mismatch") {
+				t.Fatalf("duplicate checksum paths must fail before digest overwrite: %v", verifyErr)
+			}
+		})
 	}
 	missingRequired := removeZipMember(t, archiveBytes(t, validBundle), "data/records.ndjson")
 	_, err = verifyBundleBytes(t, verificationBytesInput{
@@ -557,8 +693,8 @@ func TestWorkerRejectsRetiredVersionBeforePreparationAndTransaction_Unit(t *test
 		manager.failed.ErrorSummary.Details["reason_code"] != "unsupported_bundle_version" {
 		t.Fatalf("retired version completion = %#v", manager.failed)
 	}
-	if storage.stagedReads != 1 || storage.stagedRemovals != 1 {
-		t.Fatalf("retired version staging lifecycle = reads %d removals %d", storage.stagedReads, storage.stagedRemovals)
+	if storage.stagedReads != 1 || !slices.Equal(storage.stagedRemovals, []BundleStagingRef{stagingRef}) {
+		t.Fatalf("retired version staging lifecycle = reads %d removals %#v", storage.stagedReads, storage.stagedRemovals)
 	}
 	if boundaries.sourcePreparation || boundaries.extensionPreparation || boundaries.publicationValidation || boundaries.transactionExecution {
 		t.Fatalf("retired version reached downstream boundaries: %#v", boundaries)
@@ -1123,6 +1259,7 @@ func TestClaimedIncidentPortabilityRejectsMissingJobsBeforePublication_Unit(t *t
 		{name: "Jobs transactions", want: "Jobs transaction", mutate: func(dependencies *ModuleDependencies) { dependencies.JobTransactions = nil }},
 		{name: "Jobs operations", want: "Jobs operations", mutate: func(dependencies *ModuleDependencies) { dependencies.JobOperations = nil }},
 		{name: "Jobs runner", want: "Jobs runner", mutate: func(dependencies *ModuleDependencies) { dependencies.JobRunner = nil }},
+		{name: "streamed staging", want: "streamed staging", mutate: func(dependencies *ModuleDependencies) { dependencies.Staging = nil }},
 		{name: "storage", want: "storage", mutate: func(dependencies *ModuleDependencies) { dependencies.Storage = nil }},
 		{name: "import finalizer", want: "import finalizer", mutate: func(dependencies *ModuleDependencies) { dependencies.ImportFinalizer = nil }},
 		{name: "job finalizer", want: "job finalizer", mutate: func(dependencies *ModuleDependencies) { dependencies.JobFinalizer = nil }},
@@ -1406,8 +1543,8 @@ func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 		if err := prepared.cleanup(context.Background()); err != nil {
 			t.Fatal(err)
 		}
-		if len(allocator.abandoned) != 1 {
-			t.Fatalf("abandoned = %#v", allocator.abandoned)
+		if !slices.Equal(allocator.abandoned, []string{"cleanup:evidence"}) {
+			t.Fatalf("abandoned = %#v, want [cleanup:evidence]", allocator.abandoned)
 		}
 	})
 
@@ -1417,7 +1554,7 @@ type recordingBundleStorage struct {
 	removed        []BundleStorageRef
 	staged         []byte
 	stagedReads    int
-	stagedRemovals int
+	stagedRemovals []BundleStagingRef
 }
 
 func (*recordingBundleStorage) Stage(context.Context, io.Reader, int64) (StagedBundle, error) {
@@ -1437,8 +1574,8 @@ func (s *recordingBundleStorage) OpenStaged(BundleStagingRef, int64) (ArchiveSou
 	return testArchiveSource{bytes.NewReader(s.staged)}, int64(len(s.staged)), nil
 }
 
-func (s *recordingBundleStorage) RemoveStaged(BundleStagingRef) error {
-	s.stagedRemovals++
+func (s *recordingBundleStorage) RemoveStaged(reference BundleStagingRef) error {
+	s.stagedRemovals = append(s.stagedRemovals, reference)
 	return nil
 }
 
@@ -1452,6 +1589,7 @@ type recordingJobOperations struct {
 	observeErr  error
 	getErr      error
 	getResource jobs.Resource
+	getJobIDs   []uuid.UUID
 }
 
 type recordingBlobPortability struct{}
@@ -1474,7 +1612,8 @@ func (*recordingBlobPortability) RewriteAndStageObjectBlobs(ctx context.Context,
 	return scope.PrepareResources(nil)
 }
 
-func (o *recordingJobOperations) Get(ctx context.Context, _ uuid.UUID) (jobs.Resource, error) {
+func (o *recordingJobOperations) Get(ctx context.Context, jobID uuid.UUID) (jobs.Resource, error) {
+	o.getJobIDs = append(o.getJobIDs, jobID)
 	if err := ctx.Err(); err != nil {
 		return jobs.Resource{}, err
 	}
@@ -1912,12 +2051,15 @@ func TestDecodeImportMetadataUsesUploadHash_Unit(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("decodeImportMetadata returned error: %#v", apiErr)
 	}
+	if request.ClientTxnID != "txn-import" {
+		t.Fatalf("decoded transaction identity = %q; want txn-import", request.ClientTxnID)
+	}
 	var normalized map[string]any
 	if err := json.Unmarshal(request.Normalized, &normalized); err != nil {
 		t.Fatalf("decode normalized import request: %v", err)
 	}
-	if normalized["file_sha256"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
-		t.Fatalf("normalized import request must include file hash: %#v", normalized)
+	if len(normalized) != 1 || normalized["file_sha256"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
+		t.Fatalf("normalized import request must contain only the expected file hash: %#v", normalized)
 	}
 	for _, field := range []string{"clone_mode", "merge_mode", "identifier_remap", "remote_fetch"} {
 		_, apiErr := decodeImportMetadata(httpapi.UploadEnvelope{

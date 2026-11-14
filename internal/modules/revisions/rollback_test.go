@@ -3,6 +3,7 @@ package revisions_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"slices"
 	"strings"
@@ -25,10 +26,16 @@ import (
 
 func TestRollbackSelectorUnion_Unit(t *testing.T) {
 	harness := appsupport.StartServer(t, appsupport.ServerOptions{Prefix: "history_revision-u-7-05-rollback", TestRouteMode: httptestx.TestRouteModeDisabled})
+	// Keep mutations after database-created rows and within the session idle window.
+	var clockBase time.Time
+	if err := harness.DB.QueryRow(`SELECT clock_timestamp() + interval '5 minutes'`).Scan(&clockBase); err != nil {
+		t.Fatal(err)
+	}
 	login, actorID := authflowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	incidentID, recordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U705")
+
 	changeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000501")
-	seedRollbackHostPatch(t, harness.DB, incidentID, recordID, actorID, changeSetID, time.Date(2026, 5, 10, 17, 0, 0, 0, time.UTC), "before rollback", "after rollback")
+	seedRollbackHostPatch(t, harness.DB, incidentID, recordID, actorID, changeSetID, clockBase, "before rollback", "after rollback")
 	history := historyItems(getHistory(t, harness.Server.HTTP.URL, login, recordID, ""))
 	historyEntryRef := stringField(t, history[0], "history_entry_ref")
 	if historyEntryRef == "" {
@@ -110,7 +117,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		unrelatedRecordID := uuid.New()
 		entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, unrelatedRecordID, "Unrelated Rollback Host", "unrelated-rollback-host", "", "")
 		unrelatedChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000536")
-		seedRollbackHostPatch(t, harness.DB, incidentID, unrelatedRecordID, actorID, unrelatedChangeSetID, time.Date(2026, 5, 10, 17, 9, 0, 0, time.UTC), "unrelated before", "unrelated after")
+		seedRollbackHostPatch(t, harness.DB, incidentID, unrelatedRecordID, actorID, unrelatedChangeSetID, clockBase.Add(9*time.Minute), "unrelated before", "unrelated after")
 		unrelated := rollbackRecord(t, harness, login, recordID, map[string]any{
 			"base_row_version": 2,
 			"client_txn_id":    "txn-change-set-unrelated-record",
@@ -120,7 +127,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 
 		foreignIncidentID, foreignRecordID := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-U705-FOREIGN")
 		foreignChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000537")
-		seedRollbackHostPatch(t, harness.DB, foreignIncidentID, foreignRecordID, actorID, foreignChangeSetID, time.Date(2026, 5, 10, 17, 10, 0, 0, time.UTC), "foreign before", "foreign after")
+		seedRollbackHostPatch(t, harness.DB, foreignIncidentID, foreignRecordID, actorID, foreignChangeSetID, clockBase.Add(10*time.Minute), "foreign before", "foreign after")
 		foreign := rollbackRecord(t, harness, login, recordID, map[string]any{
 			"base_row_version": 2,
 			"client_txn_id":    "txn-change-set-foreign-incident",
@@ -140,7 +147,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		deletedRecordID := uuid.New()
 		entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, deletedRecordID, "Deleted Rollback Host", "deleted-rollback-host", "", "")
 		deletedChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000528")
-		seedRollbackHostPatch(t, harness.DB, incidentID, deletedRecordID, actorID, deletedChangeSetID, time.Date(2026, 5, 10, 17, 2, 0, 0, time.UTC), "deleted before", "deleted after")
+		seedRollbackHostPatch(t, harness.DB, incidentID, deletedRecordID, actorID, deletedChangeSetID, clockBase.Add(2*time.Minute), "deleted before", "deleted after")
 		deletedRef := historyEntryRefForTarget(t, harness, login, deletedRecordID, "host", deletedRecordID.String())
 		mustExec(t, harness.DB, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, deletedRecordID, time.Now().UTC(), actorID)
 		resp := rollbackRecord(t, harness, login, deletedRecordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-deleted-rollback", "target": map[string]any{"kind": "history_entry", "history_entry_ref": deletedRef}})
@@ -148,7 +155,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 	})
 
 	t.Run("successful single entry rollback and idempotency", func(t *testing.T) {
-		httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 17, 1, 0, 0, time.UTC))
+		httptestx.SetClockFixed(t, harness.Server, clockBase.Add(1*time.Minute))
 		body := map[string]any{"base_row_version": 2, "client_txn_id": "txn-u-7-05-rollback", "reason": "  rollback reason\n", "target": map[string]any{"kind": "history_entry", "history_entry_ref": historyEntryRef}}
 		success := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, recordID, body), http.StatusOK)["data"].(map[string]any)
 		if success["record_id"] != recordID.String() || success["incident_id"] != incidentID.String() || success["row_version"] != float64(3) {
@@ -201,7 +208,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		history := historyItems(getHistory(t, harness.Server.HTTP.URL, login, left, ""))
 		requireHistoryActions(t, history[0].(map[string]any), "history_entry", "change_set", "row_restore")
 
-		httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 17, 7, 0, 0, time.UTC))
+		httptestx.SetClockFixed(t, harness.Server, clockBase.Add(7*time.Minute))
 		body := map[string]any{"base_row_version": 2, "client_txn_id": "txn-u-7-05-whole-change-set", "target": map[string]any{"kind": "change_set", "change_set_id": wholeChangeSetID.String()}}
 		success := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, left, body), http.StatusOK)["data"].(map[string]any)
 		if success["row_version"] != float64(3) || success["target_change_set_id"] != wholeChangeSetID.String() {
@@ -249,8 +256,8 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, rowRestoreRecordID, "Row restore seed", "row-restore-host", "", "")
 		seedHostProjection(t, harness.DB, incidentID, rowRestoreRecordID)
 		rowRestoreChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000541")
-		seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreRecordID, actorID, rowRestoreChangeSetID, time.Date(2026, 5, 10, 17, 11, 0, 0, time.UTC), "row restore before", "row restore snapshot")
-		updatedAt := time.Date(2026, 5, 10, 17, 12, 0, 0, time.UTC)
+		seedRollbackHostPatch(t, harness.DB, incidentID, rowRestoreRecordID, actorID, rowRestoreChangeSetID, clockBase.Add(11*time.Minute), "row restore before", "row restore snapshot")
+		updatedAt := clockBase.Add(12*time.Minute + 0*time.Second)
 		advanceRecordFixtureWithAudit(t, harness.DB, rowRestoreRecordID, 3, &updatedAt, &actorID)
 		mustExec(t, harness.DB, `
 UPDATE hosts
@@ -259,7 +266,7 @@ UPDATE hosts
        updated_at = $3,
        updated_by_user_id = $2
  WHERE record_id = $1
-`, rowRestoreRecordID, actorID, time.Date(2026, 5, 10, 17, 12, 0, 0, time.UTC))
+`, rowRestoreRecordID, actorID, clockBase.Add(12*time.Minute))
 		seedHostProjection(t, harness.DB, incidentID, rowRestoreRecordID)
 		linkID := seedRecordLinkForRowRestore(t, harness.DB, incidentID, rowRestoreRecordID, actorID)
 		tagID := seedRecordTag(t, harness.DB, incidentID, rowRestoreRecordID, actorID)
@@ -273,7 +280,7 @@ UPDATE hosts
 		}
 		beforeRefs := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_history_entry_refs WHERE record_id = $1`, rowRestoreRecordID)
 
-		httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 17, 13, 0, 0, time.UTC))
+		httptestx.SetClockFixed(t, harness.Server, clockBase.Add(13*time.Minute))
 		body := map[string]any{"base_row_version": 3, "client_txn_id": "txn-u-7-05-row-restore", "target": map[string]any{"kind": "row_restore", "restore_to_revision_no": 2}}
 		success := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, rowRestoreRecordID, body), http.StatusOK)["data"].(map[string]any)
 		if success["row_version"] != float64(4) || success["target_change_set_id"] != rowRestoreChangeSetID.String() {
@@ -320,8 +327,8 @@ UPDATE hosts
 		recordID := uuid.New()
 		entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, recordID, "Rollback Rekey Host", "rollback-rekey-old", "", "")
 		changeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000549")
-		seedRollbackHostPatch(t, harness.DB, incidentID, recordID, actorID, changeSetID, time.Date(2026, 5, 10, 17, 14, 0, 0, time.UTC), "rekey before", "rekey snapshot")
-		updatedAt := time.Date(2026, 5, 10, 17, 15, 0, 0, time.UTC)
+		seedRollbackHostPatch(t, harness.DB, incidentID, recordID, actorID, changeSetID, clockBase.Add(14*time.Minute), "rekey before", "rekey snapshot")
+		updatedAt := clockBase.Add(15*time.Minute + 0*time.Second)
 		advanceRecordFixtureWithAudit(t, harness.DB, recordID, 3, &updatedAt, &actorID)
 		mustExec(t, harness.DB, `
 UPDATE hosts
@@ -446,10 +453,19 @@ VALUES ($1, $2, 'Party Rollback Blocker', 'person', 'party-rollback-old@example.
 			{
 				name: "evidence record patch",
 				seed: func() (uuid.UUID, string, int64, func(map[string]any)) {
-					recordID := seedRollbackEvidencePatch(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000523"))
+					recordID, blobID := seedRollbackEvidencePatch(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000523"))
+					if got := countRows(t, harness.DB, `SELECT count(*) FROM evidence e JOIN object_blobs b ON b.object_blob_id=e.object_blob_id AND b.incident_id=e.incident_id
+WHERE e.record_id=$1 AND b.object_blob_id=$2 AND e.title='Evidence after' AND e.lifecycle_state='available' AND e.upload_state='available'
+AND e.storage_ref='object://' || $2::text AND e.blob_hash='2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881'
+AND b.upload_state='available' AND b.byte_size=1 AND b.observed_size=1 AND b.observed_sha256_hex=e.blob_hash AND b.finalized_at IS NOT NULL`, recordID, blobID); got != 1 {
+						t.Fatal("Evidence rollback fixture lacks its available blob association")
+					}
 					return recordID, "href-evidence-rollback", 2, func(data map[string]any) {
-						if got := stringScalar(t, harness.DB, `SELECT lifecycle_state FROM evidence WHERE record_id = $1`, recordID); got != "requested" {
-							t.Fatalf("evidence rollback lifecycle got %q", got)
+						if got := countRows(t, harness.DB, `SELECT count(*) FROM evidence WHERE record_id=$1 AND title='Evidence before' AND lifecycle_state='requested' AND upload_state='pending' AND object_blob_id IS NULL AND storage_ref IS NULL AND blob_hash IS NULL`, recordID); got != 1 {
+							t.Fatal("Evidence rollback did not restore the complete requested/unlinked tuple")
+						}
+						if got := countRows(t, harness.DB, `SELECT count(*) FROM object_blobs WHERE object_blob_id=$1 AND incident_id=$2 AND upload_state='available' AND byte_size=1 AND observed_size=1 AND observed_sha256_hex='2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881'`, blobID, incidentID); got != 1 {
+							t.Fatal("Evidence rollback changed the retained blob")
 						}
 					}
 				},
@@ -460,6 +476,15 @@ VALUES ($1, $2, 'Party Rollback Blocker', 'person', 'party-rollback-old@example.
 				seed: func() (uuid.UUID, string, int64, func(map[string]any)) {
 					src, dst, linkID := seedRollbackRecordLinkCreate(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000524"))
 					historyRef := historyEntryRefForTarget(t, harness, login, src, "record_link", linkID.String())
+					requireNonRowCurrentness(t, harness.DB, incidentID, src, linkID, "record_links", "record_link_id", map[string]map[string]any{
+						"creation": {"created_at": "2026-05-10T11:00:00Z"},
+						"deletion": {"deleted_at": "2026-05-10T13:00:00Z", "deleted_by_user_id": actorID.String()},
+					}, func() *http.Response {
+						return rollbackRecord(t, harness, login, src, map[string]any{
+							"base_row_version": 1, "client_txn_id": "txn-link-create-rollback",
+							"target": map[string]any{"kind": "history_entry", "history_entry_ref": historyRef},
+						})
+					})
 					return src, historyRef, 1, func(data map[string]any) {
 						if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NOT NULL`, linkID); got != 1 {
 							t.Fatalf("record_link create rollback did not tombstone link")
@@ -474,6 +499,14 @@ VALUES ($1, $2, 'Party Rollback Blocker', 'person', 'party-rollback-old@example.
 				seed: func() (uuid.UUID, string, int64, func(map[string]any)) {
 					src, dst, linkID := seedRollbackRecordLinkDelete(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000525"))
 					historyRef := historyEntryRefForTarget(t, harness, login, src, "record_link", linkID.String())
+					requireNonRowCurrentness(t, harness.DB, incidentID, src, linkID, "record_links", "record_link_id", map[string]map[string]any{
+						"deletion_clock": {"deleted_at": "2026-05-10T12:02:01Z"},
+					}, func() *http.Response {
+						return rollbackRecord(t, harness, login, src, map[string]any{
+							"base_row_version": 1, "client_txn_id": "txn-link-delete-rollback",
+							"target": map[string]any{"kind": "history_entry", "history_entry_ref": historyRef},
+						})
+					})
 					return src, historyRef, 1, func(data map[string]any) {
 						if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NULL`, linkID); got != 1 {
 							t.Fatalf("record_link delete rollback did not restore link")
@@ -488,6 +521,18 @@ VALUES ($1, $2, 'Party Rollback Blocker', 'person', 'party-rollback-old@example.
 				seed: func() (uuid.UUID, string, int64, func(map[string]any)) {
 					src, dst, linkID, creatorID, createdAt := seedRollbackRecordLinkPatch(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000542"))
 					historyRef := historyEntryRefForTarget(t, harness, login, src, "record_link", linkID.String())
+					requireNonRowCurrentness(t, harness.DB, incidentID, src, linkID, "record_links", "record_link_id", map[string]map[string]any{
+						"owner":    {"owner_user_id": creatorID.String()},
+						"creator":  {"created_by_user_id": actorID.String()},
+						"creation": {"created_at": createdAt.Add(-time.Second).UTC().Format(time.RFC3339Nano)},
+						"decision": {"decided_at": createdAt.Add(time.Minute).UTC().Format(time.RFC3339Nano)},
+						"metadata": {"provenance": "manual", "confidence": nil},
+					}, func() *http.Response {
+						return rollbackRecord(t, harness, login, src, map[string]any{
+							"base_row_version": 1, "client_txn_id": "txn-link-patch-rollback",
+							"target": map[string]any{"kind": "history_entry", "history_entry_ref": historyRef},
+						})
+					})
 					return src, historyRef, 1, func(data map[string]any) {
 						if got := countRows(t, harness.DB, `
 SELECT COUNT(*)
@@ -514,10 +559,17 @@ SELECT COUNT(*)
 				seed: func() (uuid.UUID, string, int64, func(map[string]any)) {
 					source, linkID, mentionID := seedRollbackMentionPatch(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000526"))
 					historyRef := historyEntryRefForTarget(t, harness, login, source, "entity_mention", mentionID.String())
+					requireMentionCurrentness(t, harness.DB, incidentID, source, mentionID, func() *http.Response {
+						return rollbackRecord(t, harness, login, source, map[string]any{
+							"base_row_version": 2, "client_txn_id": "txn-mention-rollback",
+							"target": map[string]any{"kind": "history_entry", "history_entry_ref": historyRef},
+						})
+					})
 					return source, historyRef, 2, func(data map[string]any) {
 						if got := stringScalar(t, harness.DB, `SELECT resolution_status FROM entity_mentions WHERE source_record_id = $1`, source); got != "unresolved" {
 							t.Fatalf("mention rollback status got %q", got)
 						}
+						requireCompleteMentionRollbackHistory(t, harness.DB, data["rollback_change_set_id"].(string), mentionID, source, actorID, linkID)
 						if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NOT NULL`, linkID); got != 1 {
 							t.Fatalf("mention rollback did not tombstone companion link")
 						}
@@ -598,6 +650,66 @@ SELECT COUNT(*)
 		}
 	})
 
+	t.Run("Timeline rollback retains generated date authority", func(t *testing.T) {
+		for _, side := range []string{"utc", "local"} {
+			t.Run(side, func(t *testing.T) {
+				id, changed := uuid.New(), uuid.New()
+				const utc, local = "2026-01-01T12:00:00Z", "2026-01-01T07:00:00-05:00"
+				envelopetest.SeedRecordEnvelope(t, harness.DB, incidentID, actorID, id, "timeline_event")
+				mustExec(t, harness.DB, `INSERT INTO timeline_events (record_id,incident_id,created_by_user_id,updated_by_user_id,row_version,capture_state,activity_utc_text,activity_local_text,activity_synopsis_text,activity_time_pair_state)
+VALUES ($1,$2,$3,$3,2,'enriched',$4,$5,'after generated date edit','paired_user_preserved')`, id, incidentID, actorID, utc, local)
+				advanceRecordFixture(t, harness.DB, id, 2)
+				before := canonicalRowSnapshot(id, incidentID, actorID, "timeline_event", "cartulary.revisions.snapshot.timeline_event.v1", 1, map[string]any{
+					"capture_state": "rough", "activity_synopsis_text": "before generated date edit", "activity_utc_text": utc, "activity_local_text": local,
+					"activity_utc_generated": side == "utc", "activity_local_generated": side == "local", "activity_time_pair_state": "paired_generated",
+				})
+				after := canonicalRowSnapshot(id, incidentID, actorID, "timeline_event", "cartulary.revisions.snapshot.timeline_event.v1", 2, map[string]any{
+					"capture_state": "enriched", "activity_synopsis_text": "after generated date edit", "activity_utc_text": utc, "activity_local_text": local,
+					"activity_utc_generated": false, "activity_local_generated": false, "activity_time_pair_state": "paired_user_preserved",
+				})
+				ref, txn := "href-generated-date-"+side, "txn-generated-date-"+side
+				seedRollbackMutationWithRef(t, harness.DB, incidentID, actorID, id, changed, 1, "timeline_record", id.String(), "patch", before, after, ref)
+				body := map[string]any{"base_row_version": 2, "client_txn_id": txn, "target": map[string]any{"kind": "history_entry", "history_entry_ref": ref}}
+				success := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, id, body), http.StatusOK)["data"].(map[string]any)
+				if success["record_id"] != id.String() || success["row_version"] != float64(3) || success["target_change_set_id"] != changed.String() {
+					t.Fatalf("generated-date rollback response: %#v", success)
+				}
+				rollbackID := success["rollback_change_set_id"].(string)
+				verify := func() {
+					t.Helper()
+					if got := countRows(t, harness.DB, `SELECT count(*) FROM timeline_events t JOIN records r USING(record_id)
+WHERE t.record_id=$1 AND t.activity_utc_text='2026-01-01T12:00:00Z' AND t.activity_local_text='2026-01-01T07:00:00-05:00'
+AND t.activity_utc_generated=$2 AND t.activity_local_generated=$3 AND t.activity_time_pair_state='paired_generated'
+AND t.activity_synopsis_text='before generated date edit' AND t.capture_state='rough'
+AND t.row_version=3 AND r.row_version=3 AND t.updated_by_user_id=$4 AND r.updated_by_user_id=$4 AND t.edited_at=r.updated_at`, id, side == "utc", side == "local", actorID); got != 1 {
+						t.Fatal("Timeline rollback changed retained generated-date facts or version/actor advancement")
+					}
+					if got := countRows(t, harness.DB, `SELECT count(*) FROM record_revisions WHERE record_id=$1 AND row_version=3 AND change_set_id::text=$2
+AND after_json #>> '{source,activity_utc_text}'='2026-01-01T12:00:00Z' AND after_json #>> '{source,activity_local_text}'='2026-01-01T07:00:00-05:00'
+AND (after_json #>> '{source,activity_utc_generated}')::boolean=$3 AND (after_json #>> '{source,activity_local_generated}')::boolean=$4
+AND after_json #>> '{source,activity_time_pair_state}'='paired_generated'`, id, rollbackID, side == "utc", side == "local"); got != 1 {
+						t.Fatal("Timeline generated-date rollback snapshot is not exact")
+					}
+					if got := countRows(t, harness.DB, `SELECT count(*) FROM change_sets WHERE source='rollback' AND client_txn_id=$1`, txn); got != 1 {
+						t.Fatal("generated-date rollback committed more than once")
+					}
+					revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, rollbackID)
+				}
+				verify()
+				replay := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, id, body), http.StatusOK)["data"].(map[string]any)
+				committedJSON, err := json.Marshal(success)
+				if err != nil {
+					t.Fatal(err)
+				}
+				replayJSON, err := json.Marshal(replay)
+				if err != nil || string(committedJSON) != string(replayJSON) {
+					t.Fatal("generated-date rollback replay changed its committed result")
+				}
+				verify()
+			})
+		}
+	})
+
 	t.Run("precondition reason codes", func(t *testing.T) {
 		tagRecordID := seedRollbackRecordTagMutation(t, harness.DB, incidentID, actorID, mustUUID(t, "77777777-0000-4000-8000-000000000529"), "href-tag-reason-rollback")
 		requireRollbackReasonCode(t, rollbackRecord(t, harness, login, tagRecordID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-reason-target-not-reversible", "target": map[string]any{"kind": "history_entry", "history_entry_ref": "href-tag-reason-rollback"}}), "target_not_reversible")
@@ -628,21 +740,23 @@ SELECT COUNT(*)
 		dependentRecordID := uuid.New()
 		entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, dependentRecordID, "Dependent Host", "dependent-host", "", "")
 		dependentChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000530")
-		seedRollbackHostPatch(t, harness.DB, incidentID, dependentRecordID, actorID, dependentChangeSetID, time.Date(2026, 5, 10, 17, 3, 0, 0, time.UTC), "dependent before", "dependent after")
+		seedRollbackHostPatch(t, harness.DB, incidentID, dependentRecordID, actorID, dependentChangeSetID, clockBase.Add(3*time.Minute), "dependent before", "dependent after")
 		dependentRef := historyEntryRefForTarget(t, harness, login, dependentRecordID, "host", dependentRecordID.String())
 		laterChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000531")
-		seedRollbackHostPatch(t, harness.DB, incidentID, dependentRecordID, actorID, laterChangeSetID, time.Date(2026, 5, 10, 17, 4, 0, 0, time.UTC), "dependent later before", "dependent later after")
+		seedRollbackHostPatch(t, harness.DB, incidentID, dependentRecordID, actorID, laterChangeSetID, clockBase.Add(4*time.Minute), "dependent later before", "dependent later after")
 		requireRollbackReasonCode(t, rollbackRecord(t, harness, login, dependentRecordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-reason-dependent", "target": map[string]any{"kind": "history_entry", "history_entry_ref": dependentRef}}), "dependent_later_changes")
 
 		staleRecordID := uuid.New()
 		entitytest.SeedHostRecord(t, harness.DB, incidentID, actorID, staleRecordID, "Stale Target Host", "stale-target-host", "", "")
 		staleChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000532")
-		seedRollbackHostPatch(t, harness.DB, incidentID, staleRecordID, actorID, staleChangeSetID, time.Date(2026, 5, 10, 17, 5, 0, 0, time.UTC), "stale before", "stale after")
+		seedRollbackHostPatch(t, harness.DB, incidentID, staleRecordID, actorID, staleChangeSetID, clockBase.Add(5*time.Minute), "stale before", "stale after")
 		staleRef := historyEntryRefForTarget(t, harness, login, staleRecordID, "host", staleRecordID.String())
 		rollbackChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000533")
-		seedRollbackHostPatchWithSource(t, harness.DB, incidentID, staleRecordID, actorID, rollbackChangeSetID, time.Date(2026, 5, 10, 17, 6, 0, 0, time.UTC), "stale after", "stale before", "rollback")
+		seedRollbackHostPatchWithSource(t, harness.DB, incidentID, staleRecordID, actorID, rollbackChangeSetID, clockBase.Add(6*time.Minute), "stale after", "stale before", "rollback")
 		requireRollbackReasonCode(t, rollbackRecord(t, harness, login, staleRecordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-reason-stale", "target": map[string]any{"kind": "history_entry", "history_entry_ref": staleRef}}), "stale_target")
 	})
+	t.Run("committed order survives clock ties and reversal", func(t *testing.T) { exerciseAliasCommittedOrder(t, harness, login, incidentID, actorID, clockBase) })
+	t.Run("complete Alias writer lifecycle", func(t *testing.T) { exerciseAliasWriterLifecycle(t, harness, login, incidentID, actorID, clockBase) })
 }
 
 func rollbackRecord(t testing.TB, harness *appsupport.ServerHarness, login authcookietest.AuthCookies, recordID uuid.UUID, body map[string]any) *http.Response {
@@ -871,8 +985,8 @@ func seedRollbackHostPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, recor
 func seedRollbackHostPatchWithSource(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID, createdAt time.Time, beforeName string, afterName string, source string) {
 	t.Helper()
 	hostname := stringScalar(t, db, `SELECT COALESCE(hostname, '') FROM hosts WHERE record_id = $1`, recordID)
-	beforeValue := canonicalRowSnapshot(recordID, incidentID, "host", "cartulary.revisions.snapshot.host.v1", 1, map[string]any{"display_name": beforeName, "hostname": hostname, "host_state": "canonical"})
-	afterValue := canonicalRowSnapshot(recordID, incidentID, "host", "cartulary.revisions.snapshot.host.v1", 2, map[string]any{"display_name": afterName, "hostname": hostname, "host_state": "canonical"})
+	beforeValue := canonicalRowSnapshot(recordID, incidentID, actorID, "host", "cartulary.revisions.snapshot.host.v1", 1, map[string]any{"display_name": beforeName, "hostname": hostname, "host_state": "canonical"})
+	afterValue := canonicalRowSnapshot(recordID, incidentID, actorID, "host", "cartulary.revisions.snapshot.host.v1", 2, map[string]any{"display_name": afterName, "hostname": hostname, "host_state": "canonical"})
 	advanceRecordFixtureWithAudit(t, db, recordID, 2, &createdAt, &actorID)
 	if _, err := db.ExecContext(context.Background(), `
 	UPDATE hosts
@@ -948,8 +1062,8 @@ VALUES ($1, 2, 'record_tag', $2, 'rollback', $3, $4, ARRAY[$5::uuid], ARRAY[$5::
 func seedRollbackHostPatchEntry(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID, recordID uuid.UUID, sequenceNo int, createdAt time.Time, beforeName string, afterName string) {
 	t.Helper()
 	hostname := stringScalar(t, db, `SELECT COALESCE(hostname, '') FROM hosts WHERE record_id = $1`, recordID)
-	beforeValue := canonicalRowSnapshot(recordID, incidentID, "host", "cartulary.revisions.snapshot.host.v1", 1, map[string]any{"display_name": beforeName, "hostname": hostname, "host_state": "canonical"})
-	afterValue := canonicalRowSnapshot(recordID, incidentID, "host", "cartulary.revisions.snapshot.host.v1", 2, map[string]any{"display_name": afterName, "hostname": hostname, "host_state": "canonical"})
+	beforeValue := canonicalRowSnapshot(recordID, incidentID, actorID, "host", "cartulary.revisions.snapshot.host.v1", 1, map[string]any{"display_name": beforeName, "hostname": hostname, "host_state": "canonical"})
+	afterValue := canonicalRowSnapshot(recordID, incidentID, actorID, "host", "cartulary.revisions.snapshot.host.v1", 2, map[string]any{"display_name": afterName, "hostname": hostname, "host_state": "canonical"})
 	advanceRecordFixtureWithAudit(t, db, recordID, 2, &createdAt, &actorID)
 	mustExec(t, db, `
 UPDATE hosts
@@ -1008,8 +1122,8 @@ func seedRollbackPartyPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, acto
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "party")
 	mustExec(t, db, `INSERT INTO parties (record_id, incident_id, display_name, party_kind) VALUES ($1, $2, $3, 'person')`, recordID, incidentID, afterName)
 	advanceRecordFixture(t, db, recordID, 2)
-	before := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v2", 1, map[string]any{"display_name": beforeName, "party_kind": "person"})
-	after := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v2", 2, map[string]any{"display_name": afterName, "party_kind": "person"})
+	before := canonicalRowSnapshot(recordID, incidentID, actorID, "party", "cartulary.revisions.snapshot.party.v2", 1, map[string]any{"display_name": beforeName, "party_kind": "person"})
+	after := canonicalRowSnapshot(recordID, incidentID, actorID, "party", "cartulary.revisions.snapshot.party.v2", 2, map[string]any{"display_name": afterName, "party_kind": "person"})
 	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record", recordID.String(), "patch", before, after, "href-party-rollback")
 	return recordID
 }
@@ -1023,12 +1137,12 @@ INSERT INTO parties (record_id, incident_id, display_name, party_kind, primary_e
 VALUES ($1, $2, 'Party Claim Rollback', 'person', $3)
 `, recordID, incidentID, afterEmail)
 	advanceRecordFixture(t, db, recordID, 2)
-	before := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v2", 1, map[string]any{
+	before := canonicalRowSnapshot(recordID, incidentID, actorID, "party", "cartulary.revisions.snapshot.party.v2", 1, map[string]any{
 		"display_name":  "Party Claim Rollback",
 		"party_kind":    "person",
 		"primary_email": beforeEmail,
 	})
-	after := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v2", 2, map[string]any{
+	after := canonicalRowSnapshot(recordID, incidentID, actorID, "party", "cartulary.revisions.snapshot.party.v2", 2, map[string]any{
 		"display_name":  "Party Claim Rollback",
 		"party_kind":    "person",
 		"primary_email": afterEmail,
@@ -1046,22 +1160,28 @@ INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, raw
 VALUES ($1, $2, $3, 'details', 'source', 'rough', 2, $4, $4, $5, $5)
 `, recordID, incidentID, afterSummary, time.Now().UTC(), actorID)
 	advanceRecordFixture(t, db, recordID, 2)
-	before := canonicalRowSnapshot(recordID, incidentID, "timeline_event", "cartulary.revisions.snapshot.timeline_event.v1", 1, map[string]any{"activity_synopsis_text": beforeSummary, "raw_activity_text": "details", "data_source_text": "source", "capture_state": "rough"})
-	after := canonicalRowSnapshot(recordID, incidentID, "timeline_event", "cartulary.revisions.snapshot.timeline_event.v1", 2, map[string]any{"activity_synopsis_text": afterSummary, "raw_activity_text": "details", "data_source_text": "source", "capture_state": "rough"})
+	before := canonicalRowSnapshot(recordID, incidentID, actorID, "timeline_event", "cartulary.revisions.snapshot.timeline_event.v1", 1, map[string]any{"activity_synopsis_text": beforeSummary, "raw_activity_text": "details", "data_source_text": "source", "capture_state": "rough"})
+	after := canonicalRowSnapshot(recordID, incidentID, actorID, "timeline_event", "cartulary.revisions.snapshot.timeline_event.v1", 2, map[string]any{"activity_synopsis_text": afterSummary, "raw_activity_text": "details", "data_source_text": "source", "capture_state": "rough"})
 	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "timeline_record", recordID.String(), "patch", before, after, "href-timeline-rollback")
 	return recordID
 }
 
-func seedRollbackEvidencePatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID) uuid.UUID {
+func seedRollbackEvidencePatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID) (uuid.UUID, uuid.UUID) {
 	t.Helper()
-	recordID := uuid.New()
+	recordID, blobID := uuid.New(), uuid.New()
+	const digest = "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+	storageRef := "object://" + blobID.String()
+	storageKey := "incidents/" + incidentID.String() + "/object-blobs/" + blobID.String() + "/objects/" + uuid.NewString()
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "evidence")
-	mustExec(t, db, `INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, updated_at) VALUES ($1, $2, 'Evidence after', 'available', 'available', $3)`, recordID, incidentID, time.Now().UTC())
+	mustExec(t, db, `INSERT INTO object_blobs (object_blob_id, incident_id, created_by_user_id, storage_key, upload_state, byte_size, observed_size, observed_sha256_hex, observed_content_type, target_expires_at, pending_expires_at, finalized_at, created_at, updated_at)
+VALUES ($1,$2,$3,$4,'available',1,1,$5,'text/plain',$6,$6,$7,$7,$7)`, blobID, incidentID, actorID, storageKey, digest, now.Add(time.Hour), now)
+	mustExec(t, db, `INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, object_blob_id, storage_ref, blob_hash, updated_at) VALUES ($1, $2, 'Evidence after', 'available', 'available', $3, $4, $5, $6)`, recordID, incidentID, blobID, storageRef, digest, now)
 	advanceRecordFixture(t, db, recordID, 2)
-	before := canonicalRowSnapshot(recordID, incidentID, "evidence", "cartulary.revisions.snapshot.evidence.v1", 1, map[string]any{"title": "Evidence before", "lifecycle_state": "requested", "upload_state": "pending"})
-	after := canonicalRowSnapshot(recordID, incidentID, "evidence", "cartulary.revisions.snapshot.evidence.v1", 2, map[string]any{"title": "Evidence after", "lifecycle_state": "available", "upload_state": "available"})
+	before := canonicalRowSnapshot(recordID, incidentID, actorID, "evidence", "cartulary.revisions.snapshot.evidence.v2", 1, map[string]any{"title": "Evidence before", "lifecycle_state": "requested", "upload_state": "pending"})
+	after := canonicalRowSnapshot(recordID, incidentID, actorID, "evidence", "cartulary.revisions.snapshot.evidence.v2", 2, map[string]any{"title": "Evidence after", "lifecycle_state": "available", "upload_state": "available", "object_blob_id": blobID.String(), "storage_ref": storageRef, "blob_hash": digest})
 	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record", recordID.String(), "patch", before, after, "href-evidence-rollback")
-	return recordID
+	return recordID, blobID
 }
 
 func seedRollbackRecordLinkCreate(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID) (uuid.UUID, uuid.UUID, uuid.UUID) {
@@ -1230,6 +1350,14 @@ VALUES ($1, $2, $3, $4, 'observed_on_host', 'timeline.host_refs', 'manual', $5, 
 	afterMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual_entry", "origin_locator": "history_revision", "raw_text": "Mention Host", "normalized_text": "mention host", "resolution_status": "resolved", "row_version": 2, "ordinal": 1, "resolved_record_id": target.String(), "resolved_by_user_id": actorID.String(), "resolved_at": now.Format(time.RFC3339Nano), "resolution_method": "explicit_resolve_route"}
 	linkAfter := linkValueWithTimestamps(linkID, incidentID, source, target, "observed_on_host", stringPtr("timeline.host_refs"), "manual", actorID, now, nil)
 	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: source, ChangeSetID: changeSetID, CreatedAt: now, Source: "entities.mentions.action"})
+	for _, value := range []map[string]any{beforeMention, afterMention} {
+		value["created_by_user_id"], value["created_at"] = actorID.String(), now.Format(time.RFC3339Nano)
+		for _, field := range []string{"resolved_record_id", "resolved_by_user_id", "resolved_at", "resolution_method"} {
+			if _, present := value[field]; !present {
+				value[field] = nil
+			}
+		}
+	}
 	insertMutation(t, db, changeSetID, 1, "entity_mention", mentionID.String(), "patch", beforeMention, afterMention)
 	insertMutation(t, db, changeSetID, 2, "record_link", linkID.String(), "create", nil, linkAfter)
 	return source, linkID, mentionID
@@ -1261,6 +1389,14 @@ VALUES ($1, $2, $3, $4, 'observed_on_host', 'timeline.host_refs', 'manual', $5, 
 	linkBefore := linkValueWithTimestamps(linkID, incidentID, source, target, "observed_on_host", stringPtr("timeline.host_refs"), "manual", actorID, now, nil)
 	linkAfter := linkValueWithTimestamps(linkID, incidentID, source, target, "observed_on_host", stringPtr("timeline.host_refs"), "manual", actorID, now, &deletedAt)
 	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: source, ChangeSetID: changeSetID, CreatedAt: now, Source: "entities.mentions.action"})
+	for _, value := range []map[string]any{beforeMention, afterMention} {
+		value["created_by_user_id"], value["created_at"] = actorID.String(), now.Format(time.RFC3339Nano)
+		for _, field := range []string{"resolved_record_id", "resolved_by_user_id", "resolved_at", "resolution_method"} {
+			if _, present := value[field]; !present {
+				value[field] = nil
+			}
+		}
+	}
 	insertMutation(t, db, changeSetID, 1, "entity_mention", mentionID.String(), "patch", beforeMention, afterMention)
 	insertMutation(t, db, changeSetID, 2, "record_link", linkID.String(), "delete", linkBefore, linkAfter)
 	return source, mentionID, linkID
@@ -1271,7 +1407,7 @@ func seedRollbackMentionRestorePatch(t testing.TB, db *sql.DB, incidentID uuid.U
 	source := uuid.New()
 	timelinetest.SeedTimelineRecord(t, db, incidentID, actorID, source)
 	mentionID := uuid.New()
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	mustExec(t, db, `
 INSERT INTO entity_mentions (
     entity_mention_id, source_record_id, entity_type, source_field_key, origin_kind, origin_locator,
@@ -1282,6 +1418,14 @@ INSERT INTO entity_mentions (
 	beforeMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual_entry", "origin_locator": "history_revision-restore", "raw_text": "Restore Host", "normalized_text": "restore host", "resolution_status": "dismissed", "row_version": 1, "ordinal": 1}
 	afterMention := map[string]any{"entity_mention_id": mentionID.String(), "source_record_id": source.String(), "entity_type": "host", "source_field_key": "timeline.host_refs", "origin_kind": "manual_entry", "origin_locator": "history_revision-restore", "raw_text": "Restore Host", "normalized_text": "restore host", "resolution_status": "unresolved", "row_version": 2, "ordinal": 1}
 	seedChangeSet(t, db, historySeed{IncidentID: incidentID, ActorID: actorID, RecordID: source, ChangeSetID: changeSetID, CreatedAt: now, Source: "entities.mentions.action"})
+	for _, value := range []map[string]any{beforeMention, afterMention} {
+		value["created_by_user_id"], value["created_at"] = actorID.String(), now.Format(time.RFC3339Nano)
+		for _, field := range []string{"resolved_record_id", "resolved_by_user_id", "resolved_at", "resolution_method"} {
+			if _, present := value[field]; !present {
+				value[field] = nil
+			}
+		}
+	}
 	insertMutation(t, db, changeSetID, 1, "entity_mention", mentionID.String(), "patch", beforeMention, afterMention)
 	return source, mentionID
 }

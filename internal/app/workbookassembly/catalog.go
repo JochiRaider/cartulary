@@ -75,6 +75,7 @@ func NewContributionCatalog(input ContributionDependencies) (*workbook.WorkbookC
 	keepSaved := NewConflictIdempotencyPort(pool)
 
 	entityStore, err := hostidentity.NewStore(hostidentity.StoreDependencies{
+		ConflictTokens: conflictTokens, ConflictFields: conflictFields,
 		Postgres:               pool,
 		Revisions:              appender,
 		ProjectionMutationRows: entityMutationRows,

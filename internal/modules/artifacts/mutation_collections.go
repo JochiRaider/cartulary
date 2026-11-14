@@ -287,10 +287,9 @@ func riskRefPayloadFromWorkbook(payload collectionActionPayload) riskRefActionPa
 	actions := make([]riskRefAction, 0, len(payload.Actions))
 	for _, action := range payload.Actions {
 		actions = append(actions, riskRefAction{
-			Op:             action.Op,
-			ItemRef:        action.ItemRef,
-			RiskRefText:    action.RiskRefText,
-			NormalizedText: action.NormalizedText,
+			Op:          action.Op,
+			ItemRef:     action.ItemRef,
+			RiskRefText: action.RiskRefText,
 		})
 	}
 	return riskRefActionPayload{Actions: actions}

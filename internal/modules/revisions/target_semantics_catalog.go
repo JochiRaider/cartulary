@@ -19,6 +19,7 @@ type compiledTargetSemantics struct {
 	admittedRecordTypes []string
 	history             HistoryFacet
 	historyValidator    HistoryValidator
+	historyReferences   HistoryReferenceProjector
 	rowProviders        map[string]rollbackcontract.RowSourceProvider
 	nonRowProvider      rollbackcontract.NonRowTargetProvider
 	rowHistory          map[string]rowHistoryProjection

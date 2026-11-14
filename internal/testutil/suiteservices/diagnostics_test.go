@@ -374,6 +374,7 @@ func TestRefreshSummaryPublishesCompleteSnapshotsUnderConcurrency(t *testing.T) 
 	const reads = 250
 	var writers sync.WaitGroup
 	writers.Add(refreshers)
+	defer writers.Wait()
 	for range refreshers {
 		go func() {
 			defer writers.Done()
@@ -398,7 +399,6 @@ func TestRefreshSummaryPublishesCompleteSnapshotsUnderConcurrency(t *testing.T) 
 			t.Fatalf("unexpected scope schema %q", scope.SchemaID)
 		}
 	}
-	writers.Wait()
 }
 
 func TestSummarizeReportsPostgresDatabasePreparations(t *testing.T) {

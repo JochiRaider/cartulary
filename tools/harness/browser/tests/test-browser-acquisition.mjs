@@ -7,7 +7,7 @@ import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { browserAcquisitionLaunchArguments, createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionProcess, reserveAcquisitionPort, releaseAcquisitionPorts, settleAcquisitionService, settleBrowserAcquisition } from "../browser-acquisition.mjs";
+import { drainAcquisitionService, acquisitionServiceRunning, browserAcquisitionLaunchArguments, createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionProcess, reserveAcquisitionPort, releaseAcquisitionPorts, settleAcquisitionService, settleBrowserAcquisition } from "../browser-acquisition.mjs";
 import { createRuntime, openRecoveryAttempt } from "../../runtime/session-client.mjs";
 import { processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
@@ -17,9 +17,24 @@ import { findCleanupDiagnostic } from "../../runtime/cleanup-diagnostic.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 function fixture(t, services = []) {
   const scratch = mkdtempSync(path.join(os.tmpdir(), "browser-acquisition-"));
+  const cleanup = [], records = [];
+  let privateRoot, runtime;
+  t.after(async () => {
+    const failures = [];
+    // Preserve callback ordering (descendants before anchors), but a failed
+    // resource cannot prevent an independent owned resource from retiring.
+    for (const release of cleanup) {
+      try { await release(); } catch (error) { failures.push(error); }
+    }
+    if (failures.length) throw new AggregateError(failures, "acquisition fixture cleanup failed");
+    for (const record of records) runtime.record({ ...record, state: "released" });
+    runtime?.close();
+    rmSync(scratch, { recursive: true, force: true });
+    if (privateRoot) rmSync(privateRoot, { recursive: true, force: true });
+  });
   const runRoot = path.join(scratch, "results", "acquisition-test"); mkdirSync(runRoot, { recursive:true, mode: 0o700 });
-  const privateRoot=mkdtempSync(path.join(os.tmpdir(),"browser-acquisition-private-"));
-  const runtime = createRuntime({ repoRoot: root, runRoot, runID: "acquisition-test", scratchRoot: privateRoot });
+  privateRoot=mkdtempSync(path.join(os.tmpdir(),"browser-acquisition-private-"));
+  runtime = createRuntime({ repoRoot: root, runRoot, runID: "acquisition-test", scratchRoot: privateRoot });
   const suiteLease = runtime.recoveryPath("test-services", "suite-lease.json");
   mkdirSync(path.dirname(suiteLease), { mode: 0o700 });
   const resultRoot = path.join(scratch, "results");
@@ -33,16 +48,10 @@ function fixture(t, services = []) {
   const sessionRoot = runtime.recoveryPath("browser-stack-leases", "attempt"); mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
   const file = path.join(sessionRoot, "acquisition", "owner.json");
   const suiteRef = runtime.record({ kind: "managed_suite", target: suiteLease, depends_on: [] });
+  records.push({ kind: "managed_suite", target: suiteLease });
   runtime.record({ kind: "browser_stack", target: file, state: "pending", depends_on: [suiteRef] });
+  records.unshift({ kind: "browser_stack", target: file });
   assert.equal(createBrowserAcquisition({ runtime, sessionRoot, suiteLease, leaseFile: path.join(sessionRoot, "stack.lease") }), file);
-  const cleanup = [];
-  t.after(async () => {
-    for (const release of cleanup) await release();
-    // These are synthetic service/controller records; real test processes are
-    // reaped above before their fixture ownership can be retired.
-    for (const record of [{ kind: "managed_suite", target: suiteLease }, { kind: "browser_stack", target: file }]) runtime.record({ ...record, state: "released" });
-    runtime.close(); rmSync(scratch, { recursive: true, force: true }); rmSync(privateRoot,{recursive:true,force:true});
-  });
   return { scratch, runtime, suiteLease, sessionRoot, file, cleanup };
 }
 
@@ -356,12 +365,40 @@ test("reset settlement resolves only an open service launch and preserves failed
   const launchID = createAcquisitionLaunch(f.file, "backend");
   recordAcquisitionProcess(f.file, launchID);
   let calls = 0;
+  assert.equal(await acquisitionServiceRunning(f.file, process.pid, { inspect: async proof => { assert.equal(proof.pid, process.pid); return true; } }), true);
+  await assert.rejects(acquisitionServiceRunning(f.file, 1, { inspect: async () => assert.fail("unowned inspection") }));
+  await assert.rejects(acquisitionServiceRunning(f.file, process.pid, { inspect: async () => { throw new Error("unresolved inspection"); } }));
   await assert.rejects(settleAcquisitionService(f.file, 1, { stop: async () => { calls++; } }));
   await assert.rejects(settleAcquisitionService(f.file, process.pid, { stop: async () => { calls++; throw new Error("unresolved"); } }));
   assert.equal(existsSync(path.join(path.dirname(f.file), `closed-${launchID}.json`)), false);
   await settleAcquisitionService(f.file, process.pid, { stop: async (proof) => { calls++; assert.equal(proof.pid, process.pid); } });
   assert.equal(calls, 2);
+  assert.equal(await acquisitionServiceRunning(f.file, process.pid, { inspect: async () => assert.fail("closed inspection") }), false);
   await assert.rejects(settleAcquisitionService(f.file, process.pid, { stop: async () => assert.fail("closed authority") }));
+  const next = createAcquisitionLaunch(f.file, "backend");
+  const expected = recordAcquisitionProcess(f.file, next);
+  const untouched = async () => assert.fail("invalid drain reached physical control");
+  await assert.rejects(drainAcquisitionService(f.file, 1, { timeoutMS: 30000, drain: untouched }));
+  for (const timeoutMS of [0, -1, 86_400_001, 1.5]) await assert.rejects(drainAcquisitionService(f.file, process.pid, { timeoutMS, drain: untouched }));
+  await assert.rejects(drainAcquisitionService(f.file, process.pid, { timeoutMS: 30000, drain: async () => { throw new Error("unresolved drain"); } }));
+  assert.equal(existsSync(path.join(path.dirname(f.file), `closed-${next}.json`)), false);
+  const ambiguous = createAcquisitionLaunch(f.file, "frontend");
+  recordAcquisitionProcess(f.file, ambiguous);
+  await assert.rejects(drainAcquisitionService(f.file, process.pid, { timeoutMS: 30000, drain: untouched }));
+  closeAcquisitionLaunch(f.file, ambiguous);
+  let drained = 0;
+  await drainAcquisitionService(f.file, process.pid, { timeoutMS: 30000, drain: async (proof, options) => {
+    drained++;
+    assert.deepEqual(proof, expected);
+    assert.equal(options.timeoutMS, 30000);
+  } });
+  assert.equal(drained, 1);
+  assert.equal(existsSync(path.join(path.dirname(f.file), `closed-${next}.json`)), true);
+  await assert.rejects(drainAcquisitionService(f.file, process.pid, { timeoutMS: 30000, drain: untouched }));
+  const frontend = createAcquisitionLaunch(f.file, "frontend");
+  recordAcquisitionProcess(f.file, frontend);
+  await assert.rejects(drainAcquisitionService(f.file, process.pid, { timeoutMS: 30000, drain: untouched }));
+  closeAcquisitionLaunch(f.file, frontend);
   assert.equal((await settleBrowserAcquisition({ ...f, root, stop: async () => assert.fail("retired reset authority") })).state, "released");
 });
 
@@ -510,10 +547,14 @@ test("concurrent settlement is shared and late acquisition cannot publish after 
   const f = fixture(t);
   recordAcquisitionProcess(f.file, createAcquisitionLaunch(f.file, "backend"));
   const stopped = Promise.withResolvers();
+  const pending = [];
+  f.cleanup.unshift(async () => { stopped.resolve(); await Promise.allSettled(pending); });
   let count = 0;
   const options = { ...f, root, stop: async () => { count++; await stopped.promise; } };
   const first = settleBrowserAcquisition(options);
+  pending.push(first); first.catch(() => {});
   const second = settleBrowserAcquisition(options);
+  pending.push(second); second.catch(() => {});
   assert.equal(first, second);
   stopped.resolve();
   await Promise.all([first, second]);

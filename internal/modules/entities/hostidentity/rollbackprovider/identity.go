@@ -39,7 +39,7 @@ func (IdentityProvider) ValidateRollbackValue(value map[string]any) error {
 	}
 	if raw, present := source["identity_state"]; present {
 		state, valid := raw.(string)
-		if !valid || !validIdentityState(state) {
+		if !valid || !validEntityState(state) {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 	}
@@ -123,7 +123,7 @@ func identitySourceForRollbackValue(value map[string]any) (map[string]any, bool)
 	return nil, false
 }
 
-func validIdentityState(value string) bool {
+func validEntityState(value string) bool {
 	switch value {
 	case "stub", "canonical", "merged":
 		return true

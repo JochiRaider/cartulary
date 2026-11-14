@@ -382,15 +382,13 @@ func (h *hub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
 
 func (h *hub) broadcastIncidentExcept(incidentID uuid.UUID, message protocol.Message, excluded <-chan protocol.Message) {
 	h.mu.Lock()
-	subscribers := make([]chan protocol.Message, 0, len(h.incidentStreams[incidentID]))
+	defer h.mu.Unlock()
+	// Durable delivery closes slow subscribers under this same lock. Keep sends
+	// inside the channel-lifetime boundary, even for best-effort presence.
 	for subscriber := range h.incidentStreams[incidentID] {
 		if excluded != nil && (<-chan protocol.Message)(subscriber) == excluded {
 			continue
 		}
-		subscribers = append(subscribers, subscriber)
-	}
-	h.mu.Unlock()
-	for _, subscriber := range subscribers {
 		select {
 		case subscriber <- message:
 		default:

@@ -34,6 +34,7 @@ func TestIdentitySourceForRollbackValuePreservesNullableIdentifiers(t *testing.T
 func TestIdentityProviderRejectsMalformedStateAndMergeID(t *testing.T) {
 	t.Parallel()
 	provider := NewIdentityProvider()
+	assertEntityRollbackLineageAdmission(t, provider, "identity_state")
 	for _, value := range []map[string]any{
 		{"source": map[string]any{"identity_state": "invalid"}},
 		{"source": map[string]any{"merged_into_record_id": "not-a-uuid"}},

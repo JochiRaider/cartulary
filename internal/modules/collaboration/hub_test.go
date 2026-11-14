@@ -460,7 +460,54 @@ func TestHubDeliverExtensionResourceChanged(t *testing.T) {
 }
 
 func TestValidatePresenceInputAcceptsExtensionWorkspace(t *testing.T) {
-	err := collabprotocol.ValidatePresenceInput(collabprotocol.PresenceInput{
+	claimed := []ClaimedWorkspace{{ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"}, {ExtensionProfileID: "future_profile", WorkspaceKey: "future_workspace"}}
+	options := runtimeConstructionOptions(t, failingSeedRuntimeDB{}, func() {})
+	options.ClaimedWorkspaces = claimed
+	runtime, err := NewRuntime(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed[0].WorkspaceKey = "changed_after_construction"
+	for _, pair := range []struct {
+		profile, workspace string
+		want               bool
+	}{
+		{"network_flow_activity", "network_analysis", true},
+		{"future_profile", "future_workspace", true},
+		{"network_flow_activity", "future_workspace", false},
+		{"future_profile", "network_analysis", false},
+		{"unknown", "network_analysis", false},
+		{"network_flow_activity", "changed_after_construction", false},
+		{"Network_flow_activity", "network_analysis", false},
+		{"network_flow_activity", "Network_analysis", false},
+		{"network_flow_activity", " network_analysis", false},
+	} {
+		input := collabprotocol.PresenceInput{SheetRef: map[string]string{"kind": "extension_workspace", "extension_profile_id": pair.profile, "workspace_key": pair.workspace}, Mode: "viewing"}
+		if got := runtime.routes.workspaces.validate(input) == nil; got != pair.want {
+			t.Fatalf("workspace %q/%q admission = %v want %v", pair.profile, pair.workspace, got, pair.want)
+		}
+		if err := (claimedWorkspaces(nil)).validate(input); err == nil {
+			t.Fatal("unclaimed runtime accepted an extension workspace")
+		}
+	}
+	for _, invalid := range [][]ClaimedWorkspace{
+		{{ExtensionProfileID: "", WorkspaceKey: "workspace"}},
+		{{ExtensionProfileID: "profile", WorkspaceKey: ""}},
+		{{ExtensionProfileID: " profile", WorkspaceKey: "workspace"}},
+		{{ExtensionProfileID: "profile", WorkspaceKey: "workspace "}},
+		{{ExtensionProfileID: "profile", WorkspaceKey: "workspace"}, {ExtensionProfileID: "profile", WorkspaceKey: "workspace"}},
+	} {
+		options.ClaimedWorkspaces = invalid
+		if runtime, err := NewRuntime(options); err == nil || runtime != nil {
+			t.Fatalf("invalid workspace construction accepted: %#v / %v", invalid, err)
+		}
+	}
+	for _, kind := range []string{"view_schema", "saved_view"} {
+		if err := (claimedWorkspaces(nil)).validate(collabprotocol.PresenceInput{SheetRef: map[string]string{"kind": kind, "id": "base"}}); err != nil {
+			t.Fatalf("extension admission rejected base %s: %v", kind, err)
+		}
+	}
+	err = collabprotocol.ValidatePresenceInput(collabprotocol.PresenceInput{
 		SheetRef: map[string]string{
 			"kind":                 "extension_workspace",
 			"extension_profile_id": "network_flow_activity",

@@ -183,17 +183,29 @@ func validateCollaborationResultFixture(value any, success bool) error {
 	if err != nil || schemaID != collaborationResultSchemaID {
 		return fmt.Errorf("collaboration result fixture schema_id must be v2")
 	}
+	if object["operation"] != "collaboration_requeue" {
+		return fmt.Errorf("collaboration result fixture operation must be collaboration_requeue")
+	}
 	for _, field := range []string{"operation_id", "incident_id"} {
+		if field == "incident_id" && !success && object[field] == nil {
+			continue
+		}
 		value, err := requiredString(object, field, "collaboration result fixture")
 		if err != nil || !validCanonicalNonzeroUUID(value) {
 			return fmt.Errorf("collaboration result fixture %s must be a canonical non-zero UUID", field)
 		}
 	}
-	for _, field := range []string{"started_at", "completed_at"} {
+	var timestamps [2]time.Time
+	for index, field := range []string{"started_at", "completed_at"} {
 		value, err := requiredString(object, field, "collaboration result fixture")
-		if err != nil || !validUTCTimestamp(value) {
+		parsed, parseErr := time.Parse(time.RFC3339Nano, value)
+		if err != nil || parseErr != nil || !strings.HasSuffix(value, "Z") || parsed.Location() != time.UTC {
 			return fmt.Errorf("collaboration result fixture %s must be an RFC3339 UTC timestamp", field)
 		}
+		timestamps[index] = parsed
+	}
+	if timestamps[1].Before(timestamps[0]) {
+		return fmt.Errorf("collaboration result fixture completed_at precedes started_at")
 	}
 	result, err := requiredString(object, "result", "collaboration result fixture")
 	if err != nil {
@@ -337,9 +349,4 @@ func jsonInteger(value any) (int, bool) {
 
 func validCanonicalNonzeroUUID(value string) bool {
 	return value != "00000000-0000-0000-0000-000000000000" && canonicalUUIDPattern.MatchString(value)
-}
-
-func validUTCTimestamp(value string) bool {
-	parsed, err := time.Parse(time.RFC3339Nano, value)
-	return err == nil && strings.HasSuffix(value, "Z") && parsed.Location() == time.UTC
 }
