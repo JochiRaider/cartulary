@@ -1468,38 +1468,6 @@
     ],
     "reference-pack-succeeded": [],
     "account-settings-appearance-pending": [],
-    "coordination-comm_log-authoring": [
-      {
-        "id": "account-actor",
-        "target": "[data-generated-metadata=\"account-actor\"]",
-        "replacement": "Playwright Worker Admin",
-        "expected_count": 1
-      },
-      {
-        "id": "incident-key",
-        "target": "[data-generated-metadata=\"incident-key\"]",
-        "replacement": "IR-VISUAL-FIXTURE",
-        "expected_count": 1
-      },
-      {
-        "id": "technical-record-id",
-        "target": "[data-generated-metadata=\"technical-record-id\"]",
-        "replacement": "00000000-0000-0000-0000-000000000000",
-        "expected_count": 2
-      },
-      {
-        "id": "timeline-edited-at",
-        "target": "[data-generated-metadata=\"timeline-edited-at\"]",
-        "replacement": "2025-01-01T00:00:00.000000Z",
-        "expected_count": 1
-      },
-      {
-        "id": "timeline-recorded-at",
-        "target": "[data-generated-metadata=\"timeline-recorded-at\"]",
-        "replacement": "2025-01-01T00:00:00.000000Z",
-        "expected_count": 1
-      }
-    ],
     "workbook-view-bar-saved-view-modified": [
       {
         "id": "account-actor",
@@ -4373,10 +4341,6 @@
     "account-settings-appearance-pending": {
       "capture_id": "visual.capture.a97cbbae8fb54ebdf03c",
       "golden_path": "apps/web/e2e/visual-goldens/account-settings-appearance-pending-linux.png"
-    },
-    "coordination-comm_log-authoring": {
-      "capture_id": "visual.capture.cec0dc2f32353752930f",
-      "golden_path": "apps/web/e2e/visual-goldens/coordination-comm-log-authoring-linux.png"
     },
     "workbook-view-bar-saved-view-modified": {
       "capture_id": "visual.capture.2ffce02d629d0fb9c85e",

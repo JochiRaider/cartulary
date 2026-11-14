@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import {
   decisionSupersessionTestId,
+  genericCreateFieldTestId,
   genericCreateSubmitTestId,
   gridShellTestId,
 } from "@cartulary/ui-contracts";
@@ -493,6 +494,14 @@ test("Capture contextual coordination target authoring source selection and reta
       contentType: "image/png",
     });
   };
+  // Communications Log authoring renders only form treatments covered by the
+  // retained authoring captures, so its target-specific copy and fit are
+  // asserted instead of compared as pixels.
+  const pixelAuthoringVariants = new Set([
+    "handoff",
+    "status_review",
+    "lesson",
+  ]);
   for (const variant of ["comm_log", "handoff", "status_review", "lesson"]) {
     await page.setViewportSize({ width: 1280, height: 720 });
     const supplied = await createRichTimelineSource(page, `${variant}-source`, {
@@ -507,13 +516,46 @@ test("Capture contextual coordination target authoring source selection and reta
       supplied,
     );
     await fillCoordinationMinimum(f);
-    await f.form.locator("input, textarea, select, button").first().focus();
+    const firstControl = f.form
+      .locator("input, textarea, select, button")
+      .first();
+    await firstControl.focus();
     const anchor: VisualAnchor = {
       locator: f.form,
       align: "start",
       scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"] [data-inspector-scroll-body]`,
     };
-    await capture(`coordination-${variant}-authoring`, { anchor });
+    if (pixelAuthoringVariants.has(variant))
+      await capture(`coordination-${variant}-authoring`, { anchor });
+    else {
+      await expect(f.form.locator("legend").first()).toHaveText(
+        `Create ${f.target.title}`,
+      );
+      for (const field of f.target.fields.filter(
+        (field) => field.createWritable,
+      ))
+        await expect(
+          field.readKind === "collection" || field.directReferenceContractId
+            ? f.form.getByRole("button", {
+                name: `Choose ${field.label.toLowerCase()}`,
+                exact: true,
+              })
+            : f.form.getByTestId(genericCreateFieldTestId(field.fieldKey)),
+        ).toBeAttached();
+      await expect(
+        f.form.getByText(
+          "Audience text is required even when audience Parties are selected.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(firstControl).toBeFocused();
+      const fit = await f.form.evaluate((form) => ({
+        contentFits: form.scrollWidth <= form.clientWidth,
+        right: form.getBoundingClientRect().right,
+      }));
+      expect(fit.contentFits).toBe(true);
+      expect(fit.right).toBeLessThanOrEqual(1280);
+    }
     if (variant === "lesson") {
       await page.setViewportSize({ width: 768, height: 640 });
       await f.form

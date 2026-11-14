@@ -110,12 +110,6 @@
       "kind": "rich",
       "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
     },
-    "coordination-comm_log-authoring": {
-      "capture_id": "visual.capture.cec0dc2f32353752930f",
-      "golden_path": "apps/web/e2e/visual-goldens/coordination-comm-log-authoring-linux.png",
-      "kind": "rich",
-      "reason": "Shared investigation core with separately authored scenario targets; preserve the declared query, interaction, and presentation state."
-    },
     "coordination-handoff-authoring": {
       "capture_id": "visual.capture.e6732aeecff4cc5cf13f",
       "golden_path": "apps/web/e2e/visual-goldens/coordination-handoff-authoring-linux.png",
