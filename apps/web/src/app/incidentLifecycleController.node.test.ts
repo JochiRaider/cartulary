@@ -422,6 +422,7 @@ describe("Incident lifecycle ownership", () => {
     await flush();
     controller.replay();
     controller.propose("close");
+    await flush();
     expect(mutate).toHaveBeenCalledTimes(1);
     expect(controller.getSnapshot().draft.reason).not.toBe("");
     expect(controller.getSnapshot().operation.kind).toBe("uncertain");
@@ -447,6 +448,7 @@ describe("Incident lifecycle ownership", () => {
     controller.propose("close");
     controller.setActive(false);
     controller.confirm();
+    await flush();
     expect(mutate).not.toHaveBeenCalled();
     expect(controller.getSnapshot().draft.reason).toBe("retained");
     controller.setActive(true);

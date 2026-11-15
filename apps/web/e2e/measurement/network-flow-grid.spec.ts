@@ -295,9 +295,12 @@ async function proveSupportedEnvelopeReachabilityAndContinuity(page: Page) {
   expect(selectionBeforeRefresh).toContain("nfr_load_0001");
   expect(selectionBeforeRefresh).toContain("nfr_load_0002");
 
+  const loadFixture = page.getByTestId(networkAnalysisTestId("load-fixture"));
+  await expect(loadFixture).toContainText("refresh generation 0");
   await page
     .getByRole("button", { name: "Refresh equivalent resources" })
     .evaluate((button: HTMLButtonElement) => button.click());
+  await expect(loadFixture).toContainText("refresh generation 1");
   await expect(secondCell).toBeFocused();
   await expect(selection).toHaveText(selectionBeforeRefresh ?? "");
   await expect(

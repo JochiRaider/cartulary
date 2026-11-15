@@ -92,6 +92,16 @@ func assertPrivateRevealReadiness(t *testing.T, harness *appsupport.ServerHarnes
 	// A recomputed private display digest must fail both the public subject
 	// binding and the independent frozen-input check for release and preview.
 	entry := unchanged["entries"].([]any)[0].(map[string]any)
+	// The recomputation must match the retained digest for the unchanged entry,
+	// so the substituted entry below is self-consistent and only the public
+	// subject binding can reject it.
+	retainedPreimage, err := json.Marshal(map[string]any{"schema_id": "cartulary.tokenizable_subject.v1", "stable_subject_ref": entry["stable_subject_ref"], "value": entry["canonical_display_value"]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retainedSum := sha256.Sum256(retainedPreimage); hex.EncodeToString(retainedSum[:]) != entry["canonical_display_value_sha256"] {
+		t.Fatal("test display digest preimage differs from the retained algorithm")
+	}
 	entry["canonical_display_value"] = "invented recovery value"
 	value, err := json.Marshal(map[string]any{"schema_id": "cartulary.tokenizable_subject.v1", "stable_subject_ref": entry["stable_subject_ref"], "value": entry["canonical_display_value"]})
 	if err != nil {

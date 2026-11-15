@@ -167,9 +167,9 @@ test("Network Analysis authors lossless typed queries and applies exact row and 
   await expect(
     page.getByRole("status").filter({ hasText: "Query applied." }),
   ).toBeVisible();
-  expect(requests).toHaveLength(count);
   await page.getByLabel("Endpoint IP value").fill("192.0.2.1");
   await applyRows([2, 3, 5, 6]);
+  expect(requests).toHaveLength(count + 1);
   expect(JSON.parse(requests.at(-1) ?? "{}").filters).toContainEqual({
     field_key: "network_flow.ip_protocol",
     op: "in",
@@ -280,8 +280,8 @@ test("Network Analysis authors lossless typed queries and applies exact row and 
   await advanced
     .getByRole("button", { name: /Remove input interface eq/ })
     .click();
-  expect(requests).toHaveLength(beforeRemoval);
   await applyRows([2, 3, 4, 5, 6]);
+  expect(requests).toHaveLength(beforeRemoval + 1);
   await page.getByLabel("Flow overlap starts at").fill("2026-07-10T12:00:00Z");
   await page
     .getByLabel("Flow overlap ends before")
@@ -895,8 +895,7 @@ test("Network Analysis edge selection opens ordered contributor drawer", async (
   await edge.getByRole("button", { name: /^Select edge/u }).click();
   const drawer = page.getByTestId(networkAnalysisTestId("contributor-drawer"));
   await expect(drawer).toBeVisible();
-  await expect(drawer).toContainText("contributors-a");
-  await expect(drawer).toContainText("contributors-b");
+  await expect(drawer).toContainText(/contributors-a[\s\S]*contributors-b/u);
 });
 
 test("Network Analysis saved graphs complete exact-result lifecycle through the real application", async ({
@@ -1188,7 +1187,13 @@ test("Network Analysis saved graphs recover denied replay and withdrawn read aut
   });
   await expect(contributors).toContainText("Row");
   const retained = await vertex.elementHandle();
+  const listReloadSettled = settledRequest(
+    page,
+    "GET",
+    /\/network-flow\/graph-views$/u,
+  );
   await panel.getByRole("button", { name: "Reload", exact: true }).click();
+  await listReloadSettled;
   await expect(contributors).toContainText("Row");
   expect(
     await vertex.evaluate((node, previous) => node === previous, retained),
@@ -1312,9 +1317,15 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
   try {
     await graphA.click();
     await resultWaiting;
+    const supersededResultSettled = settledRequest(
+      page,
+      "GET",
+      new RegExp(`/network-flow/graph-views/${ids[0]}/result$`, "u"),
+    );
     await graphB.click();
     await expect(graphB).toHaveAttribute("aria-current", "true");
     releaseResult();
+    await supersededResultSettled;
     await expectSavedGraphResult(panel, secondResult);
     await expect(
       panel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
@@ -1357,8 +1368,17 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
   try {
     await vertex.click();
     await contributorsWaiting;
+    const supersededContributorsSettled = settledRequest(
+      page,
+      "POST",
+      new RegExp(
+        `/network-flow/graph-views/${ids[0]}/contributors/query$`,
+        "u",
+      ),
+    );
     await graphB.click();
     releaseContributors();
+    await supersededContributorsSettled;
     await expectSavedGraphResult(panel, secondResult);
     await expect(
       panel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
@@ -1696,6 +1716,27 @@ test("Verify claimed Network Analysis discovery, import, mapping approval, seman
     expect(appearance.color).not.toBe("rgb(0, 0, 0)");
   }
 });
+
+function settledRequest(
+  page: Page,
+  method: string,
+  pathPattern: RegExp,
+): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const onSettled = (request: Request) => {
+      if (
+        request.method() !== method ||
+        !pathPattern.test(new URL(request.url()).pathname)
+      )
+        return;
+      page.off("requestfinished", onSettled);
+      page.off("requestfailed", onSettled);
+      resolve();
+    };
+    page.on("requestfinished", onSettled);
+    page.on("requestfailed", onSettled);
+  });
+}
 
 function requestJSON(request: Request): Record<string, unknown> {
   return JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;

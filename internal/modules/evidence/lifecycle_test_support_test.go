@@ -411,18 +411,15 @@ func nullableCleanupDue(uploadState string, now time.Time) any {
 
 func updateRecordDeletedState(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID, deleted bool) {
 	t.Helper()
-	deletedAt := any(nil)
-	if deleted {
-		deletedAt = time.Now().UTC()
-	}
+	// deleted_at and updated_at share the database clock (Core 01 REQ-01-651).
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE records
-   SET deleted_at = $2,
-       deleted_by_user_id = CASE WHEN $2::timestamptz IS NULL THEN NULL ELSE created_by_user_id END,
+   SET deleted_at = CASE WHEN $2::boolean THEN now() ELSE NULL END,
+       deleted_by_user_id = CASE WHEN $2::boolean THEN created_by_user_id ELSE NULL END,
        row_version = row_version + 1,
        updated_at = now()
  WHERE record_id = $1
-`, recordID, deletedAt); err != nil {
+`, recordID, deleted); err != nil {
 		t.Fatalf("update record deleted state: %v", err)
 	}
 }

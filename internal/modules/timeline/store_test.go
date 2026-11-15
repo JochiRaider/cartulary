@@ -718,8 +718,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			ReplacementRecordID: &replacement.RecordID,
 		}
 		beforeRollback := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incident.ID.String(), row.RecordID.String())
-		if _, err := store.Supersede(context.Background(), actor, row.RecordID, request, timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-timeline_mutation-u-3-10-rollback", BaseTime().Add(2*time.Minute)); err == nil {
-			t.Fatal("expected supersede rollback error")
+		if _, err := store.Supersede(context.Background(), actor, row.RecordID, request, timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-timeline_mutation-u-3-10-rollback", BaseTime().Add(2*time.Minute)); err == nil || !strings.Contains(err.Error(), "forced rollback") {
+			t.Fatalf("expected forced supersede rollback, got %v", err)
 		}
 		afterRollback := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incident.ID.String(), row.RecordID.String())
 		if beforeRollback != afterRollback {
@@ -752,9 +752,9 @@ func TestClosedIncidentWriteBarrier_Unit(t *testing.T) {
 	if _, err := harness.DB.Exec(context.Background(), `
 	UPDATE incidents
 	   SET status = 'closed',
-	       closed_at = $1
-	 WHERE id = $2
-`, BaseTime().Add(time.Minute), incidentID); err != nil {
+	       closed_at = GREATEST(created_at, clock_timestamp())
+	 WHERE id = $1
+`, incidentID); err != nil {
 		t.Fatalf("close incident: %v", err)
 	}
 

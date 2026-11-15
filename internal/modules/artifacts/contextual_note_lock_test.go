@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
@@ -59,9 +60,8 @@ func exerciseContextualNoteSourceLock(t *testing.T) {
 	if err := holder.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&holderPID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := holder.Exec(ctx, `UPDATE records SET deleted_at=$2,deleted_by_user_id=$3 WHERE record_id=$1`, source, now, actor.ID); err != nil {
-		t.Fatal(err)
-	}
+	// A barrier tombstone at the last update keeps the envelope legal and lets the undo below restore it exactly.
+	envelopetest.SoftDeleteRecord(t, holder, envelopetest.Tombstone{RecordID: source, DeletedBy: actor.ID, AtLastUpdate: true})
 	type outcome struct {
 		result artifacts.MutationResult
 		err    error
@@ -131,9 +131,7 @@ func exerciseContextualNoteSourceLock(t *testing.T) {
 	requireLinkedNoteCount(t, h, `SELECT count(*) FROM change_set_mutations WHERE change_set_id=$1`, *result.ChangeSetID, 2)
 	requireLinkedNoteCount(t, h, `SELECT count(*) FROM record_revisions WHERE record_id=$1 AND row_version=1`, result.RecordID, 1)
 	requireLinkedNoteCount(t, h, `SELECT count(*) FROM records WHERE record_id=$1 AND row_version=1 AND deleted_at IS NULL`, source, 1)
-	if _, err := h.DB.Exec(ctx, `UPDATE records SET deleted_at=$2,deleted_by_user_id=$3 WHERE record_id=$1`, source, now, actor.ID); err != nil {
-		t.Fatal(err)
-	}
+	envelopetest.SoftDeleteRecord(t, h.DB, envelopetest.Tombstone{RecordID: source, DeletedBy: actor.ID, AtLastUpdate: true})
 	after := state()
 	replay, err := facade.CreateContextualNote(ctx, command)
 	if err != nil || replay.Outcome != artifacts.MutationOutcomeReplayed || replay.RecordID != result.RecordID || replay.RowVersion != 1 || replay.ChangeSetID == nil || *replay.ChangeSetID != *result.ChangeSetID || !reflect.DeepEqual(after, state()) {

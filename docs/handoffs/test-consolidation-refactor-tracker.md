@@ -1,12 +1,12 @@
 # Test Consolidation Refactor Tracker and Handoff
 
-Version: 1.14.0
-Date: 2026-11-14
+Version: 1.15.0
+Date: 2026-11-15
 Target: Cartulary testing ecosystem  
-Authoring status: paused at maintainer request after qualified S-641; twenty-one owner workstreams through A-module.incidentbundles complete; A-module.incidents and S-064 remain open
+Authoring status: S-064 DONE (E-843), corrected by E-845; all 66 owner workstreams complete; R-04 fixture-legality workstream DONE (E-845, S-798–S-827); residual register R-01–R-03, R-05 and R-06 deferred
 Artifact mode: normal; S-065 → S-059–S-063 → S-066–S-073 → all owner audits → S-064; S-001–S-058 remain completed history
 
-Current execution point: paused after S-641; read the [S-641 pause checkpoint](#maintainer-requested-pause-after-s-641-2026-11-14) first on restart. A-module.incidents semantic review remains partial; E-631 reserved. A-module.incidentbundles closed in E-361 after S-629; A-module.imports closed in E-337 after S-360. The [S-342 checkpoint](#maintainer-requested-pause-after-s-342-2026-11-11) remains historical evidence.
+Current execution point: complete. Read the [R-04 handoff](#r-04-and-s-064-correction-handoff-2026-11-15) and then the [final S-064 handoff](#final-s-064-handoff-2026-11-15). Its residual register (E-843) is the follow-up backlog. The [S-641](#maintainer-requested-pause-after-s-641-2026-11-14) and [S-342](#maintainer-requested-pause-after-s-342-2026-11-11) pause checkpoints remain historical evidence.
 
 ## 1. Scope and Source Posture
 
@@ -53,6 +53,26 @@ and pause before the next slice. This request authorizes staging and committing
 the accumulated remediation changes, superseding the earlier no-stage/no-commit
 restriction for this checkpoint. It does not authorize publication or close the
 remaining owners or S-064.
+
+Later on 2026-11-14, after checkpoint commit `b5cd96adf`, the maintainer lifted
+that pause: finish A-module.incidents, continue all remaining owners lexically and
+complete S-064 last. The no-stage/no-commit/no-reset/no-merge/no-publication
+restriction is restored. For the design §4.6 authenticated-root heading correction
+only, the maintainer chose a source fix with one reviewed golden refresh through
+`make browser-e2e-visual-update`, followed by the maintenance guide's ordinary
+visual validation. Every changed image is inspected; any golden outside the
+expected heading captures returns to the maintainer before acceptance. No other
+golden refresh, blanket rerun or release acceptance is authorized.
+
+During A-module.indicators the maintainer chose a per-owner drift check. Nine
+of that owner's 40 rows had failed silently because earlier slices changed
+shared code and requalified only their own selections. So at each remaining
+owner's audit entry, run its non-browser (Go/Vitest) rows once and repair any
+drift as separate owner-backed slices. Run browser rows only when that owner's
+corrections or diagnosed drift touch browser paths. The check exists because
+prior evidence is stale for changed dependencies; it is not blanket
+acceptance, and it creates no whole-suite, stability or performance claim.
+S-064 applies the same reasoning to completed owners' non-browser rows.
 
 Execute the §6 schedule sequentially. Update this tracker after completing each
 workstream and before beginning the next. Qualify successors before retiring
@@ -2881,8 +2901,8 @@ its own slice, migration note and qualification before retirement.
 | F-058 Missing prerequisites for safe continuation reduction; resolved E-041/E-042; E-033 | HTTP tests, frontend units, routing/projections and tracker: add isolated nonempty continuation for every route and explicit 17-surface renderer map in the existing registration unit. | Separates server paging from UI dispatch and makes the representative choice auditable. New surfaces can extend cohesive owner-local matrices. | One new internal HTTP row; no API/data migration. Without this, route-specific cursor errors or renderer misclassification can escape after reduction. | Three seeded records per surface, default query plus cursor-only 2+1 pages, exact values/versions/identity/order/metadata/terminal paging; preserved unit identity and owner failures. C-012/C-016; S-060; V-021; RB-013. |
 | F-059 Merge helper mixes UI and server-effect responsibilities; resolved E-043/E-044; E-034 | HTTP tests, browser support/callers and tracker: complete public projection and Identity summary parity, then remove only duplicate server read-back/aggregate assertions and unused helper API. | One server-effect owner and an explicit UI helper improve cohesion, extension and failure attribution without losing client confirmation or rendering. | Internal helper signature/result cleanup only. Premature movement loses projected-mention and Identity-summary checks; leaving it couples UI fixtures to server-effect assertions. | Host/Identity HTTP parity passes before cleanup; both browser flows pass with request/response correlation, confirmation, dependent preview and focus/scroll. C-012/C-017; S-059/S-062–S-064; V-020/V-023–V-025; RB-014. |
 
-All three findings remain TODO. This planning document closes no runtime
-retirement gate. F-051–F-056 remain resolved history, including S-057/S-058 review
+At planning time all three findings were TODO and that document closed no runtime
+retirement gate. They are now resolved (E-041–E-044) and reconciled by S-064 (E-843). F-051–F-056 remain resolved history, including S-057/S-058 review
 corrections. No existing feature is removed merely because it creates API setup.
 
 ### Historical S-052–S-056 findings: F-051–F-054 — resolved
@@ -3061,8 +3081,8 @@ assertions join the audit queue. IDs are identities, not execution ordering.
 | S-071 Administrative-audit browser cleanup | S-070 qualified checkpoint | DONE / E-052 | Removing real UI inputs/observations. Exit: qualified standalone probes removed, truthful attachments, real browsing and recovery intact; V-028. |
 | S-072 Special evidence review | S-071 checkpoint | DONE / E-053 | Evidence classes substituted without equivalence. Exit: purposes/profiles and any corrections closed; V-029. |
 | S-073 Cost/reliability disposition | S-072 checkpoint | DONE / E-054 | Unsupported savings/stability claims. Exit: exact-run analysis, compatibility limits and failure dispositions complete; V-030. |
-| A-owner workstreams | S-073, then previous lexical owner checkpoint | READY / E-054; lexical order | Registration counts mistaken for assertion review. Exit per owner: all assertions inspected, justified dispositions, confirmed corrections closed; V-031. |
-| S-064 Final validation/handoff | Every above workstream, S-059–S-063 and all corrective slices | BLOCKED | Stale passes or partial audit presented as completion. Exit: expanded §12 acceptance and V-020–V-031 reconciled. |
+| A-owner workstreams | S-073, then previous lexical owner checkpoint | DONE / E-056–E-838; lexical order | Registration counts mistaken for assertion review. Exit per owner: all assertions inspected, justified dispositions, confirmed corrections closed; V-031. |
+| S-064 Final validation/handoff | Every above workstream, S-059–S-063 and all corrective slices | DONE / E-843 (bounded; S-797 closed) | Stale passes or partial audit presented as completion. Exit: expanded §12 acceptance and V-020–V-031 reconciled. |
 
 ### Continuation and merge dependency subgraph
 
@@ -3077,7 +3097,7 @@ Readiness describes technical entry. TCR-REQ-002 records implementation authoriz
 | S-061 Browser continuation partition | Completed S-060 checkpoint and qualified HTTP/unit successors | DONE / E-042; V-022 passed | Smaller cases can lose client-boundary observations. Exit: five deep and 12 small cases pass V-022, exact selector migration complete. |
 | S-062 Merge HTTP parity | Completed S-061 checkpoint; S-059 merge baseline/ledger | DONE / E-043; V-023 passed | Database-only assertions miss wire projections. Exit: all mapped Host/Identity server observations pass V-023; RB-014 closes. |
 | S-063 Merge browser simplification | Completed S-062 checkpoint and qualified public HTTP parity | DONE / E-044; V-024 passed | Removing UI observations or needed caller data loses distinct coverage. Exit: both UI flows pass V-024 with only server duplication removed. |
-| S-064 Validation reconciliation and handoff | Expanded authoritative schedule above: all implementation, deferred reviews and owner-audit exits | BLOCKED / blocked by outstanding workstream exits | Stale evidence, projection drift or lost assertions can yield unsupported closure. Exit: V-020–V-031 reconciled and expanded handoff complete. |
+| S-064 Validation reconciliation and handoff | Expanded authoritative schedule above: all implementation, deferred reviews and owner-audit exits | DONE / E-843 | Stale evidence, projection drift or lost assertions can yield unsupported closure. Exit: V-020–V-031 reconciled and expanded handoff complete. |
 
 S-062 is semantically independent of continuation work but remains scheduled after
 S-061 by the accepted sequential decision. Qualification never depends on deletion:
@@ -4510,51 +4530,51 @@ accounted for with all relevant callers, not counted as reviewed by filename.
 | A-module.graphprojection | 11 | DONE | E-329 reconciles43 Go roots and all dynamic/helper assertions; S-331–S-337 corrections closed with targeted evidence. |
 | A-module.imports | 57 | DONE | E-337 reconciles71 Go roots,39 frontend and10 browser titles with all dynamic/helper assertions and production boundaries; S-338–S-360 corrections closed with targeted qualification. |
 | A-module.incidentbundles | 38 | DONE | E-361 reconciles40 current rows/63 roots and70 collaborator rows across21 owners, dynamic/helper assertions, browser/measurement and production boundaries; S-361–S-629 closed with targeted qualification. Current boundary passes E-630; whole-suite stability/performance unmeasured. |
-| A-module.incidents | 85 | IN_PROGRESS | E-631 reserved; current85-row semantic/helper/production review begun after E-361; compatible source-port review reused, remaining assertion and caller audit open. |
-| A-module.indicators | 40 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.jobapi | 5 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.links | 14 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.networkflow | 153 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.parties | 19 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.projections | 25 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.records | 9 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.recovery | 50 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.reference_data | 102 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.reportcomposition | 4 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.reporting | 50 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.revisions | 79 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.savedviews | 27 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.stagedobjects | 3 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.tabularingest | 2 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.tasksdecisions | 17 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.timeline | 203 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-module.workbook | 297 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-package.grid_adapter | 47 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-package.protocol_ts | 8 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-package.test_utils | 1 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-package.ui | 11 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-package.view_contracts | 5 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.audit | 3 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.bootstrap | 2 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.config | 17 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.cryptography | 4 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.httpruntime | 8 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.jobs | 19 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.objectstore | 9 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.openapi | 6 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.pagination | 2 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.postgres | 6 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.rootedfs | 2 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.telemetry | 11 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.viewquery | 15 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.viewschema | 6 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-platform.ws | 1 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-web.application | 95 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-web.architecture | 6 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-web.collaboration | 7 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-web.design | 32 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-web.networkflow | 66 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
-| A-web.workbook | 337 | TODO | Pending V-031 assertion/production-boundary review and correction closure. |
+| A-module.incidents | 85 | DONE | E-631 reconciles85 rows (50 Go roots,64 Vitest/26 Playwright titles), helper/production boundaries, 32 collaborator rows and untagged web.application incident rows; S-630–S-651 closed with targeted qualification, including the reviewed S-644 golden refresh. Whole-suite stability/performance unmeasured. |
+| A-module.indicators | 40 | DONE | E-654 reconciles40 rows (38 Go/2 Vitest), helper/production boundaries and54 collaborator rows; S-652–S-655 closed (including three pre-existing drift repairs); all rows have current passing evidence. Whole-suite stability/performance unmeasured. |
+| A-module.jobapi | 5 | DONE | E-659 reconciles5 Go rows and21 collaborator rows; drift check clean; S-656 adds transport contract witnesses. Whole-suite stability/performance unmeasured. |
+| A-module.links | 14 | DONE | E-661 reconciles14 rows (13 Go/1 browser) and25 collaborator rows; drift check clean; no correction required. Whole-suite stability/performance unmeasured. |
+| A-module.networkflow | 153 | DONE | E-662; S-657–S-679; direction-column projection conflict and unrouted fuzz target open for S-064. |
+| A-module.parties | 19 | DONE | E-686; S-680–S-685. |
+| A-module.projections | 25 | DONE | E-693; S-686–S-687; coverage gaps and checker self-test routing open for S-064. |
+| A-module.records | 9 | DONE | E-696; S-688–S-690; validator coverage gaps and checker scan-path vacuity open for S-064. |
+| A-module.recovery | 50 | DONE | E-700; S-691–S-694; operator advisory-lock waiter and optional sentinel pinning open for S-064. |
+| A-module.reference_data | 102 | DONE | E-705; S-695–S-708; shared contract-version fixture, wall-clock windows and status-only HTTP checks open for S-064. |
+| A-module.reportcomposition | 4 | DONE | E-720; S-709; REQ-RC-084 Table 14-A coverage gaps open for S-064. |
+| A-module.reporting | 50 | DONE | E-722; S-710–S-725, including a render-process bound repair (S-725); recorded residuals open for S-064. |
+| A-module.revisions | 84 | DONE | E-739; S-726–S-732, including a history rollback-availability repair (S-727); recorded sweep residuals open for S-064. |
+| A-module.savedviews | 27 | DONE | E-747; S-733. |
+| A-module.stagedobjects | 3 | DONE | E-749; S-734. |
+| A-module.tabularingest | 2 | DONE | E-751; S-735. |
+| A-module.tasksdecisions | 23 | DONE | E-753; S-736–S-740; recorded sweep residuals open for S-064. |
+| A-module.timeline | 214 | DONE | E-759; S-741–S-761 (S-745 production); recorded sweep residuals open for S-064. |
+| A-module.workbook | 298 | DONE | E-781; S-762–S-770; recorded sweep residuals open for S-064. |
+| A-package.grid_adapter | 47 | DONE | E-791; S-771–S-772; recorded sweep residuals open for S-064. |
+| A-package.protocol_ts | 8 | DONE | E-794; S-773 (production placement)–S-774; recorded residuals open for S-064. |
+| A-package.test_utils | 1 | DONE | E-797; no slices; recorded helper-fixture residuals open for S-064. |
+| A-package.ui | 11 | DONE | E-798; S-775–S-776; recorded residuals open for S-064. |
+| A-package.view_contracts | 5 | DONE | E-801; S-777; recorded residuals open for S-064. |
+| A-platform.audit | 3 | DONE | E-803; S-778–S-779; recorded residuals open for S-064. |
+| A-platform.bootstrap | 2 | DONE | E-806; no slices; recorded residuals open for S-064. |
+| A-platform.config | 17 | DONE | E-807; S-780; recorded residuals open for S-064. |
+| A-platform.cryptography | 4 | DONE | E-809; S-781; recorded residuals open for S-064. |
+| A-platform.httpruntime | 8 | DONE | E-811; no slices; recorded residuals open for S-064. |
+| A-platform.jobs | 19 | DONE | E-812; no slices; recorded residuals open for S-064. |
+| A-platform.objectstore | 9 | DONE | E-813; S-782; recorded residuals open for S-064. |
+| A-platform.openapi | 6 | DONE | E-815; no slices; recorded residuals open for S-064. |
+| A-platform.pagination | 2 | DONE | E-816; no slices; recorded residuals open for S-064. |
+| A-platform.postgres | 6 | DONE | E-817; S-783 (production migration ACL)–S-784; recorded residuals open for S-064. |
+| A-platform.rootedfs | 2 | DONE | E-820; no slices; recorded residuals open for S-064. |
+| A-platform.telemetry | 11 | DONE | E-821; S-785 (production scope-registry alignment); recorded residuals open for S-064. |
+| A-platform.viewquery | 15 | DONE | E-823; no slices; recorded residuals open for S-064. |
+| A-platform.viewschema | 6 | DONE | E-824; no slices; recorded residuals open for S-064. |
+| A-platform.ws | 1 | DONE | E-825; S-786; recorded residuals open for S-064. |
+| A-web.application | 95 | DONE | E-827; S-787–S-789; recorded sweep residuals open for S-064. |
+| A-web.architecture | 6 | DONE | E-831; S-790; recorded residuals open for S-064. |
+| A-web.collaboration | 7 | DONE | E-833; S-791; recorded residuals open for S-064. |
+| A-web.design | 32 | DONE | E-835; no slices (browser rows untouched, not run); recorded residuals open for S-064. |
+| A-web.networkflow | 66 | DONE | E-836; S-792; recorded residuals open for S-064. |
+| A-web.workbook | 337 | DONE | E-838; S-793–S-796 (entry drift); recorded sweep residuals open for S-064. |
 
 ### Continuation/merge work items
 
@@ -4563,10 +4583,10 @@ accounted for with all relevant callers, not counted as reviewed by filename.
 | T-022 Publish continuation/merge plan | Documentation | DONE | E-032–E-036; V-025 document checks passed, tracker-only preservation verified. | Version 1.13.0 complete; no future implementation gate closed. |
 | T-023 Assertion ledger and predecessor qualification | S-059 | DONE | E-040; RB-012 closed. | Complete ledger and compatible V-020 baseline; checkpoint. |
 | T-024 Continuation HTTP and renderer successors | S-060 | DONE | S-059 checkpoint; establish RB-013 qualification. | V-021 passes before reduction; checkpoint. |
-| T-025 Browser continuation partition | Future S-061 | BLOCKED | S-060 checkpoint / RB-013. | Five deep and 12 small passes, exact replacement routing; checkpoint. |
-| T-026 Merge HTTP parity | Future S-062 | BLOCKED | S-061 checkpoint and S-059 merge ledger. | V-023 parity closes RB-014; checkpoint. |
-| T-027 Merge browser helper simplification | Future S-063 | BLOCKED | S-062 checkpoint / RB-014. | V-024 both flows preserved; checkpoint. |
-| T-028 Reconcile validation and handoff | Future S-064 | BLOCKED | All preceding checkpoints. | F-057–F-059 resolved, V-020–V-025 reconciled, bounded implementation acceptance. |
+| T-025 Browser continuation partition | S-061 | DONE / E-042 | S-060 checkpoint / RB-013. | Five deep and 12 small passes, exact replacement routing; checkpoint. |
+| T-026 Merge HTTP parity | S-062 | DONE / E-043 | S-061 checkpoint and S-059 merge ledger. | V-023 parity closes RB-014; checkpoint. |
+| T-027 Merge browser helper simplification | S-063 | DONE / E-044 | S-062 checkpoint / RB-014. | V-024 both flows preserved; checkpoint. |
+| T-028 Reconcile validation and handoff | S-064 | DONE / E-843 | All preceding checkpoints. | F-057–F-059 resolved, V-020–V-025 reconciled, bounded implementation acceptance. |
 
 T-022 completion means only that the plan is delivered. No future implementation
 work item is completed by this document update.
@@ -4612,6 +4632,133 @@ the next workstream begins.
 | T-015 Deliver this handoff | Planning | WF-00 / V-014 | DONE | E-023/E-024; canonical lint explicitly skipped. | Tracker written, reviewed, limitations recorded, outside content/index preserved. |
 
 ## 10. Session Handoff Log
+
+### R-04 and S-064 correction handoff, 2026-11-15
+
+**State.** The R-04 fixture-legality workstream is complete (E-845). It
+includes the S-064 correction. Nothing was staged, committed, merged or
+published.
+
+**What changed.**
+
+- A Records-owned legal tombstone helper with its contract test.
+- Illegal Records envelopes and incident closures were removed from test
+  fixtures across 16 owners.
+- 11 stale passes that predated `b5cd96adf` were repaired: guards,
+  expectations and harness package qualification.
+- The Reference Pack fixtures carry contract v3.
+- Two wall-clock negatives became deterministic.
+- No production code changed.
+
+**Compatibility.**
+
+- Package qualification now names projects `cartulary-pq-<uuid>-<scope>`.
+- WSL readiness now requests UTF-8 output.
+- The Windows probe now sends the REQ-01-256 envelope.
+- There are no public API, storage or routing-contract changes.
+
+**Evidence.**
+
+- The clean requalification of all 42 helper-consumer rows passed at
+  `sha256:671ea8db…`.
+- Each slice's own runs are recorded in its closure.
+- The final generated, catalog and backend-boundary checks passed.
+- Census v4 (diagnostic) logged no illegal write at the former hit rows.
+
+**Not run.**
+
+- Browser rows of the 21 pre-checkpoint owners, per the maintainer's
+  decision.
+- A full suite, release, performance or stability run.
+- `make lint CHECK=types` for the string-literal fixture change.
+
+**Remaining risks.**
+
+- Legality of the rollback-fixture `now()` tombstones depends on the fixture
+  policy.
+- The `cleanup_lifetime` sleeps remain.
+- Replica-mode paths were reviewed statically.
+- R-01–R-03, R-05 and R-06 stay deferred as recorded in E-843.
+
+### Final S-064 handoff, 2026-11-15
+
+**State.** The expanded remediation is complete as a bounded effort:
+
+- S-065, S-059–S-063 and S-066–S-074 are DONE.
+- All 66 lexical owner audits are DONE (E-056 … E-838).
+- S-797 closes the last correction, and S-064 reconciles everything (E-843).
+- The working tree is `main` at `826c031db` plus 183 uncommitted paths
+  (182 modified, 1 untracked). Nothing was staged, committed, merged or
+  published.
+
+**Changed areas.**
+
+- About 143 test files across Go, Vitest, Playwright and harness `.mjs`. Each
+  change is a recorded slice with a governing clause, defect, successor and
+  retired predecessor.
+- 15 production files, listed in the E-843 delta table: S-644, S-645, S-725,
+  S-727, S-745, S-773, S-783, S-785 and S-797.
+- Four authored routing inputs, three regenerated tool artifacts and 17
+  reviewed visual goldens (S-644).
+- This tracker.
+
+**Compatibility impact.**
+
+- Visible copy: the authenticated-root heading now reads `Incidents` (design
+  §4.6); its focus target is unchanged.
+- The metadata and preference clients treat canonical
+  `401 session_required` and `403 csrf_verification_failed` as definite
+  rejections instead of uncertain outcomes.
+- Workbook illegal-transition details serialize `violated_guards` as `[]`,
+  not `null`.
+- A history read now lists a missing rollback target as having no rollback
+  actions instead of failing.
+- Render-process stdout and stderr bounds are now enforced (overflow yields
+  `ErrOutput`).
+- The unregistered telemetry scope `cartulary.incident_portability` is removed.
+- Migration 00058 was corrected in place: PUBLIC is revoked on the table and its
+  row type, and EXECUTE is no longer granted on the private trigger function.
+  Databases that applied the earlier text need a rebuild to pick up the
+  corrected ACLs.
+- There are no public API, storage-format, routing-contract or toolchain
+  changes, and no compatibility switches or aliases.
+
+**Verification.**
+
+- Each slice's commands, run IDs, native exits, sources, scans and cleanup are
+  in its closure record.
+- Final S-064 runs under `.cartulary/test-results/`:
+  - `tcr-s064-requal-{assessments,evidence,networkflow,recovery,tasksdecisions,timeline,workbook}01`:
+    12 stale rows, all passed.
+  - S-797: `tcr-s797-red01` (the expected failure), `qualified01`,
+    `dependent01` and `types01` passed.
+  - `tcr-s064-generated01` and `tcr-s064-catalog01` passed.
+  - The closing `make lint-markdown` and `git diff --check` results are
+    recorded in E-843.
+
+**Skipped checks and reasons.**
+
+- Browser rows untouched by any correction were not run (maintainer decision
+  at owner entry). Browser rows whose specs changed were run in their slices.
+- The visual suite last ran in two passing passes after the S-644 refresh. No
+  later production change reaches a captured state.
+- No full suite, owner-wide reruns, `agent-finalize`, release, publication or
+  performance runs: none was requested, and no change introduced a risk that
+  only those could cover.
+
+**Limitations and next work.** The E-843 residual register is the backlog:
+
+- R-01 requirement or maintainer decisions, including the NF-REQ-054c
+  direction column and the REQ-RC-084 coverage gap.
+- R-02 routing and catalog.
+- R-03 owner-confirmed weaknesses without a slice.
+- R-04 fixture legality. This is the recommended next workstream, because this
+  class repeatedly produced drift failures.
+- R-05 unverified sweep candidates.
+- R-06 unexecuted evidence.
+
+Semantic-audit completion is separate from targeted runtime qualification. No
+whole-suite stability, performance, speedup or release claim is made.
 
 ### Expanded implementation handoff, 2026-11-10
 
@@ -53275,6 +53422,11876 @@ passed, native exits0 (125 Markdown files/no fixes). The staged inventory is1,39
 seven intentionally deleted), with no binary diff, retained runtime artifact or
 remaining nonignored untracked file. No other source change follows S-641.
 
+### Resume after the S-641 checkpoint, 2026-11-14
+
+The maintainer lifted the pause (see TCR-REQ-002). Entry observations, read-only:
+`main` is clean at `826c031dbb5fbc3a6de3992b1b8c1c95739d691b`, two maintainer
+commits past the checkpoint commit `b5cd96adf`: `f04bf6d91` and `826c031db`
+("Golden visual reduction" first slice and 2). Together they change 71 files:
+visual specs and visual support helpers, 49 modified goldens and one retired golden,
+the visual fixture registry, golden manifest, normalization and Timeline profiles,
+the Testing Harness NLSpec (balanced ordinary-browser cohort packing; overlapping
+snapshot-update cohorts staged into one run-scoped candidate directory), browser
+cohort/work-graph harness code, the golden maintenance guide and the new
+`docs/guides/cartulary_visual_golden_reduction_ledger.md`.
+
+Under TCR-REQ-005 these are concurrent maintainer changes, not part of this
+remediation; nothing here reverts or absorbs them. `git diff` from `b5cd96adf` to
+`826c031db` shows no change under `apps/web/src`, `internal`, `cmd`, `db`,
+`contracts`, `tools/test_families` or `tools/toolchain_pins.json`. Completed
+Incidents review and non-browser targeted evidence therefore keep their recorded
+selection/profile scope. Global source digests differ from the checkpoint and are
+recorded per run, not treated as identical. Browser runs from here on execute
+under the balanced-packing harness, which each browser record notes.
+
+Identities: S-642/F-627/E-644 appear only in the pause note as unused next
+identities; S-643/F-628/E-645 are absent. E-631 stays reserved for Incidents
+closure. `/tmp/e631-incidents-collaborators.json` (32 rows) is still present as an
+inspection copy only. Planned Incidents order: S-642 delayed membership-audit
+failure witness, S-643 rendered audit JSON values, S-644 authenticated-root
+`Incidents` heading with the authorized reviewed refresh, then the remaining
+semantic review recorded in the pause section. No product run was launched at entry.
+Resume `make lint-markdown` checked126 files/no fixes (the maintainer's new ledger
+adds one) and `git diff --check` passed, native exits0.
+
+### S-642 / F-627 / E-644 — late membership-audit failure after section exit
+
+Recorded before editing; identities verified unused. IN_PROGRESS. The
+characterization case "does not publish delayed audit failure into another section"
+cannot fail, for three independent reasons. After its rerender,
+MembershipAuditTestSurface renders IncidentAdminPanel instead of the audit panel,
+so no audit markup exists. Its 503 fixture has no JSON content type, so
+`httpTransport.requestJSON` reads text and the client degrades it to
+`unknown_public_error`. And the controller never presents a server `message`: every
+failure maps to fixed copy. Its only predicate, absence of the raw server text, is
+therefore vacuous. A DOM re-entry witness would also be weak: `setActive(true)`
+immediately starts a fresh read that overwrites any wrongly accepted failure.
+
+The governing obligation is Core01 REQ-01-603/604's incident-scoped membership-audit
+read, plus design §4.6/§5.3's local-locus failure presentation, applied by analogy
+since design.md has no membership-audit section. The controller boundary owns
+whether a retired read may publish. The web.application node case "preserves only
+filters on section drawer and visibility exit and fences late results" already
+loops a late page and a late 401 after `setActive(false)`. It checks page, history,
+expansion, errors, drafts, applied query and the `lost` callback, but never a late
+ordinary failure and never `read`/`announcement`. Transfer the responsibility there:
+add a late `failure(503, "service_unavailable")` completion, capture the snapshot
+immediately after section exit, and require that exact snapshot object (no
+publication) plus explicit idle read, empty status announcement and status role
+after every late completion. Existing predicates and the reactivation third read
+remain. No title changes in that row.
+
+After the successor qualifies, delete the vacuous DOM case and remove its title from
+the authored module.incidents characterization row (six to five titles); regenerate
+through `make generate`, review generated deltas, and run the generated and catalog
+source checks. Requalify both rows. Content-type handling stays with transport: no
+shared browserApi/httpTransport test currently pins the content-aware non-JSON
+error fallback (`unknown_public_error`). That is recorded as a candidate for the
+A-web.application audit, not added to this slice. No production, requirement or
+profile change. E-631/S-064 remain open.
+
+**Pre-existing unrecorded run roots.** The first fresh `make format` for this slice,
+`tcr-s642-format01`, exited2 with harness config/configuration_error: that run root
+already existed. Inspection, without modifying anything, finds roots created on
+2026-11-14 between 15:11Z and 15:32Z. That is after checkpoint commit
+`b5cd96adf` (13:44Z) and before both maintainer golden commits. Their manifests bind
+`source_commit` `b5cd96adf`, state dirty, with these selections:
+
+- tcr-s642-format01/successor01/qualified01 and tcr-s643-format01/successor01/
+  qualified01: the six-title membership-audit characterization row. All passed.
+- tcr-s644-format01, app01 (two app_landing rows), menu01 (web.design account-menu
+  a11y/browser rows) and auth01 (module.auth accessibility row): all passed.
+- tcr-s644-visual01, creation01 and settings01: web.design visual rows. Each failed
+  product/test_assertion_failure.
+- tcr-s645-generate01: tool-summary only.
+
+No tracker record, source change or generated change from that attempt exists in the
+current clean tree. Its source digests differ from current source, so these roots
+are preserved as unrelated historical artifacts. They are not evidence for any slice
+here, are not relabeled, and are not deleted. Every later command uses a verified-
+absent run ID. The configuration rejection launched no test.
+
+#### S-642 / F-627 / E-644 closure — controller owns late-failure fencing
+
+DONE. The web.application controller case now completes a late page, a late401
+`session_required` and a late503 `service_unavailable` after section exit. It
+captures the exit snapshot and requires the same snapshot object after each late
+completion: no publication. It also requires that snapshot's idle read, empty
+announcement and status role. The prior page/history/expansion/errors/draft/
+applied-query/`lost`/third-read predicates remain. The vacuous DOM title was
+deleted only after the successor passed, and its authored selector title was removed
+(characterization row6→5). Its now-unused `view` return from local setup was
+removed. No production code, requirement, profile or other title changed.
+
+Plans: `make target-plan TARGET=test-slice INPUTS=<scratchpad>/s642-inputs.json
+DETAIL=rows JSON=1` (native0) selects only
+web.application.regression.incident_membership_audit_read_ownership: one
+none/standard/fast node-unit cohort plus frontend install, no services, graph
+`a37a515b326578402b441896898799b864464a332e5c9d55a716eaaf6dcce109`. The
+module.incidents characterization plan (native0) selects one browser-unit cohort,
+graph `927e079450ff51bdea3b5c762913916f61336a72971838b4236205f4ac0911e5`.
+All commands used fresh verified-absent IDs and machine mode; roots are
+`.cartulary/test-results/<run-id>`:
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s642-format01 | `make format` | 2 | config/configuration_error: pre-existing nonempty root; no work launched |
+| tcr-s642-format02 | `make format` | 0 | pass2/2,4816 ms,bypass2; scan15/pass; cleanup11 completed |
+| tcr-s642-successor02 | `make test-slice OWNER=web.application ROWS=web.application.regression.incident_membership_audit_read_ownership` | 0 | pass2/2,3588 ms,miss1; row passed/15 ms; scan21/pass; cleanup11 completed |
+| tcr-s642-generate01 | `make generate` | 0 | tool summary pass/exit0,10280 ms (non-graph adapter: no scan/cleanup ledger) |
+| tcr-s642-generated01 | `make source-check CHECK=generated` | 0 | pass5/5,10791 ms,bypass5; scan29/pass; cleanup14 completed |
+| tcr-s642-catalog01 | `make source-check CHECK=catalog` | 0 | pass2/2,1698 ms,bypass2; scan15/pass; cleanup11 completed |
+| tcr-s642-format03 | `make format` | 0 | pass2/2,4781 ms,bypass2; scan15/pass; cleanup11 completed; no source change |
+| tcr-s642-qualified02 | `make test-slice OWNER=module.incidents ROWS=module.incidents.frontend.membership_audit_characterization` | 0 | pass2/2,5501 ms,miss1; row passed/613 ms; scan21/pass; cleanup11 completed |
+
+The only generated delta is `tools/execution_topology_render_index.json`: its input
+digest and the module.incidents family hash. Successor source is
+`2e989169273fafc13134620f099baddeb9fec2b58919d928e6b3cc85713a89d9`;
+generated/catalog/format03/qualified source is
+`d9bb62b56ba03bc580aff47ab1a4b577056e9fc2a117c7ebcd20bcaa9c045bae`. Both are dirty
+at `826c031db`, toolchain `0e302b723a654ff49d1df64d0c655f27c266127f9f49480b0ea7a88b56be8893`.
+The node-test file is byte-identical between successor02 and final source, so its
+qualification is reused rather than repeated. A public status reader exited0;
+manifests, summaries, rows, scans and cleanup were inspected. No product failure.
+Browser/golden, finalizer, release and measurement checks are not implicated.
+E-631/S-064 remain open. Closing `make lint-markdown` checked126 files/no fixes and
+`git diff --check` passed, native exits0; all S-642 checks are closed.
+
+### S-643 / F-628 / E-645 — exact rendered membership-audit JSON values
+
+Recorded before editing; identities verified unused after S-642 checks closed.
+IN_PROGRESS. The characterization case "keeps visible JSON strings distinct from
+null and structured values" supplies four visible values: JSON null, the string
+"null", an object and an array. It opens Inspect only `if` a button is found, then
+checks that some element reads `"null"` and that `[object Object]` appears nowhere.
+The negative passes trivially when inspection never opens. The before-side null,
+the object and the array, and which change/side each value occupies, are never checked.
+
+Core01 REQ-01-604 defines visible `changes[]` before/after JSON values; the panel
+renders each `Change to <field_path>` region with Before/After definitions through
+`formatAuditJSON` (`JSON.stringify(value, null, 2)`) in pre-wrap text. Exact
+formatter strings remain owned by the web.application model node test, and real
+browser inspection by the membership-audit response-inspection scenario. This
+DOM case's distinct purpose is faithful placement of each supplied value in the
+mounted panel. Successor: require the Inspect button unconditionally. Within region
+"Change to a", require Before `null` and After `"null"`. Within "Change to b",
+require the hand-written pretty literals `{\n  "role": "viewer"\n}` and
+`[\n  false,\n  0\n]`. Scalar strings stay distinct from JSON null. Qualify with the
+old predicates present, then retire the conditional open, the global quoted-null
+query and the `[object Object]` negative, and requalify the same five-title row. No
+production, title, routing, profile or generated change. E-631/S-064 remain open.
+
+#### S-643 / F-628 / E-645 closure — faithful per-change JSON placement
+
+DONE. Inspection is now unconditional (`getByRole` fails if the action is absent).
+Each `Change to <path>` region's two definitions must equal independently written
+Before/After literals: `null` versus the quoted string `"null"`, the pretty object,
+and the pretty array including `false` and `0`. The conditional open and both global
+predicates (quoted-null presence, `[object Object]` absence) were retired only after
+the successor passed beside them. Formatter strings and real-browser inspection keep
+their existing owners. No production/title/routing/profile change.
+
+Revalidated plan (native0) is identical to S-642's characterization plan: one
+browser-unit cohort, graph
+`927e079450ff51bdea3b5c762913916f61336a72971838b4236205f4ac0911e5`. Fresh
+verified-absent IDs, machine mode, roots `.cartulary/test-results/<run-id>`:
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s643-format02 | `make format` | 0 | pass2/2,4877 ms,bypass2; scan15/pass; cleanup11 completed |
+| tcr-s643-successor02 | `make test-slice OWNER=module.incidents ROWS=module.incidents.frontend.membership_audit_characterization` | 0 | pass2/2,5393 ms,miss1; row passed/618 ms; scan21/pass; cleanup11 completed |
+| tcr-s643-format03 | `make format` | 0 | pass2/2,4914 ms,bypass2; scan15/pass; cleanup11 completed |
+| tcr-s643-qualified02 | same exact test-slice selection | 0 | pass2/2,5274 ms,miss1; row passed/611 ms; scan21/pass; cleanup11 completed |
+
+Successor source `38826edf7159561b7795e34ffe11ccefd2997c5da2612f1198894e801d9c4164`;
+final source `48b30cc4a4a2c7ec9d8609ae2f832cdf708de97d022001aafb63bb793bb090f8`,
+dirty at `826c031db`, unchanged toolchain. The pre-existing tcr-s643-*01 roots
+from the unrecorded morning attempt are not used. A public status reader exited0;
+manifests, summaries, rows, scans and cleanup were inspected. No failures.
+E-631/S-064 remain open. Closing `make lint-markdown` checked126 files/no fixes and
+`git diff --check` passed, native exits0; all S-643 checks are closed.
+
+### S-644 / F-629 / E-646 — authenticated-root `Incidents` heading
+
+Recorded before editing; identities verified unused after S-643 checks closed.
+IN_PROGRESS. Design §4.6 requires the successful zero-count directory heading
+`Incidents` and moves focus to the authenticated-root `Incidents` heading after
+navigation; §10.8's `permission_or_incident_access_loss` row repeats that focus
+target. Core00 assigns this presentation to design.md, and Core01 §3.3.2.1A owns
+only root selection and visibility. IncidentDirectoryShell's focusable h1 (testid
+`landing-admin-heading`, App `navigationHeadingRef`) instead reads
+`Incident directory`. The inner IncidentLanding h2 `Visible incidents` is the panel
+heading and creation-form fallback focus target, not the root heading. No
+requirement changes. The fix changes only that h1's text to `Incidents`, keeping its
+element, testid, ref and tabIndex. The `Deployment administration` h1, which shares
+the testid, the panel eyebrow, the h2 and the account-menu `Incidents` menuitem stay
+unchanged.
+
+The old text expectation cannot coexist with the corrected behavior, so the heading
+consumers are replaced, not run beside a successor. The heading-text predicates
+change to the design value; the focus predicates remain and keep proving the
+navigation focus target. Exact consumers, all through the heading testid:
+
+- `App.landing.test.tsx` "keeps explicit incident-directory navigation…"
+  (web.application.regression.app_landing_keeps_explicit_incident_directory_na_c4fd880324)
+- `account.a11y.spec.ts`
+  (web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451)
+- `auth.a11y.spec.ts`, inside the nine-title
+  module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9 row
+- `incident-administration.spec.ts`: two text predicates plus the destination loop
+  label and branch
+  (web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220)
+- `account.visual.spec.ts`: account-menu root visual row
+
+Pixel consequences fall on full-viewport captures that show the root header. Expected:
+`account-menu-directory-root`; the eight `incident-create-*` goldens; and the 1280×720
+account-settings profile/appearance dirty, pending, conflict and recovery dialogs,
+where the header is visible behind the dialog. These span three web.design visual
+rows. Under the maintainer's TCR-REQ-002 decision, refresh only through one
+`make browser-e2e-visual-update` (full snapshot selection; only failing comparisons
+become candidates). Inspect every changed image against HEAD. Return any change
+outside these heading deltas to the maintainer before acceptance. Then run the
+guide's two fresh ordinary `make browser-e2e SUITE=visual` passes and the source
+checks the regenerated golden manifest requires. The pre-existing tcr-s644-*01 roots
+from the unrecorded morning attempt are not evidence here.
+
+The App.tsx directory section's `aria-labelledby` reference is absent in the
+directory context. That is a separate candidate for the remaining Incidents review,
+not part of this slice. No backend, routing, profile or design-document change.
+E-631/S-064 remain open.
+
+#### S-644 non-visual consumers qualified before the golden refresh
+
+Source `bcb3dc8e1d824d70b3e398631c792f382e9eb6584802ff752196d5d44e6e2c99` (dirty
+at `826c031db`). All runs used fresh verified-absent IDs and machine mode:
+tcr-s644-format02 (`make format`) and three exact `make test-slice` selections
+planned first. Roots are `.cartulary/test-results/<run-id>`.
+
+| Run | Selection | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s644-format02 | `make format` | 0 | pass2/2,4777 ms,bypass2; scan15/pass; cleanup11 completed |
+| tcr-s644-app02 | `OWNER=web.application ROWS=web.application.regression.app_landing_keeps_explicit_incident_directory_na_c4fd880324` (graph 8dbbfecaed2889f2…) | 0 | pass2/2,6270 ms,miss1; row passed/106 ms; scan21/pass; cleanup11 completed |
+| tcr-s644-design02 | `OWNER=web.design ROWS=web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451,web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220` (graph c87dcfd3a41827a6…) | 0 | pass14/14,96526 ms,bypass14; rows passed/3258 and4268 ms; scan135/pass; cleanup27 completed |
+| tcr-s644-auth02 | `OWNER=module.auth ROWS=module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9` (graph 8df64dbc95f82150…) | 0 | pass12/12,93986 ms,bypass12; nine-title row passed/18392 ms; scan101/pass; cleanup23 completed |
+
+The browser rows ran under the current balanced-packing harness with the default
+Chromium/browser_ordinary profiles. Heading text and post-navigation focus now pass
+at every non-visual consumer. The golden refresh is next.
+
+#### S-644 reviewed golden refresh record
+
+Trigger: the design §4.6 heading correction, authorized in TCR-REQ-002 as one
+reviewed refresh. `CARTULARY_TEST_RUN_ID=tcr-s644-visual-update01
+CARTULARY_OUTPUT_MODE=machine make browser-e2e-visual-update` exited native0:
+pass17/17 units, 258787 ms, all 43 snapshot rows passed, scan304/pass, cleanup36
+completed. Source `bcb3dc8e…` (dirty at `826c031db`), graph
+`9c5723cc1abea4abebe3b5682100c89554549cd161641e13607199fff1ed5bed`. The update
+used the full snapshot selection, as nlspec requires, and ran under the current
+balanced/overlapping update harness.
+
+Exactly 17 goldens changed, matching the predicted set and nothing outside it:
+`account-menu-directory-root`; `account-settings-{profile,appearance}-
+{dirty,pending,conflict,recovery}`; and `incident-create-{initial,
+required-errors,expanded-details,pending,recovery-short,recovery-zoom,
+recovery-text-spacing,confirmed-handoff-failure}`. The regenerated golden
+manifest changes exactly those 17 sha256 values, and all 254 manifest hashes
+match their files. No registry, normalization, profile or capture-contract input
+changed.
+
+Review: each new image was compared with its `HEAD` version in scratch-only
+review sheets (old/new/diff mask; nothing written into the repository). Pixel
+diff bounding boxes: 14 captures are confined to the h1 text box (810 px). The
+pending and short-recovery captures add 17 px with a maximum channel delta of2;
+the directory root adds 11 px, delta at most2. These are imperceptible
+anti-aliasing at border edges. Text-spacing and 200% zoom differ only within
+their enlarged heading text (one zoom pixel elsewhere, delta3). A contact sheet
+of every header, plus full sheets of the zoom and open-menu root layouts, were
+visually inspected. The only visible change is `Incident directory` →
+`Incidents`, with unchanged header geometry, session column, dialogs, focus
+rings and content. Reviewer outcome: all 17 accepted as the intended design
+change; no unexpected layout, typography, focus, clipping, overflow, loading,
+error or state change. The pre-existing morning tcr-s644-visual01/creation01/
+settings01 failures are unrelated historical roots.
+
+Ordinary validation: `CARTULARY_TEST_RUN_ID=tcr-s644-visual-pass01
+CARTULARY_OUTPUT_MODE=machine make browser-e2e SUITE=visual` exited native0:
+pass20/20 units, 281197 ms, 48/48 rows passed (43 snapshot plus 5 support), scan
+338/pass, cleanup41 completed. Source
+`1d9697af253b4ab3874a9f52c8aa4f5e24cd008c8e04e1d2ed65c26711b5fa3d`, graph
+`dddffacad0c4087befc42b8425ee078e6e322cb8a939c016b0e107f3ada3b1c6`.
+Reconciliation v4: pass, 254 capture intents, 254 committed and active, 0
+orphan/missing/ambiguous, 29 registered fixtures resolved, manifest sha256
+`a226b265822c64e316fd442ab2865b023e4db3de917882fdd633a98e871ea39d`. The second
+fresh pass required by the guide follows.
+
+#### S-644 / F-629 / E-646 closure — `Incidents` root heading
+
+DONE. Design §4.6's authenticated-root heading and focus target is `Incidents`.
+All heading-text consumers were updated to that value while their focus
+predicates were kept. The 17 affected goldens were refreshed once, reviewed and
+accepted. No requirement, backend, routing or profile change. Fresh
+verified-absent IDs, machine mode, roots `.cartulary/test-results/<run-id>`:
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s644-visual-pass02 | `make browser-e2e SUITE=visual` | 0 | pass20/20,286619 ms; 48/48 rows passed; reconciliation pass,254 active,0 orphan/missing/ambiguous, same manifest sha; scan332/pass; cleanup40 completed |
+| tcr-s644-generated01 | `make source-check CHECK=generated` | 2 | product/test_assertion_failure: drift row reported `tools/frontend_visual_golden_manifest.json`; scan29/pass; cleanup14 completed |
+| tcr-s644-generate02 | `make generate` | 0 | tool summary pass/exit0,9930 ms (non-graph adapter) |
+| tcr-s644-generated02 | `make source-check CHECK=generated` | 0 | pass5/5,9063 ms; both drift rows passed; scan29/pass; cleanup14 completed |
+| tcr-s644-schema01 | `make source-check CHECK=schema` | 0 | pass3/3,10096 ms; scan19/pass; cleanup12 completed |
+
+Pass02's only cache hit was a Vitest support cohort (static visual-registry
+unit) reused from pass01; every browser capture group executed fresh. Both
+ordinary passes bind source `1d9697af…` and graph `dddffaca…`.
+
+Generated01 diagnosis, with the failed root preserved and no blind rerun. The
+manifest bytes equal the builder's output for the working-tree PNGs, and all 254
+hashes match. The drift comparator (`generated-transaction.mjs` `equalPath`)
+also compares file mode, and generated sources are normalized to0644. The
+update's promoted manifest is written by `writeFrontendVisualGoldenManifest`
+with mode0600. That is a mode-only difference git does not record. Canonical
+`make generate` republished the identical bytes at0644 (verified with `cmp`
+against the update-written copy). Generated02 and schema01 then passed at
+source `07ffc1bf3c7aeb81ad5a57fe405d184700cfe384e01c5f45539caa08ac21879c`. That
+digest differs from the visual passes' only by this generated file's mode; the
+manifest content and every golden byte are unchanged. The visual evidence
+therefore remains compatible and is not repeated.
+
+Harness observation for the maintainer, not repaired here: after any
+`make browser-e2e-visual-update`, the guide's drift check fails on manifest mode
+until `make generate` runs. The maintainer's reduction ledger already
+regenerated through `make generate`, and the guide does not name that step. This
+belongs to the visual-update harness, a completed owner area under active
+maintainer change. It is recorded for S-064 reconciliation and handoff.
+
+The S-644 `make format`, non-visual consumer runs, update and pass01 are recorded
+above. Closing `make lint-markdown` checked126 files/no fixes and `git diff --check`
+passed, native exits0; all S-644 checks are closed. E-631/S-064 remain open.
+
+### E-631 partial ledger during the S-644 refresh
+
+Read-only review while `tcr-s644-visual-update01` runs; no source edits.
+
+- **Metadata characterization**, all 10 titles plus its surface/fixture support,
+  controller save-completion path, client and panel status. RETAIN sparse
+  base-version payload, single admission, newer-typing preservation, section and
+  drawer retention, acknowledgement despite failed reads, conflict review, and the
+  closed/role explanations (their regexes match the actual read-only copy with
+  values still visible). Confirmed gap: "excludes an obsolete rejection from
+  another incident" checks only that the raw code `invalid_incident_patch` is
+  absent, and the panel never renders raw codes. The panel stays mounted for the
+  replacement incident and exposes `data-metadata-operation` plus fixed rejected
+  copy, so a meaningful DOM witness exists. The controller fencing node case covers
+  only a late401. Queue as its own slice after S-644.
+- **Confirmed production defect.** `incidentMetadataModel.metadataProblemCodes`
+  lists noncanonical `csrf_failed` and `authentication_required`, and
+  `incidentMetadataController.complete` admits a 403 `csrf_failed` as definite
+  rejection. The generated error registry and Core04/Core01 CSRF precedence emit
+  `403 csrf_verification_failed`, which this client degrades to
+  `unknown_public_error`. The controller then presents an "uncertain" save,
+  although the server rejected before mutation. Sibling lifecycle and membership
+  controllers already classify `csrf_verification_failed` as definite rejection
+  with access-check copy. (401 handling is status-based, so the
+  `authentication_required` token is inert but noncanonical.) Queue as a separate
+  owner-backed corrective slice after S-644. The workbook preference adapter/model
+  also use `csrf_failed`; record that for the module.workbook/web.workbook audits,
+  not this owner.
+- **Membership-management characterization**, all 8 titles plus fixtures/helpers.
+  RETAIN continuation, single create admission, newer-draft preservation, role
+  draft through section reload, acknowledgement before follow-up reads, conflict
+  observation and member-named role control. The cross-incident case keeps a
+  meaningful predicate: the actual "inactive account" copy is absent while the
+  replacement incident is mounted. Its additional raw-code absence is redundant
+  but harmless. The model's problem-code set is canonical.
+- **Five lifecycle browser scenarios** and the lifecycle e2e helper. RETAIN: a
+  real committed-but-lost Close replayed byte-identically after another actor's
+  reopen, with `client_txn_conflict` divergence; confirmation independent of failed
+  reads and authorization observation; normalized grapheme reason bounds and a real
+  version conflict with fresh review; sequential metadata/membership/lifecycle
+  departure dialogs with Escape and history; and closure retaining a gated
+  rejected source edit while allowed configuration succeeds, with reopening never
+  auto-replaying it. Public API calls inside these scenarios set up real state
+  and witness cross-surface effects. They do not replace the backend matrices.
+- **Five metadata browser scenarios** and their presentation fixture. RETAIN:
+  live sparse field-by-field saves and null clears with exact PATCH bodies and
+  versions; normalized whitespace no-op; a real held local write against a
+  competing server PATCH, giving a real409 and explicit review; confirmed save
+  despite a failed read; uncertain 503 with observation that cannot confirm; the
+  private-diagnostic absence; sequential Stay/history departure; and current
+  role/closure/unavailable/hidden/session transitions. Confirmed gap: "pending
+  transport survives drawer return and cannot publish after deliberate incident
+  departure" releases the gated PATCH and immediately asserts
+  `data-metadata-operation="idle"` and an empty value on the next incident. Both
+  auto-retrying expectations are already true before the late response reaches the
+  page, so the departure fence is not observed. The repository already settles
+  such requests through `requestfinished`/`requestfailed` before negative checks
+  (incident-administration surface-entry scenario). Queue a separate slice.
+- **Four membership-management browser scenarios**. RETAIN real 100-member
+  paging with a live continuation member; add/role/remove with the three audit
+  events; dblclick single admission; confirmed refresh failure; exact uncertain
+  create replay with newer input; a real conflict observation/review count; access
+  unavailable/restore; and closed-incident self-demotion/self-removal preserving
+  the session. In the deliberate-departure scenario, the final release and
+  unmounted-panel check settle the gated route only. The title claims no late
+  fencing; the web.application controller case "allows explicit route departure
+  without claiming cancellation and fences late success" owns that obligation.
+- **Four membership-audit browser scenarios**. RETAIN 105 real role changes with
+  API instant-boundary controls, 100/5 UI paging, preserved accepted query on
+  Next/Refresh, focus retention, inspection and non-admin denial; access
+  unavailable/viewer/hidden/session distinctions; malformed scope/paging rejection;
+  inert additive JSON and redaction inspection. Confirmed gap in "fences delayed
+  reads across query drawer section and visibility": in the query segment, the
+  gated failing Next-page read is released and the test immediately expects the
+  newer query's `Page 1: 0 events.`, which is already displayed. A wrongly accepted
+  late failure would be overwritten by the following Clear-filters read. Await
+  that request's settlement before the negative/positive check. The
+  close/section/visibility loop orders the released read before a fresh read whose
+  completion it observes, so it remains acceptable. Queue a separate slice.
+- **Five auth-and-incident-directory scenarios owned here**. RETAIN real landing
+  create/list/open-as-admin with companion card identity; native keyboard
+  creation with associated required, server-length and duplicate-key errors and the
+  exact raw accepted body; committed-but-lost creation replay with dual click/Enter
+  suppression, read-only uncertain payload, focus restoration, workbook-open
+  failure and explicit open with exactly two identical bodies; delayed confirmed
+  creation during account navigation, observed by its positive "Incident
+  created." status without navigation; and stale selected incident cleared on
+  reload after real membership removal while the session is preserved.
+- **Three incident-administration scenarios owned here**. RETAIN preference
+  shortcuts with no page errors; discovery card, deep link, summary fields,
+  promoted-field patch with version/value/card propagation; and real
+  add/role/audit/non-admin hiding/close-reopen/remove. Confirmed gap in the
+  discovery scenario: `page.waitForTimeout(5_100)` waits on wall-clock time to
+  show the metadata acknowledgement survives a "toast timeout window". No
+  application timer governs that persistent status, and design forbids persistent
+  results from depending on a disappearing toast. Replace the sleep with
+  Playwright's virtual clock (`page.clock.install` before navigation,
+  `fastForward` past the window). That keeps the guard against a future
+  auto-dismiss timer without real waiting, as S-638 did for backend time. Queue a
+  separate slice; no speed claim.
+- **Lifecycle characterization, re-examined.** The helper `close()` confirms only
+  `if` the control exists. Every caller then waits for an admitted write, and the
+  browser `confirmLifecycle` helper requires the confirmation control, so this is
+  retained with a note, not a gap. Confirmed gap: "excludes a delayed rejection
+  from another incident" asserts only that the raw code
+  `invalid_incident_lifecycle_request` is absent. The panel presents fixed
+  `lifecycleProblemMessage` copy ("The lifecycle request was rejected as invalid…"),
+  so this needs the same observable replacement as metadata, in its own slice.
+- **Directory.** The 17 model/controller titles, 2 binding titles, the 3
+  HTTP-adapter titles and the 11 App.landing directory-lifecycle titles are
+  read. RETAIN fake-timer debounce/coalescing, exact query/cursor/limit
+  projections, identity-merge paging, cursor-cycle/limit drift rejection, explicit
+  restart, departure clearing with retained query, session-replacement and
+  denial clearing, timeout without late acceptance, disposal, strict-effect
+  replay, and malformed-response rejection without defaults. App.landing cases
+  resolve late pages inside `act`, so their absence checks follow settlement;
+  they also prove failures never present a successful empty result and that
+  explicit startup makes no directory probes.
+- **Pending-owner collaborator rows (21)**, read at their Incidents boundary.
+  Their full disposition remains with each owner's later audit.
+  - web.design: incident-creation and incident-administration a11y/visual. RETAIN
+    keyboard focus, associated errors, busy naming, reflow at the declared
+    viewports, zoom/spacing, contrast, no private diagnostics and per-state
+    captures; the visual rows are exercised by S-644's ordinary passes.
+  - web.workbook: the incident adapter's correlated identity, cross-incident
+    rejection, paging and typed authority loss.
+  - platform.audit: the two projection tests are deployment-scoped
+    immutability/visibility controls. Incident membership-audit persistence is
+    already witnessed by Incidents' own HTTP scenario. The persistence test checks
+    only the first sorted change path; that belongs to the platform.audit audit.
+  - Reporting authority, Timeline profile concurrency, Revisions security
+    precedence, workbook startup concurrency and Network Flow fixtures use incident
+    rows or memberships as fixtures or fault injection. Reporting's direct SQL
+    membership delete/role change is deliberate fault injection for worker
+    re-derivation, not a model of the membership API. Revisions retains
+    hidden/malformed `incident_not_found` and role precedence. No Incidents
+    correction is confirmed among these.
+  - OpenAPI runtime parity remains the generated-contract owner's check.
+- **Lifecycle web.application rows.** RETAIN all 23 controller titles: same-tick
+  admission before authorization, frozen attempts, exact replay identity despite
+  newer input, receipts never published as current, confirmation despite failed
+  reads, a transport lock held past timeout with late current receipt, a fresh key
+  after version rejection, distinct illegal/txn-conflict handling, revision-bound
+  validation, rejected replay staying uncertain, role/visibility/lifetime/abort
+  fencing, access-loss clearing, resource validation and departure semantics.
+  Also retain the 4 client titles (generated routes, exact captured body,
+  contradiction rejection, typed safe errors) and the 4 integration titles. One
+  title says "uses Web Crypto" but checks only the `incident-close-` prefix. Key
+  generation belongs to the shared `clientTransactionId` helper and its own node
+  test; no Incidents slice.
+- **Membership-audit web.application rows.** RETAIN the 12 read-ownership titles
+  (the S-642 successor now owns late ordinary failures), the 4 lifetime titles
+  including session-retirement late publication, the 4 model titles including
+  exact formatter output for every JSON kind, and the 3 typed-client titles.
+- **Membership-management web.application/web.workbook rows.** RETAIN the
+  controller paging/fencing/draft/admission/crypto replay/conflict/204/no-op/
+  departure/downgrade/access cases, the 3 presentation titles (non-admin browsing
+  without privileged forms, Stay/Discard) and the client/lifetime titles. Their
+  problem-code set is canonical.
+- **App.landing access loss** returns to the empty directory without
+  `incident_id`, with bounded fetch counts. The design §4.6 focus destination is
+  witnessed in the browser by the module.auth accessibility row, now asserting
+  `Incidents` (S-644).
+- **Measurement boundary.** The Incidents performance-fixture provider and
+  production adapter create one workspace incident through the real application
+  plus one editor membership per Auth principal; the creator's bootstrap admin
+  membership is extra. Its receipt echoes the declared counts, but the shared
+  assembler also checks observed semantic counts against the profile
+  expectations (`assembler.go` semantic validation), so materialized state is
+  verified independently. The four profiles (evidence-heavy and three large-grid
+  variants) and the ac043 browser snapshot's incident list/membership/startup/
+  socket calls are functional setup. No timing, memory or stability claim
+  follows, and no Incidents correction is confirmed here.
+- **App.landing "searches visible incidents … discards stale directory
+  responses".** RETAIN the request-search identity, previous rows during loading,
+  accepted replacement results and the absent `group_by`. Confirmed gap: after
+  resolving the stale `phish` response it awaits only two bare microtasks before
+  asserting the stale card is absent. Fetch adoption, `Response.json()`, decoding,
+  controller acceptance and React rendering need more turns than that, so the
+  check can pass before the stale response is handled. Sibling directory-lifecycle
+  cases resolve late responses inside `act`. Queue a separate strengthening
+  slice; model-level obsolete-response rejection is already owned by the
+  directory controller tests.
+- **Directory section labelling.** App.tsx's directory `<section>` references
+  `aria-labelledby` `landing-admin-menu-item-incidents`, which exists only in the
+  deployment-administration menu. No design or Core requirement makes this
+  section a named region, and the qualified accessibility rows report no
+  violation. Record it as an App-owned hygiene candidate for A-web.application;
+  no Incidents slice.
+- **Queued Incidents correction order after S-644** (identities to be verified
+  at allocation): metadata CSRF canonical classification (production);
+  metadata cross-incident rejection witness; lifecycle cross-incident rejection
+  witness; metadata browser departure settlement; membership-audit browser
+  query-fence settlement; discovery wall-clock wait replaced by virtual time;
+  App.landing stale-search settlement.
+
+### S-645 / F-630 / E-647 — canonical metadata CSRF rejection
+
+Recorded before editing; identities verified unused after S-644 checks closed.
+IN_PROGRESS. This is a production defect confirmed in the E-631 partial ledger.
+Core04's state-changing precedence returns `403 csrf_verification_failed` before
+any mutation, and Core01 REQ-01-176–178 own the metadata PATCH. The generated
+error registry contains `csrf_verification_failed`, not `csrf_failed`. The
+metadata client's closed problem set lists `csrf_failed` (and the inert 401 token
+`authentication_required`), so a real CSRF rejection degrades to
+`unknown_public_error`. The controller then reports an uncertain save, though
+the server definitively rejected it. Sibling lifecycle and membership
+controllers already treat `csrf_verification_failed` as a definite rejection.
+
+Successors, red first: the existing client error-identity test must decode a
+real 403 `csrf_verification_failed`. The existing uncertain-classification
+controller case gains a contrast: that canonical rejection is `rejected` with
+the draft retained and no field error. Then make the production changes. Replace
+the two noncanonical tokens with `csrf_verification_failed` and `session_required`;
+401 handling remains status-based. Admit the canonical CSRF code in the
+definite-rejection branch. Present it with the panel's existing
+access-check rejection copy, as authorization denial already does, rather than
+"review the affected input". Update the one node fixture that used
+`authentication_required`. No title, routing, profile, requirement or browser
+change. Select the existing `metadata_transport` and `metadata_ownership` rows,
+plus `make lint CHECK=types` for the changed type union. Workbook-preference
+`csrf_failed` stays with the workbook owners. E-631/S-064 remain open.
+
+#### S-645 / F-630 / E-647 closure — definite CSRF rejection
+
+DONE. The metadata problem set now contains canonical `csrf_verification_failed`
+and `session_required`. The controller admits a 403 CSRF rejection as `rejected`,
+retaining the draft without inventing a field error. The panel presents the
+existing access-check rejection copy. The client test decodes the real envelope
+without its private message. The controller case contrasts this definite
+rejection with the retained malformed/unknown uncertain classification. One
+fixture moved from the noncanonical 401 token to `session_required`; 401
+handling stays status-based. No title, routing, profile or browser change.
+
+Plan (native0) selects web.application.regression.metadata_ownership and
+metadata_transport: none/standard/fast node-unit, one cohort, graph
+`4017462fba07f1165c7b4d76d64dc145024587e9510938edc33966c4f7e31682`. Type-check
+plan (native0) is frontend install plus frontend typecheck, graph
+`3779f6e1c94f21180dee31c0ccd5490c36f0132d8de8480f1e20e586721ca4d4`.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s645-format01 | `make format` | 0 | pass2/2,4748 ms; scan15/pass; cleanup11 completed |
+| tcr-s645-red01 | `make test-slice OWNER=web.application ROWS=web.application.regression.metadata_transport,web.application.regression.metadata_ownership` | 2 | expected product/test_assertion_failure: client decoded the 403 to another code; controller reported `uncertain`, not `rejected`; scan23/pass; cleanup11 completed |
+| tcr-s645-format02 | `make format` | 0 | pass2/2,4839 ms; scan15/pass; cleanup11 completed |
+| tcr-s645-qualified01 | same exact test-slice selection | 0 | pass2/2,4572 ms,miss1; rows passed; scan23/pass; cleanup11 completed |
+| tcr-s645-types01 | `make lint CHECK=types` | 0 | pass2/2,21599 ms; scan15/pass; cleanup11 completed |
+
+Red source `1ccffad7e95bb22702cd5643ae52bc1cd259c6d16d153822f28364e8dfdc6207`;
+final source `464c72b03da03619bfe27ff574fe69395161bc1e6101db08db79ea588fdaf5f7`,
+dirty at `826c031db`, unchanged toolchain. Red01 is preserved as the intended
+defect witness; its bounded Vitest failure details name only the two successor
+assertions. No browser scenario or visual capture exercises the CSRF-rejected
+panel state, so no browser or golden check is implicated. E-631/S-064 remain
+open. Closing `make lint-markdown` checked126 files/no fixes and `git diff --check`
+passed, native exits0; all S-645 checks are closed.
+
+### S-646 / F-631 / E-648 — metadata obsolete-rejection fence witness
+
+Recorded before editing; identities verified unused after S-645 checks closed.
+IN_PROGRESS. In the metadata characterization case "excludes an obsolete
+rejection from another incident", the only predicate is that the raw code
+`invalid_incident_patch` is absent. The panel never renders raw codes, so the
+check cannot fail. The incident-fields panel stays mounted for the replacement
+incident and exposes `data-metadata-operation` and fixed rejected copy. The
+helper resolves the late400 inside `act`, so a wrongly accepted obsolete
+rejection would publish `rejected` and the copy "The submitted changes were
+rejected. Review the affected input before saving again." Successor: after
+settlement, the named "Promoted incident fields" region must report operation
+`idle`, and that rejected copy must be absent. Qualify beside the old predicate,
+then retire the raw-code check and requalify the existing ten-title
+`module.incidents.frontend.metadata_characterization` row. The governing
+obligation is the existing current-authority/incident-lifetime fence; no
+production, title, routing or profile change. E-631/S-064 remain open.
+
+#### S-646 / F-631 / E-648 closure — observed metadata fence
+
+DONE. After the late400 for the departed incident settles inside `act`, the
+mounted panel must report operation `idle` and must not show the fixed rejected
+copy. The vacuous raw-code predicate was retired after the successor qualified
+beside it. Plan (native0): one browser-unit cohort, graph
+`b26f84c37c25da624599211725a2615b8ffd855961c93a8bdf084b77f6307b5d`.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s646-format01 | `make format` | 0 | pass2/2,4858 ms; scan15/pass; cleanup11 completed |
+| tcr-s646-successor01 | `make test-slice OWNER=module.incidents ROWS=module.incidents.frontend.metadata_characterization` | 0 | pass2/2,4880 ms,miss1; row passed/227 ms; scan21/pass; cleanup11 completed |
+| tcr-s646-qualified01 | same exact selection | 0 | pass2/2,4908 ms,miss1; row passed/221 ms; scan21/pass; cleanup11 completed |
+
+Successor source `8364124359160937e572df2dd4fca4d46f768a251b7396df3fd6e92b7d0c85cb`;
+final source `709c197044ae25593605bfbce54a5b6f712058564189b60ca45a7a5bcd5ec769`.
+Only one complete formatted line was deleted after format01. No failure.
+E-631/S-064 remain open. Closing `make lint-markdown` checked126 files/no fixes and
+`git diff --check` passed, native exits0; all S-646 checks are closed.
+
+### S-647 / F-632 / E-649 — lifecycle obsolete-rejection fence witness
+
+Recorded before editing; identities verified unused after S-646 checks closed.
+IN_PROGRESS. Lifecycle characterization "excludes a delayed rejection from
+another incident" checks only that the raw code
+`invalid_incident_lifecycle_request` is absent. The lifecycle panel presents only
+`lifecycleProblemMessage` copy, so that predicate cannot fail. The summary section
+stays mounted for the replacement incident, and its `lifecycle-outcome` element
+takes role `alert` with the copy "The lifecycle request was rejected as invalid.
+Refresh and review before trying again." when a fieldless rejection is published.
+The helper settles the late400 inside `act`. Successor: after settlement, that
+outcome must keep role `status` and must not contain the rejected copy. Qualify
+beside the old predicate, retire the raw-code check, and requalify the existing
+eleven-title `module.incidents.frontend.lifecycle_characterization` row. No
+production, title, routing or profile change. E-631/S-064 remain open.
+
+#### S-647 / F-632 / E-649 closure — observed lifecycle fence
+
+DONE. After the departed incident's late400 settles, the replacement incident's
+`lifecycle-outcome` keeps role `status` and lacks the fieldless rejected copy. The
+raw-code predicate was retired after the successor qualified beside it. Plan
+(native0): one browser-unit cohort, graph
+`33125b43be6a89b80ac968a2308f91ece5d023d0aaeff89a6c55f340fe7b8451`.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s647-format01 | `make format` | 0 | pass2/2,4882 ms; scan15/pass; cleanup11 completed |
+| tcr-s647-successor01 | `make test-slice OWNER=module.incidents ROWS=module.incidents.frontend.lifecycle_characterization` | 0 | pass2/2,5126 ms,miss1; row passed/270 ms; scan21/pass; cleanup11 completed |
+| tcr-s647-qualified01 | same exact selection | 0 | pass2/2,5245 ms,miss1; row passed/276 ms; scan21/pass; cleanup11 completed |
+
+Successor source `7bf8754a8ebb56b71b8c7618530706f543ac12fdc1fc81c18adf86d0afc72df6`;
+final source `6ac5fb8ba09940acba6d361801175c46f2c8ce6abbfa8ada05c9608ff348cb29`.
+Only one complete line was deleted after format01; `screen` remains used. No
+failure. E-631/S-064 remain open. Closing `make lint-markdown` checked126 files/no
+fixes and `git diff --check` passed, native exits0; all S-647 checks are closed.
+
+### S-648 / F-633 / E-650 — settle the departed metadata write before fencing checks
+
+Recorded before editing; identities verified unused after S-647 checks closed.
+IN_PROGRESS. The browser scenario "metadata pending transport survives drawer
+return and cannot publish after deliberate incident departure" releases its gated
+PATCH, then asserts the next incident's panel is `idle` with an empty Severity.
+Both auto-retrying expectations already hold before the late response reaches
+the page, so the departure fence named in the title is not observed. Successor:
+before release, register a settlement promise for that exact PATCH path through
+`requestfinished`/`requestfailed`. This is the same pattern the
+incident-administration delayed-entry scenario already uses. Release, await
+settlement, then keep the existing idle/empty-value and single-write predicates.
+The existing assertions stay and gain an ordering guarantee; no predicate is
+retired. Select the existing
+`module.incidents.browser.metadata_pending_departure` row (default Chromium,
+browser_ordinary). No production, fixture, title, routing or profile change, and
+no timeout increase. E-631/S-064 remain open.
+
+#### S-648 / F-633 / E-650 closure — departed write reaches a terminal state first
+
+DONE after one diagnosed authoring repair. The first successor registered the
+settlement listener immediately before release. `tcr-s648-qualified01` (native2,
+product/test_assertion_failure) ran the row 60339 ms, and Playwright reported
+only the 60000 ms test timeout; the page snapshot was at the next incident. Static
+diagnosis: incident departure calls the metadata controller's `retire()`, which
+cancels the in-flight write observation and aborts its browser fetch. So
+`requestfailed` had already fired before the listener existed. That is a test
+ordering error, not a product failure or flaky timing. The root is preserved and
+the timeout was not increased.
+
+The repaired successor registers the exact PATCH-path settlement promise as soon
+as the gated write is in flight, before drawer return and departure, and awaits it
+after release. The scenario now proves the departed request has terminated before
+it checks the next incident's idle operation, empty Severity and single write.
+Late acknowledgements with ignored aborts remain owned by the controller and
+lifetime node tests. No predicate was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s648-format01 | `make format` | 0 | pass2/2,4724 ms; scan15/pass; cleanup11 completed |
+| tcr-s648-qualified01 | `make test-slice OWNER=module.incidents ROWS=module.incidents.browser.metadata_pending_departure` | 2 | failed: test timeout from late listener registration; pass10/12 units; scan95/pass; cleanup23 completed |
+| tcr-s648-format02 | `make format` | 0 | pass2/2,4770 ms; scan15/pass; cleanup11 completed |
+| tcr-s648-qualified02 | same exact selection | 0 | pass12/12,79064 ms; row passed/3144 ms; scan92/pass; cleanup23 completed |
+
+Plan (native0): one browser row with webserver-backed prerequisites, 12 units,
+graph `e08045eaea6579720f9ef7b8bbc3b8c433912c3431ba1c808731f628f323217b`. Final
+source `4a607f173590cb60fe990090ccc5bf444086f68ebe15b2b2998b7f41460966b1`, dirty
+at `826c031db`. It ran under the current balanced-packing browser harness with
+default Chromium/browser_ordinary profiles. E-631/S-064 remain open. Closing
+`make lint-markdown` checked126 files/no fixes and `git diff --check` passed,
+native exits0; all S-648 checks are closed.
+
+### S-649 / F-634 / E-651 — settle the replaced audit page read before fencing checks
+
+Recorded before editing; identities verified unused after S-648 checks closed.
+IN_PROGRESS. In "membership audit fences delayed reads across query drawer
+section and visibility with explicit cursor recovery", the query segment works
+like this. A one-shot gated, failing Next-page read (`cursor_token=next-page`) is
+replaced by a newer applied query. The test then releases the gate and
+immediately expects `Page 1: 0 events.`, which the newer query already displays.
+A wrongly accepted late failure would also be overwritten by the following
+Clear-filters read. Using the S-648 lesson, register an exact settlement promise
+for that GET (path plus `cursor_token`, `requestfinished`/`requestfailed`) as
+soon as the read is in flight. The promise also captures an abort on
+replacement. Await it after release, before the existing status expectation; the
+later steps stay. No predicate is retired. Select the existing
+`module.incidents.browser.membership_audit_read_recovery` row. The
+close/section/visibility loop already observes a fresh read's completion after
+the released one and is unchanged. No production, fixture, title, routing,
+profile or timeout change. E-631/S-064 remain open.
+
+#### S-649 / F-634 / E-651 closure — replaced page read terminates before checks
+
+DONE. The exact replaced Next-page GET must reach `requestfinished` or
+`requestfailed` before the newer query's `Page 1: 0 events.` status is checked.
+Registration happens while the read is in flight, so a replacement abort is
+captured too. All prior predicates remain; nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s649-format01 | `make format` | 0 | pass2/2,4735 ms; scan15/pass; cleanup11 completed |
+| tcr-s649-qualified01 | `make test-slice OWNER=module.incidents ROWS=module.incidents.browser.membership_audit_read_recovery` | 0 | pass12/12,77163 ms; row passed/3352 ms; scan92/pass; cleanup23 completed |
+
+Plan (native0): one browser row, 12 units, graph
+`657a829bea4ab41e0d1002a3a25081e9a74ea8197025d87467ebc284c8a956ec`. Source
+`1740cb7e03d570db3f1ce563c73d00266f8a161aafc7f974f6c05be9ef26493f`, dirty at
+`826c031db`, current balanced-packing browser harness. No failure.
+E-631/S-064 remain open. Closing `make lint-markdown` checked126 files/no fixes and
+`git diff --check` passed, native exits0; all S-649 checks are closed.
+
+### S-650 / F-635 / E-652 — controlled time for the persistent metadata acknowledgement
+
+Recorded before editing; identities verified unused after S-649 checks closed.
+IN_PROGRESS. The discovery scenario ("shows incident discovery, raw querystring
+deep-link retrieval, and promoted-field-only patching…") calls
+`page.waitForTimeout(5_100)` to show that "Saved promoted incident fields."
+outlives a toast-timeout window. Design requires persistent results not to
+depend on a disappearing toast. No application timer currently governs that
+status, so the real wait only guards against a future auto-dismiss timer, at a
+cost of wall-clock time. Install Playwright's virtual clock before the
+scenario's first navigation (`page.clock.install()`, already used by
+evidence.access and timeline-range-selection), and replace the sleep with
+`page.clock.fastForward(5_100)`, which fires every due timer in that window. The
+acknowledgement assertions before and after remain. The sleep is setup, not a
+predicate, so nothing is retired. Select the existing
+`module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5`
+row. No production, title, routing, profile or timeout change, and no speed
+claim. E-631/S-064 remain open.
+
+#### S-650 / F-635 / E-652 closure — virtual time replaces the sleep
+
+DONE. The scenario installs Playwright's virtual clock before its first
+navigation and fast-forwards 5100 ms. Every due application timer in that window
+fires, and the persistent acknowledgement must survive it. The scenario no longer
+waits on wall-clock time. Existing acknowledgement, summary, version, value and
+directory-card predicates are unchanged; the spec's other tests (including the
+S-644-qualified account-menu test) are byte-identical in their bodies, so their
+evidence stands.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s650-format01 | `make format` | 0 | pass2/2,4704 ms; scan15/pass; cleanup11 completed |
+| tcr-s650-qualified01 | `make test-slice OWNER=module.incidents ROWS=module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5` | 0 | pass12/12,77506 ms; row passed/2216 ms; scan92/pass; cleanup23 completed |
+
+Plan (native0): one browser row, 12 units, graph
+`b357bb143edece6d8dc8e8c3a201fb5718c78f8dc73b9841850b7604496968af`. Source
+`4890f65695bf2abd910062eba7d5f56287c8e55256a09dc9796b21f5cc30053d`, dirty at
+`826c031db`. The row duration is one descriptive observation, not a measured
+speedup. E-631/S-064 remain open. Closing `make lint-markdown` checked126 files/no
+fixes and `git diff --check` passed, native exits0; all S-650 checks are closed.
+
+### S-651 / F-636 / E-653 — consume the stale directory response before absence
+
+Recorded before editing; identities verified unused after S-650 checks closed.
+IN_PROGRESS. The web.application App.landing case "searches visible incidents
+through the owner-backed list query and discards stale directory responses"
+resolves the superseded `phish` response and awaits two bare microtasks. It then
+asserts the stale card is absent. Fetch adoption, `Response.json()`, decoding,
+controller fencing and rendering need more turns than that, so absence can be
+observed before the stale response is handled. Successor: keep a reference to the
+stale `Response` and resolve it inside `act`. Wait until its `bodyUsed` shows the
+application consumed it (the shared transport always reads the body), flush once
+more inside `act`, then apply the unchanged absence predicate. The two bare
+microtask waits are settlement setup and are replaced. All predicates remain.
+Select the existing
+`web.application.regression.app_landing_searches_visible_incidents_through_t_ad3cb27e31`
+row. Model-level obsolete-response rejection stays with the directory controller
+tests. No production, title, routing or profile change. E-631/S-064 remain open.
+
+#### S-651 / F-636 / E-653 closure — stale body consumed before absence
+
+DONE. The stale response is resolved inside `act`. The test waits until the
+application has consumed its body (`bodyUsed`), flushes React once more, and only
+then asserts that the stale card stays absent. Request-search identity, previous
+rows during loading, accepted results and absent `group_by` predicates remain.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s651-format01 | `make format` | 0 | pass2/2,4738 ms; scan15/pass; cleanup11 completed |
+| tcr-s651-qualified01 | `make test-slice OWNER=web.application ROWS=web.application.regression.app_landing_searches_visible_incidents_through_t_ad3cb27e31` | 0 | pass2/2,6098 ms,miss1; row passed/110 ms; scan21/pass; cleanup11 completed |
+
+Plan (native0): one browser-unit cohort, graph
+`df27a7ba4b4080921a9a1899342a07624480b609b0ca899ae8089301e098a8bc`. Source
+`dc5d904cb94ace8de80286824ff706d1e1c44894ef4882ab3e4f2103022d17a4`. The
+S-644-qualified App.landing heading case in the same file is byte-identical in
+its body. No failure. E-631/S-064 remain open. Closing `make lint-markdown`
+checked126 files/no fixes and `git diff --check` passed, native exits0; all S-651
+checks are closed.
+
+### A-module.incidents — complete semantic reconciliation / E-631
+
+DONE for semantic audit and corrective-slice closure. This consolidates the
+assertion-level readings recorded from owner entry through S-651. It does not
+replace those records or turn catalog membership into assertion coverage. All
+confirmed corrections, S-630–S-651, have their governing requirement,
+implementation, successor/retirement disposition and closed targeted checks
+above. No confirmed Incidents correction or unread owned assertion, helper or
+production tail remains.
+
+Final public discovery `make task-guide OWNER=module.incidents DETAIL=rows JSON=1`
+(native0) confirms 85 rows: 50 Go, 9 Vitest and 26 Playwright;
+default55/none30 runtime; standard59/browser_ordinary26 resources;
+exclusive50/none30/shared5 PostgreSQL isolation; full32/fast27/standard26
+placement. The authored family now holds 64 Vitest titles (S-642 retired one)
+and 26 Playwright titles. These are routing facts, not assertion counts. The
+portfolio remains 66 owners; the S-642 title retirement leaves row identities
+unchanged.
+
+#### Surviving assertion dispositions
+
+| Assertion family (including dynamic/helper predicates) | Final disposition and semantic boundary |
+| --- | --- |
+| Application/admission/idempotency/audit units; metadata intent; private helpers | RETAIN typed-nil/dependency order, strict root framing, normalization and null/omission/clear distinctions, closed roles/TLP, exact audit mappings and fixed digest vectors. S-631 replaced the private field count with an exported-state/query successor. |
+| Store, receipt concurrency, shared lifecycle lock, six-command clock, transaction participant | RETAIN real lock/barrier witnesses, terminal effect keys, scoped typed conflicts and import-finalizer controls. S-630 added post-admission clock sampling with real lock waits. |
+| HTTP routes, decoders, conformance, OpenAPI projections, pagination and authorization matrices | RETAIN exact route/dependency/error tuples, current-session role transitions, concealment versus denial and live keyset paging. S-632/S-633/S-634/S-635/S-636/S-637/S-638 corrected the exact role error, response ownership, issued-version observation, create replay content, singleton projection, deletion cleanup and controlled metadata time. |
+| Creation model/client/form/App.landing creation and directory lifecycle | RETAIN state-machine, transport, session-epoch and handoff responsibilities plus directory debounce, paging, fencing and failure locality. S-639/S-640 fixed the second request and CSRF fixture; S-651 settles stale-response absence. |
+| Lifecycle characterization/panel/controller/client/integration/browser | RETAIN review/preflight/write/replay ownership, receipts never published as current, transport locks and departure semantics. S-647 makes the cross-incident fence observable. The conditional confirm helper is benign because callers require the write. |
+| Metadata characterization/controller/client/lifetime/browser | RETAIN sparse patches, conflict review, uncertain non-inference, role/closure transitions and departure. S-645 fixed the production CSRF classification. S-646 and S-648 make the fence observable; S-650 replaced wall-clock waiting. |
+| Membership management characterization/controller/panel/client/lifetime/browser | RETAIN live paging, single admission, exact uncertain replay, conflict observation, Stay/Discard and self-demotion/removal on closed incidents. The meaningful copy-based cross-incident predicate stays. |
+| Membership audit characterization/panel/controller/model/client/lifetime/browser | RETAIN loading/empty distinction (S-641), filter/page admission, cursor recovery, access distinctions and inert JSON. S-642 moved late-failure fencing to the controller; S-643 requires exact per-change placement; S-649 settles the replaced page read. |
+| Root directory presentation | S-644 corrected the design §4.6 `Incidents` heading and focus target across DOM, accessibility, browser and 17 reviewed goldens. |
+
+Every retirement followed its recorded qualified successor; no root was retired
+because another test had a similar name.
+
+#### Cross-owner, non-row and measurement closure
+
+The 32-row declared collaborator union is closed at its Incidents boundary.
+Eleven rows in completed owners (app.server, harness.browser,
+module.assessments, module.collaboration, module.imports, module.incidentbundles)
+reuse their recorded dispositions. The 21 pending-owner rows are read at their
+Incidents-relevant assertions, as recorded in the partial ledgers. Their full
+semantic disposition carries to those owners' lexical audits. Untagged
+web.application/web.workbook incident rows (admin surfaces, directory, App.landing
+incident cases) were reviewed regardless of missing collaborator metadata. The
+measurement boundary is functional only: the Incidents fixture provider/
+production adapter with assembler semantic-count validation, the four profiles
+and the ac043 incident calls. Unchanged E-361 source-port/state/import-finalization
+evidence is reconciled, not rerun.
+
+Candidates handed to later owners, none an Incidents defect:
+
+- A-web.application: there is no shared transport test of content-aware non-JSON
+  error fallback. App.tsx's directory section has a dangling `aria-labelledby`.
+- A-module.workbook / A-web.workbook: the workbook preference adapter/model uses
+  noncanonical `csrf_failed`.
+- A-platform.audit: the projection persistence test checks only the first sorted
+  change path.
+- A-module.reporting: the direct SQL membership fault injection is deliberate.
+- Harness (maintainer): `make browser-e2e-visual-update` promotes a0600
+  generated manifest that fails the drift check until `make generate`. Carried
+  to S-064.
+
+#### Evidence compatibility and workstream exit
+
+Reuse only each slice's recorded source/profile/selection evidence. Later edits
+supersede earlier evidence only for affected behavior. Every S-642–S-651
+selection changed only its own test bodies or the named production files, and
+each was qualified after its last edit. HEAD stays `826c031db` (dirty); the
+toolchain is unchanged. Browser runs since resume used the balanced-packing
+harness. Preserved failures with dispositions: tcr-s642-format01 (pre-existing
+root), tcr-s644-generated01 (manifest mode), tcr-s645-red01 (intended defect
+witness), tcr-s648-qualified01 (listener ordering). No failed invocation is
+relabeled passed. Semantic completion is separate from targeted runtime
+qualification. No whole-suite stability, performance, release or speed claim
+follows.
+
+This closes A-module.incidents, the 22nd of 66 owners. Continue lexically with
+A-module.indicators. S-064 remains last and open. No stage, reset, commit, merge
+or publication occurred. (Editorial: the E-631 partial ledger written during the
+S-644 refresh was moved, unchanged, to precede S-645 in chronological order.)
+Closing `make lint-markdown` and `git diff --check` for E-631 are recorded with the
+Indicators entry below.
+
+### A-module.indicators entry — E-654 reserved
+
+E-631 workstream checks closed before entry. E-654 is reserved for Indicators
+owner closure; S-652/F-637 are the next apparent corrective identities and are
+verified before allocation. No correction is inferred from entry.
+
+Public `make task-guide OWNER=module.indicators DETAIL=rows JSON=1` (native0) and
+the authored family give 40 rows: 38 Go and 2 Vitest (8 titles). Runtime is
+none26/default14; resources standard38/io_heavy2; placement
+fast26/standard13/full1; PostgreSQL isolation none26/shared9/exclusive5;
+evidence unit26/integration14. Go selectors span the root package
+(31 test files, about 5.5k lines) and the admission, httpapi,
+internal/{identity,providers/rollback,sourcestate,vocabulary} and
+workbookprojection packages, plus workbookassembly. Authored collaborator rows
+naming module.indicators: 54. They are web.workbook25, module.workbook16,
+module.networkflow4, module.projections2, module.revisions2, plus completed
+module.imports2, module.incidentbundles2 and module.incidents1, whose recorded
+reviews are reused at their scope.
+
+Governing reading: Core02 §7.4 observation provenance and §10.2 indicator
+contract (REQ-02-072–077, including 074A/074B IP-literal canonicalization and
+the 074C find-or-create participant), Core01 §7.4.6 indicators view, Core03 §9.1
+source-bound workflow, and the domain §13.4 indicator capture vocabulary.
+Root/backend/tooling guidance applies; there is no nested AGENTS file.
+E-361 already dispositioned the Indicators source-port contributions used by
+Incident Bundles; reuse that reading at its recorded scope. S-064 remains last
+and open. Entry `make lint-markdown` checked126 files/no fixes and `git diff --check`
+passed, native exits0; E-631 and entry checks are closed.
+
+Initial E-654 reading: identity_concurrency (lock-wait polls are bounded
+observations of `pg_stat_activity`, not fixed sleeps), unit_test,
+replay_codec, observation_origin (unit and integration),
+projection_provider_contribution, application_actor and provider_encapsulation.
+RETAIN the real lock-barrier convergence and receipt-race outcome matrix,
+deployed-hash replay conflict, dedupe/replay identities with distinct
+observations, exact stored replay bytes, the exact origin registry plus storage
+constraint, schema-parity projection intents, and the static internal-provider
+import guard. The origin AST check proves only that caller-controlled
+producer/origin fields are absent from the public params type; its name
+overstates that, but it carries an engineering-purpose encapsulation guard.
+
+### S-652 / F-637 / E-655 — discriminating nil-actor rejection
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+`TestIndicatorApplicationRejectsNilActorBeforeDependencies` calls eight mutation
+entry points on a zero-value Application with a nil actor and accepts any error.
+Each call also supplies empty or incomplete inputs, so if an actor guard were
+removed, command or identity validation would still reject. The test therefore
+cannot detect losing the actor guard it names. Mutation attribution requires an
+authenticated actor (Core01 actor attribution for owned mutations and audit).
+The guards are each method's first statement: typed
+`IndicatorCreateValidationError{Field: "actor_user_id"}` for row create, the
+transaction participant and import; generic `ErrInvalidCreateRequest` for
+observation create/resolve/dismiss/restore and lifecycle append.
+
+Successor: give every call otherwise valid inputs, so that past the actor guard
+execution would reach the zero-value dependencies. Require the exact typed field
+error or `errors.Is(ErrInvalidCreateRequest)` respectively. Qualify beside the
+old any-error predicate, then retire it and requalify. No production, title,
+routing or profile change. Select the existing eight-root
+`module.indicators.structure.indicator_application_requires_complete_composition_6ecc4edf41`
+row (service-free unit). E-654/S-064 remain open.
+
+#### S-652 successor run — blocked by a pre-existing sibling failure
+
+`tcr-s652-format01` (`make format`) exited native0: pass2/2, scan18/pass,
+cleanup11 completed. Plan (native0): one Go unit/eight roots, graph
+`1f1b21d94c77eaf57313aba6145bb294961aa8d72cdc936f07a6845d3bf8bdb3`.
+`tcr-s652-successor01` (`make test-slice OWNER=module.indicators ROWS=<row above>`)
+exited native2, product/test_assertion_failure: scan12/pass, cleanup10 completed.
+The bounded Go JSON shows all eight new nil-actor subtests and their parent
+passed. The only failing root is unchanged `TestIndicatorsProductionImportBoundaries`.
+It reports that `application.go`, `child_coordination.go`, `httpapi/routes.go`
+and `observation_service.go` import `records/enveloperead`, and that
+`internal/sourcevalue/snapshot.go` imports `revisions/deleterestorecontract`,
+"outside its owner-local capability boundary". Root preserved. S-652 waits for
+S-653; no predicate has been retired yet.
+
+### S-653 / F-638 / E-656 — stale Indicators package-local import allowlist
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Pre-existing
+failure, not caused by S-652. The package-local guard keeps a hand-maintained
+directory→capability allowlist. Earlier deliberate remediation added owner
+capabilities without updating it:
+
+- `records/enveloperead` (the Records envelope-read split recorded in the S-019–
+  S-022 decisions; first imported by Indicators in `0a4708625`) is not restricted
+  by `tools/backend_module_boundaries.json`.
+- S-576/E-577 created Indicators-private `internal/sourcevalue` and granted it the
+  `revisions/deleterestorecontract` import in that authoritative repository
+  policy (`owner_port_only_imports` production packages).
+
+S-576 qualified the repository policy row and the backend-boundary check, but
+not this owner row, so the guard has been failing unselected. The production
+imports are authorized; the guard projection is stale.
+
+Repair the projection, not production. Add `records/enveloperead` to the root
+and `httpapi` package grants. Add an exact `internal/sourcevalue` →
+`revisions/deleterestorecontract` grant, keeping the existing
+`internal/providers/deleterestore` grant, which the repository policy also
+lists. Extend the existing permission-witness subtest with the sourcevalue grant
+and its rejection of `records`. Keep the guard: it adds an
+`internal/app`-import ban and per-package grants narrower than the repository
+policy. Qualify the same eight-root row, which then also completes S-652's
+successor qualification. Because boundary policy is involved, also run
+`make lint CHECK=backend-boundary` to confirm the repository view agrees. No
+production, routing or profile change. E-654/S-064 remain open.
+
+#### S-653 / F-638 / E-656 closure — guard projection matches authorized capabilities
+
+DONE. The package-local allowlist now grants `records/enveloperead` to the root
+and `httpapi` packages, and the exact `internal/sourcevalue` →
+`revisions/deleterestorecontract` grant. The permission-witness subtest also
+proves that sourcevalue accepts its grant and rejects `records`. The `internal/app`
+ban and per-package narrowing remain.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s653-format01 | `make format` | 0 | pass2/2,4684 ms; scan18/pass; cleanup11 completed |
+| tcr-s653-qualified01 | `make test-slice OWNER=module.indicators ROWS=module.indicators.structure.indicator_application_requires_complete_composition_6ecc4edf41` | 0 | pass1/1,10376 ms,miss1; eight-root row passed/650 ms; scan12/pass; cleanup10 completed |
+| tcr-s653-boundary01 | `make lint CHECK=backend-boundary` | 0 | pass5/5,31783 ms; scan28/pass; cleanup14 completed |
+
+Source `3689ce291988fca3f16e4e5da7f9329a02a881ad4ceb45d081914860f680a413`;
+the row graph matches S-652's. The preserved S-652 successor failure is now
+explained and repaired. Process lesson recorded for S-064: a package-local
+policy guard must be selected whenever an owner capability grant changes.
+S-576's qualification omitted this row. E-654/S-064 remain open.
+
+#### S-652 / F-637 / E-655 closure — nil-actor rejection is discriminating
+
+DONE. With otherwise valid inputs on a zero-value Application, each of the eight
+entry points must return the exact actor error: typed `actor_user_id`
+`missing_required_field` for row create, participant and import;
+`ErrInvalidCreateRequest` for observation create/resolve/dismiss/restore and
+lifecycle append. Losing a guard would now change the error or reach a nil
+dependency. The old any-error predicate was retired after the successor passed
+in `tcr-s653-qualified01`, alongside the repaired guard.
+`tcr-s652-qualified01` (same exact selection) exited native0: pass1/1,9698 ms,
+miss1, row passed/670 ms, scan15/pass, cleanup10 completed. Source
+`d0eadce6b38c9c00d8274c38ea95c97b384fd7c03b25298af11d4730c8ebed7c`. Only complete
+formatted lines were deleted after format. E-654/S-064 remain open. Closing
+`make lint-markdown` checked126 files/no fixes and `git diff --check` passed,
+native exits0; all S-652/S-653 checks are closed.
+
+#### E-654 unit-row compatibility check after S-653
+
+Reason, stated before launch: S-653 showed that Indicators rows left
+unselected after cross-owner remediation (the envelope-read split, S-576,
+Incident Bundles source-port changes) can drift while failing. Their earlier
+evidence is therefore stale for changed dependencies. One owner-scoped selection
+of the 26 service-free unit rows (none runtime, no services; planned graph
+`e05371457292a985345fc7e74ee4abd5b66758d5005fe84903a3a8e9cf2fdef5`, 11 Go
+runners) is the smallest check of that concrete risk. It is not a blanket,
+whole-owner or service-backed rerun.
+
+`CARTULARY_TEST_RUN_ID=tcr-e654-units01 CARTULARY_OUTPUT_MODE=machine make
+test-slice OWNER=module.indicators ROWS=<the 26 none-runtime rows>` exited
+native2, product/test_assertion_failure: 25 rows passed, 1 failed; scan82/pass,
+cleanup21 completed; source `d0eadce6…`. The failing row is
+`module.indicators.portability.partition_deterministic`, only in
+`TestIndicatorPortablePreparedValuesAreContextBound`
+(`portability_invariants_test.go:197`). It got
+`incident bundle prepared source belongs to another port` where it expected the
+owner invariant `indicators.representation_legal`. Root preserved.
+
+### S-654 / F-639 / E-657 — Indicator prepared-value binding expectation
+
+Recorded before editing; identities verified unused. IN_PROGRESS. A stale test
+expectation, not a production defect. S-527/E-528 adopted Core01
+REQ-01-639's creating-port binding. Shared `sourceport.Prepared` now seals the
+creating adapter instance, contract major, operation, incident, importing actor,
+admitted bundle version and actor catalog, and rejects any mismatch with
+`ErrPreparedBinding` before either owner callback. S-527 requalified
+Incident Bundles, catalog and Revisions selections, but not this Indicators row.
+The Indicators test still expects incident and version mismatches to reach the
+owner invariant. A repository search finds no other source-port test with this
+pattern.
+
+Correct the two expectations to `errors.Is(err, sourceport.ErrPreparedBinding)`,
+matching the existing operation-mismatch assertion and the adopted binding.
+Each case still changes one context dimension. No production, title, routing or
+profile change. Requalify the failing row; the other 25 rows passed in
+`tcr-e654-units01` and their code is unchanged. E-654/S-064 remain open.
+
+#### S-654 / F-639 / E-657 closure — adopted binding expectation
+
+DONE. Operation, incident and bundle-version mismatches of an Indicator prepared
+value now all require `sourceport.ErrPreparedBinding`, matching REQ-01-639's
+pre-callback binding. Valid preparation and the other invariant-partition
+assertions are unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s654-format01 | `make format` | 0 | pass2/2,4711 ms; scan18/pass; cleanup11 completed |
+| tcr-s654-qualified01 | `make test-slice OWNER=module.indicators ROWS=module.indicators.portability.partition_deterministic` | 0 | pass1/1,8921 ms,miss1; four-root row passed; scan12/pass; cleanup10 completed |
+
+Graph `b8d10205bf36599b4742cc2fdc8b763d3619f2385838517e2e005dbd87a88d7a`;
+source `4e749bdcf1315bfd9434da6efc3a580fd707d81521e6dc280bef19a693a98498`.
+All 26 Indicators service-free unit rows now have current passing evidence:
+25 in `tcr-e654-units01` and this one, with no intervening code change to the
+others. The 14 service-backed Indicators rows are next considered against the
+same staleness risk. E-654/S-064 remain open. Closing `make lint-markdown`
+checked126 files/no fixes and `git diff --check` passed, native exits0; all S-654
+checks are closed.
+
+#### E-654 service-backed compatibility check
+
+Same stated reason, applied to the 14 default-runtime rows (PostgreSQL plus
+object-store services, 5 Go runners; planned graph
+`5a3214ec78d07f3f7e99efd7ff8619c7f70271154483c2802d24af8721918884`).
+`CARTULARY_TEST_RUN_ID=tcr-e654-services01 CARTULARY_OUTPUT_MODE=machine make
+test-slice OWNER=module.indicators ROWS=<those 14 rows>` exited native2,
+product/test_assertion_failure: 8 rows passed and 6 failed; scan76/pass, cleanup26
+completed; source `4e749bdc…`. The failing rows are:
+
+- integration.indicator_create_and_query_routes_persist_canoni_e3a29b7aaf
+- origin.observation_origin_storage_constraint_and_system_93f5dcc952
+- portability.indicator_source_rows_are_deterministic_complete_68b42b02f6
+- store.indicator_storage_keeps_source_bound_observation_07c064324e
+- store.indicators_persist_as_canonical_indicator_record_3998750e91
+- target_resolution.role_failures_are_atomic
+
+Every failing test (`TestIndicatorsRoute`, `CanonicalObservationLifecycle`,
+`ObservationOriginConstraint`, `PortableRowsCharacterization`,
+`TargetRoleFailuresAreAtomic`, `ObservationSeparation`) fails creating an
+observation with `revisions: invalid record snapshot: Records envelope: records
+failed invariant records.envelope_legal`. Root preserved.
+
+Diagnosis, static and without a rerun. Observation creation snapshots the source
+Timeline record through Timeline's `to_jsonb(records)` capture, and Records
+`ValidateSnapshotEnvelope` (S-451/E-452) rejects `updated_at` before
+`created_at`. `newIndicatorTestApplication` fixes the command clock at
+2026-01-01, while `timelinetest.SeedTimelineRecord` creates source envelopes with
+the database default `now()` (2026-11). The observation therefore writes a
+backdated `updated_at`. This is the exact class S-451 diagnosed and repaired for
+its rollback fixtures ("integration clocks were fixed … after database-default
+creation"). S-451 qualified only its own affected selections, so these Indicators
+rows were never rerun. Production enforcement is correct; the fixture clock is
+not.
+
+### S-655 / F-640 / E-658 — anchor Indicator integration clocks after the database clock
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing
+rules: Records envelope clock ordering (S-451/E-452, with Core01 REQ-01-651 and
+Core02 REQ-02-265 for lossless canonical Records state) and the injected
+command clock (REQ-01-166a style shared mutation time). Following S-451's
+precedent, the shared Indicator test application will use one fixed clock
+anchored at the test database's `now()` (UTC, microsecond) plus five minutes, so
+owner writes follow DB-default seeded envelopes.
+
+An explicit-time constructor lets the canonical lifecycle test keep its exact
+injected-clock envelope assertion against that anchor. The two tests with local
+fixed `now` values (target-role resolution deletions and active-identity claims)
+derive them as anchor plus one hour, preserving their original
+after-command-clock ordering and relative offsets. No production, assertion
+retirement, routing or profile change, and no timeout change. Requalify the six
+failing rows plus the changed active-identity-claims row; the other service rows
+passed and are unchanged. E-654/S-064 remain open.
+
+#### S-655 / F-640 / E-658 closure — owner writes follow seeded envelopes
+
+DONE. `indicatorTestClock` reads the test database's `now()` (UTC,
+microseconds) and adds five minutes. `newIndicatorTestApplication` uses that
+fixed anchor, and `newIndicatorTestApplicationAt` accepts an explicit anchor. The
+canonical lifecycle test asserts both envelope timestamps equal its explicit
+anchor. The target-role and active-identity tests derive their local `now` as
+anchor plus one hour, keeping relative offsets. All assertions retained.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s655-format01 | `make format` | 0 | pass2/2,4848 ms; scan18/pass; cleanup11 completed |
+| tcr-s655-qualified01 | `make test-slice OWNER=module.indicators ROWS=<six failing rows + identity.active_identity_claims_follow_records_and_rebuild>` | 0 | pass4/4,14479 ms; 7/7 rows passed; scan46/pass; cleanup17 completed |
+| tcr-s655-callers01 | `make test-slice OWNER=module.indicators ROWS=module.indicators.identity.direct_create_serializes_transaction_identity_an_8f843da442,module.indicators.identity.z_concurrent_find_or_create_convergence,module.indicators.transaction.indicator_repository_writes_roll_back_when_revis_c37659989d` | 0 | pass4/4,11137 ms; 3/3 rows passed; scan37/pass; cleanup17 completed |
+
+Graphs `c8f78bd31a9ab25b619a2023a6ecdfd3e6ae0a34045534da18b01453b85c78e3` and
+`cd607b770b5a44757166665b5ff275827bcdd02f58214185d4744470a80f28f9`; source
+`d00d67185cb04e5b3c1cb9fdede9b3eabea71723bbc2fb9bb358c46288d418ba`.
+`tcr-s655-callers01` covers every remaining row whose tests call the changed
+helper, located mechanically from test bodies. The other four service rows in
+`tcr-e654-services01` do not call it and are unchanged. All 38 Indicators Go rows
+now have current passing evidence.
+
+The S-064 pattern is now three Indicators failures from earlier remediation
+whose cross-owner effects were not run against this owner's rows (S-653
+guard projection, S-654 binding expectation, S-655 envelope clock fixtures).
+E-654/S-064 remain open. Closing `make lint-markdown` checked126 files/no fixes and
+`git diff --check` passed, native exits0; all S-655 checks are closed.
+
+Frontend drift check: `CARTULARY_TEST_RUN_ID=tcr-e654-frontend01
+CARTULARY_OUTPUT_MODE=machine make test-slice OWNER=module.indicators
+ROWS=module.indicators.frontend.indicator_inspector_accessible_paging_and_metadata,module.indicators.frontend.source_span_and_transition_requests`
+exited native0: pass3/3, 6940 ms, both rows passed, scan30/pass, cleanup12
+completed; graph `dda0da0ded4cefd382b3cfd6de0914e1d0ccaa44836abe059da9b9a801878ce3`,
+source `d00d6718…`. All 40 Indicators rows now have current passing evidence. The
+maintainer then authorized the per-owner non-browser drift check (TCR-REQ-002).
+Indicators' check is complete. No Indicators correction touched browser paths,
+and the collaborator browser rows belong to web.workbook/module.workbook, which
+are checked at their own entry.
+
+### E-654 partial ledger after S-655
+
+Additional reading beyond the entry note:
+
+- **Idempotency hash.** RETAIN independent golden preimage JSON and SHA-256
+  digests for observation create/resolve/action and lifecycle append,
+  order-sensitive support refs, omitted optional members, isolated
+  dismiss/restore route and scope keys, and normalized create-hash identity versus
+  metadata/value differences.
+- **Interval and observation history validators.** RETAIN single-dimension
+  malformed/immutable/grammar matrices against a passing complete control,
+  exact encode/decode round trips, int64 boundaries and no mutation of retained
+  values.
+- **Composition boundary.** RETAIN static guards: injected peer constructors, no
+  synthetic `authn.UserRecord`, borrowed `pgx.Tx` never committed by the callee.
+- **Application composition and projection delegation.** RETAIN
+  missing-dependency matrix, injected clock and refresh/load call order.
+- **Transaction atomicity.** RETAIN injected revision/projection failures with
+  zero-count effects for create, observation and lifecycle.
+- **Child HTTP routes.** RETAIN server-derived provenance, sorted affected
+  versions, source history per change set, exact replay for every child action,
+  keyset pages, collaboration intent count, and exact interval text persisted
+  through response, table and change-set mutation.
+- **Source-state catalog, sourcestate catalog-defect matrix, revision
+  contribution support-ref defects, envelope contract migration** (exact
+  constraint-name or error-text rejection). Single-defect any-error checks are
+  retained because each varies one field from a passing canonical control.
+
+Confirmed corrections so far: S-652 (non-discriminating nil-actor test) and
+S-653/S-654/S-655 (drift). Remaining Indicators reading: identity/admission/
+httpapi/vocabulary/rollback/workbookprojection subpackages,
+production_contract, portability_final_state, resolution_integration,
+lifecycle_integrity_migration, vocabulary_contract, the workbookassembly facade,
+the two frontend files, and the 54-row collaborator union.
+
+### A-module.indicators — complete semantic reconciliation / E-654
+
+DONE for semantic audit and corrective-slice closure. Discovery (entry, native0):
+40 rows, 38 Go and 2 Vitest (8 titles). These are routing facts, not assertion
+counts. Every row now has current passing evidence: tcr-e654-units01 plus
+tcr-s654-qualified01 (26 unit rows), tcr-e654-services01 plus tcr-s655-qualified01
+and tcr-s655-callers01 (14 service rows), and tcr-e654-frontend01 (2 Vitest rows).
+
+| Assertion family | Final disposition |
+| --- | --- |
+| Identity canonicalization/IP rules, dedupe, concurrency convergence, receipt races | RETAIN registry-driven canonical values, family-exact IP canonicalization, presentation-independent dedupe, real lock-wait convergence, and exact replay/change-set outcomes (bounded `pg_stat_activity` polls). |
+| Admission/HTTP decoding, vocabulary, error mapping, construction | RETAIN closed-object decoding with exact field/reason, reorder invariance, raw owner input, exact vocabularies, safe storage-error mapping and dependency/clock composition. |
+| Application guards, idempotency hashes, replay codec | S-652 made the nil-actor guards discriminating. RETAIN golden preimage/digest vectors and exact stored replay bytes. |
+| Observation/lifecycle services, child routes, transitions, source spans | RETAIN state machine, UTF-8 span admission, server-derived provenance, exact replay per child action, keyset paging, atomic revision/projection failure and exact interval text. |
+| History validators, revision contribution, rollback providers | RETAIN single-defect matrices against complete controls, immutability, int64 bounds, reference projection, and complete-source/tombstone/vocabulary parsing. |
+| Portability, source state, invariant partition, final state | RETAIN deterministic export/keys/explicit nulls, catalog parity, invariant priority and atomic rejection. S-654 aligned prepared-value binding with REQ-01-639. |
+| Storage/migration contracts and boundaries | RETAIN exact constraint rejection, mirror-column absence, support-ref helper, and static composition/borrowed-transaction/provider guards. S-653 repaired the stale package-local allowlist. |
+| Integration fixtures | S-655 anchored the shared test command clock after the database clock, so owner writes never backdate seeded Records envelopes. |
+| Frontend contracts and inspector workflow | RETAIN typed operations without provenance fields, semantic handler tuples, paging retention, accessible loading/retry/empty states and mutation-metadata forwarding. |
+
+#### Cross-owner closure
+
+Fifty-four collaborator rows name Indicators. Completed owners (imports2,
+incidentbundles2, incidents1) reuse their recorded dispositions. The 49
+pending-owner rows were scanned at the Indicators boundary for the weakness
+classes found so far:
+
+- web.workbook: 25 Vitest rows across 21 files
+- module.workbook: 2 Go rows plus 14 Playwright indicator create/lifecycle/
+  observation/a11y/visual rows
+- module.networkflow4, module.projections2, module.revisions2
+
+The classes were raw-code absence, conditional opens, unsettled late responses,
+wall-clock sleeps, noncanonical codes and skips. One single-microtask negative
+in `indicatorLifecycleRuntime.node.test.ts` is followed by a settled final check
+and is retained. Full disposition carries to each owner's audit and drift check.
+
+Measurement: no Indicators-owned measurement row. Evidence compatibility: all
+evidence is at the recorded sources, dirty at `826c031db`, unchanged toolchain.
+Preserved failures with dispositions: tcr-s652-successor01, tcr-e654-units01 and
+tcr-e654-services01, all drift now repaired. No whole-suite, performance or
+release claim.
+
+This closes A-module.indicators, the 23rd of 66 owners. Next lexically:
+A-module.jobapi, with the authorized non-browser drift check at entry. S-064
+remains last. No stage, reset, commit, merge or publication. Closing
+`make lint-markdown` checked126 files/no fixes and `git diff --check` passed,
+native exits0.
+
+### A-module.jobapi entry — E-659 reserved
+
+E-654 checks closed before entry. E-659 is reserved for closure. Discovery
+(`make task-guide OWNER=module.jobapi DETAIL=rows JSON=1`, native0) gives five Go
+rows. Four are default-runtime integration rows with exclusive PostgreSQL:
+incident and deployment authorization re-derivation, expired masking, and the
+deployment-admin membership policy. One is a service-free unit row for
+internal-error safety. Twenty-one collaborator rows name jobapi: extensions6,
+imports6 (completed), web.design3, reporting2, platform.jobs2, openapi1 and
+web.networkflow1.
+
+Drift check: `CARTULARY_TEST_RUN_ID=tcr-e659-drift01 CARTULARY_OUTPUT_MODE=machine
+make test-slice OWNER=module.jobapi ROWS=<all five rows>` exited native0: pass4/4
+units, 5/5 rows passed, scan38/pass, cleanup15 completed; graph
+`cafecd598ef56b69218b1d247ed55fe66352e5bf4e4e9bbaa34d99bd8cf203bc`, source
+`d00d6718…`. No drift.
+
+Reading: both test files in full (375 lines), with the route handler/decoder,
+Core01 §3.3.9.1 job resource and cancel contract (lines 4924/4958/4961), the
+job error registry, and platform.jobs manager cancel/replay tests. RETAIN the
+canonical value-free internal-error envelope (unit), request-time incident and
+deployment authorization re-derivation, membership loss and demotion becoming
+`job_not_found`, peer `authorization_denied`, and expired read/cancel-replay
+masking.
+
+### S-656 / F-641 / E-660 — job API transport contract witnesses
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Every allowed
+job read or cancel in jobapi's own tests checks only a 200 success envelope: not
+the returned job identity/status, and not the cancel effect. The transport
+obligations of Core01 lines 4924/4958/4961 have no owner witness:
+
+- JSON-object body admission: `request_not_object`, missing `client_txn_id`,
+  unknown member, each as 400 `invalid_mutation_payload` with field/reason.
+- Omitted and `null` `reason` comparing equal for replay.
+- Replay returning the current resource.
+- A divergent same-key request mapped to 409 `client_txn_conflict` with the key.
+- A fresh cancel on a cancel-requested job mapped to 409 `job_cancel_rejected`
+  with `reason_code=already_cancel_requested`.
+
+Manager semantics are separately covered by platform.jobs. The HTTP decoder and
+error mapping are jobapi-owned.
+
+Extend the existing deployment-scope test, keeping its single title and root:
+
+- the admin read returns this job, queued;
+- three malformed submitter bodies return their exact 400 details before any
+  cancel;
+- the submitter cancel (reason omitted) returns this job `cancel_requested` and
+  non-cancelable;
+- a same-key replay with explicit `null` reason returns 200 and the same status;
+- a same-key request with a different reason returns 409 `client_txn_conflict`
+  with details `client_txn_id`;
+- a fresh key returns 409 `job_cancel_rejected` with `already_cancel_requested`.
+
+Existing denial predicates stay; nothing is retired. Select its existing row.
+No production, routing or profile change. E-659/S-064 remain open.
+
+#### S-656 / F-641 / E-660 closure — job API transport witnessed
+
+DONE. The deployment-scope test now requires:
+
+- the admin read returns this job, queued;
+- exact 400 details for a non-object body, a missing `client_txn_id` and an
+  unknown member;
+- the submitter cancel returns this job `cancel_requested` and non-cancelable;
+- an explicit-`null`-reason same-key replay returns the same current resource;
+- a divergent same-key request returns 409 `client_txn_conflict`;
+- a fresh key returns 409 `job_cancel_rejected` with `already_cancel_requested`.
+
+Prior denial/masking predicates are unchanged; nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s656-format01 | `make format` | 0 | pass2/2,4799 ms; scan18/pass; cleanup11 completed |
+| tcr-s656-qualified01 | `make test-slice OWNER=module.jobapi ROWS=module.jobapi.integration.deployment_scoped_common_job_reads_and_cancel_re_85147de44e` | 0 | pass3/3,14385 ms; row passed/1190 ms; scan33/pass; cleanup14 completed |
+
+Graph `40ddc9c0f8ea180ac9c19aa64ef4208cb00c1bf0b7f7b17374609f405024de78`; source
+`734ac6dee3b7d2ecefe5d757be59c4a4f12b92a2474c7596d8a54c0cfb9f49f7` (formatted).
+E-659/S-064 remain open.
+
+### A-module.jobapi — complete semantic reconciliation / E-659
+
+DONE. Five rows. Every row has current passing evidence: tcr-e659-drift01 for
+all five, and tcr-s656-qualified01 for the changed deployment row.
+
+| Assertion family | Final disposition |
+| --- | --- |
+| Internal-error safety (unit) | RETAIN private-cause-free canonical `internal_error` envelope for read and cancel database failures. |
+| Request-time authorization (incident/deployment/deployment-admin membership) | RETAIN viewer read, peer and viewer `authorization_denied`, membership deletion and admin demotion masking as `job_not_found`, and deployment-admin non-member concealment. |
+| Expired retention | RETAIN read and cancel-replay masking after `retained_until`. The SQL fixture update is deliberate retention fault injection. |
+| Transport contract | S-656 adds content, admission, replay, conflict and rejection witnesses. Manager transition semantics remain with platform.jobs. |
+
+Cross-owner: the 21 collaborator rows were scanned for the established weakness
+classes and none was found at the jobapi boundary. Imports (completed) reuses its
+record; extensions, web.design, reporting, platform.jobs, openapi and
+web.networkflow carry full disposition to their own audits. No measurement row;
+no browser path touched. This closes A-module.jobapi, the 24th of 66 owners.
+Next: A-module.links. S-064 remains last; no stage, reset, commit, merge or
+publication. Closing `make lint-markdown` checked126 files/no fixes and
+`git diff --check` passed, native exits0.
+
+### A-module.links — entry, drift check and complete reconciliation / E-661
+
+Entry: E-659 checks closed; E-661 reserved and used for closure. Discovery
+(`make task-guide OWNER=module.links DETAIL=rows JSON=1`, native0) gives 14 rows:
+13 Go (8 service-free units, 5 PostgreSQL store/integration) and one Playwright
+notes-authoring row. Twenty-five collaborator rows name Links. Completed owners
+entities5, assessments5, artifacts3, harness.browser3 and incidentbundles1 reuse
+their records; pending reporting3, tasksdecisions2, projections2 and web.workbook1
+carry to their audits after a boundary weakness scan found nothing.
+
+Drift check: `CARTULARY_TEST_RUN_ID=tcr-e661-drift01 CARTULARY_OUTPUT_MODE=machine
+make test-slice OWNER=module.links ROWS=<13 non-browser rows>` exited native0:
+pass10/10 units, 13/13 rows passed, scan77/pass, cleanup25 completed; graph
+`68ca20650babcfb805b93cb667d8103354401f2ad94d78a6a51daa00c17e58dd`, source
+`734ac6de…`. No drift. No correction touched the browser row, which is not run.
+
+Reading (all Links Go test files, about 3.9k lines, with the record-link command
+validation path). Dispositions:
+
+| Assertion family | Final disposition |
+| --- | --- |
+| Value codec, mutation value, vocabulary, item refs | RETAIN exact pure round trips, closed vocabularies, and single-defect parse rejection against canonical controls. |
+| Store, owner validation, views | RETAIN pre-SQL command validation (self link, manual confidence, auto-match rules), interleaved valid controls proving the transaction stays usable, typed rows, and active-view exclusion of deleted tags/endpoints. |
+| Endpoint and collection locks | RETAIN real barrier/lock-wait witnesses, rejected-collection non-mutation, release on caller completion and worker drain. |
+| Merge | RETAIN exact dedupe/repoint/mutation counts, fresh replacement identities, physical effects and untransformed invalid retained tuples. |
+| Route/projection/history and party-assignment facts | RETAIN DB constraint rejection under savepoints, rollback/history route contracts, repeatable-read snapshot requirement, provenance/order and no generic-link inference. |
+| Portability/source state | RETAIN unknown-member rejection before mutation or attribution, fact-read errors without partial facts, exact v3 owner round trip, and atomic failure with zero rows/attributions. |
+| Revision contribution, source-state manifest | RETAIN exact validators/reference projection and immutable manifests. |
+
+No confirmed correction; no measurement row. This closes A-module.links, the
+25th of 66 owners. Next: A-module.networkflow, with its entry drift check. S-064
+remains last; no stage, reset, commit, merge or publication. Closing
+`make lint-markdown` checked126 files/no fixes and `git diff --check` passed,
+native exits0.
+
+### A-module.networkflow entry and drift check — E-662 reserved
+
+E-662 is reserved for closure. Discovery (`make task-guide OWNER=module.networkflow
+DETAIL=rows JSON=1`, native0) gives 153 rows:
+
+- 120 Go: 66 service-free unit, 1 security, 52 integration (39
+  network_flow_claimed/standard, 1 claimed/io_heavy, 10 default/standard,
+  2 default/io_heavy), and 1 backend_capacity_isolated measurement row.
+- 2 Vitest.
+- 31 Playwright: 22 browser, 3 accessibility, 1 visual, plus 4
+  browser_measurement_quiet measurement rows and 1 default browser row.
+
+Fifty-seven collaborator rows name Network Flow: extensions11, web.networkflow9,
+imports9, graphprojection7, incidentbundles5, app.server4, recovery4,
+reporting2, platform.config2, harness.browser1, incidents1, indicators1 and
+web.application1.
+
+Drift check over the 121 non-browser, non-measurement rows. The `ROWS` limit
+(4,096 characters) required three exact batches:
+
+| Run | Rows | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-e662-drift01 | 47 | 0 | pass13/13 units,383731 ms; 47/47 rows passed; scan419/pass; cleanup38 completed |
+| tcr-e662-drift02 | 48 | 0 | pass14/14 units,104478 ms; 48/48 rows passed; scan188/pass; cleanup27 completed |
+| tcr-e662-drift03 | 26 | 0 | pass1/1 unit,4659 ms; 26/26 rows passed; scan153/pass; cleanup10 completed |
+
+Graphs: `4d669be7…`, `df6da43d…`, `cc222a13…`. Source `734ac6de…`. No drift. The
+Go capacity row is measurement evidence and was excluded: its test emits
+informative, environment-specific capacity evidence with explicit residual risks
+and no portable timing claim. It is retained as informative measurement without
+being run. No browser or measurement claim follows.
+
+Reading started. All five `time.Sleep` sites are bounded polls of observable
+conditions (handler failure counts, `pg_blocking_pids` lock waits, job status),
+so they are retained. The route integration file (about 2.3k lines) is under
+review. Its socket "no resource change" checks use the shared
+`ExpectNoReplayableMessage` bounded 300 ms window, owned by completed
+collaboration support. A candidate-weakness sweep of the other 104 Go files
+is delegated for location only; every flagged site is verified by direct
+reading before any disposition.
+
+### E-662 partial ledger — verified browser/frontend findings
+
+A location-only sweep of the owned browser specs and two Vitest files returned
+38 candidates. Each disposition below comes from direct reading of the test and
+its production code.
+
+Confirmed and queued as separate slices, in this order:
+
+- **A — network-flow.spec "saved graphs fence deferred results and
+  contributors across stable-ID selection".** Graph A's held `/result`, and later
+  its held contributors query, are released after graph B is selected. The next
+  heading/result/drawer-absence expectations already hold for B, and only the
+  post-assertion `removeOwnedRoute` waits for the handler. Neither late response is
+  observed before the fence checks. Repair as in S-648/S-649: register
+  `requestfinished`/`requestfailed` settlement while each gated request is in
+  flight, await it after release, then assert.
+- **B — network-flow-navigation "navigates exact temporal contributors and
+  rejects superseded exposure".** The superseded contributors read is released,
+  then checked only against already-true states; settle it the same way. Its
+  status-strip `not.toContainText("Graph available")` is vacuous: that text
+  never existed in `apps/web/src` (`git log -S` finds nothing). Remove it with no
+  replacement obligation. (Superseded by S-662: the token renders lowercase, so
+  the negative was replaced by an exact `graph_available` token check.)
+- **C — network-flow.spec "saved graphs recover denied replay and withdrawn
+  read authority".** After the list Reload, the retained-vertex identity and
+  "Row" contributor checks run before the reload response settles. Await the list
+  read first.
+- **D — NetworkAnalysisWorkspace.test "enforces viewer, editor, reviewer, and
+  administrator controls for saved graphs".** The viewer branch asserts absent
+  Rename/Refresh/Retire before the list loads. Those buttons render only for a
+  selected graph, so the checks pass for any role; other roles first await
+  `waitForSavedGraphTitle`. Apply the same wait to the viewer branch.
+- **E — same file "completes the saved graph lifecycle".** It waits for the
+  Reload button's `disabled` attribute to clear, but the panel sets only
+  `aria-disabled`/`aria-busy`, so the wait passes immediately and "no result
+  re-read" is checked before the reload settles. Wait for the actual list request
+  and the busy state to clear.
+- **F — networkFlowPresentation.node.test.** The `network_flow_row_id` absence
+  is tautological because the input already removed inspector-only columns.
+  `compileNetworkFlowColumns` itself drops inspector-only keys; request the row
+  id explicitly and require its exclusion.
+- **G — same file "groups contributors by workspace table order without
+  changing server order".** The production function only reconciles in server
+  order; the input is already sorted, so a sorting implementation would also
+  pass. Use a deliberately non-table-sorted server order and require it
+  unchanged. The title's "groups" describes server ordering.
+- **H — measurement network-flow-grid "measures bounded … virtualization
+  without a timing claim".** After "Refresh equivalent resources" it checks focus
+  and selection, which were already true, and never observes the fixture's
+  `refresh generation` marker. Require generation 1 first.
+
+Candidates still to verify: the unchanged-request-count negatives at
+network-flow.spec 165-170/280-283/1801-1806, navigation counters 198-200/
+338-339, pagination 156-174, a11y reload focus 276-279, portableInvestigation
+214-225, the 2016/704 windows, Vitest synchronous negatives 287-295/674-682,
+request-body first-only checks, and the title-overclaim class 5 items.
+Measurement items (class 9) are DOM-ceiling checks with no timing thresholds;
+static literal attachments are recorded for the measurement-boundary
+disposition. The Go-file sweep is still outstanding.
+
+### S-657 / F-642 / E-663 — settle held saved-graph reads before fence checks
+
+Recorded before editing; identities verified unused. IN_PROGRESS. This is
+finding A. The governing rule is the Network Flow NLSpec's saved-graph selection
+and stable-ID fencing: a response for a no-longer-selected graph must not publish.
+Add one file-local `settledRequest(page, method, pathPattern)` helper beside the
+existing request helpers in `network-flow.spec.ts`. It resolves on that request's
+`requestfinished` or `requestfailed`, so an abort on reselection also counts.
+
+Register it as soon as graph A's held `/result` is in flight and again for its
+held contributors query. After each release, await it, then keep the existing
+heading/result/aria-current/drawer-absence expectations, which now follow
+settlement. The duplicate second `release` calls are harmless and stay. Nothing
+is retired. Select the owning browser row for that title; the same helper serves
+S-658 (finding C). No production, routing, profile or timeout change.
+E-662/S-064 remain open.
+
+#### S-657 / F-642 / E-663 closure — superseded saved-graph reads settle first
+
+DONE. Graph A's released `/result` GET and contributors POST must each reach
+`requestfinished` or `requestfailed` before graph B's heading, result,
+aria-current and absent contributor drawer are asserted. All prior predicates
+remain.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s657-format01 | `make format` | 0 | pass2/2,4772 ms; scan15/pass; cleanup11 completed |
+| tcr-s657-qualified01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser_stateful.saved_graph_deferred_navigation` | 0 | pass12/12,94316 ms; row passed/8553 ms; scan99/pass; cleanup23 completed |
+
+Graph `e3ef0261a0063e6a1b197c0027b5fef856a7e1b5e8d6be1f4c5339985f6cbe67`; source
+`791ecbd490c6d98ca6f85f0767354a2fad3ee43137297ea3c56ffcd32250e5a3`. Default
+claimed runtime, browser_ordinary, current balanced-packing harness.
+`make lint-markdown` and `git diff --check` close the slice. E-662/S-064 remain open.
+
+### S-658 / F-643 / E-664 — settle the saved-graph list reload before retention checks
+
+Recorded before editing; identities verified unused (S-658 was named in S-657's
+record only). IN_PROGRESS. This is finding C. In "saved graphs recover denied
+replay and withdrawn read authority", the list Reload is followed immediately by
+"Row" contributor text and retained-vertex identity checks that held before the
+reload. Register `settledRequest(page, "GET", /\/network-flow\/graph-views$/)`
+before that Reload click and await it before the two checks, so retention is
+observed after the reloaded list. Select the owning browser row. Nothing is
+retired; no production, routing, profile or timeout change. E-662/S-064 remain open.
+
+#### S-658 / F-643 / E-664 closure — list reload settles before retention checks
+
+DONE. The saved-graph collection GET triggered by Reload must reach
+`requestfinished` or `requestfailed` before the contributor text and
+retained-vertex identity are asserted.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s658-format01 | `make format` | 0 | pass2/2,4684 ms; scan15/pass; cleanup11 completed |
+| tcr-s658-qualified01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser_stateful.saved_graph_read_recovery` | 0 | pass12/12,79725 ms; row passed/5692 ms; scan99/pass; cleanup23 completed |
+
+Graph `661527a35f52fc5f98c5cce50d8ab107c0ba2444a78ee98301892abf9c931e89`; source
+`5ccba57c76df3b577afa41ae6f32c40ab4ce59ae28170524a080897a9914d406`. The S-657
+test body is unchanged by this edit, so its evidence stands. E-662/S-064 remain
+open.
+
+#### E-662 Go candidate queue — unverified, from the location-only sweep
+
+The Go sweep (all Network Flow Go test files except routes_integration) returned
+about 55 candidates. None is a finding until verified by direct reading. Grouped
+by class with file anchors, for resumable verification:
+
+- **Any-error rejection:**
+  - application_composition_test.go:105 (master keys load before the
+    dependency checks)
+  - selected_source_history:87 (any 4xx)
+  - canonical_upgrade:96 and canonical_migration:28/42 (baseline already
+    incompatible)
+  - cisco_sna_profile:102/226 (multi-defect)
+  - reporting_graph_source:198-211
+  - harness_authorization:118-139 (no pre-transition control)
+  - randomness:146 and audit_assertion:138/147 (nonexistent fields)
+  - store_test:397-405 and 278-282
+  - network_flow_contract:189-195 (51 duplicates)
+  - keyring:39-46
+  - indicator_link_boundary:44-49/113-121
+  - extension_state_v3:212-234 and import_preview:83-93 (multi-column rewrite)
+  - saved_graph_admission:135 (valid UTF-8 "invalid" case)
+  - import_validation:223
+  - graph_streaming:219
+  - operation_admission:53
+- **Absence before the asynchronous event:** selected_source_history:52-66
+  (rename discarded); reporting_frozen_restart:183-185;
+  harness_worker:76-78; cleanup_dispatcher:74-78.
+- **Wall-clock windows or timing asserts:** cleanup_race:86-90/217-221
+  (50 ms "blocked" windows); cleanup_dispatcher:89-95/136-139
+  (elapsed-time assertions).
+- **Status-only success:** table_lifecycle:262-263;
+  graph_view_authority:127-151.
+- **Vacuous-on-empty loops:** validation_vectors:41/53/74/83/108;
+  orientation_corpus:39/156; query_sql_bridge:122;
+  transaction_contracts:69-74; mapping_admission:286-299.
+- **Count-only stability:** graph_view_authority:134; store_test:468-505 and
+  277-289; harness_randomness:45-52.
+- **Fixed clock beside wall-clock rows:** store_test helpers (2026-07-10);
+  reporting_frozen_restart; cleanup_race; graph_view_store; cleanup_integration;
+  reporting_graph_source; extension_state_v3; saved_graph_admission;
+  fixture_publication (split clock, documented). All rows pass in the drift
+  check, and Network Flow tables are not Records envelopes, so this class is
+  checked only where an ordering invariant applies.
+- **Text never rendered:** saved_graph_read_application:111;
+  graph_query_application:155.
+- **Title overclaims:**
+  - network_flow_contract:510-516 (`_ = "renamed flows"`: no rename occurs)
+  - behavior_test:23-65 (the replay, source-change and deployment-admin
+    evidence wrappers call runtimes that lack those cases)
+  - contract:585-597/674-679
+  - configuration:86-96
+- **Conditional/skip:**
+  - saved_graph_admission:86-90 (definition not-found unchecked)
+  - graph_view_authority:149
+  - graph_temporal fuzz seed always skipped (:308/:312)
+  - orientation_corpus_integration:58 (example1200 skipped)
+  - capacity evidence gated on artifact dir (measurement, intended)
+  - fixture_privacy_logs child-process pattern (design)
+
+Verification proceeds most-suspicious first. Each confirmed item becomes its
+own recorded slice; each rejected item gets a one-line disposition in the
+E-662 closure.
+
+### S-659 / F-644 / E-665 — discriminating Network Flow route-registration dependency checks
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Verified
+candidate (application_composition_test.go:105). `assertModuleComposition`
+removes each of 16 module dependencies and requires
+`RegisterRoutes()(mux, httpapi.DependencySet{})` to fail. With an empty
+dependency set, `newRouteService` fails first at `authn.LoadMasterKeys` for any
+module, and no complete-module route-registration control exists. The route
+predicate therefore holds for every removal except the earlier coordinator
+check. The engineering purpose, failing closed on incomplete composition before
+exposing routes, is unwitnessed.
+
+Successor: build one dependency set with the repository auth master-key fixture
+(the same `fixtures.MustRead("auth", "master-key.base64")` source the config test
+helper uses). The complete module must register routes with it as a control, and
+each removal must still fail with it. Worker, import-owner and cleanup checks are
+unchanged; they have their own control in the complete path. Select the existing
+`module.networkflow.unit.configuration_claim_and_manifest_admission` row
+(service-free). No production, title, routing or profile change.
+E-662/S-064 remain open.
+
+#### S-659 / F-644 / E-665 closure — route composition fails closed per dependency
+
+DONE. With fixture master keys, the complete module registers routes (new
+control) and every one of the 16 single-dependency removals is rejected at route
+construction. The old empty-dependency-set route predicate was retired after the
+successor qualified beside it.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s659-format01 | `make format` | 0 | pass2/2,4735 ms; scan18/pass; cleanup11 completed |
+| tcr-s659-qualified01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.configuration_claim_and_manifest_admission` | 0 | pass1/1,13072 ms,miss1; row passed; scan12/pass; cleanup10 completed |
+| tcr-s659-qualified02 | same exact selection after retirement | 0 | pass1/1,9610 ms,miss1; row passed; scan15/pass; cleanup10 completed |
+
+Graph `1f086ca076b1190db4108bcfb9f4038e77ecee396c4505111e76231d2c67b0f2`; final
+source `417ce03303b041f49e1125bf15e47095f52ebaee6cfcf47ec3cd6ae803f101e3`. Only
+complete formatted lines were deleted after format01. E-662/S-064 remain open.
+Closing `make lint-markdown` checked126 files/no fixes and `git diff --check`
+passed, native exits0; all S-659 checks are closed.
+
+### S-660 / F-645 / E-666 — exact row reference instead of a no-op rename comparison
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Verified
+candidate (network_flow_contract_test.go:510-516). `AssertNameAndLifecycleRuntime`
+claims "display-only rename changed row identity". It executes
+`_ = "renamed flows"`, a no-op, then compares `rowRefResource` of the same
+unchanged row with itself, which can never fail. The intended obligation is that
+a display name is not part of a row reference. The NLSpec's table rename is
+display-only; row references are table, row, source row number and mapping
+fingerprint.
+
+Successor: require `rowRefResource` to equal an independently written
+four-member literal for the fixture row, so no display or other member can enter
+row identity. Qualify beside the old comparison, then retire the no-op and the
+self-comparison. Select the existing
+`module.networkflow.unit.network_flow_selector_covers_the_created_table_t_27dec58147`
+row. No production, title, routing or profile change. E-662/S-064 remain open.
+
+#### S-660 / F-645 / E-666 closure — row identity pinned exactly
+
+DONE. `rowRefResource` must equal the independent literal of exactly table, row,
+source row number (`int64`) and mapping fingerprint. The no-op rename and the
+self-comparison were retired after the successor qualified beside them.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s660-format01 | `make format` | 0 | pass2/2,4719 ms; scan18/pass; cleanup11 completed |
+| tcr-s660-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.network_flow_selector_covers_the_created_table_t_27dec58147` | 0 | pass1/1,10356 ms,miss1; row passed; scan12/pass; cleanup10 completed |
+| tcr-s660-qualified01 | same exact selection after retirement | 0 | pass1/1,10184 ms,miss1; row passed; scan15/pass; cleanup10 completed |
+
+Graph `6bc4c5762336228d3b31322d3c9c8dd127d28e0964b50a40479099ffaf25a626`; final
+source `04519bc8426ef741533c0d601617a0159c4ec722e0cd89bc80b8f7b856efd126`.
+E-662/S-064 remain open. Closing `make lint-markdown` checked126 files/no fixes and
+`git diff --check` passed, native exits0; all S-660 checks are closed.
+
+### S-661 / F-646 / E-667 — observe lock waits instead of 50 ms windows in cleanup races
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Verified
+candidate (graph_result_cleanup_race_integration_test.go:86-90 and 217-221). The
+race test treats "publication/input admission did not finish within 50 ms" as
+proof that each operation waits on the cleanup-held result lock. A
+merely slow but unblocked operation also passes, so the lock ordering named by the
+test is not observed. Governing: the Network Flow saved-graph result
+cleanup/publication serialization in its NLSpec (cleanup holds the result lock;
+publication and input admission wait).
+
+Successor, using the package's existing pattern (table_lifecycle,
+routes_integration): after each operation starts, poll `pg_stat_activity` within a
+bounded deadline until some backend's `pg_blocking_pids` contains the cleanup
+transaction's backend PID. Also keep a non-blocking check that the operation has
+not completed. Only then proceed. After qualification, retire the two 50 ms
+windows. Select the existing
+`module.networkflow.integration.graph_result_cleanup_races` row. No production,
+routing, profile or timeout change. E-662/S-064 remain open.
+
+#### S-661 / F-646 / E-667 closure — real lock waiters observed
+
+DONE. `requireCleanupLockWaiter` polls, within a 10 s deadline, until a backend
+lists the cleanup transaction's PID in `pg_blocking_pids`. A non-blocking check
+still requires the operation not to have completed. The two 50 ms windows were
+retired after the successor passed beside them. Later replay/admission outcome
+predicates are unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s661-format01 | `make format` | 0 | pass2/2,4740 ms; scan18/pass; cleanup11 completed |
+| tcr-s661-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.graph_result_cleanup_races` | 0 | pass3/3,10667 ms; row passed/420 ms; scan26/pass; cleanup14 completed |
+| tcr-s661-qualified01 | same exact selection after retirement | 0 | pass3/3,10523 ms; row passed/310 ms; scan29/pass; cleanup14 completed |
+
+Graph `f5546b7ce6a15b8ea715cc00e2d6a275dd86ad5026473de2920175a1ff5a5abb`; final
+source `8817e844a7a8c3f1be1b14f1ed4ab6ef31c1f23bff73ba0a3d39b056feeae7d1`.
+Complete-line deletion only after format01. No speed claim. E-662/S-064 remain open.
+
+### S-662 / F-647 / E-668 — settle the superseded exploration contributor read
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+finding B (network-flow-navigation.spec.ts, "Network Analysis navigates exact
+temporal contributors and rejects superseded exposure"). The test holds a
+query-wide vertex contributor read, moves to the previous bucket and then releases
+the held response. Its next checks are that the drawer is absent and that the
+empty-bucket text shows. Both were already true when the response was released,
+so they can pass before the late response reaches the page. The fence
+(`useNetworkFlowGraphController` `isCurrent`/`authorizeDispatch` on
+`contributorContext`) is therefore never observed after delivery. Later, the
+status-strip check `not.toContainText("Graph available")` is vacuous.
+`NetworkAnalysisWorkspace` renders the Table 7-B token as
+`effectiveStatus.replaceAll("_", " ")` ("graph available", lowercase, in a
+`data-network-flow-state` span). Playwright's string `toContainText` is
+case-sensitive over textContent, so the capitalized text cannot match in any
+state. The capitalized form has never existed in `apps/web/src` (`git log -S`
+finds nothing). Governing: NF-REQ-170e stale-response rejection; NF-REQ-054a (a
+superseded contributor-query response MUST NOT replace visible result state);
+NF-REQ-053 / Table 7-B (`graph_available` is the first applicable token while a
+non-stale graph result exists for the current query).
+
+Successor, the same pattern as S-657/S-658: a file-local `settledRequest` that
+resolves on `requestfinished`/`requestfailed` for `POST` and the contributor
+path. It is registered while the held read is in flight, before release, and
+awaited after release. Only then come the existing drawer-absence and empty-bucket
+checks. Replacement for the vacuous negative: after the return to Unsaved
+exploration, require "Bucket 2 of 3" (existing), zero graph re-queries (existing)
+and exactly one strip token, `data-network-flow-state="graph_available"`. The
+retained graph is non-stale with no import or link work, so Table 7-B derives that
+token. The token while viewing Saved graphs is left unpinned. NF-REQ-054 says
+`graph_available` persists until the "graph panel closes", but the NLSpec does not
+state whether viewing saved graphs closes the exploration panel. The helper is
+duplicated file-locally rather than moved, so the unchanged network-flow.spec.ts
+rows need no requalification; consolidating both copies into
+`support/transport` is deferred to the web.networkflow helper review. Select the
+existing `module.networkflow.browser_stateful.exploration_navigation` row (one
+title). No production, routing, profile or timeout change. E-662/S-064 remain
+open.
+
+#### S-662 / F-647 / E-668 closure — superseded read settled; status token exact
+
+DONE. A file-local `settledRequest` is registered while the held query-wide
+contributor read is in flight and awaited after release. The drawer-absence and
+empty-bucket checks now run after the late response reaches the page. After the
+recorded successor passed, the vacuous `not.toContainText("Graph available")` was
+deleted (complete lines). Its replacement: after the round trip, the strip carries
+exactly `data-network-flow-state="graph_available"`. Retiring the negative removed
+the only wait between the two surface clicks, so the replacement also requires
+Saved graphs `aria-pressed="true"` before returning. Without that, the round trip
+could pass without the saved surface ever rendering. "Bucket 2 of 3" and zero
+graph re-queries are unchanged. The second test's identical round trip (the
+measurement title) is outside this slice and unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s662-format01 | `make format` | 0 | pass2/2; scan15/pass; cleanup11 completed |
+| tcr-s662-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser_stateful.exploration_navigation` | 0 | pass12/12; row passed/4252 ms; scan92/pass; cleanup23 completed |
+| tcr-s662-qualified01 | same selection after deleting the negative | 0 | pass12/12; row passed/4732 ms; scan92/pass; cleanup23 completed |
+| tcr-s662-format02 | `make format` | 0 | pass2/2; scan15/pass; cleanup11 completed |
+| tcr-s662-qualified02 | same selection | 0 | pass12/12; row passed/5292 ms; scan92/pass; cleanup23 completed |
+| tcr-s662-format03 | `make format` after the `aria-pressed` edit | 0 | pass2/2; scan15/pass; cleanup11 completed |
+| tcr-s662-qualified03 | same selection, final source | 0 | pass12/12; row passed/4773 ms; scan92/pass; cleanup23 completed |
+| tcr-s662-types01 | `make lint CHECK=types` | 0 | pass2/2; scan15/pass; cleanup11 completed |
+
+Operator error, disclosed: format02 and qualified02 ran in one chained command
+after an edit script whose uniqueness assertion failed (the click pair also
+occurs in the second test). Both ran against the unchanged qualified01 source
+`2ac0d1b294d0f17b49209f934c8202ac775021e182ccf74f3cb812738c54babe`. They are
+redundant evidence, not a rerun after a failure. Edits and runs are no longer
+chained. types01 covers the e2e project (`apps/web/tsconfig.e2e.json` is a root
+reference) for the S-657/S-658/S-662 spec edits; Playwright transpiles without
+type-checking. Graph `6b02dbc9739017ff1863206ebe8c15a68e97c459cbf6e8c5b8778f82ef41e6f0`;
+final source `08e8baaeb6165113a9e90c5566e664d82e532111380122534d161074f83b5e0e`.
+Not claimed: the Saved graphs token, or that `requestfinished` proves the page
+finished applying the response. Settlement only orders the checks after network
+delivery. The same limit applies, unrecorded until now, to S-657 and S-658. No
+speed claim. E-662/S-064 remain open.
+
+### S-663 / F-648 / E-669 — load the saved declaration before viewer control absence
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+finding D (`NetworkAnalysisWorkspace.test.tsx`, "enforces viewer, editor,
+reviewer, and administrator controls for saved graphs"). The viewer branch checks
+that Save current graph, Rename, Refresh and Retire are absent immediately after
+opening Saved graphs. Rename, Refresh and Retire render only for a selected
+declaration, so before the list read completes they are absent for every role.
+The editor, reviewer and admin branches each first await
+`waitForSavedGraphTitle("Investigation graph")`. Governing: NLSpec §19.1 saved-graph
+route authorization ("Any current incident member may read. `editor` and `admin`
+may create, rename, or refresh. `reviewer` and `admin` may retire.") and NF-REQ-170e
+(controls are role-aware).
+
+Successor: await `waitForSavedGraphTitle("Investigation graph")` in the viewer
+branch before its four absence checks. The viewer's own read loading the title is
+the positive precondition. Nothing is retired. The four absence checks become
+discriminating rather than replaced. The row is owned by web.networkflow
+(collaborators module.graphprojection and module.networkflow). This slice changes
+only the viewer-branch ordering, and web.networkflow's audit reuses this
+disposition at its recorded scope. Select
+`web.networkflow.regression.saved_graph_role_matrix` (one title, browser-unit
+Vitest). No production, routing, profile or timeout change. E-662/S-064 remain
+open.
+
+#### S-663 / F-648 / E-669 closure — viewer absence observed after the declaration loads
+
+DONE. The viewer branch now awaits the "Investigation graph" heading before its
+four absence checks. That is the same precondition the editor, reviewer and admin
+branches use, so each role's checks observe the loaded, selected declaration.
+Nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s663-format01 | `make format` | 0 | pass2/2,4693 ms; scan15/pass; cleanup11 completed |
+| tcr-s663-qualified01 | `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.saved_graph_role_matrix` | 0 | pass2/2,6442 ms; row passed/378 ms; scan21/pass; cleanup11 completed |
+
+Graph `4308701f5308b53be826bf782fd7ef589477b6545a9967e7df85f1155c4d2af9`; source
+`d6bc06ff8a1fdefd11aef13a684a5aa78f445845d47b0b8741e5e86f8f620fde`. The edit
+inserts one line and needs no type check beyond the Vitest run. The row's other
+web.networkflow dispositions are left to that owner's audit. E-662/S-064 remain
+open.
+
+### S-664 / F-649 / E-670 — observe the saved-graph list reload before the result-read count
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+finding E (`NetworkAnalysisWorkspace.test.tsx`, "completes the saved graph
+lifecycle …"). After clicking Reload it waits for the button's `disabled` attribute
+to clear, then requires `resultReadCount()` to equal the pre-reload count. The
+Reload `NetworkFlowButton` receives neither `disabled` nor `pending`, so
+`disabled` is never set and the wait passes on its first poll. The count is
+therefore checked before the reload GET is even observed.
+
+Correction to the E-662 ledger: waiting for `aria-busy` to clear would be just as
+vacuous. `SavedGraphController.loadGraphs` sets `listState: "refreshing"` when
+graphs already exist, and the panel sets `aria-busy`/`aria-disabled` and
+"Loading saved graphs…" only for `"loading"`. A reload with an unchanged list
+renders nothing observable. Governing: NF-REQ-170e (refresh and last-safe-result
+states; stale-response rejection). §19.1 (a saved graph's projection result is
+immutable; a declaration list read is not a result read). The purpose: reloading
+declarations must not re-read an unchanged immutable result.
+
+Successor, using the S-651 App.landing precedent: record the list-GET calls before
+Reload, wait for exactly one more, then wait until that call's settled `Response`
+has `bodyUsed === true`, meaning the controller consumed the reload body. Flush
+React once (`act`), then require the unchanged result-read count. Retire the
+`disabled` wait. Select
+`web.networkflow.regression.saved_graph_workspace_complete_lifecycle` (one title,
+browser-unit Vitest; owner web.networkflow, collaborators module.graphprojection
+and module.networkflow). No production, routing, profile or timeout change.
+Not claimed: that one flush covers every later microtask; the limit is the same as
+S-651's. E-662/S-064 remain open.
+
+#### S-664 / F-649 / E-670 closure — reload body consumed before the result-read count
+
+DONE. The test now records the list-GET call indexes before Reload and waits for
+exactly one new list GET. It then waits until that call's settled `Response` has
+`bodyUsed === true`, flushes React once inside `act`, and only then requires the
+unchanged result-read count. The vacuous `disabled` wait was deleted (complete
+lines) after the successor passed beside it. Rename, contributor retention, Escape
+focus return, refresh last-safe, retire and create predicates are unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s664-format01 | `make format` | 0 | pass2/2,4670 ms; scan15/pass; cleanup11 completed |
+| tcr-s664-successor01 | `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.saved_graph_workspace_complete_lifecycle` | 0 | pass2/2,6685 ms; row passed/806 ms; scan21/pass; cleanup11 completed |
+| tcr-s664-qualified01 | same exact selection after retirement | 0 | pass2/2,6692 ms; row passed/799 ms; scan21/pass; cleanup11 completed |
+| tcr-s664-types01 | `make lint CHECK=types` | 0 | pass2/2,20396 ms; scan15/pass; cleanup11 completed |
+
+Graph `8916c66ba18fe5b3d779367ef75dfbc9b1c5321a55ed2ba4f71affaa3c19bc54`; final
+source `4b8d69cb2059a4b665baa50e9544e5f09cf122d672ece776f721982625fd766a`.
+types01 covers the `fetchSpy.mock.settledResults` narrowing, which Vitest does
+not type-check. The S-664 limit is the same as S-651's: one flush after body
+consumption, not proof that no later microtask could re-read. E-662/S-064 remain
+open.
+
+### S-665 / F-650 / E-671 — require compiled columns to drop requested inspector-only keys
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+finding F (`networkFlowPresentation.node.test.ts`, "Verify Network Analysis
+presentation, query, layout, lifecycle, and reconciliation units use
+extension-owned semantic contracts."). The final
+`columns.some(fieldKey === "network_flow_row_id") === false` is tautological. The
+test builds `orderedVisibleFieldKeys` by filtering out inspector-only and
+non-default columns itself, so the row ID is never requested. The production
+guard (`compileNetworkFlowColumns` returns `[]` for a requested key whose
+registry column is `inspector_only`) is never exercised. Governing: NF-REQ-054b
+(the registry owns inspector-only posture; UI consumes generated metadata) and
+NF-REQ-054c (resource identifiers, digests, mapping fingerprint, observation
+provenance and `unmapped_raw` are inspector-only and MUST NOT become linkable,
+filterable, sortable or default clipboard fields).
+
+Successor: derive the registry's inspector-only field keys from
+`networkFlowPresentationColumns("network_flow.accepted_rows.v1")`. Require that
+they include `network_flow_row_id`, which keeps the check non-vacuous. Compile
+with every inspector-only key requested ahead of the visible keys, and require
+the compiled field keys to equal the visible-only compilation exactly. Retire the
+tautological row-ID negative, which the successor subsumes. Select
+`module.networkflow.frontend_unit.verify_network_analysis_presentation_query_layou_11c071dbd2`
+(one title, node-unit). No production, routing, profile or timeout change.
+
+Separate observation, not part of this slice: the retained 12-key default-order
+literal includes `network_flow.direction` at position 7. That matches
+`contracts/network-flow/presentation.v3.json` (`default_visible: true`,
+`default_order: 7`). NF-REQ-054c's adopted list has 11 keys after the gutter, and
+its hidden-by-default list does not mention `network_flow.direction`. Both the
+registry column and NF-REQ-080f arrived in `f9650a0b9`, which rewrote
+NF-REQ-054c's list (src/dst → endpoint A/B) without adding direction. This is a
+projection-fidelity conflict for maintainer review. Either NF-REQ-054c adopts
+`network_flow.direction` in the default order, or the registry hides it by
+default. That changes rendered grids and is not decided here. The literal is
+retained as registry evidence pending that decision. E-662/S-064 remain open.
+
+#### S-665 / F-650 / E-671 closure — requested inspector-only keys are dropped
+
+DONE. The test derives the registry's inspector-only keys and requires
+`network_flow_row_id` among them. It compiles with all of them requested ahead of
+the visible keys, and requires exactly the visible-only field-key sequence. After
+the successor passed, the tautological row-ID negative was deleted (complete
+lines). The 12-key default-order literal and the conversation-label predicates are
+unchanged. The direction-column projection conflict recorded in the S-665 entry
+remains open for maintainer review.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s665-format01 | `make format` (reflowed the new `expect`) | 0 | pass2/2,4667 ms; scan15/pass; cleanup11 completed |
+| tcr-s665-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.frontend_unit.verify_network_analysis_presentation_query_layou_11c071dbd2` | 0 | pass2/2,4931 ms; row passed/2 ms; scan21/pass; cleanup11 completed |
+| tcr-s665-qualified01 | same exact selection after retirement | 0 | pass2/2,5063 ms; row passed/2 ms; scan21/pass; cleanup11 completed |
+| tcr-s665-types01 | `make lint CHECK=types` | 0 | pass2/2,21655 ms; scan15/pass; cleanup11 completed |
+
+Graph `7e8107e798ef6919b7342758267ce15eeea7edd5f38fb22de2a8181eeabafdeb`; final
+source `0b38e2719b4d91a115e8916d4444ecbfa80f8973da0ad0c11806bbff2879cd95`. The
+format01 digest is the pre-format snapshot; successor01 ran on the formatted
+source (`176c4f39368c39913a182a3e4cbefa1daf1e6d7ffeb4ae8e5d6b5dc01aaa87ca`).
+E-662/S-064 remain open.
+
+### S-666 / F-651 / E-672 — preserve a non-client-sortable contributor server order
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+finding G (`networkFlowPresentation.node.test.ts`, "groups contributors by
+workspace table order without changing server order within a group"). The server
+fixture is already ascending by table ID, row ID and source row number. A client
+that re-sorted on any of those keys would produce the same output, so the
+predicate cannot distinguish preserving server order from client sorting.
+`networkFlowContributorsForGrid` only reconciles in input order. Governing: NLSpec
+§7.3 NF-REQ-054c contributor rows ("preserve §14.6 server order without client aggregation or
+sorting"). §14.6 server order: workspace table order, then `effective_sort_v1([])`
+(NF-REQ-116: `flow_start_utc`, `flow_end_utc`, `source_row_number` …), then
+`network_flow_row_id ASC`. The §19 drawer group order follows workspace table
+order.
+
+Successor: a legitimate server order that no client key sort reproduces. Table
+`nft_b` comes first in workspace order although its ID sorts after `nft_a`.
+Within each table the flow starts ascend while source row numbers and row IDs
+(`nfr_9` before `nfr_10`, `nfr_30` before `nfr_4`) do not. Require the output
+row IDs, `rowIdentity.resourceId`s and data objects (`toBe`) to follow the server
+sequence exactly, with the same length. The prior already-sorted fixture and its
+predicates are retired after the successor passes beside them. The title is
+unchanged; "groups" names the server's table-order grouping. Select
+`web.networkflow.regression.networkflowpresentation_suite_ad52825df6` (five
+titles, node-unit; owner web.networkflow). The other four titles are unchanged,
+and web.networkflow's audit reuses this disposition. No production, routing,
+profile or timeout change. E-662/S-064 remain open.
+
+#### S-666 / F-651 / E-672 closure — server order preserved against client sort keys
+
+DONE. The case now uses a legitimate §14.6 server order. `nft_b` comes before
+`nft_a`. Within each table the flow starts ascend, while row IDs and source row
+numbers do not. Output row IDs, `extension_resource` resource IDs and data object
+identity must follow that sequence exactly, at the same length. The
+already-sorted fixture and its predicates were deleted after the successor passed
+beside them. The other four titles in the row are unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s666-format01 | `make format` | 0 | pass2/2,4945 ms; scan15/pass; cleanup11 completed |
+| tcr-s666-successor01 | `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.networkflowpresentation_suite_ad52825df6` | 0 | pass2/2,4989 ms; row passed/7 ms; scan21/pass; cleanup11 completed |
+| tcr-s666-qualified01 | same exact selection after retirement | 0 | pass2/2,4954 ms; row passed/6 ms; scan21/pass; cleanup11 completed |
+| tcr-s666-types01 | `make lint CHECK=types` | 0 | pass2/2,21563 ms; scan15/pass; cleanup11 completed |
+| tcr-s666-format02 | `make format` (stability check after block deletion) | 0 | pass2/2,4862 ms; scan15/pass; cleanup11 completed; file mtime predates qualified01, so no rewrite |
+
+Graph `09c68ed38f78cccd9f1f7105f32743d0a63f67545122412a532eef0a9b1b64b9`; final
+source `ac8c52180e0adf053ab817a0e6ecebe1c7f29df3585a9635c0243680d651d7b9`.
+E-662/S-064 remain open.
+
+### S-667 / F-652 / E-673 — observe the equivalent-resource refresh before continuity checks
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+finding H (`e2e/measurement/network-flow-grid.spec.ts`, "measures bounded Network
+Flow production-grid virtualization without a timing claim",
+`proveSupportedEnvelopeReachabilityAndContinuity`). The helper dispatches
+"Refresh equivalent resources" through a synthetic `click()`. It then requires the
+second cell to stay focused, the semantic selection text to be unchanged and the
+inspector to be visible. All three were true before the click. The fixture renders
+`refresh generation {refreshCount}` (`NetworkFlowGridLoadFixture.tsx`) once the
+reconciled rows, diagnostics and contributors commit, but the helper never
+observes it. The checks can therefore pass before the refresh renders, and the
+refresh's effect on identity is not observed. Governing: NF-REQ-054f (validation
+proves stable object identity for unchanged immutable resources; measurement
+evidence, not a timing claim).
+
+Successor: inside the helper, require the load fixture to contain
+`refresh generation 0` before the click and `refresh generation 1` after it. Only
+then come the existing focus, selection and inspector checks. Nothing is retired;
+the three checks become post-refresh observations. Select
+`module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57`
+(one title; `network_flow_claimed`, `browser_measurement_quiet`, informative
+measurement). No timing threshold, attachment, production, routing, profile or
+timeout change. Functional qualification of this row is not a measurement or
+stability claim. E-662/S-064 remain open.
+
+#### S-667 / F-652 / E-673 closure — refresh generation observed before continuity
+
+DONE. The helper requires `refresh generation 0` before the synthetic click and
+`refresh generation 1` after it. Focus, unchanged semantic selection and inspector
+visibility are then asserted after the reconciled resources commit. Nothing was
+retired; the successor run is the qualification run.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s667-format01 | `make format` | 0 | pass2/2,4838 ms; scan15/pass; cleanup11 completed |
+| tcr-s667-qualified01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57` | 0 | pass13/13,83633 ms; row passed/4890 ms; scan98/pass; cleanup24 completed |
+
+Graph `0a357ebc6ae12345b673bdb6e3abdc6396d554b43fe57a6c3fc01c7f06ee1f42`; source
+`a9c8c2a6741b7e97c18172302cb6c7f3253c45582f81ebd22763564428e2b301`. Type check
+not rerun: the edit adds no import, type or identifier beyond the already imported
+`networkAnalysisTestId` and standard Locator assertions. Not claimed: any timing,
+measurement-envelope or stability result; the row's attachment content is
+unchanged. E-662/S-064 remain open.
+
+#### E-662 Go candidate verification — partial ledger 1
+
+Read directly against production code on 2026-11-14. Already closed: composition
+:105 (S-659), contract :510-516 (S-660), cleanup_race :86-90/:217-221 (S-661).
+
+Confirmed, each queued as its own slice:
+
+- **I — selected_source_history_integration_test.go:84-90.** The refresh of a
+  deleted explicit source accepts any 4xx, so a version conflict, CSRF or schema
+  400 would also pass. NLSpec §13.2 (`selected_tables`: "disclosed soft-deleted IDs
+  fail with `network_flow_table_not_active`") and §8.1 table-state admission pin
+  409 `network_flow_table_not_active` with reason `soft_deleted`. NF-REQ-223
+  requires the failure not to replace the selection; that check is already
+  present and is retained.
+- **K — transaction_contracts_test.go:65-74.** The indicator-link participant
+  `Prepare` result is checked only for ordering, which is also satisfied by an
+  empty or one-key result. The production key set is incident, sorted
+  contributing tables, and the indicator (existing indicator ID, else the
+  candidate value). EXT §transaction participants fixes shape, uniqueness and
+  order. The exact set is the participant's serialization boundary, and the
+  import participant test (:183-190) already pins its exact keys. Require the
+  exact sorted three-key slice.
+
+Rejected (retain), with reason:
+
+- saved_graph_read_application:111 and graph_query_application:155: SENTINEL
+  non-disclosure checks on the produced public message/body. These are privacy
+  absences on real output, as recorded earlier.
+- selected_source_history:52-66: the rename PATCH returns after commit, and only
+  create and refresh enqueue materialization (`saved_graph_application.go`), so
+  no asynchronous rewriter exists. `_ = renamed` is inert.
+- reporting_frozen_restart:183-185: a zero-attempt precondition. A lost deferral
+  would let jobs run before the faults are injected, so the per-fault outcome
+  predicates fail and discriminate downstream.
+- harness_worker:76-78: absence is checked after `handler_failure_count == 1` is
+  observed.
+- cleanup_dispatcher:74-78/89-95/136-139: a 20 ms pre-serving negative window,
+  load-insensitive lower bounds (`>=15 ms`, `>=5 ms`) and a 500 ms liveness upper
+  bound. A deterministic gate needs a production timer hook, which this audit does
+  not justify. Residual load sensitivity is recorded; no speed claim.
+- table_lifecycle_integration (stale anchor :262; actual :54-66): the receipt
+  checks only `schema_id`. The following no-op rename ("  Café  ", base 2)
+  must equal the receipt, which proves the stored name normalized to "Café".
+- graph_view_authority:127-151/:134/:149: the publish/fail decision, an unchanged
+  last-safe binding, the exact failure code, and an enumerated restore candidate
+  bound by `ProjectionResultID`. `:149` is a scenario switch, not a skip.
+- query_sql_bridge:122: rows come from the test-authored `observations` CTE,
+  every row is compared, and the bounded CTE fixes the row count.
+- validation_vectors:41/53/74/83/108: loops over committed vectors, currently
+  35 IP, 17 pair and 4 diagnostic-ID cases. Vacuity needs fixture/tag drift;
+  this latent risk is recorded, not repaired.
+
+### S-668 / F-653 / E-674 — exact rejection for refreshing a deleted explicit source
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed Go
+finding I (`selected_source_history_integration_test.go:84-90`). After the
+explicitly selected source table is soft-deleted, refreshing the saved graph
+accepts any 4xx status. A version conflict, CSRF denial or request-schema 400
+would also pass, so the deleted-source admission is not identified. Governing:
+NF-REQ-223 ("Explicit-table refresh with deleted sources fails without replacing
+selection"). NLSpec §13.2 says explicitly supplied `selected_tables` IDs that are
+disclosed but soft-deleted fail with `network_flow_table_not_active`. Per §8.1
+and the error tables, that is HTTP 409 with reason `soft_deleted`.
+`resolveRefreshIntentTx` → `resolveActiveTableScope` → `tableReadFailure`
+implements it.
+
+Successor: `httptestx.RequireErrorEnvelope(..., 409,
+"network_flow_table_not_active")` and `error.details.reason_code ==
+"soft_deleted"`. Retire the status-range check after the successor passes. The
+following selection-unchanged check is retained. Select
+`module.networkflow.integration.selected_source_history`. No production, routing,
+profile or timeout change. E-662/S-064 remain open.
+
+#### S-668 / F-653 / E-674 closure — deleted explicit source refresh is exact
+
+DONE. The refresh of a soft-deleted explicit source must return the shared error
+envelope: 409, `network_flow_table_not_active`, `details.reason_code ==
+"soft_deleted"`. The 4xx range check passed beside it in successor01 and was then
+deleted (complete lines). The selection-unchanged check after the failure
+remains.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s668-format01 | `make format` | 0 | pass2/2,4746 ms; scan18/pass; cleanup11 completed |
+| tcr-s668-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.selected_source_history` | 0 | pass3/3,15711 ms; row passed/1210 ms; scan30/pass; cleanup14 completed |
+| tcr-s668-qualified01 | same exact selection after retirement | 0 | pass3/3,15574 ms; row passed/1220 ms; scan33/pass; cleanup14 completed |
+
+Graph `ad84a090606be07ca432d22d22768ba38bea5634ff120e4c62e614bf2dd041f0`; final
+source `e17693714985887df52d78703a49ec480f4b51fae9b867decc514321d6a5e4a0`. Compile
+coverage comes from the Go test runs. E-662/S-064 remain open.
+
+### S-669 / F-654 / E-675 — exact indicator-link participant serialization keys
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed Go
+finding K (`transaction_contracts_test.go:65-74`, in
+`module.networkflow.unit.transaction_lifecycle`). The indicator-link
+participant's `Prepare` result is checked only for pairwise ordering, which an
+empty, one-key or wrong-key result also satisfies. Production
+(`transaction_participants.go:217-245`) emits the incident key, one key per
+distinct contributing table, and an indicator key. The indicator key is the
+target indicator ID for `existing_indicator`, else the candidate value. All are
+sorted by kind then key. Governing: Extension NLSpec prepare-result contract
+(exact members, unique keys, `participant_id`/`key_kind`/key order, key kinds
+declared by the participant contract). The engineering purpose is that the exact
+key set is the link's serialization boundary against concurrent table and
+indicator writes. The import participant's case (:183-190) already pins its exact
+keys.
+
+Successor: require `prepared.SerializationKeys` to equal exactly
+`[{network_flow_activity.incident, <IncidentID>}, {network_flow_activity.indicator,
+<IndicatorID>}, {network_flow_activity.table, nft_a…}]`. Retire the
+ordering-only loop after the successor passes; the exact slice subsumes its order.
+Select `module.networkflow.unit.transaction_lifecycle`. No production, routing,
+profile or timeout change. E-662/S-064 remain open.
+
+#### S-669 / F-654 / E-675 closure — exact participant keys pinned
+
+DONE. The indicator-link participant's `Prepare` keys must equal exactly the
+incident, existing-indicator and contributing-table keys, in contract order. The
+ordering-only loop passed beside it in successor01 and was then deleted (complete
+lines). The retired-schema and contract-digest predicates are unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s669-format01 | `make format` | 0 | pass2/2,4780 ms; scan18/pass; cleanup11 completed |
+| tcr-s669-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.transaction_lifecycle` | 0 | pass1/1,9556 ms; row passed (cache miss, executed); scan12/pass; cleanup10 completed |
+| tcr-s669-qualified01 | same exact selection after retirement | 0 | pass1/1,9480 ms; row passed (executed); scan15/pass; cleanup10 completed |
+
+Graph `b9f93f827f9f8f97cc65451930b8f6d82d35ddff48f492074826ab8472a8bfb4`; final
+source `b38edcf5e65843af35196a45ba9c67e81b668730f9f2617492e93963a8c9d52f`. The
+candidate-value branch (no existing indicator) is not added; this slice pins the
+fixture's existing-indicator path only. E-662/S-064 remain open.
+
+### S-670 / F-655 / E-676 — typed rejection for historical upgrade admission
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed Go
+finding L (`canonical_upgrade_integration_test.go:94-99`,
+`TestNetworkFlowOrientationPreservesHistoricalState_Integration`). Both the
+`reject_true` (damaged binding) and `reject_false` historical environments
+require only `ValidateMigrationAdmission` to return some error. A SQL,
+connection or seed-shape error would pass as a rejection. The test's own claim is
+that admission refuses historical orientation state while preserving it.
+`canonical_migration_test.go` requires the typed `ReasonCode()` for the same
+`canonical_filter_order_migration` seed. Governing: NF orientation migration
+admission (historical interpretations are rejected before any repair migration;
+retained evidence is unchanged), as in `canonical_migration_test.go`'s
+contract comment.
+
+Successor: require `errors.As(admissionErr, &blocked)` with `ReasonCode() ==
+"network_flow_orientation_state_incompatible"` for both variants. Retire the
+nil-only check after the successor passes. If either variant returns a different
+typed reason, that is investigated before any change. Select
+`module.networkflow.integration.canonical_migration_preserves_immutable_results_c092f26ac0`.
+No production, routing, profile or timeout change. E-662/S-064 remain open.
+
+#### S-670 / F-655 / E-676 closure — upgrade admission rejection typed
+
+DONE. Both historical upgrade variants must fail admission with the typed
+`network_flow_orientation_state_incompatible` reason. The nil-only check passed
+beside it in successor01 and was then deleted (complete lines). The
+evidence-unchanged predicate is retained.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s670-format01 | `make format` (also placed the new `errors` import) | 0 | pass2/2,4865 ms; scan18/pass; cleanup11 completed |
+| tcr-s670-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.canonical_migration_preserves_immutable_results_c092f26ac0` | 0 | pass3/3,13280 ms; row passed/2680 ms; scan31/pass; cleanup14 completed |
+| tcr-s670-qualified01 | same exact selection after retirement | 0 | pass3/3,13077 ms; row passed/2670 ms; scan31/pass; cleanup14 completed |
+
+Graph `66b1db4a13a5aa6eade7d037b2db0d11ac1ac1547955e47372cb014850a1d0af`; final
+source `93ce1acac6117d6d7812a962df86e57d6ab591ae9d2dc76e63aae33eff76a306`.
+E-662/S-064 remain open.
+
+### S-671 / F-656 / E-677 — isolate and type Cisco profile mapping rejections
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed Go
+finding M (`cisco_sna_profile_test.go`, `TestCiscoSNAFlowSearchProfile`).
+
+1. :100-105, "old profile accepted new timestamp mode". The approved Flow Search
+   mapping is relabelled `cisco_sna_netflow_csv_v2` and any error is accepted.
+   In `mapping-registry.v3.json` the profiles differ in `endpoint_derivation_id`
+   (`cisco_flow_search_orientation_v1` vs `declared_source_destination_v1`).
+   `validateApprovedMapping` checks derivation before timestamp mode, so the
+   rejection comes from the derivation check and the timestamp-mode claim is
+   never reached.
+2. :224-228, "Flow Search interface mapping admitted". Any error is accepted.
+   The intended `field_not_supported_by_profile` currently fires first only by
+   check order.
+
+Governing: NLSpec Table 17-B2 `supported_timestamp_modes[]` (NetFlow CSV excludes
+`cisco_sna_datetime_v1`). §9.6 Cisco profile rule: a mapping to a Table 9-D
+`not_supported` target fails with `network_flow_mapping_conflict` /
+`field_not_supported_by_profile`. Error table: `network_flow_mapping_conflict`
+reasons.
+
+Successor:
+
+1. After relabelling, also set the mapping's `EndpointDerivationID` to the
+   NetFlow profile's registry value, so that only the timestamp mode is
+   unsupported. Then require `*mappingValidationError` with `Code ==
+   "network_flow_mapping_conflict"`, `ReasonCode == "variant_member_conflict"`
+   and an empty `FieldKey`.
+2. Require `network_flow_mapping_conflict` / `field_not_supported_by_profile`
+   with `FieldKey == network_flow.input_interface`.
+
+Both nil-only checks are retired after the successor passes. Select
+`module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0`.
+No production, routing, profile or timeout change. E-662/S-064 remain open.
+
+#### S-671 / F-656 / E-677 closure — Cisco profile rejections isolated and typed
+
+DONE. The relabelled mapping now also carries the NetFlow profile's endpoint
+derivation, so only the unsupported `cisco_sna_datetime_v1` mode remains. The
+test requires that rejection (`network_flow_mapping_conflict` /
+`variant_member_conflict`, empty field). The Flow Search interface mapping must
+fail with `field_not_supported_by_profile` on field key
+`network_flow.input_interface`. Both nil-only checks passed beside
+the successors and were deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s671-format01 | `make format` | 0 | pass2/2,4844 ms; scan18/pass; cleanup11 completed |
+| tcr-s671-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.cisco_flow_search_profile_admits_compact_timesta_3d18779db0` | 0 | pass1/1,9950 ms; row passed/40 ms; scan12/pass; cleanup10 completed |
+| tcr-s671-qualified01 | same exact selection after retirement | 0 | pass1/1,9868 ms; row passed/30 ms; scan15/pass; cleanup10 completed |
+
+Graph `e573273abda342c5e46e9683bba1d2ed1baa3c9067e90130072d02f62c6ae06d`; final
+source `9eb266c1f1da99796be4dcd6274dc8a1f0e17be5224fc786a90c8664cd15c65a`.
+E-662/S-064 remain open.
+
+#### E-662 Go candidate verification — partial ledger 2
+
+Findings I, K, L and M are closed by S-668–S-671. Additional confirmed findings,
+each queued as its own slice:
+
+- **N — store_test.go:397-405.** The committed-row `UPDATE` accepts any error.
+  The immutability trigger (`network_flow_reject_immutable_update`, 00020)
+  raises SQLSTATE 23514 with "Network Flow committed analytical rows are
+  immutable". A CHECK violation shares 23514, and a missing column or type error
+  would also pass. Require the trigger's code and message.
+- **O — network_flow_contract_test.go:189-195.** The "overflow" case submits 51
+  copies of one diagnostic with `row_count_rejected = 1`. The validator rejects
+  the cap first (`import_owner_errors.go:137`), but the duplicate and count rules
+  also reject that input, so removing the 50-sample cap (NLSpec §8.2, "the first
+  `min(50, diagnostic_count)` diagnostics") would go undetected. Use 51 distinct
+  ascending diagnostics with a consistent truncated count, plus an admitted
+  50-sample control.
+- **P — indicator_link_boundary_test.go:113-121.** The closed-member `row_refs`
+  case accepts any error and has no control showing that the selector without
+  `label` decodes. Add that control.
+- **Q — saved_graph_admission_integration_test.go:135.** The fixture labelled
+  "invalid UTF8 byte name" writes 33 × "é" (valid UTF-8, an overlong name).
+  PostgreSQL text cannot hold invalid UTF-8. The typed rejection is real; the
+  label overclaims. Simplify: rename the case to describe the overlong name.
+
+Rejected (retain), with reason:
+
+- canonical_migration:28/42: exact typed reason. The design rejects every
+  historical interpretation, and the fresh-state admitted control is at :176.
+- reporting_graph_source:198-211: fails closed under combined not-ready plus
+  deleted-result state. The Reporting owner rejects unready participants before
+  running source code (Extension NLSpec participant table), and no clause pins
+  the source-side error.
+- harness_authorization:118-139: `before()` requires the owned deletion to be
+  consumed and applied, so the exact 404 `incident_not_found` is attributable;
+  the owned-incident `/tables` success follows.
+- harnesscontrol randomness:146-147 and audit_assertion:138/147: exact 400 codes
+  for retired members that the harness NLSpec says MUST reject
+  (`network_flow.cursor_nonce`, `hex_bytes`, `expected_replay_increment`).
+- store_test:278-282: `safeDigest` fails untyped. The claim is fail-closed, and
+  the unchanged-table, audit and receipt count predicates carry it.
+- indicator_link_boundary:44-49: `uuid.Parse` accepts the three spellings, so
+  the rejection proves the canonical-form gate on an otherwise complete target.
+- extension_state_v3:212-234 and import_preview:83-93: each forgery is
+  consistent (recomputed ID, message key, limit). The single defect is a
+  unit-level reason on a row diagnostic.
+- saved_graph_admission:86-90: a missing definition makes the `check(false)`
+  baseline fail wherever the validator consults it, so the empty case
+  self-detects.
+
+### S-672 / F-657 / E-678 — committed-row immutability observed through its trigger
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed Go
+finding N (`store_test.go:393-405`, `assertNetworkFlowCommittedRowsAreImmutable`).
+An `UPDATE network_flow_rows SET bytes_count='2'` accepts any error. Migration
+00020 installs `network_flow_rows_immutable_update`, whose function raises
+SQLSTATE 23514 with "Network Flow committed analytical rows are immutable". The
+row CHECK constraints also use 23514, and a missing-column or type error would
+pass too. Governing: NLSpec §6.1 concept registry (`network_flow_row` "is
+immutable after import commit"), §4 scope table, and the 00020 storage contract.
+
+Successor: require `*pgconn.PgError` with `Code == "23514"`, an empty
+`ConstraintName`, and the trigger's exact `Message`. Retire the nil-only check
+after the successor passes. Select
+`module.networkflow.store.network_flow_selector_covers_only_active_and_sof_400db83232`.
+No production, migration, routing, profile or timeout change. E-662/S-064 remain
+open.
+
+#### S-672 / F-657 / E-678 closure — immutability trigger identified
+
+DONE. The committed-row update must fail with the trigger's own rejection:
+SQLSTATE 23514, no constraint name, and the exact message. The nil-only check
+passed beside it in successor01 and was then deleted (complete lines). The
+assertion runs as subtest `immutable_rows` of
+`TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration` (`store_test.go:577`).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s672-format01 | `make format` | 0 | pass2/2,4792 ms; scan18/pass; cleanup11 completed |
+| tcr-s672-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.store.network_flow_selector_covers_only_active_and_sof_400db83232` | 0 | pass3/3,11384 ms; row passed/690 ms; scan26/pass; cleanup14 completed |
+| tcr-s672-qualified01 | same exact selection after retirement | 0 | pass3/3,11154 ms; row passed/660 ms; scan29/pass; cleanup14 completed |
+
+Graph `cb54d9ea405a2b15b0630615444c12f1da81dc8e37fd9204da1608386c9efda2`; final
+source `ee6f0cbc2708c6bb64a87982462ad9e80c2c7aaa06d4bb1d9dc712ee8daf8135`.
+E-662/S-064 remain open.
+
+### S-673 / F-658 / E-679 — isolate the 50-diagnostic sample cap
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed Go
+finding O (`network_flow_contract_test.go:189-195`,
+`TestImportOwnerErrorTranslationUsesClosedRegisteredUnion`). The "overflow" case
+submits 51 copies of one diagnostic with `row_count_rejected = 1` and
+`diagnostics_truncated = true`, and accepts any validation error. The validator
+(`import_owner_errors.go`) checks the cap first, but strict ordering and the
+row-count rule also reject that input. A regression that removed or raised the
+cap would therefore still pass. Governing: NLSpec §8.2 (`diagnostics_sample[]`
+contains the first `min(50, diagnostic_count)` diagnostics under §12.4 ordering)
+and Table 8 (`diagnostics_truncated` true only when retention was exceeded).
+
+Successor: build 51 distinct diagnostics from the test's base diagnostic at
+ascending source rows 3–53, each with its `diagnosticID`. Require the first 50
+with `row_count_rejected = 100` and `diagnostics_truncated = true` to be admitted
+as a control. Then require all 51 under the same count and flag to be rejected,
+so only the cap is violated. Retire the duplicate-copy overflow body after the
+successor passes. Select
+`module.networkflow.unit.import_owner_error_translation_rs08_3d3f02e050`. No
+production, routing, profile or timeout change. E-662/S-064 remain open.
+
+#### S-673 / F-658 / E-679 closure — sample cap isolated with an admitted control
+
+DONE. Subtest `sample_cap` builds 51 distinct, ascending, correctly identified
+diagnostics. The first 50 with `row_count_rejected = 100` and truncation set must
+be admitted; all 51 under the same count and flag must be rejected. The
+duplicate-copy `overflow` subtest passed beside it and was then deleted (complete
+lines). The separate `duplicate`, `order`, `zero_count` and
+`incomplete_untruncated_sample` subtests still cover those rules.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s673-format01 | `make format` | 0 | pass2/2,4766 ms; scan18/pass; cleanup11 completed |
+| tcr-s673-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.import_owner_error_translation_rs08_3d3f02e050` | 0 | pass1/1,10764 ms; row passed (executed); scan12/pass; cleanup10 completed |
+| tcr-s673-qualified01 | same exact selection after retirement | 0 | pass1/1,10730 ms; row passed (executed); scan15/pass; cleanup10 completed |
+
+Graph `d807359ebda61289352cb1e94167d42f9546891b90433d2cd7819d347d13245e`; final
+source `a7311e3dd933d266104c10ec5388c1bb506c7ac152e5745f33270f11dc2d6c40`.
+E-662/S-064 remain open.
+
+### S-674 / F-659 / E-680 — admitted control for the closed `row_refs` member check
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed Go
+finding P (`indicator_link_boundary_test.go:113-121`,
+`TestIndicatorLinkPublicBoundary` "closed source references"). A `row_refs`
+selector whose reference carries an extra `label` member must be rejected, and
+any rejection is accepted. Nothing shows the same selector decodes without
+`label`. If the base reference were invalid for another reason (member type,
+fingerprint, field key or row-number rule), the case would pass without proving
+the closed-member rule. Governing: NLSpec Table 12-B `network_flow_row_ref_v1`
+(the closed reference members used by `row_refs` selectors; unknown members
+reject under the request admission rules).
+
+Successor: decode the same selector with `label` removed first and require
+success. Then add `label` back and keep the existing rejection. Nothing is
+retired; the rejection becomes attributable. Select
+`module.networkflow.unit.network_flow_selector_covers_linking_an_endpoint_cfa3b46c37`.
+No production, routing, profile or timeout change. E-662/S-064 remain open.
+
+#### S-674 / F-659 / E-680 closure — closed-member rejection attributable
+
+DONE. The same `row_refs` selector without `label` must decode, and with
+`label` restored it must still be rejected. Nothing was retired; the qualified
+run is the only test run.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s674-format01 | `make format` | 0 | pass2/2,4790 ms; scan18/pass; cleanup11 completed |
+| tcr-s674-qualified01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.unit.network_flow_selector_covers_linking_an_endpoint_cfa3b46c37` | 0 | pass1/1,9481 ms; row passed (executed); scan12/pass; cleanup10 completed |
+
+Graph `1a5a885a05b57276612e813dd0c730c4a5beb486baf64041613a9bbcc5620182`; source
+`6ee686e97a6ff4b31fb4516bc103a05fabbc1477f95fce767f8b6ac9eb62ab77`.
+E-662/S-064 remain open.
+
+### S-675 / F-660 / E-681 — correct the overlong saved-graph name fixture label
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed Go
+finding Q (`saved_graph_admission_integration_test.go:135`,
+`TestSavedGraphCutoverAdmission_Integration`). The cutover fixture labelled
+"invalid UTF8 byte name" writes `strings.Repeat("é", 33)`. That is valid UTF-8,
+an overlong display name of 33 scalars, and PostgreSQL text cannot store invalid
+UTF-8 at all. The typed `ErrSavedGraphCutoverIncompatible` rejection is real and
+retained; only the label claims an untested property. Disposition: simplify.
+Rename the subtest to "overlong display name"; the change, restore and
+predicates are unchanged. Select
+`module.networkflow.integration.saved_graph_current_admission`. No production,
+routing, profile or timeout change. E-662/S-064 remain open.
+
+#### S-675 / F-660 / E-681 closure — fixture label matches the tested defect
+
+DONE. The cutover fixture is now named "overlong display name". Its change,
+restore, typed-rejection and unchanged-bytes predicates are untouched. No
+assertion was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s675-format01 | `make format` | 0 | pass2/2,4778 ms; scan18/pass; cleanup11 completed |
+| tcr-s675-qualified01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.integration.saved_graph_current_admission` | 0 | pass3/3,15506 ms; row passed/1400 ms; scan30/pass; cleanup14 completed |
+
+Graph `b5cd729911a5bdd037768aa17c28aa63b8e6b64c2e223f8bdc4a17870a21bce0`; source
+`932358d979a8be9047e676b39847ecd8d66f4a170337eeb62288bf993ae25350`. S-675's
+identities were checked unique after the entry was written (each occurs once).
+E-662/S-064 remain open.
+
+#### E-662 Go candidate verification — partial ledger 3 (queue complete)
+
+Findings N–Q are closed by S-672–S-675. Remaining Go candidates, all rejected
+(retain) or recorded without repair:
+
+- import_validation:223: one injected fault per subtest (read, digest, insert,
+  cancel, summary) into a prepared, otherwise valid second pass. The unfaulted
+  `VisitRows` succeeds at :77, and opens/closes and insertion-began predicates
+  pin cleanup.
+- graph_streaming:219: the decoder does not check the edge-ID format before the
+  port rule, and the pinned reason `variant_member_conflict` comes from the
+  destination-port conflict at that point.
+- operation_admission:53: exact code. Query-before-body precedence is pinned by
+  the field checks on the same routes.
+- store_test:468-505 and harness_randomness:45-52: insert-only operations, so
+  per-table counts are the right "nothing committed" observable.
+- behavior_test:26-28 (`DeploymentAdminNoBypassEvidence`):
+  `routeService.requireIncidentRole` passes only incident and user IDs to shared
+  incident admission, so deployment-admin status can never widen Network Flow
+  access. The wrapper proves the Network Flow side (not visible → 404, viewer →
+  403, admin allowed). The Core 04 rule that `deployment_admin` is "insufficient
+  by itself for incident data" is evidenced by the shared admission owner. Scope
+  is recorded here; no claim beyond the Network Flow layer.
+- behavior_test:63-65 (`ImportReplayEvidence`) and :55-57 (source change):
+  `AssertImportRuntime` proves the second-pass source replay detects a changed
+  source (`errSourceChanged`). The HTTP apply replay is evidenced by the
+  publication fixture workflow (`fixture_publication_integration_test.go:395`).
+- contract:585-597 is `AssertAuthorizationBoundary` (above). contract:674-679
+  checks exact clamped limits and the `above_maximum` reason.
+  configuration:86-96 requires the portability binding to refuse a nil
+  transaction capability, matching its "inert before query" claim.
+- mapping_admission:286-299: mutations derive from a fixed fixture whose
+  `timestamp_profile` object is present; the exact reason is pinned.
+- orientation_corpus:39/156 (4 authored datasets) and validation_vectors:
+  recorded latent vacuity only.
+- orientation_corpus_integration:58: `example1200` is skipped deliberately; the
+  `original_cisco_flow_search_export_imports_1200_r…` row owns it.
+- Capacity evidence gated on an artifact directory (measurement, intended) and
+  the fixture_privacy_logs child process (design): retained.
+
+Recorded, not repaired:
+
+- graph_temporal_test.go:306-309. In `FuzzTimeBucketArithmetic` the third seed
+  `(-61, -60, 60)` has a negative duration and always skips. No catalog row
+  selects the fuzz target, so its seed corpus never runs under Make. Routing a
+  fuzz target is a catalog/profile decision for S-064's routing review; the seed
+  is left unchanged so as not to edit an unexecuted function.
+
+The Go queue is complete. Browser and Vitest candidates from the browser ledger
+remain to verify before the E-662 closure.
+
+### S-676 / F-661 / E-682 — observe the operation-graph reload before focus retention
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+browser finding S (`network-analysis.a11y.spec.ts`, row-01). The test focuses
+"Reload operation graph", presses Enter, and immediately requires the button to
+be focused. It was already focused, so the check can pass before
+`SavedGraphController.reloadOperationGraph` → `readGraph` → `transport.get`
+(GET `/network-flow/graph-views/{id}`) completes. Focus retention across the
+reload is therefore unobserved. Governing: NF-REQ-170e (keyboard operation and
+focus return in saved-graph operation states) and design §14 accessibility contract.
+
+Successor: register `page.waitForResponse` for GET `/network-flow/graph-views/<id>`
+before the key press, await it after, then require focus and the existing
+no-overflow check. Nothing is retired; the focus predicate becomes post-reload.
+Select
+`module.networkflow.accessibility.verify_claimed_network_analysis_keyboard_focus_a_c81856fdc1`.
+Not claimed: that response receipt proves React finished applying it (the
+S-657/S-658/S-662 limit). No production, routing, profile or timeout change.
+E-662/S-064 remain open.
+
+#### S-676 / F-661 / E-682 closure — focus retention observed after the reload response
+
+DONE. The test registers a wait for the operation graph's GET before pressing
+Enter, requires status 200, and only then requires that focus stays on "Reload
+operation graph". The visible-focus, viewport and no-overflow predicates are
+unchanged. Nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s676-format01 | `make format` | 0 | pass2/2,4660 ms; scan15/pass; cleanup11 completed |
+| tcr-s676-qualified01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.accessibility.verify_claimed_network_analysis_keyboard_focus_a_c81856fdc1` | 0 | pass12/12,86544 ms; row passed/11631 ms; scan100/pass; cleanup23 completed |
+
+Graph `03dca70c6192512f62b0c0db37ff8147e17a99e0eb49ba571bc13de68730c4e2`; source
+`1a1bf54b03d3910fdd4e8fbe4b9c926f4885fcd51f9ed32f574f03d5cc03de09`. Type check
+deferred to one e2e type-check run after the following browser slices. E-662/S-064
+remain open.
+
+### S-677 / F-662 / E-683 — bound row-query absence with the next real query
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+browser finding T (`network-flow.spec.ts`, "Network Analysis authors lossless
+typed queries and applies exact row and graph scopes"). Two checks count row-query
+requests (`/tables/nft_…/query`) immediately after an action that must not
+dispatch one:
+
+1. :165-170, re-applying an unchanged query by Enter; the "Query applied." status
+   was already visible.
+2. :280-283, removing an unapplied input-interface chip.
+
+A request dispatched from an effect after the next render reaches the test's
+`request` listener asynchronously. Both counts can therefore be read before a
+stray request is observed. Governing: no NLSpec clause pins these no-ops. The
+engineering purpose is the authoring surface's own contract, recorded by this
+test: an unchanged accepted query is not re-dispatched, and editing unapplied
+chips changes only the draft. The correction adds no new obligation; it makes the
+existing predicate observable.
+
+Successor: each case is followed by one `applyRows` that dispatches exactly one
+row query and awaits its response. Require the count after that to be exactly
+the pre-action count plus one; any stray request from the no-op shows as an
+extra. Retire the two immediate absence checks after the successor passes, since
+the deltas subsume them. Select `module.networkflow.browser.query_authoring_integrity`.
+No production, routing, profile or timeout change. E-662/S-064 remain open.
+
+#### S-677 / F-662 / E-683 closure — row-query absence bounded by exact deltas
+
+DONE. After the unchanged-query Enter and the unapplied-chip removal, the next
+`applyRows` must leave the row-query request count exactly one above the
+pre-action count. The two immediate absence checks passed beside the deltas in
+successor01 and were then deleted (complete lines). Filter-body and row-result
+predicates are unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s677-format01 | `make format` | 0 | pass2/2,4951 ms; scan15/pass; cleanup11 completed |
+| tcr-s677-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser.query_authoring_integrity` | 0 | pass12/12,86181 ms; row passed/9240 ms; scan99/pass; cleanup23 completed |
+| tcr-s677-qualified01 | same exact selection after retirement | 0 | pass12/12,86440 ms; row passed/9696 ms; scan99/pass; cleanup23 completed |
+
+Graph `fe2df8b5478b32886e1df737e8bf1c5280d5eb439efa88026c693f683e20e49d`; final
+source `12cb5bf50b53119ff64a31c316131189d430361f847f07d45dcaec23e1ab9ca8`.
+E-662/S-064 remain open.
+
+### S-678 / F-663 / E-684 — count same-turn page reads by request, not response
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+browser finding U (`network-flow-pagination.spec.ts`, "Network Analysis preserves
+committed pages and recovers expired-cursor responses across all exploration
+surfaces"). Two synchronous clicks on Next in one turn must admit exactly one
+page read. The test counts `response` events and checks `reads === 1` after page
+2 renders. If a second read were dispatched in the same turn, its response could
+arrive after the check, so the predicate can pass a duplicate. Both clicks run
+before the first response, so a second `request` event would precede the first
+response, which `readPage` already awaits. Counting requests therefore observes
+any duplicate deterministically. Governing: design §8.3 paging controls ("Pending
+activation MUST leave the current grid usable and report progress locally").
+The one-read-per-turn admission is the test's own recorded contract, not quoted
+spec text.
+
+Successor: add a `request`-event counter for the same route beside the response
+counter, and require exactly one request. Retire the response counter after the
+successor passes. Select `module.networkflow.browser_stateful.pagination_recovery`.
+No production, routing, profile or timeout change. E-662/S-064 remain open.
+
+#### S-678 / F-663 / E-684 closure — same-turn duplicate reads observed by request
+
+DONE. The double-click Next case now counts page-read `request` events for the
+surface's route and requires exactly one. The response counter passed beside it
+in successor01 and was then deleted, along with the then-unused `Response` type
+import. Page-content, status and expiry-recovery predicates are unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s678-format01 | `make format` | 0 | pass2/2,4900 ms; scan15/pass; cleanup11 completed |
+| tcr-s678-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser_stateful.pagination_recovery` | 0 | pass12/12,85760 ms; row passed/9630 ms; scan92/pass; cleanup23 completed |
+| tcr-s678-format02 | `make format` after retirement and import cleanup | 0 | pass2/2,4746 ms; scan15/pass; cleanup11 completed |
+| tcr-s678-qualified01 | same exact selection, final source | 0 | pass12/12,86188 ms; row passed/9061 ms; scan92/pass; cleanup23 completed |
+| tcr-s678-types01 | `make lint CHECK=types` (covers S-676–S-678 e2e edits) | 0 | pass2/2,23474 ms; scan15/pass; cleanup11 completed |
+
+Graph `b6110a3e69597711073eacaf3e6f6478563c52ea3794820ab23de6986be215b0`; final
+source `6f6101a0628a451bccaa67d794ed218959f842d3d1fc4d1ad5d6c2bbde040fef`.
+E-662/S-064 remain open.
+
+### S-679 / F-664 / E-685 — contributor drawer group order observed
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+browser finding V (overclaim item 27; `network-flow.spec.ts`, "Network Analysis
+edge selection opens ordered contributor drawer"). Two tables are imported in
+order (`contributors-a`, then `contributors-b`). The drawer is checked only for
+containing each display name, so a reversed or unordered grouping also passes and
+the title's "ordered" is unobserved. Governing: NLSpec §19 ("Group ordering MUST
+follow workspace table order") and NF-REQ-054c (contributor rows group by table
+with the display name as label and preserve server order). Workspace order is
+`created_at ASC` (§13.2).
+
+Successor: require the drawer text to match `/contributors-a[\s\S]*contributors-b/u`,
+so the first-imported table's group precedes the second. Retire the two
+presence-only checks after the successor passes, since the ordered match
+subsumes them. Select
+`module.networkflow.browser.network_flow_selector_covers_selecting_a_graph_e_346ec21519`.
+No production, routing, profile or timeout change. E-662/S-064 remain open.
+
+#### S-679 / F-664 / E-685 closure — drawer groups in workspace order
+
+DONE. The contributor drawer text must show the `contributors-a` group before the
+`contributors-b` group. The two presence-only checks passed beside the ordered
+match and were then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s679-format01 | `make format` | 0 | pass2/2,4673 ms; scan15/pass; cleanup11 completed |
+| tcr-s679-successor01 | `make test-slice OWNER=module.networkflow ROWS=module.networkflow.browser.network_flow_selector_covers_selecting_a_graph_e_346ec21519` | 0 | pass12/12,82395 ms; row passed/7149 ms; scan99/pass; cleanup23 completed |
+| tcr-s679-qualified01 | same exact selection after retirement | 0 | pass12/12,84154 ms; row passed/7309 ms; scan99/pass; cleanup23 completed |
+
+Graph `36626616a2207c5cc59a9ab1346615d0d254d5585e6971e267962cee3400a33b`; final
+source `3a387608e0b0256fef46dc4dd57098fdee22adead22326fdd1d3f80fb193bfc1`. The
+regex literal adds no type surface; the last e2e type check (s678-types01)
+predates only this one-line assertion change. E-662/S-064 remain open.
+
+#### E-662 browser/Vitest candidate verification — final ledger
+
+Confirmed and closed: A (S-657), B (S-662), C (S-658), D (S-663), E (S-664),
+F (S-665), G (S-666), H (S-667), S (S-676), T (S-677), U (S-678), V (S-679).
+Remaining candidates, read directly:
+
+- Request-count negatives without a natural sentinel are retained as bounded
+  observations, with the residual race recorded; no speed claim:
+  - network-flow.spec rename `graphRequests` (end of the table-lifecycle test);
+  - navigation `graphQueries === 0` (S-662 test end);
+  - navigation :337-341 round trip;
+  - the fresh-page reopen-mutation observer (~:2016).
+  Adding a sentinel request would add new steps to each flow; deferred to the
+  web.networkflow helper review, alongside consolidating `settledRequest`.
+- network-flow.spec :704 `uploads === 1` is checked after the dialog closes on
+  success, and a duplicate upload would be dispatched before that sequential
+  success. Retain.
+- Vitest NetworkAnalysisWorkspace :287-296: the `aria-invalid="true"` positive
+  discriminates the validation branch; zero link bodies is complementary. Retain.
+  :674-682: the read-only grid has no commit path for paste; synchronous
+  negative. Retain.
+- portableInvestigation :214-225: a later import cannot rewrite the selection;
+  only create and refresh enqueue materialization (Go ledger 1). Retain.
+- Overclaim class:
+  - Item 24 (NetworkAnalysisWorkspace :205, `getBy…toBeTruthy` redundant) and
+    items 29 and 36 belong to web.networkflow rows and carry to that audit.
+    Roles are covered by S-663's row and DOM ceilings by the measurement rows.
+  - Items 25 (presentation "Verify …") and 28 (network-flow.spec :1648 "Verify
+    claimed …") are verification-matrix titles. Their union coverage is a
+    claim-mapping question for S-064.
+  - Item 30 (saved-graph contributors only `toContainText("Row")`) and item 31
+    (:795-816 final Apply unobserved; :857-870 `.first()` re-visibility) are low
+    and recorded, not repaired.
+  - Item 32 (a11y visibility only): low; retain under the ARIA row's other
+    predicates.
+  - Item 37 (:828-835 first graph query only): the first query is the
+    scope-default query under test. Retain.
+- Measurement boundary (class 9): DOM-count ceilings are the functional
+  validation NF-REQ-054f requires (bounded rendered set, reachability, stable
+  identity), not timing thresholds. The saved-graph DOM-ceiling attachment and
+  part of the navigation "measures bounded exploration" attachment are static
+  literals: descriptive output, not evidence. Row :78's "informative" title
+  fails only on functional containment checks. No timing, benchmark or stability
+  claim is made, and S-667 changed only a precondition.
+
+#### E-662 closure — A-module.networkflow semantic audit
+
+DONE. Discovery: 153 owned rows (Go 120, Vitest 2, Playwright 31); the entry
+drift check of the 121 non-browser rows was clean. All Go candidates (three
+partial ledgers) and all browser/Vitest candidates (browser ledgers) carry a
+recorded disposition.
+
+Corrective slices, each with a recorded entry, successor, retirement and exact
+qualification:
+
+- S-657, S-658, S-662: settled superseded or reload reads.
+- S-659: discriminating route-registration dependency checks.
+- S-660: exact `rowRefResource`.
+- S-661: observed lock waiters.
+- S-663, S-664, S-666: web.networkflow rows, recorded for that owner's reuse.
+- S-665: inspector-only keys.
+- S-667: measurement refresh precondition.
+- S-668: exact deleted-source refresh error.
+- S-669: exact participant keys.
+- S-670: typed upgrade rejection.
+- S-671: isolated Cisco profile rejections.
+- S-672: trigger-specific immutability.
+- S-673: isolated sample cap.
+- S-674: closed-member control.
+- S-675: fixture label.
+- S-676: reload before focus.
+- S-677: row-query deltas.
+- S-678: request-counted pagination.
+- S-679: ordered drawer.
+
+Collaborator union: pending-owner rows (web.networkflow 9, recovery 4,
+reporting 2, platform.config 2, web.application 1) carry their full
+dispositions to those owners. The three web.networkflow rows changed here
+(S-663/S-664/S-666) are recorded for reuse at their qualified source.
+
+Open items for the maintainer or S-064, not repaired here:
+
+1. Projection-fidelity conflict: `network_flow.direction` is default-visible at
+   order 7 in `presentation.v3.json` but absent from NF-REQ-054c's default
+   order (S-665 entry).
+2. `FuzzTimeBucketArithmetic` is unrouted, and its third seed always skips
+   (Go ledger 3).
+3. Verification-matrix title coverage (items 25, 28).
+4. Consolidating the duplicated `settledRequest` helpers and adding sentinels for
+   the bounded request-count negatives (web.networkflow).
+5. Latent vacuity of the authored vector loops.
+
+Evidence and non-claims: semantic-audit completion is distinct from runtime
+qualification. Only the changed rows were requalified, each at its recorded
+source, graph and profile. Unchanged audited rows were not rerun. No
+whole-owner suite, performance, stability, release or Core 05 claim.
+
+### A-module.parties entry — E-686 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.parties DETAIL=rows JSON=1`: 19 rows
+(Go 17, Playwright 2). Per the drift-check decision, the 17 non-browser rows run
+once at entry. Browser rows run only if a correction or diagnosed drift touches
+a browser path. Governing: the parties owner sections of Core 02 and
+`docs/domain.md`, read as the review proceeds. E-686 is reserved for the
+closure.
+
+### S-680 / F-665 / E-687 — parties soft-delete clock follows the deleted row's writes
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Diagnosed
+entry drift (`tcr-e686-drift01`, native exit 2, 11/12 units).
+`module.parties.store.party_create_reuses_exactly_one_active_same_inci_f7f18f1c5c`
+fails at `parties_test.go:365`: "revisions: invalid record snapshot: Records
+envelope: records failed invariant records.envelope_legal". `softDeletePartyFor`
+composes the revisions command service with a fixed clock of 2026-05-18
+12:04:00. The two parties it deletes were created at 12:04:10 (email) and
+12:04:30 (external reference), so each delete precedes its record's own write.
+The checkpoint commit `b5cd96adf` adopted the Records envelope clock-ordering
+rule (S-451/E-452; Core01 REQ-01-651, Core02 REQ-02-265), and this row was not
+requalified against it. Production behavior is correct; the fixture chronology
+is illegal.
+
+Successor: `softDeletePartyFor` takes the deletion instant explicitly. The email
+party is deleted at 12:04:15, after its 12:04:10 creation, before the 12:04:20
+replacement and the 12:04:25 restore attempt. The external-reference party is
+deleted at 12:04:35, between its 12:04:30 creation and the 12:04:40 replacement.
+Every reuse, replacement and restore predicate is unchanged. Nothing is retired;
+the predecessor clock is the defect. Select the failing row, then rerun the 17
+non-browser parties rows once to close the entry drift check. No production,
+routing, profile or timeout change. E-686/S-064 remain open.
+
+#### S-680 / F-665 / E-687 closure — parties delete chronology legal; entry drift closed
+
+DONE. `softDeletePartyFor` takes an explicit `deletedAt`. The two deletions run
+at 12:04:15 and 12:04:35, each after its record's creation and before the
+replacement or restore that depends on it. No assertion changed.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-e686-drift01 | `make test-slice OWNER=module.parties ROWS=<17 non-browser rows>` | 2 | fail product/test_assertion_failure; 11/12 units; the one failing row is diagnosed above; scan91/pass; cleanup31 completed |
+| tcr-s680-format01 | `make format` | 0 | pass2/2,4734 ms; scan18/pass; cleanup11 completed |
+| tcr-s680-qualified01 | `make test-slice OWNER=module.parties ROWS=module.parties.store.party_create_reuses_exactly_one_active_same_inci_f7f18f1c5c` | 0 | pass3/3,9540 ms; row passed/390 ms; scan26/pass; cleanup14 completed |
+| tcr-e686-drift02 | same 17-row selection as drift01 | 0 | pass12/12,17958 ms; 17 rows passed (2 units cache hits on unchanged inputs); scan91/pass; cleanup29 completed |
+
+Graphs `846de16275921f4698a2fa085a3da2b3165cc24e916bf055768d7c8d1c2e20ff` (row)
+and `7ca4cd37df364471e7bee3af0ee43f2e9c9f3609794149d2afcc955ad475ea88` (drift);
+source `cf532ed0873e9a1a2b28a27d0f05443fb71e2160da4f9c4e5cadfe61521a17f9`. The
+parties semantic review follows. E-686/S-064 remain open.
+
+#### E-686 partial ledger 1 — parties collaborator union
+
+There are 21 authored rows outside the family that name `module.parties`:
+
+- **Completed owners (7, reused at their recorded scope):**
+  - entities: browser party assignments, integration assignment writes;
+  - evidence: party-reference concurrency, direct party references;
+  - imports: owner-create registry contract;
+  - incidentbundles: shared upload import, network-flow portability.
+- **Pending owners (14), carrying their full disposition to those audits:**
+  - projections 4: party intent errors, adapter contract, private catalog,
+    party source enumeration;
+  - revisions 3: delete/restore managed and service-free source-adapter
+    assertions, source-owner transition validation;
+  - tasksdecisions 2: direct-reference concurrency and admission;
+  - workbook 2: surface create/query/patch contract, owner mutation
+    direct-reference admission;
+  - web.workbook 3 Vitest: party link controls, recovery, socket order.
+
+A location-only candidate sweep of the 19 owned rows is running; each candidate
+is verified by direct reading before any disposition.
+
+#### E-686 candidate queue — unverified, from the location-only sweep
+
+There are about 50 candidates across 19 rows (27 Go tests in 6 packages, 2
+Playwright specs). None is a finding until read directly. Verification order is
+most suspicious first:
+
+1. **Possible vacuous or tautological checks:**
+   - incidentbundles `routes_helpers_integration_test.go:1438/1478`
+     (`assertImportFailureLeavesState` snapshot keyed by the source incident);
+   - parties `mutation_composition_test.go:91-102` (facade compared to itself);
+   - incidentbundle provider `portability_test.go:323-338` (zero counts after the
+     test's own rollback);
+   - `mutation_hash_test.go:59-72` (NFC equivalence with the same literal on both
+     sides).
+2. **Coverage named but absent:**
+   - `mutation_composition_test.go:21/:127` (Collaboration dependency never
+     dropped);
+   - incidentbundle provider "FailureAtomicity" (:176/:278, no post-failure state
+     check);
+   - `create_shared_test.go:15` (defaults never compared with import);
+   - `mutation_admission_test.go:74-81` ("Clears" result unobserved);
+   - `clock_cutover_integration_test.go:8`;
+   - recovery spec :208 "next authorized page".
+3. **Any-error and multi-defect rejections:**
+   - `mutation_composition_test.go:117`;
+   - `create_shared_test.go:87`;
+   - `mutation_admission_test.go:127` helper and :99-109;
+   - `workbookprojection/contribution_test.go:15`;
+   - `party_refs_test.go:109` (shared `invalid_value`);
+   - recovery spec :401-402 and :119-125.
+4. **Missing positive controls:** mutation_admission :82-83/:97-117;
+   mutation_hash :80-87; rollback provider :36-43; incidentbundles
+   routes_party_portability :79-119; portability :36, :283-322; parties_test
+   :140-148.
+5. **Early or already-true absence checks:** parties_test :433; portability
+   :214-217; authoring spec :235-237/:436, :97 (request count); recovery spec
+   :541, :168-169.
+6. **Status-only and count-only checks:** contribution_test :43;
+   create_shared :25/:114; active_key_claims :152; portability :247;
+   workbookassembly party_capabilities :93-97; parties_test :349; authoring
+   spec :277-283/:474-480; recovery spec :574-579, :127/:374;
+   rowMutations.ts :399.
+7. **Loops that pass on an empty collection:** policy `value_test.go:26-29`
+   (corpus picked by artifact index); authoring spec :137-139, :673-675.
+8. **Fixed clocks:** parties_test and party_refs_test use 2026-05-18 writes
+   against a `time.Now` incident; party_refs patches share 12:03:00.
+9. **Wall-clock polls:** incidentbundles helpers :764/:780, :1494-1510,
+   :1655-1670; e2e recovery.ts :24-25; query.ts :162.
+
+Classes 8 (text never rendered) and 10 (skips): none found.
+
+### S-681 / F-666 / E-688 — composition matrices drop the Collaboration dependency
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+parties finding (queue item 2). `NewMutationContribution` and
+`NewImportContribution` both reject a missing Collaboration publication
+dependency (`mutation_capabilities.go:144`, `import_create.go:46`). The
+dependency drop matrices in `TestMutationContributionRejectsIncompleteDependencies_Unit`
+and `TestImportContributionRejectsIncompleteDependencies_Unit` remove every
+other dependency but never Collaboration. A regression dropping that validation
+would pass, and the titles claim incomplete dependencies are rejected.
+Governing: engineering purpose. The constructors' own validated dependency set
+is the composition contract the titles name; this record cites no external
+clause.
+
+Successor: add `collaboration` drop cases. Mutation nil requires "Collaboration
+publication"; import nil and import typed-nil require "Collaboration
+publication". Nothing is retired. Select
+`module.parties.composition.party_mutation_and_import_composition_exposes_on_8a69574087`.
+No production, routing, profile or timeout change. E-686/S-064 remain open.
+
+#### S-681 / F-666 / E-688 closure — Collaboration dependency drops covered
+
+DONE. The mutation nil, import nil and import typed-nil matrices now each drop
+Collaboration and require "Collaboration publication". Nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s681-format01 | `make format` | 0 | pass2/2,4767 ms; scan18/pass; cleanup11 completed |
+| tcr-s681-qualified01 | `make test-slice OWNER=module.parties ROWS=module.parties.composition.party_mutation_and_import_composition_exposes_on_8a69574087` | 0 | pass1/1,8487 ms; row passed (executed); scan12/pass; cleanup10 completed |
+
+Graph `915b60f059a11bca6bc10d169e8b3712521bc3e465e9670ce431b4e7904d67f8`; source
+`6b7b1dfd64ace0aa5008640623b3a7942096991230c3c55bf7ed8cbd0d104e61`.
+E-686/S-064 remain open.
+
+### S-682 / F-667 / E-689 — replace the facade self-comparison with compile-time role checks
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+parties finding (queue item 1). `TestMutationContributionSharesOneFacade_Unit`
+assigns `facade` to three interface variables (create, patch, conflict) and
+fails if any differs from `facade`. Assignment from the same value makes them
+always equal, so the runtime check is tautological. The test's real content is
+that one constructed `*MutationFacade` satisfies all three consumer roles
+(production assembly `party_capabilities.go:349` builds one instance per
+composition). Disposition: simplify. Keep the construction check, express the
+three roles as compile-time assertions on `*MutationFacade`, and remove the
+runtime comparison. Same row as S-681. No production, routing, profile or
+timeout change. E-686/S-064 remain open.
+
+#### S-682 / F-667 / E-689 closure — facade roles asserted at compile time
+
+DONE. The test keeps the construction success check (non-nil facade, nil
+error). The three consumer roles are package-level compile-time assertions on
+`*MutationFacade`, and the tautological runtime self-comparison was removed.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s682-format01 | `make format` | 0 | pass2/2,5230 ms; scan18/pass; cleanup11 completed |
+| tcr-s682-qualified01 | `make test-slice OWNER=module.parties ROWS=module.parties.composition.party_mutation_and_import_composition_exposes_on_8a69574087` | 0 | pass1/1,8953 ms; row passed (executed, compiled); scan12/pass; cleanup10 completed |
+
+Graph `915b60f059a11bca6bc10d169e8b3712521bc3e465e9670ce431b4e7904d67f8`; source
+`d1a55381847323ca6420bf254ced861e41849ff2c88f203a884d2991d8e3165f`.
+E-686/S-064 remain open.
+
+### S-683 / F-668 / E-690 — exercise the NFC leg of party mutation hash equivalence
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+parties finding (queue item 1). `TestPartyMutationHashNormalizationEquivalence_Unit`
+reports "equivalent NFC/email/line-ending requests hash differently". Both
+compared requests carry the same decomposed `José` display name, so only
+email case and line endings differ and the NFC equivalence is never exercised.
+Governing: the parties text policy. `internal/policy/value.go:131/136`
+normalizes values to NFC, and the request hash covers normalized values; this
+is an engineering purpose with no external clause cited.
+
+Successor: parameterize the display name. The left request keeps the
+decomposed form, and the right uses precomposed `José`. Equal hashes are
+still required, and the following case-variant inequality is unchanged. Select
+the row selecting `TestPartyMutationHashNormalizationEquivalence_Unit`. No
+production, routing, profile or timeout change. E-686/S-064 remain open.
+
+#### S-683 / F-668 / E-690 closure — NFC leg exercised
+
+DONE. Equal hashes are now required for decomposed `José` versus
+precomposed `José`, alongside the email-case and CRLF differences. The
+external-reference case-variant inequality is unchanged. Without NFC
+normalization the pair would hash differently, so the predicate now
+discriminates.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s683-format01 | `make format` | 0 | pass2/2,4812 ms; scan18/pass; cleanup11 completed |
+| tcr-s683-qualified01 | `make test-slice OWNER=module.parties ROWS=module.parties.unit.party_mutation_hash_normalization_equivalence_un_c73a730e10` | 0 | pass1/1,8569 ms; row passed (executed); scan12/pass; cleanup10 completed |
+
+Graph `4dcdbdf041e8b8c2a1c9be40cdb4a2fbff9a3727ca23cf5344da94c63190564f`; source
+`4194abb42dcc463ff0a7e83dd53fa39fc2af0dc2e6782f1a7e6dcca7dcb354d6`.
+E-686/S-064 remain open.
+
+### S-684 / F-669 / E-691 — exact active-key claims after portable apply
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+parties finding (queue item 6). `TestPartyIncidentBundleExactStateClaimsAndFailureAtomicity_Integration`
+claims exact state claims after applying five portable rows, but checks only
+`count(*) = 2` on `party_active_key_claims`. Wrong key kinds, wrong normalized
+values or the wrong owning record would also count two. Only row 0 carries
+claimable keys (`primary_email` "Owner@Example.Test", `external_ref`
+"EXT-Alpha"). Governing: parties active-key claim contract (migration 00009:
+one claim per `(incident, key_kind, normalized_value)`, `party_record_id`, and
+`parties_normalize_active_key_v1`). Core01 §12.3 requires import to preserve
+exported identifiers.
+
+Successor: read `(key_kind, normalized_value, party_record_id)` ordered by
+`key_kind` and require exactly `external_ref` and `primary_email` for record
+…0001, with the values derived from the 00009 normalizer: `EXT-Alpha` after
+trim and NFC, and `owner@example.test` lower-cased. Retire the count after
+the successor passes. The vacuous pre-apply count (`PrepareImport` has no
+database handle) is recorded, not changed. Select
+`module.parties.portability.party_portable_apply_preserves_exact_state_claim_7a428a3abd`.
+No production, routing, profile or timeout change. E-686/S-064 remain open.
+
+#### S-684 / F-669 / E-691 closure — exact claim tuples pinned
+
+DONE. After portable apply the test reads the claims ordered by `key_kind` and
+requires exactly `external_ref`/`EXT-Alpha` and
+`primary_email`/`owner@example.test`, both owned by record …0001, as derived
+from the 00009 normalizer. The count-only check passed beside it in successor01
+and was then deleted (complete lines). The validate-time sentinel failures that
+follow are unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s684-format01 | `make format` (also placed the `reflect` import) | 0 | pass2/2,4724 ms; scan18/pass; cleanup11 completed |
+| tcr-s684-successor01 | `make test-slice OWNER=module.parties ROWS=module.parties.portability.party_portable_apply_preserves_exact_state_claim_7a428a3abd` | 0 | pass3/3,8364 ms; row passed/170 ms; scan29/pass; cleanup14 completed |
+| tcr-s684-format02 | `make format` after retirement | 0 | pass2/2,4798 ms; scan18/pass; cleanup11 completed |
+| tcr-s684-qualified01 | same exact selection, final source | 0 | pass3/3,8352 ms; row passed/170 ms; scan26/pass; cleanup14 completed |
+
+Graph `dbacfa62d9e97314f3e77ad17883365d5513d6f83a750281568d518ff50cf5a3`; final
+source `80ca43151ada0f54783db645958302ea93c5118905ff3167d83f3dd11668a9b2`.
+E-686/S-064 remain open.
+
+### S-685 / F-670 / E-692 — positive control for Party kind patch admission
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+parties finding (queue item 4). `TestPartyMutationFieldBoundariesAndClears_Unit`
+rejects `party.party_kind` patches "Person" and " person " (case and
+surrounding space) but never shows a valid kind admitted. A regression that
+rejected every `party_kind` patch would pass both checks. Every other bounded
+field has an admitted maximum beside its rejected value. Governing: the Party
+kind vocabulary (exact lowercase token; incident-bundle lifecycle rejects
+unadmitted kinds), as already exercised for create and portable rows.
+
+Successor: `assertPartyPatchAdmission(t, "party.party_kind", "person", true)` beside the two
+rejections. Nothing is retired. "Clears" stays as is (retain): the external
+test package cannot observe normalized patch values without new exports, and the
+whitespace-to-null normalization is owned by the policy corpus
+(`internal/policy/value_test.go`). Select
+`module.parties.unit.party_mutation_admission_public_identity_unit_27b3ca8c40`.
+No production, routing, profile or timeout change. E-686/S-064 remain open.
+
+#### S-685 / F-670 / E-692 closure — Party kind patch control present
+
+DONE. `party.party_kind = "person"` must be admitted beside the "Person" and
+" person " rejections, so a blanket kind rejection now fails. Nothing was
+retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s685-format01 | `make format` | 0 | pass2/2,4845 ms; scan18/pass; cleanup11 completed |
+| tcr-s685-qualified01 | `make test-slice OWNER=module.parties ROWS=module.parties.unit.party_mutation_admission_public_identity_unit_27b3ca8c40` | 0 | pass1/1,2478 ms; row passed (executed); scan12/pass; cleanup10 completed |
+
+Graph `d0a1fdf20feaeb581d6ab6c37e6db17f0b7e3832fc2de129818355a331c857c4`; source
+`8a633a68d3b2164548883fc9fe6444862e19989569530c197e2bfdfd7b9f5efa`.
+E-686/S-064 remain open.
+
+#### E-686 candidate verification ledger
+
+Confirmed and closed: S-680 (entry drift: illegal delete chronology), S-681
+(Collaboration dependency drops), S-682 (facade self-comparison → compile-time
+roles), S-683 (NFC hash leg), S-684 (exact claim tuples), S-685 (Party kind
+control). Remaining candidates, read directly:
+
+- incidentbundles `assertImportFailureLeavesState` keyed by the source
+  incident: Core01 §12.3 requires import to preserve the exported
+  `incident_id`, so the target-side snapshot under that ID is exactly what a
+  partial import would populate. Retain.
+- ClaimCollisionRollsBack post-rollback zero counts: these detect writes that
+  escape the supplied transaction (transaction confinement); not a tautology.
+  Retain.
+- FailureAtomicity: the atomicity it shows is validate-time detection of
+  corrupted claims, envelope type and normalization sentinels, pinned by
+  invariant ID. Retain. Its pre-apply count is vacuous by construction
+  (`PrepareImport` has no database handle) and is recorded.
+- Any-error matrices (rowVersion :117, import scalar matrix :87, patch helper
+  :127, contribution :15): single-defect inputs with positive controls present
+  (int64 control; valid base row; admitted maxima; valid source).
+  `RejectsUnknownAndDuplicateMembers` uses one-concept defects with valid
+  shapes admitted elsewhere in the file. Retain.
+- party_refs :109 shared `invalid_value`: foreign, deleted, wrong-type and user
+  targets are deliberately indistinguishable (non-disclosure). Retain.
+- Recovery spec :119-125 and :401-402: the transport shape and codes are checked
+  in the browser; the conflict detail values are pinned by Go
+  `active_key_claims_integration_test.go:113-120`. Retain.
+- DefaultsAreShared: exercises the shared `admitCreateValues` directly; the
+  import path uses the same function. Retain. "Clears": retained, with scope in
+  S-685. `clock_cutover` :8: the absence of owner clock columns is the claim.
+  Retain.
+- Bounded browser negatives with no natural sentinel are retained with the
+  residual recorded, as for Network Flow: authoring :97 request count; recovery
+  :541 and :168-169. Authoring :235-237/:436 (`*_party_id` stays null after a
+  text edit) checks an unwanted side effect after the edit response. Retain.
+- `collectionItemRefs` :673-675: the same helper returns the ref at :651, so the
+  negative is non-vacuous. Retain.
+- Status- and count-only items (contribution :43, create_shared :25/:114,
+  active_key_claims :152, workbookassembly party_capabilities :93-97,
+  parties_test :349, authoring :277-283/:474-480, recovery :574-579,
+  rowMutations :399): low. Each sits beside exact predicates in the same flow or
+  is owned elsewhere. Recorded, not repaired.
+- Fixed clocks: parties_test and party_refs write at 2026-05-18 against a
+  `time.Now` incident. No invariant orders a record against its incident, and
+  equal `updated_at` values are legal. Recorded. The illegal delete chronology
+  was repaired by S-680.
+- Wall-clock polls in the incidentbundles helpers and the e2e support
+  `recovery.ts`/`query.ts`: deadline-bounded polls for an observable condition.
+  Retain.
+- Policy `value_test.go:26-29`: selecting the corpus by artifact index is
+  latent fragility (15 cases today). Recorded.
+- Recovery :208 "next authorized page": "authorized" names server-filtered
+  results, and the body does not vary authority. Wording recorded.
+
+#### E-686 closure — A-module.parties semantic audit
+
+DONE. Discovery: 19 rows (Go 17, Playwright 2). The entry drift check failed one
+row (S-680, repaired), and the rerun covered all 17 non-browser rows
+(`tcr-e686-drift02`). Corrective slices S-680–S-685 were each recorded first and
+qualified at their exact rows; no browser path changed, so no browser row ran.
+Collaborator union: 21 rows, 7 reused from completed owners, 14 carried to
+pending owners (partial ledger 1). Open for S-064: latent corpus-index
+fragility; the bounded browser negatives. Non-claims: semantic-audit completion
+is distinct from runtime qualification. Only changed rows were requalified, and
+unchanged audited rows were not rerun. No performance, stability or release
+claim.
+
+### A-module.projections entry — E-693 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.projections DETAIL=rows JSON=1`: 25
+rows (Go 24, shell 1, no browser rows). All 25 are non-browser and run once at
+entry under the drift-check decision. Governing: Core01 projection
+construction/catalog sections and the projections owner sections of
+`docs/domain.md`, read as the review proceeds. E-693 is reserved for the closure.
+
+#### E-693 partial ledger 1 — collaborator union and candidate queue
+
+Collaborator union: 37 rows outside the family name `module.projections`.
+Completed owners (34, reused at their recorded scope): artifacts 10,
+assessments 10, entities 5, harness.browser 4, indicators 3, evidence 2. Pending
+owner (3, carried): workbook 3.
+
+The location-only sweep of the 25 rows (24 Go, 1 shell) returned about 60
+candidates. None is a finding until read directly. Verification order is most
+suspicious first:
+
+1. **Assertion-free or tautological checks:**
+   - `runtime/telemetry_test.go:5,11` (no assertions);
+   - `boundary_guard_test.go:323` (tests its own allowlist);
+   - `maintenance_test.go:82-91` and `rebuild_failure_matrix_test.go:235-243`
+     (cancellation produced by the fake or the database);
+   - `deletion_characterization_test.go:107` (`record_revisions` 0 == 0);
+   - `descriptor_test.go:143` and `provider_registry_test.go:23` (rebuild-after
+     order equals the alphabetical tie-break);
+   - `catalog_construction_test.go:40` (same source on both sides);
+   - `CompileSurface`-guaranteed mapping checks (query_test :65-80/:109-113,
+     timeline guard :98, query_plans :109/:122);
+   - `rebuild_test.go:395` (an impossible condition).
+2. **Vacuity:** `boundary_guard_test.go` walks with no scanned-file guard and a
+   silently skipped missing root (:38, :211-215); schema loops in query_test
+   :91-113 and the timeline guard :89; a dead `note.full_text` exemption at
+   query_test :102.
+3. **Titles claiming more than the body:** rebuild_test :337/:422 (timeline
+   only); "Deterministic" single runs (:46/:86/:218, provider_registry :47);
+   participation matrix of 2 cells; maintenance "OneCompleteCatalogTransaction"
+   with providers ignoring `tx`; untested validator branches (descriptor,
+   provider registry, engine, catalog nil registry); non-strict manifest
+   decoding.
+4. **Fixed clocks:** rebuild_test :111/:117 (`updated_at` before a `now()`
+   `created_at`); query_store_test command `Now` 2026-07-01 against `now()`
+   seeds; rebuild_test :462.
+5. **Any-error checks and missing controls:** contribution RequiresSource and
+   UnknownViewSchema tests across artifacts, evidence, parties and
+   tasksdecisions; the artifact input variant matrix; store incomplete
+   construction; registry "unresolved surface"; rebuild page limits 0/1001 (no
+   accepted 1000); zero request; storage :194; boundary scanners with no
+   violation fixture; the shell row not running its checker self-test.
+6. **Status-only or count-only checks and synthetic text:** adapters and
+   manifest counts; contribution view and intent counts; providerForView
+   non-nil; query cell values; query_store row counts; queryengine position
+   argument; hand-built Surfaces and forbidden row markers that production never
+   emits; "FROM hosts" exact text.
+
+### S-686 / F-671 / E-694 — observe the projection span's safe vocabulary
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+projections finding (queue item 1). `TestProjectionTelemetrySafeVocabulary`
+starts and finishes a projection span with no SDK installed and asserts
+nothing, so its claimed safe vocabulary is unobserved. Governing: OTel NLSpec §9.3
+(required span families) row "Projection maintenance": `cartulary.workbook.projection` with
+`cartulary.view_schema_id`, `cartulary.operation` and `cartulary.result`;
+projection table name, SQL and row IDs are forbidden.
+`TestMaintenanceRebuildTelemetryIsOneBoundedSpan` already pins the failed path.
+
+Successor: install `telemetrytest.StartCapture` and finish one successful span.
+Require exactly one ended span named `cartulary.workbook.projection`, with
+attributes exactly `{view_schema_id: unknown, operation: rebuild, result:
+success}`. Nothing is retired; the assertion-free body is replaced in place.
+`TestProjectionTelemetryNoSDK` is retained: its claim is that spans are safe with
+no SDK installed (global no-op provider), and installing a capture would change
+that premise. Select `module.projections.telemetry.safe_boundary_8e0e774b19`. No
+production, routing, profile or timeout change. E-693/S-064 remain open.
+
+#### S-686 / F-671 / E-694 closure — projection span vocabulary observed
+
+DONE. Under a span capture, one successful projection span must be named
+`cartulary.workbook.projection` and carry exactly the three permitted attributes
+with `result=success`. With the maintenance test's failed-path span, both
+outcomes are now pinned. `TestProjectionTelemetryNoSDK` is unchanged: it is a
+no-SDK safety smoke test whose claim is the absence of a panic.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s686-format01 | `make format` | 0 | pass2/2,4724 ms; scan18/pass; cleanup11 completed |
+| tcr-s686-qualified01 | `make test-slice OWNER=module.projections ROWS=module.projections.telemetry.safe_boundary_8e0e774b19` | 0 | pass1/1,3586 ms; row passed (executed); scan12/pass; cleanup10 completed |
+
+Graph `c2d78c58ea446af2714df4a26b3760d6bbd8c993cf2ffa04b0533e71bb809962`; source
+`25771bf5d419b1ac69a8a7b81085777555a321000a53676d1f0ba1acf451edbd`.
+E-693/S-064 remain open.
+
+### S-687 / F-672 / E-695 — accepted upper bound for Party projection source pages
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+projections finding (queue item 5).
+`TestPartyProjectionSourceEnumerationIsDeterministicCompleteAndActiveOnly`
+rejects page limits 0 and 1001 and accepts limit 1. The production bound is
+`1..1000` (`parties/internal/providers/projection/source.go:43`), but 1000 is
+never shown accepted, so an off-by-one cap (999) would pass. Governing: the
+projection source contract's declared page bound (engineering purpose; the
+production message names `1..1000`).
+
+Successor: require `ListProjectionInputsTx(..., 1000)` to succeed beside the two
+rejections. Nothing is retired. Select
+`module.projections.source.party_projection_source_enumeration_is_determini_69ccf7df7c`.
+No production, routing, profile or timeout change. E-693/S-064 remain open.
+
+#### S-687 / F-672 / E-695 closure — page bound accepted at its maximum
+
+DONE. A Party projection source page of 1000 must be accepted beside the 0 and
+1001 rejections, which pins both ends of `1..1000`. Nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s687-format01 | `make format` | 0 | pass2/2,4778 ms; scan18/pass; cleanup11 completed |
+| tcr-s687-qualified01 | `make test-slice OWNER=module.projections ROWS=module.projections.source.party_projection_source_enumeration_is_determini_69ccf7df7c` | 0 | pass3/3,8758 ms; row passed/220 ms; scan26/pass; cleanup14 completed |
+
+Graph `93cba08407f610ec238e879e6c9a8473c9e64175bc50a2bc8529d1ddae445280`; source
+`b170a88ec0bb86a555bbcfbc08b97f4370af87ccd42f53bfde43d719b2fd94f5`.
+E-693/S-064 remain open.
+
+#### E-693 candidate verification ledger
+
+Confirmed and closed: S-686 (projection span vocabulary observed) and S-687
+(page bound accepted at 1000). Remaining candidates, read directly:
+
+- `telemetry_test` `NoSDK`: a no-SDK safety smoke test whose claim is no panic
+  under the global no-op provider. Retain.
+- `boundary_guard_test` :323 allowlist self-test: a meta-test of the guard
+  helper's decisions, while the walker enforces the allowlist on real imports.
+  Retain. Walkers (:38, :211-215): a wrong `repoRoot` fails fatally at the
+  projections-root read and the exclusion-inventory load, so a missing optional
+  root cannot make the whole scan vacuous. Retain; a scanned-file minimum is
+  recorded as optional hardening.
+- maintenance :82-91 and rebuild_failure_matrix :235-243 cancellation: these
+  prove the context error propagates (`%w`) and that no provider runs. Retain.
+- descriptor :143 and provider_registry :23 order equal to the alphabetical
+  tie-break: dependency ordering is discriminated by `maintenance_test.go:30`
+  (`first, middle, final` against alphabetical `final, first, middle`). Retain.
+- deletion_characterization :107 `record_revisions` unchanged: detects an
+  unwanted revision write during projection deletion. Retain.
+- rebuild_test :337/:422: "complete catalog" names the full production assembly
+  actually used, and replacement is observed on Timeline. Retain.
+  Participation-matrix size, "Deterministic" single-run wording, the
+  maintenance "one transaction" wording (providers ignore `tx`), and untested
+  validator branches (descriptor empty/duplicate/capability rules,
+  provider-registry implementation/capability mismatches, engine
+  null-byte/comment tokens and empty expressions, catalog nil registry,
+  non-strict manifest decoding) are coverage gaps or wording, recorded for
+  S-064 and the maintainer. Adding them is new coverage, not assertion repair.
+- Any-error contribution and construction tests (artifacts, evidence, parties,
+  tasksdecisions RequiresSource/UnknownViewSchema; store incomplete
+  construction; registry "unresolved surface"; zero request; storage :194):
+  single-defect inputs, or a first-defect precedence pinned elsewhere. Retain;
+  message pinning is optional.
+- `CompileSurface`-guaranteed mapping checks (query_test :65-80/:109-113,
+  timeline guard :98, query_plans :109/:122), catalog_construction :40 (same
+  source on both sides) and rebuild_test :395 (`RowCount < 0`): redundant but
+  harmless restatements of contract facts. Recorded as simplify candidates,
+  not changed.
+- Forbidden row markers (query_test :321-334): regression guards for fields that
+  production must never emit. Retain. Hand-built Surfaces (:279-296,
+  :344-352) exercise the plan engine below `CompileSurface`, which is
+  intended. The exact-text "FROM hosts"/"FROM identities" negatives miss
+  JOIN-based access and are recorded as weak. The dead `note.full_text`
+  exemption is recorded.
+- Status- and count-only items (adapter and manifest counts, contribution view
+  and intent counts, `providerForView` non-nil, query cell value presence,
+  query_store row counts, queryengine position argument): low, each beside
+  exact plan or contract tests. Recorded.
+- Fixed clocks (rebuild_test :111/:117 `updated_at` before a `now()`
+  `created_at`; query_store_test command `Now` 2026-07-01 against `now()`
+  seeds; rebuild_test :462): envelope-illegal seeds that no invariant on these
+  paths checks. This is a latent S-655-class risk, recorded for S-064.
+- Shell row: the projection SQL checker's self-test
+  (`tools/harness/static-analysis/tests/test-projection-sql.mjs`) is not
+  selected, so this row never shows the checker failing. Recorded for the
+  harness/static-analysis routing review in S-064.
+
+#### E-693 closure — A-module.projections semantic audit
+
+DONE. Discovery: 25 rows (Go 24, shell 1); the entry drift run was clean
+(`tcr-e693-drift01`). Corrective slices S-686 and S-687 were each recorded
+first and qualified at their exact rows. Collaborator union: 37 rows (34 reused,
+3 carried to module.workbook). Open for S-064: the recorded coverage gaps, the
+latent fixed-clock seeds and the checker self-test routing. Non-claims: only
+changed rows were requalified; no performance, stability or release claim.
+
+### A-module.records entry — E-696 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.records DETAIL=rows JSON=1`: 9 rows
+(Go 8, shell 1, no browser rows). All 9 run once at entry under the drift-check
+decision. Governing: Core01 record-envelope sections (REQ-01-651 and the
+envelope legality rules adopted by S-451/E-452) and Core02 REQ-02-265. E-696 is
+reserved for the closure.
+
+#### E-696 partial ledger 1 — collaborator union and candidate queue
+
+Collaborator union: 60 rows outside the family name `module.records`.
+Completed owners (41, reused at their recorded scope): assessments 12,
+evidence 10, artifacts 8, indicators 5, parties 2, projections 2, entities 1,
+incidentbundles 1. Pending owners (19, carried): revisions 9, timeline 8,
+tasksdecisions 1, workbook 1.
+
+The location-only sweep returned about 40 candidates (8 Go rows plus the
+`architecture.boundary` shell row, which runs the backend module-boundary
+checker). Verification order is most suspicious first:
+
+1. **Tautological or vacuous checks:**
+   - reportingprovider PR:85-87/91-92 (absent keys the provider never emits);
+   - subtypepresence CT:59/CT:128 (tests a test-local validator returning its
+     own sentinel);
+   - CT:179 (cross-incident compared with an empty inventory);
+   - destructive lock DL:54-76 (NOWAIT conflict only; FOR UPDATE strength and
+     the holder's second lock unobserved);
+   - ES:65-87/:108 (lock calls never observed from another session).
+2. **Any-error and multi-defect checks:**
+   - RT:50/89 (`ErrEnvelopeNotFound` available);
+   - SP:280/324 (invariant IDs available);
+   - SP:468/472 (strict-decoder cases also missing members);
+   - CT:35/36 (also drop coverage);
+   - SP:45 (shared sentinel).
+3. **Missing controls:** DL:66-79 release-and-retry; SP:24-38/799-814 single
+   valid row; SP:40-48 valid catalog; SP:494-531 mirror control; PR:49
+   foreign-incident filter.
+4. **Status and count checks:** SP:94/98/205-222/162; ES:112/125/141/156/171;
+   PR:88-93 timestamps and actors.
+5. **Clock ordering:** records written at 2026-07-29 under incidents created at
+   `now()` (DL, RT, ES, SP, PR fixtures).
+6. **Untested validator branches:** about 15 PORT branches, snapshot nil IDs,
+   adapter bundle version, catalog `ValidateTx`/`ValidateContract`, inventory
+   nil visitor, lock=true loads, deleted-row export.
+7. **Shell checker:** forbidden-import rules pass silently on unmatched
+   `scan_paths`; `records-current-envelope-access` has no `lock_allowed_paths`.
+
+### S-688 / F-673 / E-697 — exact Records envelope field-fact payload
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+records finding (queue item 1). `TestReportingEnvelopeFactsContract_Integration`
+checks the field fact value for an absent `incident_id`, then for `deleted_at`
+and `deleted_by_user_id` being nil. The provider's `jsonb_build_object`
+(`reportingprovider/provider.go:16-24`) never emits the deletion keys, so a
+missing key reads as nil and those two checks cannot fail. Meanwhile the
+emitted `created_by_user_id`, `created_at`, `updated_by_user_id` and
+`updated_at`, whose microsecond `now` fixture the test sets up, are never
+asserted. Governing: engineering purpose. The provider's declared
+derived-analytic projection is the contract: exactly seven envelope members, no
+incident binding and no deletion state, since only non-deleted rows are
+selected.
+
+Successor: require the sorted key set to equal exactly the seven emitted keys,
+both actor IDs to equal the fixture actor, both timestamps to parse (RFC 3339)
+equal to the fixture `now`, and the existing `record_id`, `record_type` and
+`row_version` values. Retire the `incident_id` absence check and the two
+deletion-nil checks after the successor passes; the exact key set subsumes all
+three. Select `module.records.reporting.envelope_facts`. No production, routing,
+profile or timeout change. E-696/S-064 remain open.
+
+#### S-688 / F-673 / E-697 closure — envelope fact payload pinned exactly
+
+DONE. The active record's field fact value must have exactly the seven emitted
+keys, the fixture actor in both actor fields, both timestamps equal to the
+fixture's microsecond `now`, and the existing identity values. The
+`incident_id` absence and the two deletion-nil checks passed beside the
+successor in successor01 and were then deleted (complete lines); the exact key
+set subsumes them.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s688-format01 | `make format` (also placed the `slices` import) | 0 | pass2/2,4788 ms; scan18/pass; cleanup11 completed |
+| tcr-s688-successor01 | `make test-slice OWNER=module.records ROWS=module.records.reporting.envelope_facts` | 0 | pass3/3,8401 ms; row passed/130 ms; scan29/pass; cleanup14 completed |
+| tcr-s688-format02 | `make format` after retirement | 0 | pass2/2,4836 ms; scan18/pass; cleanup11 completed |
+| tcr-s688-qualified01 | same exact selection, final source | 0 | pass3/3,8297 ms; row passed/130 ms; scan26/pass; cleanup14 completed |
+
+Graph `2b9b8e4c0c7ee795215ffcfa772d245375aa8d568246acd0a6b42b5a061b49ca`; final
+source `749f22ec1e6e2903f592a737db7125fcedf933f9c96dab15c4c4a1b6dcf04427`.
+E-696/S-064 remain open.
+
+### S-689 / F-674 / E-698 — typed not-found for missing route targets
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+records finding (queue item 2). `TestRouteTargetResolverContract_Integration`
+requires `Resolve` and `ResolveTx` on an unknown record ID to fail, and accepts
+any error. Both delegate to `Store.LoadEnvelope`/`LoadEnvelopeTx`, which return
+the Records not-found sentinel (`store.go:146/161`). The envelope-store and
+destructive-lock tests already require
+`errors.Is(err, recordenvelope.ErrEnvelopeNotFound)` for the same lookup. A
+query, scan or transaction failure would pass this test as "missing".
+Governing: the Records envelope read contract (not-found is a distinguished
+outcome that route admission maps to hidden-resource behavior).
+
+Successor: require `errors.Is(err, recordenvelope.ErrEnvelopeNotFound)` for both
+calls. Retire the two any-error checks after the successor passes. Select
+`module.records.envelope.route_target`. No production, routing, profile or
+timeout change. E-696/S-064 remain open.
+
+#### S-689 / F-674 / E-698 closure — missing route targets typed
+
+DONE. `Resolve` and `ResolveTx` on an unknown record must return
+`enveloperead.ErrEnvelopeNotFound`. The two any-error checks passed beside the
+successors in successor01 and were then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s689-format01 | `make format` (also placed imports) | 0 | pass2/2,4864 ms; scan18/pass; cleanup11 completed |
+| tcr-s689-successor01 | `make test-slice OWNER=module.records ROWS=module.records.envelope.route_target` | 0 | pass3/3,8552 ms; row passed/140 ms; scan26/pass; cleanup14 completed |
+| tcr-s689-qualified01 | same exact selection after retirement | 0 | pass3/3,8616 ms; row passed/130 ms; scan29/pass; cleanup14 completed |
+
+Graph `f20b8cd879acf0bc2ba483511c5cb108e3cf5bc7624c5f6e2ae11dadbf60667d`; final
+source `d062c57aeb665331974274d257c2e5f5bd6a837546e900640d2588a67996203b`.
+E-696/S-064 remain open.
+
+### S-690 / F-675 / E-699 — observe destructive-lock strength and full holder coverage
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+records finding (queue item 1). The destructive-lock integration test shows
+that a NOWAIT contender fails on `lowerRecordID` while the holder keeps both IDs.
+A NOWAIT-versus-NOWAIT conflict would also occur if production took only
+`FOR NO KEY UPDATE`, so the required lock strength is unobserved. The contender
+stops at the lower ID, so the holder's lock on `higherRecordID` is never seen.
+Governing: Core 04 §9.11 AC-512 ("uses caller-owned `FOR UPDATE NOWAIT` …
+distinguishes missing from SQLSTATE `55P03` contention").
+
+Successor: after the contender rolls back, a second session probes each of
+`lowerRecordID` and `higherRecordID` with `SELECT … FOR KEY SHARE NOWAIT`.
+Each probe must fail with SQLSTATE `55P03`. Only `FOR UPDATE` conflicts with
+`FOR KEY SHARE`, so this pins the strength and shows both rows held. Nothing is
+retired. Deduplication stays unobservable through this API and is recorded.
+Select `module.records.envelope.destructive_lock`. No production, routing,
+profile or timeout change. E-696/S-064 remain open.
+
+#### S-690 / F-675 / E-699 closure — FOR UPDATE strength observed
+
+DONE. While the holder keeps both destructive locks, a second session's
+`FOR KEY SHARE NOWAIT` on each record must fail with SQLSTATE `55P03`. That
+fails under `FOR NO KEY UPDATE` or any missed record. Nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s690-format01 | `make format` (also placed the `pgconn` import) | 0 | pass2/2,4989 ms; scan18/pass; cleanup11 completed |
+| tcr-s690-qualified01 | `make test-slice OWNER=module.records ROWS=module.records.envelope.destructive_lock` | 0 | pass3/3,8674 ms; row passed/200 ms; scan29/pass; cleanup14 completed |
+
+Graph `2cbbdbbf27ae3ba3d86d5ceac88e26a3911446d30f494ff7bd5d1f6f921cf98d`; source
+`152edee7bd995359fbb0eb5cb05f0f00416b408a87ae910214f6a772b78e62e5`.
+
+#### E-696 candidate verification ledger
+
+Confirmed and closed: S-688 (exact envelope fact payload), S-689 (typed
+missing route targets), S-690 (lock strength and holder coverage). Remaining
+candidates, read directly:
+
+- CT:59/:128 local `validateBindings`: it drives production `Inventory.Add` and
+  `Summary.Equal`, and a broken equality fails every case. Retain. Production
+  `Catalog.ValidateTx` wiring (catalog.go:122/128) is a recorded coverage gap.
+  CT:179 (cross-incident against an empty inventory) and CT:35/36 (defects that
+  also drop coverage) are recorded as weak isolation.
+- SP:280/324 snapshot and historical matrices: single-field mutations with
+  positive controls (complete, SQL clock spelling, decoded number, complete
+  deletion). Retain; invariant-ID pinning is optional. SP:468/472
+  strict-decoder cases, SP:45 shared sentinel and SP:792-796 (fixed `Error()`
+  text guards against a future disclosure regression): retain, recorded.
+- ES:65-87/:108 single-transaction lock calls and SL:80-89 uncontended waiting
+  load: recorded. The contention contract is now pinned by S-690 and SL:71.
+- Status and count items (SP:94/98/162/205-222, ES:112/125/141/156/171): low,
+  each beside exact envelope checks in the same file. Recorded.
+- Clock ordering: records written at fixed 2026-07-29 clocks under incidents
+  created at `now()`. No invariant orders a record against its incident, and
+  within-row ordering is legal everywhere (the sweep confirmed). Recorded.
+- Untested PORT branches (about 15), snapshot nil IDs, adapter bundle version,
+  inventory nil visitor, lock=true loads and deleted-row export: coverage gaps
+  recorded for S-064 and the maintainer.
+- Shell checker: forbidden-import rules pass silently on unmatched
+  `scan_paths`, and `records-current-envelope-access` declares no
+  `lock_allowed_paths`. Recorded for the harness/static-analysis review in
+  S-064.
+
+#### E-696 closure — A-module.records semantic audit
+
+DONE. Discovery: 9 rows (Go 8, shell 1); the entry drift run was clean
+(`tcr-e696-drift01`). Corrective slices S-688–S-690 were each recorded first
+and qualified at their exact rows. Collaborator union: 60 rows (41 reused, 19
+carried to revisions, timeline, tasksdecisions and workbook). Non-claims: only
+changed rows were requalified; no performance, stability or release claim.
+
+### A-module.recovery entry — E-700 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.recovery DETAIL=rows JSON=1`: 50 rows
+(Go 47, Playwright 3). The 47 non-browser rows run once at entry under the
+drift-check decision. Browser rows run only if a correction or diagnosed drift
+touches a browser path. Governing: Core 04 backup, restore and recovery sections
+and the recovery owner sections of `docs/domain.md`, read as the review
+proceeds. E-700 is reserved for the closure.
+
+#### E-700 partial ledger 1 — collaborator union and candidate queue
+
+Collaborator union: 44 rows outside the family name `module.recovery`. Completed
+owners (29, reused at their recorded scope): graphprojection 4, evidence 3,
+extensions 3, harness.browser 2, harness.release 2, indicators 2, links 2,
+networkflow 2, projections 2, artifacts 1, database_migrations 1, entities 1,
+harness.generated_artifacts 1, incidentbundles 1, incidents 1, parties 1. The
+rest (app.server 6, app.operator 3, reporting 3, platform.audit 2,
+platform.cryptography 1) carry to those owners' audits.
+
+The location-only sweep returned about 44 candidates. Verification order:
+
+1. **Wrong control or no-op:**
+   - vnext_graph_restore_artifacts :242 ("current" counterpart may itself be
+     retired);
+   - generation_test :241-246 (`TrimSuffix("v4")` is a no-op on v9);
+   - operator `requireOperatorRestoreTargetUnmutated` counts
+     (:496/:525/:698/:843; sources hold none);
+   - due_batch :49/:71 (a 25 ms sleep cannot detect a shared deadline);
+   - target_control_process :45-104 (no observed lock waiter);
+   - vnext_codec :66 (a guard that cannot fire);
+   - backup_metadata_store :57-59.
+2. **Any-error and multi-defect checks:**
+   - target_admission :93-94/:257;
+   - binding_validation :61-62;
+   - restore_owner :96;
+   - target_restore_admission :157/:257 (`ErrTargetServingLeaseLost`);
+   - `ErrVNextBackup`-only checks (extension contract :257, postgres integrity
+     :128/:153);
+   - reset_metadata :118; structural_completion :56; runtime_lifetime :50/:73;
+     restore_verification_artifact :109; operator :835 reason code;
+     backup_metadata :441/:603; reference_attack :116;
+   - state_catalog :124/:137 and recoverystate catalog :50;
+   - storage :109.
+3. **Missing controls:** extension contract :236-251 (re-signed control);
+   object_store artifacts :69; backup_metadata_store :482-499/:534;
+   testsupport :58.
+4. **Absence or already-true checks:** structural_restore :30-33;
+   restored_networkflow_claim :121-124; restore.spec :275;
+   target_restore_admission :123; evidence_inventory :242;
+   reference_attack :134.
+5. **Titles:** restore_test "TieBreakers"; "Atomic" titles;
+   backup_metadata_store :503; generation :149; types "Closed"; verification
+   "Lexicographic"; catalog "Every"; portable plaintext; target_admission :157;
+   streaming "V2".
+6. **Status and count checks; fixed clocks; gated branches:** as listed in the
+   sweep.
+
+### S-691 / F-676 / E-701 — retired Graph restore schemas paired with the current counterpart
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+recovery finding (queue item 1). `retiredGraphRestoreSchemaPairs` claims to
+"vary each retired identity independently while keeping its counterpart
+current". It hard-codes binding `v7` as the counterpart for registry v2–v4 and
+registry `v5` for binding v2–v6. The current generation is registry
+`graph_projection_restore_source_registry.v6` and binding
+`graph_projection_restore_implementation_binding.v9`, so every pair carries two
+retired identities. A validator that ignored either schema ID would still reject
+every pair, so neither check is observed independently. The literals went stale
+when the versions advanced. Governing: the recovery generation registry contract (only the exact current
+generation's artifact schemas are admitted; retired generations are rejected
+before artifact reads), as applied by
+`TestVNextGraphRestoreArtifactsRejectRetiredBeforeArtifactRead_Unit` and
+`TestVNextRestoreRejectsRetiredGraphBindingsBeforeTargetMutation_Unit`.
+
+Successor: derive the current registry and binding versions from
+`contractrecovery.RecoveryGenerations[0]`. Pair each retired registry v2..current−1
+with the current binding, and each retired binding v2..current−1 with the
+current registry. That adds binding v7/v8 and registry v5 as single-defect
+cases, and a malformed current ID fails the test. The stale literal list is
+replaced in place; both tests' predicates are unchanged. Select
+`module.recovery.unit.vnext_parallel_capture_restore_codecs_8d6a20d34c`. No
+production, routing, profile or timeout change. E-700/S-064 remain open.
+
+#### S-691 / F-676 / E-701 closure — single-defect retired pairs
+
+DONE. The retired-pair generator now derives the current registry (v6) and
+binding (v9) versions from the projected current generation. Each retired
+identity is paired with the current counterpart: registry v2–v5 with binding
+v9, and binding v2–v8 with registry v6. Both tests reject every pair before any
+artifact read or target mutation. The stale literal list was replaced in place.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s691-format01 | `make format` (also placed imports) | 0 | pass2/2,4823 ms; scan18/pass; cleanup11 completed |
+| tcr-s691-qualified01 | `make test-slice OWNER=module.recovery ROWS=module.recovery.unit.vnext_parallel_capture_restore_codecs_8d6a20d34c` | 0 | pass1/1,20296 ms; row passed/2460 ms; scan15/pass; cleanup10 completed |
+
+Graph `66d15bf95ade46029abb3fbb0e8e64a4e90c745803ca15b2ba14eb1fe4ec9725`; source
+`728c3450d1dc17a7eca00799eee4ca5b20e1e0c10be0a08a9936a23b907d0805`.
+E-700/S-064 remain open.
+
+### S-692 / F-677 / E-702 — wrong Graph binding schema uses the previous real version
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+recovery finding (queue item 1).
+`TestRecoveryGenerationRegistryRejectsMalformedAndNonCurrentEntries_Unit` case
+"wrong Graph binding schema" builds the ID with `TrimSuffix(current, "v4") +
+"v3"`. Current is `…implementation_binding.v9`, so the trim is a no-op and the
+case submits the malformed `…v9v3`. A registry check that validated only the
+ID's shape would reject that while still admitting the real previous version
+`…v8`, so the non-current rejection the title names is not observed. Governing:
+the recovery generation registry contract (exactly one current generation;
+non-current binding schemas reject), as in S-691.
+
+Successor: derive the previous version (current − 1) with S-691's
+`graphRestoreSchemaVersion` and require the registry to reject it. The predicate
+is unchanged; the no-op construction is replaced in place. Same row as S-691. No
+production, routing, profile or timeout change. E-700/S-064 remain open.
+
+#### S-692 / F-677 / E-702 closure — previous binding version rejected
+
+DONE. The case now submits the real previous binding schema (`…binding.v8`,
+derived as current − 1), and the registry must reject it. The no-op
+`TrimSuffix` construction was replaced in place.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s692-format01 | `make format` | 0 | pass2/2,4717 ms; scan18/pass; cleanup11 completed |
+| tcr-s692-qualified01 | `make test-slice OWNER=module.recovery ROWS=module.recovery.unit.vnext_parallel_capture_restore_codecs_8d6a20d34c` | 0 | pass1/1,17430 ms; row passed/2760 ms; scan15/pass; cleanup10 completed |
+
+Graph `66d15bf95ade46029abb3fbb0e8e64a4e90c745803ca15b2ba14eb1fe4ec9725`; source
+`45537f36b46e4006802c64a01fce724f62b38afd1af826489241781dc3b61fe0`.
+E-700/S-064 remain open.
+
+### S-693 / F-678 / E-703 — make independent attempt deadlines discriminating
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+recovery finding (queue item 1).
+`TestExecuteDueVerificationBatchUsesIndependentAttemptsAndReturnsFirstFailure`
+gives a 100 ms per-attempt budget, sleeps 25 ms in the first attempt, and
+requires each attempt to see at least 70 ms remaining. If production shared one
+100 ms deadline across the batch, the second attempt would still see about
+75 ms and pass, so the claimed independent allocation is unobserved. Governing:
+the due-verification batch contract (each selected backup gets its own bounded
+attempt) as the title and failure message state.
+
+Successor: sleep 60 ms in the first attempt (inside its own 100 ms budget). A
+shared deadline would then leave the second attempt at most about 40 ms (below
+70), while independent allocation still gives about 100 ms. That is roughly 30 ms
+of margin each way, and no new timing threshold. The 25 ms value is replaced in
+place. Wall-clock dependence is inherent to deadline semantics and is recorded;
+no speed claim. Select
+`module.recovery.unit.due_verification_batches_use_independent_attempt_94e1273d9c`.
+No production, routing, profile or timeout change. E-700/S-064 remain open.
+
+#### S-693 / F-678 / E-703 closure — shared deadline would now fail
+
+DONE. The first attempt sleeps 60 ms, so a batch-shared 100 ms deadline would
+leave the second attempt about 40 ms or less and fail the unchanged ≥70 ms
+check. Independent allocation passes. The 25 ms value was replaced in place.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s693-format01 | `make format` | 0 | pass2/2,4723 ms; scan18/pass; cleanup11 completed |
+| tcr-s693-qualified01 | `make test-slice OWNER=module.recovery ROWS=module.recovery.unit.due_verification_batches_use_independent_attempt_94e1273d9c` | 0 | pass1/1,1923 ms; row passed/70 ms; scan12/pass; cleanup10 completed |
+
+Graph `8778af71b47c46b9476ae30a5455552a0be3518560670f32d33e344398961e5e`; source
+`7e6b514a0d31402e7f00d6d98131f0f0dcac735f464a07c42edfb9288c6fd5a3`. No speed
+claim. E-700/S-064 remain open.
+
+### S-694 / F-679 / E-704 — operator target-unmutated check counts seeded users
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+recovery finding (queue item 1). `requireOperatorRestoreTargetUnmutated` proves
+that a rejected restore or restore-verification left the target untouched by
+counting target `incidents + records + object_blobs`. The sources at the
+:496/:525 (`TestCanonicalOperatorRestoreLatest_Process`) and :698
+(`TestCanonicalOperatorRestoreVerifyDue_Process`) call sites seed users but no
+incidents, records or blobs. A restore that wrongly proceeded would leave those
+counts at zero, so the check cannot fail there. The :618 and :843 sources do
+seed incidents. Governing: Core 04 restore-target safety (refused or unsafe
+restores perform no target mutation), as named by the helper's failure message.
+
+Successor: also count target `users`. Every source seeds at least one operator
+user and the targets begin empty, so any restored payload becomes visible at all
+five call sites. If a target legitimately holds users at a call site, that is
+investigated before any change. Nothing is retired. Select
+`module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9`
+and `module.recovery.process.due_verification_continues_after_a_determinate_f_2af5cf65e1`.
+No production, routing, profile or timeout change. E-700/S-064 remain open.
+
+#### S-694 / F-679 / E-704 closure — unmutated-target check discriminating
+
+DONE. The helper now also counts target `users`. All five call sites still see
+zero, so the targets start empty and are untouched. Any restored payload,
+including the user-only sources at :496/:525/:698, would now fail it. Nothing
+was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s694-format01 | `make format` | 0 | pass2/2,4756 ms; scan18/pass; cleanup11 completed |
+| tcr-s694-qualified01 | `make test-slice OWNER=module.recovery ROWS=module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9,module.recovery.process.due_verification_continues_after_a_determinate_f_2af5cf65e1` | 0 | pass7/7,46415 ms; rows passed/21380 ms and /6080 ms; scan48/pass; cleanup18 completed |
+
+Graph `75f1911f34c1aadddc108b39d1865ee4a677077e66174b7b95913d1451b8622b`; source
+`aef3d821c4d924fdd6cc7b9a80ce48de84959e219359685600586ed4589154c5`.
+E-700/S-064 remain open.
+
+#### E-700 candidate verification ledger
+
+Correction to partial ledger 1: app.server and app.operator are completed owners
+(E-068, E-059), so 38 collaborator rows are reused. reporting 3, platform.audit 2
+and platform.cryptography 1 carry to those audits.
+
+Confirmed and closed: S-691 (retired Graph restore pairs with a current
+counterpart), S-692 (previous binding version), S-693 (discriminating
+independent deadlines), S-694 (unmutated-target users count). Remaining
+candidates, read directly or dispositioned from the sweep's anchors:
+
+- target_restore_admission :157 lease loss: the test observes the admission
+  context cancel, then requires the runner to refuse. `ErrTargetServingLeaseLost`
+  is an application-layer mapping (`service.go:1275`), not the runner's error.
+  Retain, fail-closed. :257 injected reset failure: retain; error identity
+  recorded as optional.
+- Any-error and multi-defect checks (target_admission :93-94/:257,
+  binding_validation :61-62, restore_owner :96, `ErrVNextBackup`-only checks,
+  reset_metadata :118, structural_completion :56, runtime_lifetime :50/:73,
+  restore_verification_artifact :109, backup_metadata :441/:603,
+  reference_attack :116, state and recoverystate catalogs, storage :109,
+  operator :835 reason code): recorded. Most are fail-closed claims over
+  corruption or retired inputs; pinning specific sentinels is optional
+  hardening, left for S-064 or the maintainer. None hides a confirmed wrong
+  outcome.
+- Missing controls (extension contract re-signed control :236-251, object-store
+  duplicate key :69, backup_metadata_store :482-499/:534, testsupport :58):
+  recorded.
+- Absence checks: structural_restore :30-33 (no Graph source state);
+  restored_networkflow_claim :121-124 (count right after readiness);
+  restore.spec :275 (refresh list right after visibility);
+  target_restore_admission :123; evidence_inventory :242;
+  reference_attack :134. These are bounded or setup-guaranteed observations,
+  recorded; S-694 repaired the strongest instance.
+- target_control_process :45-104: no `pg_blocking_pids` waiter observation for
+  advisory lock 784193. Recorded as the S-661 class, open for S-064.
+- Titles and coverage: restore_test "TieBreakers" (created_at tie-break
+  untested), "Atomic" titles, generation :149, types "Closed", verification
+  "Lexicographic", catalog "Every", portable plaintext, target_admission :157
+  null generation, streaming "V2" naming. Recorded.
+- Status and count items, fixed clocks (consistency points before seeded rows;
+  2026-05-22 blobs before a `now()` incident) and gated branches (nil pack,
+  missing historical pack): recorded; no invariant violated in these paths.
+- vnext_codec :66 (an unreachable guard) and backup_metadata_store :57-59 (floor
+  guaranteed by input): harmless; recorded.
+
+#### E-700 closure — A-module.recovery semantic audit
+
+DONE. Discovery: 50 rows (Go 47, Playwright 3); the entry drift run was clean
+(`tcr-e700-drift01`, 47 rows). Corrective slices S-691–S-694 were each recorded
+first and qualified at their exact rows; no browser path changed. Open for
+S-064: the operator advisory-lock waiter observation, optional sentinel pinning,
+and the recorded coverage and title gaps. Non-claims: only changed rows were
+requalified; no performance, stability or release claim.
+
+### A-module.reference_data entry — E-705 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.reference_data DETAIL=rows JSON=1`:
+102 rows (Go 90, Vitest 6, Playwright 6). The 96 non-browser rows run once at
+entry under the drift-check decision, in two batches because the ROWS argument
+is limited to 4,096 characters. Browser rows run only if a correction or
+diagnosed drift touches a browser path. Governing: the Reference Pack NLSpec and
+the Core sections it imports, read as the review proceeds. E-705 is reserved for
+the closure.
+
+### S-695 / F-680 / E-706 — Reference Pack version fixture uses a legal `source_as_of` timestamp
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Diagnosed
+entry drift (`tcr-e705-drift01`, native exit 2, 10/11 units; batch 2
+`tcr-e705-drift02` passed 48 rows). Row
+`module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79`
+fails "ReferencePackAdminPanel exposes exact verified source digests and
+dependencies in version details": "Version details" is never found. The DOM at
+failure shows "Reference packs unavailable" / "The server response could not be
+validated." The case overrides `source_as_of: "2026-10-01"`, but the authored
+contract (`ReferencePackVersionResource.source_as_of`, `format: date-time`) and
+Reference Pack NLSpec §8.2 ("timestamp or null") require a timestamp. The
+generated decoder correctly rejects the list, so production behavior is correct
+and the fixture is illegal. This is not timing: a deterministic validation
+error state is rendered.
+
+Successor: override `source_as_of: "2026-10-01T00:00:00Z"` and expect that exact
+rendered text (`ReferencePackAdminPanel.tsx:825` renders the value verbatim).
+Every other predicate is unchanged; nothing is retired. Select the failing row,
+then rerun drift batch 1 once to close the entry drift check. No production,
+contract, routing, profile or timeout change. E-705/S-064 remain open.
+
+#### S-695 / F-680 / E-706 closure — legal timestamp; entry drift closed
+
+DONE. The version-details case overrides `source_as_of` with
+`2026-10-01T00:00:00Z` and expects that verbatim text. The panel decodes the
+list and renders the details, and every digest, dependency and non-disclosure
+predicate passes unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-e705-drift01 | `make test-slice OWNER=module.reference_data ROWS=<batch 1, 48 rows>` | 2 | fail product/test_assertion_failure; 10/11 units; the one failing row is diagnosed above; scan161/pass; cleanup28 completed |
+| tcr-e705-drift02 | `make test-slice OWNER=module.reference_data ROWS=<batch 2, 48 rows>` | 0 | pass19/19; 48 rows passed; scan123/pass; cleanup28 completed |
+| tcr-s695-format01 | `make format` | 0 | pass2/2,4759 ms; scan15/pass; cleanup11 completed |
+| tcr-s695-qualified01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79` | 0 | pass2/2,5392 ms; row passed/739 ms; scan21/pass; cleanup11 completed |
+| tcr-e705-drift03 | same batch-1 selection as drift01 | 0 | pass11/11; 48 rows passed (one unit cache hit); scan161/pass; cleanup27 completed |
+
+Source `f0dc78655da3fb6207274e8d02e3abd20d9bb7bb4baab8e03faeb6e430694715`; row
+graph `32bf419c0d3a83a4c2d5d49108939e7db361cd330090ff4c0537b099cb87d424`.
+All 96 non-browser rows now pass at entry. E-705/S-064 remain open.
+
+#### E-705 partial ledger 1 — collaborator union and candidate queue
+
+Collaborator union: 29 rows outside the family name `module.reference_data`.
+Completed owners (19, reused at their recorded scope): incidentbundles 7,
+app.server 3, harness.command_surface 2, harness.release 2, app.operator 2,
+recovery 2, app.migrate 1. Pending owners (10, carried): reporting 7,
+web.design 2, platform.openapi 1.
+
+The location-only sweep (all Vitest and Playwright tests; Go tests with the most
+rejection and async checks; producer and packformat tests sampled) returned
+about 45 candidates. Verification order is most suspicious first:
+
+1. **Vacuous absence on never-rendered labels:** ReferencePackAdminPanel.test
+   :167/:193 exact "Remove" vs the real "Remove this version"; :506 "Filter
+   loaded packs" (absent from src); :128 `queryByRole("unknown")`; :234
+   `querySelector("source-version")`.
+2. **Stale-response and already-true checks:**
+   - panel test :611-627, :702-716, :761-774, :381-387/:405-410;
+   - controller :135-137;
+   - reference-pack.spec :511-514, :530-534, :568-572, :249-253.
+3. **Stale fixture identity:** `pack_contract_version` "…contract.v1" in
+   referencePackTestSupport.ts:44 and e2e support referencePacks.ts:48
+   (production v3).
+4. **Any-error and multi-defect checks:**
+   - packformat content :170-176/:199-201, tuf :159-206, manifest :99;
+   - verification_engine :549-553/:223;
+   - coordinator_jobs :356/:374; consumer_integrity :256/:269;
+   - api :100-103;
+   - veris :45/:58-61; entra :88/:97-101; cleanup_lifetime :141;
+     entra_expectations :81; http_admission :175;
+   - jobProgressPaint :202/:208/:233; controller :657-660;
+     referencePacks.test :52-72/:159-164.
+5. **Wall-clock windows:** object_collector :88-92/:100-104; storage :549-555;
+   cleanup_lifetime :116-121.
+6. **Status-only checks, coverage, titles:**
+   - http_admission :201/:253/:284/:288;
+   - reference_pack_integration :330 ("Exactly" with a lower bound) and :195
+     ("no network" unasserted);
+   - referencePacks.test :113-115; reference-pack.spec :565;
+   - content helper vacuity :237-245; model :91-98 title;
+   - progress measurement "cancel" title; referencePacks.test :241 guard.
+
+### S-696 / F-681 / E-707 — Reference Pack panel absence checks target rendered controls
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (queue item 1), one correction class in one file and row:
+
+1. "shows health and retention blockers…" (:167) and "identifies active Base
+   safety fallback…" (:193) require `queryByRole("button", { name: "Remove" })`
+   to be null. The removal control is the disclosure `<summary>Remove version`
+   with a "Remove this version" button (`ReferencePackAdminPanel.tsx:890/919`).
+   An exact "Remove" name can never match, so these ineligible-mutation checks
+   cannot fail.
+2. "shows ordered validation details…" (:128) checks `queryByRole("unknown")`.
+   "unknown" is not an ARIA role. The intended guard, like the retained
+   `querySelector("source-version")` at :234, is that the path text `<unknown>`
+   never becomes an element.
+
+Governing: Reference Pack NLSpec administration UI (ineligible mutations are not
+offered; `referencePackEligible(…, "remove")` requires inactive, unpinned, not
+removed, no pending work) and the panel's text-only rendering of untrusted
+validation paths.
+
+Successor: replace both Remove queries with `queryByText("Remove version")`
+absence. Add a positive control in "exposes exact verified source digests…" (a
+removable default fixture): `getByText("Remove version")` is present. Replace
+`queryByRole("unknown")` with `document.querySelector("unknown")` null. The
+"Filter loaded packs" absence (:506) is retained: that control existed until
+2026-06-19, so the check is a real regression guard. Select
+`module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79`.
+No production, routing, profile or timeout change. E-705/S-064 remain open.
+
+#### S-696 / F-681 / E-707 closure — absence checks target rendered controls
+
+DONE. The ineligible-mutation cases now require the "Remove version" disclosure
+to be absent. The removable default in the version-details case shows it
+present, so a renamed or missing control makes the negatives fail. The
+`<unknown>` path guard checks that no `unknown` element exists. "Filter loaded
+packs" is retained as a removed-control regression guard.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s696-format01 | `make format` | 0 | pass2/2,4722 ms; scan15/pass; cleanup11 completed |
+| tcr-s696-qualified01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79` | 0 | pass2/2,5306 ms; row passed/701 ms; scan21/pass; cleanup11 completed |
+
+Graph `32bf419c0d3a83a4c2d5d49108939e7db361cd330090ff4c0537b099cb87d424`; source
+`90cc2e9582228a821a807c87693b6665a17bbdab1a0401db592c25e32f4e0b83`. Type check
+not rerun: there are no new identifiers or types, only query-method changes on
+existing Testing Library APIs.
+
+#### E-705 partial ledger 2 — resume point
+
+Closed: S-695 (entry drift: illegal `source_as_of` fixture) and S-696 (vacuous
+absence selectors). The next confirmed-class items to verify and slice, in
+order:
+
+1. Stale-response checks that observe a never-shown state before the late
+   response is processed (the S-651/S-657 class):
+   - ReferencePackAdminPanel.test :611-627 (stale search) and :702-716 (stale
+     terminal result);
+   - :381-387/:405-410 (first-poll duplicate-request counts);
+   - controller :135-137 (single microtask);
+   - reference-pack.spec :511-514, :530-534, :568-572 (absent rows that the
+     mocks never return), :249-253.
+2. Multi-defect packformat content cases (:170-176): the declared entry count
+   also breaks. Then the tuf :159-206, manifest :99, verification_engine
+   :549-553/:223, coordinator :356/:374, consumer_integrity :256/:269, api
+   :100-103, veris and entra source admission cases, the controller :657-660
+   status-regression isolation, and jobProgressPaint `rejects.toThrow()`.
+3. Recorded, not repaired:
+   - shared-fixture `pack_contract_version` `…contract.v1` (production v3; the
+     web and e2e fixtures share it, so the blast radius spans browser rows; for
+     S-064);
+   - wall-clock windows (object_collector 20 ms, storage 25 ms,
+     cleanup_lifetime 20 ms), the dispatcher class, retained with residual
+     risk;
+   - status-only HTTP checks and title gaps.
+
+E-705/S-064 remain open.
+
+### S-697 / F-682 / E-708 — consume the stale Reference Pack list before absence
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (ledger 2 item 1). "discards stale reference pack search
+responses" accepts the search response, then resolves the superseded initial
+list containing the host row. It then waits for the host row to be absent. That
+row was never shown, so `waitFor` passes on its first poll, before the stale body
+is read or handled. Governing: Reference Pack NLSpec administration list (a
+superseded list read never replaces the accepted search result), the same rule
+as S-651.
+
+Successor, using the S-651 pattern: keep the stale `Response`, resolve it inside
+`act`, wait until its `bodyUsed` is true, and flush React once. Then require the
+host row absent and the accepted identity row still present. The first-poll
+`waitFor` absence is retired after the successor passes. If the client never
+reads a superseded body, that is investigated rather than worked around. Select
+`module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79`
+(confirm the title's row). No production, routing, profile or timeout change.
+E-705/S-064 remain open.
+
+#### S-697 successor01 failure and revised successor
+
+`tcr-s697-successor01` exited 2 (1/2 units). The new
+`waitFor(staleResponse.bodyUsed)` timed out ("expected false to be true"); the
+other titles passed. Investigation: `referencePackAdminController` runs each
+read in a bounded race (`referencePackAdminController.ts:209-240`). Starting the
+search aborts the superseded initial read, whose `stopped` promise settles the
+race as `interrupted` before the stale response is resolved. The stale body is
+therefore never consumed, by design, and `bodyUsed` cannot serve as the
+settlement point here. Revised successor: capture the initial list request's
+`AbortSignal` in the fetch mock and require it to be aborted once the search is
+issued; that is the retirement which makes the late response inert. Resolve the
+stale response inside `act`, flush once, then require the host row absent and
+the identity row present. The `bodyUsed` wait is removed; the first-poll
+`waitFor` absence is still retired. No production change.
+
+`tcr-s697-successor02` exited 2 (1/2 units): `initialSignal?.aborted` was
+`undefined`. The controller does not pass its `AbortController` signal into
+`fetch` (`init.signal` is absent), and the retired `work()` returns without
+reading the body. Retirement is therefore not observable from the fetch
+boundary. Final successor: resolve the stale response inside `act`, flush once
+more inside `act` so the microtask continuation in which retired work bails out
+has run, then require the host row absent and the identity row present. The
+signal assertion is removed. The limit is the same as S-651's: one flush, not
+proof against an arbitrarily delayed macrotask.
+
+#### S-697 / F-682 / E-708 closure — stale search response handled before absence
+
+DONE. The superseded initial list is resolved inside `act`, and React is
+flushed once more. Only then must the host row be absent and the accepted
+identity row present. The first-poll `waitFor` absence was deleted (complete
+lines) after successor03 passed beside it. Two successor attempts failed and
+were investigated before any change; neither involved production. The
+retirement mechanism (an aborted race controller that is never passed to
+`fetch`, with retired work returning before reading the body) exposes no
+external signal.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s697-format01 | `make format` | 0 | pass2/2,4716 ms; scan15/pass; cleanup11 completed |
+| tcr-s697-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79` | 2 | fail; 1/2 units; `bodyUsed` wait timed out (investigated above) |
+| tcr-s697-format02 | `make format` | 0 | pass2/2,4772 ms; scan15/pass; cleanup11 completed |
+| tcr-s697-successor02 | same selection | 2 | fail; 1/2 units; `init.signal` absent (investigated above) |
+| tcr-s697-format03 | `make format` | 0 | pass2/2,4803 ms; scan15/pass; cleanup11 completed |
+| tcr-s697-successor03 | same selection | 0 | pass2/2,5316 ms; row passed/712 ms; scan21/pass; cleanup11 completed |
+| tcr-s697-qualified01 | same selection after retirement | 0 | pass2/2,5319 ms; row passed/702 ms; scan21/pass; cleanup11 completed |
+| tcr-s697-types01 | `make lint CHECK=types` | 0 | pass2/2,20996 ms; scan15/pass; cleanup11 completed |
+
+Graph `32bf419c0d3a83a4c2d5d49108939e7db361cd330090ff4c0537b099cb87d424`; final
+source `30dd64d4c067d33d216c03d0346a2e81cd2bf49ebbee7e07d7a11937e836461a`. Limit:
+one flush after resolution, as in S-651. E-705/S-064 remain open; the next item
+in E-705 ledger 2 is :702-716 (stale terminal result).
+
+### S-698 / F-683 / E-709 — settle the stale append page before absence
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (ledger 2 item 1). "retains accepted rows … ignores
+stale terminal results" resolves the superseded append page (with
+`type_registry.stale`) after the search error is shown. It then waits for the
+stale row to be absent, which was never shown, so `waitFor` passes on its first
+poll before the late page is handled. Governing: the same Reference Pack list
+rule as S-697 (superseded reads never replace or extend the current list state).
+
+Successor, the S-697 pattern: resolve the append page inside `act` and flush
+once more. Then require the stale row absent, the search error retained, and the
+previously accepted host row still present (the retention the title names).
+Retire the first-poll `waitFor` absence after the successor passes. Same row as
+S-697. No production, routing, profile or timeout change. E-705/S-064 remain
+open.
+
+#### S-698 / F-683 / E-709 closure — stale append page handled before absence
+
+DONE. The superseded append page is resolved inside `act` and React is flushed
+once. The stale row must then be absent, the accepted host row retained and the
+search error retained. The first-poll `waitFor` absence passed beside it in
+successor01 and was then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s698-format01 | `make format` | 0 | pass2/2,4707 ms; scan15/pass; cleanup11 completed |
+| tcr-s698-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79` | 0 | pass2/2,5362 ms; row passed/732 ms; scan21/pass; cleanup11 completed |
+| tcr-s698-qualified01 | same selection after retirement | 0 | pass2/2,5398 ms; row passed/728 ms; scan21/pass; cleanup11 completed |
+
+Graph `32bf419c0d3a83a4c2d5d49108939e7db361cd330090ff4c0537b099cb87d424`; final
+source `32fc09b155e664106b17649f0587e963fb29e14c817af9733b375d0925e2be6a`. The
+S-697 type check covers `act` (no new identifiers). Limit as in S-697.
+E-705/S-064 remain open. Next in E-705 ledger 2: panel :381-387/:405-410
+(first-poll duplicate counts), controller :135-137, then the reference-pack.spec
+browser items.
+
+### S-699 / F-684 / E-710 — drain retired diagnostic read before the access-loss negative
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (ledger 2 item 1). "retries bounded diagnostic reads
+without resubmitting…" times out a validation read (fake timers), retries
+successfully, and then resolves the timed-out read with `access_failed`. After
+one `await Promise.resolve()` it requires `authorizationFailed` not to have been
+called. The retired race continuation spans several `.then` hops
+(`referencePackAdminController.ts:209-240`), so a single microtask may not reach
+it, and an implementation that wrongly propagated the stale access failure could
+still pass. Governing: Reference Pack NLSpec administration reads (a superseded
+or timed-out read never changes current authority state).
+
+Successor: after resolving the stale read, `await vi.advanceTimersByTimeAsync(0)`,
+which drains pending microtasks under the active fake timers, before the
+unchanged negative. Retire the single `await Promise.resolve()` after the
+successor passes. Select `module.reference_data.frontend.administration_recovery`.
+No production, routing, profile or timeout change. E-705/S-064 remain open.
+
+#### S-699 / F-684 / E-710 closure — retired read drained before the negative
+
+DONE. After the timed-out read resolves with `access_failed`, the test drains
+microtasks with `vi.advanceTimersByTimeAsync(0)` under the active fake timers.
+`authorizationFailed` must still be uncalled, and the validation-ref and
+no-resubmission predicates are unchanged. The single `await Promise.resolve()`
+passed beside the drain in successor01 and was then deleted (complete line).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s699-format01 | `make format` | 0 | pass (same command as successor01, edit confirmed first) |
+| tcr-s699-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.frontend.administration_recovery` | 0 | pass2/2,6547 ms; row passed/2155 ms; scan21/pass; cleanup11 completed |
+| tcr-s699-qualified01 | same selection after retirement | 0 | pass2/2,6508 ms; row passed/2153 ms; scan21/pass; cleanup11 completed |
+
+Graph `fb4d0d2ec23e519c1b3e881338def16309291ac648171ce323cace9f1373d4bb`; final
+source `a893d66c79ff924e8713d79bb3fe1a39c50128e92205e0eb6a6fa9b2a6274374`. There
+is no new identifier (`vi` was already imported), so no type rerun.
+
+#### E-705 partial ledger 3 — resume point
+
+Closed: S-695–S-699. Verified and retained: panel :381-387/:405-410 duplicate
+counts. Dispatch runs through `Promise.resolve().then(work)`, so `waitFor`'s
+synchronous first check sees 0, and its first passing poll follows the microtask
+flush in which a same-tick duplicate would already count 2. Next, in order:
+
+1. reference-pack.spec browser items: :511-514 (identity row never visible;
+   absence right after release), :530-534 (re-asserted error text; appended row
+   unchecked), :568-572 (the mock never returns the newest row), :249-253
+   (reconciling text right after a panel switch). Each needs a browser run.
+2. Multi-defect and any-error Go/TS items listed in ledger 2 item 2.
+3. Recorded items in ledger 2 item 3.
+
+E-705/S-064 remain open.
+
+### S-700 / F-685 / E-711 — settle superseded Reference Pack browser reads before absence
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data browser findings (ledger 3 item 1) in `reference-pack.spec.ts`,
+"shows Reference Pack progress and cancel controls without blocking landing
+interaction":
+
+1. :511-514. After the superseded `search=identity` read is released, the
+   identity row's absence is checked at once. It was never visible, so the
+   check can pass before the late response arrives.
+2. :530-534. After the superseded `stale-error` read and the held `cursor-a`
+   append (`type_registry.appended`) are released, only the already-shown
+   error text is re-asserted. Both errors render the same text, and the
+   appended row is never checked.
+
+Governing: Reference Pack NLSpec administration list (superseded reads, including
+appends from an earlier cursor, never replace or extend the current state), and
+the same rule as S-697/S-698.
+
+Successor, the S-662 pattern:
+
+- Register `page.waitForResponse` for each held read before its release and
+  await it after release.
+- Then require the identity row absent. Re-check it once the newest row is
+  shown.
+- After the stale-error and append responses arrive, require
+  `type_registry.appended` absent, beside the retained error text.
+
+Nothing is retired; the existing checks become post-delivery. :568-572
+(newest absent after demotion while the mock never returns it) and :249-253 are
+dispositioned separately. Select
+`module.reference_data.browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c`.
+Limit: response receipt, not proof that React has applied it. No production,
+routing, profile or timeout change. E-705/S-064 remain open.
+
+#### S-700 qualified01 failure and revised successor
+
+`tcr-s700-qualified01` exited 2 (10/12 units; row failed at 60,702 ms):
+`page.waitForResponse` at :511 never resolved ("Target page, context or browser
+has been closed" after the 60 s test timeout). In the browser the client aborts
+the superseded `search=identity` fetch, so the held route's barrier returns
+false and no response is fulfilled. (In the S-697 jsdom case the mock ignored
+the abort.) Revised successor: a file-local `settledRequest(page, predicate)`
+that resolves on `requestfinished` or `requestfailed` for the matching request,
+registered before each release and awaited after. This is the S-662 pattern,
+keyed by query parameters. Predicates are unchanged. No production change.
+
+`tcr-s700-qualified02` exited 2 (10/12 units; the row hit the 60 s test
+timeout with no assertion location). Cause: each superseded request is aborted
+by the client when the next search starts, so its `requestfailed` event fires
+before the listener was registered (just before the release). Final successor:
+register each settlement as soon as its request is known to be in flight. The
+append listener goes after the "Load more" click, identity after
+`identityRequested`, and stale-error after `staleErrorRequested`. Each is still
+awaited after the corresponding release.
+
+#### S-700 / F-685 / E-711 closure — superseded browser reads settled before absence
+
+DONE. A file-local `settledRequest(page, predicate)` is registered while each
+superseded read is in flight: the `cursor-a` append, `search=identity` and
+`search=stale-error`. Each is awaited after its release; in practice each
+settles as `requestfailed` when the client aborts it. The test then requires
+the identity row absent (re-checked once the newest row shows),
+`type_registry.appended` absent, and the error retained. Two qualification
+attempts failed and were investigated (records above); no production change.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s700-format01 | `make format` | 0 | pass2/2,4749 ms; scan15/pass; cleanup11 completed |
+| tcr-s700-qualified01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c` | 2 | fail; 10/12 units; row timed out at 60,702 ms (waitForResponse on an aborted request) |
+| tcr-s700-format02 | `make format` | 0 | pass2/2,4775 ms; scan15/pass; cleanup11 completed |
+| tcr-s700-qualified02 | same selection | 2 | fail; 10/12 units; row timed out at 60,690 ms (listener registered after abort) |
+| tcr-s700-format03 | `make format` | 0 | pass2/2,4784 ms; scan15/pass; cleanup11 completed |
+| tcr-s700-qualified03 | same selection, final source | 0 | pass12/12,76769 ms; row passed/1858 ms; scan92/pass; cleanup23 completed |
+| tcr-s700-types01 | `make lint CHECK=types` | 0 | pass2/2,21153 ms; scan15/pass; cleanup11 completed |
+
+Graph `24a4c8a6f02281bcc7a1e6a61313a65d70ed6697aded63138823191b5b94474e`; final
+source `9f4e2e48841b23488335fb24495cfc028332064d356459b86756a11ce967cab0`.
+Limit: settlement orders checks after the abort or delivery; it does not prove
+React applied anything. Note on S-697: in the browser each superseded request settles (fails) before
+its release, so it is aborted at some layer. The mechanism was not traced. The
+S-697 jsdom observation (`init.signal` absent) stands as recorded, and its
+act-flush settlement is unaffected. E-705/S-064 remain open; next are reference-pack.spec
+:568-572 and :249-253, then ledger 2 item 2.
+
+#### E-705 partial ledger 4 — resume point after S-700
+
+Closed: S-695–S-700. Dispositions since ledger 3:
+
+- reference-pack.spec :249-253 (reconciling text count 0 right after returning to
+  the panel): a bounded negative with no natural sentinel. Retained; residual
+  recorded, as for the Network Flow request-count class.
+- reference-pack.spec :568-572 (newest row absent after demotion and reload, but
+  the default mock never returns it): confirmed weak. The meaningful check is
+  that the deployment-admin Reference Pack surface is absent for the demoted
+  session, anchored on a positive post-reload element. That needs the
+  non-admin post-reload route, which is not yet verified. Queued.
+
+Confirmed and queued for slicing next, in order:
+
+1. `packformat/content_test.go:170-176`
+   (`TestContentRejectsMalformedStreamsAndSemanticAmbiguity_Unit`). The "no
+   final newline", "blank line", "duplicate identity" and "oversize line"
+   bodies keep `fixtureManifest(f)` with the original summary, so the declared
+   entry count and digest also break, and those checks (content.go:218/:265) can
+   reject first. Plan: rebuild the manifest summary for each mutated body (or
+   use a fixture helper that does) so only the stream defect remains, and pin
+   each case's `Failure` code. Lines :199-201 (semantic ambiguity) are
+   canonical re-encodings with the same issue, to be verified with them.
+2. reference-pack.spec :568-572, as above.
+3. Remaining ledger 2 item 2 any-error cases:
+   - tuf :159-206 (key mutation also breaks the self-signature);
+   - manifest :99; verification_engine :549-553 (non-canonical re-encode) and
+     :223;
+   - coordinator_jobs :356/:374 (`verification_pending`/`removed` reasons);
+   - consumer_integrity :256/:269 (`required_registry_gap`);
+   - api :100-103; veris :45/:58-61 and entra :88/:97-101 (media type not
+     isolated); cleanup_lifetime :141; entra_expectations :81;
+     http_admission :175;
+   - controller :657-660 (status regression not isolated from `updated_at`);
+   - jobProgressPaint `rejects.toThrow()`; referencePacks.test :52-72/:159-164.
+
+   Verify each for single-defect attributability. Slice the ones whose
+   rejection may come from an unintended defect.
+4. Recorded, not repaired (ledger 2 item 3): the shared `pack_contract_version`
+   v1 fixture, the wall-clock windows, status-only HTTP checks and title gaps.
+
+E-705/S-064 remain open; the A-module.reference_data queue row stays
+IN_PROGRESS until these close.
+
+### S-701 / F-686 / E-712 — isolate malformed-stream content defects from the declared count
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (ledger 4 item 1).
+`TestContentRejectsMalformedStreamsAndSemanticAmbiguity_Unit` validates seven
+malformed `payload/entries.ndjson` bodies against `fixtureManifest(f)`, whose
+declared `Summary.Entries` is the original body's newline count. The "no final
+newline", "blank line" and "duplicate identity" bodies change that count, so a
+count mismatch alone rejects them. Every content failure maps to
+`content_schema_invalid`, so the stream rule each case names (final newline,
+blank line, duplicate identity) is never isolated. The BOM, noncanonical and
+oversize cases keep or change the count incidentally. Governing: Reference Pack
+NLSpec content stream rules (canonical NDJSON, one object per line, final LF,
+unique identity) and the declared-count rule, each a separate requirement.
+
+Successor: build each case's manifest from a fixture copy whose entries member
+is the mutated body. The declared count then matches the body, and only the
+named stream defect can reject. The `err == nil` predicate is unchanged. The
+semantic-ambiguity loop (:183-205) mutates a single canonical line and keeps the
+count; it is left unchanged. Select `module.reference_data.unit.canonical_pack_profiles`.
+No production, routing, profile or timeout change. E-705/S-064 remain open.
+
+#### S-701 / F-686 / E-712 closure — stream rules isolated from the declared count
+
+DONE. Each malformed entries body (no final newline, blank line, duplicate
+identity, BOM, noncanonical, oversize line) is validated against a manifest
+built from a fixture copy carrying that body, so the declared count matches. It
+must still be rejected. The count-mismatched check passed beside it in
+successor01 and was then deleted (complete lines). The semantic-ambiguity loop
+is unchanged.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s701-format01 | `make format` | 0 | pass2/2,4704 ms; scan18/pass; cleanup11 completed |
+| tcr-s701-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.canonical_pack_profiles` | 0 | pass1/1,2128 ms; row passed/60 ms; scan12/pass; cleanup10 completed |
+| tcr-s701-qualified01 | same selection after retirement | 0 | pass1/1,2151 ms; row passed/60 ms; scan15/pass; cleanup10 completed |
+
+Graph `63168395be974b5ae7dbe95701091c46681970c9f9a79e378a1f447e9b33e6b6`; final
+source `3efc2fb42d368b63b145ac99af8a9a5ee7bde92da0bf6188ce2e33268ae6fa58`.
+E-705/S-064 remain open. The next items are ledger 4 items 2–3:
+reference-pack.spec :568-572, then the any-error list.
+
+### S-702 / F-687 / E-713 — demoted reload observes loss of Reference Pack administration
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data browser finding (ledger 4 item 2). At the end of "shows Reference
+Pack progress and cancel controls…", the session route is rewritten to
+`is_deployment_admin: false` and the page reloads. The test then requires the
+`type_registry.newest` row not visible, but after reload the default list mock
+returns only `type_registry.host`. The newest row is therefore absent whether or
+not demotion took effect, and the check cannot fail. Governing: Core 04
+deployment-admin capability (Reference Pack administration requires current
+`deployment_admin`) and Reference Pack NLSpec administration authorization. The
+panel's non-admin state is "Deployment admin access is required" with no
+controls (`ReferencePackAdminPanel.test.tsx` non-admin case).
+
+Successor: after reload, require the Reference Pack panel to show "Deployment
+admin access is required", which is a positive anchor that the demoted session
+was applied. Then require the `type_registry.host` row (which an admin reload
+would show) to have count 0. If the app does not mount the panel for a demoted
+session, the observed state is investigated before choosing another anchor.
+Retire the vacuous newest-row check after the successor passes. Same browser row
+as S-700. No production, routing, profile or timeout change. E-705/S-064 remain
+open.
+
+#### S-702 successor01 failure and revised successor
+
+`tcr-s702-successor01` exited 2 (10/12 units; row failed at 7,001 ms). The
+Reference Pack panel was not found after the demoted reload. The error-context
+snapshot shows the incident directory: h1 "Incidents" (the S-644 heading),
+"Visible incidents", "New incident". The app routes a session without
+`deployment_admin` away from Deployment administration, so the panel's own
+non-admin text is not the reachable state. Revised successor: anchor on the
+directory heading (`landing-admin-heading` with text "Incidents"), then require
+the Reference Pack panel to have count 0. The vacuous newest-row check is still
+retired after the successor passes.
+
+#### S-702 / F-687 / E-713 closure — demotion observed by the routed directory
+
+DONE. After the demoted reload, the test requires the incident directory
+heading `landingAdminShellTestId("heading")` = "Incidents" (a positive anchor
+that the session lost `deployment_admin` and was routed away). It then requires
+the Reference Pack panel to have count 0. The vacuous newest-row check was
+deleted (complete lines) after successor02 passed. The first successor anchor
+failed and was investigated (record above); no production change.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s702-format01 | `make format` | 0 | pass2/2,4823 ms; scan15/pass; cleanup11 completed |
+| tcr-s702-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c` | 2 | fail; 10/12 units; panel absent after reload (investigated) |
+| tcr-s702-format02 | `make format` | 0 | pass2/2,4693 ms; scan15/pass; cleanup11 completed |
+| tcr-s702-successor02 | same selection | 0 | pass12/12,76241 ms; row passed/1744 ms; scan92/pass; cleanup23 completed |
+| tcr-s702-format03 | `make format` after retirement | 0 | pass |
+| tcr-s702-qualified01 | same selection, final source | 0 | pass12/12,75567 ms; row passed/1910 ms; scan92/pass; cleanup23 completed |
+| tcr-s702-types01 | `make lint CHECK=types` | 0 | pass2/2,20949 ms |
+
+Graph `24a4c8a6f02281bcc7a1e6a61313a65d70ed6697aded63138823191b5b94474e`; final
+source `b7eb7966924d7e08f93338a4e9e04f157c7a084d70497727d433880596b68530`.
+E-705/S-064 remain open. Next: ledger 4 item 3 (the any-error list).
+
+### S-703 / F-688 / E-714 — isolate the VERIS receipt media-type check
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (ledger 4 item 3). `TestVERISSourceAdmission_Unit`
+rejects downloads with media types `text/html` and `application/json` (the
+inventory source declares `text/plain`). Both use the bytes `"wrong"`, so size
+and SHA-256 also mismatch. `verisDownloadValid` returns one error for any
+mismatch (`veris_source.go:117`), so the media-type rule is never isolated.
+Governing: the VERIS producer inventory contract (`contracts/reference-pack-producers/veris/inventory.v1.json`:
+exact media type, size and digest per source) as enforced at receipt admission.
+
+Successor: derive a synthetic source from `inventory.Sources[0]` whose `Size`
+and `SHA256` match a chosen payload (via `Digest`). A positive control requires
+that payload, with the declared media type and a valid build time, to be
+accepted. Each foreign media type, with otherwise identical bytes, must then be
+rejected. Retire the `"wrong"`-bytes loop after the successor passes. Select
+`module.reference_data.unit.independent_veris_producer`. No production,
+contract, routing, profile or timeout change. E-705/S-064 remain open.
+
+#### S-703 / F-688 / E-714 closure — VERIS media check isolated
+
+DONE. A synthetic source matching the payload's size and digest accepts that
+payload under the declared `text/plain`. The identical bytes are rejected under
+`text/html` and `application/json`, so only the media type differs. The
+`"wrong"`-bytes loop passed beside it and was then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s703-format01 | `make format` | 0 | pass2/2,4752 ms; scan15/pass; cleanup11 completed |
+| tcr-s703-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.independent_veris_producer` | 0 | pass1/1,1173 ms; row passed/70 ms; scan12/pass; cleanup10 completed |
+| tcr-s703-qualified01 | same selection after retirement | 0 | pass1/1,1130 ms; row passed/60 ms; scan12/pass; cleanup10 completed |
+
+Graph `cae0b289a13f05b4e817fb19b17d0b8ae90a6fd913cf83bee777ec71e00027db`; final
+source `5c7a98e1edd8825fd8781eb8019993bfc17501a9a5acf09ad7cae939c9d3a2ef`.
+TUF :159-206 was verified and retained: `fixtureMetadataHeader` isolates
+shape-before-signature, and the rollback, repository and bootstrap cases are
+single-defect with verified controls. E-705/S-064 remain open. Next in ledger 4
+item 3: VERIS :45 (stub returns changed bytes and `text/plain`), Entra
+:88/:97-101 (same media/bytes pattern), then the controller :657-660 status
+regression.
+
+#### E-705 partial ledger 5 — resume point after S-703
+
+Closed: S-695–S-703. Confirmed and queued, with plans:
+
+1. Entra `entra_test.go:88` (`corruptEntraSource` wrong in bytes and media
+   type; claim "bad source digest"). Plan: a stub returning bytes whose digest
+   differs while the media type and size match the inventory entry, so only the
+   digest rule can reject. Also add a control where the matching bytes are
+   accepted, if the inventory digest permits it.
+2. Entra :97-101 (65,537 `x` lock: oversize and not JSON). Plan: pad a
+   schema-valid lock (from a successful acquisition, or the minimal valid lock
+   shape) beyond 65,536 bytes in a way the decoder would otherwise accept, or
+   assert the bound's specific error if one exists. Verify the reader's order
+   (size check before decode).
+3. VERIS `veris_source_test.go:45` (rejecting stub returns changed bytes and
+   `text/plain`; claim "changed source"): changed bytes alone is the claim, and
+   the media type already equals the declared `text/plain`. Re-verify: likely
+   single-defect (bytes, so size and digest) and retained.
+4. Controller `referencePackAdminController.node.test.ts:657-660` (status
+   regression also regresses `updated_at`/progress). Plan: keep `updated_at`
+   and progress monotonic and regress only status, then require rejection.
+5. Remaining ledger 2 item 2 entries (manifest :99, verification_engine
+   :549-553/:223, coordinator_jobs :356/:374, consumer_integrity :256/:269, api
+   :100-103, cleanup_lifetime :141, entra_expectations :81, http_admission :175,
+   jobProgressPaint, referencePacks.test): verify each for single-defect
+   attributability.
+
+E-705/S-064 remain open.
+
+### S-704 / F-689 / E-715 — isolate Reference Pack job status regression
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (ledger 5 item 4). "rejects regressing observations and
+keeps terminal snapshots stable" requires
+`acceptsReferencePackJob(job("running"), job("queued"))` and
+`(job("succeeded"), job("running"))` to be rejected. `referencePackJobFixture`
+dates `queued` earlier than `running` and gives `succeeded` completed progress,
+so each pair also regresses `updated_at` and/or progress. Those rules
+(`referencePackAdminModel.ts:431-433`) reject independently, so the status
+reachability rule (`reachableJobStates`) is never isolated. Governing: Core
+job status lifecycle (`queued → running → terminal`; no regression) as applied
+by the admin model.
+
+Successor: build each regressed observation from the later status's fixture,
+overriding `updated_at` and `progress` with the prior observation's values.
+Only the status regresses, and both pairs must still be rejected. Retire the
+two time-and-progress-confounded pairs after the successor passes. The
+cross-job and canceled cases are unchanged. Select the row selecting this
+title. No production, routing, profile or timeout change. E-705/S-064 remain
+open.
+
+#### S-704 / F-689 / E-715 closure — status regression isolated
+
+DONE. Regressed observations now keep the prior observation's `updated_at` and
+progress, so only the status regresses (running→queued, succeeded→running).
+Both must be rejected. The two confounded pairs passed beside the successor and
+were then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s704-format01 | `make format` | 0 | pass |
+| tcr-s704-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.frontend.administration_recovery` | 0 | pass2/2,6524 ms; row passed/2156 ms; scan21/pass; cleanup11 completed |
+| tcr-s704-format02 | `make format` after retirement | 0 | pass |
+| tcr-s704-qualified01 | same selection, final source | 0 | pass2/2,6530 ms; row passed/2152 ms; scan21/pass; cleanup11 completed |
+| tcr-s704-types01 | `make lint CHECK=types` | 0 | pass |
+
+Graph `fb4d0d2ec23e519c1b3e881338def16309291ac648171ce323cace9f1373d4bb`; final
+source `2c65bb5a9ebcdbe3839af2377da6b040446df609c0d268e2984ba4796fedee25`.
+E-705/S-064 remain open. Next: ledger 5 items 1–3 and 5.
+
+### S-705 / F-690 / E-716 — isolate the Entra source digest receipt check
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (ledger 5 item 1). `TestEntraSourceIntegrity_Unit`
+claims "bad source digest" by acquiring through `corruptEntraSource`, whose
+download is the 23-byte `"synthetic corrupt bytes"` for every source. The first
+inventory source (`L1`) declares 1,141 bytes, so the size conjunct at
+`entra_source.go:192` rejects the receipt as well as the digest conjunct, and
+the any-error predicate cannot attribute the rejection to the digest rule.
+Governing: the Entra producer inventory contract
+(`referencepacks/entra/inputs/inventory.v2.json`: exact size and SHA-256 per
+pinned source) as enforced at receipt admission.
+
+Successor: a stub returning bytes of exactly the declared size (`x` repeated),
+valid UTF-8, a valid build time and a non-empty content type. The test first
+checks those preconditions and that the digest differs from the pin, then
+requires the "receipt mismatch" error for `L1` and no published lock. A
+positive acceptance control is not available: the pinned upstream bytes are
+not in the repository, so acceptance is recorded as a residual. Retire the
+size-and-digest stub after the successor passes. Select
+`module.reference_data.unit.independent_entra_producer`. No production,
+contract, routing, profile or timeout change. E-705/S-064 remain open.
+
+#### S-705 / F-690 / E-716 closure — Entra digest receipt check isolated
+
+DONE. `digestOnlyEntraSource` returns `x` repeated to each source's pinned
+size, with a valid build time and `text/plain`. The test first requires the
+fixture to match `L1`'s size, UTF-8 and receipt fields and to differ only in
+its digest. Acquisition must then fail with exactly `entra source L1 receipt
+mismatch`, and no lock may be published. The size-and-digest stub passed beside
+the successor and was then deleted (complete lines; the first retirement match
+did not apply because the successor had been inserted between the stub's type
+and method, so nothing was edited until the corrected match).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s705-format01 | `make format` | 0 | pass2/2,4874 ms; scan15/pass; cleanup11 completed |
+| tcr-s705-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.independent_entra_producer` | 0 | pass1/1,2151 ms; row passed/60 ms; scan12/pass; cleanup10 completed |
+| tcr-s705-format02 | `make format` after retirement | 0 | pass2/2,4759 ms; scan15/pass; cleanup11 completed |
+| tcr-s705-qualified01 | same selection, final source | 0 | pass1/1,1185 ms; row passed/60 ms; scan12/pass; cleanup10 completed |
+
+Graph `72df3d51cf0780616a2736233cca20c1c5966f0b6a0abfe157def0508eee8fe8`; final
+source `859dfc2b6110fb6b55a875e562a348253c0a84c71f96939b5613161940db8223`.
+Residual: acceptance of the pinned upstream bytes, and the build-time and
+content-type conjuncts in isolation, need the upstream sources, which are not
+in the repository. Not claimed. Ledger 5 item 3 (VERIS :45) is re-verified and
+retained: source `LICENSE.txt` declares `text/plain`, which the stub returns
+with a valid build time, so the only defect is the changed bytes (size and
+digest together are the receipt identity the claim names). E-705/S-064 remain
+open. Next: ledger 5 item 2.
+
+### S-706 / F-691 / E-717 — isolate the Entra source-lock size bound
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (ledger 5 item 2). `TestEntraSourceIntegrity_Unit`
+writes a 65,537-byte lock of `x` and requires `EntraCheck` to fail ("unbounded
+source lock admitted"). `EntraCheck` rejects it at the `Lstat` bound
+(`entra_source.go:236`), but the same bytes are not JSON, so if the bound were
+removed `DecodeClosed` would still reject them. The any-error predicate
+therefore does not show that the bound exists or where it sits. Governing: the
+producer's bounded-input rule for the retained source lock (at most 65,536
+bytes, checked before decoding).
+
+Successor: assert the bound's own error (`bounded regular Entra source lock
+required`) for the 65,537-byte lock. Add a boundary control: a lock of exactly
+65,536 bytes must pass the bound and fail later with a different error, which
+shows the limit is inclusive at 65,536. Retire the any-error predicate after
+the successor passes. Same row as S-705. No production, contract, routing,
+profile or timeout change. E-705/S-064 remain open.
+
+#### S-706 / F-691 / E-717 closure — Entra source-lock bound isolated
+
+DONE. The 65,537-byte lock must fail with exactly `bounded regular Entra source
+lock required`. A 65,536-byte lock must pass that bound and the read-length
+bound, then fail later with a different error, so the limit is shown to be
+inclusive at 65,536 bytes and checked before decoding. The any-error predicate
+passed beside the successor and was then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s706-format01 | `make format` | 0 | pass2/2,4822 ms; scan15/pass; cleanup11 completed |
+| tcr-s706-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.independent_entra_producer` | 0 | pass1/1,1184 ms; row passed/70 ms; scan12/pass; cleanup10 completed |
+| tcr-s706-format02 | `make format` after retirement | 0 | pass2/2,4773 ms; scan15/pass; cleanup11 completed |
+| tcr-s706-qualified01 | same selection, final source | 0 | pass1/1,1218 ms; row passed/70 ms; scan12/pass; cleanup10 completed |
+
+Graph `72df3d51cf0780616a2736233cca20c1c5966f0b6a0abfe157def0508eee8fe8`; final
+source `02c3f5d52b4f02f393db98d492455a12ff89a1b0d7515f0e5d051b240a01fe65`.
+The read-length bound (`len(b) > 65536` after `LimitReader`) only guards a file
+that grows between `Lstat` and `Open`; it is not reachable without a race and
+is not claimed. E-705/S-064 remain open. Next: ledger 5 item 5.
+
+### S-707 / F-692 / E-718 — attribute the engine's modified-role rejection to the role signature
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (ledger 5 item 5). In
+`TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit`, the "modified signed
+role admitted" case replaces the first `metadata/targets.json` signature with
+128 zeros and re-encodes the envelope with `encoding/json.Marshal`. The trust
+program runs `tuf_canonical` (exact canonical bytes) before `role_signature`
+(`referencepacks/format/envelope/tuf_program.go` program map; check ranks in
+`schemas/checks.v1.json`), and the predicate accepts any error. If the
+standard-library re-encoding differs from canonical bytes, the rejection is a
+canonical-form failure and the engine's signature enforcement is never shown.
+Governing: Reference Pack NLSpec trust verification (role signature threshold
+over canonical TUF metadata, code `signature_threshold_not_met`) as applied by
+the verification engine to a candidate container.
+
+Successor: rewrite the container through `rewriteEngineContainer`, re-encoding
+the mutated envelope with `canonicaljson.DecodeStrict`/`canonicaljson.Marshal`
+so only the signature differs. Require a `ContentRejection` with check
+`role_signature`, code `signature_threshold_not_met`, and a closed workspace.
+The packformat trust-program test already isolates this check
+(`tuf_test.go` "every invalid role signature and threshold"); this successor
+shows that the engine reaches it. Retire the any-error case after the successor
+passes. Select
+`module.reference_data.unit.reference_pack_verifier_accepts_disconnected_loc_9a0b2298c2`.
+No production, routing, profile or timeout change. E-705/S-064 remain open.
+
+#### S-707 / F-692 / E-718 closure — engine signature enforcement attributed
+
+DONE. The successor rewrites the container with `targets.json` re-encoded
+canonically after zeroing its first signature. The engine must return a
+`ContentRejection` at `role_signature` with `signature_threshold_not_met` and
+close the workspace. It passed beside the any-error case, which was then
+deleted (complete lines, including its private zip rewrite loop; the shared
+`addZipFile` helper keeps its other callers).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s707-format01 | `make format` | 0 | pass2/2,4644 ms; scan18/pass; cleanup11 completed |
+| tcr-s707-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.reference_pack_verifier_accepts_disconnected_loc_9a0b2298c2` | 0 | pass1/1,18449 ms; row passed/520 ms; scan12/pass; cleanup10 completed |
+| tcr-s707-format02 | `make format` after retirement | 0 | pass2/2,4674 ms; scan18/pass; cleanup11 completed |
+| tcr-s707-qualified01 | same selection, final source | 0 | pass1/1,16341 ms; row passed/500 ms; scan12/pass; cleanup10 completed |
+
+Graph `40c2661e936016258da6ed63021e8debb03bf086bf4a21252fb50dddb24f9ab3`; final
+source `4e3b3cc8c2761088ac2bd383c14e5fb11f0fe01f0b8376fef999be1f3350aed7`.
+Whether the standard-library re-encoding was itself canonical is not
+established and no longer matters. E-705/S-064 remain open.
+
+### S-708 / F-693 / E-719 — control the Entra corpus oracle's row re-encoding
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reference_data finding (ledger 5 item 5). `TestEntraCorpusExpectations_Unit`
+decodes every corpus row with `encoding/json` (numbers become `float64`),
+applies one mutation per mode, re-encodes every row with
+`canonicaljson.Marshal`, and requires `checkEntraBaseline` to reject. The
+oracle compares exact canonical bytes per row. No case shows that an unmutated
+re-encoding is accepted, so if the decode/re-encode round trip changed any
+row's bytes, all fifteen modes would reject for that reason and none would show
+its named rule. Governing: the Entra application-ID pack contract
+(`contracts/reference-pack-producers/entra-app-ids`: exact rows, editorial
+text and provenance), for which this oracle is the independent expectation.
+
+Successor: add an `unchanged` mode that performs the same decode and
+re-encode with no mutation and must be accepted. Every other mode keeps its
+rejection predicate, which the control makes attributable to its single
+mutation. Nothing is retired: the existing predicates are retained once
+controlled, so successor01 is the qualifying run. Select
+`module.reference_data.unit.entra_corpus_expectations`. No production,
+contract, routing, profile or timeout change. E-705/S-064 remain open.
+
+#### S-708 / F-693 / E-719 closure — Entra corpus re-encoding controlled
+
+DONE. The new `unchanged` mode decodes and re-encodes every corpus row with no
+mutation, and `checkEntraBaseline` accepts the result. The fifteen mutation
+modes keep their rejection predicates, which are now attributable to their
+single mutations. Nothing was retired, so successor01 is the qualifying run.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s708-format01 | `make format` | 0 | pass2/2,4675 ms; scan18/pass; cleanup11 completed |
+| tcr-s708-successor01 | `make test-slice OWNER=module.reference_data ROWS=module.reference_data.unit.entra_corpus_expectations` | 0 | pass1/1,1944 ms; row passed/140 ms; scan12/pass; cleanup10 completed |
+
+Graph `2f569e6ba52edd9770ef6d7cb8cec7b2d1e282de4c77720ce4baf72e5de2403b`; final
+source `ef11f32bd68a3a965e936273ed3ff2f0b63df05ef7b3c1ecc5846277b0aa341c`.
+E-705/S-064 remain open.
+
+#### E-705 candidate verification ledger — any-error and multi-defect items
+
+Ledger 5 items 1–4 closed as S-705, S-706, S-704 and (item 3, retained) the
+VERIS :45 re-check. Item 5, read directly against the production checks:
+
+- packformat manifest :99 (`TestManifestClosesNestedOmissionsAndNulls_Unit`):
+  each case makes one mutation and re-marshals canonically, so whichever rule
+  rejects, the rejection belongs to that mutation. Retain.
+- verification_engine :549-553: confirmed and repaired by S-707.
+  :223 ("missing bytes admitted"): the clock and start time are restored
+  before the call, so the absent container is the only defect. Retain.
+- coordinator_jobs :356 (removal while a refresh is pending): the same
+  parameters succeed at :370 once the refresh is terminal, which is a paired
+  control. :374 (reverify after removal): `Remove` creates no operation row,
+  and the same-shape reverify was admitted at :328 for the same disabled
+  version, so removal is the only new defect. Retain both.
+- consumer_integrity :256 (`ValidateRequiredState` after definitive Base
+  loss): a scenario-level fail-closed check. Storage loss, `missing` health and
+  the cleared current selection arise together and no isolated state is
+  reachable, so the label's narrower wording is recorded as a title gap.
+  :269 (`BeginTx` without a current set): its only content rule is the null
+  current set. Retain both.
+- api :100-103: five bodies with one JSON defect each. Retain.
+- cleanup_lifetime :141: one injected interruption per mode, with a `success`
+  mode as the control; the test's subject is scratch cleanup. Retain.
+- entra_expectations :81: confirmed and repaired by S-708.
+- http_admission :175: status and code are pinned. Retain.
+- jobProgressPaint `rejects.toThrow()` (:202/:208/:233/:389): one mutation per
+  case over a fixture that resolves unmutated elsewhere in the same file.
+  Retain; message pinning is optional hardening.
+- referencePacks.test :52-72: one field change per summary over a summary that
+  was just read successfully. :159-164: `captureReferencePackAttempt` does not
+  validate the transaction id, so the empty selection is the only throw path.
+  Retain both.
+
+Still recorded, not repaired (ledger 2 item 3), carried to S-064: the shared
+`pack_contract_version` `…contract.v1` fixture (web and e2e; production v3);
+the wall-clock windows (object_collector 20 ms, storage 25 ms, cleanup_lifetime
+20 ms); status-only HTTP checks; the title and coverage gaps listed in ledger 1
+item 6 and above.
+
+#### E-705 closure — A-module.reference_data semantic audit
+
+DONE. Discovery: 102 rows (Go 90, Vitest 6, Playwright 6). Entry drift was
+diagnosed and repaired (S-695: an illegal `source_as_of` fixture); all 96
+non-browser rows passed at entry after repair (`tcr-e705-drift02/03`).
+Collaborator union: 29 rows, 19 reused from completed owners at their recorded
+scope and 10 carried to reporting, web.design and platform.openapi.
+
+Corrective slices S-695–S-708 were each recorded before editing and qualified
+at their exact rows:
+
+| Slice | Correction |
+| --- | --- |
+| S-695 | legal `source_as_of` timestamp (entry drift) |
+| S-696 | absence checks target rendered controls, with a positive control |
+| S-697, S-698 | stale panel responses consumed inside `act` before absence |
+| S-699 | controller fake-timer settlement before the duplicate check |
+| S-700 | superseded browser reads settled through request events |
+| S-701 | malformed content streams isolated from the declared count |
+| S-702 | demoted reload anchored on the routed incident directory |
+| S-703 | VERIS receipt media type isolated |
+| S-704 | job status regression isolated from time and progress |
+| S-705 | Entra receipt digest isolated |
+| S-706 | Entra source-lock bound and its inclusive limit |
+| S-707 | engine signature enforcement attributed to `role_signature` |
+| S-708 | Entra corpus re-encoding control |
+
+Browser rows ran only for S-700 and S-702, which changed
+`reference-pack.spec.ts`. Open for S-064: the shared contract-version
+fixture, the wall-clock windows, status-only HTTP checks, title gaps and the
+scenario-level wording at consumer_integrity :256. Non-claims: only changed
+rows were requalified after entry; no performance, stability or release claim.
+
+### A-module.reportcomposition entry — E-720 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.reportcomposition DETAIL=rows JSON=1`:
+4 Go rows with 8 roots (three integration rows, one unit row). One integration
+root (`TestCompositionPreviewDelegatesToReportingAndRemainsInternalDraft_Integration`)
+lives in `./internal/modules/reporting`. Collaborator union: 2 rows outside
+the family (incidentbundles `network_flow_portability`, reused at E-361 scope;
+platform.openapi `runtime_contract_parity`, carried). All four rows run once at
+entry under the drift-check decision. Governing:
+`docs/report-composition-nlspec.md` (the Report Composition NLSpec) and the
+Core and Reporting sections it imports, read as the review proceeds. E-720 is
+reserved for the closure.
+
+#### E-720 entry drift check
+
+`tcr-e720-drift01` (`make test-slice OWNER=module.reportcomposition ROWS=<all 4
+rows>`): native exit 0; pass6/6 units; all four rows passed; scan57/pass;
+cleanup21 completed; graph
+`84ad579a061cffbbe88660c07b1224a7a2670b1ccbdb267e70a14bb20ef85368`; source
+`ef11f32bd68a3a965e936273ed3ff2f0b63df05ef7b3c1ecc5846277b0aa341c`. No drift.
+
+### S-709 / F-694 / E-721 — isolate the inline composition content-to-digest binding
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reportcomposition finding. `TestCompositionCanonicalDigests_Unit` claims
+"inline validation accepted altered identity" for two alterations of the
+sealed v1 bytes. The first replaces the declared `composition_sha256` with
+zeros, which isolates the declared-digest comparison. The second replaces
+`"authored_texts":[]` with `"authored_texts":[{}]` and keeps the stale digest.
+`decodeBoundRenderSource` rejects `[{}]` at schema materialization before it
+computes the digest (`render_source.go`; the precedence is also pinned by
+`TestCompositionLocalValidationScopeAndOrdering` "digest masked a schema
+defect"), so this case never shows that a content change under an unchanged
+declared digest is caught. Governing: Report Composition NLSpec §7 and
+RC-AC-CANON-001 (the digest is SHA-256 over the canonical bytes excluding only
+`composition_sha256`), Table 12 stage order (schema, binding, then
+`canonical_digest_validation`).
+
+Successor: alter only `authored_against_snapshot_id` from `null` to a valid
+identifier. The bytes stay canonical, schema-valid and bound to the record, so
+only the digest can reject. Require stage `canonical_digest_validation` with
+the single issue `composition_digest_mismatch`, and require the same for the
+declared-digest case. Retire the schema-confounded `[{}]` case after the
+successor passes. Select `module.reportcomposition.unit.canonical_digests`. No
+production, routing, profile or timeout change. E-720/S-064 remain open.
+
+#### S-709 / F-694 / E-721 closure — content-to-digest binding isolated
+
+DONE. Two alterations of the sealed v1 bytes, the declared digest set to zeros
+and `authored_against_snapshot_id` changed from `null` to `snapshot-1` under
+the stale digest, must each yield stage `canonical_digest_validation` with the
+single issue `composition_digest_mismatch`. The schema-confounded predecessor
+loop passed beside the successor and was then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s709-format01 | `make format` | 0 | pass2/2,4727 ms; scan18/pass; cleanup11 completed |
+| tcr-s709-successor01 | `make test-slice OWNER=module.reportcomposition ROWS=module.reportcomposition.unit.canonical_digests` | 0 | pass1/1,6471 ms; row passed; scan12/pass; cleanup10 completed |
+| tcr-s709-format02 | `make format` after retirement | 0 | pass2/2,4796 ms; scan18/pass; cleanup11 completed |
+| tcr-s709-qualified01 | same selection, final source | 0 | pass1/1,6507 ms; row passed; scan12/pass; cleanup10 completed |
+
+Graph `d7a72abb149b22dfbb663f57b759ddadf44bc7b91358c8ded87649fee1437edb`; final
+source `23c68d6bf910edcda614bd25bcb2ab1ada3b40d1509e02096f6b89d697f40a4a`.
+E-720/S-064 remain open.
+
+#### E-720 closure — A-module.reportcomposition semantic audit
+
+DONE. Discovery: 4 Go rows, 8 roots, all read in full together with the
+production checks they exercise (`render_source.go`, `canonical.go`,
+`routes.go`, `release_tuple_facade.go`, `preview_request.go`). Entry drift was
+clean. Collaborator union: incidentbundles `network_flow_portability` (reused
+at E-361 scope) and platform.openapi `runtime_contract_parity` (carried).
+
+| Assertion family | Disposition | Purpose |
+| --- | --- | --- |
+| canonical digest vector, invalid canonical inputs, exact v1 bytes | retain | RC-AC-CANON-001; independent SHA-256 vector |
+| inline identity alterations | replace (S-709) | content and declared-digest mismatch isolated at the digest stage |
+| retained-version validation loop | retain | one change per case; the rehashed invalid body isolates schema |
+| preview/release digest separation, raw-token admission, create-draft decoding | retain | RC-AC-PREVIEW-002, RC-AC-SCALAR-001 |
+| local validation scope, issue order, stage precedence, safe details | retain | RC-AC-VALID-001/003; stage pins |
+| preview output options | retain | the private round trip isolates the null version from public admission |
+| render-source admission (`assertRenderSourceRejects`) | retain | each mutation is resealed, so it is single-defect; reason-code pinning is optional |
+| release-tuple reason matrix and tamper | retain | field and reason pinned |
+| release binding facade | retain | paired controls; a database error would abort the transaction and fail the final read |
+| public lifecycle and authority | retain | RC-FIX-004/011/013/014/015/019/020; statuses, codes, replay and counts pinned |
+| preview delegation (composition assertions) | retain | RC-FIX-012/021, RC-AC-PREVIEW-001; Reporting helper assertions in this root carry to A-module.reporting |
+
+Open for S-064 and the maintainer, a requirement-evidence gap under REQ-RC-084
+(current behavior MUST be tested or the NLSpec revised). No test in the
+repository exercises these Table 14-A codes:
+
+- emitted by production but untested: `composition_duplicate_id` (RC-FIX-003),
+  `composition_version_bound` (RC-FIX-005), `raw_generated_source_invalid`
+  (RC-FIX-010/027), `diagram_label_override_invalid` (RC-FIX-010/016),
+  `composition_duplicate_diagram_insert` (RC-FIX-022) and
+  `composition_replacement_target_missing` (RC-FIX-017);
+- never emitted: `composition_version_immutable` (no version mutation route
+  exists, so it is structurally unreachable) and `composition_anchor_invalid`
+  (RC-FIX-007);
+- RC-FIX-014 preview of a retired resource is not exercised; the lifecycle
+  test covers update, freeze and retire after retirement.
+
+These need new behavior tests or an NLSpec disposition, which is outside this
+audit's correction scope. Non-claims: only the changed row was requalified
+after entry; no performance, stability or release claim.
+
+### A-module.reporting entry — E-722 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.reporting DETAIL=rows JSON=1`: 50
+rows (Go 36, Vitest 12, Playwright 2 measurement), 111 selected roots and
+titles. Selectors span `./internal/modules/reporting`, its `exportprovider`,
+`./internal/platform/renderprocess`, `./internal/app/reportingassembly`, one
+`./internal/modules/networkflow` root, `packages/report-renderer`, and web
+reporting files. Collaborator union: 26 rows outside the family, 22 from
+completed owners (app.operator, app.server, database_migrations, extensions,
+graphprojection, incidentbundles, networkflow, records, recovery,
+reportcomposition) reused at their recorded scope, and 4 carried (revisions,
+timeline, platform.config, platform.openapi). The Reporting helper assertions
+inside the reportcomposition preview-delegation root (E-720) are reviewed here.
+The 48 non-browser rows run once at entry under the drift-check decision; the
+two measurement rows run only if a correction touches their path. Governing:
+`docs/reporting-subsystem-nlspec.md` and the Core sections it imports, read as
+the review proceeds. E-722 is reserved for the closure.
+
+### S-710 / F-695 / E-723 — Reporting provenance fixture keeps the Records envelope legal before workflow writes
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Diagnosed
+entry drift. `tcr-e722-drift01` (`make test-slice OWNER=module.reporting
+ROWS=<48 non-browser rows>`): native exit 2; pass21/22 units; 47 rows passed;
+row `module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c`
+failed (`TestSnapshotReplayAndReleaseProvenanceAreStable_Integration`,
+`reporting_integration_test.go:126`: note creation returned 500, want 201);
+scan211/pass; cleanup37 completed. `tcr-e722-drift02` reran only that row once
+after the investigation below found no production change in the working tree:
+the same 500 reproduced, so it is deterministic.
+
+Diagnosis, with temporary diagnostic edits to the test that were reverted
+byte-for-byte afterwards (the file again matches HEAD):
+
+- `tcr-e722-diag01`: the 500 body is the generic `internal_error`.
+- `tcr-e722-diag02`: a probe note created before `addUnpublishedReportingColumns`
+  returns 201; every probe after it returns 500.
+- `tcr-e722-diag03`: adding the `future_private NOT NULL DEFAULT` column to each
+  table alone shows that only `records` breaks note creation; the other eight
+  tables do not.
+
+Cause: since the E-361 Records slices (committed in `b5cd96adf`), revision
+snapshot capture validates every Records row through the Records-owned
+`records.ValidateSnapshotEnvelope` (`records.envelope_legal`), wired in
+`internal/app/revisionassembly/revisions.go`. The validator correctly fails
+closed on an unknown envelope member, so after the fixture adds a column to
+`records`, the next workflow write that captures a revision snapshot fails.
+Production is correct; the fixture state is illegal for later writes. This is
+the same rule that S-680 repaired for Parties. Governing: Core01 REQ-01-651 and
+Core02 REQ-02-265 (lossless canonical Records state, enforced by the Records
+envelope rule), and Reporting NLSpec §7.1 and §9 (snapshots expose only
+admitted source fields), which is what the unpublished columns test.
+
+Successor: drop the `records.future_private` column immediately before the
+first workflow write (`createWorkbookNote`), with a comment naming the Records
+envelope rule. Both checks that the unpublished column is not exposed still
+evaluate the first snapshot, whose capture and later release render were taken
+while the column existed, so neither check is weakened. The other eight tables
+keep their unpublished column for the whole test. Nothing is retired;
+successor01 on the failing row is the qualifying run, and with drift01's 47
+passing rows it closes the entry drift check. No production, routing, profile
+or timeout change. E-722/S-064 remain open.
+
+#### S-710 / F-695 / E-723 closure — Records envelope kept legal; entry drift closed
+
+DONE. The provenance test drops `records.future_private` immediately before
+its first workflow write, with a comment naming the Records envelope rule. The
+first snapshot, captured while the column existed, still carries the export
+model and release-render checks that it is not exposed. The other eight tables
+keep the column throughout. The diagnostic edits were reverted before the
+repair, and the final diff contains only the drop and its comment.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-e722-drift01 | `make test-slice OWNER=module.reporting ROWS=<48 non-browser rows>` | 2 | fail; 21/22 units; 47 rows passed; one row diagnosed above; scan211/pass; cleanup37 completed |
+| tcr-e722-drift02 | same failing row only, after investigation | 2 | the same 500 reproduced (deterministic) |
+| tcr-e722-diag01–03 | same row with temporary, reverted diagnostic edits | 2 | diagnosis above; not evidence |
+| tcr-s710-format01 | `make format` | 0 | pass2/2,4810 ms; scan18/pass; cleanup11 completed |
+| tcr-s710-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c` | 0 | pass3/3,29225 ms; row passed/15320 ms; scan30/pass; cleanup14 completed |
+
+Graph `638ccd97f3d68c9c454cb71f6fc02f87a605d02f1dff024d73382c63bc25dff1`; source
+`c1e37d60b590082ab1c68a2e64d420d02c7295f11a2195938ef8088bc7bc5c90`. All 48
+non-browser rows now pass at entry. Note for S-064: the E-361 Records envelope
+slices did not requalify this collaborator row, which is the second such
+fallout after S-680. E-722/S-064 remain open.
+
+#### E-722 partial ledger 1 — candidate queue
+
+Collaborator union recorded at entry. Read directly so far, with no correction
+needed: api, boundary_guard, output_options, render_failure,
+render_model_admission (the digest check runs first, so each mutation is
+attributable to the frozen-identity claim), rendered_svg, render_limits (exact
+boundary controls), graph_projection_refs, snapshot_capture, model_identity,
+release_payload, composition_render_input, portable_artifacts, links_test,
+execution_payload, renderer browser-policy unit, module-assets, pdf, stage, and
+ReportingController.node.
+
+Confirmed candidates, queued for slicing:
+
+1. `packages/report-renderer/src/browser-policy.integration.test.ts`: the title
+   claims undeclared loopback is blocked "before connection", but the
+   undeclared port has no listener and 192.0.2.1 is unroutable. The policy's
+   `route.abort` is never shown; a policy that only observed and continued
+   would still pass.
+2. `apps/web/src/app/createReportingWorkflow.test.tsx:127-134`: after the
+   contract major becomes unsupported, "Create snapshot" disabled is already
+   explained by the earlier viewer role. Only the controller's `available`
+   flag isolates the contract gate.
+3. `internal/modules/reporting/mermaid_source_test.go`: the 81-node,
+   25-participant and 161-edge cases use empty nodes and edges, which also
+   trigger `invalid_mermaid_construct`. Only `FailureCode=mermaid_invalid` is
+   pinned, so `diagram_hard_limit_exceeded` and the exact limits (80, 24, 160)
+   are not isolated.
+
+Location-sweep candidates still to verify (Explore agent, location only):
+
+- redaction_test: :1054-1087 multi-defect external requests with a generic
+  reason; :284-291 legacy `fields`; :1419 reveal-map absence; :1510 and
+  :1522-1527 `/incident/` absence; :392, :376, :527, :135 coarse errors;
+  :889-895 title vs `recipient_partition_profile_mismatch`; :344-351 "missing"
+  bound that is zero.
+- reporting_integration_test: :199 outcome `dropped_disclosure_partition`
+  (possibly not a production value); :161/:164/:74 `== ""` that passes for
+  null; :176/:182 non-exposure checks scan only the primary bundle file; :326
+  live notes unchanged; :1669 `fields`; :1693-1700 alias families; :1737
+  relationships prefix; :1615-1619 key presence only; :2154 hash inequality;
+  :47 timeline text clocks.
+- reporting_job_worker_test: :616-626 one persistence sentinel at two sites,
+  with trivially nil `failed`/`canceled`; :144-170 invalid model is both a
+  digest mismatch and a content change.
+- render_stage_test: :483-506 multi-defect protocol mutations; :529 reason
+  naming; :201 and :138 byte searches; :148, :136-152 and :142-147 role
+  conditionals.
+- renderprocess: process_linux :63/:76, :147-152, :500-516 and :82-118
+  (terminate vs kill); installation_linux :66-81 and :114-116.
+- renderer TS: mermaid.test :23-43 and :248-250; slidev.test :386 and :454-496;
+  stage.test :130-148 two-defect assets.
+- recovery and sensitive helpers: release_recovery :133-137 and
+  template_assets :111 (`23514` skip); release_recovery :123 and :304-312;
+  preview_recovery :120 and :228; sensitive_recovery :95-119 (test-computed
+  digest preimage); preview_receipt :44-59.
+- Others: render_attempt_deadline :93; template_derivation :242;
+  composition_deck :107-113; container_redaction :46/:60;
+  render_failure_record :128/:141; release_binding :33-52;
+  render_admission :103/:131; concurrent_admission :54; canonical_json :51;
+  exportprovider :84-158; networkflow reporting_graph_source :167-210;
+  reporting-progress.spec :259-268 (titles claim cancel).
+
+E-722/S-064 remain open.
+
+### S-711 / F-696 / E-724 — renderer browser policy proves undeclared loopback is blocked before connection
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 ledger 1 item 1). "browser interception blocks
+external HTTP and undeclared loopback before connection" sends the undeclared
+loopback request to `address.port + 1`, where nothing listens. It checks the
+observation and the `loopback_not_declared` failure, but a policy that recorded
+the request and then called `route.continue()` would produce the same
+observation and also fail to connect, so the test cannot fail for that defect.
+Production aborts with `route.abort("blockedbyclient")`
+(`browser-policy.ts`). Governing: Reporting NLSpec §24.3 render sandbox policy
+(undeclared loopback and external destinations are blocked, not merely
+observed).
+
+Successor: start a second listening server on an undeclared port. A Node-side
+request first shows that it is reachable (positive control). The browser-side
+undeclared loopback request then targets it, and the server's request count
+must not change. Retire the `port + 1` item after the successor passes. The
+external TEST-NET item stays as is (its non-connection cannot be observed
+locally; it pins classification only). Select
+`module.reporting.integration.renderer_browser_policy`. No production,
+routing, profile or timeout change. E-722/S-064 remain open.
+
+#### S-711 / F-696 / E-724 closure — blocked loopback request never connects
+
+DONE. A second loopback server on an undeclared port is first reached once
+directly from Node (positive control). The browser-side undeclared request then
+targets it; the policy must report `loopback_not_declared` with the exact
+observation, and the server's count must stay at 1. The test ran and passed;
+vitest evidence shows it was not skipped. The unlistened `port + 1` item passed
+beside the successor and was then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s711-format01 | `make format` | 0 | pass2/2,4742 ms; scan15/pass; cleanup11 completed |
+| tcr-s711-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.renderer_browser_policy` | 0 | pass3/3,4121 ms; row passed/196 ms; scan25/pass; cleanup12 completed |
+| tcr-s711-format02 | `make format` after retirement | 0 | pass2/2,4700 ms; scan15/pass; cleanup11 completed |
+| tcr-s711-qualified01 | same selection, final source | 0 | pass3/3,4167 ms; row passed/222 ms; scan25/pass; cleanup12 completed |
+| tcr-s711-types01 | `make lint CHECK=types` | 0 | pass2/2,20666 ms |
+
+Graph `ac48ead7dfcb0a25255618384c061fb895b3a67bc315c360ca8515322f6c398c`; final
+source `7134fa9724d88c164e2b9a9cbbe9a46192142ef644ab53fa970433beddd6795f`.
+Non-connection to the external TEST-NET address remains unobservable and is
+not claimed. E-722/S-064 remain open.
+
+### S-712 / F-697 / E-725 — Reporting contract-gate check runs under an otherwise authorized role
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 ledger 1 item 2). "binds reporting controls to
+claimed supported routes and current incident roles" sets the viewer role,
+then marks the `snapshot_reporting` contract major unsupported and requires
+"Create snapshot" disabled. The viewer role already disabled that button, so
+the DOM check cannot fail if the contract gate stops disabling controls. Only
+the controller's `available` flag isolates the gate. Governing: Core 01
+extension profile claim and contract-major compatibility (an unsupported
+major makes the profile's routes unavailable to the client) as applied by the
+web Reporting workflow.
+
+Successor: give `setup` a role setter that can restore `editor`. After the
+viewer check, restore `editor`, refresh, and require "Create snapshot" enabled
+(positive control). Then mark the major unsupported, refresh, and require
+`available` false and the button disabled. Retire the confounded post-viewer
+button check after the successor passes. Select
+`module.reporting.frontend.workflow_authority`. No production, routing,
+profile or timeout change. E-722/S-064 remain open.
+
+#### S-712 / F-697 / E-725 closure — contract gate observed under an authorized role
+
+DONE. After the viewer check, the test restores `editor`, refreshes, and
+requires "Create snapshot" enabled (positive control). The existing unsupported
+major check then runs under the editor role, so the controller's `available`
+flag and the disabled button can only come from the contract gate. The existing
+predicate is kept and is now attributable, so nothing was retired and
+successor01 is the qualifying run. `setRole` gained an optional role argument
+that defaults to the previous `viewer` behavior.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s712-format01 | `make format` | 0 | pass2/2,4855 ms; scan15/pass; cleanup11 completed |
+| tcr-s712-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.frontend.workflow_authority` | 0 | pass2/2,4693 ms; row passed (2/2 tests, 0 pending); scan21/pass; cleanup11 completed |
+| tcr-s712-types01 | `make lint CHECK=types` | 0 | pass2/2,21377 ms |
+
+Graph `c19a34c7c08105d635f6f1d7f2f0c0b2193d74bd2be746d11895e74ef155ae89`; source
+`aac0ae569128965a426881e3b6df0425da25d8339a9bd35f3299e5252c00f25c`.
+E-722/S-064 remain open.
+
+### S-713 / F-698 / E-726 — isolate the Mermaid diagram hard limits at their exact bounds
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 ledger 1 item 3).
+`TestMermaidSourceRejectsUnresolvedAndUnsafeInput` exercises the hard limits
+with `make([]reportingDiagramNode, 81)`, a 25-element sequence and
+`make([]reportingDiagramEdge, 161)`. The zero-valued nodes and edges also have
+empty or unresolved identities, which add `invalid_mermaid_construct`. Only
+`FailureCode=mermaid_invalid` is pinned, which every Mermaid issue shares, so
+the `diagram_hard_limit_exceeded` rule and its exact limits (80 flowchart
+vertices, 24 sequence participants, 160 edges; `mermaid_source.go`) are never
+isolated. Governing: Reporting NLSpec §16.1 Mermaid bounds.
+
+Successor: build well-formed diagrams with distinct node identities, valid
+labels and resolved forward edges. At the limits (80 nodes and 160 edges; 24
+participants) the source must serialize. One past each limit (81 nodes; 161
+edges; 25 participants) must return no bytes and exactly one issue,
+`diagram_hard_limit_exceeded`. Retire the three zero-value cases after the
+successor passes. Select
+`module.reporting.unit.graph_v2_exact_selection_and_rendering_f54d8b1a62`
+(confirm the row selecting this root). No production, routing, profile or
+timeout change. E-722/S-064 remain open.
+
+#### S-713 / F-698 / E-726 closure — Mermaid hard limits isolated at exact bounds
+
+DONE. Well-formed diagrams with distinct identities serialize at 80 vertices
+with 160 edges and at 24 sequence participants. At 81 vertices, 161 edges and
+25 participants they return no bytes and exactly one issue,
+`diagram_hard_limit_exceeded`. The three zero-value cases passed beside the
+successor and were then deleted (complete lines). Correction to the pre-edit
+record: the root is selected by
+`module.reporting.unit.build_export_model_uses_reporting_owned_metadata_bdda4b2393`,
+not the graph row named there as a placeholder to confirm. Both runs used the
+correct row.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s713-format01 | `make format` | 0 | pass2/2,4765 ms; scan18/pass; cleanup11 completed |
+| tcr-s713-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.unit.build_export_model_uses_reporting_owned_metadata_bdda4b2393` | 0 | pass1/1,9918 ms; row passed/320 ms; scan12/pass; cleanup10 completed |
+| tcr-s713-format02 | `make format` after retirement | 0 | pass2/2,4762 ms; scan18/pass; cleanup11 completed |
+| tcr-s713-qualified01 | same selection, final source | 0 | pass1/1,8995 ms; row passed/330 ms; scan12/pass; cleanup10 completed |
+
+Graph `e4e22e1d81f0b921763e9b04d300dd11a4a959a123159154f83db74bb5ae607c`; final
+source `4197bdc02a1cc4e7f7d0d9ac946e68adeb61dbedfac841f3013c2943da1617f9`.
+E-722/S-064 remain open. Next: verify the E-722 ledger 1 sweep candidates.
+
+### S-714 / F-699 / E-727 — selected-recipient party fields must not be dropped
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep). In
+`TestSnapshotReplayAndReleaseProvenanceAreStable_Integration`, the external
+release selects `party:<fixture party>` as its recipient partition. The test
+then requires each manifest entry for that party's fields not to have outcome
+`dropped_disclosure_partition`. Redaction manifest outcomes are exactly
+`unchanged`, `dropped`, `masked`, `truncated` and `stubbed` (`token_artifacts.go`
+outcome map), so that value never occurs and the check cannot fail. A dropped
+party field (outcome `dropped`, action `drop`) would pass. Governing: Reporting
+NLSpec §12.3–§12.3A (disclosure partition assignment and filtering: content in
+a selected recipient partition is retained for that release).
+
+Successor: require each selected-party entry to have neither action `drop` nor
+outcome `dropped`. The note entries checked just above are dropped and show
+that the value is produced. If the successor fails, the actual outcome is
+investigated before any change. Retire the vacuous comparison after the
+successor passes. Select
+`module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c`.
+No production, routing, profile or timeout change. E-722/S-064 remain open.
+
+#### S-714 / F-699 / E-727 closure — selected party fields proven retained
+
+DONE. Every manifest entry for the selected recipient party must have neither
+action `drop` nor outcome `dropped`, and the note entries in the same manifest
+show that `dropped` is produced. The vacuous `dropped_disclosure_partition`
+comparison passed beside the successor and was then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s714-format01 | `make format` | 0 | pass2/2,4746 ms; scan18/pass; cleanup11 completed |
+| tcr-s714-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c` | 0 | pass3/3,28232 ms; row passed/14890 ms; scan30/pass; cleanup14 completed |
+| tcr-s714-format02 | `make format` after retirement | 0 | pass2/2,4696 ms; scan18/pass; cleanup11 completed |
+| tcr-s714-qualified01 | same selection, final source | 0 | pass3/3,26953 ms; row passed/13350 ms; scan30/pass; cleanup14 completed |
+
+Graph `638ccd97f3d68c9c454cb71f6fc02f87a605d02f1dff024d73382c63bc25dff1`; final
+source `78a5e9d24fba5cb62bc6fbfd409734203d81c9d7a5ced2212eb7cb1a7e88f502`.
+E-722/S-064 remain open.
+
+### S-715 / F-700 / E-728 — remove a tautological token-artifact hash-domain check
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep). `requireReleaseTokenArtifacts` (in
+`reporting_integration_test.go`) computes `fileSHA`, verified equal to
+SHA-256 of the inline bytes, and `objectSHA`, SHA-256 of
+`schema_id + "\n" + bytes`, both in the test. It then fails if they are
+equal. The two preimages always differ, so the check can never fail and says
+nothing about production; it is labeled "file and object hash domains
+conflated". The production domain separation is pinned independently by the
+literal vector in `testReportingCanonicalBytes` (`canonical_json_test.go`), and
+the reveal-map object digest is compared with the retained production value
+below the loop. Disposition:
+remove. Nothing replaces it, so the qualifying run follows the removal. Select
+`module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c`.
+No production, routing, profile or timeout change. E-722/S-064 remain open.
+
+#### S-715 / F-700 / E-728 closure — tautological hash-domain check removed
+
+DONE. The test-only inequality between two differently prefixed test hashes
+was deleted (complete lines). The token manifest's file checksum, its path and
+schema checks, and the reveal map's production object digest comparison
+remain. Correction to the pre-edit record: the function is
+`requireReleaseTokenArtifacts` and the literal vector is in
+`testReportingCanonicalBytes`; both names were corrected before the edit.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s715-format01 | `make format` | 0 | pass2/2,4774 ms; scan18/pass; cleanup11 completed |
+| tcr-s715-qualified01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c` | 0 | pass3/3,29644 ms; row passed/15840 ms; scan30/pass; cleanup14 completed |
+
+Graph `638ccd97f3d68c9c454cb71f6fc02f87a605d02f1dff024d73382c63bc25dff1`; final
+source `ba72383393bd389d2e88e72702f2cdb4f4bdece7eae96594b02647fc1002ae82`.
+E-722/S-064 remain open.
+
+### S-716 / F-701 / E-729 — the job worker's failure-completion stage uses a distinct trigger error
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep). In `TestReportingJobWorkerExecutionBoundary`,
+the "failure completion" stage sets both `store.kindErr` and
+`manager.completionErr` to `persistenceErr` and requires
+`errors.Is(err, persistenceErr)`. The worker answers a kind-read failure with
+`failOrObserveContext` and `CompleteFailed` (`reporting_job_worker.go`), but a
+worker that returned the kind error directly, without attempting the failure
+completion, would satisfy the same predicate. Governing: Core Jobs worker
+completion contract (a handler failure is reported through the failure
+completion, and a completion persistence error is returned without inventing
+a terminal outcome).
+
+Successor: in that stage, trigger with a distinct `kindFailure` error and keep
+`completionErr = persistenceErr`. Require the returned error to match
+`persistenceErr`, which only the attempted completion produces, along with the
+existing no-terminal-write predicates. Retire the shared-sentinel assignment
+after the successor passes. Select
+`module.reporting.unit.reporting_job_worker_cancels_before_work_68d5024f75`.
+No production, routing, profile or timeout change. E-722/S-064 remain open.
+
+#### S-716 / F-701 / E-729 closure — failure completion proven attempted
+
+DONE. The stage "failure completion after distinct failure" triggers with a
+synthetic kind-read error and fails the completion with `persistenceErr`. The
+handler must return `persistenceErr`, which only the attempted
+`CompleteFailed` can produce, without a terminal write. The shared-sentinel
+stage passed beside the successor and was then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s716-format01 | `make format` | 0 | pass2/2,4882 ms; scan18/pass; cleanup11 completed |
+| tcr-s716-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.unit.reporting_job_worker_cancels_before_work_68d5024f75` | 0 | pass1/1,12756 ms; row passed/3530 ms; scan12/pass; cleanup10 completed |
+| tcr-s716-format02 | `make format` after retirement | 0 | pass2/2,4777 ms; scan18/pass; cleanup11 completed |
+| tcr-s716-qualified01 | same selection, final source | 0 | pass1/1,12302 ms; row passed/3520 ms; scan12/pass; cleanup10 completed |
+
+Graph `d6b7f3b8419bb59ab0077fdcefa6e009d35cdf1fa41df3fb22e90a317135f9a7`; final
+source `127575dd9722b20d5e4ac67302a724a92175520b897897d69d91a29565077f1d`.
+E-722/S-064 remain open.
+
+### S-717 / F-702 / E-730 — external release reason cases gain a successful external control
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep). In `TestDecoderNormalizationAndRegisteredReasons_Unit`,
+"unsupported external curated narrative" changes the base request to the
+external profile and external scope, keeps internal-draft output options and
+no recipient partitions, adds an unsupported curated narrative field, and
+expects the generic `invalid_scalar_value`. `renderCandidateFixture` discards
+the profile resolution error. No case shows that the same external request
+renders without the narrative, so the reason may come from the request shape
+rather than the unsupported narrative. Governing: Reporting NLSpec §12 and §13
+(external releases admit curated narrative only with support) and §23.6
+reason registry.
+
+Successor: add a control case with the identical external request and the
+base model, which must render successfully (`want: ""`). If it fails, the
+actual reason is investigated and the narrative case's request is corrected
+before any retirement. Nothing is retired if the control passes, and
+successor01 is then the qualifying run. Select
+`module.reporting.unit.snapshot_reporting_route_decoders_reject_legacy_9d9f64130f`.
+No production, routing, profile or timeout change. E-722/S-064 remain open.
+
+#### S-717 / F-702 / E-730 closure — external control renders; narrative case retained
+
+DONE. The control "external request with supported content" uses the
+identical external request with the base model and renders successfully, so
+the "unsupported external curated narrative" case's `invalid_scalar_value` is
+attributable to the narrative and is retained. Nothing was retired; successor01
+is the qualifying run.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s717-format01 | `make format` | 0 | pass2/2,4775 ms; scan18/pass; cleanup11 completed |
+| tcr-s717-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.unit.snapshot_reporting_route_decoders_reject_legacy_9d9f64130f` | 0 | pass1/1,10051 ms; row passed/200 ms; scan12/pass; cleanup10 completed |
+
+Graph `2cb2de69b6434f6a75d38cea1e0e90a51f6da4cf1d8ea3c7e6e1bef370d6609c`; source
+`bac013e883d587c6a45908b369ae75630ad15949c95eabfe6e3b81199eae7681`. The
+"unsupported template output kind" case pins failure code and stage
+(`bundle_manifest_invalid` at `bundle_manifest`) and is retained.
+E-722/S-064 remain open.
+
+### S-718 / F-703 / E-731 — render runtime root containment isolated from a missing directory
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep). `TestRenderProcessRejectsInvalidCapabilities`
+rejects a runtime whose `Root` is `TemporaryRoot/nested`, but that directory
+does not exist. `Runtime.validate` (`internal/platform/renderprocess/configuration.go`)
+fails `filepath.EvalSymlinks` and `os.Stat` before the containment rule
+(`containsPath(Root, TemporaryRoot)` either way), so containment is never
+isolated, and the reverse nesting (temporary root inside the render root) is
+not exercised. The equal-root case is single-defect and stays. Governing:
+Reporting NLSpec §24.3 render sandbox policy (render and temporary roots are
+disjoint, existing, canonical directories).
+
+Successor: create the nested directory first so that only containment can
+reject. Add the reverse case with `TemporaryRoot` set to an existing directory
+inside `Root`. Remove both directories afterwards so the existing
+attempt-cleanup assertion still sees an empty temporary root. Retire the
+nonexistent-directory candidate after the successor passes. Select
+`module.reporting.integration.renderer_process`. No production, routing,
+profile or timeout change. E-722/S-064 remain open.
+
+#### S-718 / F-703 / E-731 closure — root containment isolated in both directions
+
+DONE. Existing directories `TemporaryRoot/nested-root` (as `Root`) and
+`Root/nested-temporary` (as `TemporaryRoot`) are created, each rejected with
+`ErrConfiguration` through the containment rule alone, and then removed. The
+attempt-cleanup assertion still passes. The nonexistent-directory candidate
+passed beside the successor and was then removed from the root list. The file
+has no skip path, so the row's tests executed.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s718-format01 | `make format` | 0 | pass2/2,4756 ms; scan18/pass; cleanup11 completed |
+| tcr-s718-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.renderer_process` | 0 | pass1/1,1286 ms; row passed/280 ms; scan12/pass; cleanup10 completed |
+| tcr-s718-format02 | `make format` after retirement | 0 | pass2/2,4765 ms; scan18/pass; cleanup11 completed |
+| tcr-s718-qualified01 | same selection, final source | 0 | pass1/1,1271 ms; row passed/280 ms; scan12/pass; cleanup10 completed |
+
+Graph `bce54e4a1a30e52fab3401a657ee2f27ba2e6501a5803172895bebf1d288ed6d`; final
+source `dac098cb1c542ed09dbb9c233abc167e1f7129d5e2cdccf199c2fd46c882fa06`.
+E-722/S-064 remain open.
+
+### S-719 / F-704 / E-732 — control the test-computed private display digest preimage
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep). `assertPrivateRevealReadiness`
+(`sensitive_recovery_integration_test.go`) replaces a reveal-map entry's
+`canonical_display_value` and recomputes `canonical_display_value_sha256`
+with a test-built preimage (`json.Marshal` of `schema_id`,
+`stable_subject_ref`, `value`). It then requires the retained-artifact and
+release/preview recovery validators to reject. The claim is that a
+self-consistent recomputed private digest still fails the independent public
+subject binding. If the test's preimage differs from production's algorithm,
+the entry is also self-inconsistent and the rejection proves nothing about the
+public binding. Governing: Reporting NLSpec §13.2–§13.4 (tokenizable subject
+digest and reveal map binding).
+
+Successor: before the substitution, recompute the unchanged entry's digest
+with the same preimage and require it to equal the retained value, which
+proves the recomputation matches production. The existing rejections are then
+attributable and are retained, so nothing is retired. Select both rows that
+call the helper: `module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c`
+(release) and
+`module.reportcomposition.integration.preview_reporting_delegation_ecdd2bc64a`
+(preview, run under its owner). No production, routing, profile or timeout
+change. E-722/S-064 remain open.
+
+#### S-719 / F-704 / E-732 closure — display digest recomputation proven to match production
+
+DONE. Before the substitution, the test recomputes the unchanged entry's
+display digest with its preimage and requires the retained value. This held
+in both callers, so the substituted entry is self-consistent and its rejection
+by the retained-artifact and release/preview recovery validators is
+attributable to the independent public subject binding. The existing
+rejections were retained; nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s719-format01 | `make format` | 0 | pass2/2,4778 ms; scan18/pass; cleanup11 completed |
+| tcr-s719-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c` | 0 | pass3/3,26778 ms; row passed/13060 ms; scan30/pass; cleanup14 completed |
+| tcr-s719-successor02 | `make test-slice OWNER=module.reportcomposition ROWS=module.reportcomposition.integration.preview_reporting_delegation_ecdd2bc64a` | 0 | pass3/3,99194 ms; row passed/86660 ms; scan32/pass; cleanup14 completed |
+
+Graphs `638ccd97f3d68c9c454cb71f6fc02f87a605d02f1dff024d73382c63bc25dff1` and
+`ea6b70956cb2b1b21c6650917300c8da370756b65745d4f69799facc8a2d2fee`; source
+`697ace4ccddfa04262f6a304ca66c3fd9bb7d74a39c08a0ed617039d0be6a2f4`.
+E-722/S-064 remain open.
+
+### S-720 / F-705 / E-733 — remove a serialization check that cannot observe its fields
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep). `testTemplateNarrativeSlots`
+(`template_derivation_test.go`, run from `TestSlidevCanonicalSourceV2`) fails
+if `result.ModelJSON` contains `admittedPartyIDs` or `subjectDisplayTokens`.
+Those are unexported fields of the redacted model (`redaction.go`), which
+`encoding/json` never serializes. Even if they were exported without a tag,
+the keys would be capitalized and the case-sensitive search would still miss
+them, so the check cannot fail. The private expansion context is kept out of
+serialization by the type, not by this assertion. Disposition: remove; the
+qualifying run follows the removal. Select
+`module.reporting.unit.build_export_model_uses_reporting_owned_metadata_bdda4b2393`.
+No production, routing, profile or timeout change. E-722/S-064 remain open.
+
+#### S-720 / F-705 / E-733 closure — unobservable serialization check removed
+
+DONE. The check was deleted (complete lines), together with the `strings`
+import it alone used. The narrative-slot reasons and the before/after model
+immutability checks in `testTemplateNarrativeSlots` remain.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s720-format01 | `make format` | 0 | pass2/2,4827 ms; scan18/pass; cleanup11 completed |
+| tcr-s720-qualified01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.unit.build_export_model_uses_reporting_owned_metadata_bdda4b2393` | 0 | pass1/1,9245 ms; row passed/340 ms; scan12/pass; cleanup10 completed |
+
+Graph `e4e22e1d81f0b921763e9b04d300dd11a4a959a123159154f83db74bb5ae607c`; final
+source `05be608ce9851e8321b2530e827157e5e314b71be7b3b0c82591ed17f3dd0bf8`.
+The package compiles for every row that selects it.
+
+#### E-722 partial ledger 2 — verified sweep dispositions, resume point after S-720
+
+Closed: S-710–S-720. Verified and retained, with reasons:
+
+- redaction :1074-1087 (output kind `html`): failure code and stage are
+  pinned. :1419: shareable-member check is meaningful; the reveal-map schema
+  search is redundant, since the bundle artifacts type has no reveal map.
+  :1510 and :1522-1527: selector-leak guards; coverage of only `Fields[0]` is
+  recorded.
+- reporting_integration :176/:182: only the primary bundle file is scanned for
+  the unpublished value, but `requireClosedReportingSourceFields` scans the
+  whole frozen export model that every output derives from. Recorded.
+- render_stage :483-506: each mutation changes one field of a valid result, so
+  each rejection is attributable to that field's binding; nil observations
+  are also covered by the native subtest. :529: the reason is the registered
+  code for unsafe rendered output.
+- release_recovery :133-137: the `23514` early return accepts a database CHECK
+  rejection, which is also fail-closed. That layer is not distinguished from
+  the application validator; recorded.
+- preview_receipt :44-59: `response_json` is `jsonb`, so re-encoding is
+  semantically neutral; each mutation is single.
+- render_attempt_deadline :93: release and preview completion counts are
+  trivially zero because the custom finalizer bypasses mutation. The
+  meaningful predicate is `successCalls == 1`. Recorded.
+- canonical_json :51: redundant with the pinned domain-separated vector; not
+  tautological, since it would fail if the object digest became plain SHA-256.
+  Retain.
+- ReportingController.node: retained as in ledger 1. The 31 s fake-timer
+  advance is a deterministic fake-clock bound, not a wall-clock window.
+
+Still to verify: networkflow reporting_graph_source :167-210; exportprovider
+:84-158; renderer TS stage.test assets, mermaid.test :23-43 and :248-250,
+slidev.test :386 and :454-496; redaction :889-895, :344-351, :376, :527,
+:392, :135 and :284-291; reporting_integration :161/:164/:74, :326, :1669,
+:1693-1700, :1737, :1615-1619 and :47; render_stage :136-152 and :201;
+process_linux :63/:76, :82-118 and :500-516; installation_linux :66-81 and
+:114-116; release_recovery :123, :304-312 and :400; preview_recovery :120 and
+:228; template_assets :85-111; composition_deck :107-113;
+container_redaction :46/:60; render_failure_record :128/:141; release_binding
+:33-52; render_admission :103/:131; concurrent_admission :54; createReportingWorkflow
+:161; reporting-progress.spec (measurement). E-722/S-064 remain open.
+
+### S-721 / F-706 / E-734 — Reporting graph source readiness gate isolated from result deletion
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep). The reporting graph source integration test
+(`internal/modules/networkflow/reporting_graph_source_integration_test.go`)
+ends by setting the source's readiness to false, deleting the
+`graph_projection_results` row, and requiring a new
+`ReadSelectedResultTx` to fail ("new input admitted with source unavailable").
+With the row gone, `LockResultEnvelope` rejects even if the readiness gate is
+removed, so the gate is not isolated. `ReadSelectedResultTx` checks
+`GraphStateReady()` first and returns `graphprojection.ErrResultV2BindingMismatch`.
+Governing: Graph Projection and Reporting NLSpec §15.1 (Reporting admits a
+graph source only while its owner reports its source state ready).
+
+Successor: after readiness becomes false and before the deletion, read the
+still-present, previously admitted binding in a fresh transaction and require
+`ErrResultV2BindingMismatch`. The earlier successful read of the same binding
+is the positive control. Retire the final post-deletion any-error read after
+the successor passes; the check that the admitted value is retained after
+deletion stays. Select
+`module.reporting.integration.graph_input_admission_reads_the_exact_selected_c_4c42af0393`.
+No production, routing, profile or timeout change. E-722/S-064 remain open.
+
+#### S-721 / F-706 / E-734 closure — readiness gate rejects a present result
+
+DONE. After readiness becomes false, a fresh transaction reading the
+still-present, previously admitted binding must fail with
+`ErrResultV2BindingMismatch`, which only the gate can cause. Deleting the row
+then leaves the already admitted value intact, as before. The post-deletion
+any-error read passed beside the successor and was then deleted (complete
+lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s721-format01 | `make format` | 0 | pass2/2,4743 ms; scan18/pass; cleanup11 completed |
+| tcr-s721-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.graph_input_admission_reads_the_exact_selected_c_4c42af0393` | 0 | pass3/3,10674 ms; row passed/270 ms; scan26/pass; cleanup14 completed |
+| tcr-s721-format02 | `make format` after retirement | 0 | pass2/2,4737 ms; scan18/pass; cleanup11 completed |
+| tcr-s721-qualified01 | same selection, final source | 0 | pass3/3,10757 ms; row passed/260 ms; scan26/pass; cleanup14 completed |
+
+Graph `def1d4be813b8c173b4f9d1167eae83b511343101649d80fda519e2485c41850`; final
+source `5614b125ccd004eaed17a5035d1668c109011444452498eaf992fe25ab6c4f03`. The
+cleanup-candidate negative at :167 (a nil candidate may also mean that none
+was eligible) is recorded, not repaired. E-722/S-064 remain open.
+
+### S-722 / F-707 / E-735 — provider output validation cases start from a valid output
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep).
+`TestProviderOutputValidateRejectsFlatOrIncompleteFacts` (`exportprovider`)
+builds two minimal outputs by hand. One has two identical field facts with no
+value and no record, subject, support or partition facts. The other has a
+record fact with only schema and ID. Both are invalid for reasons beyond the
+named defect, so neither the duplicate-field rule nor the record-completeness
+rule is isolated, and no valid output is shown to pass `Validate`. Governing:
+Reporting NLSpec §9.4 and §11 (provider outputs carry unique field facts bound
+to complete record facts).
+
+Successor: build a valid output with `NewProviderOutput` and require
+`Validate` to succeed (positive control). From copies of it, append a
+duplicate of its field fact, and separately clear its record fact's
+`record_type`; each must fail `Validate`. Retire the two hand-built minimal
+cases after the successor passes. Select
+`module.reporting.unit.provider_output_validate_and_fields_1d0b913cab`. No
+production, routing, profile or timeout change. E-722/S-064 remain open.
+
+#### S-722 / F-707 / E-735 closure — provider validation isolated from a valid output
+
+DONE. A provider output built by `NewProviderOutput` passes `Validate`. A
+copy with a duplicated field fact, and a copy whose record fact lacks
+`record_type`, each fail. The two hand-built minimal outputs passed beside the
+successor and were then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s722-format01 | `make format` | 0 | pass2/2,4839 ms; scan18/pass; cleanup11 completed |
+| tcr-s722-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.unit.provider_output_validate_and_fields_1d0b913cab` | 0 | pass1/1,966 ms; row passed; scan12/pass; cleanup10 completed |
+| tcr-s722-format02 | `make format` after retirement | 0 | pass2/2,4705 ms; scan18/pass; cleanup11 completed |
+| tcr-s722-qualified01 | same selection, final source | 0 | pass1/1,946 ms; row passed; scan12/pass; cleanup10 completed |
+
+Graph `2d7f6d0c3ec0b657ab3983a29faa65baf1739e6c9011c46816d86a559f8078fe`; final
+source `7051ff677990aecf6f0bb32a282aa4ef5342ffece1f23bf1a4c5553ace2e7805`. The
+`assertProviderBindings` mutation map already starts from a valid output and
+is retained. E-722/S-064 remain open.
+
+### S-723 / F-708 / E-736 — installation symlink rule isolated from content mismatch
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep). `TestRenderInstallationAdmission` "link"
+replaces a declared runtime file with a symlink to a nonexistent path. The
+installation walker rejects non-regular entries
+(`installation_linux.go`: `!entry.Type().IsRegular()`), but a dangling link
+also fails any later open or hash, so the case does not show that a symlink is
+rejected for being a symlink. Governing: Reporting NLSpec §20 and §24.3
+(installed renderer runtime files are exact regular files matching the
+manifest).
+
+Successor: a new mutation `link_same_bytes` writes the declared file's exact
+bytes outside the staging tree and replaces the file with a symlink to that
+copy. Following the link would yield the declared digest, so only the
+regular-file rule can reject. The `none` mutation is the positive control.
+Retire `link` after the successor passes. `human_material` (an undeclared
+name, also a dangling link) and `root_escape` (a nonexistent traversal) are
+recorded, not repaired. Select `module.reporting.integration.renderer_process`.
+No production, routing, profile or timeout change. E-722/S-064 remain open.
+
+#### S-723 / F-708 / E-736 closure — same-bytes symlink rejected as a symlink
+
+DONE. `link_same_bytes` replaces a declared runtime file with a symlink to an
+identical copy outside staging, and installation admission rejects it with
+`ErrInstallation`. The `none` mutation still admits the unmodified
+installation. The dangling `link` case passed beside the successor and was then
+deleted (complete lines and list entry).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s723-format01 | `make format` | 0 | pass2/2,4755 ms; scan18/pass; cleanup11 completed |
+| tcr-s723-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.renderer_process` | 0 | pass1/1,1227 ms; row passed/280 ms; scan12/pass; cleanup10 completed |
+| tcr-s723-format02 | `make format` after retirement | 0 | pass2/2,4645 ms; scan18/pass; cleanup11 completed |
+| tcr-s723-qualified01 | same selection, final source | 0 | pass1/1,1233 ms; row passed/270 ms; scan12/pass; cleanup10 completed |
+
+Graph `bce54e4a1a30e52fab3401a657ee2f27ba2e6501a5803172895bebf1d288ed6d`; final
+source `0e270dace3d4ac6cddf581859bb88a615f6f1271b6838ad26b05cbd38e7fde3a`.
+E-722/S-064 remain open.
+
+#### E-722 partial ledger 3 — resume point after S-723
+
+Closed: S-710–S-723. Additionally verified and retained: renderer TS
+mermaid.test admission cases (one textual construct each) and the passive-SVG
+rejections (`materializePassiveSVG` is exercised successfully by the render
+test in the same file); stage.test asset cases (each rule is also isolated by
+another case); slidev.test :386 (registered code) and :454-496 (three pages
+for two slides plus one click state); redaction :889-895 and :344-351 (title
+gaps recorded), :380-394 (one flag each); reporting_integration :326 (bounded
+negative) and :1677 (retired-schema regression guard); exportprovider binding
+map (starts from a valid output).
+
+Still to verify: redaction :376, :527, :135 and :284-291;
+reporting_integration :161/:164/:74, :1693-1700, :1737 and :47; render_stage
+:136-152 and :201; process_linux :63/:76, :82-118 and :500-516;
+release_recovery :123, :304-312 and :400; preview_recovery :120 and :228;
+template_assets :85-111; composition_deck :107-113; container_redaction
+:46/:60; render_failure_record :128/:141; release_binding :33-52;
+render_admission :103/:131; concurrent_admission :54; createReportingWorkflow
+:161; reporting-progress.spec (measurement). E-722/S-064 remain open.
+
+### S-724 / F-709 / E-737 — render protocol overflow isolated from missing output
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+reporting finding (E-722 sweep). `TestRenderProcessCancellationAndOutputAdmission`
+expects `ErrOutput` for the `protocol_overflow` fixture action, which writes
+`protocolLimit + 1` bytes to stdout but never writes `result.bin`. The
+`missing` action shows that a missing declared output alone yields `ErrOutput`,
+so the protocol-size bound (`protocolLimit`, 64 KiB, `process_linux.go`) is
+not isolated. Governing: Reporting NLSpec §24.3 and §25 (bounded renderer
+protocol and outputs; an oversize protocol stream fails the attempt and
+publishes nothing).
+
+Successor: a new fixture action `protocol_overflow_with_output` writes a valid
+8-byte `result.bin` (`rendered`, within the 8-byte bound) and then overflows
+stdout. It must still yield `ErrOutput` with no files or protocol. Retire the
+`protocol_overflow` action after the successor passes. Select
+`module.reporting.integration.renderer_process`. No production, routing,
+profile or timeout change. E-722/S-064 remain open.
+
+#### S-724 successor01 failure — production protocol bound is bypassed
+
+`tcr-s724-successor01` exited 2: the new `protocol_overflow_with_output` case
+returned a result and no error. One temporary diagnostic run
+(`tcr-s724-diag01`, edit reverted byte-for-byte; the test file again holds only
+the successor) reported `protocol_len=65537`, `files=1`, `error=<nil>`. The
+whole overflowing stream was admitted.
+
+Cause: `boundedProtocol` (`internal/platform/renderprocess/process_linux.go`)
+embeds `bytes.Buffer`, so it inherits `ReadFrom`. `os/exec` copies a non-file
+`Stdout`/`Stderr` with `io.Copy`, which prefers the destination's `ReadFrom`
+and bypasses the bounded `Write`. The protocol limit (`protocolLimit`,
+64 KiB), its `overflow` flag and the stderr diagnostic bound are therefore
+never enforced. The original `protocol_overflow` case hid this because its
+fixture also omitted `result.bin`, so the missing-output error was returned
+instead. The successor is correct; the defect is in production. It is repaired
+as a separate slice (S-725) before S-724 continues.
+
+### S-725 / F-710 / E-738 — render-process protocol and diagnostic streams are actually bounded
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+production defect exposed by S-724 (diagnosis above). Governing: the
+render-process supervisor's declared contract in
+`internal/platform/renderprocess` (stdout protocol and stderr diagnostics are
+retained up to `protocolLimit`; protocol overflow fails the attempt with
+`ErrOutput` and publishes nothing). No NLSpec table names this
+implementation bound, so no requirement change is adopted. Unbounded
+retention of untrusted renderer output also breaks the Reporting NLSpec §24.3
+expectation that renderer output is contained.
+
+Repair: hold the `bytes.Buffer` in a named field, so that `io.Copy` cannot
+reach `bytes.Buffer.ReadFrom`, and expose only the bounded `Write` and a
+`Bytes` accessor. No behavior changes for in-bound streams. Qualification: the
+S-724 successor (`protocol_overflow_with_output` must yield `ErrOutput` with
+no files or protocol) together with every other case in
+`module.reporting.integration.renderer_process`. No routing, profile or timeout
+change. E-722/S-064 remain open.
+
+#### S-725 / F-710 / E-738 closure — protocol and diagnostic bounds enforced
+
+DONE. `boundedProtocol` now holds its `bytes.Buffer` in the named field
+`buffer` and exposes `Write` and `Bytes` only, so `io.Copy` reaches the
+bounded `Write`. With the S-724 successor in place, the overflowing protocol
+now yields `ErrOutput` with no files or protocol, and every other render-process
+case passes. Because the bound is now actually enforced, the two rows that
+drive real renders through the supervisor were also run; real stage protocols
+fit the bound.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s725-format01 | `make format` | 0 | pass2/2,4723 ms; scan18/pass; cleanup11 completed |
+| tcr-s725-qualified01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.renderer_process` | 0 | pass1/1,1340 ms; row passed/290 ms; scan12/pass; cleanup10 completed |
+| tcr-s725-dependents01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.renderer_installed_sandbox,module.reporting.integration.renderer_stage_boundary` | 0 | pass5/5,113793 ms; rows passed/90420 ms and 20380 ms; scan28/pass; cleanup14 completed |
+
+Graphs `bce54e4a1a30e52fab3401a657ee2f27ba2e6501a5803172895bebf1d288ed6d` and
+`7588a9b3896eb9aad1276c3944ce52ff32d835f22e006aaff3eed5d91a1f6cc7`; source
+`fd2a2b33388e56de9f29ee4e768922cf23bc92c79b09dec7d30364c043165c9c`. Production
+change: `internal/platform/renderprocess/process_linux.go` only. Not claimed:
+behavior of other render-process consumers beyond these rows (the
+`rendersandbox` launcher uses only `ExecNetworkChild`, which is unchanged).
+E-722/S-064 remain open; S-724 resumes with retirement.
+
+#### S-724 / F-709 / E-737 closure — protocol overflow isolated; production repaired in S-725
+
+DONE. `protocol_overflow_with_output` writes a valid 8-byte `result.bin` and
+then overflows stdout; after S-725 it yields `ErrOutput` with no files or
+protocol. The `protocol_overflow` action (no output file) was deleted from the
+action list and the fixture (complete lines) after the successor passed.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s724-format01 | `make format` | 0 | pass2/2,4799 ms; scan18/pass; cleanup11 completed |
+| tcr-s724-successor01 | `make test-slice OWNER=module.reporting ROWS=module.reporting.integration.renderer_process` | 2 | fail; production defect diagnosed above (repaired by S-725) |
+| tcr-s724-diag01 | same row, temporary reverted diagnostic | 2 | `protocol_len=65537`; not evidence |
+| tcr-s725-qualified01 | same row after the S-725 repair | 0 | successor passes (see S-725) |
+| tcr-s724-format02 | `make format` after retirement | 0 | pass2/2,4823 ms; scan18/pass; cleanup11 completed |
+| tcr-s724-qualified01 | same row, final source | 0 | pass1/1,1243 ms; row passed/270 ms; scan12/pass; cleanup10 completed |
+
+Graph `bce54e4a1a30e52fab3401a657ee2f27ba2e6501a5803172895bebf1d288ed6d`; final
+source `7915781c0a970440890a445e37e15ab25a4826cb736cd53dd83d717ac56add4d`.
+E-722/S-064 remain open.
+
+#### E-722 closure — A-module.reporting semantic audit
+
+DONE. Discovery: 50 rows (Go 36, Vitest 12, Playwright 2 measurement), 111
+roots and titles. Entry drift was diagnosed and repaired (S-710: the Records
+envelope rule from the E-361 slices made a fixture-added `records` column
+illegal for later writes). All 48 non-browser rows then passed. Collaborator
+union: 26 rows, 22 reused from completed owners and 4 carried (revisions,
+timeline, platform.config, platform.openapi). The Reporting helper assertions
+in the reportcomposition preview root were reviewed here.
+
+Corrective slices S-710–S-725, each recorded before editing and qualified at
+its exact rows:
+
+| Slice | Correction |
+| --- | --- |
+| S-710 | provenance fixture keeps the Records envelope legal (entry drift) |
+| S-711 | undeclared loopback blocked before connection (listening control server) |
+| S-712 | contract gate observed under an authorized role |
+| S-713 | Mermaid hard limits isolated at exact bounds |
+| S-714 | selected-recipient party fields proven not dropped |
+| S-715 | tautological hash-domain check removed |
+| S-716 | failure completion proven attempted |
+| S-717 | external control for the curated-narrative reason |
+| S-718 | render root containment isolated in both directions |
+| S-719 | display digest recomputation proven to match production |
+| S-720 | unobservable serialization check removed |
+| S-721 | graph source readiness gate isolated from row deletion |
+| S-722 | provider validation from a valid output |
+| S-723 | installation symlink rule isolated from content mismatch |
+| S-724 | protocol overflow isolated from missing output |
+| S-725 | **production repair**: render-process protocol and diagnostic bounds were bypassed through the promoted `bytes.Buffer.ReadFrom` |
+
+Production change in this owner: `internal/platform/renderprocess/process_linux.go`
+(S-725), qualified with the render-process row and both real-render rows.
+
+Retained after direct reading (reasons in partial ledgers 1–3 and the slice
+closures): canonical, identity, payload, limit, admission, graph-ref,
+composition-binding, decoder, protocol-mutation, SVG, recovery-integrity and
+TS renderer families, which use single-defect mutations, pinned codes or
+exact boundary controls.
+
+Open for S-064 (recorded, not repaired):
+
+- The explicit exclusion loop for investigative-query and forensic-keyword
+  paths (reporting_integration :1701) is dead code. The property is enforced by
+  the alias map failing on an unknown family.
+- The relationship check accepts any `/relationships/` path; party and note
+  `== ""` checks pass for null where no later exact comparison exists.
+- The `23514` early returns (release_recovery, template_assets) do not
+  distinguish the database CHECK layer from the application validator.
+- The cleanup-candidate nil at networkflow :167 may also mean that none was
+  eligible.
+- Trivially zero completion counts at render_attempt_deadline :93; title gaps
+  at redaction :889 and :344; render_failure_record "unsupported schema" may
+  also change the digest domain.
+- `human_material` and `root_escape` installation cases are multi-defect; there
+  is no stderr-diagnostic overflow case after S-725.
+- Fixed literal timeline texts at :47 (entry precedes activity); wall-clock
+  windows in deadline, process and concurrency tests; measurement-spec titles
+  claim cancel without requiring a canceled outcome. The browser measurement
+  rows were not run; no correction touched their path.
+- Location-sweep items not individually re-read after the closing pass:
+  container_redaction :46/:60, concurrent_admission :54, render_stage
+  :136-152/:201, release_recovery :304-312/:400 and createReportingWorkflow :161.
+
+Non-claims: only changed rows and the two directly affected real-render rows
+were requalified after entry; no performance, stability or release claim.
+
+### A-module.revisions entry — E-739 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.revisions DETAIL=rows JSON=1`: 84
+rows (Go 59, Vitest 1, Playwright 24; the queue's earlier 79 predates
+catalog growth), 116 selected roots and titles. Selectors cover
+`./internal/modules/revisions` (64 roots), `conflicts` (15),
+`internal/app/revisionassembly` (7), `sourceboundary` (3), `httpapi` and
+`codegenboundary` (1 each), and the history Playwright specs (24 titles,
+including measurement). Collaborator union: 105 rows outside the family. Sixty-two
+from completed owners are reused at their recorded scope (app.server 2,
+harness.browser 2, artifacts 11, assessments 10, collaboration 1, entities 11,
+evidence 12, imports 1, incidentbundles 3, indicators 5, links 2, parties 2).
+Forty-three are carried to pending owners (tasksdecisions 3, timeline 6,
+workbook 19, platform.config 1, platform.openapi 1, web.workbook 13). The 60
+non-browser rows run once at entry in two batches (the ROWS argument is
+limited to 4,096 characters). Browser rows run only if a correction touches
+their path. Governing: Core 02 history, revision and rollback sections and the
+Core sections they import, read as the review proceeds. E-739 is reserved for
+the closure.
+
+#### E-739 entry drift — diagnosis
+
+`tcr-e739-drift01` (batch 1, 30 rows): native exit 2; pass8/11 units; 27 rows
+passed; scan109/pass; cleanup28 completed. Three rows failed:
+`history_logical_page_boundaries`, `portability.exact_attribution` and
+`portability.uuid_admission`. `tcr-e739-drift02` (batch 2, 30 rows): native
+exit 2; pass10/11 units; 29 rows passed; scan98/pass; cleanup26 completed. One
+row failed: `store.history_entry_ref_is_present_only_for_a_logical_5f0060122a`.
+There are three distinct causes, all from production changes committed in
+`b5cd96adf` (the E-361 owner slices) that did not requalify these Revisions
+rows. Production behaves correctly in each case; the fixtures are stale.
+
+- A. History reads return 500 in the two tests that seed an `entity_alias`
+  mutation. The passing history tests seed only host mutations. A temporary
+  diagnostic (`tcr-e739-diag01`, reverted byte-for-byte) showed that the
+  seeded host Records envelopes are valid. The entities owner's retained alias
+  contract (`hostidentity/aliashistory.Decode`, wired through
+  `alias_history_validator.go`) now requires a closed 10-member value
+  (`entity_alias_id`, `incident_id`, `record_id`, `entity_type`, `raw_text`,
+  `normalized_text`, `classification`, `created_by_user_id`, `created_at`,
+  `deleted_at`) and `target_id = entity_alias:<entity_alias_id>`. The fixture
+  writes 7 members and the bare record ID.
+- B. `TestRevisionsIncidentBundleExactAttribution` strips the bundle's
+  mutations and record revisions while the harness incident still has records.
+  Import now requires every incident record to retain revision history
+  (`incident_bundle_validation.go`, `revisions.history_reconstruction`; Core
+  02 REQ-02-217).
+- C. `TestRevisionsIncidentBundleUUIDAdmission_Unit`, for the nil-UUID
+  `change_sets.incident_id` case, also sets the import context's target
+  incident to nil. The sourceport adapter (`incidentbundles/sourceport/adapter.go`)
+  correctly refuses a nil import context ("missing preparation") before
+  Revisions validation runs.
+
+Each is repaired as its own slice, starting with A.
+
+### S-726 / F-711 / E-740 — history fixtures seed complete retained Entity Alias values
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Entry drift
+A above. Governing: Core 02 REQ-02-215 and REQ-02-217 (reversible,
+reconstructible mutation values), and the entities owner's retained alias
+value contract (complete closed value; target `entity_alias:<id>`;
+`suggestion_only`; canonical normalized text and timestamps).
+
+Successor: `seedHistoryMutation` writes, for `entity_alias`, a hand-authored
+complete value: a deterministic alias ID derived from change set and sequence,
+the seed's incident, record and actor, `entity_type` `host`, `raw_text` and
+`normalized_text` `retained-alias`, `classification` `suggestion_only`,
+canonical `created_at` from the seed, and `deleted_at` null. The mutation's
+`target_id` becomes `entity_alias:<alias id>`. No expectation changes;
+nothing is retired. Qualify every row whose tests use the helper (six rows,
+including the two failing ones). No production, routing, profile or timeout
+change. E-739/S-064 remain open.
+
+#### S-726 successor01 — five rows repaired; one exposes a production defect
+
+`tcr-s726-successor01` (the six rows using the helper) exited 2: five rows
+passed, including `history_logical_page_boundaries`.
+`history_entry_ref_is_present_only_for_a_logical_5f0060122a` still got a 500.
+A temporary diagnostic (`tcr-e739-diag02`, reverted byte-for-byte) inserted the
+seeded alias's `entity_aliases` row before the read. The 500 disappeared, and
+the alias change set became rollback-eligible. The record in this test is
+live, so rollback availability is evaluated; in the logical-page test the
+record is soft-deleted, which skips that evaluation.
+
+Cause: for a whole-change-set plan, a target whose current row is missing
+yields a deferred `ErrRollbackTargetNotFound`
+(`rollback_query_selectors.go`; the entities collection provider returns
+`ErrTargetNotFound`). `validateRollbackPlan` returns it, and
+`historyRollbackActionEvaluator.rollbackPlanExecutableTx`
+(`history_rollback_actions.go`) treats only `ErrRollbackPreconditionFailed`
+as "not available", so the not-found error fails the whole history read. The
+history-entry and row-restore paths already treat `ErrRollbackTargetNotFound`
+as unavailable. This contradicts Core 02 REQ-02-216: loss of current
+rollback eligibility must surface through route fields and rollback failure
+semantics. It is repaired separately (S-727), after which S-726 is qualified.
+
+### S-727 / F-712 / E-741 — history rollback availability treats a missing target as unavailable
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+production defect (diagnosis above). Governing: Core 02 REQ-02-216 (later loss
+of current rollback eligibility is surfaced through the current route fields,
+`available_rollback_actions`, and rollback failure semantics, and does not
+break retained history).
+
+Repair: `rollbackPlanExecutableTx` treats `ErrRollbackTargetNotFound`, like
+`ErrRollbackPreconditionFailed`, as "not executable" for both plan validation
+and the currentness check, matching the history-entry and row-restore paths.
+Explicit rollback requests are unchanged and still fail with their existing
+semantics. Qualification: the six rows using the history helper. The
+previously failing entry-ref row must pass, and the alias change set's item
+must show no rollback actions. No routing, profile or timeout change.
+E-739/S-064 remain open.
+
+#### S-727 / F-712 / E-741 closure — missing rollback target is unavailable, not a failed read
+
+DONE. `rollbackPlanExecutableTx` now returns "not executable" for
+`ErrRollbackTargetNotFound` from plan validation and the currentness check.
+The entry-ref test's alias change set, whose alias row does not exist, now
+lists with no rollback actions instead of failing the read. Production
+change: `internal/modules/revisions/history_rollback_actions.go` only.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s727-format01 | `make format` | 0 | pass2/2,5112 ms; scan18/pass; cleanup11 completed |
+| tcr-s727-qualified01 | `make test-slice OWNER=module.revisions ROWS=<the six helper rows>` | 0 | pass3/3,42711 ms; all six rows passed; scan36/pass; cleanup14 completed |
+
+Graph `11d56faeca43fa9e32b284df1728d60329453ac8b00dfba374e403e0080a4586`;
+source `10fb5a3c511cde1f22f6bece52da5d66ec1bcad91c1e5fde3e08798f7b8d9b0d`.
+The change alters only outcomes that previously failed the request.
+Collaborator history rows were not rerun. E-739/S-064 remain open.
+
+#### S-726 / F-711 / E-740 closure — complete retained alias fixtures
+
+DONE. `seedHistoryMutation` writes a complete, hand-authored retained Entity
+Alias value and `target_id = entity_alias:<alias id>`. Together with S-727,
+all six rows using the helper pass. Nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s726-format01 | `make format` | 0 | pass2/2,4958 ms; scan18/pass; cleanup11 completed |
+| tcr-s726-successor01 | `make test-slice OWNER=module.revisions ROWS=<the six helper rows>` | 2 | five rows passed; entry-ref diagnosed as the S-727 production defect |
+| tcr-e739-diag01, tcr-e739-diag02 | entry-ref row with temporary, reverted diagnostics | 2 | diagnosis only; not evidence |
+| tcr-s727-qualified01 | same six rows after S-727 | 0 | all six passed (see S-727) |
+
+E-739/S-064 remain open. Next: entry drift B (attribution fixture), then C
+(UUID admission).
+
+### S-728 / F-713 / E-742 — UUID admission no longer uses a nil import target
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Entry
+drift C. `TestRevisionsIncidentBundleUUIDAdmission_Unit` sets the import
+context's `IncidentID` to `uuid.Nil` when the mutated `change_sets.incident_id`
+value is the nil UUID, so that row and target "match". Since `b5cd96adf`, the
+sourceport adapter refuses a nil import incident before any source port runs
+(`ErrInvalidCatalog`, "missing preparation"), so this scenario cannot reach
+Revisions. Governing: the incident-bundle source-port contract (the import
+context always names a real target incident) and Core 02 history reference
+completeness (`revisions.references_complete`).
+
+Successor: drop the nil-target branch. The nil-UUID value then uses the
+harness's real target incident, like the other invalid spellings, and must
+still fail with `revisions.references_complete`. No expectation changes;
+nothing else is retired. Select `module.revisions.portability.uuid_admission`.
+No production, routing, profile or timeout change. E-739/S-064 remain open.
+
+#### S-728 / F-713 / E-742 closure — nil-UUID incident case uses a real target
+
+DONE. The nil-target branch was removed. The nil-UUID `incident_id` row now
+runs against the harness's real target incident and fails with
+`revisions.references_complete`, like the other invalid spellings. Nothing was
+retired; successor01 is the qualifying run.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s728-format01 | `make format` | 0 | pass2/2,4738 ms; scan18/pass; cleanup11 completed |
+| tcr-s728-successor01 | `make test-slice OWNER=module.revisions ROWS=module.revisions.portability.uuid_admission` | 0 | pass1/1,4210 ms; row passed; scan12/pass; cleanup10 completed |
+
+Graph `ed68a6bf2cf8f3e420509c74de904eb036ec58e2bc7bb12e756b4620ad692345`;
+source `cf4cc82d7d3ad7cfb2c196ad5b8c8cca98ff04da94c6dc83954980e2d6312c1b`.
+The adapter's refusal of a nil import context belongs to incidentbundles
+(completed owner) and is not re-tested here. E-739/S-064 remain open.
+
+#### E-739 partial ledger 1 — sweep candidate queue
+
+Location-only sweep received (93 entries). The top candidates to verify, in
+order:
+
+- rollback_test :404-405 and integration :790 (multi-defect tag fixture;
+  reason not pinned; "all or nothing"); :638-640 record-tag "unsupported" with a
+  malformed fixture; :743-756 second host patch drops its revision through
+  `ON CONFLICT DO NOTHING`; :350-388 "fails atomically" counts; :296-316 counts
+  never asserted non-zero.
+- history_helpers :68-75 move `records.created_at` back to fixed dates;
+  history_test :48-55, :199-221, :463, and others: `deleted_at` before
+  `created_at` or after `updated_at` (`records.envelope_legal` legality), with
+  the related integration :430, :941-949 and rollback_decision_facts :40/:64;
+  history_test :270 `assertHistoryItem` ignores its sequence argument; :171-174
+  unsupported-item identity not checked.
+- delete_restore :137-140 (all-nil dependencies), :1424-1427 (dedupe key also
+  mismatched), :1526-1528 and :1226-1231 (two defects).
+- conflict_token :89-91 (retired key also expired), :117-122, :57-58.
+- incident_bundle_observation_history :57-135 and preserved_history :54-111
+  (the current row stays undamaged, so after-image ≠ current is a second
+  defect); portability :127-135, :920-956 (counts after its own rollback),
+  :972-980.
+- sourceboundary resolver :94-116 (digest mismatch is a second defect);
+  catalog_admission :189-331; command_service :125-162 (omits
+  `RecordPublications`) and :289/:293; appender_after_state and
+  appender_revision_version (multiple defects); history_components :221-225
+  and title :25; history_source_paging :74-78; failure_injection :294.
+- Browser and measurement specs: history-browsing :384-394, :338-339, :242-258
+  and :498-517 (Timeline-only branches); history-recovery :252-258 (optional
+  branch); history :379-381, :569-573 and :371-375; inspector-actions :133 and
+  :548-557; historyTimingSupport :114-190; timeline-history :241.
+
+Next: entry drift B (attribution fixture), then the queue. E-739/S-064 remain
+open.
+
+### S-729 / F-714 / E-743 — attribution bundles run against an incident without unhistoried records
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Entry
+drift B. `TestRevisionsIncidentBundleExactAttribution` imports bundles that
+carry change sets only (mutations and record revisions removed) into the
+portability harness incident, which holds one seeded host record. Import now
+correctly requires every incident record to retain revision history
+(`revisions.history_reconstruction`; Core 02 REQ-02-217), so every case fails
+before attribution is observed. The test's subject is change-set actor
+attribution (exact, missing, extra, duplicate), which does not depend on that
+record. Governing: Core 02 REQ-02-217 and the incident-bundle attribution
+contract.
+
+Successor: remove the harness's host and record rows at the start of this
+test, with a comment naming the reconstruction rule. The change-set-only
+bundles are then legal and every existing attribution predicate applies
+unchanged. Nothing is retired. Select
+`module.revisions.portability.exact_attribution`. No production, routing,
+profile or timeout change. E-739/S-064 remain open.
+
+#### S-729 successor01 failure and revised successor
+
+`tcr-s729-successor01` exited 2. The empty-bundle cases now pass, but every
+non-empty case still fails with `revisions.history_reconstruction`. A change
+set with no mutation entries is itself unreconstructible (Core 02 REQ-02-214
+requires one or more reversible mutation entries per committed action), and the
+test cloned change sets without mutations. Deleting the record is therefore
+insufficient for non-empty bundles.
+
+Revised successor:
+- Remove the start-of-test deletion.
+- Seed a second host record in the harness incident, captured through the same
+  host snapshot provider.
+- Each of the two attribution change sets then carries a real host-create
+  mutation and revision 1 for its own record (harness record and second
+  record), with the fixed change-set IDs and portable actors that `want`
+  expects.
+- For empty bundles, delete both host records inside that case's rolled-back
+  transaction before applying, so no unhistoried record remains.
+
+Every attribution predicate is unchanged; nothing is retired.
+
+#### S-729 / F-714 / E-743 closure — attribution over reconstructible history
+
+DONE. Each attribution change set now carries a real host-create mutation and
+revision 1 for its own record: the harness record, plus a second host seeded
+through `seedAttributionHostRecord` and captured by the host snapshot
+provider. Empty-bundle cases remove both records inside their rolled-back
+transaction. Every attribution predicate (exact, missing capability, extra,
+missing, duplicate, table, row, column, source and local actor, ordinary
+errors) is unchanged and passes. The first successor's start-of-test deletion
+was replaced by this revision.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s729-format01 | `make format` | 0 | pass2/2,4884 ms; scan18/pass; cleanup11 completed |
+| tcr-s729-successor01 | `make test-slice OWNER=module.revisions ROWS=module.revisions.portability.exact_attribution` | 2 | non-empty cases failed (diagnosed above) |
+| tcr-s729-format02 | `make format` | 0 | pass2/2,4835 ms; scan18/pass; cleanup11 completed |
+| tcr-s729-successor02 | same selection | 0 | pass3/3,11366 ms; row passed/470 ms; scan26/pass; cleanup14 completed |
+
+Graph `7e221efae8f8a7e3e807fa7b05b77058e767ae884ec9756ddb277e8fe0e11484`;
+source `6859dcfa21d7784e588ecc57b042bc0cc46d14c2d0275b4a7e8f0310dc762f99`.
+
+Entry drift closed: drift01 (27 rows) and drift02 (29 rows) passed at entry,
+and the four failing rows pass after S-726–S-729, so all 60 non-browser rows
+pass. Cross-owner note for S-064: `b5cd96adf` changed entities alias
+retention, Records envelope and history rules, and the sourceport
+preconditions without requalifying these Revisions rows. That is the third
+such fallout after S-680 and S-710. E-739/S-064 remain open. Next: E-739
+ledger 1 queue.
+
+### S-730 / F-715 / E-744 — whole change-set rollback atomicity pins the non-reversible member
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+revisions finding (E-739 ledger 1). The "whole change set rollback fails all
+or nothing" case (`rollback_test.go`) and the matching integration case
+(`integration_test.go`) roll back a change set that holds a reversible host
+patch and a retained `record_tag` `rollback` entry, which is valid history
+but not reversible. Both require only `409 rollback_precondition_failed` and
+unchanged state. Any precondition failure, such as a stale or non-reversible
+host member, would satisfy them. Then neither atomicity nor the
+non-reversible member's role would be shown. Governing: Core 02 rollback
+granularity (§14.2) and history and rollback (§15): a whole change-set
+rollback is atomic and is refused when any member is not reversible, with
+reason `target_not_reversible`.
+
+Successor: replace both envelope checks with `requireRollbackReasonCode(...,
+"target_not_reversible")` (same status and code, plus the reason). The
+reason-only check consumes the response body, so it cannot run beside the old
+one; a mismatch would be investigated. Select
+`module.revisions.integration.covers_stale_restore_plus_stale_or_non_reversibl_637111e642`
+and
+`module.revisions.store.covers_rollback_route_admission_derived_rollback_c6c889199c`.
+No production, routing, profile or timeout change. E-739/S-064 remain open.
+
+#### S-730 / F-715 / E-744 closure — non-reversible member named
+
+DONE. Both whole change-set cases require `409 rollback_precondition_failed`
+with `reason_code` `target_not_reversible`, together with the existing
+unchanged-state checks. Successor01 is the qualifying run; the replaced
+envelope-only checks are gone.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s730-format01 | `make format` | 0 | pass2/2,4704 ms; scan18/pass; cleanup11 completed |
+| tcr-s730-qualified01 | `make test-slice OWNER=module.revisions ROWS=<the two rows above>` | 0 | pass3/3,19998 ms; both rows passed; scan32/pass; cleanup14 completed |
+
+Graph `ec7b26cc96123f96ec4e262e2ffb69b78e10d2a87e51b393c9099ad0886da2f9`;
+source `c6570de5145beb9b005e2ea467f12461ab87d9e2e94689f15d6c62ebc592ee63`.
+E-739/S-064 remain open.
+
+### S-731 / F-716 / E-745 — assembled runtime proven complete before dependency validation
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+revisions finding (E-739 ledger 1). `TestDeleteRestoreAdapterMatrix_Unit`
+builds the Revisions runtime from all provider contributions, then calls
+`runtime.NewCommandService` with seven nil dependencies. It requires an
+error and claims that composition "complete[d] every provider catalog before
+dependency validation". `revisionassembly.Runtime.NewCommandService` returns
+"runtime is required" for an incomplete runtime, and
+`revisions.NewCommandService` returns "invalid command service dependency:
+transactions" for the first nil dependency, so any error passes and the claim
+is not observed. Governing: Core 02 REQ-02-218 (Revisions consumes source
+semantics only through complete application-composed provider catalogs).
+
+Successor: require the error to be the first-dependency error ("invalid
+command service dependency: transactions"), which the runtime can reach only
+after its catalogs are complete. Retire the any-error predicate after the
+successor passes. Select
+`module.revisions.delete_restore.service_free_contract_assertions_for_source_adap_a647a96f3a`.
+No production, routing, profile or timeout change. E-739/S-064 remain open.
+
+#### S-731 / F-716 / E-745 closure — runtime completeness observed
+
+DONE. The assembled runtime's `NewCommandService` must fail with "invalid
+command service dependency: transactions", which only a complete runtime
+reaches. The any-error predicate passed beside the successor and was then
+deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s731-format01 | `make format` | 0 | pass2/2,4797 ms; scan18/pass; cleanup11 completed |
+| tcr-s731-successor01 | `make test-slice OWNER=module.revisions ROWS=module.revisions.delete_restore.service_free_contract_assertions_for_source_adap_a647a96f3a` | 0 | pass1/1,4232 ms; row passed; scan12/pass; cleanup10 completed |
+| tcr-s731-format02 | `make format` after retirement | 0 | pass2/2,4753 ms |
+| tcr-s731-qualified01 | same selection, final source | 0 | pass1/1,4401 ms; row passed; scan12/pass; cleanup10 completed |
+
+Graph `28cf381fdf3e941a0fcf5d2debe06e0c614e5ae5d3d94f1c424767e12a18c54b`; final
+source `c80969d4ee577b75739cf2789f8836cf52a3a60d3983b236cb16e577021f3bb9`.
+E-739/S-064 remain open.
+
+### S-732 / F-717 / E-746 — every command-service dependency includes record publications
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+revisions finding (E-739 ledger 1).
+`TestCommandServiceRequiresEveryExplicitDependency` removes each dependency
+from a valid set and requires `errInvalidCommandServiceDependency`, but its
+table omits `RecordPublications`. `NewCommandService` requires it
+(`command_service.go`, "record publications"). The "every" claim is
+therefore not demonstrated for that dependency. Governing: Core 02 REQ-02-218
+(explicit, complete composition of Revisions dependencies) and the
+command-service construction contract.
+
+Successor: add the `record publications` case (`RecordPublications = nil`)
+to the table. Nothing is retired; successor01 is the qualifying run. Select
+`module.revisions.facade.construction_guards`. No production, routing,
+profile or timeout change. E-739/S-064 remain open.
+
+#### S-732 / F-717 / E-746 closure — record publications dependency covered
+
+DONE. The table now removes `RecordPublications` from the valid set and
+requires `errInvalidCommandServiceDependency`; all dependency cases pass.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s732-format01 | `make format` | 0 | pass2/2,4764 ms; scan18/pass; cleanup11 completed |
+| tcr-s732-successor01 | `make test-slice OWNER=module.revisions ROWS=module.revisions.facade.construction_guards` | 0 | pass1/1,21846 ms; row passed; scan12/pass; cleanup10 completed |
+
+Graph `96e798dec95bc7d118f81dd6345e9b274abb4f597659dffa73608014cebf8117`;
+source `a7082297b7a1fa9432cd68c079fc7f5bf4af6a31285990081fa45e3b26e3ae1c`.
+E-739/S-064 remain open.
+
+#### E-739 closure — A-module.revisions semantic audit
+
+DONE for this pass. Discovery: 84 rows (Go 59, Vitest 1, Playwright 24),
+116 roots and titles. Entry drift had three distinct causes, all from
+`b5cd96adf` production changes that were never requalified against
+Revisions rows: stale alias fixtures, the reconstruction rule against
+attribution fixtures, and a nil import target. Diagnosis exposed one
+production defect. All 60 non-browser rows pass after S-726–S-729.
+Collaborator union: 105 rows, 62 reused from completed owners and 43 carried
+to tasksdecisions, timeline, workbook, platform.config, platform.openapi and
+web.workbook.
+
+| Slice | Correction |
+| --- | --- |
+| S-726 | history fixtures seed complete retained Entity Alias values |
+| S-727 | **production repair**: a missing rollback target makes the action unavailable instead of failing the history read (REQ-02-216) |
+| S-728 | UUID admission uses a real import target |
+| S-729 | attribution cases run over reconstructible history (second seeded host) |
+| S-730 | whole change-set atomicity pins `target_not_reversible` |
+| S-731 | assembled runtime proven complete before dependency validation |
+| S-732 | every-dependency table includes record publications |
+
+Production change in this owner: `internal/modules/revisions/history_rollback_actions.go`
+(S-727), qualified with the six history-helper rows.
+
+Verified and retained after direct reading: HTTP security precedence (pinned
+codes), rollback results and changed-field keys, conflict text merge and
+stored-target decoding, consolidation guard, catalog and dispatch
+construction, the dependent and stale rollback reason cases (pinned; the
+duplicate seeded revision is dropped, which is recorded), and the
+`sourceboundary` retained cases (each defect caught by its own rule, with the
+original token still correct for the parsed state).
+
+Open for S-064 (located by the sweep and recorded, not individually verified
+or repaired in this pass):
+
+- Fixture clocks that break Records legality (`deleted_at` before
+  `created_at` or after `updated_at`; incident `closed_at` before creation;
+  fixed 2026-05-10 dates against wall-clock records). These are in
+  history_test, integration_test, history_helpers :68-75, rollback_test
+  :1191-1352, rollback_decision_facts and command_authorization, and are the
+  same class that caused S-680, S-710 and this owner's drift.
+- Count-based atomicity checks with before values never asserted non-zero
+  (rollback :296-388, integration :161-249, delete_restore :805), and zero
+  counts read after the test's own rollback (portability :920-956,
+  observation history, attribution, allocator).
+- Multi-defect any-error cases: delete_restore :1424-1427, :1526-1528 and
+  :1226-1231; conflict_token :57-58 and :117-122; catalog_admission
+  :189-331; command_service :289/:293; appender after-state and version
+  tests; history_components :221-225; observation and preserved history
+  (current row undamaged); portability :127-135; revisionassembly :221-242;
+  generic_dispatch :212; rollback_result :40-44.
+- Redundant: conflict-token "retired key" (subsumed by expiry by design).
+- Weak or ignored assertions: `assertHistoryItem` ignores its sequence
+  argument; `== ""` checks pass for null; history_source_paging secret scan;
+  failure_injection any 500.
+- Browser and measurement specs: Timeline-only branches in history-browsing,
+  the optional refresh branch in history-recovery, history :379-381 and
+  :569-573 (pre-rollback value; always-true `some`), inspector-actions :133 and
+  :548-557, historyTimingSupport generic timeout message, and the
+  timeline-history wall-clock threshold. No correction touched browser paths;
+  the 24 Playwright rows were not run.
+
+Non-claims: only changed rows were requalified after entry; no performance,
+stability or release claim.
+
+### A-module.savedviews entry — E-747 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.savedviews DETAIL=rows JSON=1`: 27
+rows (Go 14, Vitest 1, Playwright 12), 34 selected roots and titles.
+Selectors: `./internal/modules/savedviews` (18 roots), the saved-view
+pagination machine Vitest (2), and the workbook, saved-views a11y and visual,
+query-saved, discovery and incident-administration Playwright specs (14
+titles). Collaborator union: 22 rows. Four from incidentbundles (completed)
+are reused at their recorded scope; 18 are carried (workbook 5,
+platform.openapi 1, web.workbook 12). The 15 non-browser rows run once at
+entry; browser rows only if a correction touches their path. Governing: Core
+03 saved-view sections and the Core sections they import, read as the review
+proceeds. E-747 is reserved for the closure.
+
+#### E-747 entry drift check
+
+`tcr-e747-drift01` (`make test-slice OWNER=module.savedviews ROWS=<15
+non-browser rows>`): native exit 0; pass7/7 units; all 15 rows passed;
+scan71/pass; cleanup20 completed; graph
+`3fdbe8cba63b24357d62f52ddc7d906c8592e59d1c11f7c5e861641b481e536a`. No drift.
+
+### S-733 / F-718 / E-748 — saved-view import version gate tested at adjacent versions with its invariant
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+savedviews finding. In `TestIncidentBundleSavedViewStrictPrepareSemantics_Unit`,
+"versioned layout grammar and lossless current preparation" iterates
+`[]int{8}` and then claims "layout/bundle version mismatch accepted" for
+`BundleVersion = 8 - version`, which is version 0. Since the Reference Data
+v3 cutover (`8501d4449`) admitted only bundle version 8,
+`prepareSavedViewImport` refuses every other version with
+`saved_views.query_layout_legal`. The leftover arithmetic therefore probes an
+absurd version 0, the label describes a mismatch that cannot occur, and any
+error passes. Governing: the incident-bundle saved-view contract (current
+bundle version 8 only; the layout grammar is bound to that version).
+
+Successor: after the version-8 lossless check, require the adjacent unsupported
+versions 7 and 9 to fail with `saved_views.query_layout_legal`. Retire the
+`8 - version` any-error check after the successor passes; the single-element
+loop stays because its body is the version-8 positive control. Select
+`module.savedviews.unit.strict_saved_views_preparation_rejects_illegal_i_d1e9382c70`.
+No production, routing, profile or timeout change. E-747/S-064 remain open.
+
+#### S-733 / F-718 / E-748 closure — adjacent versions refused with the invariant
+
+DONE. Bundle versions 7 and 9 must fail with `saved_views.query_layout_legal`
+after the version-8 lossless check. The version-0 any-error check passed beside
+the successor and was then deleted (complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s733-format01 | `make format` | 0 | pass2/2,4701 ms; scan18/pass; cleanup11 completed |
+| tcr-s733-successor01 | `make test-slice OWNER=module.savedviews ROWS=module.savedviews.unit.strict_saved_views_preparation_rejects_illegal_i_d1e9382c70` | 0 | pass1/1,4873 ms; row passed; scan12/pass; cleanup10 completed |
+| tcr-s733-format02 | `make format` after retirement | 0 | pass2/2,4759 ms |
+| tcr-s733-qualified01 | same selection, final source | 0 | pass1/1,4885 ms; row passed; scan12/pass; cleanup10 completed |
+
+Graph `ff4753abe11a006300312fb400597be483a93462c3a4cd020e89ccb27493ff4b`; final
+source `a347fedb028ada400c08cbdfdeaddf18debd02cf25dca32fcdd266f5ab2f2c11`.
+
+#### E-747 closure — A-module.savedviews semantic audit
+
+DONE. Discovery: 27 rows (Go 14, Vitest 1, Playwright 12), 34 roots and
+titles. Entry drift was clean. All Go roots, the Vitest machine and the
+saved-view Playwright predicates were read directly; the owner is small, so no
+location sweep was used. Governing: Core 03 §2.3 (saved views) and Core 01
+§3.3.5.2 (view-schema, saved-view and workbook-preference contracts).
+Collaborator union: 22 rows, 4 reused (incidentbundles) and 18 carried
+(workbook 5, platform.openapi 1, web.workbook 12).
+
+| Assertion family | Disposition | Purpose |
+| --- | --- | --- |
+| lifecycle persistence, defaults, system route, patch contract, OpenAPI leniency, scope vocabulary | retain | statuses, codes, field and reason details, conflict versions and no-persist counts pinned |
+| application ordering and no-op; invalid stored state cannot be repaired | retain | one stored defect per case; no mutation of failed state |
+| read contract, cursor bindings and query validation | retain | reason codes pinned |
+| storage hardening | retain | constraint names pinned |
+| portability: canonical export, owner round trip, strict prepare framing and semantics | retain, except the version case | invariant pinned per single mutation from a valid row; valid and reversed timestamp-range controls |
+| versioned layout grammar | replace (S-733) | current bundle version only; adjacent versions refused with the invariant |
+| pagination machine (Vitest) | retain | single-defect pages with a valid control |
+| saved-view browser specs | retain | the modified-indicator absences are backed by the indicator rendering elsewhere (a11y, visual) |
+
+Recorded for S-064: SQL-seeded saved views use fixed 2026-05-14 timestamps
+against wall-clock incidents (the clock-legality class). The 12 Playwright rows
+were not run; no correction touched their path. Non-claims: only the changed
+row was requalified after entry; no performance, stability or release claim.
+
+### A-module.stagedobjects entry — E-749 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.stagedobjects`: 3 Go rows, 16
+roots: the extension-assembly staged-object integration (4), the
+`stagedobjects` service, janitor, scope and stream units (9), and the server
+readiness and fatal-routing units (3). Collaborator union: 4 incidentbundles
+rows, reused at E-361 scope. All three rows run once at entry. Governing: Core
+01 §21 (shared staged-object lifecycle in the coordinated Extensions
+companion contracts) and Extension NLSpec EXT-REQ-192 (cleanup eligibility,
+retry, degradation, fatal contradiction). E-749 is reserved for the closure.
+
+#### E-749 entry drift check
+
+`tcr-e749-drift01` (all three rows): native exit 0; pass5/5 units; rows
+passed; scan35/pass; cleanup16 completed; graph
+`a40bfe8ff3971c94dabab92adeb220b5cee950967bf4666d01f579392a363793`. No drift.
+
+### S-734 / F-719 / E-750 — janitor deletion absences gain pre-cleanup presence controls
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+stagedobjects finding. Two extension-assembly integration tests check that
+abandoned bytes are physically gone after `janitor.Sweep` (`StatObject` must
+fail): the abandoned `operation-2` object in
+`TestStagedObjects_Integration_AllocationPublicationAndCleanup` and the
+competing loser in `TestStagedObjects_Integration_ReservedOwnerAndCompetingAttempts`.
+Neither shows that those bytes existed in the object store before the sweep,
+so the absence could hold if allocation stored them under another identity or
+never stored them. Governing: Core 01 §21 shared staged-object lifecycle and
+Extension NLSpec EXT-REQ-192 (cleanup physically deletes abandoned bytes).
+
+Successor: before each sweep, require `StatObject` to succeed for the
+abandoned object's storage identity (and the loser's key). Nothing is
+retired; the existing absence checks become attributable to the janitor.
+Successor01 is the qualifying run. Select
+`module.stagedobjects.integration.allocation_publication_cleanup_7f6ad80724`.
+No production, routing, profile or timeout change. E-749/S-064 remain open.
+
+#### S-734 / F-719 / E-750 closure — janitor deletions observed against present bytes
+
+DONE. Both abandoned objects' bytes must be present in the object store
+before the sweep and absent after it. The janitor's physical deletion is now
+shown rather than assumed. Nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s734-format01 | `make format` | 0 | pass2/2,4834 ms; scan18/pass; cleanup11 completed |
+| tcr-s734-successor01 | `make test-slice OWNER=module.stagedobjects ROWS=module.stagedobjects.integration.allocation_publication_cleanup_7f6ad80724` | 0 | pass3/3,11699 ms; row passed/600 ms; scan26/pass; cleanup14 completed |
+
+Graph `64f920cf5a41009ccb26f4e51ad770f153148e6c4eba181d24d96fc895cc43a3`;
+source `78c4cab94f4279085d08b407d951c9209a891d346985057298323c158e580e38`.
+
+#### E-749 closure — A-module.stagedobjects semantic audit
+
+DONE. Discovery: 3 Go rows, 16 roots, all read in full. Entry drift was clean.
+Collaborator union: 4 incidentbundles rows (reused).
+
+| Assertion family | Disposition | Purpose |
+| --- | --- | --- |
+| service allocation, uncertainty abandon, fatal abandon | retain | identity, payload, digest, expiry, failure kind and fatal sink pinned |
+| scope transfer and publication | retain | cross-operation and closed-scope denial pinned; exact publications |
+| janitor drain, coalescing, retry schedule, fatal and timeout, periodic errors | retain | exact batches, cutoff, call counts, retry arithmetic, health and sinks |
+| stream sealing failures and private reads | retain | one defect per case, with the abandon lifecycle checked; `ErrIntegrity` pinned for altered reads |
+| integration allocation, publication, rollback and contradiction | retain | states, redeemability and reference counts pinned |
+| integration cleanup and competing attempts | strengthen (S-734) | presence before cleanup controls the absence after it |
+| server readiness, fatal reason and exit 70 | retain | readiness states, reason code, exit code and diagnostic pinned |
+
+Non-claims: only the changed row was requalified after entry; no performance,
+stability or release claim.
+
+### A-module.tabularingest entry — E-751 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.tabularingest`: 2 Go rows, 6
+roots (the delimited decoder and shared ingest support, and the mapping
+kernel v1). Collaborator union: 3 timeline rows, carried to A-module.timeline.
+Both rows run once at entry. Governing: Core 03 §11 (clipboard paste and
+import workflows) and the clipboard contract
+`contracts/tabularingest/clipboard.v1.json`. E-751 is reserved for the
+closure.
+
+#### E-751 entry drift check
+
+`tcr-e751-drift01` (both rows): native exit 0; pass1/1 unit; both rows passed;
+scan13/pass; cleanup10 completed; graph
+`471291a274db6a0ceab963157ee6b9dcb020ec087f431f341fbceda2270ba692`. No drift.
+All six test functions in the package are routed.
+
+### S-735 / F-720 / E-752 — clipboard byte limit shown inclusive at its exact bound
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+tabularingest finding. `assertClipboardCorpus` checks that the corpus limit
+projection equals `MaxClipboardBytes` (8,388,608), then rejects
+`MaxClipboardBytes + 1` bytes with any error. `ParseTable` checks the byte
+bound first ("too_large"), so the rejection is attributable, but no case
+shows that exactly `MaxClipboardBytes` is admitted. An off-by-one or lower
+effective limit would pass, and the reason is not pinned. Governing: the
+tabular-ingest clipboard contract (`contracts/tabularingest/clipboard.v1.json`
+limits: maximum bytes inclusive).
+
+Successor: require a single cell of exactly `MaxClipboardBytes` bytes to parse
+into one row with one field of that length. Require `MaxClipboardBytes + 1`
+to fail with exactly `too_large`. Retire the any-error check after the
+successor passes. Select
+`module.tabularingest.support_unit.shared_tabular_ingest_parses_maps_and_groups_bat_de89e370ba`.
+No production, contract, routing, profile or timeout change. E-751/S-064
+remain open.
+
+#### S-735 / F-720 / E-752 closure — clipboard byte limit exact
+
+DONE. A single cell of exactly 8,388,608 bytes parses to one row and one
+field of that length; one byte more fails with exactly `too_large`. The
+any-error check passed beside the successor and was then deleted (complete
+lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s735-format01 | `make format` | 0 | pass2/2,4781 ms; scan18/pass; cleanup11 completed |
+| tcr-s735-successor01 | `make test-slice OWNER=module.tabularingest ROWS=module.tabularingest.support_unit.shared_tabular_ingest_parses_maps_and_groups_bat_de89e370ba` | 0 | pass1/1,836 ms; row passed/50 ms; scan12/pass; cleanup10 completed |
+| tcr-s735-format02 | `make format` after retirement | 0 | pass2/2,4824 ms |
+| tcr-s735-qualified01 | same selection, final source | 0 | pass1/1,842 ms; row passed/50 ms; scan12/pass; cleanup10 completed |
+
+Graph `0cb31e2e70c6d5053bbba764353d05ef13f4389c678abf61e3e382468aee3a73`; final
+source `c55d9f250df32b079c363b5978b0bb944521e6842dfd2c93e3ff251e012cff1d`.
+
+#### E-751 closure — A-module.tabularingest semantic audit
+
+DONE. Discovery: 2 Go rows, 6 roots (561 lines), all read in full. Entry drift
+was clean. Collaborator union: 3 timeline rows, carried.
+
+| Assertion family | Disposition | Purpose |
+| --- | --- | --- |
+| delimited decoder incremental contract | retain | exact records, retained versus discarded fields, `ErrInvalidDelimited` and cancellation pinned |
+| mapping kernel ordering, provenance, transform registry, fail-closed table, header admission, dependency guard | retain | exact values, dispositions, warnings, error messages and empty partial plan; request immutability |
+| clipboard corpus and limit projection | retain; byte limit strengthened (S-735) | corpus errors pinned; exact inclusive byte bound |
+| shared ingest plan, tamper, compatibility fingerprints and Timeline golden, failure messages | retain | literal fingerprints, golden encoding and exact messages; tamper and ragged cases are single-defect |
+
+Non-claims: only the changed row was requalified after entry; no performance,
+stability or release claim.
+
+### A-module.tasksdecisions entry — E-753 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.tasksdecisions`: 23 rows (Go 19,
+Vitest 1, Playwright 3; the queue's 17 predates catalog growth), 55 roots and
+titles. Selectors: `./internal/modules/tasksdecisions` (27), its rollback
+provider and source catalog (2 each), import, workbook and tasksdecision
+assembly (3, 2, 1), one workbook root, the coordination workflow controller
+Vitest (8), and the tasks, decisions and authoring Playwright specs (9).
+Collaborator union: 42 rows. Fourteen are reused from completed owners
+(projections 3, entities 1, assessments 1, parties 2, imports 1, revisions 3,
+incidentbundles 2, evidence 1); 28 are carried (workbook 8, web.workbook 20).
+The 20 non-browser rows run once at entry. Governing: Core 02 tasks and
+decisions sections and the Core sections they import, read as the review
+proceeds. E-753 is reserved for the closure.
+
+### S-736 / F-721 / E-754 — tasks/decisions UUID admission no longer uses a nil import target
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Diagnosed
+entry drift. `tcr-e753-drift01` (20 non-browser rows): native exit 2;
+pass14/15 units; 19 rows passed; scan109/pass; cleanup34 completed. The one
+failing row, `module.tasksdecisions.incident_portability.uuid_admission`,
+fails at `incident_bundle_uuid_test.go:74`. For the nil-UUID `incident_id`
+case, the test sets the import context's target incident to `uuid.Nil`, which
+the sourceport adapter correctly refuses ("missing preparation") before the
+tasks/decisions port runs. This is the same cause as Revisions S-728:
+`b5cd96adf` added the adapter precondition without requalifying this row.
+Governing: the incident-bundle source-port contract (the import context names
+a real target incident) and the tasks/decisions envelope scope invariant.
+
+Successor: drop the nil-target branch. The nil-UUID row then runs against the
+harness's real target and must fail with `tasks_decisions.envelope_type_scope`,
+like the other invalid spellings. Nothing else changes or is retired. Select
+`module.tasksdecisions.incident_portability.uuid_admission`; with drift01's 19
+passing rows, its pass closes the entry drift check. No production, routing,
+profile or timeout change. E-753/S-064 remain open.
+
+#### S-736 / F-721 / E-754 closure — real import target; entry drift closed
+
+DONE. The nil-UUID `incident_id` row runs against the real target incident
+and fails with `tasks_decisions.envelope_type_scope`. Nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-e753-drift01 | `make test-slice OWNER=module.tasksdecisions ROWS=<20 non-browser rows>` | 2 | 19 rows passed; one row diagnosed above |
+| tcr-s736-format01 | `make format` | 0 | pass2/2,4879 ms |
+| tcr-s736-successor01 | `make test-slice OWNER=module.tasksdecisions ROWS=module.tasksdecisions.incident_portability.uuid_admission` | 0 | pass1/1,2911 ms; row passed; scan12/pass; cleanup10 completed |
+
+Graph `3d0565f90f3524d5fe212feec96327039efbc40616bb830bde9924f72e8e454e`;
+source `92f92995b473ba1f2ebb5ea6de92efb31879e11d9bf9f6279d1a0f286cff100e`.
+All 20 non-browser rows pass. Note for the remaining owners: every
+incident-bundle UUID-admission test that sets a nil import target needs this
+same repair. E-753/S-064 remain open.
+
+#### E-753 partial ledger 1 — sweep received
+
+A location-only sweep returned 55 candidates. The main classes are:
+
+- `requireLifecycle` accepts any `LifecycleValidationError` without its reason
+  code or guards, at about 20 call sites.
+- Multi-defect supersession fixtures.
+- Absence counts on collections the test never touches.
+- Out-of-order fixed clocks against wall-clock incidents.
+- Composition and dependency tables that omit production members.
+- Counts compared after the test's own rollback.
+- Coordination Vitest titles that the bodies do not demonstrate.
+
+They are verified in order below.
+
+### S-737 / F-722 / E-755 — mutation and import composition reject every missing dependency by name
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+tasksdecisions finding (sweep #17/#18).
+`TestMutationContributionRejectsIncompleteDependencies_Unit` checks only
+Incident admission (all empty), Reference targets and Links facts, although
+`MutationDependencies.validate` requires 11 named capabilities.
+`TestImportContributionRejectsIncompleteDependencies_Unit` checks only the
+first of six `ImportDependencies` messages. Dropping any other required check
+would go unnoticed. Governing: Core 02 REQ-02-218 composition (owners receive
+complete application-composed capabilities) as applied by the tasks/decisions
+contribution constructors.
+
+Successor: tables that remove each required dependency from a complete set
+and require its exact "<name> is required" message: all 11 mutation
+capabilities, and all six import capabilities (from a complete import set).
+The existing single checks are subsumed and retired after the successor
+passes. Select the row selecting these roots. No production, routing, profile
+or timeout change. E-753/S-064 remain open.
+
+#### S-737 / F-722 / E-755 closure — every composition dependency named
+
+DONE. `assertEveryMutationDependencyRequired` removes each of the 11 mutation
+capabilities from a complete set and requires its exact message. The import
+root shows that a complete import set (with a new import-revisions double that
+fails if called) constructs, then removes each of the six import capabilities
+and requires its exact message. The subsumed single checks were deleted; the
+nil-Postgres and incident-bundle source-port checks remain. successor01 failed
+to build: the shared operations double lacks the import revision interface,
+which the new double supplies. That failure was diagnosed, not rerun blindly.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s737-format01 | `make format` | 0 | pass2/2,4789 ms |
+| tcr-s737-successor01 | `make test-slice OWNER=module.tasksdecisions ROWS=module.tasksdecisions.composition.mutation_and_import_composition_fails_closed_and_9add8849f4` | 2 | build failure (missing interface methods), diagnosed |
+| tcr-s737-format02 | `make format` | 0 | pass |
+| tcr-s737-successor02 | same selection | 0 | pass1/1,7543 ms; row passed; scan12/pass; cleanup10 completed |
+| tcr-s737-format03 | `make format` after retirement | 0 | pass |
+| tcr-s737-qualified01 | same selection, final source | 0 | pass1/1,6227 ms; row passed; scan12/pass; cleanup10 completed |
+
+Graph `adfb910772af0facca0cd3b9c6714f4de3f3dcce823e84614fbba34195a917aa`; final
+source `b7a6cdd40fad598943a04e892ef9d2f66e91dc633ddc933d463d5033a7eff766`.
+E-753/S-064 remain open.
+
+### S-738 / F-723 / E-756 — task lifecycle guard cases pin their exact violated guard
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+tasksdecisions finding (sweep #1/#9). `TestTaskLifecycleGuardFailures_Unit`
+names one guard per case: blocked without reason, reason while not blocked,
+completed_at while not done, and done before created, each for create and for
+patch. It checks only that a `LifecycleValidationError` occurred
+(`requireLifecycle`). Production reports `ReasonCode
+violated_lifecycle_guards` with the exact `ViolatedGuards` list
+(`internal/policy/policy.go` `TaskLifecycleViolations`). A case that also
+broke `active_task_requires_owner` (the create cases set no owner), or that
+failed for an unrelated lifecycle reason, would pass. Governing: Core 02
+§10.4.1.1 (task-request lifecycle machine guards).
+
+Successor: a `requireLifecycleGuards` helper requiring the reason code and the
+exact guard list, with each table case naming its single guard. If a case
+reports more guards, the fixture is investigated rather than the expectation
+widened. Retire the type-only `requireLifecycle` calls in these two tables
+after the successor passes. Other `requireLifecycle` call sites are recorded
+for S-064. Select
+`module.tasksdecisions.source_workbook.managed_service_assertions_for_task_requests_and_9063e4f330`.
+No production, routing, profile or timeout change. E-753/S-064 remain open.
+
+#### S-738 / F-723 / E-756 closure — exact task guards
+
+DONE. All eight guard cases (four create, four patch) report
+`violated_lifecycle_guards` with exactly their named guard. The owner is
+defaulted on create, so no case also violates `active_task_requires_owner`.
+The type-only checks passed beside the successor and were then deleted
+(complete lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s738-format01 | `make format` | 0 | pass2/2,4768 ms |
+| tcr-s738-successor01 | `make test-slice OWNER=module.tasksdecisions ROWS=module.tasksdecisions.source_workbook.managed_service_assertions_for_task_requests_and_9063e4f330` | 0 | pass3/3,11464 ms; row passed; scan26/pass; cleanup14 completed |
+| tcr-s738-format02 | `make format` after retirement | 0 | pass |
+| tcr-s738-qualified01 | same selection, final source | 0 | pass3/3,11041 ms; row passed; scan26/pass; cleanup14 completed |
+
+Graph `aa80675c2d0c1cb58ded44f18bc7cb5a5633e3f7c9f7ac843a3717f9e6e0d919`; final
+source `06a44f2ca100fad409348121b3bfbb16f446f326c8b3b423894ed9a4b489bcd7`.
+E-753/S-064 remain open.
+
+### S-739 / F-724 / E-757 — inconsistent supersession source and target pin their machine guard
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+tasksdecisions finding (sweep #2). `TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit`
+supersedes using a proposed source that already has an outgoing supersedes
+link, and supersedes a proposed target that already has an incoming one.
+Both check only for a `LifecycleValidationError`. For the source, the
+inconsistent machine
+(`superseding_decision_requires_approved_or_executed`) and the plain status
+precondition (`decision_supersede_not_allowed`, the source must be approved or
+executed) both apply. The test's claim, inconsistency, is therefore not
+attributed. Governing: Core 02 §10.4.2.1 (decision lifecycle machine and
+supersession consistency).
+
+Successor: require `inconsistent_decision_machine` with exactly
+`superseding_decision_requires_approved_or_executed` for the source case and
+exactly `incoming_supersedes_requires_superseded_or_executed` for the target
+case. This shows that machine validation runs before, and independently of,
+the supersede preconditions. Retire the two type-only checks after the
+successor passes. Select
+`module.tasksdecisions.source_workbook.managed_service_assertions_for_task_requests_and_9063e4f330`.
+No production, routing, profile or timeout change. E-753/S-064 remain open.
+
+#### S-739 / F-724 / E-757 closure — supersession machine guards attributed
+
+DONE. The inconsistent source and inconsistent target supersessions report
+`inconsistent_decision_machine` with exactly their machine guard. The
+type-only checks passed beside the successor and were then deleted (complete
+lines).
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s739-format01 | `make format` | 0 | pass |
+| tcr-s739-successor01 | `make test-slice OWNER=module.tasksdecisions ROWS=module.tasksdecisions.source_workbook.managed_service_assertions_for_task_requests_and_9063e4f330` | 0 | pass3/3,11327 ms; row passed; scan26/pass; cleanup14 completed |
+| tcr-s739-format02 | `make format` after retirement | 0 | pass |
+| tcr-s739-qualified01 | same selection, final source | 0 | pass3/3,11181 ms; row passed; scan26/pass; cleanup14 completed |
+
+Graph `aa80675c2d0c1cb58ded44f18bc7cb5a5633e3f7c9f7ac843a3717f9e6e0d919`; final
+source `83f938882778b328e29b753b9da4150b67700cda0f32b44d8654cff7428bf691`.
+E-753/S-064 remain open.
+
+### S-740 / F-725 / E-758 — inert coordination submit proves no patch is sent
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Confirmed
+tasksdecisions finding (sweep #47). "makes late coordination outcomes inert
+after lifecycle invalidation" re-binds the controller to another row, then
+back with `disabled: true`, submits, and checks only that the draft value is
+retained. It never shows that the disabled submit sends nothing, which is
+what "inert" means. A controller that still submitted the patch would pass.
+The earlier "preserves Task lifecycle coordination…" case shows that an
+enabled submit calls `submitPatchMutation` (positive control). Governing:
+Core 03 workflow coordination (an invalidated or disabled workflow performs
+no mutation) as applied by the coordination controller.
+
+Successor: after the disabled submit, require
+`mutation.submitPatchMutation` not to have been called. Nothing is retired;
+successor01 is the qualifying run. Select
+`module.tasksdecisions.frontend_unit.coordination_workflow_lifecycle_7a8d13c2f0`.
+No production, routing, profile or timeout change. E-753/S-064 remain open.
+
+#### S-740 / F-725 / E-758 closure — disabled submit sends nothing
+
+DONE. After the disabled submit, `submitPatchMutation` must not have been
+called. The draft-retention check stays. Nothing was retired.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s740-format01 | `make format` | 0 | pass |
+| tcr-s740-successor01 | `make test-slice OWNER=module.tasksdecisions ROWS=module.tasksdecisions.frontend_unit.coordination_workflow_lifecycle_7a8d13c2f0` | 0 | pass2/2,5872 ms; row passed/287 ms; scan21/pass; cleanup11 completed |
+| tcr-s740-types01 | `make lint CHECK=types` | 0 | pass |
+
+Graph `54ef2eeeb4b5a3297603e17d3ef4ead1b390f1f7c13bcce2806c0eb732fe4183`;
+source `db96e0183d051ef9988b4cf773cb4841cdb0e25c848d2f1e245dfc6c99b83c9b`.
+
+#### E-753 closure — A-module.tasksdecisions semantic audit
+
+DONE for this pass. Discovery: 23 rows (Go 19, Vitest 1, Playwright 3), 55
+roots and titles. Entry drift (nil import target) was repaired by S-736, so all
+20 non-browser rows pass. Collaborator union: 42 rows, 14 reused and 28
+carried (workbook 8, web.workbook 20). Governing: Core 02 §10.4.1 and §10.4.2
+(task-request and decision record types and lifecycle machines).
+
+| Slice | Correction |
+| --- | --- |
+| S-736 | UUID admission uses a real import target (drift) |
+| S-737 | mutation (11) and import (6) composition reject every missing dependency by name |
+| S-738 | task lifecycle guard cases pin their exact violated guard |
+| S-739 | inconsistent supersession source and target pin their machine guard |
+| S-740 | inert coordination submit sends no patch |
+
+Verified and retained: the import replay and atomicity counts, which are read
+after the helper's own rollback and so detect any write outside the supplied
+transaction (the "Replay" title has no replay, recorded as a title gap); the
+mutation-admission and source-port bound-text tables (complete against the
+generated catalog); and the UUID table.
+
+Open for S-064 (located by the sweep, not individually verified or repaired):
+
+- Remaining type-only `requireLifecycle` sites: the re-supersede and
+  bad-source and bad-target patches in the supersession test, and the
+  decision lifecycle matrix.
+- Absence counts on untouched collections (supersession :398-432, task :353,
+  attribution :197-203, workbookassembly idempotency).
+- Out-of-order fixed clocks and pre-incident timestamps (supersession,
+  task, decision lifecycle, source-port :759 `decided_at` before `created_at`,
+  reference-lifecycle and lifecycle-admission clocks, importassembly joined_at).
+- Any-failure admission and reference rows (mutation_admission :186,
+  decision_reference_admission :93/:99; title "AcceptsOnlyExactStableIDs"
+  lacks encoding variants).
+- Multi-defect cases: source-port :643-660 and :313-316, association :29-55,
+  sourcecatalog mutations, tasksdecisionassembly nil-dependency checks.
+- Reference concurrency table omissions and a state reset that masks writes;
+  the rollback provider's vacuous collection exclusion and partial
+  invalid-field coverage.
+- Coordination titles without matching bodies, and disabled-button checks
+  without an enabled control.
+- Browser spec branches and absence checks (decisions.recovery,
+  tasks.lifecycle, authoring :517-521). The three Playwright rows were not
+  run; no correction touched them.
+
+Non-claims: only changed rows were requalified after entry; no performance,
+stability or release claim.
+
+### A-module.timeline entry — E-759 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.timeline`: 214 rows (Playwright
+129, Go 54, Vitest 31), 324 roots and titles; the queue's 203 predates
+catalog growth. The largest selectors are `./internal/modules/timeline` (48
+roots), `timeline/admission` (7), the timeline Vitest suites (collection cell
+15, editor draft registry 15, mutation coordinator 9, bulk tag 8, and others),
+and the timeline Playwright specs (range selection 22, grid entry 19,
+auto-resolution feedback 16, workbook 15, and others). Collaborator union: 124
+rows. Seventy-seven are reused from completed owners (evidence 24, imports 14,
+harness.browser 6, entities 5, revisions 5, reference_data 4, collaboration
+4, incidentbundles 4, projections 3, reporting 2, incidents 2, assessments,
+app.server, indicators and recovery 1 each). Forty-seven are carried
+(web.workbook 38, workbook 7, platform.openapi 1, web.collaboration 1). The
+85 non-browser rows run once at entry in two batches. Governing: Core 02
+timeline event record type and the Core 03 Timeline workflows, read as the
+review proceeds. E-759 is reserved for the closure.
+
+Entry drift check (source `sha256:db96e018…`, commit `826c031db`, dirty):
+`tcr-e759-drift01` passed (42 rows, 11/11 units, graph `sha256:58b08011…`,
+scan pass, 30 cleanups completed). `tcr-e759-drift02` (43 rows, graph
+`sha256:db16e86f…`) exited 2 with 14/15 units: row
+`module.timeline.store.timeline_mention_fields_prove_mention_origin_bin_46b2abfeb9`
+failed at `unit_test.go:42` with "compose Host/Identity store: ConflictFields is
+required". Scan pass; 28 cleanups completed. The root is preserved.
+
+### S-741 / F-726 / E-760 — Timeline binding-mode Host/Identity composition drift
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Defect: since `b5cd96adf`, `hostidentity.NewStore` requires `ConflictFields`
+(a `conflicts.FieldResolver`) and a non-zero `ConflictTokens` codec. These are
+the conflict-token and field-resolution seams of the entity mutation contract.
+`TestBindingMode_Unit` still composes the store without either, so it fails
+before reaching any of its binding-mode or mention-origin assertions. The
+Entities unit support (`internal/modules/entities/unit_support_test.go:68`)
+already supplies both. This is fixture drift, not a requirement change.
+
+Successor: supply `ConflictTokens: conflicttest.NewCodec("entity-store")` and
+`ConflictFields: revisionComposition.Runtime.ConflictFieldResolver()`, matching
+the Entities composition. No assertion is added or removed, and there is no
+predecessor to retire. Selection: the failing row alone.
+
+Closure: DONE.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s741-format01` (`make format`) | 0 | Only the two added dependency lines. |
+| `tcr-s741-successor01` | 0 | Row passed; 3/3 units; source `sha256:fd60f6ca…`, graph `sha256:26b5c6fe…`; scan pass; 14 cleanups completed. |
+
+With no predecessor to retire, the successor run also qualifies the row. The
+other 84 entry rows passed in drift01/drift02 and are not rerun. The
+assertion review of the test's binding-mode and mention-origin checks
+continues in the owner ledger.
+
+### S-742 / F-727 / E-761 — Timeline clear-cells admission bounds and reasons
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 REQ-01-672. `clear_cells_v1` accepts exactly five members,
+1 to 10 distinct eligible operational keys, and 1 to 500 distinct record
+targets. Unknown members, duplicate keys or records, creation targets,
+ineligible fields and over-limit arrays fail with `invalid_mutation_payload`
+before mutation.
+
+Defect: `TestClearCellsAdmissionAndIdentity_Unit`
+(`admission/clear_cells_test.go`) checks only that each invalid body fails.
+Its "oversize" case sends 501 `null` targets, which are rejected as malformed
+objects even without the 500-record limit. There is no accepted 500-target
+control and no creation-target case. A wrong field or reason, such as
+`forbidden_field` reported as `unknown_field`, also passes.
+
+Successor: the decode helper returns the API error. Every rejection pins
+`invalid_mutation_payload` and its `field`/`reason_code`:
+
+- ineligible field sets → `field_keys`/`invalid_value`;
+- `value`, `field_key`, `tag_name` → `forbidden_field`;
+- `clipboard_text`, `selector` → `unknown_field`;
+- duplicate record → `targets`/`duplicate_target`;
+- a `{"kind":"create"}` target → `targets`/`invalid_value`;
+- missing keys → `field_keys`/`missing_required_field`.
+
+The bound becomes a minimal pair: 500 distinct valid records are admitted,
+and 501 are rejected as `targets`/`invalid_value`. Predecessor retired: the
+null-target oversize case and the ok-only checks. Selection: row
+`module.timeline.unit.timeline_admission_decoding_and_hashing_46ac663c5c`.
+
+Closure: DONE.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s742-format01` | 0 | Formatting only; successor beside predecessor. |
+| `tcr-s742-successor01` | 0 | Row passed, 1/1 unit; source `sha256:04cabddc…`, graph `sha256:ff3e69f7…`; scan pass; 10 cleanups completed. |
+| `tcr-s742-format02` | 0 | After whole-line retirement. |
+| `tcr-s742-qualified01` | 0 | Row passed, 1/1 unit; source `sha256:67c2bd06…`, same graph; scan pass; 10 cleanups completed. |
+
+Retained: the UUID-spelling identity, field-order identity and all-ten
+admission checks. Removed: the ok-only loops and the null-target oversize
+case, which the pinned successor subsumes. No production or routing change.
+
+### S-743 / F-728 / E-762 — Timeline admission rejection-code helper exactness
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: the Core 01 mutation route table's `invalid_mutation_payload`
+error for Timeline create, patch and bulk bodies.
+
+Defect: `requireClosedVocabularyRejected` (`admission/assertions_test.go:9`)
+accepts either `invalid_mutation_payload` or `invalid_view_query`. All ten
+callers are in `decoding_test.go` and exercise
+`DecodeTimelinePatchRequest` or `DecodeTimelineCreateRequest`. No admission
+path emits `invalid_view_query`, so a mutation decoder that returned the
+view-query code would still pass.
+
+Successor: a single exact `invalid_mutation_payload` comparison. The helper
+has no view-query callers to preserve. Predecessor retired: the disjunction.
+Selection: the same row as S-742.
+
+Closure: DONE. This was a one-token in-place narrowing, so the qualified run
+is also the successor run. `tcr-s743-format01` exited 0.
+`tcr-s743-qualified01` exited 0: the row's four roots passed, including
+`TestPatchPayloadValidation_Unit` and `TestUnit_TimelineVisibleTextContract`,
+which hold all ten callers. 1/1 unit; source `sha256:8da94fae…`, graph
+`sha256:ff3e69f7…`; scan pass; 10 cleanups completed.
+
+### S-744 / F-729 / E-763 — Timeline superseded-terminal rejections
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 REQ-03-107. `superseded` is terminal for ordinary Timeline
+workflow. Ordinary patch, enrichment and review actions MUST NOT mutate a
+superseded row, and the base profile defines no direct transition out of
+`superseded`.
+
+Defects:
+
+- `TestUnit_CaptureStateHelpers` (`support_test.go:57`) checks only that
+  `captureStateAllowsSupersede(reviewed)` is true. Removing `superseded` from
+  the exclusion, or rejecting rough or enriched rows, still passes.
+- In `TestAuthorizationLifecycleAndSupersedeTransitions_Integration`
+  (`timeline_event_integration_test.go:1442-1470`), the post-supersede patch
+  and mark-reviewed checks pin only the `illegal_transition` code. They do
+  not check the reason, the from/to statuses, or that history and projection
+  counters are unchanged.
+- No test sends a fresh supersede to an already superseded row.
+  `applyAction` runs the capture-state check before replacement validation,
+  so that request should fail with `supersede_not_allowed`.
+
+Successor:
+
+- Unit: the complete four-state truth table for `captureStateAllowsSupersede`.
+- Integration: each post-supersede rejection uses
+  `requireRejectedMutationStable` plus an exact `reason_code`:
+  - patch → `superseded`→`enriched`, `superseded_terminal`;
+  - review → `superseded`→`reviewed`, `mark_reviewed_not_allowed`;
+  - fresh supersede (new transaction, base version 4, the alternate
+    replacement) → `superseded`→`superseded`, `supersede_not_allowed`.
+
+  Each case has empty guards.
+
+Predecessor retired: the single reviewed-only supersede check (subsumed) and
+the two code-only envelope checks. Selection:
+
+- `module.timeline.support_unit.unit_capture_state_and_payload_helpers_772e7f2e60`
+- `module.timeline.integration.incident_role_authorization_review_and_supersede_62f3d384f6`
+
+The predecessors were replaced in place, because a response body can be read
+only once, so each run is also a qualification run. `tcr-s744-format01`
+exited 0. `tcr-s744-qualified01` exited 2 (3/4 units; source
+`sha256:86c33082…`, graph `sha256:a4bc4572…`; scan pass; 15 cleanups
+completed). The unit row passed. The integration row failed at
+`timeline_event_integration_test.go:1458`: the patch rejection on the
+superseded row returned `from_status` `superseded`, `to_status` `enriched` and
+`reason_code` `superseded_terminal`, but `violated_guards` was `null`. The
+review and re-supersede cases were not reached. The root is preserved. This
+is a production defect, repaired first as S-745.
+
+Closure (after S-745): DONE. `tcr-s744-qualified02` exited 0 with both rows
+passed, so the patch, review and fresh-supersede rejections each hold their
+exact reason, statuses, empty guard array and unchanged counters.
+`requireRejectedMutationStable` now returns the error body. Its earlier
+callers ignore that return value, so their behaviour is unchanged.
+
+### S-745 / F-730 / E-764 — Workbook illegal-transition guards serialize as null
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 REQ-01-231. `error.details.violated_guards[]` MUST be
+present, and MAY be empty when the legal transition matrix rather than a
+field guard disallows the transition.
+
+Defect (production, module.workbook):
+`workbook.IllegalTransitionFailure` and the `MutationFailureIllegalTransition`
+case of `mutationFailureAPIError` (`internal/modules/workbook/mutation_contract.go:378`
+and `:508`) copy guards with `append([]string(nil), …)`. An empty guard
+list becomes a nil slice and is serialized as JSON `null`. This reaches every
+workbook-routed illegal transition with no field guard, including the
+Timeline patch `superseded_terminal` rejection found by S-744. The Timeline
+admission routes are not affected, because they pass `[]string{}` through.
+
+Successor: both copies use a non-nil empty base, so an empty list stays an
+array. The guard-copy check in
+`TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit`
+(`contribution_catalog_test.go:656-662`) adds a nil-guard failure. Its
+details must hold a non-nil empty `[]string`, and the JSON encoding of those
+details must contain `"violated_guards":[]`. The caller-isolation check is
+retained, and there is no predecessor to retire. Selection: workbook row
+`module.workbook.unit.registry_derived_writable_conflict_capabilities_c0614db52a`.
+That is followed by the S-744 integration row.
+
+Closure: DONE.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s745-format01` | 0 | Two production lines changed, plus seven test lines and one import. |
+| `tcr-s745-successor01` | 0 | Workbook row passed, 1/1 unit; source `sha256:0b81bcf0…`, graph `sha256:df6b8155…`; scan pass; 10 cleanups completed. |
+| `tcr-s744-qualified02` | 0 | Both S-744 rows passed, 4/4 units, at the same source; scan pass; 15 cleanups completed. |
+
+The pre-fix behaviour is evidenced by `tcr-s744-qualified01`. Dependency
+review: a repository search found no Go or TypeScript test or consumer that
+expects a `null` or nil guard list. The other `violated_guards` assertions
+(`mention_restore_preview_test.go:122`, `mention_hidden_preview_test.go:126`,
+`supersede_reference_order_test.go:151` and the S-744 helper callers) expect
+non-empty arrays, so they are unaffected. No broader run was launched.
+
+Residual for S-064: the sentinel `ErrIllegalTransition` mappings still emit
+blank or missing statuses. These are `workbookassembly/action_adapters.go:318`
+(`""`/`""`, nil guards, now `[]`) and the admission classifier's sentinel
+case, which omits `from_status`, `to_status` and `violated_guards`. Neither
+is reachable from a persisted legal capture state: the default branch of
+`captureStateAfterMaterialPatch` needs an unknown state, and
+`store_patch.go:188` handles `superseded` first. They are recorded rather
+than changed.
+
+### S-746 / F-731 / E-765 — Timeline suppressor tokens against exact aliases
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 REQ-03-278. Auto-resolution MUST NOT occur when the
+submitted token contains `?` or `~`, or a whole suppressor word (`maybe`,
+`prob`, `probably`, `approx`, `approximately`). This holds even when exact
+alias equality would otherwise select a target. REQ-03-279 separately
+forbids rewrites such as punctuation or token deletion.
+
+Defect: the subtest "no-match suppressor and forbidden rewrite tokens remain
+unresolved" in `TestAutoResolutionEligibility_Integration`
+(`resolution_integration_test.go:527-606`) seeds only the alias `WS-023`.
+`uniqueAutoResolutionMatch` compares whole candidate texts
+(`auto_resolution.go:72-85`), so `WS-023 maybe` and the other suppressor
+tokens differ from every alias and stay unresolved even with
+`autoResolutionSuppressed` removed. The subtest therefore proves REQ-03-279
+for those tokens but never REQ-03-278. No other test seeds an alias equal to
+a suppressor token (`request_test.go:44` only decodes).
+
+Successor: before the token loop, seed one alias for each of the eight
+REQ-03-278 tokens on the canonical host. Each alias text is exactly the
+token: `WS-023?`, `WS-023??`, `WS-023 ~`, `WS-023 maybe`, `WS-023 prob`,
+`WS-023 probably`, `WS-023 approx`, `WS-023 approximately`. Without
+suppression, each token would then auto-resolve by exact equality. The
+rewrite tokens `(WS-023)`, `WS-023.`, `WS-023,` and `WS-023 likely` remain
+compared with `WS-023` only. A positive control in the same incident patches
+`WS-023` and requires an `auto_match` `resolved_ref` to the canonical host.
+
+Diagnostic plan: temporarily make `autoResolutionSuppressed` return false,
+expect exactly the eight suppressor subtests to fail, then restore the file
+byte for byte. Existing per-token assertions are retained, so there is no
+predecessor to retire. Selection:
+`module.timeline.integration.timeline_patch_and_query_routes_auto_resolve_onl_8ab2448829`.
+
+Closure: DONE.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s746-format01` | 0 | Formatting only. |
+| `tcr-s746-successor01` | 0 | Row passed, 3/3 units; source `sha256:439d8a2c…`, graph `sha256:4bc419e1…`; scan pass; 14 cleanups completed. |
+| `tcr-s746-diag01` (diagnostic, not evidence) | 2 | With `autoResolutionSuppressed` forced to false, exactly the eight REQ-03-278 token subtests failed, plus their parents. The control, `WS-999` and the four rewrite tokens passed. |
+
+`auto_resolution.go` was restored from the scratchpad copy; `cmp` confirms
+it is identical and `git diff` shows no change. The successor run is
+therefore the qualification at the final source. `entitytest.AutoResolutionSuppressedTokens`
+(module.entities test support) mixes REQ-03-278 and REQ-03-279 tokens under
+one name. The subtest title already names both, so the list is left
+unchanged.
+
+### S-747 / F-732 / E-766 — Timeline client-supplied confidence as a single defect
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 REQ-03-280. Manual link actions are scoreless, and any
+attempt to supply a confidence is a validation error rather than a silent
+downgrade.
+
+Defect: the subtest "client supplied confidence is rejected without side
+effects" in `TestManualTimelineConfidenceNull_Integration`
+(`resolution_integration_test.go:1682-1765`) sends `resolve_item` with
+`confidence: 80` and `resolved_record_id` set to
+`entitytest.CanonicalHostRecordID`. That host is never seeded in the
+subtest's incident, so the request also names a missing target. A decoder
+that admitted `confidence` would still be rejected by the missing-target
+admission. The test checks only the `invalid_mutation_payload` code, twice,
+so it cannot tell the two causes apart. Its active-link count of zero
+cannot fail without a target.
+
+Successor: seed the canonical host in the incident, so the request differs
+from an admissible manual resolve only by `confidence`. Pin
+`error.details` to exactly `field` `timeline.host_refs` and `reason_code`
+`invalid_value`. Predecessor retired: the repeated code comparison.
+
+Diagnostic plan: temporarily let the `resolve_item` decoder accept an
+optional `confidence` member and expect this subtest to fail, then restore
+the file byte for byte. Selection:
+`module.timeline.integration.timeline_create_and_patch_routes_persist_manual_ac8c9abb5b`.
+
+Closure: DONE. The redundant check was replaced in place, so the
+qualification run is also the successor run.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s747-format01` | 0 | Formatting only. |
+| `tcr-s747-qualified01` | 0 | Row passed, 3/3 units; source `sha256:e44ae896…`, graph `sha256:247d451c…`; scan pass; 14 cleanups completed. |
+| `tcr-s747-diag01` (diagnostic, not evidence) | 2 | With `confidence` admitted as an optional `resolve_item` member, only this subtest failed: `got 200 want 400` at `:1729`. The seeded request then resolves. |
+
+`decoding.go` was restored from the scratchpad copy (`cmp` identical; no
+`git diff`). The now-meaningful active-link count is retained. The sibling
+subtest "resolve_item without a target" sends a single-defect request and
+checks counters, mention state and identity absence. It keeps a redundant
+second code comparison, recorded as a simplify candidate, not changed.
+
+### S-748 / F-733 / E-767 — Timeline same-field conflict token and timestamp presence
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 §3.3.4. The same-field conflict object carries
+`conflict_token`, an opaque server-issued value, and `server_updated_at`,
+together with the other listed members.
+
+Defect: `TestPatchSameFieldConflictEnvelope_Integration`
+(`timeline_event_integration_test.go:659-660`) checks
+`conflict["server_updated_at"] == ""` and `conflict["conflict_token"] == ""`.
+An absent member reads as `nil`, which is not equal to `""`, so a conflict
+object missing either member passes.
+
+Successor: `conflict_token` must be a non-empty string. `server_updated_at`
+must be a string that parses as RFC 3339 with nanoseconds. Token internals
+stay opaque. Predecessor retired: the two `== ""` comparisons, replaced in
+place. Selection:
+`module.timeline.integration.same_field_timeline_patch_conflicts_are_transpor_808ccc2585`.
+
+Closure: DONE. `tcr-s748-format01` exited 0. `tcr-s748-qualified01` exited 0
+with the row passed, 3/3 units; source `sha256:5cef3ac2…`, graph
+`sha256:e76c43c9…`; scan pass; 14 cleanups completed. Since the replacement
+was in place, this run is both successor and qualification.
+
+### S-749 / F-734 / E-768 — Timeline time-conversion profile exact resource shape
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 `GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile`
+(`01_architecture_storage_and_view_contracts.md:1899`). The resource shape
+is exactly `incident_id`, `enabled`, `local_offset_minutes`, `local_label`,
+`profile_version`, `updated_at` and `updated_by_user_id`. A missing durable
+row materializes as disabled, with null offset and label and version 1.
+
+Defect: `TestTimelineTimeConversionProfile`
+(`timeline_event_integration_test.go:1619-1627`) checks
+`defaultProfile["updated_at"] == ""`, which a missing member passes. An
+extra member is never detected either, so the "exactly" shape is unproven.
+The default's `updated_at` value is not specified, so it is not pinned.
+
+Successor: the default resource's key set must equal those seven members
+exactly. The existing value checks are retained. Predecessor retired: the
+`updated_at == ""` comparison. Selection:
+`module.timeline.support_integration.integration_route_idempotency_is_actor_scoped_ab7992bb7d`.
+That row also runs `TestRouteIdempotencyIsActorScoped`, which is unchanged.
+
+Closure: DONE. The `slices` import was added. `tcr-s749-format01` exited 0.
+`tcr-s749-qualified01` exited 0: the row passed with 3/3 units; source
+`sha256:0a44c07b…`, graph `sha256:e8dca37d…`; scan pass; 14 cleanups
+completed. Production already returns exactly the seven members.
+
+### S-750 / F-735 / E-769 — Timeline store supersede rollback cause
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 REQ-03-107 together with the Timeline lifecycle
+atomicity rule. A failed supersede leaves the source, history, projection
+and replacement link unchanged.
+
+Defect: in `TestSupersedeReplayAndRollbackCoupling_Unit`, the subtest
+"rollback removes lifecycle and replacement link together"
+(`store_test.go:719-721`) accepts any `Supersede` error. A rejection before
+the forced projection failure would leave every checked counter, projection
+and link unchanged, so the test would pass without exercising rollback of
+late writes. Its integration sibling
+(`timeline_event_integration_test.go:1575`) pins the forced cause, but uses a
+rough source, while this subtest covers a reviewed source.
+
+Successor: require the error to contain "forced rollback", the hook's own
+text. This proves the supersede reached the projection write. Predecessor
+retired: the bare `err == nil` check, replaced in place. Selection:
+`module.timeline.store.supersede_with_replacement_rejects_illegal_targe_e4d81b8a06`.
+
+Closure: DONE. `tcr-s750-format01` exited 0. `tcr-s750-qualified01` exited 0:
+the row passed with 3/3 units; source `sha256:2434cff4…`, graph
+`sha256:83ddcfff…`; scan pass; 14 cleanups completed. The supersede reaches
+the forced projection failure, so the retained counter, projection and link
+checks now observe a real late-write rollback.
+
+### S-751 / F-736 / E-770 — Timeline provenance value preflight isolated from capacity
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 REQ-01-699. An ordinary provenance append MUST validate
+every item and preflight distinct identities before mutation. Capacity counts
+existing identities plus distinct absent ones, up to 4,096. A rejected
+capacity, value or collision preflight MUST leave provenance unchanged.
+
+Defect: in the subtest "capacity counts distinct retained identities" of
+`TestTimelineProvenanceWriter_Integration`
+(`provenance_contract_integration_test.go:257-261`), the "later invalid value"
+call sends `[item(4096), bad]`, where `bad` is `item(4097)` carrying a NUL.
+With 4,095 existing identities that is two absent identities (4,097 in
+total), so the call is also over capacity. If value admission were lost, the
+capacity preflight would still return `ErrInvalidProvenance` with
+provenance unchanged, and the test would still pass.
+
+Successor: `bad` reuses the existing identity `item(1)` with the NUL value.
+The call then has one absent identity (4,096 in total, within capacity), and
+its only defect is the invalid value. Without value admission, the existing
+identity with a different value would be a collision, not
+`ErrInvalidProvenance`. Predecessor retired: `item(4097)` as the bad
+ordinal, replaced in place. Selection: `module.timeline.integration.provenance_writer`.
+
+Closure: DONE.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s751-format01` / `tcr-s751-qualified01` | 0 / 0 | **Void as evidence.** The scripted replacement did not match because of an indentation mismatch, so no edit was applied. That run executed at the unchanged source `sha256:2434cff4…`, the same as S-750. |
+| `tcr-s751-format02` | 0 | After the corrected replacement; the diff is the two-line comment and `item(1)`. |
+| `tcr-s751-qualified02` | 0 | Row passed, 3/3 units; source `sha256:23247859…`, graph `sha256:6fb86ba0…`; scan pass; 14 cleanups completed. |
+
+The other capacity, collision, replay and over-limit calls in the subtest are
+retained unchanged.
+
+### S-752 / F-737 / E-771 — Timeline nullable-derivation self-comparison removal
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Purpose: engineering only. No requirement changes.
+
+Defect: `TestCanonicalRowDerivationPreservesNullableFields_Unit`
+(`derivation_equivalence_test.go:147`) checks
+`assertCanonicalJSONEqual(t, buildRow(canonicalPath), rowpresenter.BuildRow(canonicalPath.PresenterRecord()))`.
+`buildRow` is defined as exactly that call (`presentation.go:11-13`), so the
+check compares production output with itself and cannot fail.
+
+Disposition: remove. The test's null-cell and empty-collection checks are
+the behaviour it covers, and they are retained. Nothing replaces the line,
+because it proves nothing. Selection:
+`module.timeline.unit.timeline_projection_contract_shaping_exposes_the_0a2232ebe0`.
+
+Closure: DONE. The now-unused `assertCanonicalJSONEqual` helper, which had no
+other callers in the package, was removed along with the `encoding/json` and
+`rowpresenter` imports. `tcr-s752-format01` exited 0. `tcr-s752-qualified01`
+exited 0: the row's four roots passed, 1/1 unit; source `sha256:ad03d590…`,
+graph `sha256:09c1ecb8…`; scan pass; 10 cleanups completed.
+
+### S-753 / F-738 / E-772 — Timeline nullable-derivation legal pair state
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 02 Timeline event storage. `activity_time_pair_state` is one
+of `disabled`, `empty`, `paired_generated`, `paired_user_preserved`,
+`paired_mismatch` and `conversion_unavailable` (`00010_timeline.sql`
+check).
+
+Defect: the same test derives from a snapshot whose
+`ActivityTimePairState` is `"unpaired"`. That record is illegal and cannot
+come from storage, and the test does not assert the pair state. The nullable
+claim is therefore made about an impossible input.
+
+Successor: use `disabled`. That is the storage default, and it matches a
+snapshot with no activity text or profile. The null-cell and
+empty-collection checks are unchanged. Predecessor retired: the illegal
+literal, replaced in place. Selection: the same row as S-752.
+
+Closure: DONE. `tcr-s753-format01` exited 0. `tcr-s753-qualified01` exited 0:
+the row passed, 1/1 unit; source `sha256:67b7f077…`, same graph; scan pass;
+10 cleanups completed.
+
+### S-754 / F-739 / E-773 — Timeline portable rows: strict syntax as the only defect
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing:
+
+- Core 01 REQ-01-697: Timeline profile, record and provenance preparation
+  rejects malformed shapes as `timeline.version_shape_exact`.
+- The shared portable NDJSON rule (REQ-01-694 context): duplicate JSON
+  members and invalid Unicode are malformed, and syntax admission precedes
+  every identity or semantic phase.
+
+Defect: the malformed-JSON entries in the shape loops are skeletal rows:
+
+- `TestTimelinePortableProfileAdmission_Unit`
+  (`incident_bundle_profile_test.go:176`): `{"incident_id":"a","incident_id":"b"}`,
+  a lone-surrogate `local_label`, and a `0xff` `local_label`;
+- `TestTimelinePortableEventAdmission_Unit`
+  (`incident_bundle_record_test.go:220`): a duplicate `record_id` and a
+  lone-surrogate `raw_activity_text`;
+- `TestTimelinePortableProvenanceAdmission_Unit`
+  (`incident_bundle_provenance_test.go:258`): a lone-surrogate `raw_value` and
+  a duplicate `raw_value`.
+
+Each of these rows also lacks every other required member. If the port
+skipped strict syntax admission, the missing members would still produce
+`version_shape_exact`.
+
+Successor: a shared helper encodes a valid row, using each test's own valid
+row builder, and derives three variants, each differing from it by one
+defect:
+
+- the text member duplicated with its own value;
+- that member's value replaced by a lone `\ud800` escape;
+- that value replaced by a raw `0xff` byte inside the string.
+
+In each test, the unmodified encoding must prepare successfully as the
+control, and every variant must fail as `version_shape_exact`. The text
+members are `local_label`, `raw_activity_text` and `raw_value`. The
+non-object, blank and trailing-value entries are single-defect and retained.
+Predecessor retired: the skeletal duplicate, surrogate and `0xff` literals.
+Selection: the three rows owning these tests.
+
+Closure: DONE. The literals were replaced in place, so the qualification run
+is also the successor run.
+
+- `tcr-s754-format01` exited 0.
+- `tcr-s754-qualified01` exited 0:
+  - `module.timeline.unit.portable_event_admission`,
+    `module.timeline.unit.portable_profile_admission` and
+    `module.timeline.unit.portable_provenance_admission` passed (1/1 shared
+    unit);
+  - source `sha256:047f549a…`, graph `sha256:fca0655b…`;
+  - scan pass; 10 cleanups completed.
+
+The in-test valid control makes each variant a single-defect minimal pair. No
+production diagnostic was run. The record test now also gains an invalid
+UTF-8 case, and the provenance test a duplicate member that repeats its own
+value.
+
+### S-755 / F-740 / E-774 — Timeline clear-cells owner-row plan cardinality
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 REQ-01-672. Clear targets are 1 through 500 distinct
+records, and every named field on every named record is an explicit null
+assignment.
+
+Defect: `TestClearCellsSourcePlanAndDateIntent_Unit`
+(`clear_cells_test.go:12-25`) iterates `range rows` for a two-target plan but
+never checks `len(rows)`. A builder that returned no rows, or one row,
+passes. The 0 and 501 rejections have no accepted exact-bound control at
+this layer.
+
+Successor: require exactly two rows for the two-target plan, and a
+500-target plan of exactly 500 rows of ten cells each. The 0 and 501
+rejections are retained, and with the control they form minimal pairs.
+There is no predecessor to retire. Selection: the row owning
+`TestClearCellsSourcePlanAndDateIntent_Unit`.
+
+Closure: DONE. The row is
+`module.timeline.support_unit.clipboard_paste_parsing_mapping_provenance_and_b_43e8f0fd4f`.
+`tcr-s755-format01` exited 0. `tcr-s755-successor01` exited 0: the row passed
+with 1/1 unit; source `sha256:33d508d0…`, graph `sha256:2c2c8912…`; scan pass;
+10 cleanups completed. With nothing retired, this run is also the
+qualification.
+
+### S-756 / F-741 / E-775 — Timeline tag-removal focus after scroll intent
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: design §8.4. Delayed mounting does not complete a focus request,
+and obsolete requests cannot restore focus.
+
+Defect: the title "cancels saved-tag focus restoration after newer keyboard
+or scroll intent" (`TimelineCollectionCell.test.tsx:512-568`) has two
+cases. Its scroll case ends with `expect(document.activeElement).not.toBe(<Remove tag: gamma>)`.
+An obsolete restoration that moved focus to the other neighbour, alpha, or to
+any other element would pass. The keyboard case positively requires the
+input it moved to.
+
+Successor: after the delayed acknowledgement, the scroll case requires
+`document.activeElement` to be `document.body`. The focused removed control
+is gone and no element received programmatic focus. Predecessor retired: the
+gamma-only negative, replaced in place. Selection:
+`module.timeline.frontend.collection_inspection_preserves_draft_text_and_s_f5c8c4c211`.
+
+Closure: DONE. `tcr-s756-format01` exited 0. `tcr-s756-qualified01` exited 0:
+the row passed with 2/2 units; source `sha256:1d13de6d…`, graph
+`sha256:5d1456cd…`; scan pass; 11 cleanups completed. The type check is
+deferred to the owner-level `make lint CHECK=types` run after the last
+TypeScript edit.
+
+### S-757 / F-742 / E-776 — Timeline grid patch label-free claim uses the current label
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 `:504` and `:1335`. Public requests address writable
+surfaces by stable identifiers, and `field_key` MUST NOT be a visible column
+label.
+
+Defect: the test "binds Timeline grid columns from the active view_schema
+and commits writable cells by field_key" (`WorkbookShell.grid.test.tsx:96-162`)
+asserts `JSON.stringify(requestBody)` does not contain `"Summary"`. That
+label no longer exists: the field's visible label is "Activity Synopsis".
+The check therefore cannot fail, and a request that carried the real label
+would pass. The grid checks `queryByText("Details")` and
+`queryByText("Source Text")` are null, but neither label appears anywhere in
+production `apps/web/src/workbook`, so those checks cannot fail either. The
+exact header-field list and per-label presence loop that precede them are the
+real column claims.
+
+Successor: the request must have exactly one change, and its serialization
+must not contain the current contract label of
+`timeline.activity_synopsis_text`. Predecessor retired: the stale `"Summary"`
+negative and the two legacy-label negatives (disposition: remove, vacuous).
+Selection:
+`module.timeline.frontend.the_rdg_backed_workbook_grid_binds_timeline_colu_539c620379`.
+
+Closure: DONE. `tcr-s757-format01` exited 0. `tcr-s757-qualified01` exited 0:
+the row passed with 2/2 units; source `sha256:ca114b6f…`, graph
+`sha256:1c9630af…`; scan pass; 11 cleanups completed. The type check is
+deferred to the owner-level run.
+
+### S-758 / F-743 / E-777 — Timeline action-field authoring inventory from the contract
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01/03. A view-contract field whose write kind is
+`action_payload` is authored through collection actions and is never a
+scalar grid write.
+
+Defect: the test "declares explicit collection authoring without scalar
+editors for all Timeline action fields" (`TimelineCollectionCell.test.tsx:214-252`)
+iterates the production `timelineCollectionBindings` list. That list holds
+host refs, identity refs and tags (`timelineFieldRegistry.ts:132-153`). The
+contract also declares `timeline.attached_evidence_ids` as `action_payload`,
+and that field is never checked. A scalar editor on it, or a fourth action
+field added to the contract, would go unnoticed.
+
+Successor: the set of contract fields with write kind `action_payload` must
+equal the reviewed literal set (attached evidence, host refs, identity refs,
+tags). Each such field's assembled column, if one exists, must have no scalar
+editor. The binding loop's explicit-action presentation checks are retained.
+There is no predecessor to retire. Selection:
+`module.timeline.frontend.collection_inspection_preserves_draft_text_and_s_f5c8c4c211`.
+
+Closure: DONE. `tcr-s758-format01` exited 0. `tcr-s758-successor01` exited 0:
+the row passed with 2/2 units; source `sha256:aaf8b359…`, graph
+`sha256:5d1456cd…`; scan pass; 11 cleanups completed. This is also the
+qualification run. `tcr-e759-types01` (`make lint CHECK=types`) exited 0 with
+2/2 units, covering the S-756, S-757 and S-758 TypeScript edits.
+
+### S-759 / F-744 / E-778 — Timeline bulk tag sends keep captured targets
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 explicit bulk command vocabulary. `multi_row_tag_assignment_v1`
+applies one label to explicit stable Timeline row targets, and
+presentation-only selectors are rejected.
+
+Defect: the title "captures the complete set once per delivery and waits for
+prerequisites without retargeting" (`timelineBulkTagInteraction.test.tsx:380-432`)
+captures two entries for the selection {first, second}, then narrows the
+grid selection to {second} before the prerequisite resolves. After
+release, it checks only that two sends happened and
+`expect(f.send.mock.calls[0]).toBeDefined()`, which cannot fail once the
+count holds. A send that re-derived its targets from the narrowed selection
+would pass, even though "without retargeting" is the claim under test.
+
+Successor: each of the two send attempts must carry exactly the captured
+targets (`first`@3, `second`@4) and the label `triaged`. This uses the
+attempt shape the same file already uses at `:830`. Predecessor retired: the
+`toBeDefined()` check, replaced in place. Selection:
+`module.timeline.frontend.timeline_bulk_tag_controller_8a15df23b4`.
+
+Closure: DONE. `tcr-s759-format01` exited 0. `tcr-s759-qualified01` exited 0:
+the row passed with 2/2 units; source `sha256:4ae56c22…`, graph
+`sha256:49d7ca6e…`; scan pass; 11 cleanups completed. `tcr-e759-types02`
+(`make lint CHECK=types`) exited 0 with 2/2 units.
+
+### S-760 / F-745 / E-779 — Timeline freshness retry budget pinned to the requirement
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 REQ-03-235 (`:3766-3770`). Automatic recovery shares a
+budget of at most two attempts with committed-version freshness retries.
+Exhaustion offers local read recovery and MUST NOT loop.
+
+Defect: the title "joins a satisfied obligation and otherwise retries
+exactly twice" (`timelineLoadMachine.node.test.ts:110-160`) loops to the
+production constant `timelineFreshnessRetryLimit`. Changing that constant to
+three or more would exceed the required budget, and the test would still
+pass.
+
+Successor: assert that the constant equals the literal `2` before the loop.
+The loop keeps exercising each retry depth, and the following exhaustion
+check is retained. There is no predecessor to retire. Selection:
+`module.timeline.frontend.timeline_load_machine_a109000001`.
+
+Closure: DONE. `tcr-s760-format01` exited 0. `tcr-s760-successor01` exited 0:
+the row passed with 2/2 units; source `sha256:f88e8ca3…`, graph
+`sha256:5accdd6b…`; scan pass; 11 cleanups completed. This is also the
+qualification run. `tcr-e759-types03` (`make lint CHECK=types`) exited 0.
+
+### S-761 / F-746 / E-780 — Timeline editor focus target positive control and stale case
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: design §8.4. Obsolete requests cannot restore focus, so focus
+restoration must use the current, usable editor element.
+
+Defect: the title "rejects stale, hidden, disabled, and disconnected editor
+elements" (`useTimelineEditorDraftRegistry.test.tsx:694-718`) asserts only
+`null` results. No registered usable element is shown to be returned, so a
+registry that always returned `null` would pass. No stale (superseded or
+unregistered) element is exercised, although the title names one.
+
+Successor:
+
+- Positive control: the first usable registration returns that element.
+- Stale cases: after a replacement element registers for the same identity,
+  only the replacement is returned, and unregistering it returns `null`.
+- The re-enabled, still-connected input is returned again before it is
+  removed.
+
+The hidden, disabled and disconnected `null` checks are retained. There is
+no predecessor to retire. Selection:
+`module.timeline.frontend.timeline_editor_draft_registry_0de7a147c1`.
+
+Closure: DONE. `tcr-s761-format01` exited 0. `tcr-s761-successor01` exited 0:
+the row passed with 2/2 units; source `sha256:aa018c4b…`, graph
+`sha256:cacfd391…`; scan pass; 11 cleanups completed. This is also the
+qualification run. `tcr-e759-types04` exited 0.
+
+#### E-759 closure — A-module.timeline semantic audit
+
+DONE for this pass.
+
+Discovery: 214 rows (Playwright 129, Go 54, Vitest 31) holding 324 roots and
+titles. Collaborator union: 124 rows. Seventy-seven are reused at their
+completed owners' recorded scope; forty-seven are carried (web.workbook 38,
+workbook 7, platform.openapi 1, web.collaboration 1).
+
+Entry drift: the 85 non-browser rows ran in two batches. One drift failure
+was repaired by S-741, and the other 84 passed.
+
+Governing: Core 01 REQ-01-231, REQ-01-672, REQ-01-697 and REQ-01-699, the
+mutation route table and the time-profile resource shape; Core 03
+REQ-03-107, REQ-03-235, REQ-03-278, REQ-03-279 and REQ-03-280, §3.3.4 and
+the explicit bulk vocabulary; design §8.4.
+
+A location-only Explore sweep reported 70 candidates. Each was verified by
+reading the assertion and the production path it exercises. Dispositions
+are below.
+
+| Slice | Correction |
+| --- | --- |
+| S-741 | binding-mode composition supplies the Host/Identity conflict seams (drift) |
+| S-742 | clear-cells admission pins every rejection and the 500/501 record bound |
+| S-743 | admission rejection helper accepts only `invalid_mutation_payload` |
+| S-744 | superseded rows reject patch, review and fresh supersede exactly, state unchanged |
+| S-745 | **production:** workbook illegal-transition guards serialize as `[]`, not `null` |
+| S-746 | suppressor tokens stay unresolved against exact-equal aliases (with diagnostic) |
+| S-747 | client-supplied confidence is the request's only defect (with diagnostic) |
+| S-748 | conflict token and `server_updated_at` must be present |
+| S-749 | time-profile resource has exactly its seven members |
+| S-750 | store supersede rollback pins the forced cause |
+| S-751 | provenance value preflight isolated from capacity |
+| S-752 | tautological row self-comparison removed |
+| S-753 | nullable derivation uses a legal pair state |
+| S-754 | portable rows test strict syntax as their only defect (three tests) |
+| S-755 | clear-cells owner-row plan cardinality and 500 bound |
+| S-756 | scroll-cancelled tag focus restoration moves focus nowhere |
+| S-757 | grid patch label-free claim uses the current label; vacuous legacy labels removed |
+| S-758 | action-field authoring inventory derived from the contract |
+| S-759 | bulk tag sends keep their captured targets |
+| S-760 | freshness retry budget pinned to two |
+| S-761 | editor focus target positive control and stale case |
+
+Verified and retained, with the reason in each case:
+
+- Unit suites: `unit_test.go` (binding mode, duplicate mention provenance,
+  attached evidence). The admission classifier, batch and decoding tables;
+  their 64/65, 500/501 and trailing-tab cases are minimal pairs.
+- Value codec, profile label/enabled admission, collection-facts reader,
+  attachment no-effect, tag action order and source lock order.
+- Projection mutation `Validate` table: record ID first, then a single-defect
+  kind switch.
+- Bundle binding variants: `matches` checks only that `Attributions` is
+  non-nil, so the sweep's second-difference claim is false. The sealed-member
+  check is reached only through a nil-`Tx` panic guard.
+- Changed sealed provenance: sibling subtests are positive controls.
+- Deleted explicit target: minimal pair with the undelete success.
+- Host projection rollback count: `RefreshHostTx` upserts, so faults after
+  refresh would leak a row.
+- Rollback fault table: the record version write is covered by the row
+  version checks after later faults, and the omitted ports are read-only on
+  this path.
+- Idempotency-absence counts: the positive control at
+  `timeline_event_integration_test.go:574-581` uses the same key and scope.
+- Shared `invalid_value` for missing, foreign, deleted or merged targets: the
+  contract hides target existence.
+- Classifier exhaustion: covered at HTTP `:1835`.
+- Mention preview targets: the valid conflict case is the control.
+- Store-level `ErrInvalidProvenance` mutations and import-normalization
+  single-defect cases.
+
+Open for S-064 (recorded, not repaired in this pass):
+
+- Fixture legality (class 5):
+  - fixed `deleted_at` and row-version SQL bumps in the auto/explicit target
+    admission tests;
+  - SQL soft-delete, undelete and merge fixtures in
+    `resolution_integration_test.go`;
+  - `store_test.go` `BaseTime()` clocks before incident creation;
+  - SQL supersedes links onto rough targets and projection evidence counts;
+  - existing/supersede reference-order version bumps;
+  - fixed provenance and profile clocks;
+  - bundle supersession after the envelope edit.
+- Bounded-window absences: `ExpectNoSocketMessage` (300 ms) and
+  one-microtask settles in `WorkbookShell.payload.test.tsx`.
+- Simplify candidates:
+  - the redundant revision join after rollback (FK plus change-set count);
+  - repeated code comparisons;
+  - the identical-branch ternary;
+  - the scope loop in the inspector element registry (failed requests are
+    never retained);
+  - `requireFieldKeyConformance`;
+  - the descriptor self-comparison in `projection_contract_test.go`;
+  - the "every enabled-profile outcome" comment, which covers two outcomes.
+- Coverage notes:
+  - the rollback provider's `updateSourceTx` required-member rejections lack
+    direct unit coverage;
+  - the sentinel illegal-transition mappings (S-745 residual);
+  - the `provenance_coherent` multi-member case
+    (`incident_bundle_provenance_test.go:139`).
+- Vitest items located but not individually verified:
+  - inspector-navigation title without navigation;
+  - autosave "exact save-state labels" title;
+  - coordinator conflict local-value echo;
+  - adapter multi-defect rejections;
+  - measurement-support any-throw tables.
+- Playwright: the conditional, two-rAF and immediate-absence checks and the
+  measurement thresholds the sweep listed. No timeline browser row was
+  touched, so none was run, consistent with the maintainer's entry decision.
+
+Evidence compatibility: each slice qualified its exact rows at the recorded
+source. `timeline_event_integration_test.go` changed again after S-744, in
+S-748 and S-749, but only in other test functions, so its earlier
+qualification remains valid for its own root. The S-745 production change
+affects every workbook-routed illegal transition that has no guard. A
+repository search found no test or consumer that expects `null`.
+
+Non-claims: no whole-owner suite, browser run, performance, stability or
+release claim. Only the changed rows were requalified after entry.
+
+### A-module.workbook entry — E-781 reserved
+
+IN_PROGRESS. `make task-guide OWNER=module.workbook` reports 298 rows
+(Playwright 213, Go 59, Vitest 26) with 454 roots and titles. The queue's 297
+predates catalog growth.
+
+The largest selectors are:
+
+- `./internal/modules/workbook` (101 roots) and `workbook/startup` (7);
+- Vitest: the pending queue (21) and the shell sentinel, inspector-model and
+  startup suites (8 each);
+- Playwright: grid autosave (31), query routes (17), inspector edit (14),
+  authoring candidates (14), column sizing (11) and entity find (11).
+
+Collaborator union: 73 rows.
+
+- 57 are reused from completed owners: evidence 14, artifacts 11,
+  assessments 10, tasksdecisions 6, timeline 4, parties 3, incidents 3,
+  entities 2, indicators 2, recovery 1 and harness.browser 1.
+- 16 are carried: web.workbook 14, platform.pagination 1, platform.openapi 1.
+
+The S-745 production change (`mutation_contract.go`) and its row
+`module.workbook.unit.registry_derived_writable_conflict_capabilities_c0614db52a`
+were qualified under Timeline and are reused at that source. The 85
+non-browser rows run once at entry in two batches.
+
+Governing: Core 03 workbook interaction (mutation contract, query routes,
+pending queue, startup, inspector) and design §8, read as the review
+proceeds. E-781 is reserved for the closure.
+
+Entry drift check (source `sha256:aa018c4b…`, commit `826c031db`, dirty):
+`tcr-e781-drift02` passed (43 rows, 9/9 units, graph `sha256:586ba479…`, scan
+pass, 24 cleanups completed). `tcr-e781-drift01` (42 rows, graph
+`sha256:445f55ce…`) exited 2 with 8/9 units; scan pass; 24 cleanups
+completed. Row
+`module.workbook.catalog.single_connection_rollback_assertions_for_manage_3c34c59fa8`
+failed. `TestCoordinationCollectionsAndValidation_Unit` (`:141`) and
+`TestCoordinationMinimumDefaultsAndRejection_Unit` (`:886`) reported
+"revisions: invalid record snapshot: Records envelope: records failed
+invariant records.envelope_legal". The root is preserved.
+
+### S-762 / F-747 / E-782 — Workbook coordination patch clock precedes creation (drift)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 REQ-01-651 (Records envelope). `updated_at` is not earlier
+than `created_at`. Since `b5cd96adf`, revision snapshot capture validates
+historical envelopes with the same rule (`records.ValidateSnapshotEnvelope`).
+
+Defect: the shared helper `Patch` (`optional_surfaces_catalog_test.go:320-324`)
+always stamps `Now: Time(0)`. The failing tests create rows at later offsets,
+for example the handoff at `Time(time.Hour)` and then acknowledging it. The
+patch therefore writes `updated_at` before `created_at`, and the next
+snapshot rejects the illegal envelope. This is fixture drift, not a
+requirement change.
+
+Successor: `Patch` stamps `Time(24 * time.Hour)`, which follows every
+creation offset used by its callers (the largest is `Time(8*time.Hour)`). No
+assertion changes, and there is no predecessor to retire. Selection: the
+failing row (7 roots). The other 84 entry rows passed and are not rerun.
+
+Closure: DONE.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s762-format01` | 0 | One line plus a comment. |
+| `tcr-s762-successor01` | 0 | Failing row passed, 3/3 units; source `sha256:772d9978…`, graph `sha256:dea56697…`; scan pass; 14 cleanups completed. |
+| `tcr-s762-dependent01` | 0 | `module.workbook.catalog.findings_investigative_queries_and_forensic_keyw_1ca6136d7c` passed. It holds `TestOptionalStandardizedSurfacesCatalogBehavior_Unit`, the only other `Patch` caller, which was requalified because the shared clock changed. 3/3 units; scan pass; 14 cleanups completed. |
+
+All 13 `Patch` and `mustPatch` call sites, including
+`requireInvalidCollectionPatch`, are in these three test functions. Every
+caller now writes a legal envelope.
+
+### S-763 / F-748 / E-783 — Workbook grouping test literal-fixture marker check removal
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 grouping is presentation only. A grouped row stays a full
+row resource, with no header, subtotal or mutation-target markers.
+
+Defect: `TestTimelineGroupingAndWorkbookPresentationOnly_Unit`
+(`grouping_contract_test.go:57-82`) marshals a map literal it wrote itself and
+asserts the result has none of eight presentation markers. The bytes never
+pass through production, so the check cannot fail.
+
+Disposition: remove that block. The claim is owned on production output by
+`TestGenericProjectionGroupedRowIsFullViewRow`
+(`internal/modules/projections/internal/runtime/query_test.go:276-333`,
+module.projections, completed). That test builds the row with the
+production grouped-row builder, pins the exact key set
+`cells`/`group_values`/`record_id`/`row_version`, and checks the same eight
+markers. The grouping whitelist and rejection table in the workbook test are
+retained. The `json` import stays, because `quoteJSON` still uses it.
+Selection: `module.workbook.unit.timeline_grouping_permits_only_the_declared_whit_6db1021961`.
+
+Closure: DONE. `tcr-s763-format01` exited 0. `tcr-s763-qualified01` exited 0:
+the row passed with 1/1 unit; source `sha256:13c4d5cf…`, graph
+`sha256:92963ef0…`; scan pass; 10 cleanups completed.
+
+### S-764 / F-749 / E-784 — Workbook contribution catalog rejects every missing dependency by name
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Purpose: engineering composition safety. This is the same class as S-737
+under tasksdecisions.
+
+Defect: `requireContributionDependenciesFailClosed`
+(`notes_indicators_test.go:657-697`) has 18 cases, including a typed-nil
+projection-queries case, that cover 16 of the 17
+`workbookassembly.ContributionDependencies` members. It requires only that
+`NewContributionCatalog` return some error. Two problems:
+
+- `LinkProjections` is never blanked. `validateContributionDependencies`
+  (`catalog.go:109-156`) does not check it; nil is rejected only later, by
+  `links.NewMutationStore` through the Assessment contribution.
+- No message is pinned. A case rejected for the wrong reason, such as an
+  earlier validation that failed for the shared input, would still pass.
+
+Successor: each case pins the exact error text. That is
+`compose workbook contribution catalog: <dependency phrase>` from
+`validateContributionDependencies`, and for the new `Link projections` case
+`compose workbook contribution catalog: links: projection rows are required`.
+The table then covers all 17 members. Predecessor retired: the any-error
+check, replaced in place. Selection: the smallest routed root that composes
+the catalog,
+`module.workbook.catalog.linked_notes_create_contextual_artifact_links_9a09b2f951`
+(`TestLinkedNotesCreateContextualArtifactLinks_Unit`). The helper runs during
+setup.
+
+Closure: DONE. `tcr-s764-format01` exited 0. `tcr-s764-qualified01` exited 0:
+the row passed with 3/3 units; source `sha256:bf414c21…`, graph
+`sha256:90b72e79…`; scan pass; 14 cleanups completed. All 19 cases now match
+their exact text. The production composition already rejected nil link
+projections through the Assessment contribution, so there is no production
+change. Validation through a dependent constructor is recorded as a
+consistency note for S-064 and is not changed here. `links.NewMutationStore`
+checks only an untyped nil.
+
+### S-765 / F-750 / E-785 — Workbook divergent clear replay pins `client_txn_conflict`
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 REQ-01-672. Exact replay returns the original receipt
+before fresh concurrency evaluation. A different normalized request with the
+same identity MUST fail with `client_txn_conflict`.
+
+Defect: `TestTimelineClearCellsAuthoritativeBatch_Integration`
+(`clear_cells_integration_test.go:56-57`) resends the committed `clear-all`
+transaction with narrowed `field_keys` and checks only HTTP 409. The resent
+targets still carry `base_row_version` 1 while the rows are at version 2. If
+the identity check were skipped, the request would fail with
+`row_version_conflict`, also a 409, and the test would pass.
+
+Successor: require `error.code` `client_txn_conflict` on that response.
+Predecessor retired: the status-only check, replaced in place. Selection:
+`module.workbook.integration.timeline_clear_cells`.
+
+Closure: DONE. `tcr-s765-format01` exited 0. `tcr-s765-qualified01` exited 0:
+the row's four roots passed, 3/3 units; source `sha256:de64f9f8…`, graph
+`sha256:68341698…`; scan pass; 14 cleanups completed.
+
+#### E-781 partial ledger 1 — own reading before the sweep
+
+Verified and retained so far:
+
+- Mutation failure-detail mapping and create/patch replay tests.
+- The workbook state snapshot and keep-saved helpers. They ignore only the
+  receipt row that a first keep-saved success may add.
+- The route authentication and CSRF tables, which pin code and require
+  unchanged state.
+- The locator precedence table, which pins reasons and checks disclosure.
+- The coordination artifact source filters.
+- Host/Identity envelope conflict, with pinned details.
+- Grouping whitelist and rejection table (pinned reason and field), after
+  S-763.
+- Timestamp patch admission. Its rejections are single-defect, with UTC and
+  offset positive controls.
+- Startup composition tables. Every dependency is covered nil and typed-nil,
+  and a published store is detected.
+- Owner admission collection rejections. Positive controls in the same row
+  (`:125` onward) admit actions on the same field.
+- The clear-cells superseded rejection, which pins `illegal_transition`.
+- Paste invalid-input loops. They are status-only, but each input is
+  single-defect beside the admitted control, and the reasons are owned by
+  completed tabularingest.
+
+Recorded for S-064, not changed:
+
+- The fixed `closed_at` (2026-06-30) in `TestWorkbookClosedIncidentWrites_Integration`
+  precedes the wall-clock incident creation (class 5).
+- `TestWorkbookTelemetryNoSDK` asserts only that nothing panics.
+- `expectCorePrimaryLabel` repeats a disjoint-list check (simplify).
+- The OpenAPI title negatives are historical guards.
+
+### S-766 / F-751 / E-786 — Workbook full-text result order follows the applied sort
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 REQ-01-566. `full_text` determines row membership only.
+The applied sort tuple determines order, and the route MUST NOT inject
+relevance ranking or an implicit sort override.
+
+Defect: in `TestNotesFullTextExactSearch` (`row_wire_test.go:510-516`), the
+"reordered" query is byte-identical to the "exact" query at `:494-497`: the
+same ascending title sort and the same `shell alpha shell` tokens. Its failure
+message claims "full_text must preserve applied sort order rather than
+relevance", but nothing new is exercised. An implementation that ranked by
+relevance would pass whenever the ranking happened to coincide with ascending
+title order.
+
+Successor: the reordered query sorts `note.title` descending, and the result
+must be exactly `[phrase, bravo, alpha]`, the reverse of the ascending
+result. Predecessor retired: the duplicate ascending query, replaced in
+place. Selection:
+`module.workbook.support_integration.integration_notes_full_text_exact_search_ac185_ed48fdeae3`.
+
+Closure: DONE. `tcr-s766-format01` exited 0. `tcr-s766-qualified01` exited 0:
+the row passed with 3/3 units; source `sha256:2b3c977a…`, graph
+`sha256:0090eac9…`; scan pass; 14 cleanups completed.
+
+### S-767 / F-752 / E-787 — Workbook full-text diacritics pin the matched row
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 REQ-01-565. The profile defines no accent-insensitive or
+transliterating operator, so `full_text` is exact-token matching.
+
+Defect: in the same test (`:526-532`), the `cafe` query checks only that one
+row is returned. A query matching only the `café` note, which would be wrong,
+also returns one row and passes.
+
+Successor: keep the `Cafe note` seed's record ID, and require the result
+row IDs to be exactly that ID. Predecessor retired: the count-only check,
+replaced in place. Selection: the same row as S-766.
+
+Closure: DONE. `tcr-s767-format01` exited 0. `tcr-s767-qualified01` exited 0:
+the row passed with 3/3 units; source `sha256:2d006ad2…`, same graph; scan
+pass; 14 cleanups completed.
+
+### S-768 / F-753 / E-788 — Workbook startup claim-loss fallback pins the ladder step
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 REQ-03-030. Workbook open selects an explicit launch
+reference, then a valid `home_sheet_ref`, then a valid incident
+`default_sheet_ref`, and then `cartulary.view.timeline.v2`.
+
+Defect: `TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback`
+(`startup/store_test.go:213`) accepts either `SourceDefault` or
+`SourceTimeline` after the claim-lost home pointer is cleared. The incident's
+bootstrap default is `NULL`
+(`InsertIncidentWorkbookPreferencesBootstrap`), and the test sets no default
+before this resolve. Step 3 is therefore absent and only Timeline is correct.
+A ladder that wrongly reported `default` would pass.
+
+Successor: require `SourceTimeline` exactly. Predecessor retired: the
+either-or condition, replaced in place. Selection:
+`module.workbook.support_integration.managed_service_assertions_for_workbook_startup_86c190a4c2`.
+
+Closure: DONE. `tcr-s768-format01` exited 0. `tcr-s768-qualified01` exited 0:
+the row passed with 3/3 units; source `sha256:83c6c8f8…`, graph
+`sha256:def2b4bf…`; scan pass; 14 cleanups completed.
+
+### S-769 / F-754 / E-789 — Workbook conformance creates return a real record ID
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 `:504`. Public responses address record-scoped rows by
+stable `record_id`, and a created row resource carries its record identity.
+
+Defect: `TestPartiesSurface_Integration` (`workbook_mutation_integration_test.go:56`)
+and `TestCoordinationDefaults_Integration` (`:293`) check
+`row["record_id"] == ""`. An absent member reads as `nil`, which is not equal
+to `""`, so a create response without a record ID passes. The neighbouring
+replay `DeepEqual` would also pass, because both responses would lack it.
+
+Successor: the member must be a string that parses as a non-nil UUID.
+Predecessor retired: the two `== ""` checks, replaced in place. Selection:
+
+- `module.workbook.integration.the_parties_system_view_is_discoverable_as_a_bas_7c96f60552`
+- `module.workbook.integration.communications_log_handoff_status_review_and_les_94a6f7d0c2`
+
+Closure: DONE. `tcr-s769-format01` exited 0. `tcr-s769-qualified01` exited 0:
+both rows passed, 3/3 units; source `sha256:6693d401…`, graph
+`sha256:ad44075a…`; scan pass; 14 cleanups completed.
+
+### S-770 / F-755 / E-790 — Workbook same-field conflict token presence
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 §3.3.4. The conflict object carries an opaque
+server-issued `conflict_token`. This is the S-748 weakness at its workbook
+sites.
+
+Defect: `RequireConflictValues` (`integration_test.go:199`),
+`TestSameFieldConflictHTTP_Integration` (`conflict_route_test.go:133`),
+`createAtomicConflict` (`:560`) and `CreateNoteTitleConflict` (`:608`) test
+`conflict["conflict_token"] == ""`. An absent member reads as `nil` and
+passes.
+
+Successor: the shared helper `requireConflictToken` requires a non-empty
+string, and each site calls it in place of the `== ""` term. Token internals
+stay opaque. Predecessor retired: the four `== ""` terms, replaced in place.
+Selection, covering every test that reaches those sites:
+
+- `module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf`
+- `module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099`
+- `module.workbook.integration.concurrent_edits_to_different_fields_succeed_wit_c3f74ce361`
+
+Closure: DONE. `tcr-s770-format01` exited 0. `tcr-s770-qualified01` exited 0:
+all three rows passed, 3/3 units; source `sha256:8ae6605b…`, graph
+`sha256:3783f521…`; scan pass; 14 cleanups completed. `RequireConflictValues`
+has one caller, `TestConcurrentEditsResolverPath_Integration`, which is in the
+selection.
+
+#### E-781 closure — A-module.workbook semantic audit
+
+DONE for this pass.
+
+Discovery: 298 rows (Playwright 213, Go 59, Vitest 26) holding 454 roots and
+titles. Collaborator union: 73 rows. Fifty-seven are reused at their completed
+owners' recorded scope, and sixteen are carried (web.workbook 14,
+platform.pagination 1, platform.openapi 1).
+
+Entry drift: the 85 non-browser rows ran in two batches. One failing row (two
+roots) was repaired by S-762, and the other 84 passed.
+
+Governing: Core 01 REQ-01-565, REQ-01-566, REQ-01-651 and REQ-01-672, plus the
+stable-identifier rule; Core 03 REQ-03-030 and §3.3.4; projection grouping
+semantics.
+
+The location-only sweep listed about 150 candidates. I verified them against
+the assertions and the production paths they exercise.
+
+| Slice | Correction |
+| --- | --- |
+| S-762 | coordination patch clock no longer precedes creation (drift, `records.envelope_legal`) |
+| S-763 | literal-fixture grouping marker check removed (owned on production output by projections) |
+| S-764 | contribution catalog rejects all 17 missing dependencies by exact message, including link projections |
+| S-765 | divergent clear replay pins `client_txn_conflict` |
+| S-766 | full-text order follows the applied sort (descending case) |
+| S-767 | full-text diacritics pin the matched row |
+| S-768 | startup claim-loss fallback pins Timeline |
+| S-769 | conformance creates return a real record ID |
+| S-770 | same-field conflict token presence at four workbook sites |
+
+Verified and retained, with the reason in each case:
+
+- Route-guard tables, locator precedence, replay and state helpers, and
+  Host/Identity envelope conflicts.
+- Startup composition tables, which cover every dependency nil and typed-nil.
+- Owner admission collection rejections. The same row has positive controls.
+  Case names such as "record refs reject …" describe owner-side rejection and
+  are recorded as naming.
+- The legacy composite link-ID count of zero beside the exact ID check.
+- The seeded `confidence_band` projection, which checks column-to-field
+  mapping; derivation is owned by assessments.
+- The caller-owned home update leaving `default_sheet_ref` null, which later
+  becomes non-null as a control.
+- Timestamp admission minimal pairs and the contribution query-surface table
+  with pinned messages.
+- `TestOwnerMutationRequestHashNormalization`. Its title claims hash
+  normalization, but the hash is unexported. The claim is owned by artifacts
+  `mutation_admission_test.go:191`, so this is recorded as a title gap.
+- The startup "rejects unsupported kinds" test. URL parameters pass through
+  and normalization returns `null`.
+- The pending-queue save-state table. The ambient case repeats the saved
+  input and is recorded as redundant.
+
+Open for S-064 (recorded, not repaired in this pass):
+
+- Fixture legality (class 5):
+  - fixed fixture clocks that predate wall-clock incidents (`Time(…)` 2026-05,
+    `closed_at` 2026-06-30, startup 2026-04/05/07 clocks, saved views
+    2026-05-14). S-762 makes only the per-record envelope legal; records
+    still predate their incident.
+  - SQL soft deletes, membership and role changes, closures, projection-only
+    updates, and `updateHostDisplayNameForPaging` version bumps.
+  - directly inserted approved decisions and received evidence without
+    `received_at`.
+- Absence checks without controls:
+  - `requireNoRecordChanged` (300 ms);
+  - `hypotheses` 404 and absence;
+  - the location filter;
+  - `current_field_value`;
+  - `view_schema_id` absence (`contribution_catalog_test.go:703`).
+- Any-error and code-only rejections:
+  - roughly 18 `invalid_mutation_payload` code-only sites in
+    `workbook_mutation_integration_test.go`;
+  - multi-defect bodies (`:298-309` coordination, the full-row patch,
+    `replace_all` with `raw_text`, wrong-view with 501 targets);
+  - "suggestion on atomic" and "invalid collection" same-field inputs;
+  - the 8,388,609-byte paste and 501-target cases without accepted exact
+    bounds;
+  - 33 changes without 32 accepted, in Timeline admission through workbook.
+- Inventory tables and title over-claims:
+  - surface contract tables omit the optional surfaces;
+  - patch and conflict surface checks are built from the production maps;
+  - the OpenAPI create subset;
+  - the locator "defaults" test checks only `len(Sort)`;
+  - the `TestWorkbookTelemetryNoSDK` smoke test;
+  - the startup API "decoders" test exercises only the user decoder;
+  - the `replacementSession` identical branches;
+  - `expectCorePrimaryLabel`.
+- Clear-cells partial SQL-null coverage (4 of 10 columns; the response covers
+  all 10) and the absent 11-field rejection at this layer. The latter is
+  covered at decode by S-742 and the Timeline admission rows.
+- Vitest items located but not individually repaired:
+  - inspector-model titles;
+  - grouped and vendor paste-planner nulls;
+  - GridAdapter `resolveVendorSelection` negative;
+  - absence checks in the evidence panel and `saveState`;
+  - request-decoder multi-defect input;
+  - density "every surface";
+  - surface-registry production-to-production comparisons;
+  - contracts loop.
+- Playwright (not run; no workbook browser row touched):
+  - absent strings in the shell visual spec;
+  - soft `contextFits` disjunctions;
+  - count-bound loops;
+  - status-only 403/409 checks;
+  - immediate editor absence;
+  - conditional Escape.
+
+Evidence compatibility: each slice qualified its exact rows at the recorded
+source. The workbook production change S-745, made under Timeline, is reused
+at its recorded source.
+
+Non-claims: no whole-owner suite, browser run, performance, stability or
+release claim.
+
+### A-package.grid_adapter entry — E-791 reserved
+
+IN_PROGRESS. `make task-guide OWNER=package.grid_adapter` reports 47 rows
+(Vitest 45, Playwright 2) holding 124 roots and titles.
+
+Selectors:
+
+- `packages/grid-adapter/src/index.test.tsx` (51 titles) and
+  `core.node.test.ts` (25);
+- interaction (11), editor reveal (7), semantic cell navigation (7), range
+  keyboard (6), semantic kernel (5), focus request (5), column sizing (3) and
+  clipboard codec (1);
+- two `grid-interaction.a11y.spec.ts` Playwright titles.
+
+Collaborator union: 45 rows. Forty-three are reused (workbook 31,
+timeline 11, entities 1). Two are carried (web.workbook 1, web.networkflow 1).
+
+The 45 Vitest rows run once at entry. Governing: design §8 (keyboard matrix,
+grid keyboard state machine, focus restoration) and the Core 03 grid
+interaction clauses, read as the review proceeds. E-791 is reserved for the
+closure.
+
+Entry drift check: `tcr-e791-drift01` passed all 45 Vitest rows (3/3 units;
+source `sha256:8ae6605b…`, graph `sha256:3869992c…`; scan pass; 12 cleanups
+completed). No drift.
+
+### S-771 / F-756 / E-792 — Grid clipboard codec exact row and column bounds
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 browser clipboard planning (`:2440-2444`). Before
+destination selection, the browser enforces 500 destination rows and 64
+columns, allowing one additional source row only for an exact recognized
+Timeline header.
+
+Defect: `clipboard representation preserves values and rejects invalid
+representations` (`clipboardCodec.test.ts:101-108`) rejects 65 columns and
+502 rows but never admits the bounds themselves (64 columns; 501 source rows,
+the header allowance). The encoder's own 500-row and 64-column limits
+(`encodeGridClipboard`, `clipboardCodec.ts:189-192`) are not exercised. A
+codec that rejected at 64 columns or at 501 rows, or an encoder without
+limits, would pass.
+
+Successor: add accepted controls for 64 columns and 501 source rows. The
+encoder must accept 500×64 and reject 501 rows (`too_many_rows`) and 65
+columns (`too_many_columns`). The existing 65/502 rejections are retained,
+and there is no predecessor to retire. Selection:
+`package.grid_adapter.regression.clipboard_representation`.
+
+Closure: DONE. `tcr-s771-format01` exited 0 (formatting only). `tcr-s771-successor01`
+exited 0: the row passed with 2/2 units; source `sha256:9c90ecfe…`, graph
+`sha256:0c75d8b9…`; scan pass; 11 cleanups completed. This is also the
+qualification run. `tcr-s771-types01` (`make lint CHECK=types`) exited 0.
+
+### S-772 / F-757 / E-793 — Grid core anchor tests exercise production `semanticAnchor`
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: design §8 and Core 03 grid interaction. Grid positions translate
+to stable `record_id`/`field_key` anchors. Group, draft and undeclared-field
+positions yield no anchor.
+
+Defect: `core.node.test.ts` defines a test-local `resolveGridCellAnchor`
+(`:128-146`) with no production counterpart. Production translates the cell
+RDG reports through `semanticAnchor(row, fieldKey, columns, surface)`
+(`semanticPresentation.ts:578`, called by `SemanticDataGrid.tsx:1863` and
+following). It rejects non-data rows (`isDataRow`) and undeclared fields.
+
+Three titles assert only on the local copy:
+
+- "resolves valid semantic positions…" (`:1033`);
+- "clears anchors for invalid row, field, group, and recordless targets"
+  (`:1047`). Its draft check inspects the test's own draft filter.
+- "does not change semantic anchors without an explicit adapter operation"
+  (`:1180`). It starts with `expect(current).toEqual(<same literal>)`.
+
+Three more use the local copy alongside production calls: extension
+identities (`:499`), unsafe identities (`:780`/`:788`, with a test-chosen
+`draftIndex = -1`) and RDG translation (`:833`).
+
+Successor: every one of the nine call sites uses production `semanticAnchor`
+on the row object:
+
+- data rows and declared fields yield the anchor;
+- the presentation group row, the draft row and `__cartulary_actions__`
+  yield `null` through production guards;
+- `:1180` asserts that translating a vendor selection is pure. Frozen inputs
+  stay unchanged, and repeated calls yield equal anchors.
+
+Predecessor retired: the local `resolveGridCellAnchor`, the literal
+self-comparison, the `draftIndex = -1` probe and the test-filter draft check.
+The other test-local wrappers delegate to production
+(`buildSemanticGroupBuckets`, `navigateSemanticPresentation`,
+`resolveVisibleGridCellRange`, `planSemanticPasteTargets`). They are retained
+and recorded for S-064, because they own the draft filtering and grouping
+flattening of their own titles.
+
+Selection: the six rows owning these titles.
+
+- `package.grid_adapter.frontend_unit.fail_before_mutation_capable_rendering_when_data_3a49635f8c`
+- `package.grid_adapter.frontend_unit.translate_vendor_row_column_coordinates_to_recor_652aef8a27`
+- `package.grid_adapter.regression.core_clears_anchors_for_invalid_row_field_group_a1ceaa23dc`
+- `package.grid_adapter.regression.core_does_not_treat_vendor_selection_changes_alo_e3405c5d7a`
+- `package.grid_adapter.regression.core_resolves_extension_anchors_ranges_grouping_b260d43ca7`
+- `package.grid_adapter.regression.core_translates_valid_presentation_coordinates_i_00d120407c`
+
+Closure: DONE.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s772-format01` | 0 | Formatting only. |
+| `tcr-s772-types01` | 2 | Three TS2345 errors from indexed-access `T \| undefined` row arguments. These are test-typing errors, not behaviour; corrected with explicit row casts. |
+| `tcr-s772-format02` / `tcr-s772-types02` | 0 / 0 | After the casts. |
+| `tcr-s772-qualified01` | 0 | All six rows passed, 2/2 units; source `sha256:87437cfd…`, graph `sha256:2a18e8ce…`; scan pass; 11 cleanups completed. |
+
+The local `resolveGridCellAnchor` is gone, and no call site remains. Titles
+and routing are unchanged, so no generation was needed.
+
+#### E-791 closure — A-package.grid_adapter semantic audit
+
+DONE for this pass.
+
+Discovery: 47 rows (Vitest 45, Playwright 2) holding 124 roots and titles. The
+second Playwright row is in `grid-interaction.visual.spec.ts`. Collaborator
+union: 45 rows; 43 are reused (workbook 31, timeline 11, entities 1) and 2
+are carried (web.workbook 1, web.networkflow 1). Entry drift: none (45/45).
+
+Governing: design §8 (keyboard, focus, restoration) and the Core 03 clipboard
+and grid clauses.
+
+| Slice | Correction |
+| --- | --- |
+| S-771 | clipboard codec exact bounds (64 columns, 501 source rows, encoder 500×64 and 501/65) |
+| S-772 | core anchor tests exercise production `semanticAnchor`; the test-local resolver and literal self-comparison are removed |
+
+Verified and retained:
+
+- Focus requests: each negative has a positive control in the same file.
+- Column-sizing normalization.
+- The class-name builder. It returns a joined string, so the `rdg-`
+  substring negative is meaningful.
+- Range and clear chords.
+- `getAnchorRect` checks. Earlier assertions prove the handle exists.
+- The kernel decision table. Copy, paste, `collapse_range` and `focus_draft`
+  are covered by sibling titles and by `rangeKeyboard.node.test.ts`.
+- The clipboard corpus round-trips.
+
+Open for S-064:
+
+- Test-local wrappers that own their titles' claims:
+  - draft exclusion (`:415`) and the ungrouped order branch (`:306-341`) are
+    implemented by `buildGridPresentationRows`;
+  - the trimming and empty-to-null tests (`:369-457`) run through
+    `stateGrouping`. The production bucket builder is exercised, but draft
+    filtering is not.
+- Production-free or self-defined checks:
+  - `core.node.test.ts:1027` calls the test's own renderer;
+  - `isGridColumnEditable` fixtures fail both conditions at once;
+  - semantic-state precedence never pairs `saved`.
+- `index.test.tsx`:
+  - negatives on names absent from production: "Retry"; the legacy
+    `data-grid-row-kind` and `cartulary-grid-group-row` names;
+  - multi-capability `toThrow` inputs (`:747`, `:1344`);
+  - "keeps mounted" checks only a value;
+  - the pointer-fill title, while only keyboard fill is exercised;
+  - several `not.toHaveBeenCalled` checks without controls;
+  - the reused `KeyboardEvent` object.
+- Unpinned rejection reasons:
+  - kernel nulls;
+  - editor-reveal suspended reason, and its 4380 bound control;
+  - the HTML clipboard failure reasons;
+  - the byte bound checked through different entry points.
+- Navigation and interaction gaps:
+  - the cell-navigation session detaches by construction;
+  - `removeListener` is checked with `expect.any(Function)`;
+  - optional `pendingFrame?.()`.
+- Playwright (not run; not touched):
+  - the a11y spec's group-write listener is attached late;
+  - negated locator checks after regrouping;
+  - read-only is checked only through an attribute;
+  - the `?? 0` toggle count.
+- The visual spec was not swept.
+
+Evidence: S-771 and S-772 qualified their exact rows. `make lint CHECK=types`
+passed after each (`tcr-s771-types01`, `tcr-s772-types02`).
+
+Non-claims: no browser run, performance, stability or release claim.
+
+### A-package.protocol_ts entry — E-794 reserved
+
+IN_PROGRESS. The task guide reports 8 rows (Vitest 7, shell 1) holding 19 roots
+and titles:
+
+- `packages/protocol-ts/src/index.node.test.ts` (13 titles);
+- `entrypoints/entrypoints.node.test.ts` (5);
+- `network-flow-mapping.node.test.ts` (1);
+- shell operation `harness.protocol_ts_browser_artifact_reachability`.
+
+Collaborator union: 6 rows (incidents 4, workbook 1, imports 1), all reused
+from completed owners. All 8 rows run once at entry.
+
+Governing: the generated protocol projections are downstream of the Core
+contracts under Core 00, and the HTTP owner policy covers extension discovery.
+E-794 is reserved for the closure.
+
+Entry drift check: `tcr-package-protocol_ts-drift01` (source
+`sha256:87437cfd…`) exited 2 with 4/5 units; scan pass; 14 cleanups
+completed. The Vitest rows passed. Shell row
+`package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b`
+failed in its frontend import-boundary step (1 error, 1,724 files):
+`apps/web/src/workbook/timeline/collaboration/useTimelineCollaborationBindings.ts:12`
+imports `../../query/acceptWorkbookRowObservation`, which violates the
+authored rule `workbook-row-observation-source-acceptance`. The import
+entered with the `b5cd96adf` checkpoint, with no rule change and no tracker
+record. The root is preserved.
+
+### S-773 / F-758 / E-795 — Timeline live-patch observation acceptance moves to a source adapter
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: the authored frontend boundary
+`workbook-row-observation-source-acceptance`
+(`tools/frontend_import_boundaries.json:1601`). Only source query and mutation
+adapters (`workbook/adapters/**`, `workbook/query/**`,
+`workbook/timeline/adapters/**`) may attach accepted row-observation
+authority. Presentation and conversions preserve existing evidence.
+
+Defect (production placement drift): the live collaboration binding attaches
+acceptance itself. When a server live patch advances an admissible row, it
+calls `acceptWorkbookRowObservation` for the patched version within the
+current read scope. The behaviour is a source observation, but its module is
+not an allowed importer, so the boundary check, and with it the protocol
+reachability row, fails.
+
+Successor: a new Timeline source adapter,
+`timeline/adapters/acceptTimelineLivePatchObservation.ts`, owns exactly that
+decision: an admissible prior row in the same scope yields acceptance at the
+patched version, and otherwise the patched row is unchanged. The binding
+calls it. Collaboration may import adapters (only the reverse is forbidden),
+and the behaviour is byte-for-byte the same. The adapters README file table
+gains the new entry. The boundary policy is unchanged, so no widening is
+claimed or needed.
+
+Selection:
+
+- the failing shell row;
+- `web.collaboration.regression.timeline_collaboration_binding_5e6a9b1472`,
+  the binding's own tests (a directly affected dependency, run here; its
+  owner audit is still pending);
+- `make lint CHECK=types`.
+
+Amendment before qualification: the frontend source-ownership manifest
+(`tools/frontend_source_ownership.json`, authored) must list every live
+TypeScript path exactly once. The new file is added to the `web.workbook`
+entry, in sorted order. `web.architecture.boundary_support.source_ownership_policy_suite_80cf87ef19`
+joins the selection as a directly affected check.
+
+Closure: DONE.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s773-format01` / `tcr-s773-types01` | 0 / 0 | New adapter and rewired binding. |
+| `tcr-s773-qualified01` | 0 | Shell row passed, 3/3 units; source `sha256:c9ff0a9b…`. |
+| `tcr-s773-dependent01` | 0 | `web.collaboration.regression.timeline_collaboration_binding_5e6a9b1472` passed, 2/2 units. |
+| `tcr-s773-format02` | 0 | After the ownership-manifest line. |
+| `tcr-s773-dependent02` | 0 | Source-ownership policy row passed, 2/2 units; source `sha256:4e4735a6…`. |
+| `tcr-s773-qualified02` | 0 | Shell row passed again at the final source, 3/3 units; graph `sha256:a128221d…`. |
+
+Every run had a passing scan and completed its cleanups. Production behaviour
+is unchanged. Only the module that attaches live-patch acceptance moved, into
+an allowed Timeline source adapter. The web.collaboration and web.workbook
+audits will review the binding's assertions in their own passes.
+
+### S-774 / F-759 / E-796 — Protocol-TS deep-readonly coverage of every frozen exported registry
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Purpose: engineering. Generated registries are immutable shared values.
+
+Defect: "emits owner-selected registries as deeply readonly stable values"
+(`index.node.test.ts:101-110`) deep-checks five registries. The generator also
+`deepFreeze`s three more registries that the entrypoints export as values:
+`importTargetRegistry` (`entrypoints/import-targets.ts`),
+`timezoneNameRegistry` (`entrypoints/http.ts`) and `viewReferenceRegistry`
+(`entrypoints/view-schemas.ts`). A generator regression that left any of
+them mutable would pass. `entrypoints.node.test.ts:83-84` checks only the top
+level and `targets[0]` of import targets.
+
+The Network Flow mapping and presentation registries are not frozen by their
+generator. That is recorded, not asserted: no requirement selects them.
+
+Successor: the three registries join the deep-readonly loop. There is no
+predecessor to retire. Selection:
+`package.protocol_ts.frontend_unit.family_registries_and_account_types_i2`.
+
+Closure: DONE. `tcr-s774-format01` exited 0, and `tcr-s774-types01`
+(`make lint CHECK=types`) exited 0. `tcr-s774-successor01` exited 0: the row
+passed with 2/2 units; source `sha256:ac1debe8…`, graph `sha256:e0931ed6…`;
+scan pass; 11 cleanups completed. All eight registries are deeply frozen.
+
+#### E-794 closure — A-package.protocol_ts semantic audit
+
+DONE for this pass.
+
+Discovery: 8 rows (Vitest 7, shell 1) holding 19 roots and titles. The 6
+collaborator rows are reused.
+
+Entry drift: the shell row failed on a production boundary violation that
+entered with the checkpoint, repaired by S-773. The other 7 rows passed.
+
+| Slice | Correction |
+| --- | --- |
+| S-773 | **production placement:** Timeline live-patch observation acceptance moves to a source adapter, restoring the frontend boundary (plus the source-ownership entry) |
+| S-774 | deep-readonly coverage of every frozen exported registry |
+
+Verified and retained:
+
+- Payload-leak negatives where the fixture carries the sentinel.
+- The escaped-key validator case. Validators operate on decoded names, and
+  the raw-boundary owner covers duplicates.
+- The confusable-alias forms. The "alone" form isolates case folding.
+- The reachability script's removed-module list, which guards against those
+  generated artifacts reappearing.
+- Family-confined decoding.
+
+Open for S-064:
+
+- Runtime checks of local literals whose real coverage is compile-time
+  `satisfies` (`:349-354`, `:526-527`, `:1771-1819`).
+- Multi-defect fixtures with unpinned reasons:
+  - the non-server stream messages;
+  - the empty `{}` HTTP response;
+  - unsupported view schema IDs;
+  - the entrypoints `unknown`/`invalid` envelopes.
+- Negatives on invented names (`ambiguous_explicit_sheet_ref`, `missing_*`).
+  The test also asserts its own `requireReasonCodeRegistry` helper.
+- `isFrozen(targets[0])` and `isFrozen(undefined)`, which pass vacuously.
+- `toBeDefined` used to support the "one family" claim.
+- The entrypoints "only" claim, while the export list is unchecked.
+- Sentinel-free loop members (`:822-832`).
+- The "every additive boundary" title covers three message types.
+- Reachability script:
+  - an empty contract-record scan checks nothing;
+  - missing `sources` silently becomes `[]`;
+  - only two of six Network Flow runtime modules are required.
+- The Network Flow mapping and presentation registries are not frozen
+  (generator choice).
+
+Non-claims: no browser bundle analysis beyond this row, and no performance or
+release claim.
+
+### A-package.test_utils entry and E-797 closure
+
+DONE for this pass. The task guide reports 1 Vitest row
+(`packages/test-utils/src/index.test.ts`), which registers six suites holding
+41 titles from `src/test-suites/*.ts`. There are no collaborator rows.
+
+Entry run: `tcr-package-test_utils-drift01` passed (2/2 units; source
+`sha256:87437cfd…`; scan pass; 11 cleanups completed). The location sweep
+(shared with the other small package owners) was verified by my own reading
+of the flagged suites.
+
+No correction was sliced. Recorded for S-064:
+
+- Virtual targeting (`virtual-targeting.ts:64-115`). Both unmount cases make
+  every visibility check after the first return `false`, so the result does
+  not depend on the unmount. The "retries through the stable grid shell" case
+  uses `timeoutMs: 0` and checks no shell or retry count.
+- Marker suite:
+  - edge tolerance moves all four edges at once (2px versus 3px);
+  - the row-gutter detachment case is far from its limit (`top: 154`);
+  - the mutation recorder has no positive control;
+  - the evaluate counts and "bounded diagnostics" checks are loose.
+- Continuity: `focus` and scroll spies have no positive control, and
+  `scrollTo`/`scrollBy` are not spied.
+- Actions: `apply` resolve and click negatives rest on the rejection alone.
+- Optional `target?.`/`evaluate?.` calls.
+
+These helpers support Playwright suites. Recalibrating their fixtures changes
+helper behaviour expectations, so it belongs to the harness and test-ops pass.
+No product claim is made.
+
+### A-package.ui entry — E-798 reserved
+
+IN_PROGRESS. The task guide reports 11 Vitest rows across seven
+`packages/ui-contracts/src/*.node.test.ts` files (43 titles). There is one
+collaborator row (web.networkflow, carried).
+
+Entry run: `tcr-package-ui-drift01` passed (3/3 units; source
+`sha256:87437cfd…`; scan pass; 12 cleanups completed).
+
+Governing: the design §error-presentation table and the closed selector
+vocabularies. E-798 is reserved for the closure.
+
+### S-775 / F-760 / E-799 — UI design error families pinned exactly
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: design (`docs/design.md:1891-1904`). Error presentation is
+selected from exactly eleven families: `local_validation`,
+`same_field_conflict`, `client_txn_conflict`, `queue_overflow`,
+`stale_refresh`, `initial_load_failure`, `authentication_required`,
+`permission_or_incident_access_loss`, `extension_unavailable`,
+`evidence_preview_blocked` and `unknown_future_error`.
+
+Defect: "contains every closed error family exactly once"
+(`design-presentation.node.test.ts:52-57`) checks only that the set size is
+11. A projection that duplicated one family among twelve entries, or renamed
+a family, would pass. The sibling grid-data-state title already pins its
+exact list.
+
+Successor: the family list must equal those eleven names in design order.
+The set-size check is retained. There is no predecessor to retire. Selection:
+`package.ui.frontend_unit.design_presentation_projection_8e15b85b40`.
+
+Closure: DONE. `tcr-s775-format01` exited 0; that one format run covered the
+edits for both S-775 and S-776. `tcr-s775-successor01` exited 0: the row
+passed with 2/2 units; source `sha256:54f71dbc…`, graph `sha256:0ae9d07a…`;
+scan pass; 11 cleanups completed.
+
+### S-776 / F-761 / E-800 — UI preference selector rejections pin their token errors
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: closed selector vocabularies (`requireClosedToken`). Unknown
+tokens fail with `Invalid <label> token: <value>`.
+
+Defect: "distinguishes preference resources and rejects unknown control
+tokens" (`workbook-shell-grid-selectors.node.test.ts:54-67`) uses a
+matcherless `toThrow()` for the unknown resource `other` and the unknown
+control `delete`. Any error, including a crash unrelated to vocabulary
+admission, passes, and the two labels are never distinguished.
+
+Successor: pin `Invalid preference resource token: other` and
+`Invalid preference control token: delete`. Predecessor retired: the
+matcherless throws, replaced in place. Selection:
+`package.ui.frontend_unit.workbook_shell_grid_contracts_07bd0aad94`.
+
+Closure: DONE. `tcr-s776-qualified01` exited 0: the row passed with 2/2 units
+at the same source; graph `sha256:5c8073cf…`; scan pass; 11 cleanups
+completed. `tcr-e798-types01` (`make lint CHECK=types`) exited 0 after both
+edits.
+
+#### E-798 closure — A-package.ui semantic audit
+
+DONE for this pass. Corrections: S-775 and S-776. The 11 rows passed at entry.
+
+Verified and retained:
+
+- The grid-data-state list, which is already exact.
+- Exact selector strings for the pinned tokens.
+- `Invalid … token:` throws where a full value is given.
+
+Open for S-064:
+
+- Self-comparisons and local-literal copies:
+  - `workbookQueryEntryTestId` compared with itself;
+  - identical `selector-core` builds;
+  - the `timelineInspectorSectionTestId` self-comparison;
+  - local section and switcher lists compared with copies, while production
+    defines `systemViewSwitcherGroupTokens`;
+  - the renamed and relabelled session fields;
+  - Network Flow expectations built from the production template.
+- Selector tables omitting production tokens: the enterprise auth buttons and
+  list; the account appearance and profile tokens; the deployment patch-email
+  and user filters; the landing create, search and status tokens; the
+  lifecycle tokens; the snapshot-reports menu item; and the landing-admin
+  menu tokens.
+- Weak or vacuous checks:
+  - "validates closed vocabulary" has no rejection;
+  - collision checks via `.not.toBe` with no exact encoding pinned;
+  - retired-token negatives on names absent from production;
+  - empty-token messages pinned only by prefix;
+  - `MAX_SAFE_INTEGER` is never accepted.
+- Fixture hygiene: the test mutates the shared `cartularyDesignTokenVars` and
+  restores it only conditionally.
+- Substring-only `membership-audit-detail`.
+
+### A-package.view_contracts entry — E-801 reserved
+
+IN_PROGRESS. The task guide reports 5 Vitest rows (contracts 11, rows 7,
+surfaces 4, references 2, facade 1; 25 titles). There is one collaborator row
+(workbook, reused).
+
+Entry run: `tcr-package-view_contracts-drift01` passed (2/2 units; source
+`sha256:87437cfd…`; scan pass; 11 cleanups completed).
+
+Governing: the Core 01 view row resource (`record_id`, positive integer
+`row_version`, and `group_values` for grouped schemas) and its typed
+projection. E-801 is reserved for the closure.
+
+### S-777 / F-762 / E-802 — View row identity rejections are single-defect
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 view rows. A full row carries a non-empty `record_id` and
+a positive safe-integer `row_version`, and a grouped schema requires
+`group_values`.
+
+Defect: "rejects missing and malformed row identity and version values"
+(`rows.node.test.ts:61-71`) builds four rows with cells only, against a
+grouped fixture schema. Every fixture therefore also lacks the required
+`group_values`, and the broad `/View row invariant failed/` regex matches that
+error as well. If identity or version admission were lost, each case would
+still throw, for the group-values reason. No complete row is shown to be
+accepted.
+
+Successor: each fixture includes valid `group_values`. Each case pins its own
+detail: `record_id must be a non-empty string` for a missing ID, and
+`row_version must be a positive safe integer` for a missing, `0` or `1.5`
+version. A complete row with `row_version: 1` must normalize as the control.
+Predecessor retired: the broad regex over multi-defect rows, replaced in
+place. Selection: `package.view_contracts.frontend_unit.rows`.
+
+Closure: DONE. `tcr-s777-format01` exited 0, and `tcr-s777-types01` exited 0.
+`tcr-s777-qualified01` exited 0: the row passed with 2/2 units; source
+`sha256:24ec894f…`, graph `sha256:1c210599…`; scan pass; 11 cleanups
+completed.
+
+#### E-801 closure — A-package.view_contracts semantic audit
+
+DONE for this pass. Correction: S-777. All 5 rows passed at entry.
+
+Open for S-064:
+
+- `requiredReferencePackKeys` is compared with its own source, and every
+  generated entry is `[]`.
+- `isFrozen(listViewContracts()[0]?.fieldMap)`, which passes for `undefined`
+  and checks only the first contract.
+- Header-sort `if (candidate)` reads its expected value from production.
+- The "requires explicit boolean" and "exact inline_create policy" titles run
+  only `typeof` checks, with no rejections.
+- `listViewContracts() === listProjectedViewContracts()` holds by
+  construction.
+- The `schemaConstants` table is built from production constants.
+- The references loop omits action-kind fields; its `> 0` check and
+  `every` over an empty list are loose.
+- "Ignores additive row members" checks one cell.
+- "Deterministically" makes a single call.
+
+### A-platform.audit entry — E-803 reserved
+
+IN_PROGRESS. The task guide reports 3 Go rows in `internal/platform/administrativeaudit`
+(8 roots). The 13 collaborator rows are reused (incidents 6, auth 4,
+recovery 2, networkflow 1).
+
+Entry run: `tcr-platform-audit-drift01` passed (5/5 units; source
+`sha256:24ec894f…`; scan pass; 18 cleanups completed).
+
+Governing: Core 02 REQ-02-257. Administrative audit state is immutable,
+structured and deployment-local, and it is realized by the owner's raw-event
+and projection pair. E-803 is reserved for the closure.
+
+### S-778 / F-763 / E-804 — Administrative audit write-boundary scan covers both tables
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: REQ-02-257, plus the owner boundary that only
+`administrativeaudit.Append` writes the raw event together with its validated
+projection.
+
+Defect: `TestProductionAuditWritesUseAdministrativeAuditBoundary`
+(`audit_test.go:168-206`) scans production Go for
+`INSERT INTO deployment_admin_audit_events` only. The owner also writes
+`administrative_audit_projections` (`audit.go:183`), and a direct projection
+insert elsewhere would bypass validation unnoticed. The scan also has no
+positive control showing its patterns match the real write statements.
+
+Successor: scan for both insert statements, and require that the excluded
+owner file contains each pattern (the control). Predecessor retired: the
+single-pattern check, extended in place. Selection:
+`platform.audit.unit.contract_and_safe_projection`.
+
+Closure: DONE. `tcr-s778-format01` exited 0; that one run covered the edits
+for both S-778 and S-779. `tcr-s778-qualified01` exited 0: the row passed
+with 1/1 unit; source `sha256:9702272c…`, graph `sha256:aaa5b845…`; scan
+pass; 10 cleanups completed. The owner file contains both write statements,
+and no other production file does.
+
+### S-779 / F-764 / E-805 — Administrative audit unsafe append pins the validation cause
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: REQ-02-257. Unsafe changes never persist, and the raw event and
+its projection commit or fail together.
+
+Defect: `TestAdministrativeAuditProjectionStore_Integration`
+(`audit_integration_test.go:87-109`) accepts any `Append` error, then checks
+that no raw row with `event_kind = 'unsafe'` remains. A failure before the
+raw insert, for any reason, leaves that count at zero trivially. The rollback
+claim is proved only if the failure is the unsafe-change validation.
+
+Successor: require `errors.Is(err, administrativeaudit.ErrUnsafeChanges)`.
+Predecessor retired: the bare `err == nil` check, replaced in place.
+Selection: `platform.audit.store.immutable_projection_rollback`.
+
+Closure: DONE. `tcr-s779-qualified01` exited 0: the row passed with 3/3
+units at the same source; graph `sha256:3a408c55…`; scan pass; 14 cleanups
+completed.
+
+Correction to the claim (recorded after the sweep, before any other edit):
+`AppendTx` validates changes before `appendRawTx` (`audit.go:167-183`). The
+pinned `ErrUnsafeChanges` together with zero raw rows proves that unsafe
+changes are rejected before any persistence. It does not exercise rollback of
+a raw insert when the projection insert fails. That path is untested and is
+recorded as a residual for S-064. The S-779 strengthening stands, but its
+stated purpose is "validation precedes persistence".
+
+#### E-803 closure — A-platform.audit semantic audit
+
+DONE for this pass. Corrections: S-778 and S-779. Entry: 3/3 rows passed.
+
+Verified and retained:
+
+- The scope parse and normalization, with pinned list reasons.
+- The contract and implementation equality for kinds, sources, states,
+  forbidden tokens and action bindings. This compares the generated contract
+  with the implementation maps.
+- The unsafe-change table, which pins `ErrUnsafeChanges` per single defect.
+- The raw/projection pair mismatch.
+- The immutable-row triggers, which pin "immutable" for each table and
+  statement.
+- The Recovery contribution class.
+
+Open for S-064:
+
+- The persistence test checks only the first change's order.
+- Fixture clocks are fixed (2026-07-25). Audit `occurred_at` is independent
+  of the parent rows here, so this is noted only.
+- Rollback of the raw insert after a projection-insert failure has no test,
+  because validation runs first.
+- From the sweep (located, not repaired):
+  - the "redacted value" case combines a secret field with redacted data;
+  - the pair-mismatch test covers only the incident branch;
+  - the normalization title over-claims;
+  - expected action codes and bindings are derived from production maps.
+
+### A-platform.bootstrap entry and E-806 closure
+
+DONE for this pass. The task guide reports 2 Go rows in `internal/platform/bootstrap`
+(2 roots). There are no collaborators.
+
+Entry run: `tcr-platform-bootstrap-drift01` passed (1/1 unit; scan pass).
+
+Own reading and sweep verification:
+
+- Manifest validation pins each diagnostic path and reason per
+  single-defect body.
+- Preflight cases count store and filesystem interactions exactly.
+
+No slice. Recorded for S-064:
+
+- "Queries bootstrap state first" does not record call order.
+- The stale/invalid subtest's stub carries no data.
+- `requireBootstrapDiagnostic` tolerates extra diagnostics.
+- There is no minimum-password-length bound pair.
+- The artifact hash is checked only for being non-zero.
+
+### A-platform.config entry — E-807 reserved
+
+IN_PROGRESS. The task guide reports 17 Go rows (24 roots) in
+`internal/platform/config` and `internal/app/configassembly`. The 16
+collaborator rows are reused or carried (extensions 4, app.server 4,
+telemetry 4, networkflow 3, auth 1).
+
+Entry run: `tcr-platform-config-drift01` passed (2/2 units; scan pass).
+
+Governing: Core 04 deployment configuration (REQ-04-110 and the related
+config clauses). E-807 is reserved for the closure.
+
+### S-780 / F-765 / E-808 — Config public origin path, query and fragment cases are single-defect
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 04 REQ-04-110. `application.public_origin` MUST be an absolute
+`https` origin and MUST NOT include userinfo, path, query or fragment.
+
+Defect: the subtest "rejects non-origin application public origin values" of
+`TestConfigDiscovery_Unit` (`core_config_test.go:127-145`) writes its path,
+query and fragment cases with an `http://` scheme. The scheme is rejected on
+its own (`:131`), so these cases would still fail with `invalid_origin` if
+path, query or fragment admission were lost. An `https` origin with a path is
+never tested, and userinfo is never tested.
+
+Successor: the path, query and fragment cases use `https://`. A userinfo case
+(`https://user@localhost:5173`) is added. The `http` scheme case is retained
+on its own. Predecessor retired: the three http-scheme variants, replaced in
+place. Selection:
+`platform.config.unit.configuration_discovery_enforces_canonical_selec_05a3b9ee90`.
+
+Closure: DONE. `tcr-s780-format01` exited 0. `tcr-s780-qualified01` exited 0:
+the row passed with 1/1 unit; source `sha256:5ca482ab…`, graph
+`sha256:f6c1c734…`; scan pass; 10 cleanups completed. Production already
+rejects all four single-defect `https` forms.
+
+#### E-807 closure — A-platform.config semantic audit
+
+DONE for this pass. Correction: S-780.
+
+Open for S-064 (sweep-located, not individually repaired):
+
+- "Does not apply disconnected-only defaults" has no production counterpart.
+- The catalog claim-leak check is vacuous, because the fixture never claims.
+- The `DEPENDENCY_PROBE_SECONDS=30` case asserts nothing.
+- The fixed-ceiling invariance checks one ceiling.
+- Duplicate-builder and missing-ID catalogs are multi-defect.
+- Unpinned path/reason loaders (`:58`, `:386-395`, `:506`, `:958`).
+- Bound pairs without accepted N (`0`/`1001`, `100001`).
+- Expected values taken from production defaults.
+- A root-only branch (`Geteuid`).
+- `unknown_key` probes for names absent from production.
+- "Validates and discards" never observes the discard.
+- The configassembly profile loop passes over an empty set.
+- Illegal binding fixtures in the platform settings test.
+- Compile-time-only signature checks.
+
+### A-platform.cryptography entry — E-809 reserved
+
+IN_PROGRESS. The task guide reports 4 Go rows (12 roots) in
+`internal/platform/cryptography`. The 5 collaborator rows are reused or
+carried.
+
+Entry run: `tcr-platform-cryptography-drift01` passed (1/1 unit; scan pass).
+
+Governing: the Core 04 cryptographic parameter admission clauses
+(`04_security_deployment_and_conformance.md:262`, among others). E-809 is
+reserved for the closure.
+
+### S-781 / F-766 / E-810 — RSA exponent upper bound isolated, with an accepted bound control
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 04 (`:262`). The RSA public exponent must be odd and within
+65537..2147483647.
+
+Defect: `TestRSAParameterAndSignatureAdmission` (`rsa_test.go:43-68`) tests
+"large exponent" with `E = 1 << 31`. That value is also even, and evenness has
+its own case (`65538`), so removing the upper-bound check would still reject
+it. No exponent at the upper bound is shown to be admitted.
+
+Successor: "large exponent" uses `(1 << 31) + 1`, which is odd and over the
+limit. A control requires `ValidateRSAPublicKey` to admit the fixture modulus
+with `E = (1 << 31) - 1`. Predecessor retired: the even `1 << 31` value,
+replaced in place. Selection: `platform.cryptography.unit.rsa_service_parameters`.
+
+Closure: DONE. `tcr-s781-format01` exited 0. `tcr-s781-qualified01` exited 0:
+the row passed with 1/1 unit; source `sha256:a4b79250…`, graph
+`sha256:07671ac8…`; scan pass; 10 cleanups completed.
+
+#### E-809 closure — A-platform.cryptography semantic audit
+
+DONE for this pass. Correction: S-781.
+
+Verified and retained:
+
+- The TLS "admission before verification" proof is
+  `validTLSCertificate(intermediate)` returning false (`tls_admission_test.go:47`).
+  The later handshake rejection is not discriminating, because the leaf
+  signature fails either way, and is recorded as such.
+
+Open for S-064:
+
+- Multi-defect inputs:
+  - modulus `2^1023` is both weak and even;
+  - the oversized non-PEM input;
+  - all-zero oversized sealing envelopes.
+- Sealing N-accepted controls for artifact plaintext and context.
+- Unpinned TLS any-error checks; the P521 case may fail on curve
+  negotiation.
+- Execution-identity expectations recomputed from runtime facts.
+- The environment-conditional sealing branch.
+- The `MaxArtifactSeals - 16` fixture.
+
+### A-platform.httpruntime entry and E-811 closure
+
+DONE for this pass. The task guide reports 8 Go rows (38 roots) in
+`internal/platform/httpapi` and `httpruntime`. The 4 collaborator rows are
+reused or carried.
+
+Entry run:
+
+- `tcr-platform-httpruntime-drift01` exited 2 with a graph-stage
+  configuration failure: both units were `cancelled_or_interrupted` before
+  starting.
+- I had run foreground audit slices concurrently with this background run.
+  The plan resolved cleanly (`make target-plan`), so contention is the
+  recorded cause.
+- `tcr-platform-httpruntime-drift02`, run alone, passed (2/2 units; scan
+  pass; 11 cleanups completed).
+
+No slice. Verified and retained:
+
+- The closed upload-envelope registry. The seven shared envelope codes
+  match the spec's envelope-level rows; `request_not_object` is a
+  route-level metadata reason.
+
+Recorded for S-064:
+
+- Test-route tokens:
+  - every entry in `weakTestRouteTokens` is shorter than the 43-character
+    minimum, so that production lookup is unreachable dead code;
+  - the 43 and 512 bounds have no accepted pair (the spec requires only at
+    least 128 bits of entropy).
+- Runtime probes:
+  - the runtime-profile comparison decodes the same registry artifact it
+    checks;
+  - `addr=127.0.0.1:` would also match port 0;
+  - "DoesNotBind" checks only the address is free afterwards;
+  - the non-blocking `select` after `cancel()`.
+- Unpinned failures: the TLS startup cause, the multi-defect disabled
+  environment, and the 403 without token/host/origin with no CORS control.
+- Test clock: zero-offset only, and a single code for all failures.
+- Readiness windows of 20 ms.
+
+### A-platform.jobs entry and E-812 closure
+
+DONE for this pass. The task guide reports 19 Go rows (28 roots) in
+`internal/platform/jobs` and `internal/app/jobassembly`. The 15 collaborator
+rows are reused or carried.
+
+Entry run: `tcr-platform-jobs-drift01` passed (9/9 units; scan pass).
+
+No slice. Recorded for S-064, sweep-located and verified where stated:
+
+- `TestRunnerFailureSecurity_Integration` "exhaustion publishes fixed safe
+  summary" (`correction_test.go:382-412`), verified. Its sentinel is never
+  passed to production: `RecordExecutionFailure(ctx, execution, false)`
+  carries no handler text, so the leak check cannot fail. A real test needs
+  a handler-error path through the runner.
+- `TestJobTelemetryNoSDK` has no assertions.
+- Handler checks are on literal function values.
+- Retry delays are read from the production policy.
+- Retention-before-finish SQL fixtures.
+- The composition check uses an all-missing `ManagerOptions{}` instead of a
+  per-field table.
+- Multi-defect admission inputs.
+- The 50 ms expiry probe.
+- "Renews a long attempt" never observes a renewal.
+- Migration tests count objects.
+- The architecture guard scans for retired names.
+- Status re-checks after the wait helper.
+
+### A-platform.objectstore entry — E-813 reserved
+
+IN_PROGRESS. The task guide reports 9 Go rows (20 roots) across
+`internal/platform/objectstore`, `internal/testutil/objectstoreproxy`,
+`tools/objectstoreprobe` and recovery `operatortest`. The 14 collaborator
+rows are reused or carried.
+
+Entry run: `tcr-platform-objectstore-drift01` passed (11/11 units; scan
+pass). E-813 is reserved for the closure.
+
+### S-782 / F-767 / E-814 — Object-store probe CORS rejections reach their own stages
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Purpose: engineering operator verification of the browser-upload CORS
+contract. Core 04 forbids wildcard CORS, and Core 01 maps CORS policy
+failures to `cors_rejected`. The probe's exact policy is PUT/OPTIONS, two
+headers, no credentials, Max-Age 600, a rejected disallowed method or header,
+and a rejected `Origin: null`.
+
+Defect: `TestCheckCORSPreflightRejectsNullOriginAcceptance`
+(`tools/objectstoreprobe/main_test.go:89-101`) uses a server that omits
+`Access-Control-Max-Age` and grants every preflight. `checkCORSPreflight`
+therefore fails at the first-response Max-Age validation, or at the
+disallowed-preflight stage, and never reaches `checkCORSNullOriginRejected`.
+The test passes with null-origin rejection absent. No negative fixture
+reaches `checkCORSDisallowedPreflightRejected` either.
+
+Successor: the fixture mirrors the exact-policy control: Max-Age 600, and
+403 for a non-PUT method or an `authorization` header. It differs only by
+also granting `Origin: null`, and the error must be exactly
+`CORS Origin null unexpectedly allowed`. A sibling case differs only by
+granting the disallowed GET preflight and pins
+`CORS disallowed preflight unexpectedly granted`. Predecessor retired: the
+echo-everything fixture and the any-error check, replaced in place.
+Selection: `platform.objectstore.unit.probe_cors_contract`.
+
+Closure: DONE. `tcr-s782-format01` exited 0. `tcr-s782-qualified01` exited 0:
+the row passed with 1/1 unit; source `sha256:34321565…`, graph
+`sha256:ab294b1e…`; scan pass; 10 cleanups completed. Both rejection stages
+are now reached, each with its exact error.
+
+#### E-813 closure — A-platform.objectstore semantic audit
+
+DONE for this pass. Correction: S-782.
+
+Open for S-064:
+
+- `TestProxyHelperProcess` is a re-exec entry that asserts nothing when run
+  directly.
+- Never-created key deletion is checked with any error.
+- The S3 policy "binds digest size" title, while size is unchecked.
+- Anonymous policy mutations and `requests == 0` without a control.
+- Telemetry wrapper and reason maps are incomplete.
+- `ChecksumSHA256` is checked for non-empty only.
+- The oversize-hint case is also short.
+- POST substitution.
+- Pre-cancelled contexts make "no publication" trivially true.
+- Root-path placement is unverified.
+- Proxy helper any-error checks.
+- Operator init output is unchecked.
+
+### A-platform.openapi entry and E-815 closure
+
+DONE for this pass. The task guide reports 6 Go rows (27 roots) across
+`openapicompat`, `openapiassembly`, `httpapi`, the catalog tool and
+`app/server`. The 15 collaborator rows are reused or carried.
+
+Entry run: `tcr-platform-openapi-drift01` passed (5/5 units; scan pass).
+
+No slice. Recorded for S-064:
+
+- The modified-release-snapshot fixture (`compatibility_test.go:104`) also
+  lacks the target document, manifest and change sets. Isolating the bad sha
+  needs a complete valid repository fixture.
+- The method set omits head/options/trace; `StateChanging` parity is
+  unchecked; and the route comparison is subset-only.
+- Expected values come from production `requiredSecuritySchemeNames`, and
+  response presence is checked without the closed set.
+- Change classifications are not pinned per change, and the loops pass over
+  an empty change list.
+- "IsClosed" checks uniqueness only.
+- Unpinned family-route reasons.
+- Depth and zero-limit bounds have no accepted pair.
+- `strings.Index` returns -1 for absent strings, so ordering checks can pass.
+
+### A-platform.pagination entry and E-816 closure
+
+DONE for this pass. The task guide reports 2 Go rows (7 roots) in `pagination`
+and `querypage`. There are no collaborators.
+
+Entry run: `tcr-platform-pagination-drift01` passed (2/2 units; scan pass).
+
+No slice. Recorded for S-064:
+
+- Invalid-cursor fixtures also lack Position or Route/Actor bindings.
+- The `max+1` cursor also lacks its prefix.
+- "Signed" and "WithoutRetainingRows" are unverified.
+- The scope and route bindings, limit bounds other than 0, the location
+  null-spacing control and the `len == limit` finish case are untested.
+
+### A-platform.postgres entry — E-817 reserved
+
+IN_PROGRESS. The task guide reports 6 Go rows (18 roots) in
+`internal/platform/postgres` and `internal/testutil/pgtest`. The 112
+collaborator rows are mostly reused (networkflow 37, recovery 12,
+harness.browser 12, extensions 11, app.server 8, others).
+
+Entry run: `tcr-platform-postgres-drift01` exited 2 with 5/6 units (scan
+pass). Row `platform.postgres.integration.purpose_identity_roles_and_acl`
+failed at `postgres_role_integration_test.go:218`: "PUBLIC/default privilege
+query found 1 violations" over public-schema non-array types, meaning one
+row type grants PUBLIC its default USAGE. A migration scan found one created
+table without `REVOKE ALL ON TYPE … FROM PUBLIC`:
+`revision_history_orders` in `db/migrations/00058_revision_history_order.sql`.
+That migration was added by S-551 in the `b5cd96adf` checkpoint. The root is
+preserved.
+
+Governing: Core 04 REQ-04-153. Each migration issues explicit
+manifest-matching grants, every `PUBLIC` privilege is revoked, and existing
+ACLs are not inferred from defaults. E-817 is reserved for the closure.
+
+### S-783 / F-768 / E-818 — Migration 00058 revokes PUBLIC on the new table and row type (production)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Defect (production, authored SQL): `00058` creates
+`public.revision_history_orders` and grants runtime and Recovery access, but
+omits `REVOKE ALL ON TABLE … FROM PUBLIC` and `REVOKE ALL ON TYPE … FROM
+PUBLIC`, which every other table migration issues (for example
+`00008_revisions.sql:130,132`). The row type therefore keeps PUBLIC's default
+USAGE.
+
+The migration-history manifest has `immutable_through_version: 0`, so no
+migration is frozen and the authored fix belongs in `00058` itself.
+
+Successor: insert both REVOKE statements before the GRANTs, regenerate
+through `make generate`, review the generated diff, and run
+`make source-check CHECK=generated`. Selection: the failing row.
+
+Progress and amendment (recorded before the further edit):
+
+- `tcr-s783-generate01` (`make generate`) exited 0. Its only content change
+  was the `00058` sha256 in `tools/migration_history_manifest.json`. The
+  rewritten `frontend_visual_golden_manifest.json` matches the earlier
+  reviewed S-644 state.
+- `tcr-s783-sourcecheck01` (`make source-check CHECK=generated`) exited 0.
+- `tcr-s784-format01` exited 0 (S-784 edit applied).
+- `tcr-s783-qualified01` exited 2: the PUBLIC type check (`:218`) now
+  passes, and the next check fails at `:219`:
+  `public.revisions_assign_history_order_v1 EXECUTE = true, want false for
+  routine_private`.
+
+The generated ownership manifest classifies that trigger function as
+`routine_private` for runtime and Recovery. `00058:45-46` nevertheless grants
+`EXECUTE` to both roles. Trigger firing needs no EXECUTE grant, and the
+`00039` trigger-function precedent issues only the PUBLIC revoke. This is the
+same migration's second manifest-mismatched grant under REQ-04-153, so S-783
+also removes the two `GRANT EXECUTE` lines, regenerates, rechecks generated
+sources and reruns the row.
+
+Closure: DONE.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s783-generate02` | 0 | Only the `00058` sha256 changed again in the migration-history manifest; the ownership manifest is unchanged. |
+| `tcr-s783-sourcecheck02` | 0 | Generated sources consistent. |
+| `tcr-s783-qualified02` | 0 | Postgres ACL row passed, 3/3 units; source `sha256:a06beb24…`; scan pass; 14 cleanups completed. |
+| `tcr-s783-dependent01` | 0 | `module.workbook.integration.timeline_clear_cells` passed. It commits change sets through the runtime-purpose server harness, so the history-order trigger fires without an EXECUTE grant. |
+| `tcr-s783-dependent02` | 0 | database_migrations `unit.production_ddl_v3_recurrence`, `unit.public_surface_and_reader_capability` and `integration.production_ddl_v3_recurrence` passed (4/4 units). |
+
+Production change: `00058` now revokes PUBLIC on the table and its row type,
+and no longer grants EXECUTE on the private trigger function. These rows
+were run because the migration text changed. No broader run.
+
+### S-784 / F-769 / E-819 — Postgres positive privilege facts check each privilege
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 04 REQ-04-153. Purpose roles hold exactly their
+manifest-matching grants.
+
+Defect: `assertRuntimePrivilegeMatrix` and `assertRecoveryPrivilegeMatrix`
+(`postgres_role_integration_test.go:674-709`) pass comma-separated privilege
+lists to `has_table_privilege` and `has_sequence_privilege` with expected
+value `true`. PostgreSQL returns true when any listed privilege is held, so
+these facts prove only one privilege each:
+
+- runtime on `incidents`: SELECT/INSERT/UPDATE/DELETE;
+- runtime on `administrative_audit_projections`: SELECT/INSERT;
+- Recovery on `incidents`: the five privileges;
+- Recovery on the revision sequence: USAGE/SELECT/UPDATE.
+
+The `false` facts with lists are sound (none held).
+
+Successor: each positive fact names one privilege. Predecessor retired: the
+four comma-list `true` facts, split in place. Selection: the same row.
+
+Closure: DONE. It was qualified by `tcr-s783-qualified02` (the same row and
+source; every split privilege is held).
+
+#### E-817 closure — A-platform.postgres semantic audit
+
+DONE for this pass. Corrections: S-783 (production migration ACL) and S-784.
+
+Open for S-064:
+
+- Stub-owned truncation status.
+- Impossible password-auth fixtures under certificate-only HBA.
+- Hard-linked and symlinked payloads that are also invalid DSNs, and an
+  all-NUL oversize case with no 65,536 accepted.
+- A forbidden-substring loop over a secret never parsed.
+- Multi-defect transport inputs.
+- The wrong-certificate rejection may come from a role mismatch.
+- The unused `recycledPID`.
+- The manifest-derived switch without a default.
+- SQLSTATE 42501 is unpinned.
+- Nil-harness and invalid-name multi-defect cases.
+- The DB-telemetry behaviour check, the HBA substring and the "migrated"
+  existence-only check.
+
+### A-platform.rootedfs entry and E-820 closure
+
+DONE for this pass. The task guide reports 2 Go rows (11 roots) in `rootedfs`
+and `securefile`. The 14 collaborator rows are reused or carried.
+
+Entry run: `tcr-platform-rootedfs-drift01` passed (2/2 units; scan pass).
+
+No slice. Recorded for S-064:
+
+- `ListRegular` any-error checks with several pre-existing symlinks.
+- The production-boundary scan lists a hand-maintained set of `os.*` calls
+  and roots, and its "either boundary" comment refers to one.
+- The nested publish case is missing its parent, and `ErrRootIdentityChanged`
+  is unused.
+- Securefile kinds are unpinned per object, and the relative path is
+  unpinned.
+- `ValidateReferenceSet` has no accepted control.
+- The full-path-only disclosure check.
+- "Bounded traversal" asserts no bound.
+- Loose size bounds (7 bytes against a maximum of 1; 15 against 4).
+
+### A-platform.telemetry entry — E-821 reserved
+
+IN_PROGRESS. The task guide reports 11 Go rows (56 roots) in
+`internal/platform/telemetry`. The 11 collaborator rows are reused or
+carried.
+
+Entry run: `tcr-platform-telemetry-drift01` passed (2/2 units; scan pass).
+
+Governing: the OpenTelemetry instrumentation NLSpec (OTEL-REQ-020/021: a
+closed instrumentation-scope table, and no unregistered scope). E-821 is
+reserved for the closure.
+
+### S-785 / F-770 / E-822 — Telemetry registered scopes equal the closed spec table (production alignment)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: `docs/opentelemetry-instrumentation-nlspec.md:325-343`. Every
+tracer, meter and logger MUST use one of ten scopes: httpapi, workbook,
+collaboration, evidence, jobs, network_flow, reference_pack, postgres,
+objectstore and telemetry. No unit may create an unregistered scope.
+
+Defects:
+
+- Test: `TestAccessorsNoSDKRegisteredScopes` (`accessors_test.go:12-23`)
+  checks 9 of the 10 spec scopes (it omits `ScopeReferencePack`) and never
+  checks that the registry is closed.
+- Production: `registeredScopes` (`accessors.go:36-48`) also registers
+  `ScopePortability` (`cartulary.incident_portability`). That scope is absent
+  from the closed table and has no production use; the repository's other
+  `cartulary.incident_portability…` strings are unrelated schema IDs. The
+  registry therefore admits a scope the spec forbids.
+
+Successor:
+
+- The test requires the registry keys to equal exactly the ten literal spec
+  names, and keeps the per-scope accessor smoke for all ten.
+- `ScopePortability` is removed from the constant block and the registry.
+
+Predecessor retired: the nine-scope list, replaced in place. Selection:
+`platform.telemetry.unit.accessors_registries_and_sampler` and
+`make lint` for the Go build.
+
+Closure: DONE. `tcr-s785-format01` exited 0. `tcr-s785-qualified01` exited 0:
+the row passed with 1/1 unit; source `sha256:fd580f82…`, graph
+`sha256:2f50a56d…`; scan pass; 10 cleanups completed. A repository-wide
+search finds no remaining `ScopePortability` reference. The package compiles
+in the qualified run, and no other package referenced the constant, so no
+separate lint run was needed.
+
+Production change: the unused, unspecified `cartulary.incident_portability`
+instrumentation scope was removed from the registry. If incident-portability
+telemetry is ever needed, the scope must first be adopted in the NLSpec
+table.
+
+#### E-821 closure — A-platform.telemetry semantic audit
+
+DONE for this pass. Correction: S-785 (production registry alignment).
+
+Open for S-064:
+
+- Privacy attribute maps fold duplicate keys (`privacy_test.go:71`, `:102`),
+  so empty values hidden behind later values are missed.
+- The recursive self-diagnostic suppresses its metric on its own, so the
+  null-attribute claim is untested.
+- Production-declared literal matrices and self-reported booleans.
+- A sampler corpus taken from production.
+- Multi-defect export-failure, exporter-identity and log-body inputs.
+- Absence checks on unregistered keys.
+- Unpinned reasons for path-valued attributes.
+- Bootstrap checks `service.name` only.
+- The redirect 307 is never shown to be served.
+- Unpinned TLS mode causes.
+- Escaped-secret rendering.
+- Exporter and configuration bound pairs have no accepted at-bound case.
+- `safeHTTPRoute` is called directly.
+- Incomplete HTTP/gRPC code lists.
+- Production name constants used as expected values.
+
+### A-platform.viewquery entry and E-823 closure
+
+DONE for this pass. The task guide reports 15 rows (Go 10, Vitest 2,
+Playwright 3; 29 roots) across `viewquery` and `listquery` (plus `sqlshape`,
+`maintenancequery` and `fieldnorm`) and `WorkbookShell.query.test.tsx`. The 7
+collaborator rows are reused or carried.
+
+Entry run: `tcr-platform-viewquery-drift01` passed (8/8 units; the 12
+non-browser rows; scan pass). The Playwright rows were not run (untouched).
+
+No slice. Verified and retained:
+
+- The query contract table, which pins reason and field per case.
+- The `operator_not_allowed` case (capture state).
+
+Recorded for S-064:
+
+- The case named "operator not allowed" actually exercises
+  `unknown_filter_field`; the case name is wrong.
+- Default sort is compared by length only, with the expected value taken
+  from production.
+- Vitest expectations come from the contract, a duplicated title body, and a
+  `test.view` surface mismatch.
+- `timeline.event_type` exists only in tests.
+- Oversize bodies are also duplicates, with no at-limit acceptance.
+- Playwright: sort order equals creation order; absence checks without a
+  settle.
+- Partial `maintenancequery` sets.
+- The unterminated `sqlshape` literal is multi-defect.
+- Loose token bounds (17, 257, 501).
+
+### A-platform.viewschema entry and E-824 closure
+
+DONE for this pass. The task guide reports 6 Go rows (13 roots) in
+`internal/platform/viewschema` and `internal/modules/viewschemas`. The 8
+collaborator rows are reused or carried.
+
+Entry run: `tcr-platform-viewschema-drift01` passed (4/4 units; scan pass).
+
+No slice. Recorded for S-064:
+
+- Field order is compared with the same embedded artifacts the registry
+  loads.
+- Forbidden internal keys cannot appear on the public struct.
+- Unpinned layout reasons and multi-defect legacy-extension inputs.
+- Page 2 is not compared with page 1, and there is no `limit=500`
+  acceptance.
+- Public output is compared with its internal source.
+- A `nullable` keyword check, although OpenAPI 3.1 has no such keyword.
+- Hypothesis names absent from production.
+
+### A-platform.ws entry — E-825 reserved
+
+IN_PROGRESS. The task guide reports 1 Go row (1 root) in `internal/platform/ws`.
+The 2 collaborator rows are reused (collaboration).
+
+Entry run: `tcr-platform-ws-drift01` passed (1/1 unit; scan pass).
+
+Governing: Core 04 REQ-04-110. The public WebSocket implementation MUST
+validate cookie-authenticated browser `Origin` values against the configured
+public origin before joining a stream. E-825 is reserved for the closure.
+
+### S-786 / F-771 / E-826 — WebSocket origin check has accepted controls
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Defect: the subtest "cookie browser Origin check fails before upgrade" of
+`TestConnectionFrameIOAndOrigin` (`ws_test.go:64-75`) checks only that an
+untrusted origin is rejected with 403. A predicate that rejected every
+cookie-bearing request, including the configured origin, would pass, and the
+non-cookie path is never exercised.
+
+Successor: the same request with `Origin` equal to the configured public
+origin is not rejected, and the recorder stays untouched (200, empty body). A
+cookie-less request from the untrusted origin is not rejected by this
+cookie-browser check. The untrusted rejection is retained, and there is no
+predecessor to retire. Selection: the platform.ws row.
+
+Closure: DONE. `tcr-s786-format01` exited 0. `tcr-s786-successor01` exited 0:
+`platform.ws.support_unit.generic_transport_frame_io_and_origin_f9129f9942`
+passed with 1/1 unit; source `sha256:d55d9264…`, graph `sha256:bdff029b…`;
+scan pass; 10 cleanups completed. This is also the qualification run.
+
+#### E-825 closure — A-platform.ws semantic audit
+
+DONE for this pass. Correction: S-786.
+
+Open for S-064:
+
+- "Before upgrade" is asserted without attempting an upgrade.
+- The read limit is exercised only at 4 bytes, with no over-limit case.
+
+### A-web.application entry — E-827 reserved
+
+IN_PROGRESS. The task guide reports 95 Vitest rows across 51 files. The
+collaborator union is 311 rows, the largest being timeline 87, workbook 53,
+incidents 35, web.design 28, auth 25 and revisions 22; all are reused except
+web.workbook 4 and web.design 28, which are carried.
+
+Entry runs: `tcr-web-application-drift01` (5/5 units) and `drift02` (4/4)
+passed, scan pass.
+
+Governing: Core 01/03/04 application, authentication, incidents and import
+clauses; design §8; and the OpenTelemetry NLSpec browser boundary. E-827 is
+reserved for the closure.
+
+### S-787 / F-772 / E-828 — Browser telemetry boundary checked on the real package closure
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing:
+
+- OpenTelemetry NLSpec OTEL-REQ-113 (§13.1). Browser code MUST NOT
+  initialize any OTel, OTLP, vendor or remote telemetry exporter, session
+  replay or analytics client.
+- The §4 package-family rule (`:185-187`). Browser-side OTel packages must be
+  absent, and the rule MUST be statically checkable against frontend package
+  manifests.
+
+Defect: `otelBoundary.test.ts` (row
+`web.application.boundary_support.otelboundary_keeps_browser_state_from_creating_t_f4f164609b`)
+imports and runs no production module. It plants endpoint values in browser
+storage, attributes and the URL, waits one microtask, and checks that `fetch`
+was not called and that six global names are undefined. No production code
+executes, and none of the globals exist in production, so the test cannot
+fail.
+
+Successor: the test computes the browser package closure (`apps/web` runtime
+`dependencies`, following workspace `@cartulary/*` packages to their
+manifests). It requires the closure to be non-empty, to include the known
+workspace packages, and to contain no `@opentelemetry/*` package and no
+vendor-telemetry, session-replay or analytics client family (Sentry,
+Datadog, New Relic, Honeycomb, LogRocket, FullStory, PostHog, Segment,
+Mixpanel, Amplitude, rrweb). The title becomes "keeps the browser package
+closure free of telemetry exporters, vendor SDKs, session replay and
+analytics", updated in the authored family JSON. The stable row ID is kept.
+
+Predecessor retired: the browser-state body and its vacuous negatives.
+Routing: run `make generate`, then `make source-check CHECK=generated`.
+Selection: the same row.
+
+Closure: DONE.
+
+| Run | Native exit | Result |
+| --- | --- | --- |
+| `tcr-s787-format01` | 0 | Formatting only. |
+| `tcr-s787-generate01` | 0 | No generated content changed (verified by `git diff` over `contracts/`, `internal/gen/` and generated `tools/` files). The only routing delta is the authored title in `tools/test_families/web.application.json`. |
+| `tcr-s787-sourcecheck01` | 0 | `CHECK=generated`. |
+| `tcr-s787-sourcecheck02` | 0 | `CHECK=catalog`. |
+| `tcr-s787-types01` | 0 | `make lint CHECK=types`. |
+| `tcr-s787-qualified01` | 0 | Row passed, 2/2 units; source `sha256:f3f4b03b…`, graph `sha256:328c187a…`; scan pass; 11 cleanups completed. |
+
+The closure contains the four workspace packages and `react`, with no
+forbidden family. The bundle side of the rule remains with the Protocol-TS
+reachability row.
+
+### S-788 / F-773 / E-829 — Lifecycle controller dispatch negatives observed after authority recovery
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 incident lifecycle. A demoted actor cannot dispatch fresh
+or replayed lifecycle mutations, and a hidden drawer never dispatches.
+
+Defect: in `incidentLifecycleController.node.test.ts`, "keeps local recovery
+on demotion but rejects fresh and replay dispatch" (`:423-425`) and "retains
+work across drawer hiding and revalidates on return without hidden dispatch"
+(`:449-450`) check `mutate` synchronously, right after `replay()`,
+`propose()` or `confirm()`. Dispatch happens only after the asynchronous
+authority `recover` resolves (`:89-101`), so a dispatch that wrongly
+proceeded would be invisible to these checks.
+
+Successor: `await flush()` before each of those assertions. The assertions
+are unchanged. Selection: `web.application.regression.lifecycle_ownership`.
+
+Closure: DONE. `tcr-s788-format01` exited 0. `tcr-s788-qualified01` exited 0:
+the row passed with 2/2 units; source `sha256:6a81fa41…`; scan pass; 11
+cleanups completed. `tcr-e827-types01` exited 0.
+
+### S-789 / F-774 / E-830 — Deployment audit unresolved read is not labelled empty (minimal pair)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: design §10 data states. An unresolved initial read must not be
+presented as an empty result.
+
+Defect: "does not label an unresolved initial read as empty"
+(`DeploymentAuditPanel.test.tsx:129-137`) checks the absence of
+`No administrative audit events loaded`. The production empty-state text is
+`No deployment audit events are available.` (`DeploymentAuditPanel.tsx:343`),
+so the check can never fail.
+
+Successor: absence of the production empty-state text while the read is
+pending. After resolving with an empty page, the same text must appear (the
+control). Predecessor retired: the stale text, replaced in place. Selection:
+`web.application.regression.administrative_audit_browsing`.
+
+Closure: DONE.
+
+- `tcr-s789-qualified01` exited 2. The successor's control resolved the
+  default `envelope()`, which holds one event, so no empty state could
+  render. That was an error in my fixture, not in the product.
+- The control now resolves an envelope with `audit_events = []`.
+- `tcr-s789-format02` and `tcr-s789-types01` exited 0.
+- `tcr-s789-qualified02` exited 0: the row passed with 2/2 units; source
+  `sha256:31377a8b…`; scan pass; 11 cleanups completed.
+
+#### E-827 closure — A-web.application semantic audit
+
+DONE for this pass. Corrections: S-787 (OTel browser boundary replaced),
+S-788 and S-789.
+
+Open for S-064 (sweep-located, not individually repaired):
+
+- Negatives on strings absent from production in `App.landing`:
+  "Debug harness shell", "Workbook access", "Open selected", and the
+  imported-incident withholding text.
+- Synchronous dispatch negatives before the async `recover` in other
+  controllers, which belong to the same class as S-788:
+  - metadata `:102-103`, `:228-229`, `:250-251`, `:390-391`;
+  - membership management `:180-182`, `:362-363`, `:484-485`;
+  - import model `:358-359`, `:431-432`;
+  - lifecycle `:114-119`, `:217-273`, `:373-380`.
+- Fencing titles whose writes never settle (workbook and Network Flow
+  import).
+- An `if`-guarded import coordinator assertion.
+- Focus-restoration titles that never check focus.
+- Optional-chained controller and attachment calls.
+- Unpinned failure kinds and status codes in the API clients.
+- Multi-defect fixtures:
+  - session-gate payloads;
+  - the membership-audit event;
+  - incident import jobs;
+  - error presentation, which also omits `authorization_denied` and
+    `incident_not_found`.
+- The font-bundle baseline is missing.
+- The browserApi timing header is absent from production.
+- Mixed-unit text bounds in account settings.
+
+### A-web.architecture entry — E-831 reserved
+
+IN_PROGRESS. The task guide reports 6 rows: Vitest 3 (source ownership,
+transport boundary, layout geometry) and shell 3 (import-boundary check,
+fallow assurance, import-boundary checker assurance). The 7 collaborator
+rows are reused or carried.
+
+Entry run: `tcr-web-architecture-drift01` passed (5/5 units; scan pass). The
+tooling instructions (`tools/AGENTS.md`) apply to the harness assurance
+edits. E-831 is reserved for the closure.
+
+### S-790 / F-775 / E-832 — Frontend boundary CLI warning summary matched exactly
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Purpose: harness assurance. A warning-only run completes successfully and
+reports its exact summary
+(`frontend-import-boundary-check-cli.mjs:100`: `frontend import boundary
+check completed with N warning(s), M file(s) checked`).
+
+Defect: `test-frontend-cli.mjs:38` asserts
+`/0 error|1 warning\(s\), 1 file\(s\) checked/`. Through alternation,
+any stderr containing "0 error" satisfies it, so a regressed summary or a
+failure summary with zero errors would pass.
+
+Successor: anchor the exact completed line,
+`/frontend import boundary check completed with 1 warning\(s\), 1 file\(s\) checked/`.
+Predecessor retired: the alternation, replaced in place. Selection:
+`web.architecture.support.frontend_import_boundary_checker_assurance_393c407a70`.
+
+Closure: DONE. `tcr-s790-format01` exited 0. `tcr-s790-qualified01` exited 0:
+the row passed with 2/2 units; source `sha256:c4ea0d3d…`, graph
+`sha256:ea1034d6…`; scan pass; 11 cleanups completed.
+
+#### E-831 closure — A-web.architecture semantic audit
+
+DONE for this pass. Correction: S-790.
+
+Open for S-064:
+
+- Source-ownership visitor rules for names that occur only in tests
+  (`CollaborationSheetRef`, the session path) have no synthetic positive
+  control.
+- The transaction-identity scan covers `apps/web/src/workbook` only.
+- The transport-boundary assertion is `if`-guarded, with an allowlist taken
+  from the manifest and a `fetch`-only detector.
+- Layout geometry checks two property names; the filler row count is
+  tautological.
+- Policy fixtures also bypass facades, and no diagnostic count is pinned.
+- Path-substring diagnostics.
+- Multi-defect CLI configurations.
+- A matcherless fallow throws check.
+- `harness.assurance_fallow_static` backing scripts omit two invoked tests.
+
+### A-web.collaboration entry — E-833 reserved
+
+IN_PROGRESS. The task guide reports 7 Vitest rows (coordinator, incident
+session, session plan, transition models, presence, Timeline collaboration
+bindings). The 18 collaborator rows are reused or carried.
+
+Entry run: `tcr-web-collaboration-drift01` passed (3/3 units; scan pass). The
+binding suite was also run as an S-773 dependent (`tcr-s773-dependent01`).
+
+Governing: Core 03 collaboration and recovery, and design §10 local
+recovery. E-833 is reserved for the closure.
+
+### S-791 / F-776 / E-834 — Surface confirmation rejections must throw their local recovery
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 03 and design §10. Record unavailability and operation denial
+during surface confirmation stay local: they raise
+`WorkbookSurfaceRefreshError` with `unavailable` recovery and never escalate.
+
+Defect: "keeps record unavailability and operation denial local during
+surface confirmation" (`WorkbookCollaborationCoordinator.node.test.ts:334-347`)
+asserts only inside `catch`. If `requireWorkbookSurfaceAcceptance` stopped
+throwing for `authorization_lost` or `stale_target`, the test would make zero
+assertions and pass.
+
+Successor: capture the thrown value for each kind, and require it to be a
+`WorkbookSurfaceRefreshError` with `recovery.kind` `unavailable`. A
+non-throwing call fails. Predecessor retired: the catch-only assertions,
+replaced in place. Selection:
+`web.collaboration.regression.workbookcollaborationcoordinator_suite_514be174a8`.
+
+Closure: DONE. `tcr-s791-format01` and `tcr-s791-types01` exited 0.
+`tcr-s791-qualified01` exited 0: the row passed with 2/2 units; source
+`sha256:50216eaf…`; scan pass; 11 cleanups completed.
+
+#### E-833 closure — A-web.collaboration semantic audit
+
+DONE for this pass. Correction: S-791.
+
+Open for S-064:
+
+- Coordinator:
+  - the disposal negative is the only assertion;
+  - optional stale callbacks over possibly empty lists;
+  - `resolveRecovery?.()` without proof that `recover` was invoked;
+  - titles about preserving pending work and authorization pauses go
+    unchecked;
+  - one-tick and six-tick negatives.
+- Incident session: un-acknowledged replacement sockets.
+- Bindings: discarded `applyRecordChanged` results, and a single "malformed"
+  case.
+- Presence: a seven-defect invalid batch, absence-only status, a single
+  population against three caps, and the 44,999 case without inclusion.
+- Transition models: partial survivor checks and no `sheetKey` mismatch.
+- Session plan: an "exactly" title checked with `toMatchObject`.
+
+### A-web.design entry and E-835 closure
+
+DONE for this pass. The task guide reports 32 rows: 31 Playwright (a11y,
+visual and design-system specs) and 1 shell (`visual-registry-check`). The 87
+collaborator rows are reused or carried.
+
+Entry run: `tcr-web-design-drift01` passed (1/1 unit, the shell row; scan
+pass). The Playwright rows were not run: no web.design browser input was
+touched in this pass, consistent with the maintainer's entry decision. No
+visual golden was changed.
+
+No slice. Recorded for S-064:
+
+- `design.a11y` "non-color-only states" and "ARIA states" claims induce none
+  of those states.
+- `<script>` absence checks without a script payload (incident
+  administration) or without a rendered-as-text check (deployment).
+- An unpinned appearance array length.
+- Hard-coded attached-evidence values with `jobCount` unasserted.
+- Read ordering stated in a comment but not asserted.
+- A missing settle before a read count.
+- Box containment checks width only.
+- An expected version derived from the request under test.
+- Theme CSS variables cover 21 of 197 tokens.
+- A viewport label mismatch (1280x720 against 1440x900).
+- Loose box bounds.
+- "Exact filters" titles without request assertions.
+- Visual registry: loose `>=` bounds, a conditional dynamic-mask check, and
+  an uncross-checked catalog title.
+
+### A-web.networkflow entry — E-836 reserved
+
+IN_PROGRESS. The task guide reports 66 Vitest rows under
+`apps/web/src/networkFlow/**` and related services. The 29 collaborator rows
+are reused (networkflow 28, imports 1).
+
+Entry runs: `tcr-web-networkflow-drift01` (4/4 units) and `drift02` (3/3)
+passed; scan pass.
+
+Governing: Core 01/03 Network Flow extension clauses (table mutations under
+current authority). E-836 is reserved for the closure.
+
+### S-792 / F-777 / E-837 — Network Flow queued table dispatch fenced by authority, not by a missing closure
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Network Flow table mutations dispatch only under the current
+writable authority. A queued attempt is refused when the role is lost before
+dispatch.
+
+Defect: "captures immutable bytes and fences queued dispatch after role loss"
+(`NetworkFlowTableController.node.test.ts:115-140`) calls the transport's
+captured admission closure, `dispatch`, and expects any throw. If the
+transport never received the closure, `dispatch` is unassigned and calling
+it raises a `TypeError`, which satisfies the matcherless `toThrow()`. The
+fence itself is unproven.
+
+Successor: require `dispatch` to be a function before the role change, and
+pin the production refusal `Table mutation authority changed before
+dispatch.` Predecessor retired: the matcherless throw, replaced in place.
+Selection: `web.networkflow.regression.table_captured_operations`.
+
+Closure: DONE. `tcr-s792-format01` and `tcr-s792-types01` exited 0.
+`tcr-s792-qualified01` exited 0: the row passed with 2/2 units; source
+`sha256:801d4bf3…`; scan pass; 11 cleanups completed.
+
+#### E-836 closure — A-web.networkflow semantic audit
+
+DONE for this pass. Correction: S-792.
+
+Open for S-064:
+
+- The import controller's handoff expectation is derived from production
+  state.
+- Boundary-policy names absent from the repository, and a white-hex-only
+  fallback check whose allowlist comes from production tokens.
+- Saved-graph recovery `if`-guarded inconsistency collectors that never
+  prove a subscriber saw results.
+- Matcherless or `toBeDefined` throws in saved-graph transport and
+  indicator-link dispatch.
+- Multi-defect indicator-link range inputs, and a 1-versus-2 limit.
+- An absence-only import admission check.
+- One-tick negatives in saved-graph observation and recovery.
+- The query inventory takes only the first grid schema; there are
+  multi-defect numeric operands and no accept-side bound controls.
+- Workspace titles over-claim (draft retention, inspector).
+- Contract major 11 is untested.
+- Collapsed lifecycle and authorization scopes.
+- Status and code both differ in the error isolation case.
+- Production CSS constants compared with themselves.
+- A comparator self-check in the alias fixture.
+- Relative column order.
+- `30_001` instead of the 30,000 boundary.
+
+### A-web.workbook entry — E-838 reserved
+
+IN_PROGRESS. The task guide reports 337 Vitest rows across 231 files (1,456
+selected titles). The collaborator union is 444 rows (workbook 188,
+timeline 74, evidence 42, imports 19, web.design 16, revisions 16 and
+others), reused or carried.
+
+Entry runs: six batches, `tcr-web-workbook-drift01`…`06`.
+
+- Batches 01, 04 and 05 passed.
+- Batch 02 failed `generic_inspector_reference_summary_semantics_da4ce3031a`
+  and `grid_field_intent`.
+- Batch 03 failed `ordinary_create_authoring`.
+- Batch 06 failed `workbookshell_surfaces_suite_668e482b1e`.
+
+All the roots are preserved. Diagnosis by reading, plus one diagnostic run
+(`tcr-e837-diag01`, a temporary key-naming throw, restored byte for byte):
+every failure is a stale test expectation against contract changes adopted
+at the `b5cd96adf` checkpoint, not a product regression.
+
+- S-485 (Core 02 REQ-02-199, Core 01 Evidence fields) added the nullable,
+  clearable direct reference `evidence.owner_user_id`.
+- S-558 and Core 01 (`:6717-6720`) made `note.title` and `note.body`
+  clearable.
+- Core 01 (`:6604`, `:6614`) makes `evidence.title` optional and clearable,
+  and it remains a minimum create signal.
+
+E-838 is reserved for the closure.
+
+### S-793 / F-778 / E-839 — Grid field intent counts the adopted Evidence owner and Notes clears
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Defect (drift): `workbookGridEditValue.node.test.ts:72` pins 97 direct-value
+fields, but the contract now declares 98 (adding `evidence.owner_user_id`).
+`:149` expects clearing `note.title` to be refused, but Core 01 `:6717`
+declares it clearable.
+
+Successor: count 98 across the same 15 surfaces. Clearing `note.title` must
+yield a null change for that field. Predecessor retired: the stale literals,
+replaced in place. Selection: `web.workbook.regression.grid_field_intent`.
+
+Closure: DONE. `tcr-s793-format01` exited 0; that one run formatted the edits
+for S-793 through S-796. `tcr-s793-types01` exited 0. `tcr-s793-qualified01`
+exited 0: the row passed with 2/2 units; source `sha256:11626c12…`; scan
+pass.
+
+### S-794 / F-779 / E-840 — Evidence reference summary includes the adopted Owner reference
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Defect (drift): `GenericInspectorReferenceSummary.test.tsx:47-57` derives
+the term labels from the contract, which now includes Owner, but hard-codes
+four definitions. The Evidence surface now renders a third direct
+reference, `evidence.owner_user_id`, as "None" and "Edit Owner".
+
+Successor: the definition list adds "None" and "Edit Owner" in contract
+order. Predecessor retired: the four-item literal. Selection:
+`web.workbook.regression.generic_inspector_reference_summary_semantics_da4ce3031a`.
+
+Amendment (recorded before the further edit): `tcr-s794-qualified01` exited
+2. The lists now match in length, but the row fixture omits the owner cell,
+so production renders `Not available in this row.` rather than `None`. The
+fixture gains the declared `"evidence.owner_user_id": { value: null }` cell,
+consistent with complete rows, so the expected `None` is the real null
+rendering.
+
+Closure: DONE. `tcr-s794-format02` exited 0. `tcr-s794-qualified02` exited 0:
+the row passed with 2/2 units; source `sha256:e2d64432…`; scan pass.
+`tcr-s794-types01` exited 0.
+
+### S-795 / F-780 / E-841 — Clearing the draft's only minimum signal is a minimum rejection
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 `:6604`, `:6614`. `evidence.title` is clearable, and an
+Evidence create needs at least one minimum signal.
+
+Defect (drift): `WorkbookOrdinaryCreateOwner.node.test.ts:136-142` expects
+every clearable field's explicit null to produce a create request. The
+evidence draft's only signal is `evidence.title`, so clearing it is
+correctly rejected with
+`minimum: "Evidence needs at least one user-entered evidence value or a finalized attachment."`
+(diagnostic `tcr-e837-diag01`). The test then dereferences a null request.
+
+Successor: when the cleared field is the draft's only minimum signal
+(`evidence.title` for the Evidence draft), the request must be null and the
+errors must carry that exact `minimum` message. Every other clearable field
+keeps the explicit-null expectation. Predecessor retired: the unconditional
+clear expectation for that key. Selection:
+`web.workbook.regression.ordinary_create_authoring`.
+
+Closure: DONE. `tcr-s795-qualified01` exited 0: the row passed with 2/2
+units; source `sha256:11626c12…`; scan pass.
+
+### S-796 / F-781 / E-842 — WorkbookShell Evidence row fixture carries the adopted owner cell
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 view rows are complete (S-777 covers the normalizer).
+
+Defect (drift): `evidenceRow` (`WorkbookShell.surfaces.test.tsx:5310-5329`)
+omits the declared `evidence.owner_user_id` cell. Full-row admission
+rejects the fixture rows, so five titles fail: rapid filters, stale
+refresh, the denial recheck, the attach flow and inline attachment.
+
+Successor: the fixture carries `"evidence.owner_user_id": { value: null }`.
+Predecessor retired: the incomplete fixture. Selection:
+`web.workbook.regression.workbookshell_surfaces_suite_668e482b1e`.
+
+Closure: DONE. `tcr-s796-qualified01` exited 0: the row passed with 2/2
+units; all five previously failing titles passed; source `sha256:11626c12…`;
+scan pass.
+
+#### E-838 closure — A-web.workbook semantic audit
+
+DONE for this pass.
+
+Corrections: S-793 through S-796. All four are entry-drift repairs against
+adopted contracts. The other 333 rows passed at entry. S-756 through S-761
+(Timeline-owned web.workbook-collaborator titles) and S-773's dependent run
+also touched this owner's surface.
+
+Open for S-064 (sweep-located, not individually repaired):
+
+- Collaboration presence negative `not.toContain("SA")`: the initials are
+  "SV", and the saved-view ID is impossible.
+- The command index "never invokes actions" without a spy.
+- Mutation-driver plans omit `same_field_conflict`, `success` and
+  `no_dispatched_unit`.
+- Ordinary-create transport iterates the production contributions with an
+  unpinned throw and no count.
+- A runtime responsibility `shift()?.()` without proof that a microtask was
+  queued.
+- One-tick `.then` negatives.
+- The ninth-or-duplicate sort title lacks a duplicate case.
+- The owner sort limit is conditional on `sortable.length`.
+- The draft store admits-only and error loops have no counts or reasons.
+- Optional-chained `.not.toBeNull()` receipts across the indicator, party,
+  capture and history owners.
+- An uncounted retry `calls[3]?.`.
+- Mention receipt reconciliation is multi-defect.
+- Bare `rejects.toThrow()` across the reconciliation and query suites.
+- The fill controller uses a single generic rejection message.
+- Ordinary create coverage `> 100`.
+- The reference control's 65 IDs have no accepted 64.
+- `network_flow_activity` is a profile ID, so the view-schema negative cannot
+  match.
+- History owner reauthorization is unasserted.
+- Startup admission and runtime negatives have no settle.
+- The `every` over an empty observation map in the saved-view controller,
+  and a re-stated policy oracle.
+- Architecture title claims without counts.
+- The inspector create-related null subject.
+- An `if (body)` scroll guard.
+- About 300 redundant `getBy…).not.toBeNull()` and `toBeTruthy()` checks.
+- `toMatchObject` under "exactly".
+- A subtraction-derived capability count.
+- Unbounded focus retries.
+- Unbounded mention send counts.
+- Metadata validators with matcherless throws.
+- Placeholder sheet IDs.
+
+### S-064 entry — validation reconciliation and handoff (E-843 reserved)
+
+Recorded before any S-064 run or edit; S-064/E-843 verified unused. Entry gate
+met: all 66 §9 owner rows are DONE (E-056 … E-838), S-059–S-063 and
+S-065–S-074 are DONE, and every corrective slice through S-796 records its
+closure. No new slice, F-id or product edit is planned. A confirmed defect found
+during reconciliation would become its own recorded slice first.
+
+Reconciliation method (no executable input reads this tracker):
+
+- Production and generated deltas: the working tree against HEAD `826c031db`
+  (176 changed paths, 1 untracked). Each non-test path is mapped to its slice,
+  and its dependents are reviewed against that slice's recorded runs.
+- Evidence staleness: every changed test file is mapped from its `git diff`
+  hunks to the enclosing test or helper. Go uses package functions plus
+  transitive helper callers; TypeScript uses the AST, test titles and
+  file-local helpers. The resulting catalog rows are compared with the start
+  times of passing runs from `.cartulary/test-results`. A row is stale when its
+  changed test or helper has no passing run after the file's final edit.
+- Coarse timing produces false positives: a later slice editing another test in
+  the same file advances the mtime. Browser rows are resolved by reading the
+  hunks (the maintainer's browser-on-touch decision). Non-browser rows are
+  requalified because that is cheaper than proving them current.
+
+Planned requalification (12 non-browser rows, one run per owner, fresh
+`tcr-s064-requal-<owner>01` identities):
+
+- module.assessments: `store.assessment_projection_query_remains_owner_backed_172051cb0d`
+  (S-764 changed `requireContributionDependenciesFailClosed`; no pass since).
+- module.evidence: `frontend.the_ordinary_evidence_workbook_surface_issues_pr_6b6cd04008`
+  (S-796 changed `evidenceRow`; no pass since).
+- module.networkflow: `frontend_unit.verify_network_analysis_presentation_query_layou_11c071dbd2`
+  and `unit.network_flow_selector_covers_the_created_table_t_27dec58147`
+  (each file was edited after its row last passed).
+- module.recovery: `process.portable_source_loss_restore`
+  (`requireOperatorRestoreTargetUnmutated` changed after its entry run).
+- module.tasksdecisions: `conflict_composition.application_workbook_conflict_resolution_contrib_10e9976746`
+  (S-770 changed the Workbook conflict helpers it calls).
+- module.timeline: the auto-resolve, role-authorization and same-field rows
+  (S-746–S-749 edits followed their last passes).
+- module.workbook: `integration.required_surface_persistence_queries_through_wor_fc52555181`,
+  `integration.full_row_and_sparse_patch_wire_families_preserve_32a4ab3be1`
+  and `support_integration.workbook_surface_create_query_and_patch_contract_ae5c34d894`
+  (S-762/S-764 helper edits).
+
+Browser rows flagged by timing alone, which hunk review resolves without a
+run:
+
+- `web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220`:
+  its hunks are only the S-644 heading text. The later edit of
+  `incident-administration.spec.ts` is S-650's clock change in another test.
+- `module.networkflow.browser.query_authoring_integrity` (S-677) and
+  `browser_stateful.saved_graph_{read_recovery,deferred_navigation}`
+  (S-658/S-657): S-679's later edit is in the edge-selection test, and
+  `settledRequest` was added once by S-657.
+
+Final V-025 gates: `make source-check CHECK=generated` and `CHECK=catalog`
+under `tcr-s064-generated01`/`tcr-s064-catalog01`, then `make lint-markdown` and
+`git diff --check`. No `make generate` is planned: no authored routing input
+changed after S-787's regeneration and its passing generated check. IN_PROGRESS.
+
+Hand-off reconciliation (recorded before any edit). Three E-631 candidates
+handed to later owners, listed under "Candidates handed to later owners", have
+no disposition in the receiving closures:
+
+- **Workbook preference tokens (A-module.workbook / A-web.workbook):** a
+  confirmed production defect. It becomes S-797 below.
+- **No shared web transport test of content-aware non-JSON error fallback
+  (A-web.application):** a coverage gap that E-827 did not pick up. It is
+  carried to the S-064 residual register.
+- **Directory `<section aria-labelledby>` pointing at an absent ID
+  (A-web.application):** hygiene with no governing requirement; the
+  accessibility rows report no violation. It is carried to the residual
+  register as a maintainer presentation decision.
+
+E-662 handed web.networkflow four items: item 24 (redundant
+`getBy…toBeTruthy`), items 29 and 36, and `settledRequest` consolidation with
+request-count sentinels. E-836 does not name them. All are low-severity
+hygiene or bounded observations already retained with reasons, so they join
+the residual register.
+
+### S-797 / F-782 / E-844 — Workbook preference transport recognizes the canonical session and CSRF rejections (production)
+
+Recorded before editing; S-797/F-782/E-844 verified unused. IN_PROGRESS.
+Found by the S-064 hand-off reconciliation above.
+
+Governing:
+
+- Core 04 :3008-3011: an unauthenticated state-changing request returns
+  `401 session_required`, and a CSRF failure returns
+  `403 csrf_verification_failed`, both before any mutation.
+- `contracts/errors/index.json` registers both codes, and neither
+  `csrf_failed` nor `authentication_required`.
+- Both preference PUT routes (`module.workbook` OpenAPI) declare 401 and 403.
+- The server emitters are `internal/platform/httpapi/api_error.go:38,44`.
+
+Defect (production):
+
+- `createWorkbookPreferenceAdapter.ts:24-55` closes its problem set on
+  `authentication_required` and `csrf_failed`. A real 401 `session_required` or
+  403 `csrf_verification_failed` therefore decodes as `unknown_public_error`,
+  and a preference write reports `uncertain` although the server definitively
+  rejected it before mutation.
+- `WorkbookPreferenceController.ts:262-271` lists the same noncanonical codes
+  for access recovery, so `refresh` never recovers access after those
+  rejections.
+- The adapter test (`createWorkbookPreferenceAdapter.test.ts:188-191`) pins the
+  noncanonical tokens and checks only `result.kind`, so it cannot detect the
+  defect.
+- The saved-view adapter already accepts the canonical codes and stays
+  unchanged.
+
+Successors (red first):
+
+- The transport table uses canonical `[401, "session_required", "rejected"]`
+  and `[403, "csrf_verification_failed", "rejected"]`. Each row also pins
+  `status` and `problem.code`: the canonical code passes through, and the
+  unknown 400 maps to `unknown_public_error`.
+- A new preference-owner case: after a write rejected with either canonical
+  code, `refresh("home")` calls `recover` before `readHome`. An
+  `invalid_mutation_payload` rejection is the control and reads without
+  recovery.
+
+Production change: replace the two tokens in the `PreferenceProblem` union, in
+the adapter's `knownCodes` and definite set, in the controller's recovery list
+and in the `preferenceProblemText` cases, keeping the existing copy. The
+controller fixture at :255 moves to `session_required`. Predecessor retired:
+the two noncanonical table entries, replaced in place.
+
+Routing: the new title joins `web.workbook.regression.preference_owner` in
+`tools/test_families/web.workbook.json`, followed by `make generate` with a
+reviewed diff. Selection: `web.workbook.regression.preference_transport`,
+`web.workbook.regression.preference_owner`, and the two direct consumers of the
+union and copy, `web.workbook.regression.preference_characterization` and
+`web.application.regression.preference_integration`. `make lint CHECK=types`
+covers the union. No requirement, browser or visual change: no browser
+scenario drives a session or CSRF preference rejection.
+
+#### S-797 / F-782 / E-844 closure — canonical preference rejections are definite
+
+DONE. Production now classifies the server's real 401 `session_required` and
+403 `csrf_verification_failed` on a preference write as definite `rejected`
+with the canonical code preserved, and `refresh` recovers access before reading
+after either. The adapter, the model union and copy, and the controller's
+recovery list carry only the canonical codes. The existing copy is unchanged.
+The new controller case discriminates: the `invalid_mutation_payload` control
+reads without recovery.
+
+| Run | Public command | Native exit | Terminal / scan / cleanup |
+| --- | --- | --- | --- |
+| tcr-s797-format01 | `make format` | 0 | pass2/2,4808 ms; scan15/pass; cleanup11 completed |
+| tcr-s797-generate01 | `make generate` | 0 | tool summary pass/exit0,10300 ms (non-graph adapter) |
+| tcr-s797-red01 | `make test-slice OWNER=web.workbook ROWS=web.workbook.regression.preference_transport,web.workbook.regression.preference_owner` | 2 | Expected product/test_assertion_failure, 1/3 units. The transport row gets a non-`rejected` result for 401 `session_required`; the owner row reads `['read']` without recovery. Source `9491a86e…`. |
+| tcr-s797-format02 | `make format` | 0 | pass2/2,4842 ms; scan15/pass; cleanup11 completed |
+| tcr-s797-qualified01 | `make test-slice OWNER=web.workbook ROWS=web.workbook.regression.preference_transport,web.workbook.regression.preference_owner,web.workbook.regression.preference_characterization` | 0 | pass3/3,6912 ms; rows passed; scan32/pass; cleanup12 completed |
+| tcr-s797-dependent01 | `make test-slice OWNER=web.application ROWS=web.application.regression.preference_integration` | 0 | pass2/2,5921 ms; row passed; scan21/pass; cleanup11 completed |
+| tcr-s797-types01 | `make lint CHECK=types` | 0 | pass2/2,21249 ms; scan15/pass; cleanup11 completed |
+
+The generated delta is only `tools/execution_topology_render_index.json`: its
+input digest and the `web.workbook.json` hash. It was reviewed before
+selection. The final source is
+`7d6dfac3f1263024ab2abbfdc64d24dc34f68b9a04c37598c0f9c7c7e004a44f`, dirty at
+`826c031db`, with an unchanged toolchain. Red01 is preserved as the defect
+witness. Production change: `createWorkbookPreferenceAdapter.ts`,
+`workbookPreferenceModel.ts` and `WorkbookPreferenceController.ts`, a token
+correction with no API, storage or routing-contract change. The generated and
+catalog checks below also cover this routing edit.
+
+#### E-843 closure — S-064 validation reconciliation
+
+DONE as a bounded reconciliation. Its limits are in the acceptance statement
+at the end.
+
+**Requalification of stale selections.** All runs used `make test-slice` with
+native exit 0, source `sha256:e2d64432…` (dirty at `826c031db`), toolchain
+`0e302b723a65`, secret scan pass and every cleanup completed.
+
+| Run | Owner / rows | Result |
+| --- | --- | --- |
+| tcr-s064-requal-assessments01 | module.assessments, 1 Go row | pass3/3 units; row 250 ms |
+| tcr-s064-requal-evidence01 | module.evidence, 1 Vitest row | pass2/2; row 405 ms |
+| tcr-s064-requal-networkflow01 | module.networkflow, 1 Vitest + 1 Go row | pass3/3 |
+| tcr-s064-requal-recovery01 | module.recovery, 1 process row | pass7/7; row 25660 ms |
+| tcr-s064-requal-tasksdecisions01 | module.tasksdecisions, 1 Go row | pass3/3 |
+| tcr-s064-requal-timeline01 | module.timeline, 3 Go rows | pass3/3 |
+| tcr-s064-requal-workbook01 | module.workbook, 3 Go rows | pass4/4 |
+
+The module.evidence and module.assessments rows had no passing run since their
+shared fixtures changed (S-796, S-764). They pass at current source. After
+S-797, re-running the hunk-level staleness analysis gives 140 changed test files
+current and no stale non-browser row. The only flags left are the four
+browser rows already resolved by hunk review in the entry record.
+
+**Production and generated delta review** (183 changed paths against HEAD:
+182 modified, 1 untracked; 143 test files, 17 goldens, 7 tool files, this
+tracker and 15 production files):
+
+| Production path(s) | Slice | Dependent review |
+| --- | --- | --- |
+| `apps/web/src/app/LandingAdminLayout.tsx` | S-644 | DOM, accessibility, browser rows and 17 reviewed goldens. Two full visual passes. web.application entry drift later. |
+| `incidentMetadata{Controller,Model}.ts`, `IncidentMetadataPanel.tsx` | S-645 | Metadata transport/ownership rows plus types. No visual capture reaches the rejected state. |
+| `internal/platform/renderprocess/process_linux.go` | S-725 | Renderer process, installed sandbox and stage boundary rows. The networkflow importer uses only the unchanged `Output`/`Result` types. |
+| `internal/modules/revisions/history_rollback_actions.go` | S-727 | Six history-helper rows. The links and incidentbundles `available_rollback_actions` tests passed before the change, so they never reach the missing-target branch, the only branch that changed. |
+| `internal/modules/workbook/mutation_contract.go` | S-745 | Workbook and Timeline rows. A repository search found no consumer expecting `null`. module.workbook's later entry drift covers that package. |
+| Timeline adapters `acceptTimelineLivePatchObservation.ts` (new), `useTimelineCollaborationBindings.ts`, `README.md` | S-773 | Shell, binding and source-ownership rows. Later web.* entry drifts cover them. |
+| `db/migrations/00058_revision_history_order.sql` | S-783 | ACL row plus the clear-cells and three database_migrations dependents. Trigger firing needs no EXECUTE grant. |
+| `internal/platform/telemetry/accessors.go` | S-785 | Telemetry row. No other reference to the removed constant. |
+| Workbook preference adapter, model and controller | S-797 | Three rows, one dependent and types (above). |
+
+Authored routing: `module.incidents.json` (S-642, one title retired after a
+qualified successor), `web.application.json` (S-787 title), `web.workbook.json`
+(S-797 title) and `frontend_source_ownership.json` (S-773 entry). Generated:
+`execution_topology_render_index.json` (input digest plus the three family
+hashes), `migration_history_manifest.json` (00058 sha256 only) and
+`frontend_visual_golden_manifest.json` with the 17 goldens (S-644 reviewed
+refresh). No generated path was hand-edited. The retired S-642 title has no
+remaining reference in tests or routing, and no alias was added. The catalog
+check passes with no orphaned selector. Changed shared helpers found by the
+staleness review were each recorded in their slices, and their callers are
+qualified above. S-064 did not run a separate unused-wrapper sweep; E-791's
+test-local wrappers stay in R-05.
+
+| Run | Public command | Native exit | Result |
+| --- | --- | --- | --- |
+| tcr-s064-generated01 | `make source-check CHECK=generated` | 0 | pass5/5,10334 ms; scan29/pass; cleanup14 completed; source `7d6dfac3…` |
+| tcr-s064-catalog01 | `make source-check CHECK=catalog` | 0 | pass2/2,1744 ms; scan15/pass; cleanup11 completed; same source |
+
+**Finding reconciliation.**
+
+- F-057–F-059 resolved through S-059–S-063 (E-040–E-044), with RB-012–RB-014
+  closed.
+- F-060–F-065 and F-014/F-019 closed through S-065–S-074 (E-039, E-045–E-054).
+- F-063 (portfolio semantic completeness) is met at audit depth: all 66 owner
+  checkpoints are DONE, and every current authored assertion has a recorded
+  disposition, including the deferrals below.
+- Every owner-audit finding through F-782 maps to a slice (S-075–S-797) with a
+  recorded closure and qualifying run. The automated check found none without
+  closure language; 23 headings were confirmed manually.
+
+**Residual register.** These items are deferred follow-up, not resolved. Details
+are in each cited closure.
+
+- **R-01 Requirement or maintainer decisions:**
+  - `network_flow.direction` default visibility versus NF-REQ-054c (E-662).
+  - REQ-RC-084 Table 14-A has six emitted but untested codes, two codes never
+    emitted, and an unexercised RC-FIX-014 retired preview. It needs tests or
+    an NLSpec revision (E-720).
+  - The directory section's dangling `aria-labelledby` (E-631 hand-off).
+  - Verification-matrix title coverage (E-662).
+  - `make browser-e2e-visual-update` leaves manifest drift until
+    `make generate` (S-644).
+- **R-02 Routing and catalog:**
+  - `FuzzTimeBucketArithmetic` is unrouted, and its third seed always skips
+    (E-662).
+  - The projection SQL checker self-test is not selected (E-693).
+  - The Records checker passes silently on unmatched `scan_paths`, and
+    `records-current-envelope-access` has no lock paths (E-696).
+  - `harness.assurance_fallow_static` omits two invoked tests (E-831).
+  - Process rule from S-653: select package-local policy guards whenever an
+    owner capability grant changes.
+- **R-03 Owner-confirmed weaknesses left without a slice:**
+  - platform.jobs exhaustion-leak check cannot fail; `TestJobTelemetryNoSDK`
+    asserts nothing (E-812).
+  - The raw-insert rollback path is untested (S-779/E-803).
+  - Unreachable `weakTestRouteTokens` lookup (E-811).
+  - The misnamed viewquery "operator not allowed" case (E-823).
+  - The ws "before upgrade" case and a read limit tested at one size (E-825).
+  - Unreachable sentinel `ErrIllegalTransition` blank statuses (S-745).
+  - The Recovery operator advisory-lock waiter (E-700).
+  - The web.workbook `not.toContain("SA")` negative (E-838).
+  - The missing shared non-JSON transport fallback test (E-631 hand-off).
+  - E-662's web.networkflow hand-offs: items 24, 29 and 36, and
+    `settledRequest` consolidation with request-count sentinels.
+- **R-04 Fixture legality (class 5):**
+  - Fixed clocks and direct SQL fixtures that precede their incident or break
+    the Records envelope, in projections, recovery, revisions, savedviews,
+    tasksdecisions, timeline and workbook, with notes in platform.audit.
+  - Parties corpus-index fragility.
+  - Reference Data's shared contract-version fixture and wall-clock windows.
+  - This class caused S-655, S-680, S-710 and four entry-drift repairs. A
+    dedicated legal-time fixture workstream is recommended.
+  - *Resolved 2026-11-15 by the R-04 workstream (E-845; S-798–S-827),
+    including the S-064 correction for 11 stale passes.*
+- **R-05 Sweep-located assertion-strength candidates (not individually
+  verified):** any-error and multi-defect inputs, unpinned reasons, absence
+  checks without a control or settle, production-derived oracles,
+  self-comparisons, title over-claims, vacuous loops and missing exact-bound
+  pairs. They are listed under "Open for S-064" in E-686 through E-838.
+- **R-06 Unexecuted evidence:**
+  - Browser rows untouched by any correction were not run, per the
+    maintainer's entry decision. The visual suite last passed twice after
+    S-644. Later frontend production changes (S-645, S-773, S-797) reach no
+    captured state.
+  - 00058 was edited in place (`immutable_through_version: 0`). A database
+    that already applied the earlier text keeps the PUBLIC defaults and EXECUTE
+    grants until it is rebuilt. Checksum enforcement for already-applied
+    databases was not verified.
+  - Whole-suite stability, performance, release and publication evidence were
+    not produced.
+
+**V-020–V-031:**
+
+- V-020–V-024 passed at their checkpoints (E-040–E-044).
+- V-025: `make format` ran per slice; the S-797 `make generate`, the final
+  generated/catalog checks and the closing documentation checks are recorded
+  here.
+- V-026–V-030 passed at E-045–E-054.
+- V-031: every owner checkpoint (E-056–E-838) plus S-797.
+
+**Acceptance statement.** The semantic audit is complete: every owner and every
+current authored assertion is reviewed and dispositioned. Every allocated
+finding is corrected and qualified at its exact selection. Selections invalidated
+by later edits are requalified. Generated and catalog projections are consistent.
+
+This is not a claim that every observed weakness is repaired: R-01–R-05 remain
+open by recorded decision. It is also not a claim of full-suite, browser-wide,
+visual-wide, release, performance, speed or global-stability acceptance.
+Recommendation: accept the change set as a bounded remediation with the residual
+register as the next workstream backlog. Nothing was staged, committed, merged
+or published.
+
+Closing documentation checks: `make lint-markdown` exited 0 ("Checked 126 files
+… No fixes applied"; tracker SHA-256 unchanged by the lint), and
+`git diff --check` exited 0. They were repeated after this final sentence was
+added, with the same result.
+
+### R-04 fixture-legality workstream — entry (E-845 reserved), 2026-11-15
+
+Maintainer request: "start the R-04 fixture legality workstream". This is a new
+corrective workstream after S-064 and reopens no closed owner checkpoint.
+Identities S-798/F-783/E-845 onward were verified unused. E-845 is reserved for
+the workstream closure, and slices start at S-798/F-783/E-846. The standing
+constraints apply: no stage, commit or publication; each correction is a
+recorded slice before editing; qualify successors before retiring anything; use
+exact selections; investigate failures before rerunning.
+
+**Governing rule set**, which decides what "illegal" means here:
+
+- **Class A, envelope-illegal (must correct).** Core 01 REQ-01-651 requires
+  `updated_at ≥ created_at` and `created_at ≤ deleted_at ≤ updated_at`.
+  REQ-02-265 requires lossless snapshots. Since `b5cd96adf`, every revision
+  capture enforces these through `records.ValidateSnapshotEnvelope`, so an
+  illegal fixture row fails the next write that captures a snapshot (S-680,
+  S-710, S-762). The database already enforces the delete pair and
+  `row_version ≥ 1` (`00007`).
+- **Class B, production-unreachable lifecycle state (correct with the owning
+  clause).** Core 01 §3.3.5.3 sets incident `closed_at` to the close action's
+  commit timestamp, so it cannot precede `created_at`. Owner lifecycle
+  timestamps such as `decided_at` and `received_at` are judged by their own
+  clauses, cited per slice.
+- **Class C, legal (retain with a reason).** No adopted rule requires record
+  timestamps to follow the incident's creation, and imports legitimately carry
+  older history. A fixed clock is a defect only when it produces Class A or B
+  state, or when the assertion's claim depends on an ordering the fixture
+  breaks.
+- **Class D, deliberately illegal (retain).** Negative tests whose claim is
+  the rejection of illegal state.
+
+Reference Data's shared contract-version fixture and wall-clock windows (E-705)
+are dispositioned in the same inventory. They are not legality defects by
+default.
+
+**Method.**
+
+- A temporary diagnostic census adds a teardown check to `pgtest`
+  `registerDatabaseCleanupT` for isolated per-test databases. The check
+  reports Class A rows in `records` and Class B incidents (`closed_at` or
+  `updated_at` earlier than `created_at`) as a test failure tagged `R04DIAG`.
+  It skips migration-scratch databases and databases without the tables.
+  The original is copied to the scratchpad and restored byte-for-byte
+  (verified with `cmp`).
+- The census covers the 199 DB-backed Go rows of the R-04 owners: parties 6,
+  projections 5, recovery 26, reference_data 41, revisions 34, savedviews 8,
+  tasksdecisions 8, timeline 29, workbook 40 and platform.audit 2.
+- Reason for the breadth: owner sweeps located these sites statically, and
+  drift showed static location to be incomplete.
+- Census runs are diagnostics, not evidence. Transaction-policy fixtures that
+  roll back, and illegal states overwritten before teardown, are outside the
+  census and stay with the static inventory.
+- Each census hit and each E-843 R-04 site is classified A–D from its source,
+  then corrected owner by owner in lexical order through recorded slices. A
+  shared legal-time builder is introduced only where one owner has several
+  sites with the same chronology need. IN_PROGRESS.
+
+#### R-04 census results (diagnostic, not evidence)
+
+The hook was a temporary edit to `pgtest.go`. Its positive control
+`tcr-r04-census-control01` reported `records=true incidents=true` for a
+per-test database, so the hook ran. The control marker was reverted, and after
+the census `pgtest.go` was restored byte-for-byte (`cmp` and
+`git diff --quiet HEAD` both pass).
+
+Census runs, one per owner, all `make test-slice` over the DB-backed Go rows:
+
+- `tcr-r04-census-audit01`, `parties01`, `projections01`,
+  `reference_data01`, `savedviews01` and `tasksdecisions01`: exit 0, no hit.
+- `tcr-r04-census-recovery01`: exit 2. The only hits are `R04DIAG-ERR` from
+  two `TestCanonicalOperatorRestoreBundle_Process` subtests, whose restore
+  process drops the database before teardown. This is a diagnostic
+  limitation, not a fixture finding.
+- `tcr-r04-census-revisions01`, `timeline01` and `workbook01`: exit 2, with
+  the hits below.
+
+| Owner / test | Class | State left at teardown |
+| --- | --- | --- |
+| revisions `TestDestructiveOperationLocks_Unit` | A | Host deleted at wall clock, after a fixed 2026-05-10 `updated_at` |
+| revisions `TestHistoryLogicalPageBoundaries_Integration`, `TestHistoryPaginationRecordBinding_Integration`, `TestHistorySourceFamilyPaging_Integration` | A | SQL tombstone with `deleted_at > updated_at` |
+| revisions `TestRecordHistoryEnvelope_Unit` | A | `deleted_at` 2026-05-10, before a wall-clock creation |
+| revisions `TestRetainedHistoryAcrossRestartAndClosure_Integration`, `TestRetainedHistoryInvariants_Unit` | B | incident `closed_at` 2026-05-10, before its creation |
+| timeline `TestManualTimelineConfidenceNull_Integration/current_explicit_target_admission` | A | Host/Identity `deleted_at` fixed at 2026-11-14 10:00, which wall clock has now passed |
+| workbook `TestNoteAssociationsPublicPagingAndHistory`, `TestWorkbook_EvidenceMutations` | A | SQL tombstone with `deleted_at > updated_at` |
+| workbook `TestWorkbookClosedIncidentWrites_Integration` | B | `closed_at` 2026-06-30, before its creation |
+
+Every hit traces to a test fixture writing SQL directly. None comes from a
+production delete or close path.
+
+Coverage gap: the census missed `rebuild_test.go:111`, a known static Class A
+seed, so its coverage is partial.
+
+Static class sweep (all `*_test.go`; `SET deleted_at` statements on `records`
+classified by script):
+
+- 62 sites tombstone without moving `updated_at`, across 16 owners: revisions
+  11, artifacts 9, links 8, tasksdecisions 7, evidence 6, reporting 3,
+  workbook 3, networkflow 3, entities 3, timeline 3, and 1 each in
+  projections, assessments, recovery, database_migrations, parties and
+  indicators.
+- Four of them use the literal `'2026-11-14T10:00:00Z'`, which now precedes
+  wall-clock creation: assessments, entities and timeline ×2.
+- Legal or other-table sites are excluded: 4 `deleted_at=updated_at`,
+  13 undeletes, 6 sites that already move `updated_at`, and 10 on other tables.
+- Parameterized incident closures with a fixed `closed_at` are Class B
+  candidates: revisions `history_test.go:219` and `integration_test.go:944`,
+  workbook `route_guard_characterization_test.go:97`, and timeline
+  `store_test.go:755`.
+
+The Host/Identity source triggers (`00011`) compare `hosts` and `identities`
+with `records` on each update, so a legal SQL tombstone must advance
+`updated_at` in `records` and then in the mirror, within one transaction. The
+Records-owned, inventory-registered
+`internal/modules/records/testsupport/envelopetest` package is the candidate
+home for one shared legal tombstone helper. Scope awaits the maintainer.
+
+#### R-04 maintainer decisions and slice plan, 2026-11-15
+
+Decisions (maintainer, this session):
+
+1. **Scope: the whole class with a shared helper.** All 62 tombstone sites, the
+   fixed incident closures and the illegal seeded timestamps are corrected
+   owner by owner, each owner as a recorded slice qualified at its exact rows.
+2. **No permanent guard.** Correctness rests on the shared helper and the
+   recorded slices, with no teardown legality check in `pgtest`.
+3. **The three non-clock items are included:** the Parties corpus index, the
+   reference-pack `v1` fixture (its browser, a11y and visual rows must run),
+   and the Reference Data wall-clock windows.
+
+Slice plan. Each slice is recorded before editing; identities run from S-798.
+
+- First, the Records-owned helper `envelopetest.SoftDeleteRecord`. It
+  tombstones through SQL inside one transaction:
+  - It sets `deleted_at` either to an explicit instant or to the database
+    clock.
+  - It advances `updated_at` (and, when asked, `row_version`) only as far as
+    legality needs.
+  - It brings the Host/Identity mirror along.
+  - It fails the test when the instant precedes creation.
+  - It gets its own Records-owned contract test before any consumer converts.
+- Then owner conversions in lexical order: artifacts, assessments,
+  database_migrations, entities, evidence, indicators, links, networkflow,
+  parties (plus the corpus index), projections, recovery, reference_data (the
+  v1 fixture and wall-clock windows as separate slices), reporting, revisions,
+  tasksdecisions, timeline and workbook. Class B closures and illegal seeds are
+  fixed inside their owner's slice.
+- A site that is deliberately illegal (Class D) or legal (Class C) is
+  dispositioned in its owner slice and not converted.
+- After conversion, a final diagnostic census over the converted owners'
+  DB-backed rows (temporary, restored) checks that the class is gone. It is
+  diagnostic, not evidence.
+
+### S-798 / F-783 / E-846 — Records-owned legal SQL tombstone fixture helper
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 REQ-01-651 (`created_at ≤ deleted_at ≤ updated_at`;
+`deleted_by_user_id` present exactly with `deleted_at`), Core 02 REQ-02-265,
+and the `00011` Host/Identity envelope mirror triggers. The testutil ownership
+rule places product-semantic fixtures in owner support packages, so Records
+owns this helper.
+
+Defect class: 62 test sites tombstone `records` with
+`UPDATE … SET deleted_at…` without moving `updated_at`, and some use instants
+before creation (R-04 census and sweep). Each such fixture leaves an envelope
+that `records.ValidateSnapshotEnvelope` rejects at the next snapshot capture.
+
+Successor, added to the registered package
+`internal/modules/records/testsupport/envelopetest`:
+
+- `SoftDeleteRecord(t, db, Tombstone{RecordID, DeletedBy, At, RowVersion})`
+  runs inside one transaction. A caller-supplied `pgx.Tx` or `*sql.Tx` is
+  used as is.
+- `At` zero means the database `clock_timestamp()`.
+- `updated_at` becomes `GREATEST(updated_at, at)`. A positive `RowVersion`
+  raises `row_version` to at least that value. Attribution is unchanged.
+- Host/Identity mirrors follow `row_version` and `updated_at`.
+- A missing record, or an instant before `created_at`, fails the test.
+
+New contract test: `TestSoftDeleteRecordFixtureKeepsEnvelopeLegal_Integration`
+in `internal/modules/records`, a rollback DB that joins the
+`module.records.envelope.store` row. Its cases:
+
+- A Host on the database clock: the mirror stays exact,
+  `updated_at = deleted_at` and the version is unchanged.
+- A Timeline event with an explicit instant between creation and the last
+  update, plus `RowVersion`: `updated_at` is kept and the version is raised.
+- Each tombstoned row passes `ValidateSnapshotEnvelope`.
+- An instant before creation fails through a recording `testing.TB` and
+  leaves the row untouched.
+
+Routing: the title joins that row, followed by `make generate` and the
+generated/catalog checks. No production change. Consumers convert in later
+slices.
+
+#### S-798 / F-783 / E-846 closure — legal tombstone helper qualified
+
+DONE. Files:
+
+- `envelopetest/tombstone.go` (new).
+- `soft_delete_fixture_integration_test.go` (new).
+- `module.records.json`, which adds one root to `module.records.envelope.store`.
+
+| Run | Public command | Native exit | Result |
+| --- | --- | --- | --- |
+| tcr-s798-format01 | `make format` | 0 | pass |
+| tcr-s798-generate01 | `make generate` | 0 | Only the render-index input digest and the `module.records.json` hash changed; reviewed. |
+| tcr-s798-successor01 | `make test-slice OWNER=module.records ROWS=module.records.envelope.store` | 0 | pass3/3; row passed. The service journal records `postgres-attach` for the new root, so it ran. Source `76d15e3e…`; scan pass; 14 cleanups completed. |
+| tcr-s798-generated01 | `make source-check CHECK=generated` | 0 | pass5/5 |
+| tcr-s798-catalog01 | `make source-check CHECK=catalog` | 0 | pass2/2 |
+| tcr-s798-boundary01 | `make lint CHECK=backend-boundary` | 0 | pass5/5. The helper adds SQL in a test-support package. |
+
+What the contract test pins:
+
+- The deferred Host mirror triggers fire under `SET CONSTRAINTS ALL IMMEDIATE`
+  and accept the tombstone.
+- The Records snapshot validator accepts both tombstoned envelopes.
+- Early-instant and missing-record calls fail closed without writing.
+
+No consumer is converted yet.
+
+#### R-04 census v2 — statement-level trigger log (diagnostic, not evidence)
+
+Reading the first artifacts sites showed the static class count is an upper
+bound. Many `SET deleted_at = $n` fixtures pass the same fixed instant that
+created or last updated the record. That gives `deleted_at = updated_at`,
+which is legal (Class C).
+
+Conversion therefore follows observed illegality. A second temporary
+diagnostic in `pgtest.go` replaces the teardown check:
+
+- **What it records.** Every cloned database (`prepareDatabase`, which also
+  backs the rollback-transaction fixtures) gets `AFTER INSERT OR UPDATE`
+  triggers on `records` and `incidents`. Each Class A or Class B row event is
+  logged to a side table together with `current_query()`. Test control flow
+  does not change.
+- **How it reports.** Teardown reports the log as an `R04DIAG` failure: before
+  drop for isolated databases, and inside the still-open transaction for
+  rollback databases. Fixture-driven command clocks (the S-655 class) are
+  caught as well.
+- **Why the trigger is safe.** Production delete (`records/store.go:237`)
+  writes `deleted_at`, `updated_at` and `row_version` in one statement, so it
+  never leaves a transient illegal envelope.
+- **Positive control.** `tcr-r04-trigger-control01` on
+  `module.revisions.store.covers_shared_destructive_operation_lock_precede_02f3fc18c4`
+  reported the known hit with its statement:
+  `UPDATE records SET deleted_at = $2, … WHERE record_id = $1`.
+- **Scope.** The census covers all 566 DB-backed Go rows (39 owners, runs
+  `tcr-r04-census2-*`), because the class is repository-wide.
+- **Expected noise.** Schema-inventory tests see the extra diagnostic objects;
+  that is not a finding.
+- **Cleanup.** The original file stays at the scratchpad copy and is restored
+  byte-for-byte afterwards.
+
+**S-798 amendment 2 (recorded before editing; found by
+`tcr-s824-qualified01`).** `TestHistorySourceFamilyPaging_Integration` seeds
+envelope-only `host`/`identity` records that have no source row. The helper's
+single `UPDATE … SET updated_at = GREATEST(…), row_version = GREATEST(…)`
+names `updated_at` and `row_version` even when their values are unchanged.
+PostgreSQL then fires the column-specific `00011`
+`entities_assert_entity_envelope_update` constraint trigger, which fails with
+`entities_envelope_source_mismatch`. So a "no envelope change" barrier still
+asserts a mirror.
+
+Successor:
+
+- Three statements in the same transaction:
+  - set only `deleted_at` and `deleted_by_user_id`, guarded by
+    `created_at <= at`;
+  - advance `updated_at` only on rows where it is earlier than the deletion;
+  - raise `row_version` only on rows where it is lower than the request.
+- The mirror statements stay guarded. A barrier tombstone therefore touches
+  no mirror-checked column.
+- The contract test gains a case: `AtLastUpdate` on an envelope-only Host
+  succeeds under `SET CONSTRAINTS ALL IMMEDIATE`. A Host tombstone that does
+  advance `updated_at` still needs its mirror row.
+- `module.records.envelope.store` is requalified.
+- Every consumer row converted so far (S-805 to S-827) is requalified
+  without diagnostics after the final census, because the helper's statement
+  shape changed.
+
+**S-798 amendment 3 and S-826 amendment (recorded before editing; found by
+census v3).** Census v3 ran the statement-level trigger log over the 15
+converted owners (303 DB-backed Go rows, `tcr-r04-census3-*`). `pgtest.go` was
+restored afterwards (`git diff --quiet HEAD`).
+
+- **The helper passes through an illegal state.** Amendment 2's first
+  statement sets `deleted_at` before the second statement advances
+  `updated_at`. For one statement inside the helper's own transaction the row
+  has `deleted_at > updated_at`, even though the committed result is legal.
+  Every census v3 hit at a converted site is this transient; its logged
+  statement is the helper's `WITH clock AS …`.
+  - Successor: read the instant once (`SELECT … FOR UPDATE`) and fail closed
+    in Go before any write. Then advance `updated_at` first (legal, because
+    `deleted_at` is still null), then tombstone at the instant (legal, because
+    `deleted_at ≤ updated_at`), then raise the version. No intermediate state
+    is illegal.
+  - The contract test is unchanged. Census v4 checks the property at the
+    former hit rows.
+- **One residual real hit.** The timeline `store_test.go:755` closure
+  (`TestClosedIncidentWriteBarrier_Unit`) runs under the rollback fixture.
+  There `now()` is the transaction start, earlier than the incident's
+  `created_at`, so `closed_at` lands 6 ms before creation.
+  - Successor: `closed_at = GREATEST(created_at, clock_timestamp())`.
+- All other census v3 failures are the transient above or known diagnostic
+  noise: `saved_graph_lifecycle_v2` and `current_snapshot_workers…` hit the
+  restore catalog.
+
+Amendment closure: DONE.
+
+| Run | Purpose | Native exit | Result |
+| --- | --- | --- | --- |
+| tcr-s798-format04 | `make format` | 0 | pass |
+| tcr-s798-qualified04 | helper contract (`module.records.envelope.store`) | 0 | pass3/3; failure messages unchanged |
+| tcr-s826-qualified02 | `module.timeline.store.closed_incidents_remain_readable_and_permit_exac_1af610054a` | 0 | pass3/3 |
+| tcr-r04-census4-* (9 runs, diagnostic) | the 13 rows census v3 flagged, excluding the 2 noise rows, with the trigger log applied then restored (`git diff --quiet HEAD`) | 0 ×9 | every row passed, with no `R04DIAG` entry at statement level or commit |
+
+Census v4 is diagnostic, not evidence. It shows that the converted sites and
+the helper no longer write an illegal Records envelope or incident closure,
+even transiently. Clean evidence on the final helper comes from the
+requalification of all 42 helper-consumer rows (`tcr-r04-requal-*`).
+
+### S-799 / F-784 / E-847 — Parties normalization corpus selected by identity, not position
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: the Parties NLSpec normalization corpus
+(`contracts/parties/normalization_corpus.v1.json`, schema
+`cartulary.parties.normalization_corpus.v1`) is the executable expectation for
+field admission. Contract tests consume canonical artifacts by identity.
+
+Defect (E-686, R-04): `policy/value_test.go:26` decodes
+`contractparties.Artifacts[1]`. If the generator reorders artifacts, the test
+decodes another artifact. `json.Unmarshal` ignores unknown members, so it gets
+zero cases and passes vacuously.
+
+Successor:
+
+- Select `contractparties.Index["contracts/parties/normalization_corpus.v1.json"]`
+  and require that it is present.
+- Require the decoded `schema_id` to equal the corpus schema.
+- Require a non-empty case list.
+
+Predecessor retired: the positional selection, replaced in place.
+Selection: `module.parties.unit.normalization_corpus_c9b7db05c6`. No
+production, routing or profile change.
+
+#### R-04 census v2 results (diagnostic, not evidence)
+
+The 39 `tcr-r04-census2-*` runs covered 566 DB-backed Go rows: 17 runs exited
+0 and 22 exited 2, with 60 rows not passing. Afterwards `pgtest.go` was
+restored byte-for-byte (`cmp`; `git diff --quiet HEAD`).
+
+Class A/B writes, each logged with its statement. Tests with several bad rows
+are listed once.
+
+| Owner | Tests | Statement class |
+| --- | --- | --- |
+| artifacts | `TestArtifactPatchEnvelopeOutcomes`; `TestNoteAssociationResource/contextual_source_deletion_admission` | SQL tombstone 30 s after `updated_at`; fixed 2026-11-14 03:00 tombstone before a wall-clock creation |
+| assessments | `TestAssessmentsCreateAndProjection` | literal `'2026-11-14T10:00:00Z'` tombstone |
+| entities | `TestResolveRoute_Integration` (3 subtests) | literal 2026-11-14 tombstone; `now()` tombstones |
+| evidence | `TestBlobAssociation_RejectsReuseWithConcealment`; `TestEvidencePartyReferenceConcurrency_Integration`; `TestHandleRedemptionRechecksCurrentState_Unit` | a production update driven by a fixed 2026-07-30 command clock; a `now()` tombstone with version 2; an SQL `updated_at = now()` that is earlier than a creation committed later |
+| incidents | `TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integration` | production lifecycle close driven by a fixed 2026-07-25 command clock (Class B) |
+| links | `TestPartyAssignmentSnapshotSource` | SQL tombstone 1 h after `updated_at` |
+| networkflow | `TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes` | `now()` tombstone |
+| parties | `TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration` | SQL tombstone 1 h after `updated_at` |
+| projections | `TestPartyProjectionSourceEnumerationIsDeterministicCompleteAndActiveOnly` | `INSERT` with a fixed `updated_at` before the defaulted `created_at` |
+| reporting | `TestReportingEvidenceProviderRedaction_Integration` | SQL tombstone 3 min after `updated_at` |
+| revisions | the seven earlier hits plus `TestRollbackParticipantsAndHistoricalAppend_Integration/…/hidden_incoming` | SQL tombstones (`now()`, fixed, pre-creation); fixed closure (Class B) |
+| tasksdecisions | `TestTaskDirectReferenceConcurrency_Integration`; `TestTaskRequestLifecycleDecisionLinksAndProjection_Unit` | `now()` tombstone with version 2; SQL tombstone 20 min after `updated_at` |
+| timeline | `TestAutoResolutionEligibility_Integration` (3 subtests); `TestClosedIncidentWriteBarrier_Unit`; `TestManualTimelineConfidenceNull_Integration` | literal 2026-11-14 and `now()` tombstones; fixed 2026-04-20 closure (Class B) |
+| workbook | `TestCoordinationCollectionsAndValidation_Unit`; `TestNoteAssociationsPublicPagingAndHistory`; `TestWorkbookClosedIncidentWrites_Integration`; `TestWorkbook_EvidenceMutations` | SQL tombstones (next day, `now()`); fixed closure (Class B) |
+
+Failures that the diagnostic did not log:
+
+- **Diagnostic noise**, caused by the extra side table and trigger objects:
+  - Recovery restores ("catalog counts differ: expected 165, got 166") in the
+    recovery, networkflow, reporting, reportcomposition and reference_data
+    restore paths.
+  - Reset inventory in harness.browser.
+  - DDL and ACL parity in database_migrations and platform.postgres.
+  - Skipped operator process dependencies.
+- **Real, confirmed by clean re-runs:**
+  - `tcr-r04-clean-entities01` (exit 2):
+    `TestExactMatchPrecedence_Unit` fails at `exact_match_unit_test.go:144`/`:270`
+    with `records.envelope_legal`. The exact-match reuse path stamps the
+    `entitytest.BaseTime` (2026-04-18) command clock onto Hosts and Identities
+    seeded at `now()`, and the snapshot validator rejects the result. Because
+    the transaction rolled back, the side table missed it. This is a live
+    R-04 Class A failure.
+  - `tcr-r04-clean-incidentbundles01` (exit 2):
+    `TestNetworkFlowIncidentTransferThroughPublicOperations_Integration` fails
+    at `network_flow_transfer_integration_test.go:217` with "portable Core
+    state changed in data/actors.ndjson". It is not yet classified and is
+    diagnosed separately.
+- Clean re-run of all 60 census-failed rows (`tcr-r04-clean2-*`, 22 runs,
+  `pgtest.go` = HEAD): 20 runs exited 0 (58 rows passed), so every other
+  failure was diagnostic noise. Only two rows fail on their own, the two
+  already confirmed: entities `exact_match_precedence…949743e789` and
+  incidentbundles `network_flow_portability`. Across all 566 DB-backed Go
+  rows these are the only current failures.
+- Non-DB baseline for the 21 owners audited before `b5cd96adf`
+  (`tcr-s064c-baseline-*`, 22 runs over 387 non-DB Go, Vitest and shell rows):
+  378 passed, and 9 rows fail at current source. In every case the failing
+  production code is unchanged in the working tree and comes from the
+  committed checkpoint `b5cd96adf`, so these are stale passes and not effects
+  of this effort. The failures:
+  - `harness.generated_artifacts…f162342f15`:
+    `collaboration/protocol/replay_shape.go` imports `internal/gen/contractws`
+    and is not an approved generated-contract consumer.
+  - `harness.release.behavior.{standup,reference_pack,operational_recovery}_package`:
+    the standup smoke qualifications fail (`product/test_assertion_failure`).
+    Cause not yet diagnosed.
+  - `module.artifacts…778e06f594`: `non_nullable_null unexpectedly passed
+    exact source admission` (`surface_contract_test.go:266`). This is a
+    possible production admission regression and is not yet diagnosed.
+  - `module.entities.unit.root_boundary_guards…`: four production files import
+    outside the Entities root boundary (`aliashistory`, `records`,
+    `enveloperead`, `historyvalue`, `preservedhistory`).
+  - `module.evidence…57b5d6b63a`: the field-key registry now includes the
+    adopted `evidence.owner_user_id`, and the test expectation is stale.
+  - `module.extensions.static.behavior_routing…`: a routing selector count is
+    17, and the test wants 18.
+  - `module.incidentbundles…25db0a5cae`: the exported surface adds
+    `PortabilityOperationPolicy`, which is unapproved.
+  - Browser rows of these 21 owners have not been run at current source.
+
+**Maintainer decisions, 2026-11-15.**
+
+- *Interleave by owner.* Owners are worked in lexical order, starting with
+  harness.generated_artifacts and harness.release. For each owner, its
+  stale-pass repairs come first as recorded S-064-correction slices, then its
+  R-04 conversions.
+- *No browser baseline now.* Browser rows run only where a repair touches
+  their path. The unrun browser baseline of the 21 earlier owners is a
+  recorded limitation.
+
+**S-798 amendment (recorded before editing; the helper has no consumer
+yet).** Several fixtures use a tombstone as a synthetic lock barrier, then
+undo it and compare full row state. Example: `contextual_note_lock_test.go`
+undoes with `SET deleted_at=NULL` and then requires `before == state()` over
+`records` and `hosts`. For these, the only legal tombstone that changes
+nothing else is `deleted_at = updated_at`.
+
+The amendment:
+
+- Add `Tombstone.AtLastUpdate`, which deletes at the record's current
+  `updated_at`, so the envelope's clocks and version are unchanged.
+- Restrict the mirror statements to rows whose `row_version` or `updated_at`
+  actually differ, so a barrier tombstone takes no `hosts`/`identities` row
+  lock.
+- Extend the contract test with a barrier case: `deleted_at` equals the prior
+  `updated_at`, the envelope is unchanged, and the host mirror's `xmin` is
+  unchanged (not rewritten).
+- Requalify `module.records.envelope.store`.
+
+Amendment closure: DONE.
+
+- `tcr-s798-format02` exited 0.
+- `tcr-s798-qualified02`
+  (`make test-slice OWNER=module.records ROWS=module.records.envelope.store`)
+  exited 0: pass3/3; source `2dbbebea…`; scan pass; 14 cleanups completed.
+- `tcr-s798-mutation01` (diagnostic) temporarily removed both mirror guards.
+  It exited 2 at `soft_delete_fixture_integration_test.go:110` with "barrier
+  tombstone rewrote the unchanged host mirror: xmin 826 -> 829", so the
+  `xmin` check discriminates. `RollbackDB.BeginTx` is a savepoint, so helper
+  writes get their own subtransaction xid. The file was restored and verified
+  with `cmp` against the qualified copy.
+
+### S-800 / F-785 / E-848 — Generated-contract guard admits the Collaboration protocol's WS contract consumer (S-064 correction)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Stale pass found by the S-064 correction baseline:
+`tcr-s064c-baseline-harness-generated_artifacts01`, row
+`harness.generated_artifacts.unit.runtime_go_files_do_not_import_internal_testutil_f162342f15`,
+`TestOnlyApprovedGeneratedContractBoundariesImportGeneratedContracts`. The
+failure is "unapproved generated-contract consumers:
+`internal/modules/collaboration/protocol/replay_shape.go` →
+`internal/gen/contractws`".
+
+Governing:
+
+- The Collaboration durable-admission design adopted in S-283/F-268 (E-275)
+  validates durable payload shape against the already embedded machine
+  WebSocket contract. That avoids a second hand-maintained structural schema.
+- Harness NLSpec :88 says generated packages are downstream projections whose
+  consumers are explicitly admitted.
+
+Defect: the guard's allowlist still records `"ws": {}`, meaning no
+production consumer, as it did before S-283. S-283's qualification selected
+Collaboration rows and a boundary plan but not this row, which repeats the
+S-653 lesson. Production is correct.
+
+Successor: `"ws": {"internal/modules/collaboration/protocol"}`. That exact
+package is the only `contractws` importer. Selection: the failing row. No
+production, routing or profile change.
+
+Closure: DONE.
+
+- Wording correction: `collaboration/protocol` is the only *production*
+  importer. `internal/platform/contracttest` also imports `contractws`, but
+  it is test support outside the guard's production scan.
+- `tcr-s800-format01` exited 0.
+- `tcr-s800-qualified01` exited 0: the row passed, 1/1 unit; source
+  `b2fd9f53…`; scan pass; 10 cleanups completed.
+
+### S-801 / F-786 / E-849 — Package-qualification Compose projects fit the package deployment-identity grammar (S-064 correction)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Stale pass found by the S-064 correction baseline:
+`tcr-s064c-baseline-harness-release01` failed
+`harness.release.behavior.{standup,reference_pack,operational_recovery}_package`.
+
+Diagnosis, from temporary edits to `check-standup-package-smoke.sh`, each
+restored and verified with `cmp` and `git diff --quiet HEAD`:
+
+- `tcr-s064c-release-diag01` shows the failing step is "package initialization
+  failed".
+- `tcr-s064c-release-diag02` shows empty startup and compose logs, so the
+  failure happens before any container starts.
+- `tcr-s064c-release-diag03`: `package.sh start` stderr reads "cartulary
+  package: invalid deployment identity".
+
+Cause:
+
+- The `b5cd96adf` allocator (`package-qualification-allocation.mjs` and
+  `package-deployment.mjs`) names projects
+  `cartulary-qualification-<UUID>-<scope>`. That is 67 characters for
+  `source` and 72 for `destination`.
+- The shipped package (`deploy/mvp/scripts/package-common.sh:48`, unchanged
+  since 2026-10-06) requires `^[a-z0-9][a-z0-9_-]{0,62}$`.
+- Every package qualification is therefore rejected before it starts.
+- The harness unit fixtures use the same over-long names and never apply the
+  package grammar, so they still pass.
+
+Governing:
+
+- Harness NLSpec :9696 requires fresh source and destination Compose
+  namespaces under a minted UUID allocation, and the runtime-resource schema
+  pins `token` to a UUID. The UUID stays.
+- The package deployment identity is a shipped product rule and stays
+  unchanged.
+- No specification names the harness prefix.
+
+Successor:
+
+- The harness prefix becomes `cartulary-pq-`. With `-destination` the longest
+  project is 61 characters, and the cleanup helper is
+  `cartulary-pq-<UUID>-cleanup`.
+- `package-qualification-project.mjs`'s source pattern follows the new prefix.
+- The four harness test files update their literal names:
+  `test-package-qualification`, `-deployment`, `-deployment-lifecycle` and
+  `-platform`.
+- New guard in `test-package-qualification.mjs`: the source and destination
+  projects derived from a UUID allocation both satisfy the package grammar,
+  written as a literal citing `package-common.sh:48`. A future prefix that
+  breaks the package rule then fails in the unit row, not only in the slow
+  smoke.
+
+Predecessor retired: the over-long prefix and its fixture literals. Selection:
+`harness.release.behavior.package_readiness_contract` (the unit tests) plus
+the three standup rows. `make generate` follows if backing-script digests
+project into generated artifacts. No product change.
+
+S-801 progress:
+
+- `tcr-s801-format01` and `tcr-s801-generate01` exited 0 (no new generated
+  delta).
+- `tcr-s801-qualified01` (all four rows) exited 2. `package_readiness_contract`
+  passed, including the new grammar guard. The three smokes now pass package
+  start and fail later with `artifact/artifact_error`: a second, independent
+  defect, recorded as S-802 below.
+- Diagnostics `tcr-s801-diag01`–`04` were temporary edits to the smoke script,
+  `package-platform.mjs` and `reference-platform.mjs`. Each was restored and
+  verified with `cmp` and `git diff --quiet HEAD`. They located the defect at
+  `package-platform.mjs observe` → `referencePlatform`, which throws
+  "assessment requires Docker Desktop's running WSL2 backend" with the
+  observed `{name: docker-desktop, os: Docker Desktop, kernel: …microsoft…,
+  engine: true}` and an undefined `wsl_distribution`.
+
+### S-802 / F-787 / E-850 — Reference-platform readiness decodes WSL output as UTF-8 explicitly (S-064 correction)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Defect (harness, environment-triggered):
+
+- `tools/harness/readiness/reference-platform.mjs` (unchanged since
+  2026-10-16) decodes `wsl.exe --version` and `--list --verbose` as UTF-16LE.
+- The installed WSL (2.7.3.0) writes UTF-8 when stdout is a pipe. Reproduced
+  outside the harness with the pinned Node: the bytes `20 20 4E 41 4D 45` read
+  as "  NAME" in single-byte form, so UTF-16LE decoding yields CJK garbage.
+- The Docker Desktop distribution line is therefore never found, and every
+  package qualification fails at observe. The recorded `wsl` version evidence
+  would be garbled too.
+- The smokes last passed on 2026-11-06 (`remediation-qualified4/5`), before
+  the WSL update. Production is unaffected.
+
+Governing: Harness NLSpec reference-platform qualification (read-only
+observation of the Windows 11/WSL2/Docker Desktop boundary). The evidence must
+be truthful.
+
+Successor:
+
+- Both `wsl.exe` calls run with `WSL_UTF8=1`, which makes WSL emit UTF-8
+  regardless of version, and decode as UTF-8 through the callers' existing
+  helpers.
+- A new check requires the version text to start with `WSL version:`. A future
+  encoding drift then fails with an explicit decoding message instead of a
+  misleading platform verdict.
+
+Predecessor retired: the UTF-16LE decoding. No unit test covers this reader;
+qualification is the three standup rows, which actually call it. No product,
+routing or profile change.
+
+S-802 progress:
+
+- `tcr-s802-format01` and `tcr-s802-generate01` exited 0.
+- `tcr-s802-qualified01` (the four release rows) exited 2.
+  `package_readiness_contract`, `standup_package` and
+  `operational_recovery_package` passed, so S-801 and S-802 are effective.
+  `reference_pack_package` failed on a third defect, S-803.
+- Diagnostics `tcr-s802-diag01`–`03` were temporary edits to the smoke script
+  and `tools/windowsprobe/main.go`, each restored and verified with `cmp` and
+  `git diff --quiet HEAD`. In `standup-reference-pack-scenarios.mjs:163` the
+  Windows probe's authenticated WSS hello receives
+  `error invalid_websocket_handshake: "client message requires a type and
+  route-matching incident_id"`.
+
+### S-803 / F-788 / E-851 — Windows package probe sends the adopted client envelope (S-064 correction)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Governing: Core 01 REQ-01-256. Every client-originated application message
+carries a route-matching `incident_id`, an RFC3339 UTC `emitted_at`, an object
+`payload`, and no `stream_seq`. S-267/F-252 enforced this on the server
+(`collaboration/protocol/codec.go:113`) and migrated the browser and bound test
+clients, but it missed `tools/windowsprobe`. Last changed on 2026-10-06, the
+probe still sends `{"type":"hello","payload":…}`, so every reference-pack
+package qualification fails its Windows WSS check. Production is correct.
+
+Successor:
+
+- The probe marshals its hello as `{type: "hello", incident_id: <probe
+  incident>, emitted_at: <UTC RFC3339Nano now>, payload: {…unchanged…}}`.
+- It now also requires the `hello_ack` envelope's `incident_id` to equal the
+  probed incident, so the route binding is observed end to end.
+
+Predecessor retired: the envelope-less hello literal. Qualification: the
+`reference_pack_package` row (the only probe caller with WSS), plus a final run
+of all four release rows to close S-801 to S-803 together. No production,
+routing or profile change.
+
+#### S-801, S-802 and S-803 closure — harness.release package qualification restored
+
+DONE.
+
+- `tcr-s803-format01` and `tcr-s803-generate01` exited 0. No generated delta
+  came from S-801 through S-803.
+- `tcr-s803-qualified01`
+  (`make test-slice OWNER=harness.release ROWS=harness.release.behavior.package_readiness_contract,harness.release.behavior.standup_package,harness.release.behavior.reference_pack_package,harness.release.behavior.operational_recovery_package`)
+  exited 0: pass18/18 units, all four rows passed, 463 s wall. Source
+  `e95a4332…`, graph `fccc505a…`; scan pass (155 files); 27 cleanups
+  completed.
+- The three real package smokes now run end to end: install, disabled-crypto
+  rejection, package start, platform observation, reference-pack scenarios
+  (including the Windows WSS check) and operational recovery.
+
+Effects:
+
+- S-801: harness project names fit the package's deployment identity rule.
+- S-802: WSL readiness evidence is decoded truthfully.
+- S-803: the probe speaks the adopted client envelope.
+
+None of the three changes production. Their root causes were a `b5cd96adf`
+harness addition (S-801), a host WSL update (S-802) and S-267's missed probe
+client (S-803). In each case the narrower qualification at the time never
+selected these rows.
+
+### S-804 / F-789 / E-852 — Artifact non-nullable admission case uses a non-clearable field (S-064 correction)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Stale pass found in `tcr-s064c-baseline-module-artifacts01`: row
+`…778e06f594`, `TestArtifactSurfaceContractMatrix/exact_write_admission`
+(`surface_contract_test.go:266`). The failure is "non_nullable_null
+unexpectedly passed exact source admission".
+
+Governing: Core 01 `:6717` and `:6720`. `note.title` is `clearable=true`, and
+explicit null clears it to authoritative null. Production admission
+(`source_policy.go:38-42`) admits null only for clearable fields and otherwise
+returns `field_not_nullable`. Production is correct. The case's `note.title`
+fixture predates that adoption, which S-793 also recorded for web.workbook.
+
+Successor:
+
+- The `non_nullable_null` case uses the non-clearable `finding.kind`, with a
+  valid `finding.statement`, so null is its only defect.
+- A dedicated assertion pins that exact input to
+  `ValidationError{Field: "finding.kind", ReasonCode: "field_not_nullable"}`.
+- A positive control requires `note.title: null` with a `note.body` signal to
+  be admitted, as clearable.
+
+Predecessor retired: the stale `note.title` null case. Selection: the failing
+row. No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s804-format01` exited 0.
+- `tcr-s804-qualified01`
+  (`make test-slice OWNER=module.artifacts ROWS=module.artifacts.surface_contracts.artifact_surface_registry_recognizes_all_eight_c_778e06f594`)
+  exited 0: pass1/1; source `5112213c…`; scan pass; 10 cleanups completed.
+
+### S-805 / F-790 / E-853 — Artifacts R-04: legal tombstones in patch-envelope and contextual-note fixtures
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A).
+
+Census-confirmed sites:
+
+- `artifact_patch_envelope_integration_test.go:173` (`TestArtifactPatchEnvelopeOutcomes`
+  "deleted record requires restore") tombstones at `now+30s`, after the
+  record's last `updated_at` of `now`.
+- `contextual_note_lock_test.go:62` and `:134`
+  (`TestNoteAssociationResource/contextual source deletion admission`)
+  tombstone at the fixed `2026-11-14T03:00Z`. That instant is now earlier than
+  the source Host's `now()` creation.
+
+Conversions:
+
+- `:173` becomes `envelopetest.SoftDeleteRecord` at `now+30s`. `updated_at`
+  advances to the deletion and the version stays 1, so the base-version-1
+  patch still reaches `ErrRecordDeletedUseRestore`.
+- `:62` is a barrier inside the lock-holder transaction. The test later undoes
+  it and requires `before == state()`, so it becomes `AtLastUpdate` on the
+  holder `pgx.Tx`. The envelope clocks and the host mirror are untouched.
+- `:134` deletes after the committed note, and `after` is captured
+  post-deletion. It becomes `AtLastUpdate` on `h.DB`.
+
+Legal sites, retained:
+
+- `note_associations_integration_test.go:230`, `:348` and `:374`,
+  `linked_notes_integration_test.go:125`, and
+  `coordination_source_integration_test.go:104` and `:199`.
+- Each tombstones at the same fixed or test-local `now` that seeded the record,
+  so `created_at = deleted_at ≤ updated_at`. Link upserts can only raise
+  `updated_at`.
+
+Selection: `module.artifacts.source_mutations.managed_service_assertions_for_artifact_source_c_a67a87fbf9`
+and `module.artifacts.linked_notes.note_association_resource`. No production,
+routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s805-format01` exited 0 and ordered the new imports.
+- `tcr-s805-qualified01` (both rows) exited 0: pass4/4; source `55896d4e…`;
+  scan pass; 17 cleanups completed.
+- The lock test still observes its waiter: a barrier `UPDATE` takes the row
+  lock even when its values are unchanged.
+
+A-module.artifacts is complete for this correction pass:
+
+- S-804 repaired the stale pass.
+- S-805 converted the R-04 sites.
+- The six legal tombstone sites are retained with reasons.
+
+### S-806 / F-791 / E-854 — Assessments R-04: subject-invalidation barrier tombstone is legal
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A).
+
+The census confirmed the defect in `TestAssessmentsCreateAndProjection`
+(`subject_lock_test.go:66`, `exerciseAssessmentSubjectAdmission`). The
+lock-holder `invalidate` tombstones the subject at the literal
+`'2026-11-14T10:00:00Z'`, which wall-clock time has passed, so it now precedes
+the subject's `now()` creation. The holder commits the illegal envelope.
+
+The probe later reverses only the version and the deletion, then requires
+`after == before` over `records` and the mirrors. A legal tombstone must
+therefore leave `updated_at` unchanged.
+
+Successor: `envelopetest.SoftDeleteRecord(t, tx, Tombstone{RecordID: subject,
+DeletedBy: actor, AtLastUpdate: true})` on the holder transaction. The earlier
+version bump and the merged branch are unchanged. Predecessor retired: the
+literal-instant tombstone. Selection:
+`module.assessments.store.http_create_replay_projection_publication_characterization`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s806-format01` exited 0.
+- `tcr-s806-qualified01` exited 0: pass3/3; source `aa6c4ec7…`; scan pass;
+  14 cleanups completed.
+- All six host/identity × deleted/merged/support-deleted subtests ran, and
+  the `after == before` repair check still holds.
+
+### S-807 / F-792 / E-855 — Database migrations R-04: bulk runtime tombstone keeps the envelope legal
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A).
+
+`import_source_index_integration_test.go:107`
+(`TestImportSourceIndexPreservesAssociationsAndPrivileges_Integration`) checks
+that a runtime-role tombstone of every Record leaves the committed-source
+associations intact. It runs `UPDATE public.records SET deleted_at=now()`. The
+only record was inserted earlier in its own autocommit statement with default
+`created_at = updated_at = now()`, so the later tombstone gives
+`deleted_at > updated_at` by construction.
+
+The census missed this site because migration-scratch databases are outside
+its scope. A per-record helper does not fit a bulk statement against a partial
+schema.
+
+Successor: `SET deleted_at=updated_at, deleted_by_user_id=created_by_user_id`.
+It is still a runtime-role soft deletion of every record, now legal, and the
+association-count claim is unchanged. Predecessor retired: the `now()`
+tombstone. Selection:
+`module.database_migrations.integration.production_ddl_v3_recurrence`. No
+production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s807-format01` exited 0.
+- `tcr-s807-qualified01` exited 0: pass3/3; row passed (11.2 s); source
+  `f094eb98…`; scan pass; 14 cleanups completed.
+
+### S-808 / F-793 / E-856 — Entities root import guard admits the adopted history-codec and Records envelope capabilities (S-064 correction)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Stale pass found in `tcr-s064c-baseline-module-entities01`: row
+`module.entities.unit.root_boundary_guards_e292ec1361`,
+`TestEntitiesProductionImportBoundaries`. Four root files from `b5cd96adf`
+import capabilities that the guard's hand-maintained allowlist lacks:
+
+- `alias_history_validator.go` imports `entities/hostidentity/aliashistory`.
+- `preserved_identifier_history_validator.go` imports
+  `entities/hostidentity/preservedhistory`.
+- `mention_history_validator.go` imports `entities/mentions/historyvalue`.
+- `incident_bundle_portable_apply.go` imports `records` and
+  `records/enveloperead`.
+
+Governing:
+
+- Core 02 REQ-02-265 owner history codecs, adopted with their pure validators
+  in E-361's S-531 and S-532.
+- The Records envelope-read split recorded in S-019–S-022 and applied to the
+  same class in S-653.
+- The authoritative repository policy (`tools/backend_module_boundaries.json`,
+  `make lint CHECK=backend-boundary`) admits these imports; it passed at
+  current source in `tcr-s798-boundary01`.
+
+Production is correct. The projection is stale, which repeats the S-653
+lesson.
+
+Successor:
+
+- Add exact grants for the five capabilities.
+- Extend the file-reorganization witness: the `hostidentity/aliashistory`
+  child grant is admitted, while the `hostidentity` root stays forbidden.
+  Grants therefore remain exact packages, not descendants.
+
+Selection: the failing row. No production, policy or routing change.
+
+Closure: DONE.
+
+- `tcr-s808-format01` exited 0.
+- `tcr-s808-qualified01` exited 0: pass1/1; source `9b3e5c5a…`; scan pass;
+  10 cleanups completed.
+
+### S-809 / F-794 / E-857 — Entities R-04: command clocks follow seeded envelopes and tombstones are legal
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651, plus the S-655 precedent that command clocks follow seeded
+envelopes.
+
+Sites, all Class A:
+
+1. **Live failure (S-064 correction).** `exact_match_unit_test.go:119` and
+   `:234` (`TestExactMatchPrecedence_Unit`, `tcr-r04-clean-entities01`). The
+   exact-match reuse path revises Hosts and Identities seeded at `now()`,
+   using the fixed command clock `entitytest.BaseTime` (2026-04-18).
+   `updated_at < created_at`, so revision snapshot capture fails with
+   `records.envelope_legal`. No assertion reads these clocks.
+2. `resolution_route_integration_test.go:46` (census-confirmed): the `now()`
+   tombstone of the target follows its creation.
+3. `mention_target_admission_test.go:83` (census-confirmed): a lock-holder
+   barrier at the expired literal `'2026-11-14T10:00:00Z'`. The test later
+   repairs and compares `after == before`, the same pattern as S-806.
+4. `incident_bundle_invariant_closure_integration_test.go:56` (static): a
+   tombstone at `timestamp+1min` after the record's last update at
+   `timestamp`, inside `tx`.
+
+Successors:
+
+1. Both reuse calls use a command clock one minute after the incident's
+   latest seeded `records.updated_at`, read from the database. The alias and
+   fuzzy create calls at `:292` and `:313` create new records (Class C) and
+   are retained.
+2. `envelopetest.SoftDeleteRecord` on the database clock. The effect
+   snapshot is taken afterwards.
+3. `AtLastUpdate` on the holder transaction.
+4. `SoftDeleteRecord(tx, At: deletedAt)`. The test asserts only `deleted_at`
+   and version 1, and both are preserved.
+
+Selection: the rows holding `TestExactMatchPrecedence_Unit`,
+`TestResolveRoute_Integration`, the mention-target admission and the
+invariant-closure tests. No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s809-format01` exited 0.
+- `tcr-s809-qualified01` (`make test-slice OWNER=module.entities ROWS=…d68c1befd6,…949743e789,…92db429a94`)
+  exited 0: pass4/4. All three rows passed, including the previously failing
+  exact-match row. Source `b458fc85…`; scan pass; 17 cleanups completed.
+
+A-module.entities is complete for this correction pass: S-808 repaired the
+stale pass and S-809 handled R-04 and the live failure.
+
+### S-810 / F-795 / E-858 — Evidence field-key registry expectation includes the adopted owner (S-064 correction)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Stale pass found in `tcr-s064c-baseline-module-evidence01`: row
+`…57b5d6b63a`, `TestEvidenceFieldKeyRegistryClosure_Unit`
+(`conformance_test.go:108`). The registry now ends with
+`evidence.owner_user_id`, which Core 01 adopts at `:6574`, `:6582` and
+`:6587`: nullable, clearable, an incident-member reference. S-793 recorded
+the same adoption for web.workbook.
+
+Successor: the literal expected list appends `evidence.owner_user_id`, in
+registry order. Production is correct.
+
+### S-811 / F-796 / E-859 — Evidence R-04: one clock source per envelope, command clocks after seeds, legal tombstones
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A), plus the S-655 precedent that command
+clocks follow seeded envelopes.
+
+1. **Cross-clock seed (census-confirmed).** `seedEvidenceAttachmentRecord`
+   (`attach_test.go:218`) stamps envelopes with Go `time.Now()` on the WSL
+   host. Later fixture updates (`incrementRecordVersionInStore`,
+   `handle_state_test.go:175`) use Postgres `now()` in the Docker Desktop VM.
+   The clocks differ by tens of milliseconds:
+   `TestHandleRedemptionRechecksCurrentState_Unit` left
+   `created_at = …20.232` after `updated_at = …20.185`.
+   - Successor: the seed reads one database `now()` and uses it for both rows.
+2. **Command clock before seeds (census-confirmed).**
+   `TestBlobAssociation_RejectsReuseWithConcealment` attaches with the fixed
+   command clock 2026-07-30 against envelopes seeded now. No assertion reads
+   that clock.
+   - Successor: the clock is one minute after the incident's latest seeded
+     `records.updated_at`.
+3. **Tombstone (census-confirmed).** `party_reference_concurrency_integration_test.go:82`
+   sets `deleted_at=now(), row_version=2`.
+   - Successor: `SoftDeleteRecord` with `RowVersion: 2`.
+4. **Expired literal (static).** `incident_bundle_custody_integration_test.go:54`
+   tombstones at `'2026-01-03'`, before the in-transaction `now()` creation.
+   The test checks only `deleted_at IS NOT NULL`.
+   - Successor: `AtLastUpdate` on the transaction.
+5. **Cross-clock tombstone (static).** `updateRecordDeletedState`
+   (`lifecycle_test_support_test.go:413`) sets `deleted_at` from Go
+   `time.Now()` and `updated_at = now()` from the database.
+   - Successor: both from the database clock, with the boolean as the
+     parameter.
+
+Legal sites, retained: `incident_bundle_record_integration_test.go:89`,
+`:168`, `:194` and `:243` run inside one rollback transaction. There `now()`
+is constant, so `created_at = updated_at = deleted_at`.
+
+Selection: the 11 rows reached by these helpers and tests, plus S-810's row,
+which is among them. No production, routing or profile change.
+
+S-810 and S-811 closure: DONE.
+
+- Refinement recorded before qualification: site 3 is also a lock barrier.
+  The test undoes it (`deleted_at=NULL, row_version=1`) and then compares the
+  full contract state, so it uses `AtLastUpdate: true, RowVersion: 2` on the
+  barrier transaction.
+- `tcr-s811-format01` exited 0.
+- `tcr-s811-qualified01` (`make test-slice OWNER=module.evidence ROWS=<the 11
+  rows>`) exited 0: pass6/6 units; all 11 rows passed, including S-810's
+  `…57b5d6b63a`. Source `fecaf609…`; scan pass; 21 cleanups completed.
+
+A-module.evidence is complete for this correction pass.
+
+### S-812 / F-797 / E-860 — Extensions routing guard counts the post-S-328 managed-state selection (S-064 correction)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Stale pass found in `tcr-s064c-baseline-module-extensions01`: row
+`module.extensions.static.behavior_routing_e80c9e3dc7`,
+`TestExtensionBehaviorRouting_Static` (`contract_test.go:778`). The failure is
+"managed_service_assertions_for_state_admission_m_55b90ea265 selector count =
+17, want 18".
+
+S-328/F-313 (E-326) retired the duplicate `AllowedEmptyRestart` root after a
+qualified successor and removed it from the row's authored selector. S-328
+qualified the managed row but not this static routing row, so the guard kept
+the old count. Routing is correct.
+
+Successor: the expected count becomes 17. Selection: the failing row. No
+production or routing change.
+
+Amendment, recorded before the further edit: `tcr-s812-qualified01` exited 2
+on the guard's next map entry. The service-free row
+`…e2f242ee26` has 2 tests, but the guard wants 1. S-329 (E-322 ledger,
+`:26411`) added the qualified root `TestStateMetadataCanonicalIdentity_Unit`
+to that row, again without selecting the static guard. A comparison of all
+four guarded rows against routing shows only these two counts are stale. That
+expected count becomes 2.
+
+Closure: DONE.
+
+- `tcr-s812-format01` exited 0.
+- `tcr-s812-qualified02` exited 0: pass1/1; source `3d172d39…`; scan pass;
+  10 cleanups completed.
+- `tcr-s812-qualified01` (exit 2) is retained as the amendment's witness.
+
+### S-813 / F-798 / E-861 — Incident Bundles export allowlist admits the adopted per-operation portability policy (S-064 correction)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Stale pass found in `tcr-s064c-baseline-module-incidentbundles01`: row
+`…25db0a5cae`,
+`TestOpenAPIAndErrorRegistryContainIncidentBundleContracts_Unit/production_export_surface_is_closed`
+(`api_test.go:797`), "unapproved=[PortabilityOperationPolicy]".
+
+The E-361 portability work, committed in `b5cd96adf`, replaced
+`ExtensionPolicy`'s single `MaximumInputBytes`/`MaximumOutputBytes` with
+exported `Export` and `Import` fields of the new exported type
+`PortabilityOperationPolicy`. That type carries the per-operation output
+schema, state families and bounds. The application assembly owner,
+`internal/app/extensionassembly/incident_portability.go`, constructs it, so
+the type must be exported. The allowlist projection was not updated.
+
+Successor: add `PortabilityOperationPolicy` to `incidentBundleExportAllowlist`.
+The closed-surface check, with both its unapproved and stale directions, is
+otherwise unchanged. Selection: the failing row. No production or routing
+change.
+
+Closure: DONE.
+
+- `tcr-s813-format01` exited 0.
+- `tcr-s813-qualified01` exited 0: pass1/1; source `703c3027…`; scan pass;
+  10 cleanups completed.
+
+### S-814 / F-799 / E-862 — Network Flow transfer re-export check admits exactly the adopted import provenance (S-064 correction)
+
+Recorded before editing; identities verified unused. IN_PROGRESS.
+
+Stale pass, confirmed failing on clean runs (`tcr-r04-clean-incidentbundles01`,
+`tcr-r04-clean2-…`): row `module.incidentbundles.integration.network_flow_portability`.
+`TestNetworkFlowIncidentTransferThroughPublicOperations_Integration` fails at
+`network_flow_transfer_integration_test.go:217` with "portable Core state
+changed in data/actors.ndjson". The row last passed on 2026-11-13 at 07:09
+(S-421).
+
+Diagnosis, from temporary log edits to the comparator, each restored and
+verified with `cmp` and `git diff --quiet HEAD`:
+
+- `tcr-s814-diag01`–`03` show that only two members differ.
+- In `data/change_sets.ndjson`, every change set's `actor_import_contexts`
+  goes from `[]` to exactly one
+  `{import_id, actor_user_id: <destination importer>}`.
+- `data/actors.ndjson` gains exactly that importer's descriptor.
+
+Governing: Core 01 REQ-01-701 (`:10431`) and Core 02 REQ-02-205, adopted by
+S-548/F-533 (E-549) in E-361.
+
+- Apply appends exactly one destination context to every admitted change
+  set.
+- Export preserves the path, including actor descriptors referenced only by
+  import contexts.
+- Recovery preserves it.
+
+Production is correct. The comparator's whole-member byte equality predates
+S-548, which never selected this row.
+
+Successor: `irCompareCorePortableInventory(t, before, after, importer)` checks
+the following.
+
+- Every other `data/` member stays byte-equal, and the object-blob storage-key
+  exception is unchanged.
+- `change_sets.ndjson` has the same number of lines in the same order. Each
+  line equals its source line except that `actor_import_contexts` is the
+  source path plus exactly one appended context, identical on every line.
+- That context's `import_id` is a canonical nonzero UUID, and its
+  `actor_user_id` is destination B's importing user, read from B's session.
+  It is pinned for both the B re-export and the recovered C re-export, because
+  Recovery preserves the context.
+- `actors.ndjson` equals the source plus exactly the importer's descriptor.
+
+Predecessor retired: the unconditional byte equality for those two members.
+Selection: the row. No production, routing or profile change.
+
+Amendment, recorded before the further edit. `tcr-s814-qualified01` exited 2
+after the two provenance members passed, failing at the `object_blobs`
+exception (`:386`, "Evidence storage key is absent").
+
+- Core 01 `:9054`–`:9057` says bundle version 8 `data/object_blobs.ndjson`
+  MUST NOT contain `storage_key`; an E-361 slice (tracker `:37864`–`:37889`)
+  removed it from export.
+- The comparator's older exception stripped a required, deployment-local key
+  and is stale for the same reason.
+- Successor: neither bundle's blob rows may carry `storage_key`, and the
+  member must otherwise be byte-equal, like the other members.
+
+Closure: DONE.
+
+- `tcr-s814-format01` and `format02` exited 0.
+- `tcr-s814-qualified02` exited 0: pass7/7; row passed (214 s); source
+  `4af013de…`; scan pass; 18 cleanups completed.
+- The B re-export and the recovered-C re-export both satisfy the exact
+  provenance rule.
+- `tcr-s814-qualified01` (exit 2) is retained as the amendment's witness.
+
+A-module.incidentbundles is complete for this correction pass (S-813 and
+S-814).
+
+### S-815 / F-800 / E-863 — Incidents R-04: lifecycle close clock follows incident creation
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 §3.3.5.3, under which a close sets `closed_at` and `updated_at` to the
+close commit timestamp. That instant cannot precede creation (R-04 Class B).
+
+The census confirmed the defect in
+`TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integration`
+(`lifecycle_integration_test.go:118`). The test pins the server clock to
+2026-07-25 for the close, but the incident is created at wall-clock time.
+The production close therefore commits `closed_at` and `updated_at` before
+`created_at`, and the reopen at `+1 min` inherits the inversion.
+
+Successor: `closeTime` is the created incident's `created_at`, truncated to
+whole seconds, plus one minute, in UTC. The amendment, recorded before re-run:
+`tcr-s815-qualified01` (exit 2) shows that `+1 h` exceeds the admin session's
+idle lifetime (401 at `:131`); one minute stays after creation and inside it. All the close, replay and reopen
+assertions still compare exact RFC3339 instants derived from `closeTime`.
+Predecessor retired: the fixed 2026-07-25 literal. Selection:
+`module.incidents.integration.incident_lifecycle_close_reopen_authorization_re_6ac1f84d20`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s815-format01` exited 0.
+- `tcr-s815-qualified02` exited 0: pass3/3; source `a2b31ff9…`; scan pass;
+  14 cleanups completed.
+
+### S-816 / F-801 / E-864 — Indicators R-04: recovery-order probe replays a legal deleted envelope
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A, transient).
+
+`active_identity_claims_integration_test.go:118-124`
+(`TestIndicatorActiveIdentityClaimsFollowRecordsAndRebuild_Integration`) runs
+a recovery-order probe under `session_replication_role = replica`. It replays
+the replacement Indicator's "deleted envelope" as
+`deleted_at = deletedAt`. That is one hour and one minute after the
+replacement's `updated_at` (its command clock), a state that a restored
+legal snapshot can never contain. The probe then undeletes and rolls back.
+
+The census could not observe this: replica mode suppresses ordinary triggers.
+The earlier delete bridge at `:44-52` already moves `updated_at` with the
+deletion and is legal.
+
+Successor: the replay sets `deleted_at = updated_at`. It is still a deleted
+envelope replayed after its subtype row, now in a legally restorable form. The
+claim-reconstruction assertion is unchanged. Predecessor retired: the
+after-update replay instant. Selection:
+`module.indicators.identity.active_identity_claims_follow_records_and_rebuild`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s816-format01` exited 0.
+- `tcr-s816-qualified01` exited 0: pass3/3; source `3af812a9…`; scan pass;
+  14 cleanups completed.
+
+### S-817 / F-802 / E-865 — Links R-04: legal tombstones in the party-assignment source and lock fixtures
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A).
+
+The census confirmed every site below in `TestPartyAssignmentSnapshotSource`.
+Its row runs a template-clone pool, so each statement is its own transaction.
+
+1. `party_assignment_facts_test.go:190` tombstones the Party at `now+1h`.
+   The Party's envelope was written at `now`, a fixed 2026-10-15 clock, so
+   the tombstone falls after its last update. The test asserts only that the
+   deleted Party stops contributing.
+   - Successor: `SoftDeleteRecord(db, At: now+1h)`.
+2. `collection_lock_test.go:43` tombstones the "deleted" scenario target at
+   `now()`, after its separate-transaction seed. The `:84` lock-holder
+   barrier does the same.
+   - Successor: both become `AtLastUpdate`, the second on the holder
+     transaction. The lock snapshot covers `record_links` only.
+3. `endpoint_lock_test.go:114`, a lock-holder barrier, tombstones at the
+   expired literal `2026-11-14T08:00Z`, before the seed's wall-clock creation.
+   - Successor: `AtLastUpdate` on the holder.
+
+Legal sites, retained:
+
+- `store_test.go:100`, `:132`, `:252` and `:308` run under `StartStore`'s
+  default rollback-transaction fixture. There `now()` is the one transaction
+  timestamp, so `created_at = updated_at = deleted_at`.
+- This legality depends on the fixture policy. Selecting template-clone for
+  those rows would make the `now()` tombstones illegal. Recorded for the
+  final census.
+
+Selection:
+`module.links.integration.party_assignment_source_facts_preserve_snapshot_963c86bbbb`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s817-format01` exited 0.
+- `tcr-s817-qualified01` exited 0: pass3/3; source `8b8a0ec2…`; scan pass;
+  14 cleanups completed.
+- Both lock waits, collection and endpoint, still observe their holder.
+
+### S-818 / F-803 / E-866 — Network Flow R-04: legal Indicator tombstones in route and replay-race fixtures
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A).
+
+All three sites run inside `TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes`,
+whose server harness gives each statement its own transaction after the
+Indicator was created.
+
+1. `routes_integration_test.go:1177` (census-confirmed) tombstones the target
+   Indicator with `deleted_at=now()`, after its last update.
+   - Successor: `SoftDeleteRecord(harness.Pool, …)` on the database clock.
+2. `routes_integration_test.go:1037` (static) is the "target" entry of the
+   transaction-recheck race table. Its change statement
+   `deleted_at=now()` is undone by the paired NULL statement.
+   - Successor: the change becomes `deleted_at=updated_at`. That is the same
+     deleted-target condition with no later-than-update instant, and it keeps
+     the table's SQL-string shape.
+3. `indicator_link_replay_test.go:118` (static), the "target" change in
+   `AssertIndicatorLinkReplayAdmission`, has the same defect.
+   - Successor: `deleted_at=updated_at`.
+
+Selection: `module.networkflow.integration.bounded_graph_contributor_pipeline`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s818-format01` exited 0.
+- `tcr-s818-qualified01` exited 0: pass3/3; source `e9167b3c…`; scan pass;
+  14 cleanups completed.
+
+### S-819 / F-804 / E-867 — Parties R-04: deleted reference target tombstone is legal
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A).
+
+The census confirmed the defect in
+`TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration`
+(`party_refs_test.go:39`). The deleted target Party is created through the
+command facade at the fixed 2026-05-18 12:00 clock, then tombstoned at 13:00,
+so `deleted_at > updated_at`.
+
+Successor: `envelopetest.SoftDeleteRecord` at the same 13:00 instant. Its
+`updated_at` advances with the deletion, and the reference-rejection matrix is
+unchanged. Selection:
+`module.parties.references.party_reference_targets_must_be_active_parties_i_6ca84ebe53`.
+S-799's row `module.parties.unit.normalization_corpus_c9b7db05c6`, whose edit
+is already applied, is qualified in the same run. No production, routing or
+profile change.
+
+S-799 and S-819 closure: DONE.
+
+- `tcr-s819-qualified01` exited 2 with `infra/preflight_error` (build
+  failed). Removing the SQL left `ctx` unused at `party_refs_test.go:28`, a
+  defect in this slice's own edit. The corpus row passed in that run.
+- Fix: delete the dead `ctx` declaration. `tcr-s819-format02` exited 0.
+- `tcr-s819-qualified02` exited 0: pass4/4. Both rows passed; the corpus unit
+  was a cache hit at identical inputs. Source `fca3f202…`; scan pass; 14
+  cleanups completed.
+
+A-module.parties is complete for this correction pass.
+
+### S-820 / F-805 / E-868 — Projections R-04: Party source seeds carry a legal envelope
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A).
+
+The census confirmed the defect in
+`TestPartyProjectionSourceEnumerationIsDeterministicCompleteAndActiveOnly`
+(`rebuild_test.go:111-117`, `:144`), which runs under the rollback fixture:
+
+- Each Party envelope is inserted with a fixed `updated_at`
+  (2026-08-24 01:00+02:00), while `created_at` defaults to `now()`, the
+  2026-11-15 transaction timestamp. So `updated_at < created_at`.
+- The deleted source is then tombstoned at `now()`, after that `updated_at`.
+
+The test asserts only `UpdatedAt` (`:195`).
+
+Successor:
+
+- The seed inserts `created_at = updated_at = updatedAt`, a legal envelope
+  whose asserted value is unchanged.
+- The deleted source uses `SoftDeleteRecord(AtLastUpdate)`.
+
+The stale `timeline_grid_projection` row at `:462` is a projection-table
+fixture, not a Records envelope. It is retained as Class D: deliberately stale
+input to the rebuild. Selection:
+`module.projections.source.party_projection_source_enumeration_is_determini_69ccf7df7c`.
+No production, routing or profile change.
+
+Closure: DONE.
+
+- `tcr-s820-format01` exited 0.
+- `tcr-s820-qualified01` exited 0: pass3/3; source `b003a193…`; scan pass;
+  14 cleanups completed.
+
+E-693's other R-04 note, the `query_store_test` command `Now` 2026-07-01, is
+retained as Class C. Those commands create new records, and nothing revises a
+seeded record with an earlier clock; census v2 recorded no projections hit
+there.
+
+#### A-module.recovery R-04 disposition (no slice)
+
+- `evidence_inventory_integration_test.go:92` tombstones at `fixedAt`. The
+  record was inserted with `created_at = updated_at = fixedAt`, so the
+  tombstone is legal (Class C).
+- E-700's other clock notes (consistency points before seeded rows, and
+  2026-05-22 blobs against a `now()` incident) only place records or blobs
+  before their incident. That is Class C, since no adopted rule forbids it.
+- Census v2 recorded only diagnostic noise for Recovery, and its clean re-run
+  passed.
+
+### S-821 / F-806 / E-869 — Reference Pack web and e2e fixtures carry the production contract identity
+
+Recorded before editing; identities verified unused. IN_PROGRESS. In scope by
+maintainer decision 3.
+
+Governing: Reference Data NLSpec pack contract. Production emits only
+`cartulary.reference_pack_contract.v3` (`packformat.ContractID`), and the
+OpenAPI `ReferencePackVersionResource.pack_contract_version` is a string or
+null.
+
+Defect (E-705 ledger 2 item 3): `apps/web/src/testing/referencePackTestSupport.ts:44`
+and `apps/web/e2e/support/referencePacks.ts:48` mock
+`cartulary.reference_pack_contract.v1`, a value production never emits. No
+production web code reads the field, so the stale literal only misrepresents
+the server.
+
+Successor: both fixtures use `cartulary.reference_pack_contract.v3`.
+
+Selection:
+
+- The Vitest rows importing the unit support: module.reference_data frontend
+  (5), module.incidents frontend (2) and web.application (37).
+- The Playwright rows importing the e2e support: module.reference_data browser
+  (3) and measurement (3), `web.design.accessibility.reference_pack_administration`
+  and `web.design.visual.reference_pack_administration`.
+
+No production, routing or golden change is expected. The field is not
+rendered, so no screenshot should change; any visual difference would stop
+the slice for review.
+
+Closure: DONE.
+
+- `tcr-s821-format01` exited 0. Exact consumer selection: Vitest rows
+  module.reference_data 5, module.incidents 2 and web.application 28;
+  Playwright rows module.reference_data 6 and web.design 2.
+- Five `make test-slice` runs, all native exit 0, scan pass, every cleanup
+  completed:
+  - `tcr-s821-vitest-module-incidents01`: pass2/2.
+  - `tcr-s821-vitest-module-reference_data01`: pass3/3.
+  - `tcr-s821-vitest-web-application01`: pass2/2.
+  - `tcr-s821-playwright-module-reference_data01`: pass22/22, three browser
+    rows and three measurement rows, 309 s.
+  - `tcr-s821-playwright-web-design01`: pass14/14, the accessibility and
+    visual rows.
+- The visual comparison passed against the unchanged goldens. The working
+  tree still has only S-644's 17 golden changes.
+
+### S-822 / F-807 / E-870 — Reference Data wall-clock negatives become deterministic where a seam exists
+
+Recorded before editing; identities verified unused. IN_PROGRESS. In scope by
+maintainer decision 3.
+
+Governing: the collector contract that sweeps start only after the serving
+gate and never overlap, and the workspace close contract under a held parent
+lease. These are engineering obligations that the tests already claim.
+
+1. **`object_collector_test.go:88-92`** (`TestObjectCollectorLifecycle_Unit`,
+   "collection before serving"). A 20 ms `time.After` negative stands in for
+   the claim. The collector obtains its sole tick source through the injected
+   `ticker`, and only after `<-serving` (`object_collector.go:63-72`).
+   - Successor: this subtest's `ticker` hook requires `serving` to be closed
+     when it is called, and keeps the one-minute cadence check. That is
+     deterministic proof that ticks cannot be read before serving. The timed
+     negative is retired.
+2. **`object_collector_test.go:100-104`**, "overlapping sweep", is a 20 ms
+   negative after a second tick. `Close` waits for the loop to exit.
+   - Successor: after `Close` returns, `entered` must hold no further signal.
+     Any second sweep, overlapping or later, would have sent one into its
+     buffer. The timed negative is retired, and the immediate "shutdown
+     returned with owned work" check stays.
+3. **`referenceassembly/storage_test.go:549-555`**
+   (`testWorkspaceCloseCancellation`, row `…14f3d4892a`). A 25 ms "close
+   escaped held parent lease" negative is subsumed: an early escape before
+   `cancel()` could not satisfy the final `errors.Is(closeErr,
+   context.Canceled)`. The window is removed and the 5-second liveness bound
+   stays.
+4. **`cleanup_lifetime_test.go:116-121`** is retained with residual risk. Its
+   20 ms sleeps order a cancellation against a lease wait inside production
+   code that exposes no observable seam. Making it deterministic would need a
+   production test hook, which is outside this test-only slice.
+
+Selection: `module.reference_data.unit.reference_pack_verifier_accepts_disconnected_loc_9a0b2298c2`
+and `…reference_pack_storage_is_atomic_and_contained_14f3d4892a`. No
+production, routing or profile change.
+
+#### S-822 through S-827 closure, with S-798 amendment 2
+
+DONE.
+
+- `tcr-r04-late-format01` (`make format`) exited 0 for the late edits.
+
+| Run | Slice / selection | Native exit | Result |
+| --- | --- | --- | --- |
+| tcr-s822-qualified01 | S-822, two module.reference_data rows | 0 | pass2/2; source `7b286b7d…` |
+| tcr-s823-qualified01 | S-823, the reporting row | 0 | pass3/3; source `7b286b7d…` |
+| tcr-s824-qualified01 | S-824, ten module.revisions rows | 2 | `history_source_family_paging` failed with `entities_envelope_source_mismatch`; diagnosed as S-798 amendment 2 |
+| tcr-s825-qualified01 | S-825, two module.tasksdecisions rows | 0 | pass4/4 |
+| tcr-s826-qualified01 | S-826, three module.timeline rows | 0 | pass4/4 |
+| tcr-s827-qualified01 | S-827, four module.workbook rows | 2 | `infra/preflight_error`: this slice's edit left `time` unused in `route_guard_characterization_test.go`, a build error |
+| tcr-s798-format03 / tcr-s798-qualified03 | amendment 2: helper statement split plus the envelope-only Host case; `module.records.envelope.store` | 0 / 0 | pass3/3; source `66115e74…` |
+| tcr-s824-qualified02 | the same ten revisions rows, with `history_source_paging` using `AtLastUpdate` for its envelope-only fixtures | 0 | pass4/4; source `66115e74…` |
+| tcr-s827-qualified02 | the same four workbook rows after removing the unused import | 0 | pass4/4; source `66115e74…` |
+
+All runs had scan pass and every cleanup completed.
+
+- The S-827 coordination instant `Time(time.Hour)` follows every deleted
+  record's write, so its fallback was not needed.
+- Runs before amendment 2 exercised the earlier helper statement shape. The
+  helper-consumer rows from S-805 to S-826 are requalified clean after the
+  final census, so every consumer has evidence on the final helper.
+
+### S-823 / F-808 / E-871 — Reporting R-04: Evidence provider tombstones keep the envelope and snapshot comparisons legal
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A).
+
+`evidence_provider_integration_test.go:253`, `:273` and `:332`
+(`TestReportingEvidenceProviderRedaction_Integration`; the census confirmed
+`:332`) tombstone records written at the fixed `fixedAt` (2026-07-07) at
+`fixedAt+1`, `+2` and `+3` minutes, after their `updated_at`.
+
+The test pins Evidence timestamps to `fixedAt` (`:233`) and compares whole
+snapshot export models, and no assertion reads the distinct deletion instants.
+
+Successor: `SoftDeleteRecord(AtLastUpdate)` at all three sites (the first two
+on the characterization `tx`), so `deleted_at = updated_at = fixedAt`.
+Selection: `module.reporting.integration.managed_service_assertions_for_evidence_provider_0b8acd1609`.
+No production, routing or profile change.
+
+### S-824 / F-809 / E-872 — Revisions R-04: history, rollback and authorization fixtures carry legal envelopes and closures
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (Class A) and Core 01 §3.3.5.3 (Class B closures).
+
+1. `history_test.go:50` (`TestRecordHistoryEnvelope_Unit`) and `:201`
+   (`TestRetainedHistoryInvariants_Unit`), both census-confirmed, tombstone at
+   fixed `base` instants (2026-05-10) before the record's wall-clock creation.
+   - Successor: before each tombstone, advance the envelope with the
+     package's existing mirror-safe `advanceRecordFixtureWithAudit(…,
+     &instant, nil)`. It sets `updated_at` to the instant and pulls
+     `created_at` back with `LEAST`. The tombstone then lands at
+     `deleted_at = updated_at`.
+2. `history_test.go:219` (`TestRetainedHistoryInvariants_Unit`) and
+   `integration_test.go:944`
+   (`TestRetainedHistoryAcrossRestartAndClosure_Integration`), both
+   census-confirmed, close the incident at fixed `base` instants before its
+   creation (Class B).
+   - Successor: `closed_at = now()`, the commit-time semantics. Neither test
+     asserts the closure instant.
+3. `history_test.go:463` (`TestHistoryLogicalPageBoundaries_Integration`),
+   `integration_test.go:430` (`TestHistoryPaginationRecordBinding_Integration`)
+   and `history_source_paging_test.go:34`
+   (`TestHistorySourceFamilyPaging_Integration`), all census-confirmed,
+   tombstone at `now()` after a separate-transaction seed.
+   - Successor: `SoftDeleteRecord` on the database clock.
+4. `locks_test.go:158` (`TestDestructiveOperationLocks_Unit`, census) and
+   `rollback_test.go:152` (static, same helper pattern) tombstone at Go
+   `time.Now()` after a fixed-clock patch envelope.
+   - Successor: `AtLastUpdate`. The base version and restore guidance are
+     unchanged.
+5. `rollback_decision_facts_test.go:64`
+   (`TestRollbackParticipantsAndHistoricalAppend_Integration/…/hidden_incoming`,
+   census-confirmed) tombstones at the fixed `2026-11-14T02:00Z`, before
+   creation.
+   - Successor: `AtLastUpdate`.
+6. `command_authorization_test.go:102`
+   (`TestDestructiveCommandAuthorizationTransaction_Integration`, static)
+   tombstones the restore precondition at `now()` after a separate-transaction
+   seed on an isolated database.
+   - Successor: `AtLastUpdate`.
+
+Legal sites, retained:
+
+- `rollback_task_references_test.go:114` and
+  `rollback_task_association_test.go:69` run under the rollback fixture and
+  tombstone at the shared `now` their records were written with; the census
+  is clean.
+- `incident_bundle_history_coverage_test.go:98` already tombstones at
+  `updated_at`.
+
+Selection: the rows holding the eleven tests above. No production, routing or
+profile change.
+
+### S-825 / F-810 / E-873 — Tasks/Decisions R-04: deleted-decision and reference-barrier tombstones are legal
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 (R-04 Class A).
+
+1. `task_mutation_store_test.go:209`
+   (`TestTaskRequestLifecycleDecisionLinksAndProjection_Unit`,
+   census-confirmed) tombstones a decision at `testTime(20m)`, after its
+   fixed-clock creation.
+   - Successor: `SoftDeleteRecord` at that instant, advancing `updated_at`.
+2. `reference_concurrency_integration_test.go:100`
+   (`TestTaskDirectReferenceConcurrency_Integration`, census-confirmed) is a
+   lock-holder barrier: `now()` with `row_version=2`. The test later undoes it
+   and compares `state() == before`.
+   - Successor: `AtLastUpdate, RowVersion: 2` on the barrier, the S-811
+     pattern.
+
+Legal sites, retained: the `incident_bundle_*` sites (`reference_lifecycle:25`
+and `:55`, `association:68`, `decision_lifecycle:55`, `source_port:53`)
+create their envelopes at `now` and tombstone at the same `now`. Selection:
+the two rows. No production, routing or profile change.
+
+### S-826 / F-811 / E-874 — Timeline R-04: admission barriers, alias-target tombstones and the write-barrier closure are legal
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 and §3.3.5.3.
+
+1. `auto_target_admission_test.go:88`
+   (`TestAutoResolutionEligibility_Integration/current_auto_target_and_alias_admission`)
+   and `explicit_target_admission_test.go:75`
+   (`TestManualTimelineConfidenceNull_Integration/current_explicit_target_admission`),
+   both census-confirmed, are lock-holder barriers at the expired literal
+   `'2026-11-14T10:00:00Z'`. Each is repaired and compared afterwards.
+   - Successor: `AtLastUpdate` on the holder.
+2. `resolution_integration_test.go:150` (the deleted-alias subtests,
+   census-confirmed) tombstones at `now()` after the seed.
+   - Successor: `SoftDeleteRecord` on the database clock.
+3. `store_test.go:755` (`TestClosedIncidentWriteBarrier_Unit`,
+   census-confirmed) closes at the fixed `BaseTime()+1m`, before the
+   incident's creation (Class B).
+   - Successor: `closed_at = now()`.
+
+Selection: the rows holding these tests. No production, routing or profile
+change.
+
+### S-827 / F-812 / E-875 — Workbook R-04: tombstone and closure fixtures are legal
+
+Recorded before editing; identities verified unused. IN_PROGRESS. Governing:
+Core 01 REQ-01-651 and §3.3.5.3.
+
+1. `workbook_mutation_integration_test.go:189` (`TestWorkbook_EvidenceMutations`)
+   and `note_associations_integration_test.go:165`
+   (`TestNoteAssociationsPublicPagingAndHistory`), both census-confirmed,
+   tombstone at `now()` after separate-transaction writes.
+   - Successor: `SoftDeleteRecord` on the database clock.
+2. `coordination_surfaces_test.go:797`
+   (`TestCoordinationCollectionsAndValidation_Unit`, census-confirmed)
+   tombstones four records at `Time(time.Hour)`, after their fixed-clock
+   writes.
+   - Successor: `SoftDeleteRecord` at that instant. If any of the records was
+     written later than that instant, the helper fails closed, and the slice
+     falls back to `AtLastUpdate`, recorded.
+3. `route_guard_characterization_test.go:97`
+   (`TestWorkbookClosedIncidentWrites_Integration`, census-confirmed) closes
+   at the fixed 2026-06-30, before creation (Class B).
+   - Successor: `closed_at = now()`.
+
+Selection: the rows holding these tests. No production, routing or profile
+change.
+
+**Correction to S-064 (E-843).** E-843 says selections invalidated by later
+edits were requalified. That holds only for working-tree edits against HEAD
+`826c031db`. The committed checkpoint `b5cd96adf` contained earlier sessions'
+production changes. Among them is S-451's envelope validation at snapshot
+capture, which landed after earlier owners' audits (entities E-290). The
+S-064 staleness analysis did not examine those owners' evidence against the
+committed changes.
+
+Entities `TestExactMatchPrecedence_Unit` shows the gap is real: it fails at
+current source. E-843's "stale selections were requalified" is corrected to
+"working-tree-stale selections". The census v2 shows the other ~506
+DB-backed Go rows pass at current source, because the diagnostic can only
+add failures. Non-DB Go, Vitest and Playwright rows of owners audited before
+`b5cd96adf` have no current-source evidence from this effort.
+
+### E-845 closure — R-04 fixture-legality workstream and S-064 correction
+
+DONE, 2026-11-15. The maintainer requested R-04. The scope decisions above
+were: the whole class with a shared helper, no permanent guard, and the three
+non-clock items included. The interleave decision ordered the S-064
+corrections owner by owner.
+
+**Class removal (R-04).**
+
+- *Helper.* S-798 is the Records-owned `envelopetest.SoftDeleteRecord`:
+  - three amendments: `AtLastUpdate` with mirror-skip, change-only envelope
+    writes, and a legal write order;
+  - a contract test covering the database clock, explicit instants, the
+    barrier, an envelope-only Host, fail-closed paths, the validator and the
+    deferred mirror triggers;
+  - a mutation witness proving the barrier check discriminates.
+- *Conversions.*
+  - S-805 artifacts, S-806 assessments, S-807 database_migrations,
+    S-809 entities, S-811 evidence.
+  - S-815 incidents (Class B), S-816 indicators, S-817 links,
+    S-818 networkflow, S-819 parties, S-820 projections.
+  - S-823 reporting, S-824 revisions (Classes A and B),
+    S-825 tasksdecisions, S-826 timeline (Classes A and B),
+    S-827 workbook (Classes A and B).
+  - Recovery needed no slice: its site was already legal.
+- *Non-clock items.*
+  - S-799: the Parties corpus selected by identity.
+  - S-821: the Reference Pack fixtures carry contract v3. It was qualified
+    with 35 Vitest and 8 Playwright rows, including accessibility and visual;
+    the goldens are unchanged.
+  - S-822: deterministic collector and storage negatives. The
+    `cleanup_lifetime` sleeps are retained, because the production lease wait
+    exposes no seam.
+- *Census.*
+  - v1 (teardown) and v2 (statement trigger log over all 566 DB-backed Go
+    rows) located the class.
+  - v3 (303 rows of the 15 converted owners) exposed the helper's transient
+    and one closure.
+  - v4 (the 13 former hit rows) logged nothing.
+  - All four were diagnostics; `pgtest.go` was restored byte-for-byte after
+    each.
+- *Clean evidence on the final helper.* The 42 helper-consumer rows
+  (`tcr-r04-requal-*`, 13 runs) all passed at one source,
+  `sha256:671ea8db…`.
+
+**S-064 correction.** E-843 had claimed stale selections were requalified,
+but that covered working-tree edits only. The baselines (census v2 plus
+`tcr-s064c-baseline-*`) found 11 rows failing at current source: 9 non-DB and
+2 DB-backed. All were caused by code committed in `b5cd96adf` or, for S-802,
+by a host WSL update. Every one is repaired:
+
+- S-800: generated-contract consumer allowlist.
+- S-801, S-802, S-803: package qualification. The project names overflowed
+  the package identity rule, a WSL update changed `wsl.exe` output to UTF-8,
+  and the Windows probe still sent the old client envelope.
+- S-804: the artifacts non-nullable case.
+- S-808: the Entities import boundary.
+- S-809 (part): entities exact-match command clocks.
+- S-810: Evidence field keys.
+- S-812: Extensions routing counts.
+- S-813: the Incident Bundles export surface.
+- S-814: Network Flow transfer import provenance and the bundle-v8 blob shape.
+
+Every repair is a stale projection or expectation of adopted behavior. None
+changes production.
+
+**Final checks** at source `sha256:671ea8db…`, all native exit 0, scan pass,
+all cleanups completed:
+
+- `tcr-r04-final-generated01` (`make source-check CHECK=generated`, pass5/5).
+- `tcr-r04-final-catalog01` (`CHECK=catalog`, pass2/2).
+- `tcr-r04-final-boundary01` (`make lint CHECK=backend-boundary`, pass5/5).
+
+An earlier script error reused the run ID `tcr-r04-final-`: the generated
+check passed under it, and the harness refused the re-use for the other two
+with `config/configuration_error`. They were re-run under the IDs above.
+
+**Retained legal or deferred.**
+
+- Tombstones at a shared `now` under the rollback fixture are retained,
+  because `now()` is constant within one transaction. Their legality depends
+  on the fixture policy.
+- Records created before their incident (Class C) are retained.
+- Non-Records tombstones, in `record_links` and `entity_aliases`, are outside
+  REQ-01-651 and outside this scope.
+- Replica-mode (Recovery) paths are invisible to the census and were reviewed
+  statically (S-816).
+- Browser rows of the 21 pre-checkpoint owners remain unrun, per the
+  maintainer.
+- `make lint CHECK=types` was not re-run for S-821's string-literal fixture
+  change; the Vitest consumers passed.
+
+**Changed areas.**
+
+- Test files in artifacts, assessments, codegenboundary, database_migrations,
+  entities, evidence, extensions, imports (the transfer comparator),
+  incidentbundles, incidents, indicators, links, networkflow, parties,
+  projections, records, reference_data (with `internal/app/referenceassembly`),
+  reporting, revisions, tasksdecisions, timeline and workbook, plus
+  harness-release tests.
+- The web unit and e2e reference-pack support fixtures.
+- One new test-support file (`envelopetest/tombstone.go`) and one new
+  contract test.
+- Harness tooling: `package-deployment.mjs`,
+  `package-qualification-project.mjs`, `reference-platform.mjs` and
+  `tools/windowsprobe`.
+- Authored routing: `module.records.json` (one root). The render index was
+  regenerated.
+- No production code changed in this workstream.
+
+**Non-claims.** No full-suite, browser-wide, release, performance or
+stability acceptance. Census results are diagnostics. Nothing was staged,
+committed, merged or published.
+
 ### Historical document-update handoff: S-059–S-064 plan, 2026-11-10
 
 Planning: complete for the selected continuation/merge iteration. Implementation:
@@ -54251,6 +66268,11 @@ checkpoint. Additional workstreams have the explicit §6 dependencies.
 | RB-013 Continuation successors | S-061 / F-058; representative browser coverage requires all-route paging and independent renderer classification. | S-060 V-021 new HTTP row and existing unit pass with complete cases, unchanged predecessors and admitted/generated selection. | CLOSED / E-041, V-021 passed. |
 | RB-014 Merge HTTP parity | S-063 / F-059; existing source assertions do not replace public projected mentions or missing Identity summaries. | S-062 V-023 both entity types' complete server-only observation ledger passes before cleanup. | CLOSED / E-043, V-023 passed. |
 
+Final state (S-064, E-843): no qualification gate remains open. The E-843
+residual register (R-01–R-06) is deferred follow-up work, not a gate. Its R-01
+requirement and maintainer decisions need owner authority before any dependent
+implementation.
+
 ### Historical resolved gates
 
 There is no unresolved decision or retirement gate for S-052–S-056.
@@ -54294,11 +66316,11 @@ is retained solely as historical evidence.
 | --- | --- |
 | Authorization | Explicit implementation request; TCR-REQ-002. |
 | Planning | Accepted known remediation and complete audit procedure; no claim that future audit discoveries are already resolved. |
-| Execution | S-065 DONE (E-039); later workstreams and owner audits pending their §6 gates. |
-| Semantic review | All 66 entry owners and every current assertion must be reviewed; new entries join the queue. Zero pending authored-assertion inspection at completion. |
-| Corrections | Every confirmed gap resolved through its owner, each removal has a qualified successor, and every corrective slice closes before its owner checkpoint. |
-| Qualification | V-020–V-031 and applicable maintenance satisfied with compatible native exits, summaries, scans, cleanup and failure dispositions. Unchanged audited tests do not require blanket reruns. |
-| Handoff | S-064 last: changes, compatibility, exact commands/results/artifacts, skipped checks/reasons and limitations; tracker updated before each successor. |
+| Execution | DONE: S-065, S-059–S-063, S-066–S-074, all 66 owner audits (E-056–E-838), S-797 and S-064 (E-843). |
+| Semantic review | Met: all 66 owners and every current authored assertion have recorded dispositions. No authored-assertion inspection is pending. R-05 lists sweep-located candidates that were not individually verified. |
+| Corrections | Met for every allocated finding: F-057–F-782 are resolved through slices with qualified successors, and each removal followed its successor. Not met for the owner-confirmed weaknesses (R-03) and decisions (R-01) that the owners deliberately deferred; E-843 records them. |
+| Qualification | Met within targeted scope: V-020–V-031 reconciled. Stale selections were requalified (`tcr-s064-requal-*`), and the final generated/catalog checks passed (`tcr-s064-generated01`/`catalog01`). Browser rows untouched by corrections were not run. |
+| Handoff | DONE: the [final S-064 handoff](#final-s-064-handoff-2026-11-15) in §10, with details in E-843. |
 | Claim limits | Semantic-audit completion and targeted runtime qualification are separate. No full-suite, release, publication, measured speedup or global stability claim is implied. |
 
 

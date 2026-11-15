@@ -104,7 +104,7 @@ VALUES('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000
 	if _, err := runtime.ExecContext(t.Context(), `INSERT INTO public.import_committed_source_records VALUES('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000004',3,'00000000-0000-4000-8000-000000000003')`); err != nil {
 		t.Fatal("runtime append", err)
 	}
-	if _, err := runtime.ExecContext(t.Context(), `UPDATE public.records SET deleted_at=now(),deleted_by_user_id=created_by_user_id`); err != nil {
+	if _, err := runtime.ExecContext(t.Context(), `UPDATE public.records SET deleted_at=updated_at,deleted_by_user_id=created_by_user_id`); err != nil {
 		t.Fatal(err)
 	}
 	assertAssociationCount(t, runtime, 2)

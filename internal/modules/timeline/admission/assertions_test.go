@@ -8,7 +8,7 @@ import (
 
 func requireClosedVocabularyRejected(t testing.TB, code string, details map[string]any, wantField string, wantReasonCode string) {
 	t.Helper()
-	if code != "invalid_mutation_payload" && code != "invalid_view_query" {
+	if code != "invalid_mutation_payload" {
 		t.Fatalf("unexpected rejection code: %q", code)
 	}
 	if details["field"] != wantField {

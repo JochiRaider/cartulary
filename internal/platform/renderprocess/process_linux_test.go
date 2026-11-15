@@ -60,7 +60,7 @@ func TestRenderProcessIsolation(t *testing.T) {
 
 func TestRenderProcessCancellationAndOutputAdmission(t *testing.T) {
 	runtime := sandboxFixtureRuntime(t)
-	for _, action := range []string{"symlink", "hardlink", "fifo", "oversize", "protocol_overflow", "missing", "nonzero"} {
+	for _, action := range []string{"symlink", "hardlink", "fifo", "oversize", "protocol_overflow_with_output", "missing", "nonzero"} {
 		t.Run(action, func(t *testing.T) {
 			input, err := json.Marshal(map[string]string{"action": action})
 			if err != nil {
@@ -144,11 +144,34 @@ func TestRenderProcessRejectsInvalidCapabilities(t *testing.T) {
 			t.Fatalf("accepted %q: %v", path, err)
 		}
 	}
-	for _, root := range []string{"/", runtime.TemporaryRoot, filepath.Join(runtime.TemporaryRoot, "nested")} {
+	for _, root := range []string{"/", runtime.TemporaryRoot} {
 		candidate := runtime
 		candidate.Root = root
 		if _, err := candidate.Run(context.Background(), nil, nil); !errors.Is(err, ErrConfiguration) {
 			t.Fatalf("accepted root %q: %v", root, err)
+		}
+	}
+	// Existing, canonical nested directories leave only root containment to reject.
+	nestedRoot := filepath.Join(runtime.TemporaryRoot, "nested-root")
+	nestedTemporary := filepath.Join(runtime.Root, "nested-temporary")
+	for _, directory := range []string{nestedRoot, nestedTemporary} {
+		if err := os.Mkdir(directory, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, change := range []func(*Runtime){
+		func(r *Runtime) { r.Root = nestedRoot },
+		func(r *Runtime) { r.TemporaryRoot = nestedTemporary },
+	} {
+		candidate := runtime
+		change(&candidate)
+		if _, err := candidate.Run(context.Background(), nil, nil); !errors.Is(err, ErrConfiguration) {
+			t.Fatalf("accepted nested roots %q and %q: %v", candidate.Root, candidate.TemporaryRoot, err)
+		}
+	}
+	for _, directory := range []string{nestedRoot, nestedTemporary} {
+		if err := os.Remove(directory); err != nil {
+			t.Fatal(err)
 		}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -463,7 +486,9 @@ func runSandboxFixture() {
 		}
 	case "oversize":
 		write("/work/result.bin", "too many bytes")
-	case "protocol_overflow":
+	case "protocol_overflow_with_output":
+		// A valid declared output leaves only the protocol bound to reject.
+		write("/work/result.bin", "rendered")
 		_, _ = os.Stdout.WriteString(strings.Repeat("x", protocolLimit+1))
 	case "missing":
 	case "nonzero":

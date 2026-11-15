@@ -5,6 +5,7 @@ import {
   networkAnalysisTestId,
 } from "@cartulary/ui-contracts";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -1139,16 +1140,32 @@ describe("NetworkAnalysisWorkspace", () => {
       screen.getByRole("complementary", { name: "Saved graph contributors" })
         .textContent,
     ).toContain("Renamed investigation");
+    const listReadIndexes = () =>
+      fetchSpy.mock.calls.flatMap(([input, init], index) =>
+        (init?.method ?? "GET") === "GET" &&
+        requestURL(input).endsWith("/network-flow/graph-views")
+          ? [index]
+          : [],
+      );
+    const listReadsBeforeReload = listReadIndexes().length;
     await user.click(
       within(savedGraphPanel).getByRole("button", { name: "Reload" }),
     );
     await waitFor(() =>
-      expect(
-        within(savedGraphPanel)
-          .getByRole("button", { name: "Reload" })
-          .hasAttribute("disabled"),
-      ).toBe(false),
+      expect(listReadIndexes()).toHaveLength(listReadsBeforeReload + 1),
     );
+    const reloadIndex = listReadIndexes()[listReadsBeforeReload];
+    await waitFor(() => {
+      const reloaded =
+        reloadIndex === undefined
+          ? undefined
+          : fetchSpy.mock.settledResults[reloadIndex];
+      expect(reloaded?.type).toBe("fulfilled");
+      expect(
+        reloaded?.type === "fulfilled" ? reloaded.value.bodyUsed : false,
+      ).toBe(true);
+    });
+    await act(async () => {});
     expect(resultReadCount()).toBe(initialReads);
     const closeContributors = screen.getByRole("button", { name: "Close" });
     closeContributors.focus();
@@ -1321,6 +1338,7 @@ describe("NetworkAnalysisWorkspace", () => {
     });
     const savedControls = () => within(savedGraphPanel);
 
+    await waitForSavedGraphTitle("Investigation graph");
     expect(
       savedControls().queryByRole("button", { name: "Save current graph" }),
     ).toBeNull();

@@ -764,8 +764,8 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 	}
 	characterizationRows := map[string]int{
 		"module.extensions.integration.network_flow_state_v4":                                       3,
-		"module.extensions.integration.managed_service_assertions_for_state_admission_m_55b90ea265": 18,
-		"module.extensions.integration.service_free_contract_assertions_for_state_admis_e2f242ee26": 1,
+		"module.extensions.integration.managed_service_assertions_for_state_admission_m_55b90ea265": 17,
+		"module.extensions.integration.service_free_contract_assertions_for_state_admis_e2f242ee26": 2,
 		"module.extensions.integration.state_concurrent_admission":                                  1,
 	}
 	for rowID, selectorCount := range characterizationRows {

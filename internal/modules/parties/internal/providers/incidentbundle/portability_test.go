@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -243,9 +244,28 @@ INSERT INTO records (
 	if len(exported) != 1 || exported[0].Path != partyIncidentBundlePath || !bytes.Equal(exported[0].Payload, payload) {
 		t.Fatalf("Party semantic byte round trip drift:\nwant=%s\ngot=%s", payload, exported[0].Payload)
 	}
-	var claimCount int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM party_active_key_claims WHERE incident_id = $1`, incidentID).Scan(&claimCount); err != nil || claimCount != 2 {
-		t.Fatalf("Party exact claim count = %d, err=%v; want 2", claimCount, err)
+	claims, err := tx.Query(ctx, `SELECT key_kind, normalized_value, party_record_id FROM party_active_key_claims WHERE incident_id = $1 ORDER BY key_kind`, incidentID)
+	if err != nil {
+		t.Fatalf("read Party exact claims: %v", err)
+	}
+	var gotClaims [][3]string
+	for claims.Next() {
+		var kind, value string
+		var owner uuid.UUID
+		if err := claims.Scan(&kind, &value, &owner); err != nil {
+			t.Fatalf("scan Party exact claim: %v", err)
+		}
+		gotClaims = append(gotClaims, [3]string{kind, value, owner.String()})
+	}
+	if err := claims.Err(); err != nil {
+		t.Fatalf("iterate Party exact claims: %v", err)
+	}
+	wantClaims := [][3]string{
+		{"external_ref", "EXT-Alpha", recordIDs[0].String()},
+		{"primary_email", "owner@example.test", recordIDs[0].String()},
+	}
+	if !reflect.DeepEqual(gotClaims, wantClaims) {
+		t.Fatalf("Party exact claims = %v; want %v", gotClaims, wantClaims)
 	}
 
 	if _, err := tx.Exec(ctx, `DELETE FROM party_active_key_claims WHERE incident_id = $1`, incidentID); err != nil {

@@ -97,14 +97,16 @@ func (e historyRollbackActionEvaluator) changeSetRollbackExecutableTx(ctx contex
 }
 
 func (e historyRollbackActionEvaluator) rollbackPlanExecutableTx(ctx context.Context, tx pgx.Tx, plan rollbackPlan) (bool, error) {
+	// A target that no longer exists is lost eligibility, surfaced as an
+	// unavailable action rather than a failed history read (REQ-02-216).
 	if err := e.planner.validateRollbackPlan(plan); err != nil {
-		if errors.Is(err, ErrRollbackPreconditionFailed) {
+		if errors.Is(err, ErrRollbackTargetNotFound) || errors.Is(err, ErrRollbackPreconditionFailed) {
 			return false, nil
 		}
 		return false, err
 	}
 	if err := e.repository.ensurePlanCurrentTx(ctx, tx, plan); err != nil {
-		if errors.Is(err, ErrRollbackPreconditionFailed) {
+		if errors.Is(err, ErrRollbackTargetNotFound) || errors.Is(err, ErrRollbackPreconditionFailed) {
 			return false, nil
 		}
 		return false, err

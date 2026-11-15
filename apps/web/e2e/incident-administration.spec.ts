@@ -202,7 +202,7 @@ test("operates account application menus with keyboard focus and viewport contai
   await page.keyboard.press("Home");
   await page.keyboard.press("Enter");
   await expect(page.getByTestId(landingAdminShellTestId("heading"))).toHaveText(
-    "Incident directory",
+    "Incidents",
   );
   await expect(
     page.getByTestId(landingAdminShellTestId("heading")),
@@ -303,10 +303,7 @@ test("operates account application menus with keyboard focus and viewport contai
   await page.keyboard.press("Home");
   await page.keyboard.press("Enter");
   await page.setViewportSize({ width: 640, height: 480 });
-  for (const destination of [
-    "Incident directory",
-    "Deployment administration",
-  ]) {
+  for (const destination of ["Incidents", "Deployment administration"]) {
     await expect(
       page.getByTestId(landingAdminShellTestId("heading")),
     ).toHaveText(destination);
@@ -318,7 +315,7 @@ test("operates account application menus with keyboard focus and viewport contai
     await expectAccountMenuContained(page);
     await page.keyboard.press("End");
     await expectAccountMenuContained(page);
-    if (destination === "Incident directory") {
+    if (destination === "Incidents") {
       await page.keyboard.press("Home");
       await page.keyboard.press("ArrowDown");
       await page.keyboard.press("Enter");
@@ -1554,6 +1551,9 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
     "Incident administration incident-directory",
   );
 
+  // Virtual time lets the acknowledgement outlive any auto-dismiss window
+  // without waiting on wall-clock time; time still flows between steps.
+  await page.clock.install();
   await new IncidentDirectory(page).goto();
   await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
@@ -1603,7 +1603,7 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
   const actionMessage = page.getByTestId(incidentControlsActionMessageTestId());
   await expect(actionMessage).toHaveText("Saved promoted incident fields.");
   // Metadata acknowledgement remains available after the toast timeout window.
-  await page.waitForTimeout(5_100);
+  await page.clock.fastForward(5_100);
   await expect(actionMessage).toHaveText("Saved promoted incident fields.");
 
   await openIncidentControls(page);

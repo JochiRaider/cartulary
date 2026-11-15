@@ -79,9 +79,7 @@ func TestEvidencePartyReferenceConcurrency_Integration(t *testing.T) {
 				if err := barrier.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&holderPID); err != nil {
 					t.Fatal(err)
 				}
-				if _, err := barrier.Exec(ctx, `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2,row_version=2 WHERE record_id=$1`, party, actor); err != nil {
-					t.Fatal(err)
-				}
+				envelopetest.SoftDeleteRecord(t, barrier, envelopetest.Tombstone{RecordID: party, DeletedBy: actor, AtLastUpdate: true, RowVersion: 2})
 				payload, err := json.Marshal(body)
 				if err != nil {
 					t.Fatal(err)

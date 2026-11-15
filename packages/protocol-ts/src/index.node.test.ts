@@ -45,9 +45,11 @@ import {
   type SafeUserResource,
   type SelectImportUnitResponse,
   type SessionResource,
+  timezoneNameRegistry,
   type ViewRow,
   validateHTTPOperationResponse,
 } from "./entrypoints/http.js";
+import { importTargetRegistry } from "./entrypoints/import-targets.js";
 import {
   networkFlowContractDescriptor,
   networkFlowDecoders,
@@ -55,6 +57,7 @@ import {
 } from "./entrypoints/network-flow.js";
 import {
   listViewSchemaRegistryEntries,
+  viewReferenceRegistry,
   viewSchemaRegistry,
 } from "./entrypoints/view-schemas.js";
 import {
@@ -103,7 +106,10 @@ describe("@cartulary/protocol-ts family conformance", () => {
       errorRegistry,
       extensionClientSupportRegistry,
       extensionProfileRegistry,
+      importTargetRegistry,
       networkFlowErrorRegistry,
+      timezoneNameRegistry,
+      viewReferenceRegistry,
       viewSchemaRegistry,
     ]) {
       expectDeepFrozen(registry);

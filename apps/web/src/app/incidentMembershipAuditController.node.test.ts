@@ -228,7 +228,11 @@ describe("Incident membership audit read ownership", () => {
     expect(c.getSnapshot().page?.rows[0]?.audit_event_id).toBe("second");
   });
   it("preserves only filters on section drawer and visibility exit and fences late results", async () => {
-    for (const completion of [page("late"), failure(401, "session_required")]) {
+    for (const completion of [
+      page("late"),
+      failure(401, "session_required"),
+      failure(503, "service_unavailable"),
+    ]) {
       const { controller: c, reads, lost } = setup();
       await settle();
       required(reads[0]).resolve(page());
@@ -239,8 +243,15 @@ describe("Incident membership audit read ownership", () => {
       c.edit("target_id", "draft");
       c.toggleExpanded("event-1");
       c.setActive(false);
+      const exited = c.getSnapshot();
       required(reads[1]).resolve(completion);
       await settle();
+      expect(c.getSnapshot()).toBe(exited);
+      expect(exited).toMatchObject({
+        read: { kind: "idle" },
+        announcement: "",
+        announcementRole: "status",
+      });
       expect(c.getSnapshot()).toMatchObject({
         active: false,
         page: null,

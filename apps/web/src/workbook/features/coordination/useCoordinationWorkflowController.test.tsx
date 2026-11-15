@@ -140,7 +140,7 @@ it("preserves Task lifecycle coordination independently of Decision supersession
   );
 });
 it("makes late coordination outcomes inert after lifecycle invalidation", async () => {
-  const { result, rerender, drafts } = setup();
+  const { result, rerender, drafts, mutation } = setup();
   act(() => result.current.update("task.status", "blocked"));
   const second = { ...taskRow, record_id: "task-2" };
   rerender({ row: second, disabled: false });
@@ -149,6 +149,7 @@ it("makes late coordination outcomes inert after lifecycle invalidation", async 
   rerender({ row: taskRow, disabled: true });
   await act(async () => result.current.submit());
   expect(result.current.value("task.status")).toBe("blocked");
+  expect(mutation.submitPatchMutation).not.toHaveBeenCalled();
 });
 it("validates all Task status pairs and resulting lifecycle guards", () => {
   for (const from of taskStatuses)

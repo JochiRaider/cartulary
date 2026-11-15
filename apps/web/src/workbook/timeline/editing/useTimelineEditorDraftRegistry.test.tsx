@@ -703,6 +703,16 @@ describe("Timeline editor draft registry", () => {
     const input = document.createElement("input");
     document.body.append(input);
     registry.registerInput(identity, input);
+    expect(registry.inputElementForFocusKey(focusKey)).toBe(input);
+    const replacement = document.createElement("input");
+    document.body.append(replacement);
+    registry.registerInput(identity, replacement);
+    expect(registry.inputElementForFocusKey(focusKey)).toBe(replacement);
+    registry.registerInput(identity, null);
+    expect(registry.inputElementForFocusKey(focusKey)).toBeNull();
+    replacement.remove();
+
+    registry.registerInput(identity, input);
     input.hidden = true;
     expect(registry.inputElementForFocusKey(focusKey)).toBeNull();
 
@@ -713,6 +723,7 @@ describe("Timeline editor draft registry", () => {
 
     input.disabled = false;
     registry.registerInput(identity, input);
+    expect(registry.inputElementForFocusKey(focusKey)).toBe(input);
     input.remove();
     expect(registry.inputElementForFocusKey(focusKey)).toBeNull();
   });

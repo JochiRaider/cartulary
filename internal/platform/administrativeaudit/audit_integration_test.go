@@ -3,6 +3,7 @@ package administrativeaudit_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -97,8 +98,8 @@ func TestAdministrativeAuditProjectionStore_Integration(t *testing.T) {
 		TargetKind: administrativeaudit.TargetUser,
 		TargetID:   &unsafeTargetID,
 		Changes:    []administrativeaudit.Change{administrativeaudit.Visible("password", nil, "unsafe")},
-	}); err == nil {
-		t.Fatal("expected unsafe projection to fail")
+	}); !errors.Is(err, administrativeaudit.ErrUnsafeChanges) {
+		t.Fatalf("expected unsafe projection to fail validation, got %v", err)
 	}
 	var unsafeRawCount int
 	if err := db.QueryRow(context.Background(), `SELECT count(*) FROM deployment_admin_audit_events WHERE event_kind = 'unsafe'`).Scan(&unsafeRawCount); err != nil {

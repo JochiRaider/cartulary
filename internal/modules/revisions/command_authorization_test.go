@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
@@ -99,9 +100,7 @@ func TestDestructiveCommandAuthorizationTransaction_Integration(t *testing.T) {
 			fixture := newHistoryRepositoryFixture(t)
 			ctx := context.Background()
 			if kind == CommandRestore {
-				if _, err := fixture.database.Exec(ctx, "UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1", fixture.record.RecordID, fixture.actorID); err != nil {
-					t.Fatal(err)
-				}
+				envelopetest.SoftDeleteRecord(t, fixture.database, envelopetest.Tombstone{RecordID: fixture.record.RecordID, DeletedBy: fixture.actorID, AtLastUpdate: true})
 			}
 			runner := &commandTransactionWitness{DB: fixture.database}
 			authorization := &denyingCommandAuthorizer{t: t, runner: runner, fixture: fixture, kind: kind}

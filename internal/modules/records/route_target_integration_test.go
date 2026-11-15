@@ -2,12 +2,14 @@ package records
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	recordenvelope "github.com/JochiRaider/cartulary/internal/modules/records/enveloperead"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -47,8 +49,8 @@ INSERT INTO records (
 	if gotIncidentID != incidentID {
 		t.Fatalf("resolved incident id = %s; want %s", gotIncidentID, incidentID)
 	}
-	if _, err := resolver.Resolve(ctx, uuid.New()); err == nil {
-		t.Fatal("resolve missing route target succeeded")
+	if _, err := resolver.Resolve(ctx, uuid.New()); !errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		t.Fatalf("resolve missing route target error = %v; want %v", err, recordenvelope.ErrEnvelopeNotFound)
 	}
 
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
@@ -86,7 +88,7 @@ UPDATE records
 		t.Fatalf("deleted route target = %#v; want %#v", gotDeleted, want)
 	}
 
-	if _, err := resolver.ResolveTx(ctx, tx, uuid.New()); err == nil {
-		t.Fatal("resolve missing transaction route target succeeded")
+	if _, err := resolver.ResolveTx(ctx, tx, uuid.New()); !errors.Is(err, recordenvelope.ErrEnvelopeNotFound) {
+		t.Fatalf("resolve missing transaction route target error = %v; want %v", err, recordenvelope.ErrEnvelopeNotFound)
 	}
 }

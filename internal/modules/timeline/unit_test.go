@@ -31,6 +31,8 @@ func TestBindingMode_Unit(t *testing.T) {
 	projectionRuntime := mustBuildProjectionRuntime(t, harness.DB)
 	revisionComposition := revisionsupport.MustComposition(t)
 	entityStore, err := hostidentity.NewStore(hostidentity.StoreDependencies{
+		ConflictTokens:         conflicttest.NewCodec("entity-store"),
+		ConflictFields:         revisionComposition.Runtime.ConflictFieldResolver(),
 		Postgres:               harness.DB,
 		Revisions:              revisionComposition.Runtime.Appender(),
 		ProjectionMutationRows: projectionRuntime.EntityMutationRows(),

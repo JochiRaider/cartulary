@@ -90,7 +90,8 @@
       "selector": {
         "package": "./internal/modules/records",
         "tests": [
-          "TestEnvelopeStoreContract_Integration"
+          "TestEnvelopeStoreContract_Integration",
+          "TestSoftDeleteRecordFixtureKeepsEnvelopeLegal_Integration"
         ]
       },
       "evidence_class": "integration",

@@ -7,7 +7,7 @@ import {
   networkAnalysisVertexFamilySelector,
   networkAnalysisVertexTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Response } from "@playwright/test";
+import type { Page, Request, Response } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   importNetworkFlowCSV,
@@ -79,6 +79,26 @@ async function contributors(response: Response) {
   );
   if (!decoded.ok) throw new Error("Invalid real contributors");
   return decoded.value;
+}
+function settledRequest(
+  page: Page,
+  method: string,
+  pathPattern: RegExp,
+): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const onSettled = (request: Request) => {
+      if (
+        request.method() !== method ||
+        !pathPattern.test(new URL(request.url()).pathname)
+      )
+        return;
+      page.off("requestfinished", onSettled);
+      page.off("requestfailed", onSettled);
+      resolve();
+    };
+    page.on("requestfinished", onSettled);
+    page.on("requestfailed", onSettled);
+  });
 }
 async function nextBucket(page: Page) {
   const next = page.getByRole("button", { name: "Next bucket" });
@@ -183,20 +203,33 @@ test("Network Analysis navigates exact temporal contributors and rejects superse
   );
   await vertexControl.click();
   await ready;
+  const supersededContributorsSettled = settledRequest(
+    page,
+    "POST",
+    contributorRoute,
+  );
   const previous = page.getByRole("button", { name: "Previous bucket" });
   await previous.focus();
   await previous.press("Enter");
   release();
+  await supersededContributorsSettled;
   await expect(drawer).toHaveCount(0);
   await expect(
     page.getByText("No flows start in this bucket.", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Saved graphs", exact: true }).click();
-  await expect(
-    page.getByTestId(networkAnalysisTestId("status-strip")),
-  ).not.toContainText("Graph available");
+  const savedSurface = page.getByRole("button", {
+    name: "Saved graphs",
+    exact: true,
+  });
+  await savedSurface.click();
+  await expect(savedSurface).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Unsaved exploration" }).click();
   await expect(page.getByText("Bucket 2 of 3", { exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByTestId(networkAnalysisTestId("status-strip"))
+      .locator("[data-network-flow-state]"),
+  ).toHaveAttribute("data-network-flow-state", "graph_available");
   expect(graphQueries).toBe(0);
 });
 

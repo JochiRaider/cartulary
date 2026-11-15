@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -44,7 +45,8 @@ func TestRecordHistoryEnvelope_Unit(t *testing.T) {
 		TargetKind: "record", Operation: "envelope_update",
 	})
 	tombstone := base.Add(3 * time.Minute)
-	advanceRecordFixture(t, harness.DB, recordID, 5)
+	// The tombstone becomes the last update so the envelope stays legal (Core 01 REQ-01-651).
+	advanceRecordFixtureWithAudit(t, harness.DB, recordID, 5, &tombstone, nil)
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE records
 	SET deleted_at = $1,
@@ -195,13 +197,14 @@ func TestRetainedHistoryInvariants_Unit(t *testing.T) {
 		CreatedAt: base.Add(time.Minute), Source: "rollback", SequenceNo: 1,
 		TargetKind: "host", Operation: "rollback", RowVersion: 3,
 	})
-	advanceRecordFixture(t, harness.DB, recordID, 4)
+	deleteCycleAt := base.Add(2 * time.Minute)
+	advanceRecordFixtureWithAudit(t, harness.DB, recordID, 4, &deleteCycleAt, nil)
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE records
    SET deleted_at = $1,
 	   deleted_by_user_id = $2
  WHERE record_id = $3
-`, base.Add(2*time.Minute), actorID, recordID); err != nil {
+`, deleteCycleAt, actorID, recordID); err != nil {
 		t.Fatalf("seed delete cycle tombstone: %v", err)
 	}
 	advanceRecordFixture(t, harness.DB, recordID, 5)
@@ -216,9 +219,9 @@ UPDATE records
 	if _, err := harness.DB.ExecContext(context.Background(), `
 	UPDATE incidents
 	   SET status = 'closed',
-	       closed_at = $1
-	 WHERE id = $2
-	`, base.Add(3*time.Minute), incidentID); err != nil {
+	       closed_at = now()
+	 WHERE id = $1
+	`, incidentID); err != nil {
 		t.Fatalf("seed incident closure: %v", err)
 	}
 
@@ -460,7 +463,7 @@ func TestHistoryLogicalPageBoundaries_Integration(t *testing.T) {
 	}
 	mustExec(t, harness.DB, `DELETE FROM change_set_mutations WHERE change_set_id=$1`, revisionOnly)
 	mustExec(t, harness.DB, `UPDATE change_set_mutations SET history_entry_record_ids='{}' WHERE target_kind='entity_alias' AND change_set_id=ANY($1::uuid[])`, []uuid.UUID{coalesced, mixed})
-	mustExec(t, harness.DB, `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1`, record, actor)
+	envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: record, DeletedBy: actor})
 	canonical := historyItems(getHistory(t, harness.Server.HTTP.URL, login, record, "?limit=100"))
 	if len(canonical) != 5 {
 		t.Fatalf("logical event count: %d", len(canonical))

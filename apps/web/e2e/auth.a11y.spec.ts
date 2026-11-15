@@ -548,7 +548,7 @@ test("a11y.incident-selection.row-01 incident empty, list, selected, stale-selec
   );
   await expect(page).not.toHaveURL(/incident_id=/);
   await expect(page.getByTestId(landingAdminShellTestId("heading"))).toHaveText(
-    "Incident directory",
+    "Incidents",
   );
   await expect(
     page.getByTestId(landingAdminShellTestId("heading")),

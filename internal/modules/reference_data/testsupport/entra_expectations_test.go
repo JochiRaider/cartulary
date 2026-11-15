@@ -14,7 +14,7 @@ func TestEntraCorpusExpectations_Unit(t *testing.T) {
 	if err := checkEntraBaseline("../../../..", manifest, members["payload/objects.ndjson"]); err != nil {
 		t.Fatal(err)
 	}
-	for _, mode := range []string{"historical missing", "historical changed", "summary changed", "null description", "wrong index", "source revision", "source digest", "source URL", "missing provenance", "duplicate provenance", "publisher", "SPN", "deprecated", "replacement", "extensions"} {
+	for _, mode := range []string{"unchanged", "historical missing", "historical changed", "summary changed", "null description", "wrong index", "source revision", "source digest", "source URL", "missing provenance", "duplicate provenance", "publisher", "SPN", "deprecated", "replacement", "extensions"} {
 		t.Run(mode, func(t *testing.T) {
 			m := manifest
 			m.Artifacts = slices.Clone(manifest.Artifacts)
@@ -78,7 +78,14 @@ func TestEntraCorpusExpectations_Unit(t *testing.T) {
 				}
 				lines[i] = string(b)
 			}
-			if err := checkEntraBaseline("../../../..", m, []byte(strings.Join(lines, "\n")+"\n")); err == nil {
+			err := checkEntraBaseline("../../../..", m, []byte(strings.Join(lines, "\n")+"\n"))
+			if mode == "unchanged" {
+				if err != nil {
+					t.Fatal("unmutated re-encoded corpus rejected", err)
+				}
+				return
+			}
+			if err == nil {
 				t.Fatal("corpus oracle admitted", mode)
 			}
 		})

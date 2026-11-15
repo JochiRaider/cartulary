@@ -217,7 +217,13 @@ func TestTimelinePortableEventAdmission_Unit(t *testing.T) {
 		row[field] = true
 		requireTimelineProfileFailure(t, prepare(row), "version_shape_exact")
 	}
-	for _, raw := range []string{"null\n", "[]\n", "{} {}\n", "{\"record_id\":\"a\",\"record_id\":\"b\"}\n", "{\"raw_activity_text\":\"\\ud800\"}\n"} {
+	strictValid, strictMalformed := strictTimelineRowVariants(t, base, "raw_activity_text")
+	strictControl := timelineEventBundle(t)
+	strictControl[timelineEventPath] = []byte(strictValid)
+	if _, err := port.PrepareImport(ctx, strictControl, input); err != nil {
+		t.Fatal("strict syntax control", err)
+	}
+	for _, raw := range append([]string{"null\n", "[]\n", "{} {}\n"}, strictMalformed...) {
 		bundle := timelineEventBundle(t)
 		bundle[timelineEventPath] = []byte(raw)
 		_, err := port.PrepareImport(ctx, bundle, input)

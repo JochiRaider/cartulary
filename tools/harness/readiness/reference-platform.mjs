@@ -9,9 +9,13 @@ export function referencePlatform(command) {
   if (info.NCPU < 2 || !/microsoft.*wsl2/i.test(os.release())) throw new Error("assessment requires the Windows 11 / WSL2 target and two logical CPUs");
   const windows = JSON.parse(command("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "$o=Get-CimInstance Win32_OperatingSystem; $c=Get-CimInstance Win32_Processor; $d=Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion'; [pscustomobject]@{caption=$o.Caption;build=$o.BuildNumber;ubr=$d.UBR;cpu=$c.Name;load_percent=$c.LoadPercentage}|ConvertTo-Json -Compress"]));
   if (!/Windows 11/.test(windows.caption)) throw new Error("assessment requires Windows 11");
-  const wsl = command("wsl.exe", ["--version"], { encoding: "utf16le" });
+  // WSL_UTF8 selects UTF-8 output on every current WSL release; piped output
+  // is otherwise UTF-16LE on some releases and UTF-8 on others.
+  const wslOptions = { env: { ...process.env, WSL_UTF8: "1" } };
+  const wsl = command("wsl.exe", ["--version"], wslOptions);
+  if (!/^WSL version: /.test(wsl)) throw new Error("assessment could not decode the WSL version report");
   const desktop = JSON.parse(command("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "$v=(Get-Item \"$env:ProgramFiles\\Docker\\Docker\\Docker Desktop.exe\").VersionInfo.ProductVersion; $s=Get-Content \"$env:APPDATA\\Docker\\settings-store.json\" -Raw|ConvertFrom-Json; [pscustomobject]@{application_version=$v;wsl_engine_enabled=$s.wslEngineEnabled}|ConvertTo-Json -Compress"]));
-  desktop.wsl_distribution = command("wsl.exe", ["--list", "--verbose"], { encoding: "utf16le" }).split(/\r?\n/).find((line) => /docker-desktop\s/.test(line))?.trim();
+  desktop.wsl_distribution = command("wsl.exe", ["--list", "--verbose"], wslOptions).split(/\r?\n/).find((line) => /docker-desktop\s/.test(line))?.trim();
   if (info.Name !== "docker-desktop" || info.OperatingSystem !== "Docker Desktop" || desktop.wsl_engine_enabled === false || !/docker-desktop\s+Running\s+2$/.test(desktop.wsl_distribution || "") || !/microsoft/i.test(info.KernelVersion)) throw new Error("assessment requires Docker Desktop's running WSL2 backend");
   const filesystem = JSON.parse(command("findmnt", ["--json", "--target", process.cwd(), "--output", "FSTYPE,SOURCE,TARGET,OPTIONS"]));
   if (!filesystem.filesystems?.length || filesystem.filesystems.some(({fstype}) => fstype !== "ext4")) throw new Error("qualification requires the Ubuntu guest filesystem");

@@ -149,7 +149,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		deletedChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000528")
 		seedRollbackHostPatch(t, harness.DB, incidentID, deletedRecordID, actorID, deletedChangeSetID, clockBase.Add(2*time.Minute), "deleted before", "deleted after")
 		deletedRef := historyEntryRefForTarget(t, harness, login, deletedRecordID, "host", deletedRecordID.String())
-		mustExec(t, harness.DB, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, deletedRecordID, time.Now().UTC(), actorID)
+		envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: deletedRecordID, DeletedBy: actorID, AtLastUpdate: true})
 		resp := rollbackRecord(t, harness, login, deletedRecordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-deleted-rollback", "target": map[string]any{"kind": "history_entry", "history_entry_ref": deletedRef}})
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "record_deleted_use_restore")
 	})
@@ -402,7 +402,7 @@ VALUES ($1, $2, 'Party Rollback Blocker', 'person', 'party-rollback-old@example.
 		seedRollbackHostAndTagChangeSet(t, harness.DB, incidentID, actorID, unsupportedChangeSetID, unsupportedRecordID)
 		beforeCounts := StateCounts(t, harness.DB, unsupportedRecordID)
 		resp := rollbackRecord(t, harness, login, unsupportedRecordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-u-7-05-whole-unsupported", "target": map[string]any{"kind": "change_set", "change_set_id": unsupportedChangeSetID.String()}})
-		httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "rollback_precondition_failed")
+		requireRollbackReasonCode(t, resp, "target_not_reversible")
 		afterCounts := StateCounts(t, harness.DB, unsupportedRecordID)
 		if beforeCounts != afterCounts {
 			t.Fatalf("failed whole change-set rollback mutated state: before=%+v after=%+v", beforeCounts, afterCounts)

@@ -135,5 +135,34 @@ describe("Incident metadata transport", () => {
     expect(
       await readIncidentMetadata({ authority, signal: signal() }),
     ).toMatchObject({ problem: { code: "unknown_public_error" } });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        metadataJSON(
+          {
+            error: {
+              code: "csrf_verification_failed",
+              message: "private",
+            },
+          },
+          403,
+        ),
+      ),
+    );
+    expect(
+      await patchIncidentMetadata({
+        authority,
+        payload: { base_incident_version: 1 },
+        signal: signal(),
+      }),
+    ).toEqual({
+      ok: false,
+      status: 403,
+      problem: {
+        code: "csrf_verification_failed",
+        field: undefined,
+        reason: undefined,
+      },
+    });
   });
 });

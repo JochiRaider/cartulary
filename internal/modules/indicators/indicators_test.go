@@ -19,7 +19,8 @@ import (
 
 func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-u-9-04-indicators")
-	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
+	storeTime := indicatorTestClock(t, harness.DB)
+	application := newIndicatorTestApplicationAt(t, harness.DB, revisionsupport.MustAppender(t), storeTime)
 	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u904@example.test", DisplayName: "U904 Indicators"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-04-incident", "IR-U904", "Workbook inspector indicator-storage")
 	defangedValue := "203(.)0(.)113(.)88"
@@ -53,7 +54,7 @@ func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 	}
 	requireEntityCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1 AND before_value = after_value AND before_version_id = after_version_id`, reused.ChangeSetID, 1)
 	requireEntityCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, created.RecordID, 1)
-	wantStoreTime := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	wantStoreTime := storeTime
 	var createdAt, updatedAt time.Time
 	if err := harness.DB.QueryRow(context.Background(), `SELECT created_at, updated_at FROM records WHERE record_id = $1`, created.RecordID).Scan(&createdAt, &updatedAt); err != nil {
 		t.Fatalf("query Indicator envelope timestamps: %v", err)

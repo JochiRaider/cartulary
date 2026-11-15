@@ -115,7 +115,13 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	)
 	httptestx.RequireErrorEnvelope(t, hidden, http.StatusNotFound, "incident_not_found")
 
-	closeTime := time.Date(2026, 7, 25, 18, 45, 0, 0, time.UTC)
+	// The close commit instant follows creation (Core 01 §3.3.5.3).
+	createdAt, err := time.Parse(time.RFC3339Nano, incident["created_at"].(string))
+	if err != nil {
+		t.Fatalf("parse incident created_at: %v", err)
+	}
+	// One minute stays after creation and within the admin session lifetime.
+	closeTime := createdAt.UTC().Truncate(time.Second).Add(time.Minute)
 	httptestx.SetClockFixed(t, harness.Server, closeTime)
 	closeRequest := map[string]any{
 		"base_incident_version": 1,

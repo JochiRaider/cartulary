@@ -352,7 +352,7 @@
       "selector": {
         "file": "apps/web/src/app/otelBoundary.test.ts",
         "titles": [
-          "OpenTelemetry browser boundary keeps browser state from creating telemetry exporters or remote telemetry requests"
+          "OpenTelemetry browser boundary keeps the browser package closure free of telemetry exporters, vendor SDKs, session replay and analytics"
         ],
         "project_id": "browser-unit"
       },

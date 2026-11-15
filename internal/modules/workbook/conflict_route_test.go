@@ -130,8 +130,8 @@ func TestSameFieldConflictHTTP_Integration(t *testing.T) {
 	}
 	conflict := errorObject["conflict"].(map[string]any)
 	RequireNoLegacyConflictAliases(t, conflict)
-	if conflict["conflict_token"] == "" ||
-		conflict["record_id"] != recordID.String() ||
+	requireConflictToken(t, conflict)
+	if conflict["record_id"] != recordID.String() ||
 		conflict["field_key"] != "note.title" ||
 		conflict["conflict_resolution_class"] != "text_compare_merge" ||
 		conflict["base_value"] != "Base title" ||
@@ -556,10 +556,10 @@ func createAtomicConflict(
 	if conflict["record_id"] != recordID.String() ||
 		conflict["field_key"] != fieldKey ||
 		conflict["server_value"] != savedValue ||
-		conflict["client_value"] != localValue ||
-		conflict["conflict_token"] == "" {
+		conflict["client_value"] != localValue {
 		t.Fatalf("unexpected source-owner conflict payload for %s: %#v", fieldKey, conflict)
 	}
+	requireConflictToken(t, conflict)
 	return conflict
 }
 
@@ -605,8 +605,8 @@ func CreateNoteTitleConflict(t testing.TB, harness *appsupport.ServerHarness, lo
 	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "same_field_conflict")
 	requireWorkbookStateUnchanged(t, beforeRespState, snapshotWorkbookState(t, harness, login, incidentID, artifacts.NotesViewSchemaID))
 	conflict := body["error"].(map[string]any)["conflict"].(map[string]any)
-	if conflict["conflict_token"] == "" ||
-		conflict["record_id"] != recordID.String() ||
+	requireConflictToken(t, conflict)
+	if conflict["record_id"] != recordID.String() ||
 		conflict["field_key"] != "note.title" ||
 		conflict["server_value"] != savedValue ||
 		conflict["client_value"] != localValue {

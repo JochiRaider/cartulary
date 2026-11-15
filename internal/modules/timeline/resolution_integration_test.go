@@ -147,9 +147,7 @@ func TestAutoResolutionEligibility_Integration(t *testing.T) {
 				seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), actorID, targetID, "Target", "deleted@example.test", "deleted@example.test", "DELETED")
 			}
 			seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), actorID, targetID, entityType, "Exact Target Alias")
-			if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, targetID, actorID); err != nil {
-				t.Fatal(err)
-			}
+			envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: targetID, DeletedBy: actorID})
 			created := createTimelineRow(t, harness.Server, incidentID, login, map[string]any{
 				"client_txn_id": "txn-deleted-alias-row", "timeline.activity_synopsis_text": "Retain unresolved observation",
 				fieldKey: timelinetest.CollectionActions(timelinetest.AddTokenAction("Exact Target Alias")),
@@ -536,6 +534,30 @@ SELECT COUNT(*)
 		incidentID := incident["incident_id"].(string)
 		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "Host record", "host-record-23")
 		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "host", "WS-023")
+		// REQ-03-278: an exact alias equal to each suppressor token makes
+		// suppression, not alias mismatch, the only reason these stay unresolved.
+		for _, suppressed := range []string{"WS-023?", "WS-023??", "WS-023 ~", "WS-023 maybe", "WS-023 prob", "WS-023 probably", "WS-023 approx", "WS-023 approximately"} {
+			seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "host", suppressed)
+		}
+		t.Run("exact alias control resolves", func(t *testing.T) {
+			created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+				"client_txn_id":                   "txn-entity_linking-u-4-08-unresolved-control-row",
+				"timeline.activity_synopsis_text": "Exact alias control row",
+			})
+			recordID := created["row"].(map[string]any)["record_id"].(string)
+			resp := httptestx.DoJSON(t, http.DefaultClient,
+				http.MethodPatch,
+				harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+				timelinetest.TimelineCollectionPatchPayload(timelinetest.FieldHostRefs, 1, "txn-entity_linking-u-4-08-unresolved-control-patch", timelinetest.CollectionActions(timelinetest.AddTokenAction("WS-023"))),
+				httptestx.WithCookies(adminLogin.Session, adminLogin.CSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
+			)
+			httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+			item := requireSingleCollectionItem(t, findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID), timelinetest.FieldHostRefs)
+			if item["item_kind"] != "resolved_ref" || item["resolved_record_id"] != entitytest.CanonicalHostRecordID.String() || item["resolution_method"] != linktest.LinkProvenanceAutoMatch {
+				t.Fatalf("exact alias control did not auto-resolve: %#v", item)
+			}
+		})
 
 		tokenCases := append([]string{"WS-999"}, entitytest.AutoResolutionSuppressedTokens...)
 		for _, rawText := range tokenCases {
@@ -1665,6 +1687,8 @@ UPDATE incident_memberships
 			"title":         "Record relationships timeline-resolution rejection",
 		})
 		incidentID := incident["incident_id"].(string)
+		// The target is admissible, so confidence is the request's only defect.
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), adminID, entitytest.CanonicalHostRecordID, "Gateway record", "gateway-record-01")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id": "txn-entity_linking-u-4-09-reject-row",
 			timelinetest.FieldHostRefs: timelinetest.CollectionActions(
@@ -1701,8 +1725,8 @@ UPDATE incident_memberships
 			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRF.Value),
 		)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
-		if body["error"].(map[string]any)["code"] != "invalid_mutation_payload" {
-			t.Fatalf("unexpected rejection envelope: %#v", body)
+		if details := httptestx.RequireErrorDetails(t, body); len(details) != 2 || details["field"] != timelinetest.FieldHostRefs || details["reason_code"] != "invalid_value" {
+			t.Fatalf("confidence rejection details = %#v", details)
 		}
 
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)

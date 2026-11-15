@@ -375,7 +375,7 @@ func IllegalTransitionFailure(fromStatus string, toStatus string, reasonCode str
 		kind: MutationFailureIllegalTransition,
 		detail: illegalTransitionFailureDetail{
 			fromStatus: fromStatus, toStatus: toStatus, reasonCode: reasonCode,
-			violatedGuards: append([]string(nil), violatedGuards...),
+			violatedGuards: append([]string{}, violatedGuards...),
 		},
 	}
 }
@@ -505,7 +505,7 @@ func mutationFailureAPIError(failure *MutationFailure) *httpapi.APIError {
 		}
 		details := map[string]any{
 			"from_status": detail.fromStatus, "to_status": detail.toStatus,
-			"violated_guards": append([]string(nil), detail.violatedGuards...),
+			"violated_guards": append([]string{}, detail.violatedGuards...),
 		}
 		if detail.reasonCode != "" {
 			details["reason_code"] = detail.reasonCode

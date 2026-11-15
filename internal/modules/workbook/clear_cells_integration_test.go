@@ -54,7 +54,10 @@ func TestTimelineClearCellsAuthoritativeBatch_Integration(t *testing.T) {
 		t.Fatalf("replay changed receipt: %#v", replay)
 	}
 	request["field_keys"] = []string{fields[0]}
-	requireBulkMutationStatus(t, harness, login, incidentID, timeline.TimelineViewSchemaID, request, http.StatusConflict)
+	// Identity precedes concurrency, so the stale targets cannot surface first.
+	if divergent := requireBulkMutationStatus(t, harness, login, incidentID, timeline.TimelineViewSchemaID, request, http.StatusConflict); divergent["error"].(map[string]any)["code"] != "client_txn_conflict" {
+		t.Fatalf("divergent clear replay: %#v", divergent)
+	}
 	request["field_keys"] = fields
 	request["client_txn_id"] = "clear-noop"
 	request["targets"] = []map[string]any{{"record_id": ids[0], "base_row_version": 2}}

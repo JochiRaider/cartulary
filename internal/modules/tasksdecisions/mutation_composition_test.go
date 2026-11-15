@@ -18,22 +18,9 @@ import (
 )
 
 func TestMutationContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
-	missingReferences := completeMutationDependencies()
-	missingReferences.ReferenceTargets = nil
-	if facade, err := NewMutationContribution(compositionDB{}, conflicttokens.ConflictTokenCodec{}, missingReferences); err == nil || facade != nil || !strings.Contains(err.Error(), "Reference targets is required") {
-		t.Fatalf("missing reference capability facade=%#v error=%v", facade, err)
-	}
-
+	assertEveryMutationDependencyRequired(t)
 	if _, err := NewMutationContribution(nil, conflicttokens.ConflictTokenCodec{}, MutationDependencies{}); err == nil || !strings.Contains(err.Error(), "Postgres is required") {
 		t.Fatalf("nil Postgres error = %v", err)
-	}
-	if _, err := NewMutationContribution(compositionDB{}, conflicttokens.ConflictTokenCodec{}, MutationDependencies{}); err == nil || !strings.Contains(err.Error(), "Incident admission is required") {
-		t.Fatalf("incomplete dependency error = %v", err)
-	}
-	missingLinkFacts := completeMutationDependencies()
-	missingLinkFacts.LinkFacts = nil
-	if _, err := NewMutationContribution(compositionDB{}, conflicttokens.ConflictTokenCodec{}, missingLinkFacts); err == nil || !strings.Contains(err.Error(), "Links facts is required") {
-		t.Fatalf("missing Links facts error = %v", err)
 	}
 	if _, err := NewIncidentBundleSourcePort(nil, nil, nil); err == nil || !strings.Contains(err.Error(), "Links facts are required") {
 		t.Fatalf("missing incident-bundle Links facts error = %v", err)
@@ -41,6 +28,34 @@ func TestMutationContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 	if port, err := NewIncidentBundleSourcePort(compositionOperations{}, nil, nil); err == nil || port != nil || !strings.Contains(err.Error(), "retained field references are required") {
 		t.Fatalf("missing retained binding reader port=%#v error=%v", port, err)
 	}
+}
+
+func assertEveryMutationDependencyRequired(t *testing.T) {
+	t.Helper()
+	for _, tc := range []struct {
+		name   string
+		remove func(*MutationDependencies)
+	}{
+		{"Incident admission", func(d *MutationDependencies) { d.IncidentState = nil }},
+		{"Route idempotency", func(d *MutationDependencies) { d.Idempotency = nil }},
+		{"Record envelopes", func(d *MutationDependencies) { d.RecordEnvelopes = nil }},
+		{"Reference targets", func(d *MutationDependencies) { d.ReferenceTargets = nil }},
+		{"Links", func(d *MutationDependencies) { d.Links = nil }},
+		{"Links facts", func(d *MutationDependencies) { d.LinkFacts = nil }},
+		{"Projections", func(d *MutationDependencies) { d.Projections = nil }},
+		{"Revisions/history", func(d *MutationDependencies) { d.Revisions = nil }},
+		{"Conflict fields", func(d *MutationDependencies) { d.ConflictFields = nil }},
+		{"Keep-saved idempotency", func(d *MutationDependencies) { d.KeepSavedIdempotency = nil }},
+		{"Collaboration publication", func(d *MutationDependencies) { d.Collaboration = nil }},
+	} {
+		dependencies := completeMutationDependencies()
+		tc.remove(&dependencies)
+		facade, err := NewMutationContribution(compositionDB{}, conflicttokens.ConflictTokenCodec{}, dependencies)
+		if err == nil || facade != nil || err.Error() != "tasks/decisions mutation dependencies: "+tc.name+" is required" {
+			t.Fatalf("missing %s: facade=%#v error=%v", tc.name, facade, err)
+		}
+	}
+
 }
 
 func TestMutationContributionSharesOneFacade_Unit(t *testing.T) {
@@ -62,13 +77,32 @@ func TestMutationContributionSharesOneFacade_Unit(t *testing.T) {
 }
 
 func TestImportContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
-	_, err := NewImportContribution(
-		TaskRequestsViewSchemaID,
-		"tasksdecisions.task_request.import_create",
-		ImportDependencies{},
-	)
-	if err == nil || !strings.Contains(err.Error(), "Records insert is required") {
-		t.Fatalf("incomplete import dependency error = %v", err)
+	operations := compositionOperations{}
+	completeImport := func() ImportDependencies {
+		return ImportDependencies{
+			RecordEnvelopes: records.NewStore(), ReferenceTargets: operations, Links: links.NewStore(),
+			Projections: operations, Revisions: compositionImportRevisions{}, Collaboration: operations,
+		}
+	}
+	if _, err := NewImportContribution(TaskRequestsViewSchemaID, "tasksdecisions.task_request.import_create", completeImport()); err != nil {
+		t.Fatalf("complete import dependencies rejected: %v", err)
+	}
+	for _, tc := range []struct {
+		message string
+		remove  func(*ImportDependencies)
+	}{
+		{"Records insert is required", func(d *ImportDependencies) { d.RecordEnvelopes = nil }},
+		{"Reference targets are required", func(d *ImportDependencies) { d.ReferenceTargets = nil }},
+		{"Links synchronization is required", func(d *ImportDependencies) { d.Links = nil }},
+		{"Projection refresh/load is required", func(d *ImportDependencies) { d.Projections = nil }},
+		{"Revision finalization is required", func(d *ImportDependencies) { d.Revisions = nil }},
+		{"Collaboration publication is required", func(d *ImportDependencies) { d.Collaboration = nil }},
+	} {
+		dependencies := completeImport()
+		tc.remove(&dependencies)
+		if _, err := NewImportContribution(TaskRequestsViewSchemaID, "tasksdecisions.task_request.import_create", dependencies); err == nil || err.Error() != "tasks/decisions import dependencies: "+tc.message {
+			t.Fatalf("missing import dependency %q: %v", tc.message, err)
+		}
 	}
 }
 
@@ -204,4 +238,24 @@ func (compositionOperations) LockEnvelopeFactTx(context.Context, pgx.Tx, uuid.UU
 }
 func (compositionOperations) LockPartySourceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, bool) (bool, error) {
 	return false, errors.New("unexpected reference Party lock")
+}
+
+// compositionImportRevisions satisfies the import revision capability for
+// construction tests only; any call is unexpected.
+type compositionImportRevisions struct{}
+
+func (compositionImportRevisions) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error) {
+	return revisions.RecordSnapshot{}, errors.New("unexpected composition revision capture")
+}
+
+func (compositionImportRevisions) AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error {
+	return errors.New("unexpected composition revision append")
+}
+
+func (compositionImportRevisions) AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error {
+	return errors.New("unexpected composition live revision")
+}
+
+func (compositionImportRevisions) AppendNonRowMutationTx(context.Context, pgx.Tx, revisions.AppendNonRowMutationParams) error {
+	return errors.New("unexpected composition non-row mutation")
 }

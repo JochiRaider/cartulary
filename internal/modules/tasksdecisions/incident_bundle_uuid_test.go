@@ -54,9 +54,6 @@ func TestIncidentBundleTasksDecisionsUUIDAdmission_Unit(t *testing.T) {
 						row = validPortableDecision(harness, canonical, taskDecisionPortableTime())
 					}
 					row[field.name] = value
-					if field.name == "incident_id" && value == uuid.Nil.String() {
-						input.IncidentID = uuid.Nil
-					}
 					bundle := taskDecisionBundle([]map[string]any{row}, nil)
 					if field.kind == "decision" {
 						bundle = taskDecisionBundle(nil, []map[string]any{row})

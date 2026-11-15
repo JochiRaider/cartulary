@@ -10,17 +10,23 @@ import (
 )
 
 func TestAccessorsNoSDKRegisteredScopes(t *testing.T) {
-	for _, scope := range []Scope{
-		ScopeHTTPAPI,
-		ScopeWorkbook,
-		ScopeCollaboration,
-		ScopeEvidence,
-		ScopeJobs,
-		ScopeNetworkFlow,
-		ScopePostgres,
-		ScopeObjectStore,
-		ScopeTelemetry,
-	} {
+	// The instrumentation NLSpec scope table is closed; no other scope registers.
+	closed := []Scope{
+		"cartulary.httpapi",
+		"cartulary.workbook",
+		"cartulary.collaboration",
+		"cartulary.evidence",
+		"cartulary.jobs",
+		"cartulary.network_flow",
+		"cartulary.reference_pack",
+		"cartulary.postgres",
+		"cartulary.objectstore",
+		"cartulary.telemetry",
+	}
+	if len(registeredScopes) != len(closed) {
+		t.Fatalf("registered scopes = %v, want exactly %v", registeredScopes, closed)
+	}
+	for _, scope := range closed {
 		if !RegisteredScope(scope) {
 			t.Fatalf("scope %q is not registered", scope)
 		}

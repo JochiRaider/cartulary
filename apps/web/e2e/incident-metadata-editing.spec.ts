@@ -1,4 +1,5 @@
 import { incidentLandingTestId } from "@cartulary/ui-contracts";
+import type { Request } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
@@ -378,6 +379,21 @@ test("metadata pending transport survives drawer return and cannot publish after
     .getByRole("button", { name: "Save promoted fields", exact: true })
     .click();
   await expect.poll(() => fixture.writes.length).toBe(1);
+  const departedWriteSettled = new Promise<void>((resolve) => {
+    const onSettled = (request: Request) => {
+      if (
+        request.method() !== "PATCH" ||
+        new URL(request.url()).pathname !==
+          `/api/v1/incidents/${fixture.incidentId}`
+      )
+        return;
+      page.off("requestfinished", onSettled);
+      page.off("requestfailed", onSettled);
+      resolve();
+    };
+    page.on("requestfinished", onSettled);
+    page.on("requestfailed", onSettled);
+  });
   await page
     .getByRole("button", { name: "Close incident controls", exact: true })
     .click();
@@ -407,6 +423,7 @@ test("metadata pending transport survives drawer return and cannot publish after
   await openMetadata(page);
   await expect(panel.getByLabel("Severity", { exact: true })).toHaveValue("");
   gate.release();
+  await departedWriteSettled;
   await expect(panel).toHaveAttribute("data-metadata-operation", "idle");
   await expect(panel.getByLabel("Severity", { exact: true })).toHaveValue("");
   expect(fixture.writes).toHaveLength(1);

@@ -21,7 +21,24 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
+// indicatorTestClock anchors the injected command clock after the test
+// database's clock. Seeded Records envelopes use database-default creation
+// times, and an owner write must never backdate them.
+func indicatorTestClock(t testing.TB, db dbport.DB) time.Time {
+	t.Helper()
+	var databaseNow time.Time
+	if err := db.QueryRow(context.Background(), `SELECT now()`).Scan(&databaseNow); err != nil {
+		t.Fatalf("read test database clock: %v", err)
+	}
+	return databaseNow.UTC().Truncate(time.Microsecond).Add(5 * time.Minute)
+}
+
 func newIndicatorTestApplication(t testing.TB, db dbport.DB, appender *revisions.Appender) *indicators.Application {
+	t.Helper()
+	return newIndicatorTestApplicationAt(t, db, appender, indicatorTestClock(t, db))
+}
+
+func newIndicatorTestApplicationAt(t testing.TB, db dbport.DB, appender *revisions.Appender, now time.Time) *indicators.Application {
 	t.Helper()
 	projection, err := projectionassembly.Build(db)
 	if err != nil {
@@ -37,7 +54,7 @@ func newIndicatorTestApplication(t testing.TB, db dbport.DB, appender *revisions
 		Projections:     projection.IndicatorPorts().Rows,
 		SourceText:      indicatorassembly.NewSourceTextPort(projection.SourceTextRows()),
 		Collaboration:   collaborationsupport.NewRecordChangedAppender(),
-		Clock:           func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
+		Clock:           func() time.Time { return now },
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test application: %v", err)

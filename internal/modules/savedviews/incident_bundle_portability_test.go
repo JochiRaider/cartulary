@@ -894,9 +894,10 @@ func TestIncidentBundleSavedViewStrictPrepareSemantics_Unit(t *testing.T) {
 			if !bytes.Equal(original, encodePortableSavedViewRow(t, row)) {
 				t.Fatal("original archive row mutated")
 			}
-			ctx.BundleVersion = 8 - version
-			if _, err := prepareSavedViewImport(context.Background(), savedViewMapBundle{"data/saved_views.ndjson": original}, ctx); err == nil {
-				t.Fatal("layout/bundle version mismatch accepted")
+			for _, unsupported := range []int{version - 1, version + 1} {
+				ctx.BundleVersion = unsupported
+				_, err := prepareSavedViewImport(context.Background(), savedViewMapBundle{"data/saved_views.ndjson": original}, ctx)
+				requireSavedViewInvariantFailure(t, err, "saved_views.query_layout_legal")
 			}
 		}
 	})

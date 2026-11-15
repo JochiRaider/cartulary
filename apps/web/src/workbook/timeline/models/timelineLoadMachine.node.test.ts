@@ -129,6 +129,8 @@ describe("Timeline load machine", () => {
       }).effects.map((effect) => effect.kind),
     ).toEqual(["settle_obligation", "publish_status"]);
 
+    // Core 03 caps automatic recovery at two attempts; the constant may not drift.
+    expect(timelineFreshnessRetryLimit).toBe(2);
     let state = active;
     for (let depth = 1; depth <= timelineFreshnessRetryLimit; depth += 1) {
       const transition = transitionTimelineLoad(state, {

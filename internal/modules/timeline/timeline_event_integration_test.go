@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -655,10 +656,17 @@ func TestPatchSameFieldConflictEnvelope_Integration(t *testing.T) {
 		conflict["base_value"] != "Base summary" ||
 		conflict["server_value"] != "Server summary" ||
 		conflict["client_value"] != "Client summary" ||
-		conflict["server_updated_by"] != adminID.String() ||
-		conflict["server_updated_at"] == "" ||
-		conflict["conflict_token"] == "" {
+		conflict["server_updated_by"] != adminID.String() {
 		t.Fatalf("unexpected same-field conflict object: %#v", conflict)
+	}
+	// Core 03 §3.3.4: both members are present; the token stays opaque.
+	token, tokenOK := conflict["conflict_token"].(string)
+	updatedAt, updatedOK := conflict["server_updated_at"].(string)
+	if !tokenOK || token == "" || !updatedOK {
+		t.Fatalf("conflict token/timestamp missing: %#v", conflict)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, updatedAt); err != nil {
+		t.Fatalf("server_updated_at %q is not RFC 3339: %v", updatedAt, err)
 	}
 	afterConflict := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 	if beforeConflict != afterConflict {
@@ -1439,6 +1447,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		httptestx.RequireErrorEnvelope(t, supersedeDivergentReplacement, http.StatusConflict, "client_txn_conflict")
 		incidentwstest.ExpectNoSocketMessage(t, socket)
 
+		// REQ-03-107: superseded is terminal for patch, review and a fresh supersede.
+		terminalBefore := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		patchAfterSupersede := httptestx.DoJSON(t, http.DefaultClient,
 			http.MethodPatch,
 			server.HTTP.URL+"/api/v1/records/"+recordID,
@@ -1453,7 +1463,8 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
 			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
-		httptestx.RequireErrorEnvelope(t, patchAfterSupersede, http.StatusConflict, "illegal_transition")
+		terminalPatch := requireRejectedMutationStable(t, db, incidentID, recordID, terminalBefore, patchAfterSupersede, "superseded", "enriched", []string{})
+		httptestx.RequireErrorDetail(t, terminalPatch, "reason_code", "superseded_terminal")
 		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		illegalReview := httptestx.DoJSON(t, http.DefaultClient,
@@ -1466,7 +1477,24 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
 			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
 		)
-		httptestx.RequireErrorEnvelope(t, illegalReview, http.StatusConflict, "illegal_transition")
+		terminalReview := requireRejectedMutationStable(t, db, incidentID, recordID, terminalBefore, illegalReview, "superseded", "reviewed", []string{})
+		httptestx.RequireErrorDetail(t, terminalReview, "reason_code", "mark_reviewed_not_allowed")
+		incidentwstest.ExpectNoSocketMessage(t, socket)
+
+		resupersede := httptestx.DoJSON(t, http.DefaultClient,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
+			map[string]any{
+				"base_row_version":      4,
+				"client_txn_id":         "txn-i-3-03-resupersede",
+				"reason":                "Second replacement",
+				"replacement_record_id": alternateReplacementID,
+			},
+			httptestx.WithCookies(reviewerAuth.Session, reviewerAuth.CSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, reviewerAuth.CSRF.Value),
+		)
+		terminalSupersede := requireRejectedMutationStable(t, db, incidentID, recordID, terminalBefore, resupersede, "superseded", "superseded", []string{})
+		httptestx.RequireErrorDetail(t, terminalSupersede, "reason_code", "supersede_not_allowed")
 		incidentwstest.ExpectNoSocketMessage(t, socket)
 
 		updateMembershipRole(t, server, incidentID, reviewerID, 2, "viewer", adminLogin)
@@ -1602,9 +1630,16 @@ func TestTimelineTimeConversionProfile(t *testing.T) {
 		defaultProfile["local_offset_minutes"] != nil ||
 		defaultProfile["local_label"] != nil ||
 		defaultProfile["profile_version"] != float64(1) ||
-		defaultProfile["updated_at"] == "" ||
 		defaultProfile["updated_by_user_id"] != nil {
 		t.Fatalf("unexpected default time conversion profile: %#v", defaultProfile)
+	}
+	profileKeys := make([]string, 0, len(defaultProfile))
+	for key := range defaultProfile {
+		profileKeys = append(profileKeys, key)
+	}
+	slices.Sort(profileKeys)
+	if want := []string{"enabled", "incident_id", "local_label", "local_offset_minutes", "profile_version", "updated_at", "updated_by_user_id"}; !slices.Equal(profileKeys, want) {
+		t.Fatalf("time conversion profile members = %v, want exactly %v", profileKeys, want)
 	}
 
 	editorID := seedLocalUserFlags(t, db, "timeline_mutation-i-3-08-editor@example.test", "Timeline Time Editor", "TimelineMutationTimeEditor1!", false, false, true)
@@ -1920,7 +1955,7 @@ func requireMutationRecorded(t testing.TB, db *sql.DB, changeSetID string, recor
 	}
 }
 
-func requireRejectedMutationStable(t testing.TB, db *sql.DB, incidentID string, recordID string, before asserttest.Counters, resp *http.Response, wantFrom string, wantTo string, wantGuards []string) {
+func requireRejectedMutationStable(t testing.TB, db *sql.DB, incidentID string, recordID string, before asserttest.Counters, resp *http.Response, wantFrom string, wantTo string, wantGuards []string) map[string]any {
 	t.Helper()
 
 	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "illegal_transition")
@@ -1931,6 +1966,7 @@ func requireRejectedMutationStable(t testing.TB, db *sql.DB, incidentID string, 
 	if before != after {
 		t.Fatalf("rejected mutation must not write history or projection rows: before=%#v after=%#v", before, after)
 	}
+	return body
 }
 
 func queryTimelineEnvelope(t testing.TB, server *httptestx.Server, incidentID string, login authcookietest.AuthCookies) map[string]any {

@@ -4912,6 +4912,7 @@
           "Workbook preference owner locks each resource synchronously across entry points while allowing the other write",
           "Workbook preference owner permits clear without an available surface and preserves extension and saved-view targets",
           "Workbook preference owner preserves unsettled work across panel closure and reviews explicit departure",
+          "Workbook preference owner recovers access before refreshing after a canonical session or CSRF write rejection",
           "Workbook preference owner rejects mismatched acknowledgement as uncertain and malformed reads as unavailable",
           "Workbook preference owner retains authorized recovery on role demotion but clears on incident actor or session retirement",
           "Workbook preference owner retains state during temporary access failure and retires only on confirmed loss",

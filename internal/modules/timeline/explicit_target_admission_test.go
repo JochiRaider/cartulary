@@ -11,6 +11,7 @@ import (
 
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -72,9 +73,7 @@ func exerciseTimelineExplicitTargetAdmission(t *testing.T) {
 							t.Fatal(err)
 						}
 						if change == "deleted" {
-							if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at='2026-11-14T10:00:00Z',deleted_by_user_id=$2 WHERE record_id=$1`, target, actor); err != nil {
-								t.Fatal(err)
-							}
+							envelopetest.SoftDeleteRecord(t, tx, envelopetest.Tombstone{RecordID: target, DeletedBy: actor, AtLastUpdate: true})
 						} else if _, err := tx.Exec(ctx, "UPDATE "+table+" SET "+stateField+"='merged',merged_into_record_id=$2 WHERE record_id=$1", target, survivor); err != nil {
 							t.Fatal(err)
 						}

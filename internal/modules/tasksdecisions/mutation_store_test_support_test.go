@@ -407,6 +407,14 @@ func requireLifecycle(t testing.TB, err error) {
 	t.Fatalf("expected lifecycle validation error, got %v", err)
 }
 
+func requireLifecycleGuards(t testing.TB, err error, reason string, guards ...string) {
+	t.Helper()
+	var lifecycle *tasksdecisions.LifecycleValidationError
+	if !errors.As(err, &lifecycle) || lifecycle.ReasonCode != reason || !reflect.DeepEqual(lifecycle.ViolatedGuards, guards) {
+		t.Fatalf("lifecycle error = %#v (%v), want %s %v", lifecycle, err, reason, guards)
+	}
+}
+
 func requireCellValue(t testing.TB, row map[string]any, fieldKey string, want any) {
 	t.Helper()
 	got := row["cells"].(map[string]any)[fieldKey].(map[string]any)["value"]

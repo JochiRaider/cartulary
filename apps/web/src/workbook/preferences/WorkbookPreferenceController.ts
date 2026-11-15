@@ -263,10 +263,10 @@ export class WorkbookPreferenceController {
         this.state.access !== "ready" ||
         (op.kind === "rejected" &&
           [
-            "authentication_required",
+            "session_required",
             "authorization_denied",
             "incident_not_found",
-            "csrf_failed",
+            "csrf_verification_failed",
           ].includes(op.problem.code))
       ) {
         const access = await this.ports.recover(authority, signal, current);

@@ -35,7 +35,7 @@ test("frontend CLI: diagnostics and warnings", (t) => {
   const warning = invoke(fixture);
   assert.equal(warning.status, 0, warning.stderr);
   assert.match(warning.stderr, /src\/example.ts:1:.*warning: synthetic-warning: Fixture policy/);
-  assert.match(warning.stderr, /0 error|1 warning\(s\), 1 file\(s\) checked/);
+  assert.match(warning.stderr, /frontend import boundary check completed with 1 warning\(s\), 1 file\(s\) checked/);
   const blocking = invoke(fixture, ["--warnings-as-errors"]);
   assert.equal(blocking.status, 1);
   assert.match(blocking.stderr, /error: synthetic-warning/);

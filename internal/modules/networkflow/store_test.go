@@ -400,8 +400,9 @@ func assertNetworkFlowCommittedRowsAreImmutable(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	_, err = tx.Exec(context.Background(), `UPDATE network_flow_rows SET bytes_count = '2' WHERE network_flow_table_id = $1`, table.TableID)
-	if err == nil {
-		t.Fatalf("expected immutable row update to fail")
+	var immutable *pgconn.PgError
+	if !errors.As(err, &immutable) || immutable.Code != "23514" || immutable.ConstraintName != "" || immutable.Message != "Network Flow committed analytical rows are immutable" {
+		t.Fatalf("committed row update error = %v, want immutability trigger rejection", err)
 	}
 }
 

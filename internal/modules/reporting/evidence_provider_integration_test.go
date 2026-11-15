@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -250,9 +251,7 @@ INSERT INTO record_tags (
 			t.Fatalf("Evidence Reporting facts exposed forbidden value %q: %s", forbidden, encoded)
 		}
 	}
-	if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, eligibleID, fixedAt.Add(time.Minute), actorID.String()); err != nil {
-		t.Fatalf("soft-delete Reporting link endpoint in characterization transaction: %v", err)
-	}
+	envelopetest.SoftDeleteRecord(t, tx, envelopetest.Tombstone{RecordID: eligibleID, DeletedBy: actorID, AtLastUpdate: true})
 	inactiveSupportRefs, err := linksProvider.CollectSupportRefsTx(ctx, tx, incidentID)
 	if err != nil {
 		t.Fatalf("collect support refs after destination deletion: %v", err)
@@ -270,9 +269,7 @@ INSERT INTO record_tags (
 	if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at = NULL, deleted_by_user_id = NULL WHERE record_id = $1`, eligibleID); err != nil {
 		t.Fatalf("reactivate Reporting link destination: %v", err)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, sourceID, fixedAt.Add(2*time.Minute), actorID.String()); err != nil {
-		t.Fatalf("soft-delete Reporting link source: %v", err)
-	}
+	envelopetest.SoftDeleteRecord(t, tx, envelopetest.Tombstone{RecordID: sourceID, DeletedBy: actorID, AtLastUpdate: true})
 	sourceDeletedSupportRefs, err := linksProvider.CollectSupportRefsTx(ctx, tx, incidentID)
 	if err != nil {
 		t.Fatalf("collect support refs after source deletion: %v", err)
@@ -329,9 +326,7 @@ INSERT INTO record_tags (
 			t.Fatalf("Reporting export model exposed forbidden Evidence value %q: %s", forbidden, exportText)
 		}
 	}
-	if _, err := harness.Pool.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, eligibleID, fixedAt.Add(3*time.Minute), actorID.String()); err != nil {
-		t.Fatalf("soft-delete Reporting destination before corrected snapshot: %v", err)
-	}
+	envelopetest.SoftDeleteRecord(t, harness.Pool, envelopetest.Tombstone{RecordID: eligibleID, DeletedBy: actorID, AtLastUpdate: true})
 	retainedExportModel := requireSnapshotExportModel(t, harness.DB, snapshotID)
 	retainedExportJSON, err := json.Marshal(retainedExportModel)
 	if err != nil {

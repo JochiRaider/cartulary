@@ -1051,6 +1051,20 @@ func TestDecoderNormalizationAndRegisteredReasons_Unit(t *testing.T) {
 			want:     "redaction_profile_invalid",
 		},
 		{
+			// Control: the external request shape renders without the unsupported
+			// narrative, so the next case's reason belongs to that narrative.
+			name: "external request with supported content",
+			request: func() CreateReleaseRequest {
+				req := baseRequest
+				req.RedactionProfileID = ExternalRedactionProfileID
+				req.ReleaseScope = ReleaseScopeExternal
+				return req
+			}(),
+			contract: contract,
+			model:    baseModel,
+			want:     "",
+		},
+		{
 			name: "unsupported external curated narrative",
 			request: func() CreateReleaseRequest {
 				req := baseRequest

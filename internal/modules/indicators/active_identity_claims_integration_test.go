@@ -18,13 +18,14 @@ import (
 func TestIndicatorActiveIdentityClaimsFollowRecordsAndRebuild_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "indicators-active-identity-claims")
-	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
+	commandTime := indicatorTestClock(t, harness.DB)
+	application := newIndicatorTestApplicationAt(t, harness.DB, revisionsupport.MustAppender(t), commandTime)
 	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "indicator-claims@example.test", DisplayName: "Indicator Claims"})
 	incident := appsupport.CreateIncidentInStore(
 		t, harness.DB, actor, "txn-indicator-claims-incident", "IR-IND-CLAIMS",
 		"Indicator identity claims",
 	)
-	now := time.Date(2026, 8, 3, 20, 0, 0, 0, time.UTC)
+	now := commandTime.Add(time.Hour)
 
 	created, err := application.CreateIndicatorRow(ctx, actor.ID, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-indicator-claims-create",
@@ -115,11 +116,12 @@ UPDATE records
 	if _, err := recoveryTx.Exec(ctx, `DELETE FROM indicator_active_identities WHERE indicator_record_id = $1`, replacement.RecordID); err != nil {
 		t.Fatalf("clear recovery claim: %v", err)
 	}
+	// A restorable deleted envelope keeps deleted_at <= updated_at (Core 01 REQ-01-651).
 	if _, err := recoveryTx.Exec(ctx, `
 UPDATE records
-   SET deleted_at = $2, deleted_by_user_id = $3
+   SET deleted_at = updated_at, deleted_by_user_id = $2
  WHERE record_id = $1
-`, replacement.RecordID, deletedAt, actor.ID); err != nil {
+`, replacement.RecordID, actor.ID); err != nil {
 		t.Fatalf("replay deleted Records envelope: %v", err)
 	}
 	if _, err := recoveryTx.Exec(ctx, `

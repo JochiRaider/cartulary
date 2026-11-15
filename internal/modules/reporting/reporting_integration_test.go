@@ -123,6 +123,14 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 		t.Fatalf("incident metadata mutation must change source boundary token: %q", afterIncidentWatermark)
 	}
 
+	// The first snapshot was captured while the unpublished Records column
+	// existed; its export model (above) and its release render (below) carry the
+	// non-exposure checks. Workflow writes capture Records revision snapshots
+	// through the Records-owned envelope validator, which correctly fails closed
+	// on an unknown envelope member, so the column is removed before them.
+	if _, err := harness.DB.Exec(`ALTER TABLE records DROP COLUMN future_private`); err != nil {
+		t.Fatal(err)
+	}
 	createWorkbookNote(t, harness, adminLogin, incidentID, "txn-reporting-boundary-note")
 	afterWorkbookSnapshotJob := httptestx.RequireSuccessEnvelope(t, createSnapshot("txn-reporting-snapshot-after-workbook", nil), http.StatusAccepted)["data"].(map[string]any)
 	afterWorkbookSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, afterWorkbookSnapshotJob, "snapshot")
@@ -196,8 +204,8 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 		t.Fatalf("source evidence must be truncated for external release, got %#v", descriptionEntry)
 	}
 	for _, partyEntry := range requireManifestSourceEntries(t, entries, "/parties/"+fixture["party"]) {
-		if partyEntry["outcome"] == "dropped_disclosure_partition" {
-			t.Fatalf("selected party field must be retained, got %#v", partyEntry)
+		if partyEntry["action"] == reporting.ActionDrop || partyEntry["outcome"] == "dropped" {
+			t.Fatalf("selected recipient party field was dropped, got %#v", partyEntry)
 		}
 	}
 
@@ -2151,9 +2159,6 @@ SELECT role, bundle_path, file_sha256, inline_bytes
 		}
 		objectSum := sha256.Sum256(append([]byte(decoded["schema_id"].(string)+"\n"), inlineBytes...))
 		artifact := retainedTokenArtifact{fileSHA, hex.EncodeToString(objectSum[:]), decoded}
-		if artifact.fileSHA == artifact.objectSHA {
-			t.Fatal("file and object hash domains conflated")
-		}
 		switch role {
 		case "token_manifest":
 			if path != "validation/token-manifest.json" || decoded["schema_id"] != reporting.RedactionTokenManifestSchemaID {

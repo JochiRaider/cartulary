@@ -5322,6 +5322,7 @@ function evidenceRow(recordId: string, rowVersion: number, title: string) {
       "evidence.collector_party_id": { value: null },
       "evidence.source_party_text": { value: "" },
       "evidence.source_party_id": { value: null },
+      "evidence.owner_user_id": { value: null },
       "evidence.upload_state": { value: "pending" },
       "evidence.linked_record_count": { value: 0 },
       "evidence.edited_at": { value: null },

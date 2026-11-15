@@ -147,6 +147,7 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 		{name: "target semantics", mutate: func(value *CommandServiceDependencies) { value.TargetSemantics = nil }},
 		{name: "appender", mutate: func(value *CommandServiceDependencies) { value.Appender = nil }},
 		{name: "record envelopes", mutate: func(value *CommandServiceDependencies) { value.RecordEnvelopes = nil }},
+		{name: "record publications", mutate: func(value *CommandServiceDependencies) { value.RecordPublications = nil }},
 		{name: "clock", mutate: func(value *CommandServiceDependencies) { value.Clock = nil }},
 	}
 	for _, test := range tests {

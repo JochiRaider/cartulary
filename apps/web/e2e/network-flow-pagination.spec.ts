@@ -3,7 +3,7 @@ import {
   networkAnalysisRowCellTestId,
   networkAnalysisTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Response } from "@playwright/test";
+import type { Page, Request } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import {
   importNetworkFlowCSV,
@@ -153,11 +153,11 @@ test("Network Analysis preserves committed pages and recovers expired-cursor res
       ),
     ).toEqual(first);
     // Same-turn commands admit exactly one read, even before React disables controls.
-    let reads = 0;
-    const count = (response: Response) => {
-      if (route.test(new URL(response.url()).pathname)) reads++;
+    let requested = 0;
+    const countRequest = (request: Request) => {
+      if (route.test(new URL(request.url()).pathname)) requested++;
     };
-    page.on("response", count);
+    page.on("request", countRequest);
     expect(
       await readPage(
         page,
@@ -171,8 +171,8 @@ test("Network Analysis preserves committed pages and recovers expired-cursor res
       ),
     ).toEqual(second);
     await expect(status).toHaveText("Page 2");
-    expect(reads).toBe(1);
-    page.off("response", count);
+    expect(requested).toBe(1);
+    page.off("request", countRequest);
     const nextExpiry = await expireNext();
     const expired = page.waitForResponse(
       (response) =>

@@ -79,6 +79,7 @@ func TestPartyMutationFieldBoundariesAndClears_Unit(t *testing.T) {
 		assertPartyPatchAdmission(t, optional, " \t ", true)
 	}
 	assertPartyPatchAdmission(t, "party.display_name", nil, false)
+	assertPartyPatchAdmission(t, "party.party_kind", "person", true)
 	assertPartyPatchAdmission(t, "party.party_kind", "Person", false)
 	assertPartyPatchAdmission(t, "party.party_kind", " person ", false)
 	assertPartyPatchAdmission(t, "party.primary_email", "a@@b", false)

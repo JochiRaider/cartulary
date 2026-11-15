@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -53,7 +54,7 @@ func TestPartiesSurface_Integration(t *testing.T) {
 	if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != partyBefore {
 		t.Fatalf("replay/divergence changed history: %+v -> %+v", partyBefore, got)
 	}
-	if got := partyConformanceData["row"].(map[string]any)["record_id"]; got == "" {
+	if got, ok := partyConformanceData["row"].(map[string]any)["record_id"].(string); !ok || uuid.Validate(got) != nil || got == uuid.Nil.String() {
 		t.Fatalf("party conformance create did not return a row record id: %#v", partyConformanceData)
 	}
 
@@ -186,7 +187,7 @@ func TestWorkbook_EvidenceMutations(t *testing.T) {
 INSERT INTO parties (record_id, incident_id, display_name, party_kind)
 VALUES ($1, $2, 'Deleted Party', 'person')
 `, deletedPartyID, incidentID)
-	execSeed(t, harness, `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedPartyID, adminUserID)
+	envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: deletedPartyID, DeletedBy: adminUserID})
 
 	beforeReferenceFailures := countIncidentRecords(t, harness, incidentID)
 	for _, invalid := range []struct {
@@ -290,7 +291,7 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 	if got := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String()); got != commBefore {
 		t.Fatalf("replay/divergence changed history: %+v -> %+v", commBefore, got)
 	}
-	if got := commConformanceData["row"].(map[string]any)["record_id"]; got == "" {
+	if got, ok := commConformanceData["row"].(map[string]any)["record_id"].(string); !ok || uuid.Validate(got) != nil || got == uuid.Nil.String() {
 		t.Fatalf("coordination conformance create did not return a row record id: %#v", commConformanceData)
 	}
 

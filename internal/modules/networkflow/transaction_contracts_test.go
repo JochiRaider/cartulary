@@ -66,11 +66,13 @@ func assertTransactionInputContracts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 1; i < len(prepared.SerializationKeys); i++ {
-		a, b := prepared.SerializationKeys[i-1], prepared.SerializationKeys[i]
-		if a.KeyKind > b.KeyKind || a.KeyKind == b.KeyKind && a.Key >= b.Key {
-			t.Fatal("owner prepare result is not ordered")
-		}
+	wantLinkKeys := []crossownertransaction.SerializationKey{
+		{KeyKind: "network_flow_activity.incident", Key: p.mutation.IncidentID.String()},
+		{KeyKind: "network_flow_activity.indicator", Key: p.mutation.Request.Target.IndicatorID.String()},
+		{KeyKind: "network_flow_activity.table", Key: "nft_" + strings.Repeat("a", 32)},
+	}
+	if !reflect.DeepEqual(prepared.SerializationKeys, wantLinkKeys) {
+		t.Fatalf("indicator link prepare keys = %+v, want %+v", prepared.SerializationKeys, wantLinkKeys)
 	}
 	for _, id := range []string{ImportApplyParticipantID, IndicatorLinkParticipantID} {
 		d, ok := TransactionContract(id)

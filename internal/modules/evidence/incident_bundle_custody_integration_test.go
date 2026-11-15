@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 	"github.com/google/uuid"
@@ -51,9 +52,7 @@ func TestEvidencePortableCustodyTransaction_Integration(t *testing.T) {
 			t.Fatal(err)
 		}
 		if deleted {
-			if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at='2026-01-03T00:00:00Z',deleted_by_user_id=$2 WHERE record_id=$1`, record["record_id"], actor); err != nil {
-				t.Fatal(err)
-			}
+			envelopetest.SoftDeleteRecord(t, tx, envelopetest.Tombstone{RecordID: uuid.MustParse(record["record_id"].(string)), DeletedBy: actor, AtLastUpdate: true})
 		}
 	}
 	prepare := func(t testing.TB, rows ...map[string]any) (sourceport.Prepared, sourceport.ImportContext, *evidencePortableAttributions) {

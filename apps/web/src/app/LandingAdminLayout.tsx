@@ -200,7 +200,7 @@ export function IncidentDirectoryShell({
             tabIndex={-1}
             style={landingAdminTitleStyle}
           >
-            Incident directory
+            Incidents
           </h1>
         </div>
         <dl style={landingAdminHeaderMetaStyle}>

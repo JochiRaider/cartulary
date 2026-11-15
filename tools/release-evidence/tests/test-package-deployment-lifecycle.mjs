@@ -35,7 +35,7 @@ test("deployment allocation and native recovery agree on independent resources a
    if (hasAllocation) {
     const allocation = JSON.parse(fs.readFileSync(allocationFile));
     assert.ok(allocation.workspace.startsWith(identity.root + path.sep));
-    assert.match(allocation.sourceProject, /^cartulary-qualification-[a-f0-9-]{36}-source$/u);
+    assert.match(allocation.sourceProject, /^cartulary-pq-[a-f0-9-]{36}-source$/u);
     assert.equal(allocation.destinationProject, allocation.sourceProject.replace(/-source$/u, "-destination"));
     assert.equal(allocation.dependencies.length, 2);
     const calls = fs.readFileSync(fixture.log, "utf8").trim().split("\n").map(value => JSON.parse(value));

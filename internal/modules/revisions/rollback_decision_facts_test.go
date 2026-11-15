@@ -61,9 +61,7 @@ func exerciseDecisionInverseFacts(t *testing.T) {
 				}
 			}
 			if tc.hidden {
-				if _, err := h.DB.Exec(ctx, `UPDATE records SET deleted_at=$2,deleted_by_user_id=$3 WHERE record_id=$1`, peer, now, actor.ID); err != nil {
-					t.Fatal(err)
-				}
+				envelopetest.SoftDeleteRecord(t, h.DB, envelopetest.Tombstone{RecordID: peer, DeletedBy: actor.ID, AtLastUpdate: true})
 			}
 			witness := &decisionInverseFactsWitness{delegate: tasksdecisionassembly.NewLinkFactsCapability()}
 			if tc.fail {

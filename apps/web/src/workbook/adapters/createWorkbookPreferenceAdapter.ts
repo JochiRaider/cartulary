@@ -26,9 +26,9 @@ const knownCodes: readonly PreferenceProblem["code"][] = [
   "invalid_mutation_payload",
   "invalid_query_request",
   "invalid_path_parameter",
-  "authentication_required",
+  "session_required",
   "authorization_denied",
-  "csrf_failed",
+  "csrf_verification_failed",
   "incident_not_found",
   "internal_error",
   "invalid_public_contract_response",
@@ -48,9 +48,11 @@ function failure<T>(
         "invalid_query_request",
         "invalid_path_parameter",
       ].includes(safeCode)) ||
-    (status === 401 && safeCode === "authentication_required") ||
+    (status === 401 && safeCode === "session_required") ||
     (status === 403 &&
-      ["csrf_failed", "authorization_denied"].includes(safeCode)) ||
+      ["csrf_verification_failed", "authorization_denied"].includes(
+        safeCode,
+      )) ||
     (status === 404 && safeCode === "incident_not_found");
   return {
     kind: write && !definite ? "uncertain" : "rejected",

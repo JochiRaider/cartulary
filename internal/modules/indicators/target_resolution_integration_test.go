@@ -21,11 +21,12 @@ import (
 func TestIndicatorTargetRoleFailuresAreAtomic_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "indicator-target-role-resolution")
-	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
+	commandTime := indicatorTestClock(t, harness.DB)
+	application := newIndicatorTestApplicationAt(t, harness.DB, revisionsupport.MustAppender(t), commandTime)
 	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "indicator-target-role@example.test", DisplayName: "Indicator Target Role"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-target-role-incident", "IR-IND-TARGET-ROLE", "Indicator target roles")
 	foreignIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-target-role-foreign-incident", "IR-IND-TARGET-FOREIGN", "Foreign Indicator target roles")
-	now := time.Date(2026, 8, 3, 22, 0, 0, 0, time.UTC)
+	now := commandTime.Add(time.Hour)
 
 	mainIndicator := createTargetRoleIndicator(t, application, actor.ID, incident.ID, "main-target.example", "main")
 	deletedIndicator := createTargetRoleIndicator(t, application, actor.ID, incident.ID, "deleted-target.example", "deleted")

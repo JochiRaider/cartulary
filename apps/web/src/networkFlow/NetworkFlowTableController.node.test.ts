@@ -127,8 +127,12 @@ describe("Table lifecycle operations", () => {
       base_table_version: 1,
     });
     expect(Object.isFrozen(attempt)).toBe(true);
+    // The transport holds the admission closure; role loss must refuse it.
+    expect(dispatch).toBeTypeOf("function");
     s.setAuthority({ role: "viewer" });
-    expect(() => dispatch()).toThrow();
+    expect(() => dispatch()).toThrow(
+      "Table mutation authority changed before dispatch.",
+    );
     await request;
     expect(s.controller.getSnapshot().operation?.status).toBe("rejected");
     expect(s.controller.getSnapshot().operation?.failure).toMatchObject({

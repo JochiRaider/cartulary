@@ -2,6 +2,7 @@ package workbook
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"reflect"
@@ -659,6 +660,12 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 		apiErr := mutationFailureAPIError(failure)
 		if got := apiErr.Details["violated_guards"]; !reflect.DeepEqual(got, []string{"first"}) {
 			t.Fatalf("failure retained caller-owned guards: %v", got)
+		}
+		// REQ-01-231: matrix-only rejections keep a present, empty guard array.
+		unguarded := mutationFailureAPIError(IllegalTransitionFailure("superseded", "enriched", "superseded_terminal", nil))
+		encoded, err := json.Marshal(unguarded.Details)
+		if guards, ok := unguarded.Details["violated_guards"].([]string); !ok || guards == nil || len(guards) != 0 || err != nil || !strings.Contains(string(encoded), `"violated_guards":[]`) {
+			t.Fatalf("unguarded illegal transition details = %s (%v)", encoded, err)
 		}
 		apiErr = internalAPIError(errors.New("secret upstream detail"))
 		if apiErr.Code != "internal_error" || apiErr.Message != "internal_error" || strings.Contains(apiErr.Message, "secret") {

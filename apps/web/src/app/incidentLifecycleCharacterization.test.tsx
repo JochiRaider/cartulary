@@ -200,7 +200,10 @@ describe("Incident lifecycle characterization", () => {
       writes,
       json({ error: { code: "invalid_incident_lifecycle_request" } }, 400),
     );
-    expect(screen.queryByText("invalid_incident_lifecycle_request")).toBeNull();
+    expect(id("lifecycle-outcome").getAttribute("role")).toBe("status");
+    expect(id("lifecycle-outcome").textContent).not.toContain(
+      "The lifecycle request was rejected as invalid.",
+    );
   });
   it("acknowledges success before subsequent authorization observation settles", async () => {
     const { writes, view, surface } = setup();

@@ -26,6 +26,8 @@ func TestIndicatorsProductionImportBoundaries(t *testing.T) {
 			{"admission/renamed.go", "records", false},
 			{"internal/providers/rollback/renamed.go", "records", false},
 			{"internal/providers/rollback/renamed.go", "revisions/rollbackcontract", true},
+			{"internal/sourcevalue/renamed.go", "revisions/deleterestorecontract", true},
+			{"internal/sourcevalue/renamed.go", "records", false},
 		} {
 			dependency := indicatorsRepoImportPrefix + "internal/modules/" + test.dependency
 			if got := indicatorPackageImportAllowed(filepath.Dir(test.path), dependency); got != test.allowed {
@@ -120,13 +122,14 @@ func indicatorAdmissionImportAllowed(imported string) bool {
 func indicatorPackageImportAllowed(directory, dependency string) bool {
 	// Capability ownership is package-local; source filenames have no policy role.
 	allowed := map[string][]string{
-		".":                                 {"collaboration", "collaboration/protocol", "imports/ownerfacade", "incidentbundles/sourceport", "incidentportability", "records", "records/subtypepresence", "reference_data", "revisions", "revisions/historycontract"},
+		".":                                 {"collaboration", "collaboration/protocol", "imports/ownerfacade", "incidentbundles/sourceport", "incidentportability", "records", "records/enveloperead", "records/subtypepresence", "reference_data", "revisions", "revisions/historycontract"},
 		"admission":                         {"indicators"},
-		"httpapi":                           {"incidents/admission", "indicators", "records"},
+		"httpapi":                           {"incidents/admission", "indicators", "records", "records/enveloperead"},
 		"internal/identity":                 {"reference_data"},
 		"internal/providers/deleterestore":  {"revisions/deleterestorecontract"},
 		"internal/providers/incidentbundle": {"incidentbundles/sourceport", "incidentportability", "records/subtypepresence", "reference_data"},
 		"internal/providers/rollback":       {"reference_data", "revisions/rollbackcontract"},
+		"internal/sourcevalue":              {"revisions/deleterestorecontract"},
 		"workbookprojection":                {"projections/providercontract"},
 	}
 	for _, capability := range allowed[directory] {

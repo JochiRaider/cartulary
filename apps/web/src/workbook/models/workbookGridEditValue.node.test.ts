@@ -69,7 +69,7 @@ describe("Grid field intent", () => {
           `${f.fieldKey} explicit null`,
         ).toBe(f.clearable);
       }
-    expect(editable).toBe(97);
+    expect(editable).toBe(98);
     expect(surfaces.size).toBe(15);
     expect([...families].sort()).toEqual([
       "boolean",
@@ -144,9 +144,10 @@ describe("Grid field intent", () => {
     expect(
       workbookGridEditChange(field("notes", "note.body"), " a\r\nb ")?.value,
     ).toBe("a\nb");
-    expect(
-      workbookGridEditChange(field("notes", "note.title"), null),
-    ).toBeNull();
+    expect(workbookGridEditChange(field("notes", "note.title"), null)).toEqual({
+      field_key: "note.title",
+      value: null,
+    });
     for (const view of ["assessments", "indicators"])
       for (const f of requireViewContract(`cartulary.view.${view}.v1`).fields)
         expect(workbookGridEditChange(f, "text")).toBeNull();

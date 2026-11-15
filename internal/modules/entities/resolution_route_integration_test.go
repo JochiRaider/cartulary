@@ -43,9 +43,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 				entitytest.SeedIdentityRecord(t, harness.DB, incidentID, actorID, targetID, "Target", "target@example.test", "target@example.test", "TARGET")
 			}
 			entitytest.SeedMention(t, harness.DB, actorID, mentionID, timelinetest.RecordID, fieldKey, entityType, "Target", "unresolved", nil, nil)
-			if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, targetID, actorID); err != nil {
-				t.Fatal(err)
-			}
+			envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: targetID, DeletedBy: actorID})
 			before := workbookscenariotest.SnapshotIncidentMutationEffects(t, harness.DB, incidentID.String())
 			beforeMention := entitytest.LookupMention(t, harness.DB, mentionID)
 			request := entitytest.MentionResolveRoutePayload(1, "txn-deleted-target-resolve", "resolve_item", &targetID, nil)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -82,15 +83,29 @@ INSERT INTO records (
 	if !ok {
 		t.Fatalf("field value type = %T; want map[string]any", field.Value)
 	}
-	if _, exists := value["incident_id"]; exists {
-		t.Fatalf("field value exposes incident_id: %#v", value)
-	}
 	if value["record_id"] != activeID.String() ||
 		value["record_type"] != "artifact" ||
-		value["row_version"] != json.Number("3") ||
-		value["deleted_at"] != nil ||
-		value["deleted_by_user_id"] != nil {
+		value["row_version"] != json.Number("3") {
 		t.Fatalf("field value = %#v", value)
+	}
+	gotKeys := make([]string, 0, len(value))
+	for key := range value {
+		gotKeys = append(gotKeys, key)
+	}
+	slices.Sort(gotKeys)
+	wantKeys := []string{"created_at", "created_by_user_id", "record_id", "record_type", "row_version", "updated_at", "updated_by_user_id"}
+	if !slices.Equal(gotKeys, wantKeys) {
+		t.Fatalf("field value keys = %v; want %v", gotKeys, wantKeys)
+	}
+	if value["created_by_user_id"] != actorID.String() || value["updated_by_user_id"] != actorID.String() {
+		t.Fatalf("field value actors = %#v", value)
+	}
+	for _, key := range []string{"created_at", "updated_at"} {
+		text, ok := value[key].(string)
+		parsed, err := time.Parse(time.RFC3339Nano, text)
+		if !ok || err != nil || !parsed.Equal(now) {
+			t.Fatalf("field value %s = %#v; want %s", key, value[key], now.Format(time.RFC3339Nano))
+		}
 	}
 	if len(output.RecordFacts) != 1 {
 		t.Fatalf("record fact count = %d; want 1", len(output.RecordFacts))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -93,8 +94,9 @@ func TestNetworkFlowOrientationPreservesHistoricalState_Integration(t *testing.T
 			}
 			admissionErr := ValidateMigrationAdmission(t.Context(), conn)
 			conn.Close()
-			if admissionErr == nil {
-				t.Fatal("historical environment admitted")
+			var blocked interface{ ReasonCode() string }
+			if !errors.As(admissionErr, &blocked) || blocked.ReasonCode() != "network_flow_orientation_state_incompatible" {
+				t.Fatalf("historical environment rejection = %v, want network_flow_orientation_state_incompatible", admissionErr)
 			}
 			if !reflect.DeepEqual(before, upgradeTables(t, db, tables)) || !reflect.DeepEqual(immutableBefore, upgradeImmutableState(t, db, immutableID)) || historicalLink != canonicalHistoricalLinkBytes(t, db) {
 				t.Fatal("rejected admission modified historical evidence")

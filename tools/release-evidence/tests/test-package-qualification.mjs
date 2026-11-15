@@ -12,7 +12,7 @@ import { createDeploymentFixture, borrowedDeploymentID } from "./package-deploym
 import { assertPackageQualificationSource, packageDestinationProject, packageSourceProjectPattern } from "../package-qualification-project.mjs";
 import { qualifyPackage } from "../package-qualification.mjs";
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
-const source = "cartulary-qualification-11111111-2222-4333-8444-555555555555-source";
+const source = "cartulary-pq-11111111-2222-4333-8444-555555555555-source";
 
 test("qualification project grammar has one source and one derived destination, without legacy aliases", async () => {
  assert.equal(packageSourceProjectPattern.test(source), true);
@@ -22,7 +22,11 @@ test("qualification project grammar has one source and one derived destination, 
   const changed = { ...env }; change(changed); assert.throws(() => assertPackageQualificationSource(env.CARTULARY_PACKAGE_WORK_DIR, source, changed));
  }
  for (const work of ["relative", "/operator/installation", null]) assert.throws(() => assertPackageQualificationSource(work, source, env));
- assert.equal(packageDestinationProject(source), "cartulary-qualification-11111111-2222-4333-8444-555555555555-destination");
+ assert.equal(packageDestinationProject(source), "cartulary-pq-11111111-2222-4333-8444-555555555555-destination");
+ // The shipped package admits only this deployment identity
+ // (deploy/mvp/scripts/package-common.sh:48); both derived projects must pass it.
+ const packageDeploymentIdentity = /^[a-z0-9][a-z0-9_-]{0,62}$/u;
+ for (const project of [source, packageDestinationProject(source)]) assert.match(project, packageDeploymentIdentity);
  for (const value of ["cartularymvpsmoke123", "cartularymvprecoverysmk123", source.replace("-4333-", "-3333-"), source.replace("-8444-", "-7444-"), source + "destination", source.replace("-source", "-destination"), "--all", null]) assert.throws(() => packageDestinationProject(value));
  for (const mode of ["unknown", "__proto__", "constructor", ""]) await assert.rejects(qualifyPackage(mode, { environment: {} }), error => error.failure_reason === "usage_error");
 });

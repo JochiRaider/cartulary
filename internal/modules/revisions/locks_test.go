@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -155,7 +156,7 @@ func TestDestructiveOperationLocks_Unit(t *testing.T) {
 		deletedChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000607")
 		seedRollbackHostPatch(t, harness.DB, incidentID, deletedRecordID, actorID, deletedChangeSetID, time.Date(2026, 5, 10, 18, 6, 0, 0, time.UTC), "deleted lock before", "deleted lock after")
 		deletedRef := historyEntryRefForTarget(t, harness, login, deletedRecordID, "host", deletedRecordID.String())
-		mustExec(t, harness.DB, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, deletedRecordID, time.Now().UTC(), actorID)
+		envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: deletedRecordID, DeletedBy: actorID, AtLastUpdate: true})
 
 		lockTx, err := harness.DB.BeginTx(context.Background(), nil)
 		if err != nil {

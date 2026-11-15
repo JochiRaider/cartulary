@@ -1145,6 +1145,7 @@
         "apps/web/src/workbook/timeline/actions/useTimelineCandidates.ts",
         "apps/web/src/workbook/timeline/actions/useTimelineCaptureActions.ts",
         "apps/web/src/workbook/timeline/actions/useTimelineMentionCandidates.ts",
+        "apps/web/src/workbook/timeline/adapters/acceptTimelineLivePatchObservation.ts",
         "apps/web/src/workbook/timeline/adapters/createTimelineActionAdapters.test.ts",
         "apps/web/src/workbook/timeline/adapters/createTimelineBulkTagCommandAdapter.ts",
         "apps/web/src/workbook/timeline/adapters/createTimelineCandidateReader.ts",

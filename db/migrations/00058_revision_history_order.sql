@@ -15,6 +15,8 @@ CREATE TABLE public.revision_history_orders (
     CONSTRAINT revision_history_orders_incident_id_fkey FOREIGN KEY (incident_id) REFERENCES public.incidents(id) ON DELETE CASCADE ON UPDATE NO ACTION,
     CONSTRAINT revision_history_orders_positive_ck CHECK (last_order > 0)
 );
+REVOKE ALL ON TABLE public.revision_history_orders FROM PUBLIC;
+REVOKE ALL ON TYPE public.revision_history_orders FROM PUBLIC;
 GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE public.revision_history_orders TO cartulary_runtime;
 GRANT INSERT, SELECT, UPDATE, DELETE, TRUNCATE ON TABLE public.revision_history_orders TO cartulary_recovery;
 
@@ -42,8 +44,6 @@ BEGIN
 END $$;
 -- +goose StatementEnd
 REVOKE ALL ON FUNCTION public.revisions_assign_history_order_v1() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.revisions_assign_history_order_v1() TO cartulary_runtime;
-GRANT EXECUTE ON FUNCTION public.revisions_assign_history_order_v1() TO cartulary_recovery;
 CREATE TRIGGER change_sets_assign_history_order
 BEFORE INSERT ON public.change_sets FOR EACH ROW
 EXECUTE FUNCTION public.revisions_assign_history_order_v1();

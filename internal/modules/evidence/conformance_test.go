@@ -103,6 +103,7 @@ func TestEvidenceFieldKeyRegistryClosure_Unit(t *testing.T) {
 		"evidence.upload_state",
 		"evidence.linked_record_count",
 		"evidence.edited_at",
+		"evidence.owner_user_id",
 	}
 	if got := PublicFieldKeys(evidenceResource); !reflect.DeepEqual(got, wantEvidenceKeys) {
 		t.Fatalf("evidence field keys got %v want %v", got, wantEvidenceKeys)

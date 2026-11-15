@@ -3,6 +3,7 @@ package jobapi_test
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -99,7 +100,9 @@ func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	}
 
 	adminRead := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID, nil, httptestx.WithCookies(adminLogin.Session))
-	httptestx.RequireSuccessEnvelope(t, adminRead, http.StatusOK)
+	if read := httptestx.RequireSuccessData(t, adminRead, http.StatusOK); read["job_id"] != job.JobID || read["status"] != "queued" {
+		t.Fatalf("admin job read = %#v, want queued %s", read, job.JobID)
+	}
 
 	otherRead := httptestx.DoJSON(t, http.DefaultClient, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID, nil, httptestx.WithCookies(otherLogin.Session))
 	httptestx.RequireErrorEnvelope(t, otherRead, http.StatusNotFound, "job_not_found")
@@ -109,10 +112,51 @@ func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	}, httptestx.WithCookies(otherLogin.Session, otherLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, otherLogin.CSRF.Value))
 	httptestx.RequireErrorEnvelope(t, otherCancel, http.StatusNotFound, "job_not_found")
 
-	submitterCancel := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID+"/cancel", map[string]any{
+	cancelURL := harness.Server.HTTP.URL + "/api/v1/jobs/" + job.JobID + "/cancel"
+	submitterCancelRequest := func(body any) *http.Response {
+		t.Helper()
+		return httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, cancelURL, body,
+			httptestx.WithCookies(submitterLogin.Session, submitterLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, submitterLogin.CSRF.Value))
+	}
+	requireErrorDetails := func(resp *http.Response, status int, code string, want map[string]any) {
+		t.Helper()
+		envelope := httptestx.RequireErrorEnvelope(t, resp, status, code)
+		details, _ := envelope["error"].(map[string]any)["details"].(map[string]any)
+		if !reflect.DeepEqual(details, want) {
+			t.Fatalf("%s details = %#v, want %#v", code, details, want)
+		}
+	}
+	for _, malformed := range []struct {
+		body any
+		want map[string]any
+	}{
+		{body: []any{1}, want: map[string]any{"reason_code": "request_not_object"}},
+		{body: map[string]any{}, want: map[string]any{"field": "client_txn_id", "reason_code": "missing_required_field"}},
+		{body: map[string]any{"client_txn_id": "txn-unknown-member", "priority": 1}, want: map[string]any{"field": "priority", "reason_code": "unknown_field"}},
+	} {
+		requireErrorDetails(submitterCancelRequest(malformed.body), http.StatusBadRequest, "invalid_mutation_payload", malformed.want)
+	}
+
+	submitterCancel := submitterCancelRequest(map[string]any{
 		"client_txn_id": "txn-extension_profile-jobapi-submitter-cancel",
-	}, httptestx.WithCookies(submitterLogin.Session, submitterLogin.CSRF), httptestx.WithHeader(authn.CSRFHeaderName, submitterLogin.CSRF.Value))
-	httptestx.RequireSuccessEnvelope(t, submitterCancel, http.StatusOK)
+	})
+	if canceled := httptestx.RequireSuccessData(t, submitterCancel, http.StatusOK); canceled["job_id"] != job.JobID || canceled["status"] != "cancel_requested" || canceled["cancelable"] != false {
+		t.Fatalf("submitter cancel = %#v, want cancel_requested non-cancelable %s", canceled, job.JobID)
+	}
+	replay := submitterCancelRequest(map[string]any{
+		"client_txn_id": "txn-extension_profile-jobapi-submitter-cancel",
+		"reason":        nil,
+	})
+	if replayed := httptestx.RequireSuccessData(t, replay, http.StatusOK); replayed["job_id"] != job.JobID || replayed["status"] != "cancel_requested" {
+		t.Fatalf("null-reason cancel replay = %#v, want current cancel_requested %s", replayed, job.JobID)
+	}
+	requireErrorDetails(submitterCancelRequest(map[string]any{
+		"client_txn_id": "txn-extension_profile-jobapi-submitter-cancel",
+		"reason":        "different reason",
+	}), http.StatusConflict, "client_txn_conflict", map[string]any{"client_txn_id": "txn-extension_profile-jobapi-submitter-cancel"})
+	requireErrorDetails(submitterCancelRequest(map[string]any{
+		"client_txn_id": "txn-extension_profile-jobapi-submitter-second-cancel",
+	}), http.StatusConflict, "job_cancel_rejected", map[string]any{"reason_code": "already_cancel_requested"})
 }
 
 func TestExpiredJobReadAndCancelAreMasked_Integration(t *testing.T) {

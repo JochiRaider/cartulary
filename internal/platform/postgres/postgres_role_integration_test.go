@@ -675,12 +675,16 @@ func assertPublicAndDefaultPrivileges(t testing.TB, db *sql.DB) {
 func assertRuntimePrivilegeMatrix(t testing.TB, db *sql.DB) {
 	t.Helper()
 	assertPrivilegeFacts(t, db, []privilegeFact{
-		{`SELECT has_table_privilege(current_user, 'public.incidents', 'SELECT,INSERT,UPDATE,DELETE')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.incidents', 'SELECT')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.incidents', 'INSERT')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.incidents', 'UPDATE')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.incidents', 'DELETE')`, true},
 		{`SELECT has_table_privilege(current_user, 'public.incidents', 'TRUNCATE')`, false},
 		{`SELECT has_table_privilege(current_user, 'public.goose_db_version', 'SELECT')`, true},
 		{`SELECT has_table_privilege(current_user, 'public.goose_db_version', 'INSERT,UPDATE,DELETE,TRUNCATE')`, false},
 		{`SELECT has_table_privilege(current_user, 'public.backup_sets', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE')`, false},
-		{`SELECT has_table_privilege(current_user, 'public.administrative_audit_projections', 'SELECT,INSERT')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.administrative_audit_projections', 'SELECT')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.administrative_audit_projections', 'INSERT')`, true},
 		{`SELECT has_table_privilege(current_user, 'public.administrative_audit_projections', 'UPDATE,DELETE,TRUNCATE')`, false},
 		{`SELECT has_sequence_privilege(current_user, 'public.record_revisions_revision_id_seq', 'USAGE')`, true},
 		{`SELECT has_sequence_privilege(current_user, 'public.record_revisions_revision_id_seq', 'UPDATE')`, false},
@@ -699,10 +703,16 @@ func assertRuntimePrivilegeMatrix(t testing.TB, db *sql.DB) {
 func assertRecoveryPrivilegeMatrix(t testing.TB, db *sql.DB) {
 	t.Helper()
 	assertPrivilegeFacts(t, db, []privilegeFact{
-		{`SELECT has_table_privilege(current_user, 'public.incidents', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.incidents', 'SELECT')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.incidents', 'INSERT')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.incidents', 'UPDATE')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.incidents', 'DELETE')`, true},
+		{`SELECT has_table_privilege(current_user, 'public.incidents', 'TRUNCATE')`, true},
 		{`SELECT has_table_privilege(current_user, 'public.goose_db_version', 'SELECT')`, true},
 		{`SELECT has_table_privilege(current_user, 'public.goose_db_version', 'INSERT,UPDATE,DELETE,TRUNCATE')`, false},
-		{`SELECT has_sequence_privilege(current_user, 'public.record_revisions_revision_id_seq', 'USAGE,SELECT,UPDATE')`, true},
+		{`SELECT has_sequence_privilege(current_user, 'public.record_revisions_revision_id_seq', 'USAGE')`, true},
+		{`SELECT has_sequence_privilege(current_user, 'public.record_revisions_revision_id_seq', 'SELECT')`, true},
+		{`SELECT has_sequence_privilege(current_user, 'public.record_revisions_revision_id_seq', 'UPDATE')`, true},
 		{`SELECT has_schema_privilege(current_user, 'public', 'CREATE')`, false},
 		{`SELECT pg_catalog.pg_has_role(current_user, 'cartulary_runtime', 'MEMBER')`, false},
 		{`SELECT pg_catalog.pg_has_role(current_user, 'cartulary_schema_owner', 'MEMBER')`, false},

@@ -33,6 +33,16 @@ func TestExactMatchPrecedence_Unit(t *testing.T) {
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-05-"+suffix, "IR-U405-"+suffix, "Record relationships entity-storage "+suffix)
 		return harness, store, actor, incident.ID
 	}
+	// Command clocks follow the seeded envelopes so revised Hosts and
+	// Identities keep updated_at >= created_at (Core 01 REQ-01-651).
+	afterSeeds := func(t *testing.T, harness *appsupport.StoreHarness, incidentID uuid.UUID) time.Time {
+		t.Helper()
+		var latest time.Time
+		if err := harness.DB.QueryRow(context.Background(), `SELECT max(updated_at) FROM records WHERE incident_id = $1`, incidentID).Scan(&latest); err != nil {
+			t.Fatalf("read latest seeded envelope clock: %v", err)
+		}
+		return latest.UTC().Add(time.Minute)
+	}
 	seedHost := func(t *testing.T, harness *appsupport.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, aadDeviceID string, fqdn string, hostname string) {
 		t.Helper()
 
@@ -116,7 +126,7 @@ UPDATE identities
 				reuse, err := store.CreateHostRow(context.Background(), actor, incidentID, hostidentity.CreateRequest{
 					ClientTxnID: "txn-entity_linking-u-4-05-" + tc.suffix,
 					Values:      tc.values,
-				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, entitytest.BaseTime)
+				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, afterSeeds(t, harness, incidentID))
 
 				wantRecordID := hostHostnameRecordID
 				switch tc.wantSelector {
@@ -231,7 +241,7 @@ UPDATE identities
 				reuse, err := store.CreateIdentityRow(context.Background(), actor, incidentID, hostidentity.CreateRequest{
 					ClientTxnID: "txn-entity_linking-u-4-05-" + tc.suffix,
 					Values:      tc.values,
-				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, entitytest.BaseTime.Add(2*time.Minute))
+				}, []byte("txn-entity_linking-u-4-05-"+tc.suffix), "req-"+tc.suffix, afterSeeds(t, harness, incidentID))
 				wantRecordID := identitySAMRecordID
 				switch tc.wantSelector {
 				case "aad":

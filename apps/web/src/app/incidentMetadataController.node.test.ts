@@ -342,6 +342,22 @@ describe("Incident metadata ownership", () => {
       await settle();
       expect(controller.getSnapshot().operation.kind).toBe("uncertain");
     }
+    const { controller, patch } = setup();
+    await settle();
+    patch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      problem: { code: "csrf_verification_failed" },
+    });
+    controller.change("severity", "critical");
+    controller.save();
+    await settle();
+    expect(controller.getSnapshot().operation).toMatchObject({
+      kind: "rejected",
+      problem: { code: "csrf_verification_failed" },
+    });
+    expect(controller.getSnapshot().draft?.values.severity).toBe("critical");
+    expect(controller.getSnapshot().fieldErrors).toEqual({});
   });
   it("retains one draft through closure and section return but rereads current eligibility", async () => {
     const { controller, read } = setup();
@@ -476,7 +492,7 @@ describe("Incident metadata ownership", () => {
     response.resolve({
       ok: false,
       status: 401,
-      problem: { code: "authentication_required" },
+      problem: { code: "session_required" },
     });
     await settle();
     expect(lost).not.toHaveBeenCalled();

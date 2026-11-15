@@ -185,15 +185,15 @@ describe("Workbook preference transport", () => {
   });
   it("separates known rejection from uncertain server transport and invalid success outcomes", async () => {
     const port = create();
-    for (const [status, code, kind] of [
-      [400, "invalid_mutation_payload", "rejected"],
-      [401, "authentication_required", "rejected"],
-      [403, "csrf_failed", "rejected"],
-      [403, "authorization_denied", "rejected"],
-      [404, "incident_not_found", "rejected"],
-      [500, "internal_error", "uncertain"],
-      [502, "internal_error", "uncertain"],
-      [400, "secret_error_value", "uncertain"],
+    for (const [status, code, kind, problemCode] of [
+      [400, "invalid_mutation_payload", "rejected", "invalid_mutation_payload"],
+      [401, "session_required", "rejected", "session_required"],
+      [403, "csrf_verification_failed", "rejected", "csrf_verification_failed"],
+      [403, "authorization_denied", "rejected", "authorization_denied"],
+      [404, "incident_not_found", "rejected", "incident_not_found"],
+      [500, "internal_error", "uncertain", "internal_error"],
+      [502, "internal_error", "uncertain", "internal_error"],
+      [400, "secret_error_value", "uncertain", "unknown_public_error"],
     ] as const) {
       vi.stubGlobal(
         "fetch",
@@ -214,7 +214,7 @@ describe("Workbook preference transport", () => {
         signal: signal(),
         sheetRef: null,
       });
-      expect(result.kind).toBe(kind);
+      expect(result).toEqual({ kind, status, problem: { code: problemCode } });
       expect(JSON.stringify(result)).not.toContain("sensitive");
       expect(JSON.stringify(result)).not.toContain("secret_error_value");
     }

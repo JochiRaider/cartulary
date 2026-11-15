@@ -1618,7 +1618,8 @@ func requireOperatorRestoreTargetUnmutated(t testing.TB, dsn string) {
 	var rowCount int
 	if err := db.QueryRowContext(context.Background(), `
 SELECT
-    (SELECT COUNT(*) FROM incidents)
+    (SELECT COUNT(*) FROM users)
+  + (SELECT COUNT(*) FROM incidents)
   + (SELECT COUNT(*) FROM records)
   + (SELECT COUNT(*) FROM object_blobs)
 `).Scan(&rowCount); err != nil {

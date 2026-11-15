@@ -1,7 +1,7 @@
 import path from "node:path";
 // Names are derived from the admitted allocation. This parser provides input
 // validation only; the native journal is the authority for physical cleanup.
-export const packageSourceProjectPattern = /^cartulary-qualification-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}-source$/u;
+export const packageSourceProjectPattern = /^cartulary-pq-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}-source$/u;
 export function packageDestinationProject(source) {
  if (typeof source !== "string" || !packageSourceProjectPattern.test(source)) throw new Error("invalid package source project");
  return source.replace(/-source$/u, "-destination");

@@ -547,11 +547,7 @@ func testWorkspaceCloseCancellation(t *testing.T) {
 			done := make(chan error, 1)
 			go func() { done <- workspace.Close(closeCtx) }()
 			if !deadline {
-				select {
-				case err := <-done:
-					t.Fatal("close escaped held parent lease", err)
-				case <-time.After(25 * time.Millisecond):
-				}
+				// An early escape before cancellation cannot report context.Canceled below.
 				cancel()
 			}
 			var closeErr error

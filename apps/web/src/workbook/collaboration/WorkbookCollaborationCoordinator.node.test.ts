@@ -333,17 +333,20 @@ describe("WorkbookCollaborationCoordinator", () => {
   });
   it("keeps record unavailability and operation denial local during surface confirmation", () => {
     for (const kind of ["authorization_lost", "stale_target"] as const) {
+      let thrown: unknown = null;
       try {
         requireWorkbookSurfaceAcceptance({
           kind: "rejected",
           failure: { kind, message: "Operation unavailable" },
         });
       } catch (error) {
-        expect(error).toBeInstanceOf(WorkbookSurfaceRefreshError);
-        expect((error as WorkbookSurfaceRefreshError).recovery.kind).toBe(
-          "unavailable",
-        );
+        thrown = error;
       }
+      // A rejection must surface as local recovery, never pass silently.
+      expect(thrown).toBeInstanceOf(WorkbookSurfaceRefreshError);
+      expect((thrown as WorkbookSurfaceRefreshError).recovery.kind).toBe(
+        "unavailable",
+      );
     }
   });
   it("accounts for Assessment versions before echo suppression in either HTTP order", () => {

@@ -7,6 +7,7 @@ import (
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -150,9 +151,17 @@ func seedHistoryMutation(t testing.TB, db *sql.DB, seed historySeed) {
 	seedChangeSet(t, db, seed)
 	beforePayload := canonicalRowSnapshot(seed.RecordID, seed.IncidentID, seed.ActorID, "host", "cartulary.revisions.snapshot.host.v1", 1, map[string]any{"display_name": "before-" + seed.Operation})
 	afterPayload := canonicalRowSnapshot(seed.RecordID, seed.IncidentID, seed.ActorID, "host", "cartulary.revisions.snapshot.host.v1", 2, map[string]any{"display_name": "after-" + seed.Operation})
+	targetID := seed.RecordID.String()
 	if seed.TargetKind == "entity_alias" {
+		// A complete retained Entity Alias value, as its source owner requires.
+		aliasID := uuid.NewSHA1(seed.ChangeSetID, []byte(strconv.Itoa(seed.SequenceNo)))
+		targetID = "entity_alias:" + aliasID.String()
 		beforePayload = nil
-		afterPayload = map[string]any{"entity_alias_id": seed.RecordID.String(), "record_id": seed.RecordID.String(), "entity_type": "host", "raw_text": "retained-alias", "normalized_text": "retained-alias", "classification": "suggestion_only", "deleted_at": nil}
+		afterPayload = map[string]any{
+			"entity_alias_id": aliasID.String(), "incident_id": seed.IncidentID.String(), "record_id": seed.RecordID.String(),
+			"entity_type": "host", "raw_text": "retained-alias", "normalized_text": "retained-alias", "classification": "suggestion_only",
+			"created_by_user_id": seed.ActorID.String(), "created_at": seed.CreatedAt.UTC().Format(time.RFC3339Nano), "deleted_at": nil,
+		}
 	}
 
 	if _, err := db.ExecContext(context.Background(), `
@@ -171,7 +180,7 @@ INSERT INTO change_set_mutations (
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, ARRAY[$10::uuid], ARRAY[$10::uuid])
 ON CONFLICT (change_set_id, sequence_no) DO NOTHING
-`, seed.ChangeSetID, seed.SequenceNo, seed.TargetKind, seed.RecordID.String(), seed.Operation, versionID(seed, "before"), versionID(seed, "after"), jsonOrNil(t, beforePayload), jsonOrNil(t, afterPayload), seed.RecordID); err != nil {
+`, seed.ChangeSetID, seed.SequenceNo, seed.TargetKind, targetID, seed.Operation, versionID(seed, "before"), versionID(seed, "after"), jsonOrNil(t, beforePayload), jsonOrNil(t, afterPayload), seed.RecordID); err != nil {
 		t.Fatalf("seed change-set mutation: %v", err)
 	}
 }

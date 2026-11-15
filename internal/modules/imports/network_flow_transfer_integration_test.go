@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/server"
+	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
@@ -161,6 +163,11 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 	if replay["job_id"] != job["job_id"] {
 		t.Fatal("transfer replay duplicated effects")
 	}
+	// Import provenance names the destination actor who applied the bundle.
+	importer, _ := clientB.request(http.MethodGet, "/api/v1/auth/session", nil, http.StatusOK)["user_id"].(string)
+	if importer == "" {
+		t.Fatal("destination importer identity is unavailable")
+	}
 	verifyDestination := func(destination irPublicClient, label string) {
 		irVerifyInvestigationTransfer(clientA, destination, investigation)
 		for _, source := range corpus.Manifest.Sources {
@@ -214,7 +221,7 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 				t.Fatalf("portable %s changed during transfer", path)
 			}
 		}
-		irCompareCorePortableInventory(t, bundle, again)
+		irCompareCorePortableInventory(t, bundle, again, importer)
 		var total int
 		for _, tableID := range tableIDs {
 			path := root + "/tables/" + tableID
@@ -338,7 +345,11 @@ func TestNetworkFlowIncidentTransferThroughPublicOperations_Integration(t *testi
 // Compare every Core source member, including aliases, revisions and saved views.
 // The only excluded source field is Evidence's deployment-local storage key;
 // exact attachment bytes and hashes are verified separately through public APIs.
-func irCompareCorePortableInventory(t *testing.T, before, after []byte) {
+// irCompareCorePortableInventory requires a destination re-export to keep the
+// source's portable Core state, except the import provenance that Core 01
+// REQ-01-701 adds on Apply: one appended {import_id, actor_user_id} context per
+// change set and the importer's actor descriptor.
+func irCompareCorePortableInventory(t *testing.T, before, after []byte, importer string) {
 	t.Helper()
 	paths := func(bundle []byte) []string {
 		reader, err := zip.NewReader(bytes.NewReader(bundle), int64(len(bundle)))
@@ -359,32 +370,109 @@ func irCompareCorePortableInventory(t *testing.T, before, after []byte) {
 	for _, member := range paths(before) {
 		left, right := sourceBundleMember(t, before, member), sourceBundleMember(t, after, member)
 		if member == "data/object_blobs.ndjson" {
-			decode := func(content []byte) []map[string]any {
-				var rows []map[string]any
-				for _, line := range bytes.Split(bytes.TrimSpace(content), []byte{'\n'}) {
-					if len(line) == 0 {
-						continue
+			// Bundle version 8 carries no physical storage key (Core 01 :9054).
+			for _, rows := range [][]map[string]any{irDecodeNDJSON(t, left), irDecodeNDJSON(t, right)} {
+				for _, row := range rows {
+					if _, present := row["storage_key"]; present {
+						t.Fatal("portable Evidence blob row carries a physical storage key")
 					}
-					var row map[string]any
-					decoder := json.NewDecoder(bytes.NewReader(line))
-					decoder.UseNumber()
-					if err := decoder.Decode(&row); err != nil {
-						t.Fatal(err)
-					}
-					if _, ok := row["storage_key"].(string); !ok {
-						t.Fatal("Evidence storage key is absent")
-					}
-					delete(row, "storage_key")
-					rows = append(rows, row)
 				}
-				return rows
 			}
-			if !reflect.DeepEqual(decode(left), decode(right)) {
+			if !bytes.Equal(left, right) {
 				t.Fatal("portable Evidence blob metadata changed")
 			}
+		} else if member == "data/change_sets.ndjson" {
+			irRequireAppendedImportContext(t, irDecodeNDJSON(t, left), irDecodeNDJSON(t, right), importer)
+		} else if member == "data/actors.ndjson" {
+			irRequireAddedImporterActor(t, left, right, importer)
 		} else if !bytes.Equal(left, right) {
 			t.Fatalf("portable Core state changed in %s", member)
 		}
+	}
+}
+
+func irDecodeNDJSON(t *testing.T, content []byte) []map[string]any {
+	t.Helper()
+	var rows []map[string]any
+	for _, line := range bytes.Split(bytes.TrimSpace(content), []byte{'\n'}) {
+		if len(line) == 0 {
+			continue
+		}
+		var row map[string]any
+		decoder := json.NewDecoder(bytes.NewReader(line))
+		decoder.UseNumber()
+		if err := decoder.Decode(&row); err != nil {
+			t.Fatal(err)
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+func irRequireAppendedImportContext(t *testing.T, before, after []map[string]any, importer string) {
+	t.Helper()
+	if len(before) == 0 || len(before) != len(after) {
+		t.Fatalf("portable change-set count changed: %d -> %d", len(before), len(after))
+	}
+	var appended map[string]any
+	for index := range before {
+		left, right := maps.Clone(before[index]), maps.Clone(after[index])
+		leftContexts, leftOK := left["actor_import_contexts"].([]any)
+		rightContexts, rightOK := right["actor_import_contexts"].([]any)
+		if !leftOK || !rightOK || len(rightContexts) != len(leftContexts)+1 || !reflect.DeepEqual(rightContexts[:len(leftContexts)], leftContexts) {
+			t.Fatalf("change set %v import contexts %v -> %v; want exactly one appended destination context", left["change_set_id"], leftContexts, rightContexts)
+		}
+		context, ok := rightContexts[len(leftContexts)].(map[string]any)
+		if !ok || len(context) != 2 {
+			t.Fatalf("change set %v appended context %v is not a closed {import_id, actor_user_id} object", left["change_set_id"], rightContexts[len(leftContexts)])
+		}
+		if appended == nil {
+			appended = context
+		} else if !reflect.DeepEqual(context, appended) {
+			t.Fatalf("change sets carry different appended import contexts: %v and %v", appended, context)
+		}
+		delete(left, "actor_import_contexts")
+		delete(right, "actor_import_contexts")
+		if !reflect.DeepEqual(left, right) {
+			t.Fatalf("change set %v changed beyond import provenance", left["change_set_id"])
+		}
+	}
+	importID, _ := appended["import_id"].(string)
+	parsed, err := uuid.Parse(importID)
+	if err != nil || parsed == uuid.Nil || parsed.String() != importID || appended["actor_user_id"] != importer {
+		t.Fatalf("appended import context %v; want a canonical import UUID and destination importer %s", appended, importer)
+	}
+}
+
+func irRequireAddedImporterActor(t *testing.T, before, after []byte, importer string) {
+	t.Helper()
+	kept := map[string]bool{}
+	for _, line := range bytes.Split(bytes.TrimSpace(before), []byte{'\n'}) {
+		if len(line) != 0 {
+			kept[string(line)] = false
+		}
+	}
+	var added [][]byte
+	for _, line := range bytes.Split(bytes.TrimSpace(after), []byte{'\n'}) {
+		if len(line) == 0 {
+			continue
+		}
+		if _, ok := kept[string(line)]; ok {
+			kept[string(line)] = true
+			continue
+		}
+		added = append(added, line)
+	}
+	for line, present := range kept {
+		if !present {
+			t.Fatalf("source actor descriptor was not preserved: %s", line)
+		}
+	}
+	var actor struct {
+		ActorID string `json:"actor_id"`
+	}
+	if len(added) != 1 || json.Unmarshal(added[0], &actor) != nil || actor.ActorID != importer {
+		t.Fatalf("portable actors added %d descriptors; want exactly the destination importer %s", len(added), importer)
 	}
 }
 

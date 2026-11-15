@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -241,10 +242,9 @@ func TestRecoveryGenerationRegistryRejectsMalformedAndNonCurrentEntries_Unit(t *
 			name: "wrong Graph binding schema",
 			build: func() []contractrecovery.RecoveryGeneration {
 				values := cloneRecoveryGenerations(contractrecovery.RecoveryGenerations)
-				values[0].GraphImplementationBindingSchemaID = strings.TrimSuffix(
-					values[0].GraphImplementationBindingSchemaID,
-					"v4",
-				) + "v3"
+				const bindingPrefix = "cartulary.graph_projection_restore_implementation_binding.v"
+				current := graphRestoreSchemaVersion(t, values[0].GraphImplementationBindingSchemaID, bindingPrefix)
+				values[0].GraphImplementationBindingSchemaID = fmt.Sprintf("%s%d", bindingPrefix, current-1)
 				return values
 			},
 		},

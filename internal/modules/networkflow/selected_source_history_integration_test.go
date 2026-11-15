@@ -84,11 +84,10 @@ func TestNetworkFlowSelectedSourceHistory_Integration(t *testing.T) {
 	denied := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, explicit+"/refresh", map[string]any{
 		"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "history-deleted-refresh", "base_graph_view_version": graph["graph_view_version"],
 	}, writes...)
-	if denied.StatusCode < 400 || denied.StatusCode >= 500 {
-		denied.Body.Close()
-		t.Fatalf("deleted explicit source refresh status %d", denied.StatusCode)
+	deniedEnvelope := httptestx.RequireErrorEnvelope(t, denied, http.StatusConflict, "network_flow_table_not_active")
+	if reason := deniedEnvelope["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; reason != "soft_deleted" {
+		t.Fatalf("deleted explicit source refresh reason = %v, want soft_deleted", reason)
 	}
-	denied.Body.Close()
 	if !reflect.DeepEqual(read(explicit + "/result")["graph_view"].(map[string]any)["selected_source_binding"], originalBinding) {
 		t.Fatal("failed refresh replaced selected history")
 	}

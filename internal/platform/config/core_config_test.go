@@ -133,9 +133,10 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 			`public_origin = "https://localhost:5173#"`,
 			`public_origin = "localhost:5173"`,
 			`public_origin = "ftp://localhost:5173"`,
-			`public_origin = "http://localhost:5173/path"`,
-			`public_origin = "http://localhost:5173?debug=true"`,
-			`public_origin = "http://localhost:5173#fragment"`,
+			`public_origin = "https://localhost:5173/path"`,
+			`public_origin = "https://localhost:5173?debug=true"`,
+			`public_origin = "https://localhost:5173#fragment"`,
+			`public_origin = "https://user@localhost:5173"`,
 		}
 		for _, replacement := range cases {
 			t.Run(replacement, func(t *testing.T) {

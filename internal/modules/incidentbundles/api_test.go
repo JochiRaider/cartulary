@@ -977,6 +977,7 @@ var incidentBundleExportAllowlist = map[string]struct{}{
 	"PortabilityOrchestrator.Export":              {},
 	"PortabilityOrchestrator.PrepareImport":       {},
 	"PortabilityOrchestrator.ValidatePublication": {},
+	"PortabilityOperationPolicy":                  {},
 	"PortabilityParticipantByteLimit":             {},
 	"PortabilityStagedOutputScope":                {},
 	"PortabilityStagedOutputScope.Allocate":       {},

@@ -169,9 +169,15 @@ func TestContentRejectsMalformedStreamsAndSemanticAmbiguity_Unit(t *testing.T) {
 	original := f.Members["payload/entries.ndjson"]
 	for name, body := range map[string]string{"no final newline": strings.TrimSuffix(original, "\n"), "blank line": original + "\n", "duplicate identity": original + original, "BOM": "\ufeff" + original, "noncanonical": " " + original, "oversize line": strings.Repeat(" ", 1048576) + "\n"} {
 		t.Run(name, func(t *testing.T) {
-			m := fixtureManifest(f)
-			if err := ValidateContent(context.Background(), m, contentMemory{"payload/entries.ndjson": body}, nil); err == nil {
-				t.Fatal("malformed content admitted")
+			// Declare the mutated body's own entry count so only the named stream defect remains.
+			mutated := f
+			mutated.Members = map[string]string{}
+			for path, value := range f.Members {
+				mutated.Members[path] = value
+			}
+			mutated.Members["payload/entries.ndjson"] = body
+			if err := ValidateContent(context.Background(), fixtureManifest(mutated), contentMemory{"payload/entries.ndjson": body}, nil); err == nil {
+				t.Fatal("malformed content admitted with a matching declared count")
 			}
 		})
 	}

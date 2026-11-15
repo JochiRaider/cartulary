@@ -27,9 +27,9 @@ export type PreferenceProblem = Readonly<{
     | "invalid_mutation_payload"
     | "invalid_query_request"
     | "invalid_path_parameter"
-    | "authentication_required"
+    | "session_required"
     | "authorization_denied"
-    | "csrf_failed"
+    | "csrf_verification_failed"
     | "incident_not_found"
     | "internal_error"
     | "invalid_public_contract_response"
@@ -154,11 +154,11 @@ export function preferenceProblemText(problem: PreferenceProblem): string {
   switch (problem.code) {
     case "invalid_mutation_payload":
       return "The surface reference was rejected. Check the current authorized surface before trying again.";
-    case "csrf_failed":
+    case "csrf_verification_failed":
       return "The request was rejected by the session protection check. Refresh current access before trying again.";
     case "authorization_denied":
       return "Current incident permissions do not allow this update.";
-    case "authentication_required":
+    case "session_required":
       return "The current session must be checked.";
     case "incident_not_found":
       return "Current incident access must be checked.";

@@ -186,12 +186,19 @@ func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 		later["source_row_number"] = int64(4)
 		reject(t, []map[string]any{later, valid}, 2, false)
 	})
-	t.Run("overflow", func(t *testing.T) {
-		resources := make([]map[string]any, 51)
-		for i := range resources {
-			resources[i] = valid
+	t.Run("sample_cap", func(t *testing.T) {
+		distinct := make([]map[string]any, 51)
+		for i := range distinct {
+			sample := diagnostic
+			sample.SourceRowNumber = int64(3 + i)
+			sample.DiagnosticID = diagnosticID(strings.Repeat("a", 64), strings.Repeat("b", 64), sample.SourceRowNumber, &column, &field, "network_flow_invalid_ip", "invalid_syntax")
+			distinct[i] = diagnosticResource(sample)
 		}
-		reject(t, resources, 1, true)
+		capped := imports.ExtensionImportOwnerError{SchemaID: networkFlowImportOwnerErrorSchemaID, OwnerCode: "network_flow_all_rows_rejected", SafeDetails: map[string]any{"row_count_rejected": int64(100), "diagnostics_truncated": true, "diagnostics_sample": distinct[:50]}}
+		if err := facade.ValidateImportUnitError(capped); err != nil {
+			t.Fatalf("first 50 distinct diagnostics rejected: %v", err)
+		}
+		reject(t, distinct, 100, true)
 	})
 
 }
@@ -507,12 +514,14 @@ func AssertNameAndLifecycleRuntime(t *testing.T) {
 	if len(states) != 2 || states[0] != tableStatusActive || states[1] != tableStatusSoftDeleted {
 		t.Fatalf("closed lifecycle states drifted: %#v", states)
 	}
-	row := flowRow{NetworkFlowTableID: "nft_stable", RowID: "nfr_stable", SourceRowNumber: 2}
-	before := rowRefResource(row)
-	_ = "renamed flows"
-	after := rowRefResource(row)
-	if !bytes.Equal(mustCanonicalJSON(before), mustCanonicalJSON(after)) {
-		t.Fatalf("display-only rename changed row identity: before=%#v after=%#v", before, after)
+	row := flowRow{NetworkFlowTableID: "nft_stable", RowID: "nfr_stable", SourceRowNumber: 2, MappingFingerprint: "fingerprint-stable"}
+	if got, want := rowRefResource(row), map[string]any{
+		"network_flow_table_id": "nft_stable",
+		"network_flow_row_id":   "nfr_stable",
+		"source_row_number":     int64(2),
+		"mapping_fingerprint":   "fingerprint-stable",
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("row reference = %#v, want only table/row/source-row/mapping identity %#v", got, want)
 	}
 }
 

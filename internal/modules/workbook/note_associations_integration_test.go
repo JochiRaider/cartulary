@@ -9,9 +9,11 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/google/uuid"
 )
 
 func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
@@ -162,9 +164,7 @@ func TestNoteAssociationsPublicPagingAndHistory(t *testing.T) {
 	// Canonical links survive counterpart deletion. They cannot manufacture a
 	// continuation when no eligible related Notes remain, even across windows.
 	for _, action := range actions {
-		if _, err := h.DB.ExecContext(context.Background(), `UPDATE records SET deleted_at=now(), deleted_by_user_id=$2 WHERE record_id=$1`, action["counterpart_record_id"], actorID); err != nil {
-			t.Fatal(err)
-		}
+		envelopetest.SoftDeleteRecord(t, h.DB, envelopetest.Tombstone{RecordID: uuid.MustParse(action["counterpart_record_id"].(string)), DeletedBy: actorID})
 	}
 	terminal := httptestx.RequireSuccessEnvelope(t, request(http.MethodGet, route+"?kind=related_note&limit=1", nil), http.StatusOK)
 	if paging := terminal["meta"].(map[string]any)["paging"]; !reflect.DeepEqual(paging, map[string]any{"limit": float64(1), "has_more": false, "next_cursor": nil}) {

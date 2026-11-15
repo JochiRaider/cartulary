@@ -218,7 +218,12 @@ type BlobOptions struct {
 func seedEvidenceAttachmentRecord(t testing.TB, db dbport.DB, incidentID uuid.UUID, actorID uuid.UUID, lifecycleState string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
-	now := time.Now().UTC()
+	// One database clock reading stamps both rows; later fixture updates use the
+	// same clock source, so the envelope keeps updated_at >= created_at.
+	var now time.Time
+	if err := db.QueryRow(context.Background(), `SELECT now()`).Scan(&now); err != nil {
+		t.Fatalf("read evidence seed clock: %v", err)
+	}
 	if _, err := db.Exec(context.Background(), `
 INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, created_at, updated_by_user_id, updated_at, row_version)
 VALUES ($1, $2, 'evidence', $3, $4, $3, $4, 1)
@@ -395,7 +400,12 @@ func TestBlobAssociation_RejectsReuseWithConcealment(t *testing.T) {
 		ObservedSHA:         ptrString(strings.Repeat("a", 64)),
 		ObservedContentType: ptrString("text/plain"),
 	})
-	now := time.Date(2026, time.July, 30, 18, 0, 0, 0, time.UTC)
+	// The attach command clock follows the seeded envelopes (Core 01 REQ-01-651).
+	var now time.Time
+	if err := harness.QueryRow(context.Background(), `SELECT max(updated_at) + interval '1 minute' FROM records WHERE incident_id = $1`, incident.ID).Scan(&now); err != nil {
+		t.Fatalf("read attach command clock: %v", err)
+	}
+	now = now.UTC()
 
 	firstRequest := attachBlobRequest{
 		ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-association-first",

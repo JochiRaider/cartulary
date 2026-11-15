@@ -124,14 +124,31 @@ func run() error {
 		}
 		defer conn.CloseNow()
 		conn.SetReadLimit(1 << 20)
-		if e = conn.Write(ctx, websocket.MessageText, []byte(`{"type":"hello","payload":{"client_instance_id":"windows-package-probe","presence":{"sheet_ref":{"kind":"view_schema","id":"cartulary.view.timeline.v2"},"mode":"viewing"}}}`)); e != nil {
+		// Core 01 REQ-01-256 client envelope: route-matching incident_id and UTC emitted_at.
+		hello, e := json.Marshal(map[string]any{
+			"type":        "hello",
+			"incident_id": in.Incident,
+			"emitted_at":  time.Now().UTC().Format(time.RFC3339Nano),
+			"payload": map[string]any{
+				"client_instance_id": "windows-package-probe",
+				"presence": map[string]any{
+					"sheet_ref": map[string]any{"kind": "view_schema", "id": "cartulary.view.timeline.v2"},
+					"mode":      "viewing",
+				},
+			},
+		})
+		if e != nil {
+			return errors.New("WSS hello encoding")
+		}
+		if e = conn.Write(ctx, websocket.MessageText, hello); e != nil {
 			return errors.New("WSS hello write")
 		}
 		_, body, e := conn.Read(ctx)
 		var message struct {
-			Type string `json:"type"`
+			Type       string `json:"type"`
+			IncidentID string `json:"incident_id"`
 		}
-		if e != nil || json.Unmarshal(body, &message) != nil || message.Type != "hello_ack" {
+		if e != nil || json.Unmarshal(body, &message) != nil || message.Type != "hello_ack" || message.IncidentID != in.Incident {
 			return errors.New("WSS hello acknowledgement")
 		}
 		conn.Close(websocket.StatusNormalClosure, "")

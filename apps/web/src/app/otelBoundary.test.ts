@@ -1,54 +1,54 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../..",
+);
+const workspacePackageDirectories: Record<string, string> = {
+  "@cartulary/grid-adapter": "packages/grid-adapter",
+  "@cartulary/protocol-ts": "packages/protocol-ts",
+  "@cartulary/ui-contracts": "packages/ui-contracts",
+  "@cartulary/view-contracts": "packages/view-contracts",
+};
+const forbiddenBrowserTelemetryPackages = [
+  /^@opentelemetry\//u,
+  /sentry|datadog|newrelic|honeycomb|logrocket|fullstory|posthog/iu,
+  /segment|mixpanel|amplitude|rrweb|session-replay|google-analytics|gtag/iu,
+];
+
+function runtimeDependencies(directory: string): string[] {
+  const manifest = JSON.parse(
+    readFileSync(path.join(repoRoot, directory, "package.json"), "utf8"),
+  ) as { dependencies?: Record<string, string> };
+  return Object.keys(manifest.dependencies ?? {});
+}
+
+function browserPackageClosure(): Set<string> {
+  const closure = new Set<string>();
+  const pending = runtimeDependencies("apps/web");
+  while (pending.length > 0) {
+    const name = pending.pop() as string;
+    if (closure.has(name)) continue;
+    closure.add(name);
+    const workspace = workspacePackageDirectories[name];
+    if (workspace !== undefined)
+      pending.push(...runtimeDependencies(workspace));
+  }
+  return closure;
+}
 
 describe("OpenTelemetry browser boundary", () => {
-  afterEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-    document.documentElement.removeAttribute(
-      "data-telemetry-exporter-endpoint",
+  it("keeps the browser package closure free of telemetry exporters, vendor SDKs, session replay and analytics", () => {
+    const closure = browserPackageClosure();
+    // Control: the closure is the real browser graph, not an empty read.
+    for (const name of [...Object.keys(workspacePackageDirectories), "react"])
+      expect(closure).toContain(name);
+    const forbidden = [...closure].filter((name) =>
+      forbiddenBrowserTelemetryPackages.some((pattern) => pattern.test(name)),
     );
-    window.history.replaceState({}, "", "/");
-    vi.unstubAllGlobals();
-  });
-
-  it("keeps browser state from creating telemetry exporters or remote telemetry requests", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
-    localStorage.setItem(
-      "telemetry.exporter.endpoint",
-      "https://collector.example.test:4318/v1/traces",
-    );
-    sessionStorage.setItem(
-      "OTEL_EXPORTER_OTLP_ENDPOINT",
-      "http://localhost:4318",
-    );
-    document.documentElement.setAttribute(
-      "data-telemetry-exporter-endpoint",
-      "https://collector.example.test:4318/v1/metrics",
-    );
-    window.history.replaceState(
-      {},
-      "",
-      "/?telemetry.exporter.endpoint=https%3A%2F%2Fcollector.example.test%3A4318",
-    );
-
-    await Promise.resolve();
-
-    expect(fetchMock).not.toHaveBeenCalled();
-    for (const globalName of forbiddenTelemetryGlobals) {
-      expect(
-        (globalThis as Record<string, unknown>)[globalName],
-      ).toBeUndefined();
-    }
+    expect(forbidden).toEqual([]);
   });
 });
-
-const forbiddenTelemetryGlobals = [
-  "__OTEL_EXPORTER__",
-  "__OTEL_TRACER_PROVIDER__",
-  "__OTEL_METER_PROVIDER__",
-  "__OTEL_LOGGER_PROVIDER__",
-  "__CARTULARY_TELEMETRY_CONFIG__",
-  "OpenTelemetry",
-];

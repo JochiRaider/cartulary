@@ -118,8 +118,11 @@ func assertClipboardCorpus(t *testing.T) {
 			t.Fatalf("fixed TSV default: %#v %v", rows, err)
 		}
 	}
-	if _, err := tabularingest.ParseTable(strings.Repeat("x", tabularingest.MaxClipboardBytes+1), "tsv"); err == nil {
-		t.Fatal("oversize clipboard accepted")
+	if rows, err := tabularingest.ParseTable(strings.Repeat("x", tabularingest.MaxClipboardBytes), "tsv"); err != nil || len(rows) != 1 || len(rows[0]) != 1 || len(rows[0][0]) != tabularingest.MaxClipboardBytes {
+		t.Fatalf("clipboard at the exact byte limit rejected: %v", err)
+	}
+	if _, err := tabularingest.ParseTable(strings.Repeat("x", tabularingest.MaxClipboardBytes+1), "tsv"); err == nil || err.Error() != "too_large" {
+		t.Fatalf("clipboard one byte over the limit: %v, want too_large", err)
 	}
 }
 

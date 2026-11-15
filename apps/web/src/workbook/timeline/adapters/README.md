@@ -13,6 +13,7 @@ tracking.
 
 | File | Responsibility |
 | --- | --- |
+| [acceptTimelineLivePatchObservation.ts](acceptTimelineLivePatchObservation.ts) | Source-adapter acceptance of a live Timeline row patch: an admissible prior row keeps accepted observation authority at the patched version. |
 | [createTimelineBulkTagCommandAdapter.ts](createTimelineBulkTagCommandAdapter.ts) | Maps source-owned tag targets/value into the retained batch admission contract. |
 | [createTimelineCandidateReader.ts](createTimelineCandidateReader.ts) | Adapts validated workbook queries to Timeline capture-action candidate pages. |
 | [createTimelineMentionCandidateReader.ts](createTimelineMentionCandidateReader.ts) | Adapts Entity workbook queries to mention-resolution candidate pages. |

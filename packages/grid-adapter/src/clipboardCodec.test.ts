@@ -108,5 +108,22 @@ describe("clipboard representation", () => {
     expect(
       decodeDelimitedClipboard(Array(502).fill("x").join("\n"), "tsv"),
     ).toMatchObject({ reason: "too_many_rows" });
+    // Exact bounds: 64 columns and 500 rows plus one header row are admitted.
+    expect(
+      decodeDelimitedClipboard(Array(64).fill("x").join("\t"), "tsv").kind,
+    ).toBe("decoded");
+    expect(
+      decodeDelimitedClipboard(Array(501).fill("x").join("\n"), "tsv").kind,
+    ).toBe("decoded");
+    const bounded = Array.from({ length: 500 }, () => Array(64).fill("x"));
+    expect(encodeGridClipboard(bounded)).not.toHaveProperty("kind");
+    expect(
+      encodeGridClipboard([...bounded, Array(64).fill("x")]),
+    ).toMatchObject({
+      reason: "too_many_rows",
+    });
+    expect(encodeGridClipboard([Array(65).fill("x")])).toMatchObject({
+      reason: "too_many_columns",
+    });
   });
 });

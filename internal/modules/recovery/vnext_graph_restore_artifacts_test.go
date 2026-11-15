@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -105,7 +107,7 @@ func TestVNextGraphRestoreArtifactsRejectRetiredBeforeArtifactRead_Unit(t *testi
 		t.Fatalf("load Recovery generation registry: %v", err)
 	}
 	projected := contractrecovery.RecoveryGenerations[0]
-	for _, schemas := range retiredGraphRestoreSchemaPairs() {
+	for _, schemas := range retiredGraphRestoreSchemaPairs(t, projected) {
 		t.Run(schemas[0]+"-"+schemas[1], func(t *testing.T) {
 			storage := &graphRestoreArtifactStorage{bodies: map[string][]byte{}}
 			service := &VNextRestoreService{storage: storage, generations: registry}
@@ -132,7 +134,7 @@ func TestVNextRestoreRejectsRetiredGraphBindingsBeforeTargetMutation_Unit(t *tes
 		t.Fatalf("load Recovery generation registry: %v", err)
 	}
 	projected := contractrecovery.RecoveryGenerations[0]
-	for _, schemas := range append(retiredGraphRestoreSchemaPairs(), [2]string{"reference_pack", "v1"}) {
+	for _, schemas := range append(retiredGraphRestoreSchemaPairs(t, projected), [2]string{"reference_pack", "v1"}) {
 		t.Run(schemas[0]+"-"+schemas[1], func(t *testing.T) {
 			proofs := currentGraphRestoreProofs(projected)
 			registryProof := proofs["graph-registry-current"]
@@ -239,11 +241,27 @@ func TestVNextGraphRestoreArtifactsFailClosedWhenMissingOrUnselected_Unit(t *tes
 }
 
 // Vary each retired identity independently while keeping its counterpart current.
-func retiredGraphRestoreSchemaPairs() [][2]string {
-	return [][2]string{
-		{"v2", "v7"}, {"v3", "v7"}, {"v4", "v7"},
-		{"v5", "v2"}, {"v5", "v3"}, {"v5", "v4"}, {"v5", "v5"}, {"v5", "v6"},
+func retiredGraphRestoreSchemaPairs(t *testing.T, projected contractrecovery.RecoveryGeneration) [][2]string {
+	t.Helper()
+	registryCurrent := graphRestoreSchemaVersion(t, projected.GraphSourceRegistrySchemaID, "cartulary.graph_projection_restore_source_registry.v")
+	bindingCurrent := graphRestoreSchemaVersion(t, projected.GraphImplementationBindingSchemaID, "cartulary.graph_projection_restore_implementation_binding.v")
+	pairs := make([][2]string, 0, registryCurrent+bindingCurrent)
+	for version := 2; version < registryCurrent; version++ {
+		pairs = append(pairs, [2]string{fmt.Sprintf("v%d", version), fmt.Sprintf("v%d", bindingCurrent)})
 	}
+	for version := 2; version < bindingCurrent; version++ {
+		pairs = append(pairs, [2]string{fmt.Sprintf("v%d", registryCurrent), fmt.Sprintf("v%d", version)})
+	}
+	return pairs
+}
+
+func graphRestoreSchemaVersion(t *testing.T, schemaID string, prefix string) int {
+	t.Helper()
+	version, err := strconv.Atoi(strings.TrimPrefix(schemaID, prefix))
+	if !strings.HasPrefix(schemaID, prefix) || err != nil || version < 2 {
+		t.Fatalf("current Graph restore schema %q does not follow %sN", schemaID, prefix)
+	}
+	return version
 }
 
 func currentGraphRestoreProofs(projected contractrecovery.RecoveryGeneration) map[string]VNextArtifactProof {

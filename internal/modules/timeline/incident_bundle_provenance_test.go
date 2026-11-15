@@ -255,7 +255,13 @@ func TestTimelinePortableProvenanceAdmission_Unit(t *testing.T) {
 	}
 	rows = append(rows, timelineProvenanceRow(incident, 4097))
 	requireTimelineProfileFailure(t, prepare(rows...), "provenance_coherent")
-	for _, raw := range []string{"null\n", "[]\n", "{} {}\n", "{\"raw_value\":\"\\ud800\"}\n", "{\"raw_value\":\"a\",\"raw_value\":\"b\"}\n"} {
+	strictValid, strictMalformed := strictTimelineRowVariants(t, timelineProvenanceRow(incident, 1), "raw_value")
+	strictControl := timelineProvenanceBundle(t, incident)
+	strictControl[timelineProvenancePath] = []byte(strictValid)
+	if _, err := port.PrepareImport(ctx, strictControl, input); err != nil {
+		t.Fatal("strict syntax control", err)
+	}
+	for _, raw := range append([]string{"null\n", "[]\n", "{} {}\n"}, strictMalformed...) {
 		bundle := timelineProvenanceBundle(t, incident)
 		bundle[timelineProvenancePath] = []byte(raw)
 		_, err := port.PrepareImport(ctx, bundle, input)

@@ -92,6 +92,8 @@ describe("ordinary workbook authoring", () => {
       "indicator.hash_algorithm": "sha256",
       "indicator.hash_value": "a".repeat(64),
     };
+    // The Evidence draft's only minimum signal (Core 01 Evidence minimum create signal).
+    const soleMinimumSignals = new Set(["evidence.title"]);
     // These declared fields require a matching Task state. The baseline draft is open.
     const initialRejections = new Set([
       "task.blocked_reason",
@@ -135,7 +137,13 @@ describe("ordinary workbook authoring", () => {
           expect(result.request, key).toHaveProperty(key);
         }
         const cleared = prepare(name, { ...base, [key]: null });
-        if (field.clearable)
+        if (soleMinimumSignals.has(key)) {
+          // Clearing the draft's only minimum signal fails the create minimum.
+          expect(cleared.request, `${key} sole minimum`).toBeNull();
+          expect(cleared.errors.minimum, key).toBe(
+            "Evidence needs at least one user-entered evidence value or a finalized attachment.",
+          );
+        } else if (field.clearable)
           expect(cleared.request, `${key} explicit null`).toHaveProperty(
             key,
             null,

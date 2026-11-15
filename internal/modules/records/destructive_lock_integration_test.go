@@ -3,6 +3,7 @@ package records
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5/pgconn"
 	"testing"
 	"time"
 
@@ -76,6 +77,21 @@ INSERT INTO records (
 	}
 	if err := contenderTx.Rollback(ctx); err != nil {
 		t.Fatalf("roll back contender transaction: %v", err)
+	}
+	for _, recordID := range []uuid.UUID{lowerRecordID, higherRecordID} {
+		probeTx, err := contender.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin key-share probe transaction: %v", err)
+		}
+		var probed uuid.UUID
+		err = probeTx.QueryRow(ctx, `SELECT record_id FROM records WHERE record_id = $1 FOR KEY SHARE NOWAIT`, recordID).Scan(&probed)
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "55P03" {
+			t.Fatalf("key-share probe on %s = %v; want SQLSTATE 55P03 against the holder's FOR UPDATE", recordID, err)
+		}
+		if err := probeTx.Rollback(ctx); err != nil {
+			t.Fatalf("roll back key-share probe transaction: %v", err)
+		}
 	}
 
 	checkTx, err := contender.Begin(ctx)

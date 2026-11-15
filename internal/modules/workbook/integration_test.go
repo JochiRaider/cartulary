@@ -195,9 +195,17 @@ func RequireConflictValues(t testing.TB, conflict map[string]any, recordID uuid.
 		conflict["conflict_resolution_class"] != "text_compare_merge" ||
 		conflict["base_value"] != baseValue ||
 		conflict["server_value"] != serverValue ||
-		conflict["client_value"] != clientValue ||
-		conflict["conflict_token"] == "" {
+		conflict["client_value"] != clientValue {
 		t.Fatalf("unexpected same-field conflict payload: %#v", conflict)
+	}
+	requireConflictToken(t, conflict)
+}
+
+// requireConflictToken requires the opaque server-issued token to be present.
+func requireConflictToken(t testing.TB, conflict map[string]any) {
+	t.Helper()
+	if token, ok := conflict["conflict_token"].(string); !ok || token == "" {
+		t.Fatalf("same-field conflict lacks conflict_token: %#v", conflict)
 	}
 }
 

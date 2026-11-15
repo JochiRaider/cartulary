@@ -54,33 +54,6 @@ func TestTimelineGroupingAndWorkbookPresentationOnly_Unit(t *testing.T) {
 			}
 		})
 	}
-
-	encoded, err := json.Marshal(map[string]any{
-		"record_id":   "00000000-0000-0000-0000-000000000807",
-		"row_version": int64(12),
-		"cells": map[string]any{
-			"host.display_name": map[string]any{"value": "Host A"},
-			"host.host_state":   map[string]any{"value": "reviewed"},
-		},
-		"group_values": map[string]any{"host.host_state": "reviewed"},
-	})
-	if err != nil {
-		t.Fatalf("marshal grouped workbook row fixture: %v", err)
-	}
-	for _, forbidden := range []string{
-		`"row_kind"`,
-		`"is_group_header"`,
-		`"subtotal"`,
-		`"writable"`,
-		`"group_header_id"`,
-		`"mutation_target"`,
-		`"paste_target"`,
-		`"target_record_id"`,
-	} {
-		if strings.Contains(string(encoded), forbidden) {
-			t.Fatalf("grouped workbook row serialized presentation-only marker %s: %s", forbidden, string(encoded))
-		}
-	}
 }
 
 func quoteJSON(value string) string {

@@ -173,7 +173,13 @@ func TestTimelinePortableProfileAdmission_Unit(t *testing.T) {
 	unknownActor["updated_by_user_id"] = uuid.NewString()
 	requireTimelineProfileFailure(t, prepare(unknownActor), "profile_attribution_exact")
 	requireTimelineProfileFailure(t, prepare(base, base), "source_identity_admitted")
-	for _, raw := range []string{"null\n", "[]\n", "{} {}\n", "\n", "{\"incident_id\":\"a\",\"incident_id\":\"b\"}\n", "{\"local_label\":\"\\ud800\"}\n", "{\"local_label\":\"" + string([]byte{0xff}) + "\"}\n"} {
+	strictValid, strictMalformed := strictTimelineRowVariants(t, base, "local_label")
+	strictControl := timelineProfileBundle(t)
+	strictControl[timelineProfilePath] = []byte(strictValid)
+	if _, err := port.PrepareImport(ctx, strictControl, input); err != nil {
+		t.Fatal("strict syntax control", err)
+	}
+	for _, raw := range append([]string{"null\n", "[]\n", "{} {}\n", "\n"}, strictMalformed...) {
 		bundle := timelineProfileBundle(t)
 		bundle[timelineProfilePath] = []byte(raw)
 		_, err := port.PrepareImport(ctx, bundle, input)
@@ -216,4 +222,27 @@ func TestTimelinePortableProfileAdmission_Unit(t *testing.T) {
 	if err := port.ApplyImportTx(ctx, forbiddenTimelineProfileTx{}, prepared, input); err == nil {
 		t.Fatal("changed sealed profile admitted")
 	}
+}
+
+// strictTimelineRowVariants returns a valid row's encoding and three encodings
+// that differ from it only by malformed JSON in textField: a duplicate member,
+// a lone surrogate escape and an invalid UTF-8 byte.
+func strictTimelineRowVariants(t testing.TB, row map[string]any, textField string) (string, []string) {
+	t.Helper()
+	encoded, err := json.Marshal(row)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := json.Marshal(row[textField])
+	if err != nil {
+		t.Fatal(err)
+	}
+	member := `"` + textField + `":` + string(value)
+	if strings.Count(string(encoded), member) != 1 {
+		t.Fatalf("%s member is not unique in %s", textField, encoded)
+	}
+	replaced := func(raw string) string {
+		return strings.Replace(string(encoded), member, `"`+textField+`":"`+raw+`"`, 1) + "\n"
+	}
+	return string(encoded) + "\n", []string{"{" + member + "," + string(encoded[1:]) + "\n", replaced(`\ud800`), replaced("\xff")}
 }

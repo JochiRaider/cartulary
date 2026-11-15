@@ -180,6 +180,16 @@ func TestProductionAuditWritesUseAdministrativeAuditBoundary(t *testing.T) {
 	}
 	root := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..", ".."))
 	internalRoot := filepath.Join(root, "internal")
+	writes := []string{"INSERT INTO deployment_admin_audit_events", "INSERT INTO administrative_audit_projections"}
+	owner, err := os.ReadFile(filepath.Join(root, "internal", "platform", "administrativeaudit", "audit.go"))
+	if err != nil {
+		t.Fatalf("read audit owner: %v", err)
+	}
+	for _, write := range writes {
+		if !strings.Contains(string(owner), write) {
+			t.Fatalf("audit owner no longer contains %q; the boundary scan would be vacuous", write)
+		}
+	}
 	var violations []string
 	if err := filepath.WalkDir(internalRoot, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -202,8 +212,10 @@ func TestProductionAuditWritesUseAdministrativeAuditBoundary(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if strings.Contains(string(payload), "INSERT INTO deployment_admin_audit_events") {
-			violations = append(violations, filepath.ToSlash(relative))
+		for _, write := range writes {
+			if strings.Contains(string(payload), write) {
+				violations = append(violations, filepath.ToSlash(relative)+": "+write)
+			}
 		}
 		return nil
 	}); err != nil {

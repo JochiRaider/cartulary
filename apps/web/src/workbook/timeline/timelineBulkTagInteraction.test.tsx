@@ -428,7 +428,16 @@ describe("Timeline bulk tag interaction", () => {
       resolve();
     });
     await waitFor(() => expect(f.send).toHaveBeenCalledTimes(2));
-    expect(f.send.mock.calls[0]).toBeDefined();
+    // Narrowing the selection after capture must not retarget either send.
+    for (const call of f.send.mock.calls) {
+      expect(requirePresent(call)[0].plan.request).toMatchObject({
+        tag_name: "triaged",
+        targets: [
+          { record_id: "first", base_row_version: 3 },
+          { record_id: "second", base_row_version: 4 },
+        ],
+      });
+    }
   });
 
   it("surfaces real admission refusal and rejects incomplete or blocked intended targets", async () => {

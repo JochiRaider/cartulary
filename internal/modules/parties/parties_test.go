@@ -362,7 +362,7 @@ SELECT count(*) FROM route_idempotency
 	if err != nil {
 		t.Fatalf("create deleted email party: %v", err)
 	}
-	softDeletePartyFor(t, harness, actor, deletedEmailParty.RecordID, "txn-workbook_interaction-u-9-05-delete-email-party")
+	softDeletePartyFor(t, harness, actor, deletedEmailParty.RecordID, "txn-workbook_interaction-u-9-05-delete-email-party", time.Date(2026, 5, 18, 12, 4, 15, 0, time.UTC))
 	replacementEmailParty, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-replacement-email-party",
@@ -401,7 +401,7 @@ SELECT count(*) FROM route_idempotency
 	if err != nil {
 		t.Fatalf("create deleted external ref party: %v", err)
 	}
-	softDeletePartyFor(t, harness, actor, deletedExternalRefParty.RecordID, "txn-workbook_interaction-u-9-05-delete-external-ref-party")
+	softDeletePartyFor(t, harness, actor, deletedExternalRefParty.RecordID, "txn-workbook_interaction-u-9-05-delete-external-ref-party", time.Date(2026, 5, 18, 12, 4, 35, 0, time.UTC))
 	replacementExternalRefParty, err := createPartyRow(context.Background(), partyOwner, actor, incident.ID, partyCreateRequest{
 		ViewSchemaID: parties.ViewSchemaID,
 		ClientTxnID:  "txn-workbook_interaction-u-9-05-replacement-external-ref-party",
@@ -556,7 +556,7 @@ func requirePartyCount(t testing.TB, harness *appsupport.StoreHarness, incidentI
 	}
 }
 
-func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string) {
+func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string, deletedAt time.Time) {
 	t.Helper()
 	revisionComposition := revisionsupport.MustComposition(t)
 	revisionRuntime := revisionComposition.Runtime
@@ -570,7 +570,7 @@ func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor au
 		partyTestAttributionResolver{},
 		projections.RevisionRows(),
 		projections.RevisionLiveRecords(),
-		func() time.Time { return time.Date(2026, 5, 18, 12, 4, 0, 0, time.UTC) },
+		func() time.Time { return deletedAt },
 		revisionComposition.RecordChanges,
 	)
 	if err != nil {

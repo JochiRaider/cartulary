@@ -132,9 +132,15 @@ describe("Administrative audit browsing", () => {
     fetchMock.mockReturnValue(read.promise);
     render(<AuditHarness />);
     expect(
-      screen.queryByText(/No administrative audit events loaded/),
+      screen.queryByText("No deployment audit events are available."),
     ).toBeNull();
-    await act(async () => read.resolve(jsonResponse(envelope())));
+    const empty = envelope();
+    empty.data.audit_events = [];
+    await act(async () => read.resolve(jsonResponse(empty)));
+    // Control: the same text is the settled empty state.
+    expect(
+      await screen.findByText("No deployment audit events are available."),
+    ).toBeTruthy();
   });
 
   it("does not read a hidden inactive panel", async () => {

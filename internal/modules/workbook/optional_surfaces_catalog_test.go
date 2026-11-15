@@ -319,7 +319,8 @@ func mustPatch(t testing.TB, store *workbook.WorkbookContributionCatalog, actor 
 
 func Patch(t testing.TB, store *workbook.WorkbookContributionCatalog, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, clientTxnID string, changes ...map[string]any) (workbook.MutationOutcome, error) {
 	return workbookroutetest.PatchWorkbookRow(store, context.Background(), workbook.PatchCommand{
-		Actor: actor, RecordID: recordID, AuthoritativeRecordType: "artifact", RequestID: "req-" + clientTxnID, Now: Time(0),
+		// Patches follow every fixture creation offset so envelopes stay legal.
+		Actor: actor, RecordID: recordID, AuthoritativeRecordType: "artifact", RequestID: "req-" + clientTxnID, Now: Time(24 * time.Hour),
 	}, httptestx.JSONReader(t, map[string]any{"view_schema_id": viewSchemaID, "base_row_version": baseRowVersion, "client_txn_id": clientTxnID, "changes": changes}))
 }
 

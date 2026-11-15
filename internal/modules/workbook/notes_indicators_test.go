@@ -661,38 +661,40 @@ func requireContributionDependenciesFailClosed(
 	t.Helper()
 	tests := []struct {
 		name string
+		want string
 		edit func(*workbookassembly.ContributionDependencies)
 	}{
-		{name: "Postgres", edit: func(input *workbookassembly.ContributionDependencies) { input.Postgres = nil }},
-		{name: "projection descriptors", edit: func(input *workbookassembly.ContributionDependencies) {
+		{name: "Postgres", want: "Postgres is required", edit: func(input *workbookassembly.ContributionDependencies) { input.Postgres = nil }},
+		{name: "projection descriptors", want: "projection descriptors are required", edit: func(input *workbookassembly.ContributionDependencies) {
 			input.ProjectionDescriptors = providercontract.DescriptorSet{}
 		}},
-		{name: "projection queries", edit: func(input *workbookassembly.ContributionDependencies) { input.ProjectionQueries = nil }},
-		{name: "typed-nil projection queries", edit: func(input *workbookassembly.ContributionDependencies) {
+		{name: "projection queries", want: "projection queries are required", edit: func(input *workbookassembly.ContributionDependencies) { input.ProjectionQueries = nil }},
+		{name: "typed-nil projection queries", want: "projection queries are required", edit: func(input *workbookassembly.ContributionDependencies) {
 			var typedNil *typedNilProjectionQueryCatalog
 			input.ProjectionQueries = typedNil
 		}},
-		{name: "Entity mutation rows", edit: func(input *workbookassembly.ContributionDependencies) { input.EntityMutationRows = nil }},
-		{name: "Entity query reader", edit: func(input *workbookassembly.ContributionDependencies) { input.EntityQueryReader = nil }},
-		{name: "Assessment rows", edit: func(input *workbookassembly.ContributionDependencies) { input.AssessmentProjections = nil }},
-		{name: "Party rows", edit: func(input *workbookassembly.ContributionDependencies) { input.PartyProjections = nil }},
-		{name: "Indicator owner", edit: func(input *workbookassembly.ContributionDependencies) { input.IndicatorOwner = nil }},
-		{name: "Timeline owner", edit: func(input *workbookassembly.ContributionDependencies) { input.TimelineOwner = nil }},
-		{name: "Evidence owner", edit: func(input *workbookassembly.ContributionDependencies) { input.EvidenceOwner = nil }},
-		{name: "Artifact owner", edit: func(input *workbookassembly.ContributionDependencies) { input.ArtifactOwner = nil }},
-		{name: "Task Decision owner", edit: func(input *workbookassembly.ContributionDependencies) { input.TaskDecisionOwner = nil }},
-		{name: "conflict tokens", edit: func(input *workbookassembly.ContributionDependencies) {
+		{name: "Entity mutation rows", want: "Entities projection dependencies are required", edit: func(input *workbookassembly.ContributionDependencies) { input.EntityMutationRows = nil }},
+		{name: "Entity query reader", want: "Entities projection dependencies are required", edit: func(input *workbookassembly.ContributionDependencies) { input.EntityQueryReader = nil }},
+		{name: "Assessment rows", want: "Assessments projection rows are required", edit: func(input *workbookassembly.ContributionDependencies) { input.AssessmentProjections = nil }},
+		{name: "Party rows", want: "Parties projection rows are required", edit: func(input *workbookassembly.ContributionDependencies) { input.PartyProjections = nil }},
+		{name: "Link projections", want: "links: projection rows are required", edit: func(input *workbookassembly.ContributionDependencies) { input.LinkProjections = nil }},
+		{name: "Indicator owner", want: "Indicators owner is required", edit: func(input *workbookassembly.ContributionDependencies) { input.IndicatorOwner = nil }},
+		{name: "Timeline owner", want: "Timeline owner is required", edit: func(input *workbookassembly.ContributionDependencies) { input.TimelineOwner = nil }},
+		{name: "Evidence owner", want: "Evidence contribution is required", edit: func(input *workbookassembly.ContributionDependencies) { input.EvidenceOwner = nil }},
+		{name: "Artifact owner", want: "Artifacts mutation contribution is required", edit: func(input *workbookassembly.ContributionDependencies) { input.ArtifactOwner = nil }},
+		{name: "Task Decision owner", want: "Tasks/Decisions mutation contribution is required", edit: func(input *workbookassembly.ContributionDependencies) { input.TaskDecisionOwner = nil }},
+		{name: "conflict tokens", want: "conflict token codec is required", edit: func(input *workbookassembly.ContributionDependencies) {
 			input.ConflictTokens = conflicttokens.ConflictTokenCodec{}
 		}},
-		{name: "conflict fields", edit: func(input *workbookassembly.ContributionDependencies) { input.ConflictFields = nil }},
-		{name: "Revisions", edit: func(input *workbookassembly.ContributionDependencies) { input.Revisions = nil }},
-		{name: "Collaboration intents", edit: func(input *workbookassembly.ContributionDependencies) { input.CollaborationIntents = nil }},
+		{name: "conflict fields", want: "Revisions conflict field resolver is required", edit: func(input *workbookassembly.ContributionDependencies) { input.ConflictFields = nil }},
+		{name: "Revisions", want: "Revisions appender is required", edit: func(input *workbookassembly.ContributionDependencies) { input.Revisions = nil }},
+		{name: "Collaboration intents", want: "Collaboration intent appender is required", edit: func(input *workbookassembly.ContributionDependencies) { input.CollaborationIntents = nil }},
 	}
 	for _, test := range tests {
 		input := valid
 		test.edit(&input)
-		if _, err := workbookassembly.NewContributionCatalog(input); err == nil {
-			t.Fatalf("contribution dependencies accepted missing %s", test.name)
+		if _, err := workbookassembly.NewContributionCatalog(input); err == nil || err.Error() != "compose workbook contribution catalog: "+test.want {
+			t.Fatalf("contribution dependencies missing %s: err = %v, want %q", test.name, err, test.want)
 		}
 	}
 }

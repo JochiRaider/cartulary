@@ -48,12 +48,19 @@ func TestCompositionCanonicalDigests_Unit(t *testing.T) {
 	if summary := validateInlineComposition(record, data); !summaryValid(summary) || summary["composition_sha256"] != sha {
 		t.Fatal("inline digest disagrees with version creation", summary)
 	}
-	for _, altered := range [][]byte{
-		bytes.Replace(data, []byte(sha), []byte(strings.Repeat("0", 64)), 1),
-		bytes.Replace(data, []byte(`"authored_texts":[]`), []byte(`"authored_texts":[{}]`), 1),
+	// A schema-valid, record-bound content change under the stale declared
+	// digest can only be rejected by the digest stage.
+	for name, altered := range map[string][]byte{
+		"declared digest": bytes.Replace(data, []byte(sha), []byte(strings.Repeat("0", 64)), 1),
+		"content":         bytes.Replace(data, []byte(`"authored_against_snapshot_id":null`), []byte(`"authored_against_snapshot_id":"snapshot-1"`), 1),
 	} {
-		if summaryValid(validateInlineComposition(record, altered)) {
-			t.Fatal("inline validation accepted altered identity")
+		if bytes.Equal(altered, data) {
+			t.Fatalf("%s alteration did not change the bytes", name)
+		}
+		summary := validateInlineComposition(record, altered)
+		issues, _ := summary["issues"].([]map[string]any)
+		if summaryValid(summary) || summary["stage"] != "canonical_digest_validation" || len(issues) != 1 || issues[0]["code"] != "composition_digest_mismatch" {
+			t.Fatalf("%s alteration: %v, want only composition_digest_mismatch", name, summary)
 		}
 	}
 	version := &VersionRecord{CompositionID: record.CompositionID, CanonicalComposition: data, CompositionSHA256: sha, CompositionVersion: 1}

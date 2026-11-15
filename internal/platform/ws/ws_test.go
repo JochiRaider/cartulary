@@ -72,6 +72,22 @@ func TestConnectionFrameIOAndOrigin(t *testing.T) {
 		if recorder.Code != http.StatusForbidden {
 			t.Fatalf("Origin response = %d want %d", recorder.Code, http.StatusForbidden)
 		}
+
+		// Controls: the configured origin and a cookie-less request pass through.
+		trusted := httptest.NewRequest(http.MethodGet, "http://cartulary.test/ws", nil)
+		trusted.AddCookie(&http.Cookie{Name: "cartulary_session", Value: "session"})
+		trusted.Header.Set("Origin", "https://cartulary.example")
+		cookieless := httptest.NewRequest(http.MethodGet, "http://cartulary.test/ws", nil)
+		cookieless.Header.Set("Origin", "https://untrusted.example")
+		for name, candidate := range map[string]*http.Request{"configured origin": trusted, "no session cookie": cookieless} {
+			passed := httptest.NewRecorder()
+			if RejectUntrustedBrowserOrigin(passed, candidate, "https://cartulary.example") {
+				t.Fatalf("%s was rejected", name)
+			}
+			if passed.Code != http.StatusOK || passed.Body.Len() != 0 {
+				t.Fatalf("%s wrote a response: %d %q", name, passed.Code, passed.Body.String())
+			}
+		}
 	})
 }
 

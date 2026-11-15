@@ -17,11 +17,12 @@ import (
 // Exact package capabilities project Core 01's internal ownership rules. Empty
 // entries intentionally declare families with no production Go consumers.
 var generatedContractConsumers = map[string][]string{
-	"openapi": {}, "ws": {}, "errors": {}, "graph-projection": {},
+	"openapi": {}, "errors": {}, "graph-projection": {},
 	"audit": {}, "imports": {}, "collaboration": {}, "view-inspector": {},
 	"database-migrations": {}, "performance": {}, "parties": {},
 	"string-contracts": {}, "view-references": {}, "reporting": {},
 	"reference-pack-fixtures": {}, "cryptography": {},
+	"ws":              {"internal/modules/collaboration/protocol"},
 	"view-schemas":    {"internal/platform/viewschema"},
 	"extensions":      {"internal/modules/extensions"},
 	"network-flow":    {"internal/modules/networkflow"},

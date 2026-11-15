@@ -13,6 +13,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -24,7 +25,6 @@ import (
 )
 
 func TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration(t *testing.T) {
-	ctx := context.Background()
 	harness := appsupport.StartStore(t, "workbook_interaction-u-9-11-party-refs")
 	store := appsupport.NewWorkbookCatalog(harness.DB, conflicttest.NewCodec("workbook"))
 	evidenceOwner := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook"))
@@ -36,9 +36,7 @@ func TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration(t *te
 	activeParty := mustCreatePartyFor(t, partyOwner, actor, incident.ID, "txn-workbook_interaction-u-9-11-active-party", "Active Party")
 	foreignParty := mustCreatePartyFor(t, partyOwner, actor, otherIncident.ID, "txn-workbook_interaction-u-9-11-foreign-party", "Foreign Party")
 	deletedParty := mustCreatePartyFor(t, partyOwner, actor, incident.ID, "txn-workbook_interaction-u-9-11-deleted-party", "Deleted Party")
-	if _, err := harness.DB.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, deletedParty, time.Date(2026, 5, 18, 13, 0, 0, 0, time.UTC), actor.ID); err != nil {
-		t.Fatalf("soft-delete party target: %v", err)
-	}
+	envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: deletedParty, DeletedBy: actor.ID, At: time.Date(2026, 5, 18, 13, 0, 0, 0, time.UTC)})
 	wrongType := mustCreateEvidenceFor(t, evidenceOwner, actor, incident.ID, "txn-workbook_interaction-u-9-11-wrong-type-evidence", "Wrong type evidence")
 
 	for _, tc := range []struct {

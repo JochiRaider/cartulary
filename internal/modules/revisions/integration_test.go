@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -427,7 +428,7 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 	mustExec(t, harness.DB, `UPDATE change_set_mutations SET after_value=$2 WHERE change_set_id=$1`, thirdChangeSet, savedAfter)
 	// Every continuation observes current lifecycle and authority, even with a
 	// previously valid cursor. Tombstones and closed incidents retain history.
-	mustExec(t, harness.DB, `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, recordA, actorID)
+	envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: recordA, DeletedBy: actorID})
 	mustExec(t, harness.DB, `UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1`, incidentID)
 	closedPage := getHistory(t, harness.Server.HTTP.URL, login, recordA, "?cursor_token="+cursor)
 	if closedPage["data"].(map[string]any)["deleted"] != true || len(historyItems(closedPage)) != 1 {
@@ -787,7 +788,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 		"client_txn_id":    "txn-i-7-03-unsupported-whole-rollback",
 		"target":           map[string]any{"kind": "change_set", "change_set_id": unsupportedChangeSetID.String()},
 	})
-	httptestx.RequireErrorEnvelope(t, unsupported, http.StatusConflict, "rollback_precondition_failed")
+	requireRollbackReasonCode(t, unsupported, "target_not_reversible")
 	incidentwstest.ExpectNoReplayableMessage(t, socket)
 	afterUnsupported := StateCounts(t, harness.DB, unsupportedRecordID)
 	if beforeUnsupported != afterUnsupported {
@@ -941,9 +942,9 @@ func TestRetainedHistoryAcrossRestartAndClosure_Integration(t *testing.T) {
 	if _, err := db.Exec(`
 	UPDATE incidents
 	   SET status = 'closed',
-	       closed_at = $1
-	 WHERE id = $2
-	`, base.Add(time.Minute), incidentID); err != nil {
+	       closed_at = now()
+	 WHERE id = $1
+	`, incidentID); err != nil {
 		t.Fatalf("seed incident closure: %v", err)
 	}
 	seedHistoryChangeSet(t, db, historySeed{

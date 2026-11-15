@@ -210,7 +210,8 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve startup after extension claim loss: %v", err)
 	}
-	if fallback.Source != workbookstartup.SourceDefault && fallback.Source != workbookstartup.SourceTimeline {
+	// The bootstrap default is NULL, so REQ-03-030 falls through to Timeline.
+	if fallback.Source != workbookstartup.SourceTimeline {
 		t.Fatalf("claim loss must fall through after clearing home pointer: %#v", fallback)
 	}
 	if len(fallback.ClearedPointers) != 1 || fallback.ClearedPointers[0].Source != workbookstartup.SourceHome || fallback.ClearedPointers[0].ReasonCode != "extension_profile_not_claimed" {

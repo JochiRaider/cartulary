@@ -89,8 +89,8 @@ function setup() {
     workflow,
     props,
     refresh,
-    setRole: () => {
-      role = "viewer";
+    setRole: (next: "editor" | "viewer" = "viewer") => {
+      role = next;
     },
     unsupported: () => {
       major = 99;
@@ -124,6 +124,14 @@ it("binds reporting controls to claimed supported routes and current incident ro
   expect(
     screen.getByText(/requires an editor, reviewer, or admin/).isConnected,
   ).toBe(true);
+  // Restore an authorized role so only the contract gate can disable creation.
+  h.setRole("editor");
+  await h.refresh();
+  expect(
+    screen
+      .getByRole("button", { name: "Create snapshot" })
+      .hasAttribute("disabled"),
+  ).toBe(false);
   h.unsupported();
   await h.refresh();
   expect(h.workflow.controller.getSnapshot().available).toBe(false);

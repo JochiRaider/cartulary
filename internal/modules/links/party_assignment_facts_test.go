@@ -18,6 +18,7 @@ import (
 	linkfacts "github.com/JochiRaider/cartulary/internal/modules/links/facts"
 	"github.com/JochiRaider/cartulary/internal/modules/links/partyassignment"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -187,9 +188,7 @@ func testPartyAssignmentFacts(t *testing.T, db dbport.DB, incident, actor uuid.U
 			t.Fatal("malformed assignment produced a partial projection")
 		}
 	}
-	if _, err := db.Exec(ctx, `UPDATE records SET deleted_at=$2,deleted_by_user_id=$3 WHERE record_id=$1`, party.RecordID, now.Add(time.Hour), actor); err != nil {
-		t.Fatal(err)
-	}
+	envelopetest.SoftDeleteRecord(t, db, envelopetest.Tombstone{RecordID: party.RecordID, DeletedBy: actor, At: now.Add(time.Hour)})
 	got, err := readCurrent()
 	if err != nil || len(got) != 0 {
 		t.Fatal("deleted Party contributed an active assignment", err)

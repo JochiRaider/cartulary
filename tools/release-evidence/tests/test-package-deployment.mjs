@@ -11,7 +11,7 @@ const idA = "a".repeat(64), idB = "b".repeat(64), helperImage = `sha256:${"c".re
 
 test("deployment families remove only individually inspected project members and prove absence", () => {
  for (const scope of ["source", "destination"]) for (const family of ["container", "volume", "network"]) {
-  const resource = proof({ scope, family }), project = `cartulary-qualification-${token}-${scope}`;
+  const resource = proof({ scope, family }), project = `cartulary-pq-${token}-${scope}`;
   assert.equal(packageDeploymentIdentity(resource).project, project);
   const ids = family === "volume" ? [`${project}_one`, `${project}_two`] : [idA, idB];
   const query = [family, "ls", ...(family === "container" ? ["--all", "--no-trunc"] : family === "network" ? ["--no-trunc"] : []), "--filter", `label=com.docker.compose.project=${project}`, "--format", family === "volume" ? "{{.Name}}" : "{{.ID}}"];
@@ -64,7 +64,7 @@ test("workspace repair owns its helper before effects and preserves unrelated pa
   if (scenario === "linked_workspace") fs.symlinkSync(borrowed, workspace);
   else if (!["absent", "absent_with_helper"].includes(scenario)) { fs.mkdirSync(workspace, { mode: scenario === "nonprivate_workspace" ? 0o755 : 0o700 }); fs.chmodSync(workspace, scenario === "nonprivate_workspace" ? 0o755 : 0o700); fs.writeFileSync(path.join(workspace, "owned"), "owned"); }
   const resource = proof({ scope: "shared", family: "workspace", workspace, helper_image: helperImage });
-  const helper = `cartulary-qualification-${token}-cleanup`, labels = { "cartulary.package.allocation": token, "cartulary.package.run": "fixture", "cartulary.package.lease": lease, "cartulary.package.role": "qualification_cleanup" };
+  const helper = `cartulary-pq-${token}-cleanup`, labels = { "cartulary.package.allocation": token, "cartulary.package.run": "fixture", "cartulary.package.lease": lease, "cartulary.package.role": "qualification_cleanup" };
   let present = ["prior_helper", "absent_with_helper", "wrong_helper_name", "wrong_helper_label", "wrong_helper_image"].includes(scenario), created = false, started = false;
   const removals = [];
   const run = (args, options) => {

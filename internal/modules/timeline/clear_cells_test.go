@@ -10,8 +10,11 @@ import (
 func TestClearCellsSourcePlanAndDateIntent_Unit(t *testing.T) {
 	fields := mutationpolicy.DirectWritableFieldKeys()
 	rows, err := buildClearCellsOwnerRows(fields, 2)
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("two-target clear plan = %d rows, %v", len(rows), err)
+	}
+	if bounded, err := buildClearCellsOwnerRows(fields, mutationpolicy.MaxOwnerBatchTargets); err != nil || len(bounded) != mutationpolicy.MaxOwnerBatchTargets || len(bounded[len(bounded)-1].Cells) != len(fields) {
+		t.Fatalf("500-target clear plan = %d rows, %v", len(bounded), err)
 	}
 	for _, row := range rows {
 		if len(row.Cells) != 10 {

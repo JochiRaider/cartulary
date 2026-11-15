@@ -41,7 +41,7 @@ export function referencePackFixture(
     source_identifier: null,
     manifest_sha256: "a".repeat(64),
     payload_sha256: "b".repeat(64),
-    pack_contract_version: "cartulary.reference_pack_contract.v1",
+    pack_contract_version: "cartulary.reference_pack_contract.v3",
     verification_method: "tuf_1_0_35_offline_bundle_v1",
 
     previous_active_version: null,

@@ -64,9 +64,20 @@ describe("Network Flow presentation metadata", () => {
         (column) => column.fieldKey === "network_flow.packets_count",
       )?.label,
     ).toBe("Conversation packets");
-    expect(
-      columns.some((column) => column.fieldKey === "network_flow_row_id"),
-    ).toBe(false);
+    const inspectorOnly = metadata
+      .filter((column) => column.inspector_only)
+      .map((column) => column.field_key);
+    expect(inspectorOnly).toContain("network_flow_row_id");
+    const requestedInspectorColumns = compileNetworkFlowColumns<NetworkFlowRow>(
+      {
+        gridSchemaId: "network_flow.accepted_rows.v1",
+        orderedVisibleFieldKeys: [...inspectorOnly, ...visible],
+        widths: {},
+      },
+    );
+    expect(requestedInspectorColumns.map((column) => column.fieldKey)).toEqual(
+      columns.map((column) => column.fieldKey),
+    );
   });
 
   it("keeps display formatting separate from canonical clipboard scalars", () => {
@@ -159,34 +170,46 @@ describe("Network Flow presentation metadata", () => {
   });
 
   it("groups contributors by workspace table order without changing server order within a group", () => {
-    const tableOneRows = [
-      contributorRow("nft_1", "nfr_1", 1),
-      contributorRow("nft_1", "nfr_2", 2),
+    const withFlowStart = (row: NetworkFlowRow, start: string) =>
+      ({ ...row, "network_flow.flow_start_utc": start }) as NetworkFlowRow;
+    // Workspace order puts nft_b first; inside each table, flow starts ascend
+    // while source rows and row IDs do not, so no client key sort reproduces it.
+    const serverOrderRows = [
+      withFlowStart(
+        contributorRow("nft_b", "nfr_9", 7),
+        "2026-07-10T00:00:00Z",
+      ),
+      withFlowStart(
+        contributorRow("nft_b", "nfr_10", 3),
+        "2026-07-10T01:00:00Z",
+      ),
+      withFlowStart(
+        contributorRow("nft_a", "nfr_30", 2),
+        "2026-07-10T00:30:00Z",
+      ),
+      withFlowStart(
+        contributorRow("nft_a", "nfr_4", 1),
+        "2026-07-10T02:00:00Z",
+      ),
     ];
-    const tableTwoRows = [
-      contributorRow("nft_2", "nfr_10", 10),
-      contributorRow("nft_2", "nfr_11", 11),
-    ];
-    const serverContributors = [
-      contributor(tableOneRows[0]),
-      contributor(tableOneRows[1]),
-      contributor(tableTwoRows[0]),
-      contributor(tableTwoRows[1]),
-    ];
+    const serverOrderGridRows = networkFlowContributorsForGrid(
+      serverOrderRows.map((row) => contributor(row)),
+    );
 
-    const dataRows = networkFlowContributorsForGrid(serverContributors);
-
-    expect(dataRows.map((row) => row.data.network_flow_row_id)).toEqual([
-      "nfr_1",
-      "nfr_2",
-      "nfr_10",
-      "nfr_11",
-    ]);
-    expect(dataRows).toHaveLength(serverContributors.length);
-    expect(dataRows[0]?.data).toBe(tableOneRows[0]);
-    expect(dataRows[1]?.data).toBe(tableOneRows[1]);
-    expect(dataRows[2]?.data).toBe(tableTwoRows[0]);
-    expect(dataRows[3]?.data).toBe(tableTwoRows[1]);
+    expect(serverOrderGridRows).toHaveLength(serverOrderRows.length);
+    expect(
+      serverOrderGridRows.map((row) => row.data.network_flow_row_id),
+    ).toEqual(["nfr_9", "nfr_10", "nfr_30", "nfr_4"]);
+    expect(
+      serverOrderGridRows.map((row) =>
+        row.rowIdentity.kind === "extension_resource"
+          ? row.rowIdentity.resourceId
+          : null,
+      ),
+    ).toEqual(["nfr_9", "nfr_10", "nfr_30", "nfr_4"]);
+    serverOrderRows.forEach((row, index) => {
+      expect(serverOrderGridRows[index]?.data).toBe(row);
+    });
   });
 
   it("reuses grid-row wrappers only for unchanged owner objects and derived metadata", () => {

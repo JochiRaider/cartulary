@@ -240,6 +240,22 @@ describe("Timeline collection inspection", () => {
       expect(column?.editor).toBeUndefined();
       expect(column?.authoringPresentation).toBe("explicit_action");
     }
+    // The contract, not the production binding list, defines every action field.
+    const actionFieldKeys = Object.values(tagContract.fieldMap)
+      .filter((field) => field?.writeKind === "action_payload")
+      .map((field) => field!.fieldKey)
+      .sort();
+    expect(actionFieldKeys).toEqual([
+      "timeline.attached_evidence_ids",
+      "timeline.host_refs",
+      "timeline.identity_refs",
+      "timeline.tags",
+    ]);
+    for (const fieldKey of actionFieldKeys) {
+      expect(
+        result.current.find((column) => column.fieldKey === fieldKey)?.editor,
+      ).toBeUndefined();
+    }
     expect(
       result.current.find(
         (column) => column.fieldKey === "timeline.activity_synopsis_text",
@@ -562,9 +578,8 @@ describe("Timeline collection inspection", () => {
         screen.queryByRole("button", { name: "Remove tag: beta" }),
       ).toBeNull(),
     );
-    expect(document.activeElement).not.toBe(
-      screen.getByRole("button", { name: "Remove tag: gamma" }),
-    );
+    // The obsolete restoration moves focus nowhere, not just away from gamma.
+    expect(document.activeElement).toBe(document.body);
   });
   it("keeps an admitted removal on its original record after inspector navigation", async () => {
     const f = tagRemovalFixture();

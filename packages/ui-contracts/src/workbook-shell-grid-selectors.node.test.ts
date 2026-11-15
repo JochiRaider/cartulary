@@ -58,12 +58,12 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
     expect(workbookPreferenceTestId("default", "clear")).toBe(
       "workbook-preference-default-clear",
     );
-    expect(() =>
-      workbookPreferenceTestId("other" as "home", "clear"),
-    ).toThrow();
-    expect(() =>
-      workbookPreferenceTestId("home", "delete" as "clear"),
-    ).toThrow();
+    expect(() => workbookPreferenceTestId("other" as "home", "clear")).toThrow(
+      "Invalid preference resource token: other",
+    );
+    expect(() => workbookPreferenceTestId("home", "delete" as "clear")).toThrow(
+      "Invalid preference control token: delete",
+    );
   });
   it("builds owner-backed group row selectors for both expansion states", () => {
     expect(gridGroupRowSelector()).toBe(

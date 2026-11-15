@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
@@ -168,14 +169,7 @@ AND m.before_value=r.before_json AND m.after_value=r.after_json`, result.ChangeS
 
 	t.Run("deleted record requires restore", func(t *testing.T) {
 		created := create(t, "deleted")
-		if _, err := harness.DB.Exec(ctx, `
-UPDATE records
-   SET deleted_at = $2,
-       deleted_by_user_id = $3
- WHERE record_id = $1
-`, created.RecordID, now.Add(30*time.Second), actor.ID); err != nil {
-			t.Fatalf("mark artifact envelope deleted: %v", err)
-		}
+		envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: created.RecordID, DeletedBy: actor.ID, At: now.Add(30 * time.Second)})
 		if _, err := patch(created.RecordID, 1, "deleted"); !errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
 			t.Fatalf("deleted artifact patch error = %v, want ErrRecordDeletedUseRestore", err)
 		}

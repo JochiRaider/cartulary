@@ -18,6 +18,10 @@ import (
 
 func TestRevisionsIncidentBundleExactAttribution(t *testing.T) {
 	h := newRevisionsPortabilityHarness(t, "exact-attribution")
+	// Each attribution change set carries a real host-create history for its
+	// own record: every record must retain reconstructible revision history
+	// and every change set needs a mutation (revisions.history_reconstruction).
+	secondRecord, secondSnapshot := seedAttributionHostRecord(t, h, "portable-host-attribution")
 	portableActors := []uuid.UUID{uuid.New(), uuid.New()}
 	changeSets := []string{"11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"}
 	actors, err := sourceport.NewActorCatalog([]sourceport.ActorDescriptor{
@@ -31,16 +35,30 @@ func TestRevisionsIncidentBundleExactAttribution(t *testing.T) {
 	base := func(empty bool) portabilitysupport.MapBundle {
 		bundle := h.validBundle(t)
 		row := decodePortableRows(t, bundle[revisionsTestChangeSetsPath])[0]
-		var changes []map[string]any
+		mutation := decodePortableRows(t, bundle[revisionsTestMutationsPath])[0]
+		revision := decodePortableRows(t, bundle[revisionsTestHistoryPath])[0]
+		var changes, mutations, revisionRows []map[string]any
 		if !empty {
 			for i, id := range changeSets {
+				recordID, snapshot := h.recordID.String(), any(h.snapshot)
+				if i == 1 {
+					recordID, snapshot = secondRecord.String(), secondSnapshot
+				}
 				change := clonePortableRow(t, row)
-				change["change_set_id"], change["actor_user_id"] = id, portableActors[i].String()
+				change["change_set_id"], change["actor_user_id"], change["history_order"] = id, portableActors[i].String(), i+1
 				changes = append(changes, change)
+				create := clonePortableRow(t, mutation)
+				create["change_set_id"], create["target_id"] = id, recordID
+				create["after_version_id"], create["after_value"] = "host:"+recordID+":1", snapshot
+				mutations = append(mutations, create)
+				created := clonePortableRow(t, revision)
+				created["revision_id"], created["change_set_id"], created["record_id"], created["after_json"] = i+1, id, recordID, snapshot
+				revisionRows = append(revisionRows, created)
 			}
 		}
 		bundle[revisionsTestChangeSetsPath] = encodePortableRows(t, changes)
-		bundle[revisionsTestMutationsPath], bundle[revisionsTestHistoryPath] = nil, nil
+		bundle[revisionsTestMutationsPath] = encodePortableRows(t, mutations)
+		bundle[revisionsTestHistoryPath] = encodePortableRows(t, revisionRows)
 		return bundle
 	}
 	want := []incidentportability.ImportedAttribution{
@@ -79,6 +97,17 @@ func TestRevisionsIncidentBundleExactAttribution(t *testing.T) {
 			}
 			requireCounts(t, h.db, [3]int{})
 		}()
+		if len(decodePortableRows(t, bundle[revisionsTestChangeSetsPath])) == 0 {
+			// An empty history bundle is legal only for an incident without
+			// records; remove them inside this rolled-back transaction.
+			for _, recordID := range []uuid.UUID{h.recordID, secondRecord} {
+				for _, statement := range []string{`DELETE FROM hosts WHERE record_id=$1`, `DELETE FROM records WHERE record_id=$1`} {
+					if _, err := tx.Exec(t.Context(), statement, recordID); err != nil {
+						t.Fatalf("remove record for empty history bundle: %v", err)
+					}
+				}
+			}
+		}
 		check(tx, prepared, caseInput, recorder)
 	}
 	apply := func(t *testing.T, tx pgx.Tx, prepared sourceport.Prepared, input sourceport.ImportContext) {
@@ -236,4 +265,49 @@ func TestRevisionsIncidentBundleExactAttribution(t *testing.T) {
 			requireRevisionsInvariant(t, h.port.ValidateImportTx(t.Context(), tx, prepared, input), "revisions.actor_references_complete")
 		})
 	})
+}
+
+// seedAttributionHostRecord adds a host record to the harness incident and
+// returns its canonical snapshot from the host snapshot provider.
+func seedAttributionHostRecord(t *testing.T, h revisionsPortabilityHarness, hostname string) (uuid.UUID, map[string]any) {
+	t.Helper()
+	recordID := uuid.New()
+	if _, err := h.db.Exec(context.Background(), `
+INSERT INTO records (
+    record_id, incident_id, record_type, created_by_user_id, created_at,
+    updated_by_user_id, updated_at, row_version
+) VALUES ($1, $2, 'host', $3, $4, $3, $4, 1)
+`, recordID, h.incidentID, h.actor.ID, h.createdAt); err != nil {
+		t.Fatalf("seed attribution record envelope: %v", err)
+	}
+	if _, err := h.db.Exec(context.Background(), `
+INSERT INTO hosts (
+    record_id, incident_id, display_name, hostname, host_state,
+    row_version, created_at, updated_at, created_by_user_id, updated_by_user_id
+) VALUES ($1, $2, 'Attribution host', $3, 'canonical', 1, $4, $4, $5, $5)
+`, recordID, h.incidentID, hostname, h.createdAt, h.actor.ID); err != nil {
+		t.Fatalf("seed attribution host source: %v", err)
+	}
+	var snapshot map[string]any
+	for _, contribution := range mustRevisionProviderContributions(t) {
+		for _, record := range contribution.Records {
+			if record.RecordType != "host" {
+				continue
+			}
+			tx, err := h.db.BeginTx(context.Background(), pgx.TxOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			snapshot, err = record.DeleteRestoreSource.SnapshotTx(context.Background(), tx, recordID)
+			_ = tx.Rollback(context.Background())
+			if err != nil {
+				t.Fatalf("load attribution host snapshot: %v", err)
+			}
+			snapshot["snapshot_schema_id"] = record.SnapshotSchemaID
+		}
+	}
+	if snapshot == nil {
+		t.Fatal("host snapshot provider is missing")
+	}
+	return recordID, snapshot
 }

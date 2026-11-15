@@ -252,12 +252,48 @@ describe("Workbook preference owner", () => {
     write.resolve({
       kind: "rejected",
       status: 401,
-      problem: { code: "authentication_required" },
+      problem: { code: "session_required" },
     });
     await flushPreferences();
     expect(c.getSnapshot().home.operation.kind).toBe("idle");
     expect(lost).not.toHaveBeenCalled();
     expect(c.getSnapshot().announcement).toBeNull();
+  });
+  it("recovers access before refreshing after a canonical session or CSRF write rejection", async () => {
+    for (const [status, code, recovers] of [
+      [401, "session_required", true],
+      [403, "csrf_verification_failed", true],
+      [400, "invalid_mutation_payload", false],
+    ] as const) {
+      const { controller: c, port, recover } = setup();
+      port.setHomeSheet.mockResolvedValueOnce({
+        kind: "rejected",
+        status,
+        problem: { code },
+      });
+      c.setCurrent("home");
+      await flushPreferences();
+      expect(c.getSnapshot().home.operation).toMatchObject({
+        kind: "rejected",
+        problem: { code },
+      });
+      const order: string[] = [];
+      recover.mockImplementationOnce(async () => {
+        order.push("recover");
+        return {
+          kind: "authorized",
+          userId: authority.actorId,
+          role: authority.role,
+        };
+      });
+      port.readHome.mockImplementationOnce(async () => {
+        order.push("read");
+        return accepted(homePreference());
+      });
+      c.refresh("home");
+      await flushPreferences();
+      expect(order, code).toEqual(recovers ? ["recover", "read"] : ["read"]);
+    }
   });
   it("retains state during temporary access failure and retires only on confirmed loss", async () => {
     const { controller: c, recover, lost } = setup();

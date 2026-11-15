@@ -101,6 +101,9 @@ func TestStagedObjects_Integration_AllocationPublicationAndCleanup(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := objectStore.StatObject(ctx, cleanupRecord.StorageIdentity); err != nil {
+		t.Fatalf("abandoned bytes missing before cleanup: %v", err)
+	}
 	if err := cleanupScope.Abandon(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -347,6 +350,9 @@ func TestStagedObjects_Integration_ReservedOwnerAndCompetingAttempts(t *testing.
 	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := objects.StatObject(ctx, loser.key); err != nil {
+		t.Fatalf("competing loser bytes missing before cleanup: %v", err)
 	}
 	if err := loser.resources.Abandon(ctx); err != nil {
 		t.Fatal(err)

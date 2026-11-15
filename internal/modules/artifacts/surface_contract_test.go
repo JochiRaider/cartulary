@@ -1,6 +1,7 @@
 package artifacts
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -255,16 +256,31 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 				},
 			},
 			"non_nullable_null": {
-				ViewSchemaID: NotesViewSchemaID,
+				ViewSchemaID: FindingsViewSchemaID,
 				Values: map[string]fieldValue{
-					"note.body":  {Text: &body},
-					"note.title": {},
+					"finding.statement": {Text: &body},
+					"finding.kind":      {},
 				},
 			},
 		} {
 			if err := validateCreateParams(params); err == nil {
 				t.Fatalf("%s unexpectedly passed exact source admission", name)
 			}
+		}
+		// Only clearable fields admit explicit null (Core 01 :6717/:6720).
+		nonNullable := validateCreateParams(createParams{ViewSchemaID: FindingsViewSchemaID, Values: map[string]fieldValue{
+			"finding.statement": {Text: &body},
+			"finding.kind":      {},
+		}})
+		var nullErr *ValidationError
+		if !errors.As(nonNullable, &nullErr) || *nullErr != (ValidationError{Field: "finding.kind", ReasonCode: "field_not_nullable"}) {
+			t.Fatalf("non-clearable null admission error = %#v, want finding.kind field_not_nullable", nonNullable)
+		}
+		if err := validateCreateParams(createParams{ViewSchemaID: NotesViewSchemaID, Values: map[string]fieldValue{
+			"note.body":  {Text: &body},
+			"note.title": {},
+		}}); err != nil {
+			t.Fatalf("clearable note.title null was rejected: %v", err)
 		}
 		if table, column := tableColumnForField("finding.unreviewed"); table != "" || column != "" {
 			t.Fatalf("unknown prefixed field mapped to %s.%s", table, column)

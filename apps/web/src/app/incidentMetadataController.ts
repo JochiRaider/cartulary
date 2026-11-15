@@ -402,7 +402,7 @@ export class IncidentMetadataController {
         (result.status === 409 && result.problem.code === "incident_closed") ||
         (result.status === 403 &&
           (result.problem.code === "authorization_denied" ||
-            result.problem.code === "csrf_failed"))
+            result.problem.code === "csrf_verification_failed"))
       ) {
         const field = result.problem.field;
         const draft = this.state.draft;

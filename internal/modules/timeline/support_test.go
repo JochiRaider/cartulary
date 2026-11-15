@@ -54,8 +54,10 @@ func TestUnit_CaptureStateHelpers(t *testing.T) {
 	if nextState != captureStateEnriched {
 		t.Fatalf("expected reviewed -> enriched on material edit, got %q", nextState)
 	}
-	if !captureStateAllowsSupersede(captureStateReviewed) {
-		t.Fatal("reviewed rows must allow legal supersede")
+	for state, allowed := range map[string]bool{captureStateRough: true, captureStateEnriched: true, captureStateReviewed: true, captureStateSuperseded: false} {
+		if captureStateAllowsSupersede(state) != allowed {
+			t.Fatalf("supersede from %s allowed=%v, want %v", state, !allowed, allowed)
+		}
 	}
 	if _, err := captureStateAfterMaterialPatch(captureStateSuperseded); !errors.Is(err, ErrIllegalTransition) {
 		t.Fatalf("expected superseded rows to reject ordinary patch semantics, got %v", err)

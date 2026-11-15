@@ -115,6 +115,13 @@ func TestIndicatorLinkPublicBoundary(t *testing.T) {
 			"network_flow_table_id": "nft_" + strings.Repeat("a", 32), "network_flow_row_id": "nfr_" + strings.Repeat("b", 64),
 			"source_row_number": 1, "mapping_fingerprint": strings.Repeat("c", 64), "label": "forbidden",
 		}}}
+		ref := selector["row_refs"].([]any)[0].(map[string]any)
+		delete(ref, "label")
+		closed, _ := json.Marshal(selector)
+		if _, apiErr := decodeIndicatorSelector(closed, defaultEffectiveLimits()); apiErr != nil {
+			t.Fatalf("closed source reference rejected: %v", apiErr)
+		}
+		ref["label"] = "forbidden"
 		raw, _ := json.Marshal(selector)
 		if _, apiErr := decodeIndicatorSelector(raw, defaultEffectiveLimits()); apiErr == nil {
 			t.Fatal("unknown source-reference members were accepted")

@@ -19,7 +19,7 @@ export function packageDeploymentIdentity(resource) {
  validateSchemaSync("cartulary.harness_runtime_resource.v2", resource);
  if (resource.kind !== "package_deployment") throw failed();
  const { token, scope } = resource.target;
- const prefix = `cartulary-qualification-${token}`;
+ const prefix = `cartulary-pq-${token}`;
  return { project: scope === "shared" ? null : `${prefix}-${scope}`, helper: `${prefix}-cleanup`,
   labels: { "cartulary.package.allocation": token, "cartulary.package.run": resource.run_id,
    "cartulary.package.lease": resource.lease_id, "cartulary.package.role": "qualification_cleanup" } };

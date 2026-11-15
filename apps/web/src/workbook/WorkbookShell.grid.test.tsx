@@ -140,8 +140,6 @@ describe("Timeline workbook grid coverage", () => {
         ),
       ).toBeTruthy();
     }
-    expect(within(grid).queryByText("Details")).toBeNull();
-    expect(within(grid).queryByText("Source Text")).toBeNull();
 
     const summaryInput = gridScalarInput(
       container,
@@ -159,7 +157,11 @@ describe("Timeline workbook grid coverage", () => {
       field_key: "timeline.activity_synopsis_text",
       value: "Bound summary",
     });
-    expect(JSON.stringify(requestBody)).not.toContain("Summary");
+    expect(requestBody.changes).toHaveLength(1);
+    const synopsisLabel =
+      timelineContract.fieldMap["timeline.activity_synopsis_text"]?.label;
+    expect(synopsisLabel).toBeTruthy();
+    expect(JSON.stringify(requestBody)).not.toContain(synopsisLabel);
 
     await waitFor(() => {
       expect(visibleGridRows(container)).toHaveLength(1);

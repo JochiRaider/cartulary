@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/portabilitysupport"
 )
@@ -53,9 +54,7 @@ func TestEntityIncidentBundleInvariantClosure_Integration(t *testing.T) {
 			}
 		}
 		deletedAt := timestamp.Add(time.Minute)
-		if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at=$2,deleted_by_user_id=$3 WHERE record_id=$1`, hostRecordID, deletedAt, actorID); err != nil {
-			t.Fatal(err)
-		}
+		envelopetest.SoftDeleteRecord(t, tx, envelopetest.Tombstone{RecordID: hostRecordID, DeletedBy: actorID, At: deletedAt})
 		got, present, err := loadEntityPortableEnvelope(ctx, tx, incidentID, hostRecordID)
 		if err != nil || !present || got.recordID != hostRecordID || got.recordType != "host" || got.deletedAt == nil || !got.deletedAt.Equal(deletedAt) || got.rowVersion != 1 {
 			t.Fatalf("retained deleted envelope=%#v present=%v error=%v", got, present, err)

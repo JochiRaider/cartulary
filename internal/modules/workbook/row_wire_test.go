@@ -487,7 +487,7 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 	seedNoteArtifact(t, harness, incidentID, actorID, "Powershell only", nil)
 	phrase := seedNoteArtifact(t, harness, incidentID, actorID, "Phrase note", ptrString("alpha middle shell"))
 	seedNoteArtifact(t, harness, incidentID, actorID, "Wildcard note", ptrString("shells alpha"))
-	seedNoteArtifact(t, harness, incidentID, actorID, "Cafe note", ptrString("cafe token"))
+	cafe := seedNoteArtifact(t, harness, incidentID, actorID, "Cafe note", ptrString("cafe token"))
 	seedNoteArtifact(t, harness, incidentID, actorID, "Accent note", ptrString("café token"))
 
 	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.notes.v1/query"
@@ -508,10 +508,10 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 	}
 
 	reordered := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
-		"sort":    []map[string]any{{"field_key": "note.title", "direction": "asc"}},
+		"sort":    []map[string]any{{"field_key": "note.title", "direction": "desc"}},
 		"filters": []map[string]any{{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": "shell alpha shell"}}},
 	})
-	if ids := rowIDs(responseRows(reordered)); !reflect.DeepEqual(ids, []string{alpha.String(), bravo.String(), phrase.String()}) {
+	if ids := rowIDs(responseRows(reordered)); !reflect.DeepEqual(ids, []string{phrase.String(), bravo.String(), alpha.String()}) {
 		t.Fatalf("full_text must preserve applied sort order rather than relevance, got %v", ids)
 	}
 
@@ -526,8 +526,8 @@ func TestNotesFullTextExactSearch(t *testing.T) {
 	accent := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
 		"filters": []map[string]any{{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": "cafe"}}},
 	})
-	if len(responseRows(accent)) != 1 {
-		t.Fatalf("diacritics must remain significant; expected only cafe row, got %#v", responseRows(accent))
+	if ids := rowIDs(responseRows(accent)); !reflect.DeepEqual(ids, []string{cafe.String()}) {
+		t.Fatalf("diacritics must remain significant; expected only cafe row, got %v", ids)
 	}
 
 	invalid := httptestx.DoJSON(t, http.DefaultClient, http.MethodPost, queryURL, map[string]any{

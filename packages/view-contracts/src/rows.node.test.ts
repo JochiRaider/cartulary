@@ -58,15 +58,28 @@ function fixtureCells() {
 
 describe("view row normalization", () => {
   it("rejects missing and malformed row identity and version values", () => {
-    for (const row of [
-      { cells: fixtureCells(), row_version: 1 },
-      { cells: fixtureCells(), record_id: "record-1" },
-      { cells: fixtureCells(), record_id: "record-1", row_version: 0 },
-      { cells: fixtureCells(), record_id: "record-1", row_version: 1.5 },
-    ]) {
-      expect(() => normalizeViewRowV1(contract, row)).toThrow(
-        /View row invariant failed/u,
-      );
+    const complete = {
+      cells: fixtureCells(),
+      group_values: { "fixture.group": "bucket" },
+      record_id: "record-1",
+      row_version: 1,
+    };
+    expect(normalizeViewRowV1(contract, complete).rowVersion).toBe(1);
+    const { record_id: _recordId, ...withoutRecordId } = complete;
+    const { row_version: _rowVersion, ...withoutRowVersion } = complete;
+    for (const [row, detail] of [
+      [withoutRecordId, "record_id must be a non-empty string"],
+      [withoutRowVersion, "row_version must be a positive safe integer"],
+      [
+        { ...complete, row_version: 0 },
+        "row_version must be a positive safe integer",
+      ],
+      [
+        { ...complete, row_version: 1.5 },
+        "row_version must be a positive safe integer",
+      ],
+    ] as const) {
+      expect(() => normalizeViewRowV1(contract, row)).toThrow(detail);
     }
   });
 

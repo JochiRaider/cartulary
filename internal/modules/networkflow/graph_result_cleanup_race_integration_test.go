@@ -83,10 +83,11 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 		publicationDone <- publicationTx.Commit(ctx)
 	}()
 	<-publicationStarted
+	requireCleanupLockWaiter(t, ctx, pool, cleanupTx, "publication")
 	select {
 	case err := <-publicationDone:
 		t.Fatalf("publication crossed a cleanup-held result lock: %v", err)
-	case <-time.After(50 * time.Millisecond):
+	default:
 	}
 	selected, err := store.LockGraphViewDeclarationsSelectingResultTx(ctx, cleanupTx, first.Binding.ProjectionResultID)
 	if err != nil || selected {
@@ -214,10 +215,11 @@ func TestNetworkFlowGraphCleanupPublicationAndAdmissionRaces_Integration(t *test
 		inputAdmissionDone <- tx.Commit(ctx)
 	}()
 	<-inputAdmissionStarted
+	requireCleanupLockWaiter(t, ctx, pool, cleanupFirstTx, "input admission")
 	select {
 	case err := <-inputAdmissionDone:
 		t.Fatalf("input admission crossed a cleanup-held result lock: %v", err)
-	case <-time.After(50 * time.Millisecond):
+	default:
 	}
 	selected, err = store.LockGraphViewDeclarationsSelectingResultTx(ctx, cleanupFirstTx, third.Binding.ProjectionResultID)
 	if err != nil || !selected {
@@ -310,5 +312,26 @@ func requireSelectedGraphCleanupResult(t testing.TB, ctx context.Context, store 
 	declaration, err := store.GetGraphViewDeclaration(ctx, incidentID, graphViewID)
 	if err != nil || declaration.SelectedResult == nil || declaration.SelectedResult.ProjectionResultID != resultID {
 		t.Fatalf("selected result = %#v err=%v; want %s", declaration.SelectedResult, err, resultID)
+	}
+}
+
+// requireCleanupLockWaiter observes another backend actually waiting on the
+// cleanup transaction's locks, rather than inferring it from elapsed time.
+func requireCleanupLockWaiter(t testing.TB, ctx context.Context, pool *pgxpool.Pool, holder pgx.Tx, operation string) {
+	t.Helper()
+	holderPID := int32(holder.Conn().PgConn().PID())
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		var waiting bool
+		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid)))`, holderPID).Scan(&waiting); err != nil {
+			t.Fatalf("observe %s lock wait: %v", operation, err)
+		}
+		if waiting {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s never waited on the cleanup-held result lock", operation)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

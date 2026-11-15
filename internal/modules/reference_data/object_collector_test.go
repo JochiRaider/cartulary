@@ -81,15 +81,23 @@ func TestObjectCollectorLifecycle_Unit(t *testing.T) {
 			return ctx.Err()
 		}), nil, ticks)
 		serving := make(chan struct{})
+		// The collector's only tick source is requested after the serving gate,
+		// so no sweep can start before serving.
+		c.ticker = func(interval time.Duration) (<-chan time.Time, func()) {
+			if interval != time.Minute {
+				t.Error("production maintenance cadence changed", interval)
+			}
+			select {
+			case <-serving:
+			default:
+				t.Error("maintenance ticker requested before serving")
+			}
+			return ticks, func() {}
+		}
 		if err := c.Prepare(t.Context(), serving); err != nil {
 			t.Fatal(err)
 		}
 		ticks <- time.Now()
-		select {
-		case <-entered:
-			t.Fatal("collection before serving")
-		case <-time.After(20 * time.Millisecond):
-		}
 		close(serving)
 		select {
 		case <-entered:
@@ -97,11 +105,6 @@ func TestObjectCollectorLifecycle_Unit(t *testing.T) {
 			t.Fatal("maintenance did not start")
 		}
 		ticks <- time.Now()
-		select {
-		case <-entered:
-			t.Fatal("overlapping sweep")
-		case <-time.After(20 * time.Millisecond):
-		}
 		closed := make(chan error, 1)
 		go func() { closed <- c.Close(context.Background()) }()
 		<-interrupted
@@ -113,6 +116,12 @@ func TestObjectCollectorLifecycle_Unit(t *testing.T) {
 		close(release)
 		if err := <-closed; err != nil {
 			t.Fatal(err)
+		}
+		// Close joined the loop; any overlapping or later sweep would have signaled.
+		select {
+		case <-entered:
+			t.Fatal("overlapping or later sweep started")
+		default:
 		}
 		if err := c.Prepare(t.Context(), serving); err == nil {
 			t.Fatal("closed collector restarted")

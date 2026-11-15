@@ -53,6 +53,19 @@ describe("design presentation projection", () => {
     const families = cartularyDesignPresentation.errorPresentations.map(
       (presentation) => presentation.family,
     );
+    expect(families).toEqual([
+      "local_validation",
+      "same_field_conflict",
+      "client_txn_conflict",
+      "queue_overflow",
+      "stale_refresh",
+      "initial_load_failure",
+      "authentication_required",
+      "permission_or_incident_access_loss",
+      "extension_unavailable",
+      "evidence_preview_blocked",
+      "unknown_future_error",
+    ]);
     expect(new Set(families).size).toBe(11);
     expect(cartularyErrorPresentation("unknown_future_error")).toMatchObject({
       actions: [],

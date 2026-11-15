@@ -13,7 +13,7 @@ import (
 )
 
 func TestRenderInstallationAdmission(t *testing.T) {
-	for _, mutation := range []string{"none", "changed_bytes", "extra_file", "missing_file", "link", "hardlink", "human_material", "manifest_digest", "package_digest", "font_digest", "duplicate_path", "unknown_field", "duplicate_field", "root_escape", "package_version", "version_label"} {
+	for _, mutation := range []string{"none", "changed_bytes", "extra_file", "missing_file", "link_same_bytes", "hardlink", "human_material", "manifest_digest", "package_digest", "font_digest", "duplicate_path", "unknown_field", "duplicate_field", "root_escape", "package_version", "version_label"} {
 		t.Run(mutation, func(t *testing.T) {
 			directory := t.TempDir()
 			staging := filepath.Join(directory, "staging")
@@ -63,11 +63,21 @@ func TestRenderInstallationAdmission(t *testing.T) {
 				if err := os.Remove(changedFile); err != nil {
 					t.Fatal(err)
 				}
-			case "link":
+			case "link_same_bytes":
+				// Following the link yields the declared digest, so only the
+				// regular-file rule can reject it.
+				original, err := os.ReadFile(changedFile)
+				if err != nil {
+					t.Fatal(err)
+				}
+				outside := filepath.Join(directory, "outside-same-bytes")
+				if err := os.WriteFile(outside, original, 0o600); err != nil {
+					t.Fatal(err)
+				}
 				if err := os.Remove(changedFile); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.Symlink(filepath.Join(directory, "outside"), changedFile); err != nil {
+				if err := os.Symlink(outside, changedFile); err != nil {
 					t.Fatal(err)
 				}
 			case "hardlink":

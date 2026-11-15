@@ -3,6 +3,7 @@ package reporting
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -53,9 +54,6 @@ func TestMermaidSourceRejectsUnresolvedAndUnsafeInput(t *testing.T) {
 		func(d *reportingDiagramModel) { d.Edges[0].Label = "bad\u0085" },
 		func(d *reportingDiagramModel) { d.Edges[0].Label = "bad\x00" },
 		func(d *reportingDiagramModel) { d.Nodes[0].Label = strings.Repeat("字", 121) },
-		func(d *reportingDiagramModel) { d.Nodes = make([]reportingDiagramNode, 81) },
-		func(d *reportingDiagramModel) { d.DiagramKind = "sequence"; d.Nodes = make([]reportingDiagramNode, 25) },
-		func(d *reportingDiagramModel) { d.Edges = make([]reportingDiagramEdge, 161) },
 	} {
 		diagram := base()
 		mutate(&diagram)
@@ -63,6 +61,41 @@ func TestMermaidSourceRejectsUnresolvedAndUnsafeInput(t *testing.T) {
 		var failure *renderValidationError
 		if len(data) != 0 || !errors.As(err, &failure) || failure.FailureCode != "mermaid_invalid" {
 			t.Fatalf("unsafe source must return no bytes and a bounded failure: %q %v", data, err)
+		}
+	}
+	// Well-formed diagrams isolate the hard limits from identity defects.
+	sized := func(kind string, nodes, edges int) reportingDiagramModel {
+		diagram := reportingDiagramModel{DiagramKind: kind}
+		for i := range nodes {
+			diagram.Nodes = append(diagram.Nodes, reportingDiagramNode{NodeID: fmt.Sprintf("v%03d", i), Label: fmt.Sprintf("Vertex %d", i)})
+		}
+		for i := range edges {
+			diagram.Edges = append(diagram.Edges, reportingDiagramEdge{Direction: "forward", EdgeID: fmt.Sprintf("e%03d", i), From: diagram.Nodes[i%nodes].NodeID, To: diagram.Nodes[(i+1)%nodes].NodeID, Label: "next"})
+		}
+		return diagram
+	}
+	for _, bound := range []struct {
+		name          string
+		kind          string
+		nodes, edges  int
+		overLimitCase bool
+	}{
+		{"flowchart vertex and edge limits", "flowchart", 80, 160, false},
+		{"sequence participant limit", "sequence", 24, 1, false},
+		{"flowchart vertex overflow", "flowchart", 81, 1, true},
+		{"flowchart edge overflow", "flowchart", 80, 161, true},
+		{"sequence participant overflow", "sequence", 25, 1, true},
+	} {
+		data, err := serializeMermaidSource(sized(bound.kind, bound.nodes, bound.edges))
+		if !bound.overLimitCase {
+			if err != nil || len(data) == 0 {
+				t.Fatalf("%s: diagram at the limit rejected: %v", bound.name, err)
+			}
+			continue
+		}
+		var failure *renderValidationError
+		if len(data) != 0 || !errors.As(err, &failure) || failure.ReasonCode != "diagram_hard_limit_exceeded" || failure.issues == nil || failure.issues.count != 1 {
+			t.Fatalf("%s: %q %v, want only diagram_hard_limit_exceeded", bound.name, data, err)
 		}
 	}
 	label, err := normalizeDiagramLabel(strings.Repeat("字", 121), true)

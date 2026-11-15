@@ -45,7 +45,7 @@ export function referencePackBrowserPack(
     last_verified_at: "2026-09-07T12:00:00Z",
     trust_valid_until: "2027-09-07T12:00:00Z",
     verified_signer_key_ids: ["c".repeat(64)],
-    pack_contract_version: "cartulary.reference_pack_contract.v1",
+    pack_contract_version: "cartulary.reference_pack_contract.v3",
     pack_version_state: "verified_available",
     active: false,
     pending_work: false,

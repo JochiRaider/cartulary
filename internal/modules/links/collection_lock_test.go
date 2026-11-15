@@ -40,9 +40,7 @@ func testCollectionTargetLocking(t *testing.T, db dbport.DB, incident, actor uui
 					}
 				}
 				if scenario == "deleted" {
-					if _, err := db.Exec(ctx, `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1`, target, actor); err != nil {
-						t.Fatal(err)
-					}
+					envelopetest.SoftDeleteRecord(t, db, envelopetest.Tombstone{RecordID: target, DeletedBy: actor, AtLastUpdate: true})
 				}
 				commandIncident := incident
 				if scenario == "foreign" {
@@ -81,9 +79,7 @@ func testCollectionTargetLocking(t *testing.T, db dbport.DB, incident, actor uui
 					if err := holder.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&holderPID); err != nil {
 						t.Fatal(err)
 					}
-					if _, err := holder.Exec(ctx, `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1`, target, actor); err != nil {
-						t.Fatal(err)
-					}
+					envelopetest.SoftDeleteRecord(t, holder, envelopetest.Tombstone{RecordID: target, DeletedBy: actor, AtLastUpdate: true})
 					type outcome struct {
 						result links.CollectionMutationResult
 						err    error

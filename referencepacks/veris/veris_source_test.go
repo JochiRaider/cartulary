@@ -56,9 +56,19 @@ func TestVERISSourceAdmission_Unit(t *testing.T) {
 	if _, err := (VERISHTTPFetcher{}).FetchVERIS(context.Background(), bad); err == nil {
 		t.Fatal("unlisted network source admitted")
 	}
+	payload := []byte("veris receipt media isolation")
+	isolated := inventory.Sources[0]
+	isolated.Size = int64(len(payload))
+	isolated.SHA256 = Digest(payload)
+	if err := verisDownloadValid(isolated, VERISDownload{payload, "2026-11-07T00:00:00Z", isolated.MediaType}); err != nil {
+		t.Fatalf("matching receipt rejected: %v", err)
+	}
 	for _, media := range []string{"text/html", "application/json"} {
-		if err := verisDownloadValid(inventory.Sources[0], VERISDownload{[]byte("wrong"), "2026-11-07T00:00:00Z", media}); err == nil {
-			t.Fatal("untrusted receipt admitted")
+		if media == isolated.MediaType {
+			t.Fatalf("media fixture %q equals the declared type", media)
+		}
+		if err := verisDownloadValid(isolated, VERISDownload{payload, "2026-11-07T00:00:00Z", media}); err == nil {
+			t.Fatalf("receipt with media type %s admitted", media)
 		}
 	}
 }

@@ -1198,7 +1198,7 @@ describe("Incident landing", () => {
     expect(window.location.search).not.toContain("incident_id=");
     expect(
       screen.getByTestId(landingAdminShellTestId("heading")).textContent,
-    ).toBe("Incident directory");
+    ).toBe("Incidents");
     expect(document.activeElement).toBe(
       screen.getByTestId(landingAdminShellTestId("heading")),
     );
@@ -2229,9 +2229,12 @@ describe("Incident landing", () => {
       ),
     ).toBe(null);
 
-    staleSearch.resolve(incidentListResponse([phish]));
-    await Promise.resolve();
-    await Promise.resolve();
+    const staleResponse = incidentListResponse([phish]);
+    await act(async () => {
+      staleSearch.resolve(staleResponse);
+    });
+    await waitFor(() => expect(staleResponse.bodyUsed).toBe(true));
+    await act(async () => {});
     expect(
       screen.queryByTestId(
         landingIncidentCardTestId("8a621150-9a71-5706-9f88-c1e43a3ea68d"),

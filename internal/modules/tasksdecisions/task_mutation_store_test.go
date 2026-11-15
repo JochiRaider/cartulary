@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
@@ -206,9 +207,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-other-incident", "IR-TASK-DECISION-TASK-OTHER", "Workbook inspector task and decision workflow task requests other")
 	foreignDecision := mustCreateDecision(t, owner, actor, otherIncident.ID, "txn-workbook_interaction-task-decision-task-foreign-decision", "approved", "Foreign decision")
 	deletedDecision := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-task-deleted-decision", "approved", "Deleted decision")
-	if _, err := harness.DB.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, deletedDecision, testTime(20*time.Minute), actor.ID); err != nil {
-		t.Fatalf("soft-delete decision target: %v", err)
-	}
+	envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: deletedDecision, DeletedBy: actor.ID, At: testTime(20 * time.Minute)})
 	for _, invalid := range []struct {
 		name string
 		id   uuid.UUID
@@ -263,10 +262,11 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 	beforeCreatedAt := testTime(-time.Hour)
 	for _, tc := range []struct {
 		name   string
+		guard  string
 		values map[string]tasksdecisions.FieldValue
 	}{
 		{
-			name: "blocked-without-reason-create",
+			name: "blocked-without-reason-create", guard: "blocked_requires_reason",
 			values: map[string]tasksdecisions.FieldValue{
 				"task.title":     {Text: stringPtr("Blocked without reason")},
 				"task.task_kind": {Text: stringPtr("request")},
@@ -274,7 +274,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "non-blocked-with-reason-create",
+			name: "non-blocked-with-reason-create", guard: "non_blocked_clears_reason",
 			values: map[string]tasksdecisions.FieldValue{
 				"task.title":          {Text: stringPtr("Open with blocked reason")},
 				"task.task_kind":      {Text: stringPtr("request")},
@@ -282,7 +282,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "non-done-with-completed-at-create",
+			name: "non-done-with-completed-at-create", guard: "non_done_clears_completed_at",
 			values: map[string]tasksdecisions.FieldValue{
 				"task.title":        {Text: stringPtr("Open with completion time")},
 				"task.task_kind":    {Text: stringPtr("request")},
@@ -290,7 +290,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "done-before-created-create",
+			name: "done-before-created-create", guard: "completed_at_before_created_at",
 			values: map[string]tasksdecisions.FieldValue{
 				"task.title":        {Text: stringPtr("Done before created")},
 				"task.task_kind":    {Text: stringPtr("request")},
@@ -306,7 +306,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 			Values:       tc.values,
 		}
 		_, err := createTaskDecision(owner, actor, incident.ID, request, "req-workbook_interaction-task-decision-task-guard-"+tc.name, testTime(0))
-		requireLifecycle(t, err)
+		requireLifecycleGuards(t, err, "violated_lifecycle_guards", tc.guard)
 		if got := countRecords(t, harness.DB, incident.ID); got != beforeRecords {
 			t.Fatalf("%s wrote partial records: got %d want %d", tc.name, got, beforeRecords)
 		}
@@ -314,28 +314,29 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 
 	for _, tc := range []struct {
 		name    string
+		guard   string
 		changes []tasksdecisions.PatchChange
 	}{
 		{
-			name: "blocked-without-reason-patch",
+			name: "blocked-without-reason-patch", guard: "blocked_requires_reason",
 			changes: []tasksdecisions.PatchChange{
 				valueChange("task.status", tasksdecisions.FieldValue{Text: stringPtr("blocked")}),
 			},
 		},
 		{
-			name: "non-blocked-with-reason-patch",
+			name: "non-blocked-with-reason-patch", guard: "non_blocked_clears_reason",
 			changes: []tasksdecisions.PatchChange{
 				valueChange("task.blocked_reason", tasksdecisions.FieldValue{Text: stringPtr("Reason is only legal while blocked")}),
 			},
 		},
 		{
-			name: "non-done-with-completed-at-patch",
+			name: "non-done-with-completed-at-patch", guard: "non_done_clears_completed_at",
 			changes: []tasksdecisions.PatchChange{
 				valueChange("task.completed_at", tasksdecisions.FieldValue{Timestamp: &beforeCreatedAt}),
 			},
 		},
 		{
-			name: "done-before-created-patch",
+			name: "done-before-created-patch", guard: "completed_at_before_created_at",
 			changes: []tasksdecisions.PatchChange{
 				valueChange("task.status", tasksdecisions.FieldValue{Text: stringPtr("done")}),
 				valueChange("task.completed_at", tasksdecisions.FieldValue{Timestamp: &beforeCreatedAt}),
@@ -348,7 +349,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 		}, nil)
 		before := taskSnapshot(t, harness.DB, task.RecordID)
 		_, err := patchRecord(owner, actor, task.RecordID, tasksdecisions.TaskRequestsViewSchemaID, before.RowVersion, "txn-workbook_interaction-task-decision-task-guard-"+tc.name, tc.changes...)
-		requireLifecycle(t, err)
+		requireLifecycleGuards(t, err, "violated_lifecycle_guards", tc.guard)
 		requireTaskSnapshot(t, taskSnapshot(t, harness.DB, task.RecordID), before, tc.name)
 		if got := countReferenceLinks(t, harness.DB, task.RecordID, "task.linked_record_ids"); got != 0 {
 			t.Fatalf("%s wrote partial task links: got %d want 0", tc.name, got)

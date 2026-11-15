@@ -92,7 +92,7 @@ test("a11y.account-menu keyboard focus names current state and nested navigation
   await page.keyboard.press("Home");
   await page.keyboard.press("Enter");
   await expect(page.getByTestId(landingAdminShellTestId("heading"))).toHaveText(
-    "Incident directory",
+    "Incidents",
   );
   await expect(
     page.getByTestId(landingAdminShellTestId("heading")),

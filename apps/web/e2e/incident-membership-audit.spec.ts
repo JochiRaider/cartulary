@@ -3,6 +3,7 @@ import {
   incidentMembershipAuditRowTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import type { Request } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import {
@@ -217,6 +218,23 @@ test("membership audit fences delayed reads across query drawer section and visi
   const count = fixture.requests.length;
   await panel.getByRole("button", { name: "Next page", exact: true }).click();
   await expect.poll(() => fixture.requests.length).toBe(count + 1);
+  const replacedPageSettled = new Promise<void>((resolve) => {
+    const onSettled = (request: Request) => {
+      const url = new URL(request.url());
+      if (
+        request.method() !== "GET" ||
+        url.pathname !==
+          `/api/v1/incidents/${fixture.incidentId}/membership-audit-events` ||
+        url.searchParams.get("cursor_token") !== "next-page"
+      )
+        return;
+      page.off("requestfinished", onSettled);
+      page.off("requestfailed", onSettled);
+      resolve();
+    };
+    page.on("requestfinished", onSettled);
+    page.on("requestfailed", onSettled);
+  });
   await expect(
     panel.getByRole("button", { name: "Next page", exact: true }),
   ).toBeDisabled();
@@ -231,6 +249,7 @@ test("membership audit fences delayed reads across query drawer section and visi
     panel.getByText("No membership audit events match the applied filters."),
   ).toBeVisible();
   pending.release();
+  await replacedPageSettled;
   await expect(panel.getByRole("status")).toContainText("Page 1: 0 events.");
   fixture.setPage([event], "next-page");
   await panel

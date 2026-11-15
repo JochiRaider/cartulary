@@ -600,7 +600,7 @@ func TestReportingJobWorkerExecutionBoundary(t *testing.T) {
 			t.Fatalf("mutation failure was not returned unchanged: %v", err)
 		}
 	})
-	for _, stage := range []string{"initial observation", "progress", "final observation", "failure completion", "cancellation completion"} {
+	for _, stage := range []string{"initial observation", "progress", "final observation", "failure completion after distinct failure", "cancellation completion"} {
 		t.Run(stage, func(t *testing.T) {
 			manager := &fakeReportingJobManager{status: jobs.StatusRunning}
 			store := &fakeReportingJobStore{kind: reportingJobKindReleaseCreate}
@@ -612,8 +612,9 @@ func TestReportingJobWorkerExecutionBoundary(t *testing.T) {
 				manager.progressErr = persistenceErr
 			case "final observation":
 				manager.observeErr, manager.failObserveAt = persistenceErr, 2
-			case "failure completion":
-				store.kindErr, manager.completionErr = persistenceErr, persistenceErr
+			case "failure completion after distinct failure":
+				// Only an attempted failure completion can surface persistenceErr.
+				store.kindErr, manager.completionErr = errors.New("synthetic kind read failure"), persistenceErr
 			case "cancellation completion":
 				manager.status, manager.completionErr = jobs.StatusCancelRequested, persistenceErr
 			}

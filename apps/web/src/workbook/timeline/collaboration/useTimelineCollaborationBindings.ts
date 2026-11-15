@@ -9,10 +9,9 @@ import type { WorkbookPresenceDraft } from "../../collaboration/workbookCollabor
 import type { WorkbookActiveSurfacePort } from "../../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../../lifecycle/workbookInvalidation";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import { acceptWorkbookRowObservation } from "../../query/acceptWorkbookRowObservation";
 import { useWorkbookBrowsingRegistry } from "../../query/WorkbookQueryBrowsingContext";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
-import { workbookRowIsAdmissible } from "../../query/workbookRowObservation";
+import { acceptTimelineLivePatchObservation } from "../adapters/acceptTimelineLivePatchObservation";
 import type { TimelineRowStoreCommands } from "../models/timelineControllerPorts";
 import {
   applyViewRowPatch,
@@ -139,11 +138,13 @@ export function useTimelineCollaborationBindings({
           return row;
         }
         patched = true;
-        const raw = applyViewRowPatch(row.rawRow, patch);
         const committed = rowFromApi(
-          workbookRowIsAdmissible(row.rawRow, patch.record_id, scope)
-            ? acceptWorkbookRowObservation(raw, scope)
-            : raw,
+          acceptTimelineLivePatchObservation(
+            row.rawRow,
+            applyViewRowPatch(row.rawRow, patch),
+            patch.record_id,
+            scope,
+          ),
         );
         const accepted = admission.acceptCommittedRow(committed);
         return {

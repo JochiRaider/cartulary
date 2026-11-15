@@ -37,6 +37,7 @@ describe("Generic inspector reference summary", () => {
         row={row({
           "evidence.collector_party_id": { value: "Accepted collector" },
           "evidence.source_party_id": { value: null },
+          "evidence.owner_user_id": { value: null },
         })}
         canEdit
         onEdit={onEdit}
@@ -55,6 +56,8 @@ describe("Generic inspector reference summary", () => {
       "Edit Collector Party",
       "None",
       "Edit Source Party",
+      "None",
+      "Edit Owner",
     ]);
     const collector = screen.getByRole("button", {
       name: "Edit Collector Party",

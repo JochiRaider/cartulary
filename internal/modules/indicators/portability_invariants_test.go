@@ -194,16 +194,14 @@ func TestIndicatorPortablePreparedValuesAreContextBound(t *testing.T) {
 	}
 	wrongIncident := importContext
 	wrongIncident.IncidentID = uuid.MustParse("00000000-0000-4000-8000-000000000199")
-	assertIndicatorInvariantFailure(
-		t, port.ApplyImportTx(context.Background(), nil, prepared, wrongIncident),
-		"indicators.representation_legal",
-	)
+	if err := port.ApplyImportTx(context.Background(), nil, prepared, wrongIncident); !errors.Is(err, sourceport.ErrPreparedBinding) {
+		t.Fatalf("incident binding failure = %v, want ErrPreparedBinding", err)
+	}
 	wrongVersion := importContext
 	wrongVersion.BundleVersion = 1
-	assertIndicatorInvariantFailure(
-		t, port.ApplyImportTx(context.Background(), nil, prepared, wrongVersion),
-		"indicators.representation_legal",
-	)
+	if err := port.ApplyImportTx(context.Background(), nil, prepared, wrongVersion); !errors.Is(err, sourceport.ErrPreparedBinding) {
+		t.Fatalf("version binding failure = %v, want ErrPreparedBinding", err)
+	}
 }
 
 func portableCanonicalIndicatorRow(t testing.TB) map[string]any {

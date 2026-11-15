@@ -20,7 +20,7 @@
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-menu-directory-root-linux.png",
-      "sha256": "35b459bd831e6fcdf77070a4071d143d279acb3b1c0ec1101312656a62d34780"
+      "sha256": "ab3dedf4e715e6af94abde974b8d8938e832a765aeecbb35884ef49496c20fd9"
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-menu-long-label-text-spacing-linux.png",
@@ -36,19 +36,19 @@
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-settings-appearance-conflict-linux.png",
-      "sha256": "59f2471a14c4bfc4f1683d554ca846535d5a63c23cf46aa14dc723115dc85a89"
+      "sha256": "30713b1a20d19e4aae8dd125946cd457852055817e364a3e3669c4ede11cf2aa"
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-settings-appearance-dirty-linux.png",
-      "sha256": "b9b609c5657667daaeffb7f59fa57b383eed923c84bb763671fc3e97db7c4139"
+      "sha256": "5239319985e0a99aff26013ebad6fe326b170bc50824592d518827cb5ffcfb66"
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-settings-appearance-pending-linux.png",
-      "sha256": "289729070803ed29de0ad977ff05d77b5c2238a5c315b4f50315a8c0ad77b9a9"
+      "sha256": "5a05f5f23cd02c5127f66d60e7424e2721f21f7a5aa9a9509a97b7743b0458a1"
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-settings-appearance-recovery-linux.png",
-      "sha256": "483fde0c378bd8245630e470ab6aebe83ceae5d1d9b7ad5473204acbf6f706ca"
+      "sha256": "9e2020ef9ff0779bfb8e4ed364f45801b446f76cb60e4a12943f8ca244bd5f85"
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-settings-appearance-short-linux.png",
@@ -64,11 +64,11 @@
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-settings-profile-conflict-linux.png",
-      "sha256": "e98e87d59a026e10b91e510295e558da8852f8efbd2939d74ea76ae2b962c92d"
+      "sha256": "0ebd580210afcab166c7b8187c466678136fca12d4b408c074b68dd2adbd63c9"
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-settings-profile-dirty-linux.png",
-      "sha256": "d80d7568758d1aff5a9f4d21c20998fa8526074f9e81fbd195d2e2a20ea59b0f"
+      "sha256": "8f86888c3728d3b0b913341233ed69051aa435e5309f5d3ee3b592c3220e3b8c"
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-settings-profile-long-name-linux.png",
@@ -76,11 +76,11 @@
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-settings-profile-pending-linux.png",
-      "sha256": "9fef38b0878f506dcb2c8a3e2974bf559b773cc9be2337af32862246dbac486a"
+      "sha256": "26f137dbd7501f1b435825cc850030ea6b21cb9bddf35d8c1f8db6203b156cff"
     },
     {
       "path": "apps/web/e2e/visual-goldens/account-settings-profile-recovery-linux.png",
-      "sha256": "b2ffef204cddf0943cc93a7525e80d4c24be40d2495981110b3e532d7c167638"
+      "sha256": "58ba530774e45d95bb26fea7e30e1388005380ed6781937df420bba42fc93580"
     },
     {
       "path": "apps/web/e2e/visual-goldens/administrative-audit-empty-linux.png",
@@ -348,35 +348,35 @@
     },
     {
       "path": "apps/web/e2e/visual-goldens/incident-create-confirmed-handoff-failure-linux.png",
-      "sha256": "076b1ee583332a30fa2ea1dfa221a93234681939776dfae407854944443c7161"
+      "sha256": "88ff4d58d2bf3a1c7ecf12cccaf72eb5f4f1aa780ae23bdf207bc800ea01a6dc"
     },
     {
       "path": "apps/web/e2e/visual-goldens/incident-create-expanded-details-linux.png",
-      "sha256": "183d64bccb5d8abba2acb332fa8e601c09907fcb534fd9139d61424df3dbcf57"
+      "sha256": "6b0aa8ca9f66c9fcea72aa7312caad98b569f75b09bd2557e07600ce71522441"
     },
     {
       "path": "apps/web/e2e/visual-goldens/incident-create-initial-linux.png",
-      "sha256": "dee09fe44326c933ac9fc57a5ae32d1c9155fb0d23f05a41381dc474e3b2abfd"
+      "sha256": "6d983724d3a2d089e30d0d798515c64ba7cd5815460d7989efb842d121d953c8"
     },
     {
       "path": "apps/web/e2e/visual-goldens/incident-create-pending-linux.png",
-      "sha256": "f824acacc3805ff2b72215cd4c3f1495f9ef381ddad3106f365decd063d7976d"
+      "sha256": "0310c02dff4db446137b17f69e0e6201dfa56832ed0b0aa1e1010f94cb1733d1"
     },
     {
       "path": "apps/web/e2e/visual-goldens/incident-create-recovery-short-linux.png",
-      "sha256": "a931acdb0f35d9eef0662a7259f3d948e3d41a36518f18cd6eaf1aa55f15bf68"
+      "sha256": "38a61220a3d21e285e70cb9eb88e73c95bd0f453c443bd7a235e17b05a9a6a76"
     },
     {
       "path": "apps/web/e2e/visual-goldens/incident-create-recovery-text-spacing-linux.png",
-      "sha256": "1de383e531378e7a2831a06371972e5893aee65b5417c991930434baa6aa0888"
+      "sha256": "7f0816717a04eabc8cc4420a61a06d26af3dacfe5c85a7ecd6d5fb9ea9e25b5c"
     },
     {
       "path": "apps/web/e2e/visual-goldens/incident-create-recovery-zoom-linux.png",
-      "sha256": "148c3d2ba3d88c12293b6126939d999f9516fc8b6acc620df1b9d55975d0db48"
+      "sha256": "5ae97a3d759ce70837a77756716beac7c0c26bd3aa833b3871dcc263398da97e"
     },
     {
       "path": "apps/web/e2e/visual-goldens/incident-create-required-errors-linux.png",
-      "sha256": "71061228932894677970b5f9bf2d866d5c608ee8e8d47bc67143d2fb33629bf1"
+      "sha256": "797b12b0eb46d04247558e52a32199bd14bd859c5f68c97cab09ec0a51acc7cf"
     },
     {
       "path": "apps/web/e2e/visual-goldens/incident-directory-compact-desktop-workbook-shell-linux.png",

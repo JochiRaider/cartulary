@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data/internal/packformat"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 type engineContainer struct{ *bytes.Reader }
@@ -514,43 +515,23 @@ func TestVerifierAcceptsLocalBundleAndRejectsFailures_Unit(t *testing.T) {
 			t.Fatalf("retired checksum-labelled format admitted (signed=%v): %v", signed, err)
 		}
 	}
+	// Canonical re-encoding leaves the signature as the only change, so the
+	// engine must reach the role-signature check rather than canonical form.
 	storage, attempt = canonicalEngineFixture(t)
-	reader, err := zip.NewReader(bytes.NewReader(storage.container), int64(len(storage.container)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var b bytes.Buffer
-	writer := zip.NewWriter(&b)
-	for _, f := range reader.File {
-		r, err := f.Open()
+	rewriteEngineContainer(t, storage, func(files map[string][]byte) {
+		value, err := canonicaljson.DecodeStrict(files["metadata/targets.json"])
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := io.ReadAll(r)
-		r.Close()
-		if err != nil {
+		value.(map[string]any)["signatures"].([]any)[0].(map[string]any)["sig"] = strings.Repeat("0", 128)
+		if files["metadata/targets.json"], err = canonicaljson.Marshal(value); err != nil {
 			t.Fatal(err)
 		}
-		if f.Name == "metadata/targets.json" {
-			var metadata map[string]any
-			if err = json.Unmarshal(data, &metadata); err != nil {
-				t.Fatal(err)
-			}
-			metadata["signatures"].([]any)[0].(map[string]any)["sig"] = string(bytes.Repeat([]byte("0"), 128))
-			data, err = json.Marshal(metadata)
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-		addZipFile(t, writer, f.Name, data)
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatal(err)
-	}
-	storage.container = b.Bytes()
+	})
 	_, err = verifyEngineFixture(storage, attempt)
-	if err == nil {
-		t.Fatal("modified signed role admitted")
+	var signature *ContentRejection
+	if !errors.As(err, &signature) || signature.CheckID != "role_signature" || signature.Code != "signature_threshold_not_met" || !storage.closed {
+		t.Fatalf("signature-only role modification: %v, want role_signature/signature_threshold_not_met and a closed workspace", err)
 	}
 }
 

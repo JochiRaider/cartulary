@@ -9,6 +9,7 @@ import {
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -125,7 +126,7 @@ describe("ReferencePackAdminPanel", () => {
     expect(await screen.findByText('$.entries[0]["<unknown>"]')).toBeTruthy();
     expect(screen.getByText("1 validation issue.")).toBeTruthy();
     expect(document.activeElement).toBe(retry);
-    expect(screen.queryByRole("unknown")).toBeNull();
+    expect(document.querySelector("unknown")).toBeNull();
     expect(
       fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
     ).toHaveLength(1);
@@ -164,7 +165,7 @@ describe("ReferencePackAdminPanel", () => {
     expect(
       screen.getByText(/Snapshots and reports retain the provenance captured/),
     ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+    expect(screen.queryByText("Remove version")).toBeNull();
   });
 
   it("identifies active Base safety fallback without labelling its content unhealthy", async () => {
@@ -190,7 +191,7 @@ describe("ReferencePackAdminPanel", () => {
       (screen.getByRole("button", { name: "Activate" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
-    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+    expect(screen.queryByText("Remove version")).toBeNull();
   });
 
   it("hides deployment Reference Pack controls from non-admin sessions", () => {
@@ -207,7 +208,7 @@ describe("ReferencePackAdminPanel", () => {
         packListEnvelope([
           packResource({
             source_version: "<source-version>",
-            source_as_of: "2026-10-01",
+            source_as_of: "2026-10-01T00:00:00Z",
             previous_active_version: "previous.1",
             dependencies: [
               {
@@ -225,13 +226,14 @@ describe("ReferencePackAdminPanel", () => {
     fireEvent.click(summary);
     expect(summary.closest("details")?.open).toBe(true);
     expect(screen.getByText("<source-version>")).toBeTruthy();
-    expect(screen.getByText("2026-10-01")).toBeTruthy();
+    expect(screen.getByText("2026-10-01T00:00:00Z")).toBeTruthy();
     expect(screen.getByText("previous.1")).toBeTruthy();
     expect(screen.getByText("a".repeat(64))).toBeTruthy();
     expect(screen.getByText("b".repeat(64))).toBeTruthy();
     expect(screen.getByText("framework.attack@fixture.1")).toBeTruthy();
     expect(screen.getByText(`Payload SHA-256: ${"f".repeat(64)}`)).toBeTruthy();
     expect(document.querySelector("source-version")).toBeNull();
+    expect(screen.getByText("Remove version")).toBeTruthy();
   });
 
   it("admits material search and filter edits without a separate submit", async () => {
@@ -608,23 +610,26 @@ describe("ReferencePackAdminPanel", () => {
       ),
     ).toBeTruthy();
 
-    initialResponse.resolve(
-      jsonResponse(
-        packListEnvelope([
-          packResource({
-            pack_key: "type_registry.host",
-            pack_version_state: "verified_available",
-            active: true,
-          }),
-        ]),
-      ),
+    const staleResponse = jsonResponse(
+      packListEnvelope([
+        packResource({
+          pack_key: "type_registry.host",
+          pack_version_state: "verified_available",
+          active: true,
+        }),
+      ]),
     );
-
-    await waitFor(() => {
-      expect(
-        screen.queryByTestId(referencePackRowTestId("type_registry.host", "1")),
-      ).toBe(null);
+    await act(async () => {
+      initialResponse.resolve(staleResponse);
     });
+
+    await act(async () => {});
+    expect(
+      screen.queryByTestId(referencePackRowTestId("type_registry.host", "1")),
+    ).toBe(null);
+    expect(
+      screen.getByTestId(referencePackRowTestId("type_registry.identity", "1")),
+    ).toBeTruthy();
   });
 
   it("retains accepted rows while searching, resets paging on Enter, and ignores stale terminal results", async () => {
@@ -699,18 +704,20 @@ describe("ReferencePackAdminPanel", () => {
         screen.getByTestId(referencePackErrorTestId()).textContent,
       ).toContain("request was rejected");
     });
-    appendResponse.resolve(
-      jsonResponse(
-        packListEnvelope([packResource({ pack_key: "type_registry.stale" })]),
-      ),
-    );
-    await waitFor(() => {
-      expect(
-        screen.queryByTestId(
-          referencePackRowTestId("type_registry.stale", "1"),
+    await act(async () => {
+      appendResponse.resolve(
+        jsonResponse(
+          packListEnvelope([packResource({ pack_key: "type_registry.stale" })]),
         ),
-      ).toBeNull();
+      );
     });
+    await act(async () => {});
+    expect(
+      screen.queryByTestId(referencePackRowTestId("type_registry.stale", "1")),
+    ).toBeNull();
+    expect(
+      screen.getByTestId(referencePackRowTestId("type_registry.host", "1")),
+    ).toBeTruthy();
     expect(
       screen.getByTestId(referencePackErrorTestId()).textContent,
     ).toContain("request was rejected");

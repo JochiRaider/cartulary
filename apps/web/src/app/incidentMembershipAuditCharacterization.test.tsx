@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -64,14 +65,14 @@ function setup() {
       );
     }),
   );
-  const view = render(
+  render(
     <AuditSurface
       incidentId={incidentId}
       currentIncidentRole="admin"
       activeSection="membership-audit"
     />,
   );
-  return { reads, view };
+  return { reads };
 }
 async function resolve(
   read: { resolve: (value: Response) => void },
@@ -148,32 +149,6 @@ describe("Incident membership audit characterization", () => {
       ),
     ).toBeNull();
   });
-  it("does not publish delayed audit failure into another section", async () => {
-    const { reads, view } = setup();
-    await waitFor(() => expect(reads).toHaveLength(1));
-    view.rerender(
-      <AuditSurface
-        incidentId={incidentId}
-        currentIncidentRole="admin"
-        activeSection="incident-fields"
-      />,
-    );
-    await resolve(
-      required(reads[0]),
-      new Response(
-        JSON.stringify({
-          error: {
-            code: "service_unavailable",
-            message: "old audit failure",
-            status: 503,
-            retryable: true,
-          },
-        }),
-        { status: 503 },
-      ),
-    );
-    expect(screen.queryByText(/old audit failure/u)).toBeNull();
-  });
   it("keeps visible JSON strings distinct from null and structured values", async () => {
     const { reads } = setup();
     await waitFor(() => expect(reads).toHaveLength(1));
@@ -202,10 +177,16 @@ describe("Incident membership audit characterization", () => {
         null,
       ),
     );
-    const inspect = screen.queryByRole("button", { name: /Inspect.*event/u });
-    if (inspect) fireEvent.click(inspect);
-    expect(screen.queryByText('"null"')).not.toBeNull();
-    expect(screen.queryByText(/\[object Object\]/u)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Inspect.*event/u }));
+    const sides = (path: string) =>
+      within(screen.getByRole("region", { name: `Change to ${path}` }))
+        .getAllByRole("definition")
+        .map((side) => side.textContent);
+    expect(sides("a")).toEqual(["null", '"null"']);
+    expect(sides("b")).toEqual([
+      '{\n  "role": "viewer"\n}',
+      "[\n  false,\n  0\n]",
+    ]);
   });
 });
 

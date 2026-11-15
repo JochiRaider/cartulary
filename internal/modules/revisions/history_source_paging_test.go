@@ -31,7 +31,8 @@ func TestHistorySourceFamilyPaging_Integration(t *testing.T) {
 		t.Helper()
 		record := uuid.New()
 		envelopetest.SeedRecordEnvelope(t, harness.DB, incident, actor, record, recordType)
-		mustExec(t, harness.DB, `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1`, record, actor)
+		// Envelope-only fixtures: a tombstone at the last update needs no source mirror.
+		envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: record, DeletedBy: actor, AtLastUpdate: true})
 		encode := func(value map[string]any) []byte {
 			raw, e := json.Marshal(value)
 			if e != nil {

@@ -2,14 +2,17 @@ package networkflow
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 // Nil embedded ports panic on any I/O: construction must only retain them.
@@ -69,6 +72,10 @@ func assertModuleComposition(t *testing.T) {
 	if _, err := NewGraphRestoreSourceRegistration(ports); err != nil {
 		t.Fatal(err)
 	}
+	// Valid master keys make route construction reach the dependency checks.
+	routeDependencies := httpapi.DependencySet{Env: map[string]string{
+		authn.AuthMasterKeyEnv: strings.TrimSpace(string(fixtures.MustRead("auth", "master-key.base64"))),
+	}}
 	for name, remove := range map[string]func(*Module){
 		"coordinator":      func(m *Module) { m.transactions = nil },
 		"persistence":      func(m *Module) { m.store = nil },
@@ -102,8 +109,8 @@ func assertModuleComposition(t *testing.T) {
 			if _, err := m.NewGraphResultCleanupDispatcher(func() {}); err == nil {
 				t.Fatal("incomplete cleanup admitted")
 			}
-			if err := m.RegisterRoutes()(http.NewServeMux(), httpapi.DependencySet{}); err == nil {
-				t.Fatal("incomplete routes admitted")
+			if err := m.RegisterRoutes()(http.NewServeMux(), routeDependencies); err == nil {
+				t.Fatal("incomplete routes admitted with valid route dependencies")
 			}
 			if m.active != nil || ports.registrations != 0 {
 				t.Fatal("failed construction leaked active work")
@@ -135,6 +142,9 @@ func assertModuleComposition(t *testing.T) {
 		m.active.savedGraphs.incidentAccess != m.incidentAccess || !m.active.tables.now().Equal(m.now()) ||
 		!m.active.links.now().Equal(m.now()) || !m.active.savedGraphs.now().Equal(m.now()) {
 		t.Fatal("mixed database/clock/admission")
+	}
+	if err := m.RegisterRoutes()(http.NewServeMux(), routeDependencies); err != nil {
+		t.Fatalf("complete routes rejected: %v", err)
 	}
 	if err := m.RegisterGraphViewWorker(); err != nil || ports.registrations != 1 {
 		t.Fatal("explicit registration failed")

@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	projections "github.com/JochiRaider/cartulary/internal/modules/projections/internal/runtime"
 	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	timelineprovider "github.com/JochiRaider/cartulary/internal/modules/timeline/projectionprovider"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
@@ -113,8 +114,8 @@ func TestPartyProjectionSourceEnumerationIsDeterministicCompleteAndActiveOnly(t 
 		if _, err := harness.DB.Exec(ctx, `
 INSERT INTO records (
     record_id, incident_id, record_type, created_by_user_id, updated_by_user_id,
-    row_version, updated_at
-) VALUES ($1, $2, 'party', $3, $3, 7, $4)
+    row_version, created_at, updated_at
+) VALUES ($1, $2, 'party', $3, $3, 7, $4, $4)
 `, recordID, incident.ID, actor.ID, updatedAt); err != nil {
 			t.Fatalf("seed Party projection envelope %s: %v", recordID, err)
 		}
@@ -141,9 +142,7 @@ UPDATE parties
 		t.Fatalf("populate Party projection optionals: %v", err)
 	}
 	deletedRecordID := recordIDs[2]
-	if _, err := harness.DB.Exec(ctx, `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedRecordID, actor.ID); err != nil {
-		t.Fatalf("delete Party projection source: %v", err)
-	}
+	envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: deletedRecordID, DeletedBy: actor.ID, AtLastUpdate: true})
 	foreignRecordID := uuid.MustParse("20000000-0000-4000-8000-000000000000")
 	if _, err := harness.DB.Exec(ctx, `
 INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
@@ -174,6 +173,9 @@ VALUES ($1, $2, 'Foreign Party', 'team')
 	}
 	if _, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 1001); err == nil {
 		t.Fatal("oversized Party projection page limit unexpectedly succeeded")
+	}
+	if _, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 1000); err != nil {
+		t.Fatalf("maximum Party projection page limit rejected: %v", err)
 	}
 	first, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 1)
 	if err != nil {

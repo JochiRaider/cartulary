@@ -11,7 +11,8 @@ import (
 func TestNormalizationCorpus(t *testing.T) {
 	t.Parallel()
 	var corpus struct {
-		Cases []struct {
+		SchemaID string `json:"schema_id"`
+		Cases    []struct {
 			CaseID             string  `json:"case_id"`
 			FieldKey           string  `json:"field_key"`
 			Input              *string `json:"input"`
@@ -23,8 +24,15 @@ func TestNormalizationCorpus(t *testing.T) {
 			CanonicalHashValue any     `json:"canonical_hash_value"`
 		} `json:"cases"`
 	}
-	if err := json.Unmarshal([]byte(contractparties.Artifacts[1].JSON), &corpus); err != nil {
+	artifact, ok := contractparties.Index["contracts/parties/normalization_corpus.v1.json"]
+	if !ok {
+		t.Fatal("generated Party normalization corpus is missing")
+	}
+	if err := json.Unmarshal([]byte(artifact.JSON), &corpus); err != nil {
 		t.Fatalf("decode generated Party normalization corpus: %v", err)
+	}
+	if corpus.SchemaID != "cartulary.parties.normalization_corpus.v1" || len(corpus.Cases) == 0 {
+		t.Fatalf("Party normalization corpus schema=%q cases=%d; want the v1 corpus with cases", corpus.SchemaID, len(corpus.Cases))
 	}
 	for _, testCase := range corpus.Cases {
 		testCase := testCase

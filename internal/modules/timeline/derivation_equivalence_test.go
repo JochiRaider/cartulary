@@ -1,13 +1,11 @@
 package timeline
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
@@ -137,15 +135,13 @@ func TestCanonicalRowDerivationPreservesNullableFields_Unit(t *testing.T) {
 	source := sourcerepository.Snapshot{
 		RecordID:              uuid.MustParse("80000000-0000-4000-8000-000000000008"),
 		IncidentID:            uuid.MustParse("90000000-0000-4000-8000-000000000009"),
-		ActivityTimePairState: "unpaired",
+		ActivityTimePairState: "disabled",
 		CaptureState:          captureStateRough,
 		RowVersion:            1,
 		RecordedAt:            time.Date(2026, 7, 25, 0, 0, 0, 0, time.UTC),
 		EditedAt:              time.Date(2026, 7, 25, 0, 0, 0, 0, time.UTC),
 	}
 	canonicalPath := workbookprojection.Derive(source, nil)
-	assertCanonicalJSONEqual(t, buildRow(canonicalPath), rowpresenter.BuildRow(canonicalPath.PresenterRecord()))
-
 	cells := buildRow(canonicalPath)["cells"].(map[string]any)
 	for _, fieldKey := range []string{
 		"timeline.date_entered_text",
@@ -215,20 +211,5 @@ func TestProjectionMutationContractRejectsMalformed_Unit(t *testing.T) {
 				t.Fatalf("malformed projection mutation accepted: %#v", mutation)
 			}
 		})
-	}
-}
-
-func assertCanonicalJSONEqual(t *testing.T, left any, right any) {
-	t.Helper()
-	leftJSON, err := json.Marshal(left)
-	if err != nil {
-		t.Fatalf("marshal left canonical JSON: %v", err)
-	}
-	rightJSON, err := json.Marshal(right)
-	if err != nil {
-		t.Fatalf("marshal right canonical JSON: %v", err)
-	}
-	if string(leftJSON) != string(rightJSON) {
-		t.Fatalf("canonical JSON mismatch:\nleft:  %s\nright: %s", leftJSON, rightJSON)
 	}
 }

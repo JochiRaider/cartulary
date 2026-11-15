@@ -111,9 +111,7 @@ func testFreshLinkEndpointLocks(t *testing.T, db dbport.DB, incident, actor uuid
 						if err := holder.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&pid); err != nil {
 							t.Fatal(err)
 						}
-						if _, err := holder.Exec(ctx, `UPDATE records SET deleted_at=$2,deleted_by_user_id=$3 WHERE record_id=$1`, selected, now, actor); err != nil {
-							t.Fatal(err)
-						}
+						envelopetest.SoftDeleteRecord(t, holder, envelopetest.Tombstone{RecordID: selected, DeletedBy: actor, AtLastUpdate: true})
 						type outcome struct {
 							mutations []links.Mutation
 							err       error

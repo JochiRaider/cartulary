@@ -53,10 +53,11 @@ func TestPartyMutationAdmissionAndReplayHashing_Unit(t *testing.T) {
 }
 
 func TestPartyMutationHashNormalizationEquivalence_Unit(t *testing.T) {
-	createHash := func(t *testing.T, email, externalRef, notes string) []byte {
+	createHash := func(t *testing.T, displayName, email, externalRef, notes string) []byte {
 		t.Helper()
 		admission, admissionErr := AdmitCreateJSON(strings.NewReader(fmt.Sprintf(
-			`{"client_txn_id":"ignored","party.display_name":"José","party.party_kind":"person","party.primary_email":%q,"party.external_ref":%q,"party.notes":%q}`,
+			`{"client_txn_id":"ignored","party.display_name":%q,"party.party_kind":"person","party.primary_email":%q,"party.external_ref":%q,"party.notes":%q}`,
+			displayName,
 			email,
 			externalRef,
 			notes,
@@ -66,12 +67,12 @@ func TestPartyMutationHashNormalizationEquivalence_Unit(t *testing.T) {
 		}
 		return admission.requestHash[:]
 	}
-	left := createHash(t, "Analyst@Example.COM", "Directory/AbC", "first\r\nsecond")
-	right := createHash(t, "analyst@example.com", "Directory/AbC", "first\nsecond")
+	left := createHash(t, "Jose\u0301", "Analyst@Example.COM", "Directory/AbC", "first\r\nsecond")
+	right := createHash(t, "Jos\u00e9", "analyst@example.com", "Directory/AbC", "first\nsecond")
 	if !bytes.Equal(left, right) {
 		t.Fatalf("equivalent NFC/email/line-ending requests hash differently: %x != %x", left, right)
 	}
-	caseVariant := createHash(t, "analyst@example.com", "Directory/abc", "first\nsecond")
+	caseVariant := createHash(t, "Jos\u00e9", "analyst@example.com", "Directory/abc", "first\nsecond")
 	if bytes.Equal(left, caseVariant) {
 		t.Fatalf("external-reference case variants hash equally: %x", left)
 	}

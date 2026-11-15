@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	entrainputs "github.com/JochiRaider/cartulary/referencepacks/entra/inputs"
 )
@@ -63,10 +64,12 @@ func TestEntraSourceBoundaries_Unit(t *testing.T) {
 	}
 }
 
-type corruptEntraSource struct{}
+// digestOnlyEntraSource returns bytes of the pinned size, so only the digest
+// conjunct of the receipt check can differ from the inventory pin.
+type digestOnlyEntraSource struct{}
 
-func (corruptEntraSource) FetchEntra(context.Context, EntraSource) (EntraDownload, error) {
-	return EntraDownload{[]byte("synthetic corrupt bytes"), "2026-01-01T00:00:00Z", "text/plain"}, nil
+func (digestOnlyEntraSource) FetchEntra(_ context.Context, source EntraSource) (EntraDownload, error) {
+	return EntraDownload{[]byte(strings.Repeat("x", int(source.Size))), "2026-01-01T00:00:00Z", "text/plain"}, nil
 }
 
 func TestEntraSourceIntegrity_Unit(t *testing.T) {
@@ -85,8 +88,20 @@ func TestEntraSourceIntegrity_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer root.Close()
-	if _, err := EntraAcquire(t.Context(), root, inventory, corruptEntraSource{}); err == nil {
-		t.Fatal("bad source digest accepted")
+	pinned, err := entraInventory(inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := pinned.Sources[0]
+	download, err := (digestOnlyEntraSource{}).FetchEntra(t.Context(), first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if int64(len(download.Bytes)) != first.Size || !utf8.Valid(download.Bytes) || !validBuildTime(download.RetrievedAt) || download.ContentType == "" || Digest(download.Bytes) == first.SHA256 {
+		t.Fatalf("digest-only receipt fixture differs from the pin beyond its digest: size=%d", len(download.Bytes))
+	}
+	if _, err := EntraAcquire(t.Context(), root, inventory, digestOnlyEntraSource{}); err == nil || err.Error() != "entra source "+first.ID+" receipt mismatch" {
+		t.Fatalf("receipt with a mismatched digest only: %v", err)
 	}
 	if _, err := root.Lstat("source-lock.json"); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("failed acquisition published complete lock", err)
@@ -97,8 +112,15 @@ func TestEntraSourceIntegrity_Unit(t *testing.T) {
 	if err := root.WriteFile("source-lock.json", []byte(strings.Repeat("x", 65537)), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := EntraCheck(root, inventory); err == nil {
-		t.Fatal("unbounded source lock admitted")
+	const lockBoundError = "bounded regular Entra source lock required"
+	if _, err := EntraCheck(root, inventory); err == nil || err.Error() != lockBoundError {
+		t.Fatalf("65,537-byte source lock: %v, want the lock size bound", err)
+	}
+	if err := root.WriteFile("source-lock.json", []byte(strings.Repeat("x", 65536)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := EntraCheck(root, inventory); err == nil || err.Error() == lockBoundError || err.Error() == "entra source lock exceeds bound" {
+		t.Fatalf("65,536-byte source lock: %v, want admission past the size bound and a later rejection", err)
 	}
 	if _, err := (EntraHTTPFetcher{}).FetchEntra(t.Context(), EntraSource{ID: "unlisted", URL: "https://example.invalid"}); err == nil {
 		t.Fatal("unlisted source admitted")

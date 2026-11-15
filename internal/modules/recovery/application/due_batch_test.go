@@ -46,7 +46,8 @@ func TestExecuteDueVerificationBatchUsesIndependentAttemptsAndReturnsFirstFailur
 			}
 			remaining = append(remaining, time.Until(deadline))
 			if len(attempted) == 1 {
-				time.Sleep(25 * time.Millisecond)
+				// A shared batch deadline would leave the second attempt below 70 ms.
+				time.Sleep(60 * time.Millisecond)
 			}
 			refBackupSetID := backupSet.BackupSetID
 			result := ResultForStoredBackupSet(backupSet)

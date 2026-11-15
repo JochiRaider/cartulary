@@ -196,19 +196,23 @@ func TestReportingGraphSourceRetainsSelectedInput_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	ready = false
+	// The binding and its result row still exist, so only the readiness gate
+	// can reject this read.
+	gate, err := pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := source.ReadSelectedResultTx(ctx, gate, incidentID, result.Binding); !errors.Is(err, graphprojection.ErrResultV2BindingMismatch) {
+		t.Fatalf("unready source admitted a present result: %v", err)
+	}
+	if err := gate.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := pool.Exec(ctx, `DELETE FROM graph_projection_results WHERE projection_result_id=$1`, result.Binding.ProjectionResultID); err != nil {
 		t.Fatal(err)
 	}
 	if admitted.Projection.Binding != result.Binding || len(admitted.Projection.Vertices) != 2 || admitted.LabelCandidates.VertexLabelCandidates[0].Endpoint.StringValue != retainedFirstEndpoint {
 		t.Fatal("admitted contribution lost after derived-state removal")
-	}
-	tx, err = pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tx.Rollback(ctx)
-	if _, err := source.ReadSelectedResultTx(ctx, tx, incidentID, result.Binding); err == nil {
-		t.Fatal("new input admitted with source unavailable")
 	}
 }
 

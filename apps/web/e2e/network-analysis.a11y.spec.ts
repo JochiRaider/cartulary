@@ -275,7 +275,15 @@ test("a11y.network-analysis.row-01 Verify claimed Network Analysis incident head
   await page.setViewportSize({ width: 768, height: 540 });
   await reloadOperation.focus();
   await expectVisibleFocus(reloadOperation);
+  const operationGraphReloaded = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      /\/network-flow\/graph-views\/[^/]+$/u.test(
+        new URL(response.url()).pathname,
+      ),
+  );
   await reloadOperation.press("Enter");
+  expect((await operationGraphReloaded).status()).toBe(200);
   await expect(reloadOperation).toBeFocused();
   expect(
     await savedOperation.evaluate(

@@ -115,7 +115,7 @@ func AssertIndicatorLinkReplayAdmission(t *testing.T, store *store, incidentID, 
 					case "closure":
 						exec("UPDATE incidents SET status='closed',closed_at=now() WHERE id=$1", incidentID)
 					case "target":
-						exec("UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1", target, actorID)
+						exec("UPDATE records SET deleted_at=updated_at,deleted_by_user_id=$2 WHERE record_id=$1", target, actorID)
 					case "source":
 						exec("UPDATE network_flow_tables SET table_status='soft_deleted',deleted_at=now() WHERE incident_id=$1 AND network_flow_table_id=$2", incidentID, request.Selector.TableID)
 					}

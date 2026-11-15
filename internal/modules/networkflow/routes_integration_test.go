@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres/dbport"
 	"net/http"
 	"reflect"
@@ -1034,7 +1035,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 			{"role", `UPDATE incident_memberships SET role='reviewer' WHERE incident_id=$1 AND user_id=$2`, `UPDATE incident_memberships SET role='admin' WHERE incident_id=$1 AND user_id=$2`, "authorization_denied", 403},
 			{"role-with-concurrent-receipt", `UPDATE incident_memberships SET role='reviewer' WHERE incident_id=$1 AND user_id=$2`, `UPDATE incident_memberships SET role='admin' WHERE incident_id=$1 AND user_id=$2`, "authorization_denied", 403},
 			{"source", `UPDATE network_flow_tables SET table_status='soft_deleted',deleted_at=now() WHERE incident_id=$1 AND network_flow_table_id=$2`, `UPDATE network_flow_tables SET table_status='active',deleted_at=NULL WHERE incident_id=$1 AND network_flow_table_id=$2`, "network_flow_table_not_active", 409},
-			{"target", `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1`, `UPDATE records SET deleted_at=NULL,deleted_by_user_id=NULL WHERE record_id=$1 AND incident_id=$2`, "network_flow_indicator_link_forbidden", 403},
+			{"target", `UPDATE records SET deleted_at=updated_at,deleted_by_user_id=$2 WHERE record_id=$1`, `UPDATE records SET deleted_at=NULL,deleted_by_user_id=NULL WHERE record_id=$1 AND incident_id=$2`, "network_flow_indicator_link_forbidden", 403},
 		} {
 			t.Run("transaction rechecks "+race.name, func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -1174,9 +1175,7 @@ SELECT COUNT(*) FROM deployment_admin_audit_events
 			}
 			httptestx.ReadResponseBody(t, post(linkBody), status)
 		}
-		if _, err := harness.Pool.Exec(context.Background(), `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1`, target["indicator_id"], adminID); err != nil {
-			t.Fatal(err)
-		}
+		envelopetest.SoftDeleteRecord(t, harness.Pool, envelopetest.Tombstone{RecordID: uuid.MustParse(target["indicator_id"].(string)), DeletedBy: adminID})
 		httptestx.RequireErrorEnvelope(t, post(linkBody), http.StatusForbidden, "network_flow_indicator_link_forbidden")
 		if _, err := harness.Pool.Exec(context.Background(), `UPDATE records SET deleted_at=NULL,deleted_by_user_id=NULL WHERE record_id=$1`, target["indicator_id"]); err != nil {
 			t.Fatal(err)

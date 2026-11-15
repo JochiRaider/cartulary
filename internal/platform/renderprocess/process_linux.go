@@ -268,21 +268,26 @@ func safeExitReason(data []byte) string {
 	return "stage_failed"
 }
 
+// boundedProtocol keeps its buffer in a named field. An embedded bytes.Buffer
+// would promote ReadFrom, which io.Copy (used by os/exec) prefers over Write,
+// bypassing the bound.
 type boundedProtocol struct {
-	bytes.Buffer
+	buffer   bytes.Buffer
 	overflow bool
 }
 
 func (b *boundedProtocol) Write(value []byte) (int, error) {
 	length := len(value)
-	remaining := protocolLimit - b.Len()
+	remaining := protocolLimit - b.buffer.Len()
 	if len(value) > remaining {
 		b.overflow = true
 		value = value[:remaining]
 	}
-	_, _ = b.Buffer.Write(value)
+	_, _ = b.buffer.Write(value)
 	return length, nil
 }
+
+func (b *boundedProtocol) Bytes() []byte { return b.buffer.Bytes() }
 
 func readOutput(work string, output Output) ([]byte, error) {
 	root, err := os.OpenRoot(work)

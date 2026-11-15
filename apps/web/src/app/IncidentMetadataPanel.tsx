@@ -168,7 +168,8 @@ export function IncidentMetadataPanel({
             : operation.kind === "rejected"
               ? operation.problem.code === "incident_closed"
                 ? "The save was rejected because the incident is closed."
-                : operation.problem.code === "authorization_denied"
+                : operation.problem.code === "authorization_denied" ||
+                    operation.problem.code === "csrf_verification_failed"
                   ? "The save was rejected. Current incident access must be checked."
                   : "The submitted changes were rejected. Review the affected input before saving again."
               : state.reviewNotice ||

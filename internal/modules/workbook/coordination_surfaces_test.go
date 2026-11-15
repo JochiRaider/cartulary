@@ -19,6 +19,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
@@ -788,15 +789,13 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	deletedTaskID := mustCreateTaskFor(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-task", "Deleted task")
 	deletedDecisionID := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-decision", "approved", "Deleted decision")
 	deletedPartyID := mustCreatePartyFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-deleted-party", "Deleted party")
-	for label, recordID := range map[string]uuid.UUID{
+	for _, recordID := range map[string]uuid.UUID{
 		"evidence": deletedEvidenceID,
 		"task":     deletedTaskID,
 		"decision": deletedDecisionID,
 		"party":    deletedPartyID,
 	} {
-		if _, err := harness.DB.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, recordID, Time(time.Hour), actor.ID); err != nil {
-			t.Fatalf("soft delete %s: %v", label, err)
-		}
+		envelopetest.SoftDeleteRecord(t, harness.DB, envelopetest.Tombstone{RecordID: recordID, DeletedBy: actor.ID, At: Time(time.Hour)})
 	}
 
 	invalidTargets := map[string]struct {

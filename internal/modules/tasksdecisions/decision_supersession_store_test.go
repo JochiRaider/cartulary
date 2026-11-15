@@ -388,7 +388,7 @@ func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 		ReplacementRecordID: &inconsistentSource,
 	}
 	_, err := supersedeDecision(ctx, owner, actor, validTarget, sourceRequest, "req-workbook_interaction-task-decision-decision-inconsistent-source-route", testTime(2*time.Hour))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "inconsistent_decision_machine", "superseding_decision_requires_approved_or_executed")
 	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, inconsistentSource), sourceBefore, "inconsistent source supersede")
 	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, sourceExistingTarget), sourceExistingTargetBefore, "inconsistent source existing target")
 	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, validTarget), validTargetBefore, "valid target rejected by inconsistent source")
@@ -417,7 +417,7 @@ func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 		ReplacementRecordID: &validSource,
 	}
 	_, err = supersedeDecision(ctx, owner, actor, inconsistentTarget, targetRequest, "req-workbook_interaction-task-decision-decision-inconsistent-target-route", testTime(4*time.Hour))
-	requireLifecycle(t, err)
+	requireLifecycleGuards(t, err, "inconsistent_decision_machine", "incoming_supersedes_requires_superseded_or_executed")
 	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, validSource), validSourceBefore, "valid source rejected by inconsistent target")
 	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, inconsistentTarget), inconsistentTargetBefore, "inconsistent target supersede")
 	requireDecisionSnapshot(t, decisionSnapshot(t, harness.DB, targetExistingSource), targetExistingSourceBefore, "inconsistent target existing source")

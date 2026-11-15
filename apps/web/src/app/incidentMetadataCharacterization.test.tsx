@@ -192,7 +192,16 @@ describe("Incident metadata characterization", () => {
       writes,
       metadataJSON({ error: { code: "invalid_incident_patch" } }, 400),
     );
-    expect(screen.queryByText("invalid_incident_patch")).toBeNull();
+    expect(
+      screen
+        .getByRole("region", { name: "Promoted incident fields" })
+        .getAttribute("data-metadata-operation"),
+    ).toBe("idle");
+    expect(
+      screen.queryByText(
+        "The submitted changes were rejected. Review the affected input before saving again.",
+      ),
+    ).toBeNull();
   });
   it("explains closure while keeping authorized metadata visible", async () => {
     setup(true);

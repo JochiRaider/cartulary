@@ -15,7 +15,7 @@ test("renderer platform probe preserves confinement observations and exact owned
  fs.writeFileSync(path.join(work, "release/assets/application-seccomp.v1.json"), JSON.stringify(profile));
  const baseHost = { Privileged: false, CapDrop: ["ALL"], CapAdd: [], SecurityOpt: ["no-new-privileges", `seccomp=${JSON.stringify(profile)}`] };
  const lsm = { apparmor: "fixture-confined", process_label: "system_u:system_r:container_t:s0:c1,c2" };
- const id = "a".repeat(64), image = `sha256:${"b".repeat(64)}`, project = "cartulary-qualification-11111111-2222-4333-8444-555555555555-source";
+ const id = "a".repeat(64), image = `sha256:${"b".repeat(64)}`, project = "cartulary-pq-11111111-2222-4333-8444-555555555555-source";
  const original = childProcess.spawnSync;
  try {
   for (const scenario of ["success", "privileged", "cap_add", "unconfined", "cap_drop", "missing_seccomp", "wrong_seccomp",
@@ -98,10 +98,10 @@ test("package platform CLI keeps private errors behind fixed typed diagnostics",
  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
  delete env.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
  for (const [operation, project, origin, status, diagnostic] of [
-  ["unknown-private-operation", "cartulary-qualification-11111111-2222-4333-8444-555555555555-source", "", 2, "config/usage_error"],
+  ["unknown-private-operation", "cartulary-pq-11111111-2222-4333-8444-555555555555-source", "", 2, "config/usage_error"],
   ["layout", "private-invalid-project", "a".repeat(64), 2, "config/usage_error"],
-  ["layout", "cartulary-qualification-11111111-2222-4333-8444-555555555555-source", "private-invalid-id", 2, "config/usage_error"],
-  ["layout", "cartulary-qualification-11111111-2222-4333-8444-555555555555-source", "a".repeat(64), 11, "artifact/artifact_error"],
+  ["layout", "cartulary-pq-11111111-2222-4333-8444-555555555555-source", "private-invalid-id", 2, "config/usage_error"],
+  ["layout", "cartulary-pq-11111111-2222-4333-8444-555555555555-source", "a".repeat(64), 11, "artifact/artifact_error"],
  ]) {
   const result = childProcess.spawnSync(process.execPath, [path.resolve(import.meta.dirname, "../package-platform.mjs"), operation, scratch, scratch, project, origin], { env, encoding: "utf8", timeout: 10000 });
   assert.ifError(result.error); assert.equal(result.status, status);

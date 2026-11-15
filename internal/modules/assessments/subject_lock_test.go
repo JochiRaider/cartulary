@@ -11,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -63,9 +64,7 @@ func exerciseAssessmentSubjectAdmission(t *testing.T, h *appsupport.ServerHarnes
 						t.Fatal(err)
 					}
 					if change != "merged" {
-						if _, err := tx.Exec(ctx, `UPDATE records SET deleted_at='2026-11-14T10:00:00Z',deleted_by_user_id=$2 WHERE record_id=$1`, subject, actor); err != nil {
-							t.Fatal(err)
-						}
+						envelopetest.SoftDeleteRecord(t, tx, envelopetest.Tombstone{RecordID: subject, DeletedBy: actor, AtLastUpdate: true})
 					} else if _, err := tx.Exec(ctx, "UPDATE "+table+" SET "+stateField+"='merged',merged_into_record_id=$2 WHERE record_id=$1", subject, survivor); err != nil {
 						t.Fatal(err)
 					}

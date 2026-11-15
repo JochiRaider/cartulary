@@ -40,6 +40,9 @@ func TestRSAParameterAndSignatureAdmission(t *testing.T) {
 	if VerifyRSAPSSSHA256(&key.PublicKey, payload, shortSalt) == nil {
 		t.Fatal("automatic PSS salt accepted")
 	}
+	if err := ValidateRSAPublicKey(&rsa.PublicKey{N: new(big.Int).Set(key.N), E: (1 << 31) - 1}); err != nil {
+		t.Fatalf("largest admitted odd exponent rejected: %v", err)
+	}
 	for _, name := range []string{"nil", "missing modulus", "negative modulus", "small", "odd bits", "even modulus", "small exponent", "even exponent", "large exponent"} {
 		t.Run(name, func(t *testing.T) {
 			public := &rsa.PublicKey{N: new(big.Int).Set(key.N), E: key.E}
@@ -61,7 +64,8 @@ func TestRSAParameterAndSignatureAdmission(t *testing.T) {
 			case "even exponent":
 				public.E = 65538
 			case "large exponent":
-				public.E = 1 << 31
+				// Odd, so only the 2147483647 upper bound can reject it.
+				public.E = (1 << 31) + 1
 			}
 			if ValidateRSAPublicKey(public) == nil || VerifyRSAPKCS1SHA256(public, payload, pkcs) == nil || VerifyRSAPSSSHA256(public, payload, pss) == nil {
 				t.Fatal("excluded RSA parameters admitted")

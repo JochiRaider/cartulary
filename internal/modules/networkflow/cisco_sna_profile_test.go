@@ -100,8 +100,14 @@ func TestCiscoSNAFlowSearchProfile(t *testing.T) {
 	// An already approved mapping keeps its profile's interpretation. Selecting a
 	// different profile cannot silently admit a mode that profile never supported.
 	mapping.SourceProfileID = sourceProfileCiscoSNANetFlowCSV
-	if err := validateApprovedMapping(mapping); err == nil {
-		t.Fatal("old profile accepted new timestamp mode")
+	netFlowProfile, ok := mappingSourceProfile(sourceProfileCiscoSNANetFlowCSV)
+	if !ok {
+		t.Fatal("NetFlow CSV profile is not registered")
+	}
+	mapping.EndpointDerivationID = netFlowProfile.EndpointDerivationID
+	var timestampConflict *mappingValidationError
+	if err := validateApprovedMapping(mapping); !errors.As(err, &timestampConflict) || timestampConflict.Code != "network_flow_mapping_conflict" || timestampConflict.ReasonCode != "variant_member_conflict" || timestampConflict.FieldKey != "" {
+		t.Fatalf("old profile timestamp-mode rejection = %#v", err)
 	}
 }
 
@@ -224,8 +230,9 @@ func assertCiscoDefaultPolicies(t *testing.T) {
 			}
 			unsupported := explicit
 			unsupported.FieldMappings = append(append([]fieldMapping(nil), explicit.FieldMappings...), fieldMapping{MappingKind: mappingKindSourceColumn, FieldKey: fieldInputInterface, SourceColumnOrdinal: 1, TransformID: "trim_ascii_space_v1", EmptyValuePolicy: emptyPolicyNull, Combinability: "single_source_only"})
-			if err := validateApprovedMapping(unsupported); err == nil {
-				t.Fatal("Flow Search interface mapping admitted")
+			var unsupportedField *mappingValidationError
+			if err := validateApprovedMapping(unsupported); !errors.As(err, &unsupportedField) || unsupportedField.Code != "network_flow_mapping_conflict" || unsupportedField.ReasonCode != "field_not_supported_by_profile" || unsupportedField.FieldKey != fieldInputInterface {
+				t.Fatalf("Flow Search interface mapping rejection = %#v", err)
 			}
 		}
 	}

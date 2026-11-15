@@ -81,37 +81,23 @@ func TestProviderOutputValidateAndBindings(t *testing.T) {
 
 func TestProviderOutputValidateRejectsFlatOrIncompleteFacts(t *testing.T) {
 	assertProviderBindings(t)
-	output := ProviderOutput{
-		SourceFacts: EmptySourceFacts(),
-		SchemaID:    ProviderOutputSchemaID,
-		ProviderKey: "records",
-		FieldFacts: []FieldFact{{
-			SchemaID:     FieldFactSchemaID,
-			Path:         "/record_envelopes/record-1",
-			ContentClass: "derived_analytic",
-			SourceFamily: "record_envelope",
-		}, {
-			SchemaID:     FieldFactSchemaID,
-			Path:         "/record_envelopes/record-1",
-			ContentClass: "derived_analytic",
-			SourceFamily: "record_envelope",
-		}},
+	valid, err := NewProviderOutput("test", []BoundField{{RecordID: "source-id", RecordType: "host", FieldFact: FieldFact{SchemaID: FieldFactSchemaID, Path: "/hosts/source-id", SourceFamily: "host", ContentClass: "derived_analytic", Value: "value"}}}, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := output.Validate(); err == nil {
-		t.Fatal("Validate() succeeded for duplicate field facts")
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("valid provider output rejected: %v", err)
 	}
-
-	output = ProviderOutput{
-		SourceFacts: EmptySourceFacts(),
-		SchemaID:    ProviderOutputSchemaID,
-		ProviderKey: "records",
-		RecordFacts: []RecordFact{{
-			SchemaID: RecordFactSchemaID,
-			RecordID: "record-1",
-		}},
+	duplicateField := valid
+	duplicateField.FieldFacts = append(append([]FieldFact{}, valid.FieldFacts...), valid.FieldFacts[0])
+	if err := duplicateField.Validate(); err == nil {
+		t.Fatal("Validate() succeeded for a duplicated field fact")
 	}
-	if err := output.Validate(); err == nil {
-		t.Fatal("Validate() succeeded for incomplete record fact")
+	incompleteRecord := valid
+	incompleteRecord.RecordFacts = append([]RecordFact{}, valid.RecordFacts...)
+	incompleteRecord.RecordFacts[0].RecordType = ""
+	if err := incompleteRecord.Validate(); err == nil {
+		t.Fatal("Validate() succeeded for a record fact without its type")
 	}
 }
 

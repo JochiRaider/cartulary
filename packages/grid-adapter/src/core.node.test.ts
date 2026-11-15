@@ -22,6 +22,7 @@ import {
   planSemanticPasteTargets,
   resolveVisibleGridCellRange,
   retainGridCellRange,
+  semanticAnchor,
 } from "./semanticPresentation";
 import {
   gridSemanticStateClassNames,
@@ -115,34 +116,6 @@ function testSemanticModel<Row>({
     fieldKeys,
     surface,
   });
-}
-
-function resolveGridCellAnchor<Row>({
-  columns,
-  presentationRows,
-  selection,
-  surface,
-}: {
-  readonly columns: readonly GridColumn<Row>[];
-  readonly presentationRows: readonly GridPresentationRow<Row>[];
-  readonly selection: { readonly fieldKey: string; readonly rowIndex: number };
-  readonly surface: GridSurfaceIdentity;
-}): GridCellAnchor | null {
-  if (
-    !Number.isInteger(selection.rowIndex) ||
-    selection.rowIndex < 0 ||
-    !columns.some((column) => column.fieldKey === selection.fieldKey)
-  ) {
-    return null;
-  }
-  const row = presentationRows[selection.rowIndex];
-  return row?.kind === "data"
-    ? {
-        fieldKey: selection.fieldKey,
-        rowIdentity: row.gridRow.rowIdentity,
-        surface,
-      }
-    : null;
 }
 
 function navigateGridCellAnchor<Row>({
@@ -496,12 +469,12 @@ describe("extension grid semantic identities", () => {
       grouping: stateGrouping(false),
       rows: extensionRows,
     });
-    const first = resolveGridCellAnchor({
-      columns: extensionColumns,
-      presentationRows,
-      selection: { fieldKey: "label", rowIndex: 1 },
-      surface: extensionSurface,
-    });
+    const first = semanticAnchor(
+      extensionRows[0],
+      "label",
+      extensionColumns,
+      extensionSurface,
+    );
     expect(first).toEqual({
       fieldKey: "label",
       rowIdentity: extensionRows[0].rowIdentity,
@@ -771,26 +744,25 @@ describe("semantic grid policies", () => {
       grouping: stateGrouping(false),
       rows,
     });
-    const groupIndex = presentationRows.findIndex(
-      (row) => row.kind === "group",
-    );
-    const draftIndex = -1;
+    const groupRow = presentationRows.find((row) => row.kind === "group");
+    expect(groupRow).toBeDefined();
 
+    // Production guards reject group and draft rows reported by the vendor grid.
     expect(
-      resolveGridCellAnchor({
+      semanticAnchor(
+        groupRow as unknown as GridDataRow<HarnessRow>,
+        "summary",
         columns,
-        presentationRows,
-        surface: testSurface,
-        selection: { rowIndex: groupIndex, fieldKey: "summary" },
-      }),
+        testSurface,
+      ),
     ).toBeNull();
     expect(
-      resolveGridCellAnchor({
+      semanticAnchor(
+        rows[1] as unknown as GridDataRow<HarnessRow>,
+        "summary",
         columns,
-        presentationRows,
-        surface: testSurface,
-        selection: { rowIndex: draftIndex, fieldKey: "summary" },
-      }),
+        testSurface,
+      ),
     ).toBeNull();
     expect(
       resolveGridPasteTargets({
@@ -830,12 +802,12 @@ describe("semantic grid policies", () => {
     });
 
     expect(
-      resolveGridCellAnchor({
+      semanticAnchor(
+        rows[1] as GridDataRow<HarnessRow>,
+        "state",
         columns,
-        presentationRows,
-        surface: testSurface,
-        selection: { rowIndex: 1, fieldKey: "state" },
-      }),
+        testSurface,
+      ),
     ).toEqual(gridAnchor("record-1", "state"));
     expect(
       semanticPositions.positions.get(
@@ -1032,15 +1004,14 @@ describe("semantic grid policies", () => {
 
   it("resolves valid semantic positions to stable record_id and field_key anchors", () => {
     const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
-    const presentationRows = buildGridPresentationRows({ rows });
 
     expect(
-      resolveGridCellAnchor({
+      semanticAnchor(
+        rows[1] as GridDataRow<HarnessRow>,
+        "state",
         columns,
-        presentationRows,
-        surface: testSurface,
-        selection: { rowIndex: 1, fieldKey: "state" },
-      }),
+        testSurface,
+      ),
     ).toEqual(gridAnchor("record-2", "state"));
   });
 
@@ -1054,39 +1025,31 @@ describe("semantic grid policies", () => {
       grouping: stateGrouping(),
       rows,
     });
+    const groupRow = presentationRows.find((row) => row.kind === "group");
+    expect(groupRow).toBeDefined();
 
     expect(
-      resolveGridCellAnchor({
+      semanticAnchor(
+        rows[0] as GridDataRow<HarnessRow>,
+        "state",
         columns,
-        presentationRows,
-        surface: testSurface,
-        selection: { rowIndex: -1, fieldKey: "state" },
-      }),
-    ).toBeNull();
-    expect(
-      resolveGridCellAnchor({
-        columns,
-        presentationRows,
-        surface: testSurface,
-        selection: { rowIndex: 1, fieldKey: "__cartulary_actions__" },
-      }),
-    ).toBeNull();
-    expect(
-      resolveGridCellAnchor({
-        columns,
-        presentationRows,
-        surface: testSurface,
-        selection: { rowIndex: 0, fieldKey: "summary" },
-      }),
-    ).toBeNull();
-    expect(
-      presentationRows.some(
-        (row) =>
-          row.kind === "data" &&
-          row.gridRow.rowIdentity.kind === "core_record" &&
-          row.gridRow.rowIdentity.recordId === "draft-1",
+        testSurface,
       ),
-    ).toBe(false);
+    ).toEqual(gridAnchor("record-1", "state"));
+    for (const [row, fieldKey] of [
+      [rows[0], "__cartulary_actions__"],
+      [groupRow, "summary"],
+      [rows[2], "summary"],
+      [undefined, "summary"],
+    ] as const)
+      expect(
+        semanticAnchor(
+          row as unknown as GridDataRow<HarnessRow>,
+          fieldKey,
+          columns,
+          testSurface,
+        ),
+      ).toBeNull();
   });
 
   it("moves semantic anchors for keyboard navigation and rejects missing targets", () => {
@@ -1178,20 +1141,17 @@ describe("semantic grid policies", () => {
   });
 
   it("does not change semantic anchors without an explicit adapter operation", () => {
-    const rows = [gridRow("record-1", "open"), gridRow("record-2", "closed")];
-    const presentationRows = buildGridPresentationRows({ rows });
-    const current = { recordId: "record-1", fieldKey: "summary" };
-    const vendorSelection = { rowIndex: 1, fieldKey: "state" };
-
-    expect(current).toEqual({ recordId: "record-1", fieldKey: "summary" });
-    expect(
-      resolveGridCellAnchor({
-        columns,
-        presentationRows,
-        surface: testSurface,
-        selection: vendorSelection,
-      }),
-    ).toEqual(gridAnchor("record-2", "state"));
+    const row = Object.freeze(gridRow("record-2", "closed"));
+    const frozenColumns = Object.freeze([...columns]);
+    const before = structuredClone(row);
+    // Translating a vendor selection is pure: it neither mutates inputs nor
+    // holds state, so only an explicit adapter operation can move an anchor.
+    const first = semanticAnchor(row, "state", frozenColumns, testSurface);
+    const second = semanticAnchor(row, "state", frozenColumns, testSurface);
+    expect(first).toEqual(gridAnchor("record-2", "state"));
+    expect(second).toEqual(first);
+    expect(second).not.toBe(first);
+    expect(row).toEqual(before);
   });
 
   it("targets sorted paste rows by stable visible record identities", () => {

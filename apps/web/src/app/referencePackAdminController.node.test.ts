@@ -133,7 +133,7 @@ describe("Reference Pack execution", () => {
       controller.getSnapshot().diagnostics[referencePackTestJobId]?.phase,
     ).toBe("ready");
     pending.resolve({ kind: "access_failed", status: 403 });
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
     expect(ports.authorizationFailed).not.toHaveBeenCalled();
     expect(ports.validation.mock.calls[0]?.[0]).toBe(
       referencePackTestValidationRef,
@@ -654,10 +654,22 @@ describe("Reference Pack execution", () => {
   });
 
   it("rejects regressing observations and keeps terminal snapshots stable", () => {
-    expect(acceptsReferencePackJob(job("running"), job("queued"))).toBe(false);
-    expect(acceptsReferencePackJob(job("succeeded"), job("running"))).toBe(
-      false,
-    );
+    const statusOnly = (
+      prior: ReturnType<typeof job>,
+      status: ReferencePackJobResource["status"],
+    ) => ({
+      ...job(status),
+      updated_at: prior.updated_at,
+      progress: prior.progress,
+    });
+    const running = job("running");
+    expect(
+      acceptsReferencePackJob(running, statusOnly(running, "queued")),
+    ).toBe(false);
+    const succeeded = job("succeeded");
+    expect(
+      acceptsReferencePackJob(succeeded, statusOnly(succeeded, "running")),
+    ).toBe(false);
     expect(
       acceptsReferencePackJob(job("running"), job("running", secondId)),
     ).toBe(false);

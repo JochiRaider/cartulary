@@ -49,7 +49,7 @@ test.describe("Account navigation presentation", () => {
     await page.keyboard.press("Enter");
     await expect(
       page.getByTestId(landingAdminShellTestId("heading")),
-    ).toHaveText("Incident directory");
+    ).toHaveText("Incidents");
     await expect(
       page.getByTestId(landingAdminShellTestId("heading")),
     ).toBeFocused();

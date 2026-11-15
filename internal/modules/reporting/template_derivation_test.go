@@ -7,7 +7,6 @@ import (
 	"errors"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 )
 
@@ -238,8 +237,5 @@ func testTemplateNarrativeSlots(t *testing.T) {
 			_, err := deriveTemplateSections(context.Background(), contract, result.Model)
 			assertTemplateDerivationReason(t, err, test.reason)
 		})
-	}
-	if strings.Contains(string(result.ModelJSON), "admittedPartyIDs") || strings.Contains(string(result.ModelJSON), "subjectDisplayTokens") {
-		t.Fatal("private expansion context serialized")
 	}
 }

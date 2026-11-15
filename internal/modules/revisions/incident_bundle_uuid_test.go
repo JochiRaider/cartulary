@@ -55,8 +55,6 @@ func TestRevisionsIncidentBundleUUIDAdmission_Unit(t *testing.T) {
 				if field.name == "incident_id" {
 					if value == canonical {
 						input.IncidentID = uuid.MustParse(canonical)
-					} else if value == uuid.Nil.String() {
-						input.IncidentID = uuid.Nil
 					}
 				}
 				bundle := h.validBundle(t)

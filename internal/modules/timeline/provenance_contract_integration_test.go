@@ -254,7 +254,9 @@ func TestTimelineProvenanceWriter_Integration(t *testing.T) {
 			return state
 		}
 		before := state()
-		bad := item(4097)
+		// One absent identity keeps the call within capacity, so the
+		// invalid value on an existing identity is its only defect.
+		bad := item(1)
 		bad.RawValue = "bad\x00value"
 		if err := insertSourceProvenanceTx(ctx, tx, record, []ClipboardRawImportColumn{item(4096), bad}); !errors.Is(err, ErrInvalidProvenance) || state() != before {
 			t.Fatal("later invalid value changed earlier provenance")

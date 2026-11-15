@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -94,9 +93,9 @@ func TestWorkbookClosedIncidentWrites_Integration(t *testing.T) {
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incidents
    SET status = 'closed',
-       closed_at = $1
- WHERE id = $2
-`, time.Date(2026, 6, 30, 12, 0, 0, 0, time.UTC), incidentID); err != nil {
+       closed_at = now()
+ WHERE id = $1
+`, incidentID); err != nil {
 		t.Fatalf("close incident: %v", err)
 	}
 

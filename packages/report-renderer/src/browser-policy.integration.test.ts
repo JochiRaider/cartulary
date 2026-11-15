@@ -21,6 +21,25 @@ it("browser interception blocks external HTTP and undeclared loopback before con
   const address = server.address();
   if (!address || typeof address === "string")
     throw new Error("missing test port");
+  // A listening undeclared loopback server shows whether a blocked request
+  // was aborted before connection or merely observed and continued.
+  let undeclaredServed = 0;
+  const undeclared = createServer((_request, response) => {
+    undeclaredServed += 1;
+    response.writeHead(200, { "content-type": "text/plain" });
+    response.end("undeclared");
+  });
+  await new Promise<void>((resolve, reject) => {
+    undeclared.once("error", reject);
+    undeclared.listen(0, "127.0.0.1", resolve);
+  });
+  const undeclaredAddress = undeclared.address();
+  if (!undeclaredAddress || typeof undeclaredAddress === "string")
+    throw new Error("missing undeclared test port");
+  await (
+    await fetch(`http://127.0.0.1:${undeclaredAddress.port}/control`)
+  ).text();
+  expect(undeclaredServed).toBe(1);
   let browser: Browser | undefined;
   try {
     browser = await chromium.launch();
@@ -31,7 +50,7 @@ it("browser interception blocks external HTTP and undeclared loopback before con
         kind: "non_loopback_blocked",
       },
       {
-        url: `http://127.0.0.1:${address.port === 65535 ? 65534 : address.port + 1}/private?token=synthetic-secret`,
+        url: `http://127.0.0.1:${undeclaredAddress.port}/private?token=synthetic-secret`,
         reason: "loopback_not_declared",
         kind: "loopback_blocked",
       },
@@ -70,10 +89,14 @@ it("browser interception blocks external HTTP and undeclared loopback before con
       }
     }
     expect(served).toBeGreaterThanOrEqual(2);
+    expect(undeclaredServed).toBe(1);
   } finally {
     await browser?.close();
     await new Promise<void>((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
+    });
+    await new Promise<void>((resolve, reject) => {
+      undeclared.close((error) => (error ? reject(error) : resolve()));
     });
   }
 });

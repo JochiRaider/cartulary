@@ -38,6 +38,7 @@ func TestMutationContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 		{name: "revisions", want: "Revisions/history", drop: func(d *MutationDependencies) { d.Revisions = nil }},
 		{name: "conflict fields", want: "Conflict fields", drop: func(d *MutationDependencies) { d.ConflictFields = nil }},
 		{name: "keep saved", want: "Keep-saved resolution", drop: func(d *MutationDependencies) { d.KeepSaved = nil }},
+		{name: "collaboration", want: "Collaboration publication", drop: func(d *MutationDependencies) { d.Collaboration = nil }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -85,22 +86,23 @@ func TestMutationContributionSharesOneFacade_Unit(t *testing.T) {
 		conflicttokens.ConflictTokenCodec{},
 		completeMutationDependencies(),
 	)
-	if err != nil {
+	if err != nil || facade == nil {
 		t.Fatalf("construct mutation contribution: %v", err)
 	}
-	var create interface {
-		Create(context.Context, CreateCommand) (MutationResult, error)
-	} = facade
-	var patch interface {
-		Patch(context.Context, PatchCommand) (MutationResult, error)
-	} = facade
-	var conflict interface {
-		ResolveConflict(context.Context, ConflictCommand) (MutationResult, error)
-	} = facade
-	if create != facade || patch != facade || conflict != facade {
-		t.Fatal("mutation consumers did not retain the one facade instance")
-	}
 }
+
+// One facade type serves the create, patch and conflict consumer roles.
+var (
+	_ interface {
+		Create(context.Context, CreateCommand) (MutationResult, error)
+	} = (*MutationFacade)(nil)
+	_ interface {
+		Patch(context.Context, PatchCommand) (MutationResult, error)
+	} = (*MutationFacade)(nil)
+	_ interface {
+		ResolveConflict(context.Context, ConflictCommand) (MutationResult, error)
+	} = (*MutationFacade)(nil)
+)
 
 func TestRowVersionConsumptionRequiresExactInt64_Unit(t *testing.T) {
 	for _, test := range []struct {
@@ -136,6 +138,7 @@ func TestImportContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 		{name: "records", want: "Records insert", drop: func(d *ImportDependencies) { d.RecordEnvelopes = nil }},
 		{name: "projections", want: "Projection refresh/load", drop: func(d *ImportDependencies) { d.Projections = nil }},
 		{name: "revisions", want: "Revision finalization", drop: func(d *ImportDependencies) { d.Revisions = nil }},
+		{name: "collaboration", want: "Collaboration publication", drop: func(d *ImportDependencies) { d.Collaboration = nil }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -155,6 +158,7 @@ func TestImportContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
 		{name: "records", want: "Records insert", drop: func(d *ImportDependencies) { d.RecordEnvelopes = typedNilOperations }},
 		{name: "projections", want: "Projection refresh/load", drop: func(d *ImportDependencies) { d.Projections = typedNilOperations }},
 		{name: "revisions", want: "Revision finalization", drop: func(d *ImportDependencies) { d.Revisions = typedNilOperations }},
+		{name: "collaboration", want: "Collaboration publication", drop: func(d *ImportDependencies) { d.Collaboration = typedNilOperations }},
 	}
 	for _, test := range typedNilTests {
 		t.Run("typed nil "+test.name, func(t *testing.T) {
